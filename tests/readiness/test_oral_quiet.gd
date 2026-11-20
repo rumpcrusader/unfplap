@@ -19,6 +19,8 @@ const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const PREF := preload("res://mods/unfplap/shared/preferences.gd")
 const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 const FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
+const HANDS := preload("res://mods/unfplap/hands/service.gd")
+const CAMERA_VIEW := preload("res://mods/unfplap/camera/view.gd")
 
 const STATE_ACTIVE := 2
 
@@ -60,7 +62,7 @@ class FakeBridge extends RefCounted:
 class FakeCamera extends ACT_CAMERA:
 	var ends := 0
 
-	func bind(_facts: Variant, _hands: Variant, _kiss: Variant, _view: Variant) -> void:
+	func bind(_facts: FACTS, _hands: HANDS, _kiss: KISS, _view: CAMERA_VIEW) -> void:
 		pass
 
 	func end_lean_action() -> void:

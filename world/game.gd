@@ -109,6 +109,20 @@ static func set_controls_locked(player: Node3D, locked: bool) -> void:
 		player.set("controls_locked", locked)
 
 
+## One game setting by its dotted key; empty when the settings node has no reader.
+static func setting_string(settings: Node, key: String) -> String:
+	if not is_instance_valid(settings) or not settings.has_method("get_value"):
+		return ""
+	return str(settings.call("get_value", key))
+
+
+## The game's Anon height scale; NAN when the settings node cannot answer.
+static func anon_height(settings: Node) -> float:
+	if not is_instance_valid(settings) or not settings.has_method("anon_height_scale"):
+		return NAN
+	return float(settings.call("anon_height_scale"))
+
+
 ## One named game panel; the caller decides what an open panel means.
 static func menu_panel(game: Node, key: StringName) -> Node:
 	if not is_instance_valid(game):
@@ -642,20 +656,15 @@ static func clamp_view(form: Node) -> void:
 	form.call("clamp_view")
 
 
-## Clear a pony's navigator face point so a stale conversation aim cannot turn her.
-static func clear_face_point(pony: Node) -> void:
+## Drop both stale navigator writes that would face her away from the act, with one child lookup.
+static func clear_facing(pony: Node) -> void:
 	var nav := navigator_of(pony)
-	if nav == null or not "face_point" in nav:
+	if nav == null:
 		return
-	nav.set("face_point", Vector3.INF)
-
-
-## Clear her navigator conversation target, which would otherwise face her away from the act.
-static func clear_conversation_target(pony: Node) -> void:
-	var nav := navigator_of(pony)
-	if nav == null or not nav.has_method("set_conversation_target"):
-		return
-	nav.call("set_conversation_target", null, false)
+	if "face_point" in nav:
+		nav.set("face_point", Vector3.INF)
+	if nav.has_method("set_conversation_target"):
+		nav.call("set_conversation_target", null, false)
 
 
 ## The pony's navigator node; null when the body has none.
@@ -766,6 +775,96 @@ static func interruption_reason(pony: Node) -> String:
 	if not is_instance_valid(pony) or not pony.has_method("action_interruption_reason"):
 		return ""
 	return str(pony.call("action_interruption_reason"))
+
+
+## The game's pony kisser; null when the scene has none.
+static func kisser_of(game: Node) -> Node:
+	if not is_instance_valid(game):
+		return null
+	var kisser: Variant = game.get("kisser")
+	if kisser is Node and is_instance_valid(kisser):
+		return kisser
+	return null
+
+
+## Start the stock kiss from her side; false when the kisser refuses or has no op.
+static func begin_from_pony(kisser: Node, pony: Node3D) -> bool:
+	if not is_instance_valid(kisser) or not kisser.has_method("begin_from_pony"):
+		return false
+	return bool(kisser.call("begin_from_pony", pony))
+
+
+## Drop the kisser's own latch so the next kiss starts clean.
+static func clear_kisser(kisser: Node) -> void:
+	if not is_instance_valid(kisser):
+		return
+	kisser.set("_active", null)
+	kisser.set("_her_kiss", false)
+	kisser.set("_used_hold", false)
+
+
+## End the stock affection through its own op; a node without it is left alone.
+static func end_affection(affection: Node) -> void:
+	if is_instance_valid(affection) and affection.has_method("end"):
+		affection.call("end")
+
+
+## Clear the affection's own 60 s stare afterglow.
+static func cancel_afterglow(affection: Node) -> void:
+	if is_instance_valid(affection) and affection.has_method("cancel_afterglow"):
+		affection.call("cancel_afterglow")
+
+
+## Feed the stock affection Anon's live mouth target, eye and face; a node without the members is
+## left alone.
+static func feed_affection(affection: Node, target: Vector3, eye: Vector3, face: Basis) -> void:
+	if not is_instance_valid(affection):
+		return
+	affection.set("target", target)
+	affection.set("eye", eye)
+	affection.set("face", face)
+
+
+## A body's mouth point; INF when the body cannot answer.
+static func mouth_point(node: Node) -> Vector3:
+	if not is_instance_valid(node) or not node.has_method("mouth_point"):
+		return Vector3.INF
+	var point: Variant = node.call("mouth_point")
+	if point is Vector3:
+		return point
+	return Vector3.INF
+
+
+## Whether the stock kiss pose exposes the side latch the act pins.
+static func kiss_side_known(pose: SkeletonModifier3D) -> bool:
+	return is_instance_valid(pose) and pose.get("_side") != null
+
+
+## Pin the stock kiss pose to `side` and hold it there: the act owns the head tilt while it runs.
+static func pin_kiss_side(pose: SkeletonModifier3D, side: float, hold_s: float) -> void:
+	if not is_instance_valid(pose):
+		return
+	pose.set("_side", side)
+	pose.set("_side_now", side)
+	pose.set("_side_wait", hold_s)
+
+
+## Release the stock kiss pose's side hold; a pose without the member keeps its own.
+static func release_kiss_side(pose: SkeletonModifier3D) -> void:
+	if is_instance_valid(pose) and pose.get("_side_wait") != null:
+		pose.set("_side_wait", 0.0)
+
+
+## Settle the excitement Beat's own hold so the stock horn sparkle does not fire.
+static func settle_excitement(excitement: Node) -> void:
+	if is_instance_valid(excitement):
+		excitement.set("_until", 0.0)
+
+
+## One mouth expression write; a rig without the op is left alone.
+static func set_expression(mouth: Node, name: String, amount: float) -> void:
+	if is_instance_valid(mouth) and mouth.has_method("set_expression"):
+		mouth.call("set_expression", name, amount)
 
 
 ## Let her Affection buck at Anon; false without the op or when it refuses.

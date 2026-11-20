@@ -42,6 +42,7 @@ class FakeGame extends Node:
 	var player: Variant = null
 	var found_camera: Variant = null
 	var find_calls := 0
+	var kisser: Variant = null
 
 	func _find_camera(_body: Variant) -> Variant:
 		find_calls += 1
@@ -129,6 +130,77 @@ class FakeBody extends Node3D:
 		eye_y = value
 
 
+## The game's settings autoload: the Anon height and the dotted-key reader.
+class FakeSettings extends Node:
+	var values := {"ponies/size": "canon"}
+	var height := 1.2
+
+	func get_value(key: String) -> Variant:
+		return values.get(key)
+
+	func anon_height_scale() -> float:
+		return height
+
+
+## The game's pony kisser: one latch per kiss.
+class FakeKisser extends Node:
+	var _active: Variant = "pony"
+	var _her_kiss := true
+	var _used_hold := true
+	var begins := 0
+	var accepts := true
+
+	func begin_from_pony(_pony: Node) -> bool:
+		begins += 1
+		return accepts
+
+
+## The stock affection the act temporarily feeds.
+class FakeAffection extends Node:
+	var kind := "kiss"
+	var amount := 0.4
+	var target := Vector3.ZERO
+	var eye := Vector3.ZERO
+	var face := Basis.IDENTITY
+	var ended := 0
+	var cancelled := 0
+	var mouth := Vector3(1.0, 1.0, 1.0)
+
+	func end() -> void:
+		ended += 1
+
+	func cancel_afterglow() -> void:
+		cancelled += 1
+
+	func mouth_point() -> Vector3:
+		return mouth
+
+
+## The stock kiss pose's own side latch.
+class FakeKissPose extends SkeletonModifier3D:
+	var _side: Variant = null
+	var _side_now := 0.0
+	var _side_wait := 0.0
+
+
+## The same modifier before it grew the side latch.
+class BareKissPose extends SkeletonModifier3D:
+	pass
+
+
+## A mouth rig that takes the expression writes.
+class FakeExpressionMouth extends Node:
+	var faces: Array[String] = []
+
+	func set_expression(name: String, _amount: float) -> void:
+		faces.append(name)
+
+
+## The excitement Beat's own hold field.
+class FakeExcitement extends Node:
+	var _until := 3.0
+
+
 ## The game's hair link: the pelvis offset the tail seat writes and its private body update.
 class FakeHairLink extends Node:
 	var pelvis_offset := Transform3D(Basis(), Vector3(0.0, 1.0, 2.0))
@@ -189,6 +261,7 @@ func run() -> void:
 	_check_player_beside_bed()
 	_check_menu_and_headset()
 	_check_open_act_chat()
+	_check_kiss_and_settings()
 	_check_body_lod()
 	_check_desktop()
 	await _check_bed_under()
@@ -794,3 +867,81 @@ func _check_bed_under() -> void:
 	bed.queue_free()
 	player.queue_free()
 	WORLD.unbind()
+
+
+## The kiss bridge and the settings reader: every member's live answer and its typed zero.
+func _check_kiss_and_settings() -> void:
+	var settings := FakeSettings.new()
+	root.add_child(settings)
+	check(GAME.setting_string(settings, "ponies/size") == "canon", "one game setting is read")
+	var plain := Node.new()
+	root.add_child(plain)
+	check(GAME.setting_string(plain, "ponies/size") == "", "a node without the reader answers empty")
+	check(is_equal_approx(GAME.anon_height(settings), 1.2), "Anon's height scale is read")
+	check(not is_finite(GAME.anon_height(plain)), "a node without the height answers NAN")
+	check(not is_finite(GAME.anon_height(null)), "no node answers no height")
+
+	var game := FakeGame.new()
+	root.add_child(game)
+	check(GAME.kisser_of(game) == null, "a scene without a kisser answers null")
+	var kisser := FakeKisser.new()
+	root.add_child(kisser)
+	game.kisser = kisser
+	check(GAME.kisser_of(game) == kisser, "the scene's kisser is read")
+	var pony := FakeMare.new()
+	root.add_child(pony)
+	check(GAME.begin_from_pony(kisser, pony), "the kisser starts the stock kiss")
+	check(kisser.begins == 1, "the kiss call reaches the kisser")
+	check(not GAME.begin_from_pony(null, pony), "no kisser starts no kiss")
+	check(not GAME.begin_from_pony(plain, pony), "a node without the op starts no kiss")
+	kisser.accepts = false
+	check(not GAME.begin_from_pony(kisser, pony), "a refusing kisser answers false")
+	GAME.clear_kisser(kisser)
+	check(kisser._active == null and not kisser._her_kiss and not kisser._used_hold,
+		"the kisser latch is cleared")
+	GAME.clear_kisser(null)
+
+	var affection := FakeAffection.new()
+	root.add_child(affection)
+	GAME.feed_affection(affection, Vector3.ONE, Vector3.UP, Basis.IDENTITY)
+	check(affection.target == Vector3.ONE and affection.eye == Vector3.UP,
+		"the affection takes Anon's live mouth and eye")
+	check(affection.face.is_equal_approx(Basis.IDENTITY), "the affection takes the face basis")
+	GAME.feed_affection(null, Vector3.ZERO, Vector3.ZERO, Basis.IDENTITY)
+	GAME.end_affection(affection)
+	GAME.cancel_afterglow(affection)
+	check(affection.ended == 1 and affection.cancelled == 1, "the kiss release reaches the affection")
+	GAME.end_affection(null)
+	GAME.cancel_afterglow(plain)
+	check(GAME.mouth_point(affection) == Vector3.ONE, "her mouth point is read")
+	check(not GAME.mouth_point(plain).is_finite(), "a body without the op has no mouth point")
+	check(not GAME.mouth_point(null).is_finite(), "no body has no mouth point")
+
+	var pose := FakeKissPose.new()
+	root.add_child(pose)
+	check(not GAME.kiss_side_known(pose), "an unpinned kiss pose has no side")
+	GAME.pin_kiss_side(pose, 1.0, 9999.0)
+	check(GAME.kiss_side_known(pose) and is_equal_approx(pose._side_now, 1.0) and is_equal_approx(pose._side_wait, 9999.0),
+		"the kiss pose side is pinned and held")
+	GAME.release_kiss_side(pose)
+	check(is_equal_approx(pose._side_wait, 0.0), "the kiss pose side hold is released")
+	GAME.pin_kiss_side(null, 1.0, 1.0)
+	GAME.release_kiss_side(null)
+	var bare_pose := BareKissPose.new()
+	root.add_child(bare_pose)
+	check(not GAME.kiss_side_known(bare_pose), "a pose without the member has no side")
+	GAME.pin_kiss_side(bare_pose, 1.0, 9999.0)
+	GAME.release_kiss_side(bare_pose)
+
+	var excitement := FakeExcitement.new()
+	root.add_child(excitement)
+	GAME.settle_excitement(excitement)
+	check(is_equal_approx(excitement._until, 0.0), "the excitement hold is settled")
+	GAME.settle_excitement(null)
+
+	var mouth := FakeExpressionMouth.new()
+	root.add_child(mouth)
+	GAME.set_expression(mouth, "pout", 0.2)
+	check(mouth.faces == ["pout"], "the mouth expression reaches the rig")
+	GAME.set_expression(plain, "pout", 0.2)
+	GAME.set_expression(null, "pout", 0.2)

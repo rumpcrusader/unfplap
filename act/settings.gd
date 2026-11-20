@@ -9,6 +9,7 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const REACTIONS := preload("res://mods/unfplap/reactions/service.gd")
 const ACT_HOST := preload("res://mods/unfplap/act/host.gd")
 const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")
+const CAMERA_CONFIG := preload("res://mods/unfplap/camera/config.gd")
 
 ## The `CLIMAX` length the reaction window and the face beat read.
 const CLIMAX_SECONDS := 5.0
@@ -47,7 +48,7 @@ func snapshot_values(group: String, family: String, preferences: Dictionary,
 	var tuning := REACTIONS.CONTEXT.new()
 	tuning.fill(snapshot.jiggle, family, context.camera.jiggle_size_scale(), CLIMAX_SECONDS)
 	context.reactions.configure(tuning)
-	context.camera.configure(snapshot.camera_thrust)
+	context.camera.configure(CAMERA_CONFIG.Config.from_dict(snapshot.camera_thrust))
 	context.readiness.configure(preferences, snapshot.cue_override_seconds,
 		snapshot.cue_overwhelmed_s, snapshot.touch_cooldown_s, snapshot.talk_cooldown_s,
 		snapshot.receptive_seconds)

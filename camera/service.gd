@@ -4,6 +4,14 @@ extends RefCounted
 ## Contract: docs/camera.md.
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
+const HANDS := preload("res://mods/unfplap/hands/service.gd")
+const KISS := preload("res://mods/unfplap/kiss/service.gd")
+const CAMERA_VIEW := preload("res://mods/unfplap/camera/view.gd")
+const CAMERA_CONFIG := preload("res://mods/unfplap/camera/config.gd")
+const POSES := preload("res://mods/unfplap/poses/service.gd")
+const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
+const POSE_VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
@@ -38,12 +46,12 @@ const PERF := preload("res://mods/unfplap/shared/perf.gd")
 
 ## The typed act view. Presentation modules read it; the runtime refreshes it once per phase
 ## through `refresh_view()`.
-var facts: Variant = null
+var facts: ACT_FACTS = null
 ## The controllers the camera drives and asks. The runtime binds them on every service call.
-var hands: Variant = null
-var kiss: Variant = null
+var hands: HANDS = null
+var kiss: KISS = null
 ## The one act view. It owns the view node and every live offset; this facade owns the lean.
-var view: Variant = null
+var view: CAMERA_VIEW = null
 ## The standing act's Anon body controller, which the view drives by phase.
 var standing_anon: Variant = null
 
@@ -95,8 +103,8 @@ var free_look_was := false
 
 ## Bind the typed act view and the controllers the camera drives. The runtime refreshes these on
 ## every service call, so a suite can build a runtime without entering the tree.
-func bind(facts_context: Variant, hands_ctl: Variant, kiss_ctl: Variant,
-		view_ctl: Variant) -> void:
+func bind(facts_context: ACT_FACTS, hands_ctl: HANDS, kiss_ctl: KISS,
+		view_ctl: CAMERA_VIEW) -> void:
 	facts = facts_context
 	hands = hands_ctl
 	kiss = kiss_ctl
@@ -104,34 +112,37 @@ func bind(facts_context: Variant, hands_ctl: Variant, kiss_ctl: Variant,
 
 
 ## The pose read model. A missing view reads as no family outside an act.
-func _pose_view() -> Variant:
-	return facts.pose_view if facts != null else null
+func _pose_view() -> POSE_VIEW:
+	if facts == null:
+		return null
+	var handle: Variant = facts.pose_view
+	return handle as POSE_VIEW
 
 
 ## The pose family: `bed` for missionary, `standing` for standing, empty outside an act.
 func pose_family() -> String:
-	var view: Variant = _pose_view()
-	return str(view.family) if view != null else ""
+	var pose_view := _pose_view()
+	return pose_view.family if pose_view != null else ""
 
 
 ## True while the oral turn is the contact. The producer stays in the anatomy until A5.
 func mouth_contact() -> bool:
-	var view: Variant = _pose_view()
-	return view != null and str(view.contact_kind) == "mouth"
+	var pose_view := _pose_view()
+	return pose_view != null and pose_view.contact_kind == "mouth"
 
 
 ## The presentation lean profile, the value the pure action math maps.
 func lean_profile() -> String:
-	var view: Variant = _pose_view()
-	return str((view.presentation as Dictionary).get("lean", "")) if view != null else ""
+	var pose_view := _pose_view()
+	return str(pose_view.presentation.get("lean", "")) if pose_view != null else ""
 
 
 ## Retarget seam: a new family ends the pose-local lean action so the next view tick starts afresh.
-func pose_changed(pose_view: Variant) -> void:
+func pose_changed(pose_view: POSE_VIEW) -> void:
 	if pose_view == null:
 		return
-	var family := str(pose_view.family)
-	var lean := str((pose_view.presentation as Dictionary).get("lean", ""))
+	var family := pose_view.family
+	var lean := str(pose_view.presentation.get("lean", ""))
 	if _hook_seen and family == _hook_family and lean == _hook_lean:
 		return
 	var family_changed := _hook_seen and family != _hook_family
@@ -145,10 +156,10 @@ func pose_changed(pose_view: Variant) -> void:
 
 ## Aim the pose's look point for this rendered frame, after the pose write but before the shot, so
 ## the head solve follows this frame's lean.
-func write_look_target(pose: Node) -> void:
+func write_look_target(pose: POSES.POSE) -> void:
 	if not is_instance_valid(pose) or facts == null or not is_instance_valid(WORLD.player):
 		return
-	if not is_instance_valid(kiss):
+	if kiss == null:
 		return
 	var eye: Camera3D = WORLD.camera()
 	if pose_family() == "bed" and view != null and is_instance_valid(view.view()):
@@ -159,22 +170,22 @@ func write_look_target(pose: Node) -> void:
 		if custom_kiss and is_instance_valid(kiss_view):
 			if pose_family() == "bed":
 				# Fade the mouth in with the kiss; the raw point would snap on the first frame.
-				var mouth: Variant = kiss.target(kiss_view)
+				var mouth: Vector3 = kiss.target(kiss_view)
 				var gaze := gaze_point()
-				if mouth is Vector3 and (mouth as Vector3).is_finite() and gaze.is_finite():
-					pose.set("look_point", gaze.lerp(mouth, clampf(float(kiss.amount()), 0.0, 1.0)))
+				if mouth.is_finite() and gaze.is_finite():
+					pose.look_point = gaze.lerp(mouth, clampf(kiss.amount(), 0.0, 1.0))
 				else:
-					pose.set("look_point", gaze)
+					pose.look_point = gaze
 			else:
-				pose.set("look_point", kiss.target(kiss_view))
+				pose.look_point = kiss.target(kiss_view)
 		elif pose_family() == "bed":
 			# Look at the authored Anon, not at the game camera: his body is placed by the act,
 			# and the player rig the camera belongs to is standing off the bed.
-			pose.set("look_point", gaze_point())
+			pose.look_point = gaze_point()
 		else:
-			pose.set("look_point", eye.global_position)
-	pose.set("kiss", kiss.amount() if custom_kiss else 0.0)
-	pose.set("climaxing", int(facts.state) == STATE_CLIMAX)
+			pose.look_point = eye.global_position
+	pose.kiss = kiss.amount() if custom_kiss else 0.0
+	pose.climaxing = int(facts.state) == STATE_CLIMAX
 
 
 ## The missionary gaze target the anatomy bridge resolves, or `INF` when no callback is bound.
@@ -186,9 +197,9 @@ func gaze_point() -> Vector3:
 
 
 ## Take the act's camera tuning from the runtime's settings snapshot.
-func configure(camera_block: Dictionary) -> void:
-	camera_surge = float(camera_block["surge"])
-	camera_bob = float(camera_block["bob"])
+func configure(camera_block: CAMERA_CONFIG.Config) -> void:
+	camera_surge = camera_block.surge
+	camera_bob = camera_block.bob
 
 
 ## Begin the act's view. Returns true when the standing VR act must start: the act starts it on the
@@ -262,7 +273,7 @@ func at_actions_allowed() -> bool:
 ## smoothed side lean crosses MOTION.LEAN_FIRE. `auto_open` freezes the shot in place.
 func tick_lean(delta: float, paused: bool, auto_open: bool) -> void:
 	if hands != null:
-		hands.call("return_tick")
+		hands.return_tick()
 	if not at_actions_allowed():
 		lean_idle(delta)
 		return
@@ -285,10 +296,10 @@ func tick_lean(delta: float, paused: bool, auto_open: bool) -> void:
 		side_return_armed = false
 		end_lean_action()
 		if kiss != null:
-			kiss.call("lean_kiss_tick")
+			kiss.lean_kiss_tick()
 		PERF.begin("caress_tick")
 		if hands != null:
-			hands.call("tick", delta)
+			hands.tick(delta)
 		PERF.end("caress_tick")
 		apply_standing_lean_look()
 		return
@@ -328,10 +339,10 @@ func tick_lean(delta: float, paused: bool, auto_open: bool) -> void:
 	# The afterglow begin releases a missionary kiss when the state changes.
 	if pose_family() == "standing" or int(facts.state) != STATE_AFTERGLOW:
 		if kiss != null:
-			kiss.call("lean_kiss_tick")
+			kiss.lean_kiss_tick()
 	PERF.begin("caress_tick")
 	if hands != null:
-		hands.call("tick", delta)
+		hands.tick(delta)
 	PERF.end("caress_tick")
 	apply_standing_lean_look()
 
@@ -348,10 +359,10 @@ func oral_lean_tick(delta: float) -> void:
 	side_return_armed = false
 	lean_block_logged = false
 	if kiss != null:
-		kiss.call("end_lean_kiss")
+		kiss.end_lean_kiss()
 	PERF.begin("caress_tick")
 	if hands != null:
-		hands.call("tick", delta)
+		hands.tick(delta)
 	PERF.end("caress_tick")
 	apply_standing_lean_look()
 
@@ -359,7 +370,7 @@ func oral_lean_tick(delta: float) -> void:
 ## No input this frame: drop the hands, release the pose action and return the lean to rest.
 func lean_idle(delta: float) -> void:
 	if hands != null:
-		hands.call("stop_inputs")
+		hands.stop_inputs()
 	end_lean_action()
 	lean_forward = move_toward(lean_forward, 0.0, delta / MOTION.LEAN_RETURN_SECONDS)
 	lean_side = move_toward(lean_side, 0.0, delta / MOTION.LEAN_RETURN_SECONDS)
@@ -412,10 +423,9 @@ func standing_lean_scale() -> float:
 ## The standing torso hinge angle. The head and camera follow the spine arc, and the hip counters it
 ## so the pelvis stays put.
 func anon_torso_angle() -> float:
-	var presentation: Variant = facts.presentation_config if facts != null else null
-	if not presentation is Dictionary:
+	if facts == null:
 		return 0.0
-	return deg_to_rad(float((presentation as Dictionary).get("torso_angle_deg", 0.0)))
+	return deg_to_rad(float(facts.presentation_config.get("torso_angle_deg", 0.0)))
 
 
 func anon_torso_forward() -> float:
@@ -460,7 +470,7 @@ func start_lean_action(side: float) -> void:
 		if view != null:
 			view.hold_glance()
 		if hands != null:
-			hands.call("start_reach", shoulder)
+			hands.start_reach(shoulder)
 	LOG.debug("action fire lean=%s side=%.2f kind=%s shoulder=%s", [
 		lean_profile(), side, lean_action_kind, shoulder])
 
@@ -468,7 +478,7 @@ func start_lean_action(side: float) -> void:
 func end_lean_action() -> void:
 	if lean_action_kind == "reach":
 		if hands != null:
-			hands.call("end_reach")
+			hands.end_reach()
 		if facts != null:
 			facts.write_forced_glance("")
 		if view != null:
@@ -482,9 +492,9 @@ func end_lean_action() -> void:
 func reset_lean_state() -> void:
 	end_lean_action()
 	if hands != null:
-		hands.call("reset")
+		hands.reset()
 	if kiss != null:
-		kiss.call("reset")
+		kiss.reset()
 	lean_forward = 0.0
 	lean_side = 0.0
 	lean_view_forward = 0.0
@@ -496,13 +506,12 @@ func reset_lean_state() -> void:
 
 ## Middle of the neck chain: midpoint of pony_neck1 and pony_neck2 world origins.
 func neck_midpoint() -> Vector3:
-	var pony: Variant = facts.pony if facts != null else null
+	var pony := _pony_node()
 	if not is_instance_valid(pony):
 		return Vector3.INF
-	var sk: Variant = pony.get("skeleton")
-	if not sk is Skeleton3D:
+	var skeleton := GAME.skeleton_of(pony)
+	if skeleton == null:
 		return Vector3.INF
-	var skeleton := sk as Skeleton3D
 	var first := skeleton.find_bone("pony_neck1")
 	var second := skeleton.find_bone("pony_neck2")
 	if first >= 0 and second >= 0:
@@ -516,13 +525,12 @@ func neck_midpoint() -> Vector3:
 
 ## Her missionary face point: the head carried forward from the neck, for the kiss lean.
 func missionary_face_point() -> Vector3:
-	var pony: Variant = facts.pony if facts != null else null
+	var pony := _pony_node()
 	if not is_instance_valid(pony):
 		return Vector3.INF
-	var sk: Variant = pony.get("skeleton")
-	if not sk is Skeleton3D:
+	var skeleton := GAME.skeleton_of(pony)
+	if skeleton == null:
 		return Vector3.INF
-	var skeleton := sk as Skeleton3D
 	var head := skeleton.find_bone("pony_head")
 	if head < 0:
 		return neck_midpoint()
@@ -534,7 +542,7 @@ func missionary_face_point() -> Vector3:
 	var direction := at - base
 	if direction.length_squared() < 0.000001:
 		return at
-	return at + direction.normalized() * 0.12 * _body_scale_of(pony)
+	return at + direction.normalized() * 0.12 * GAME.body_scale_of(pony)
 
 
 ## The pulled-back shot's target: the vulva when the anatomy is showing, otherwise a point between
@@ -547,28 +555,24 @@ func missionary_vulva_point() -> Vector3:
 			point = value
 	if point != Vector3.ZERO:
 		return point
-	var pony: Variant = facts.pony if facts != null else null
+	var pony := _pony_node()
 	if not is_instance_valid(pony):
 		return Vector3.INF
-	var sk: Variant = pony.get("skeleton")
-	if not sk is Skeleton3D:
+	var skeleton := GAME.skeleton_of(pony)
+	if skeleton == null:
 		return Vector3.INF
-	var skeleton := sk as Skeleton3D
 	var left := skeleton.find_bone("pony_femur_L")
 	var right := skeleton.find_bone("pony_femur_R")
 	if left < 0 or right < 0:
 		return neck_midpoint()
 	var a := skeleton.global_transform * skeleton.get_bone_global_pose(left).origin
 	var b := skeleton.global_transform * skeleton.get_bone_global_pose(right).origin
-	return (a + b) * 0.5 + Vector3.UP * 0.10 * _body_scale_of(pony)
+	return (a + b) * 0.5 + Vector3.UP * 0.10 * GAME.body_scale_of(pony)
 
 
-## The presented body's scale, or the default when the pony does not expose one.
-func _body_scale_of(pony: Object) -> float:
-	if not is_instance_valid(pony):
-		return 1.0
-	var value: Variant = pony.get("body_scale")
-	return float(value) if value != null else 1.0
+## The presented body, or null outside an act.
+func _pony_node() -> Node3D:
+	return facts.pony if facts != null else null
 
 
 ## Dispatch the live view. The bed view is written at render time from his posed head; standing
@@ -629,7 +633,7 @@ func size_name() -> String:
 	var settings := settings_node()
 	if settings == null:
 		return ""
-	return str(settings.call("get_value", "ponies/size"))
+	return GAME.setting_string(settings, "ponies/size")
 
 
 func size_scale() -> float:
@@ -646,8 +650,9 @@ func size_scale() -> float:
 ## Anon's chosen height over the 6 ft rig every offset was tuned on (1.0 at default).
 func anon_height_scale() -> float:
 	var settings := settings_node()
-	if settings != null and settings.has_method("anon_height_scale"):
-		return clampf(float(settings.call("anon_height_scale")), 0.6, 1.4)
+	var raw := GAME.anon_height(settings)
+	if not is_nan(raw):
+		return clampf(raw, 0.6, 1.4)
 	return 1.0
 
 
@@ -663,30 +668,31 @@ func palm_scale_factor() -> float:
 
 
 func player_eye_height() -> float:
-	var body: Variant = player_body()
-	if is_instance_valid(body) and body.has_method("eye_height"):
-		return float(body.call("eye_height"))
-	if is_instance_valid(body) and body.get("_stand_eye") != null:
-		return float(body.get("_stand_eye"))
+	var body := player_body()
+	if is_instance_valid(body):
+		var eye := GAME.eye_height(body)
+		if not is_nan(eye):
+			return eye
+		if body.get("_stand_eye") != null:
+			return float(body.get("_stand_eye"))
 	return 1.6
 
 
 ## Her live eye line in Anon's root frame, from the rest head bone: the OpenPony rest sits at eye
 ## height, a bow must not move the camera, and the root may stand on a raised floor.
 func pony_eye_height() -> float:
-	var pony: Variant = facts.pony if facts != null else null
+	var pony := _pony_node()
 	if not is_instance_valid(pony):
 		return NAN
-	var sk: Variant = pony.get("skeleton")
-	if not sk is Skeleton3D:
+	var skeleton := GAME.skeleton_of(pony)
+	if skeleton == null:
 		return NAN
-	var skeleton := sk as Skeleton3D
 	var head := skeleton.find_bone("pony_head")
 	if head < 0:
 		return NAN
 	var eye: Vector3 = skeleton.global_transform * skeleton.get_bone_global_rest(head).origin
-	var body: Variant = player_body()
-	var floor_y := (body as Node3D).global_position.y if body is Node3D else 0.0
+	var body := player_body()
+	var floor_y := body.global_position.y if is_instance_valid(body) else 0.0
 	return eye.y - floor_y
 
 
@@ -705,19 +711,19 @@ static func entrance_offset_for(form: BODY_FORM.BodyForm) -> Vector2:
 
 
 func mouse_sensitivity() -> float:
-	var body: Variant = player_body()
-	var value: Variant = body.get("mouse_sensitivity") if body != null else null
+	var body := player_body()
+	var value: Variant = body.get("mouse_sensitivity") if is_instance_valid(body) else null
 	return float(value) if value != null else 0.0022
 
 
 func invert_y() -> bool:
-	var body: Variant = player_body()
-	var value: Variant = body.get("invert_y") if body != null else null
+	var body := player_body()
+	var value: Variant = body.get("invert_y") if is_instance_valid(body) else null
 	return bool(value) if value != null else false
 
 
 ## The live player rig, or null outside a scene.
-func player_body() -> Variant:
+func player_body() -> Node3D:
 	if facts == null:
 		return null
 	return WORLD.player
@@ -745,10 +751,9 @@ func settings_node() -> Node:
 
 
 func feature(name: String) -> bool:
-	var block: Variant = facts.features if facts != null else null
-	return bool((block as Dictionary).get(name, false)) if block is Dictionary else false
+	return bool(facts.features.get(name, false)) if facts != null else false
 
 
 ## The one act view, for the host callbacks and the anatomy gaze.
-func view_controller() -> RefCounted:
+func view_controller() -> CAMERA_VIEW:
 	return view

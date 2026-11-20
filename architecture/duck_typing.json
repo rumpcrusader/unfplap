@@ -80,10 +80,6 @@
       "count": 2
     },
     {
-      "file": "camera/service.gd",
-      "count": 22
-    },
-    {
       "file": "debug/actions.gd",
       "count": 16
     },
@@ -153,7 +149,7 @@
     },
     {
       "file": "kiss/service.gd",
-      "count": 29
+      "count": 2
     },
     {
       "file": "memory/dialogue.gd",

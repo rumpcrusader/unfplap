@@ -118,11 +118,15 @@ matching `player/player_mouth.gd`. See `docs/settings.md` for the settings frame
 
 ### Uses
 | service | world | `world/service.gd` | player, game and camera |
+| service | world | `world/game.gd` | the base-game kiss, affection and body members |
+| service | poses | `poses/service.gd` | the act body's typed mouth target |
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
+| read model | act_facts | `shared/act_facts.gd` | the typed act context and its callbacks |
 | shared | act_state | `shared/act_state.gd` | act state constants |
 | shared | act_motion | `shared/act_motion.gd` | lean and travel math |
+| shared | pose_view | `shared/pose_view.gd` | the pose family and kiss profile |
 | shared | log | `shared/log.gd` | log sink |
 
 ## Tests

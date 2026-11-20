@@ -6,26 +6,6 @@
       "signature": "func pose_changed(view: Variant) -> void:"
     },
     {
-      "service": "camera",
-      "func": "bind",
-      "signature": "func bind(facts_context: Variant, hands_ctl: Variant, kiss_ctl: Variant, view_ctl: Variant) -> void:"
-    },
-    {
-      "service": "camera",
-      "func": "configure",
-      "signature": "func configure(camera_block: Dictionary) -> void:"
-    },
-    {
-      "service": "camera",
-      "func": "player_body",
-      "signature": "func player_body() -> Variant:"
-    },
-    {
-      "service": "camera",
-      "func": "pose_changed",
-      "signature": "func pose_changed(pose_view: Variant) -> void:"
-    },
-    {
       "service": "dialogue",
       "func": "configure",
       "signature": "func configure(pacing: Dictionary) -> void:"
@@ -49,11 +29,6 @@
       "service": "eligibility",
       "func": "set_profile",
       "signature": "func set_profile(owner: Node, id: String, profile: Profile) -> Dictionary:"
-    },
-    {
-      "service": "kiss",
-      "func": "pose_changed",
-      "signature": "func pose_changed(view: Variant) -> void:"
     },
     {
       "service": "memory",

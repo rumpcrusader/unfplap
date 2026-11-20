@@ -3,8 +3,12 @@ extends RefCounted
 ## AffectionPose bridge, the custom mouth aim, the foreleg pin and the kiss lean.
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
 const AFFECTION_POSE := preload("res://world/relationships/affection_pose.gd")
 const KISS_LEGS := preload("res://mods/unfplap/kiss/legs.gd")
+const POSES := preload("res://mods/unfplap/poses/service.gd")
+const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
+const POSE_VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
 
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
@@ -21,13 +25,15 @@ const KISS_CAMERA_YAW_DEG := 10.0
 const KISS_LEAN_SECONDS := 0.35
 const KISS_PONY_SIDE_SIGN := 1.0
 const KISS_RESTART_COOLDOWN_MS := 500
+## The stock pose's side hold: effectively forever, so its own side switch cannot fire mid-kiss.
+const KISS_SIDE_HOLD_S := 9999.0
 const STANDING_KISS_LEAN := 0.90
 ## The side lean alone would drag the kiss along, so W is required too.
 const MISSIONARY_KISS_LEAN := 0.90
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
-var facts: Variant
-var pony: Variant
+var facts: ACT_FACTS
+var pony: Node3D
 var _presentation_cfg: Dictionary = {}
 var _pose_cfg: Dictionary = {}
 ## The last pose-change profile the hook saw, so a steady tick does nothing.
@@ -55,28 +61,36 @@ var _base_kiss_excitement: Node
 var _kiss_forelegs_planted := false
 var _kiss_saved_rear := 1.0
 var _kiss_saved_hooves := 1.0
-var _kiss_leg_pin: Node
+var _kiss_leg_pin: KISS_LEGS = null
+
+
+## The pose read model. A missing view reads as no family outside an act.
+func _pose_view() -> POSE_VIEW:
+	if facts == null:
+		return null
+	var handle: Variant = facts.pose_view
+	return handle as POSE_VIEW
 
 
 ## The pose family from the pose view: `bed` for missionary, `standing` for standing.
 func _pose_family() -> String:
-	var view: Variant = facts.pose_view if facts != null else null
-	return str(view.family) if view != null else ""
+	var view := _pose_view()
+	return view.family if view != null else ""
 
 
 ## The presentation kiss profile, `missionary` or `standing`.
 func _kiss_profile() -> String:
-	var view: Variant = facts.pose_view if facts != null else null
-	return str((view.presentation as Dictionary).get("kiss", "")) if view != null else ""
+	var view := _pose_view()
+	return str(view.presentation.get("kiss", "")) if view != null else ""
 
 
 ## The pose-change hook: the live config and the base kiss profile follow the view, but a running
 ## kiss is never ended by the change itself. A shared keep is a cheap no-op.
-func pose_changed(view: Variant) -> void:
+func pose_changed(view: POSE_VIEW) -> void:
 	if view == null:
 		return
-	var family := str(view.family)
-	var profile := str((view.presentation as Dictionary).get("kiss", ""))
+	var family := view.family
+	var profile := str(view.presentation.get("kiss", ""))
 	var cfg_value: Variant = view.from_config
 	if not cfg_value is Dictionary or (cfg_value as Dictionary).is_empty():
 		cfg_value = view.pose_config
@@ -119,16 +133,15 @@ func _start_kiss_leg_pin() -> void:
 		return
 	if is_instance_valid(_kiss_leg_pin) or not is_instance_valid(pony):
 		return
-	var sk: Variant = pony.get("skeleton")
-	if not sk is Skeleton3D:
+	var skeleton := GAME.skeleton_of(pony)
+	if skeleton == null:
 		return
-	var skeleton := sk as Skeleton3D
 	_kiss_leg_pin = KISS_LEGS.new()
 	_kiss_leg_pin.name = "UnfplapKissLegPin"
-	_kiss_leg_pin.set("mare", pony)
+	_kiss_leg_pin.mare = pony
 	skeleton.add_child(_kiss_leg_pin)
 	skeleton.move_child(_kiss_leg_pin, skeleton.get_child_count() - 1)
-	_kiss_leg_pin.call("capture")
+	_kiss_leg_pin.capture()
 	LOG.debug("kiss foreleg pin captured")
 
 
@@ -148,16 +161,16 @@ func _start_base_kiss() -> bool:
 	if not is_instance_valid(pony) or not is_instance_valid(WORLD.game) \
 			or not is_instance_valid(WORLD.player):
 		return false
-	var affection: Variant = pony.get_node_or_null("Affection")
-	var kisser: Variant = WORLD.game.get("kisser")
+	var affection := pony.get_node_or_null("Affection")
+	var kisser := GAME.kisser_of(WORLD.game)
 	if not is_instance_valid(affection) or not is_instance_valid(kisser):
 		return false
 	if not str(affection.get("kind")).is_empty():
 		return false
-	var body: Node = WORLD.player
+	var body := WORLD.player
 	var was_locked: bool = body.get("controls_locked") == true
 	body.set("controls_locked", false)
-	var begun := bool(kisser.call("begin_from_pony", pony))
+	var begun := GAME.begin_from_pony(kisser, pony)
 	body.set("controls_locked", was_locked)
 	if not begun:
 		return false
@@ -167,13 +180,13 @@ func _start_base_kiss() -> bool:
 	_base_kiss_affection = affection
 	_suppress_base_kiss_excitement()
 	var pose_node: Variant = affection.get("pose")
-	var sk: Variant = pony.get("skeleton")
-	if pose_node is SkeletonModifier3D and sk is Skeleton3D:
-		var index := (sk as Skeleton3D).get_children().find(pose_node)
+	var skeleton := GAME.skeleton_of(pony)
+	if pose_node is SkeletonModifier3D and skeleton != null:
+		var index := skeleton.get_children().find(pose_node)
 		if index >= 0:
 			_base_kiss_pose = pose_node as SkeletonModifier3D
 			_base_kiss_pose_index = index
-			(sk as Skeleton3D).move_child(_base_kiss_pose, (sk as Skeleton3D).get_child_count() - 1)
+			skeleton.move_child(_base_kiss_pose, skeleton.get_child_count() - 1)
 			_pin_base_side()
 	_start_kiss_leg_pin()
 	LOG.debug("base kiss start pony=%s", [str(facts.pony_id)])
@@ -185,18 +198,14 @@ func _end_base_kiss() -> void:
 		return
 	_base_kiss_active = false
 	_restore_base_kiss_excitement()
-	var affection: Variant = _base_kiss_affection
+	var affection := _base_kiss_affection
 	if is_instance_valid(affection):
 		if str(affection.get("kind")) == "kiss":
-			affection.call("end")
+			GAME.end_affection(affection)
 		# Even if the affection already ended itself, clear its 60 s stare afterglow.
-		affection.call("cancel_afterglow")
+		GAME.cancel_afterglow(affection)
 	if is_instance_valid(WORLD.game):
-		var kisser: Variant = WORLD.game.get("kisser")
-		if is_instance_valid(kisser):
-			kisser.set("_active", null)
-			kisser.set("_her_kiss", false)
-			kisser.set("_used_hold", false)
+		GAME.clear_kisser(GAME.kisser_of(WORLD.game))
 	if is_instance_valid(WORLD.player) \
 			and int(facts.state) in [STATE_ACTIVE, STATE_CLIMAX]:
 		WORLD.player.set_meta("kiss_hold", true)
@@ -211,13 +220,12 @@ func _end_base_kiss() -> void:
 func _restore_base_kiss_pose() -> void:
 	_restore_kiss_forelegs()
 	_stop_kiss_leg_pin()
-	if is_instance_valid(_base_kiss_pose) and _base_kiss_pose.get("_side_wait") != null:
-		_base_kiss_pose.set("_side_wait", 0.0)
+	if is_instance_valid(_base_kiss_pose):
+		GAME.release_kiss_side(_base_kiss_pose)
 	_base_kiss_releasing = false
 	if is_instance_valid(_base_kiss_pose) and is_instance_valid(pony):
-		var sk: Variant = pony.get("skeleton")
-		if sk is Skeleton3D:
-			var skeleton := sk as Skeleton3D
+		var skeleton := GAME.skeleton_of(pony)
+		if skeleton != null:
 			var index := clampi(_base_kiss_pose_index, 0, skeleton.get_child_count() - 1)
 			skeleton.move_child(_base_kiss_pose, index)
 	_base_kiss_pose = null
@@ -235,14 +243,14 @@ func _suppress_base_kiss_excitement() -> void:
 	if not excitement is Node:
 		return
 	_base_kiss_excitement = excitement as Node
-	if facts != null and facts.has_method("hold_beat"):
-		facts.call("hold_beat", "kiss")
-	_base_kiss_excitement.set("_until", 0.0)
+	if facts != null:
+		facts.hold_beat("kiss")
+	GAME.settle_excitement(_base_kiss_excitement)
 
 
 func _restore_base_kiss_excitement() -> void:
-	if facts != null and facts.has_method("release_beat"):
-		facts.call("release_beat", "kiss")
+	if facts != null:
+		facts.release_beat("kiss")
 	_base_kiss_excitement = null
 
 
@@ -359,25 +367,23 @@ func _pin_base_side() -> void:
 		return
 	if absf(_kiss_pony_side) <= 0.5:
 		return
-	if _base_kiss_pose.get("_side") == null:
+	if not GAME.kiss_side_known(_base_kiss_pose):
 		return
-	_base_kiss_pose.set("_side", _kiss_pony_side)
-	_base_kiss_pose.set("_side_now", _kiss_pony_side)
-	_base_kiss_pose.set("_side_wait", 9999.0)
+	GAME.pin_kiss_side(_base_kiss_pose, _kiss_pony_side, KISS_SIDE_HOLD_S)
 
 
 ## Her mouth stays at Anon's lips while the kiss channel is held, with a soft repeat sound.
 func _kiss_tick(delta: float) -> void:
 	var holding := _kiss_visible()
 	if _base_kiss_releasing:
-		var releasing_affection: Variant = _base_kiss_affection
+		var releasing_affection := _base_kiss_affection
 		if is_instance_valid(releasing_affection) and float(releasing_affection.get("amount")) > 0.2:
 			holding = true
 	_kiss_lean = move_toward(_kiss_lean, 1.0 if holding else 0.0, delta / KISS_LEAN_SECONDS)
 	if _kiss_lean <= 0.0001 and not holding:
 		_clear_side()
 	if _base_kiss_releasing:
-		var affection: Variant = _base_kiss_affection
+		var affection := _base_kiss_affection
 		if not is_instance_valid(affection) or float(affection.get("amount")) <= 0.001:
 			_restore_base_kiss_pose()
 	if _base_kiss_active:
@@ -397,15 +403,13 @@ func _kiss_tick(delta: float) -> void:
 		return
 	if not is_instance_valid(pony):
 		return
-	var expressions: Variant = pony.get("expressions")
-	if expressions != null and expressions.has_method("touch"):
-		expressions.call("touch", "affection", 0.25 * _kiss_amount,
-			(1.0 - 0.05) * _kiss_amount)
-	var head: Variant = pony.get("head")
-	var mouth: Variant = head.get("mouth") if head != null else null
+	var expressions := GAME.expressions_of(pony)
+	if expressions != null:
+		GAME.touch(expressions, "affection", 0.25 * _kiss_amount, (1.0 - 0.05) * _kiss_amount)
+	var mouth := GAME.mouth_of(GAME.head_of(pony))
 	if mouth != null:
-		mouth.call("set_expression", "pout", 0.18 * _kiss_amount)
-		mouth.call("set_expression", "open_soft", 0.025 * _kiss_amount)
+		GAME.set_expression(mouth, "pout", 0.18 * _kiss_amount)
+		GAME.set_expression(mouth, "open_soft", 0.025 * _kiss_amount)
 	if not active:
 		return
 	_kiss_sound_clock -= delta
@@ -417,13 +421,12 @@ func _kiss_tick(delta: float) -> void:
 ## The player kisser is paused for the whole act, so it cannot write these itself. Feed the base
 ## kiss the live mouth/eye/face and its repeat sound, exactly as pony_kisser would.
 func _update_base_kiss(delta: float) -> void:
-	var affection: Variant = _base_kiss_affection
+	var affection := _base_kiss_affection
 	if is_instance_valid(affection):
 		var view := _mouth_view()
 		if is_instance_valid(view):
-			affection.set("target", _target(view))
-			affection.set("eye", view.global_position)
-			affection.set("face", view.global_basis.orthonormalized())
+			GAME.feed_affection(affection, _target(view), view.global_position,
+				view.global_basis.orthonormalized())
 	_kiss_sound_clock -= delta
 	if _kiss_sound_clock <= 0.0:
 		facts.call_value(facts.play_mouth_kiss)
@@ -433,7 +436,7 @@ func _update_base_kiss(delta: float) -> void:
 ## Once a second while a base kiss runs: confirms she is on the latched side and whether any
 ## remaining clip is a joint limit, a reach miss, or Anon's eye clearance pushing her back.
 func _kiss_diag() -> void:
-	var affection: Variant = _base_kiss_affection
+	var affection := _base_kiss_affection
 	if not is_instance_valid(affection):
 		return
 	var pose: Variant = affection.get("pose")
@@ -454,20 +457,18 @@ func _kiss_diag() -> void:
 	if is_instance_valid(view):
 		var target := _target(view)
 		var right := view.global_basis.x.normalized()
-		if affection.has_method("mouth_point"):
-			var mouth: Variant = affection.call("mouth_point")
-			if mouth is Vector3 and (mouth as Vector3).is_finite():
-				mouth_gap = (mouth as Vector3).distance_to(target)
-		var boop: Variant = pony.get("boop_node") if is_instance_valid(pony) else null
-		if boop != null and boop.has_method("skull_world"):
-			var skull: Variant = boop.call("skull_world")
-			if skull is Vector3:
-				skull_lateral = ((skull as Vector3) - target).dot(right)
-		var camera: Variant = facts.camera
+		var mouth := GAME.mouth_point(affection)
+		if mouth.is_finite():
+			mouth_gap = mouth.distance_to(target)
+		var boop := GAME.boop_of(pony) if is_instance_valid(pony) else null
+		if boop != null:
+			var skull := GAME.skull_world(boop)
+			if skull.is_finite():
+				skull_lateral = (skull - target).dot(right)
+		var camera: Camera3D = facts.camera
 		cam_roll = rad_to_deg(camera.rotation.z) if is_instance_valid(camera) else 0.0
-		var sk: Variant = pony.get("skeleton") if is_instance_valid(pony) else null
-		if sk is Skeleton3D:
-			var skeleton := sk as Skeleton3D
+		var skeleton := GAME.skeleton_of(pony) if is_instance_valid(pony) else null
+		if skeleton != null:
 			var head_bone := skeleton.find_bone("pony_head")
 			if head_bone >= 0:
 				var head_t := skeleton.global_transform * skeleton.get_bone_global_pose(head_bone)
@@ -488,10 +489,11 @@ func _target(view: Camera3D) -> Vector3:
 	# Missionary's Anon is the authored body on the bed, not the standing player rig the game camera
 	# still belongs to: aim her at his posed mouth, never at that camera.
 	if _pose_family() == "bed":
-		var body: Variant = facts.missionary_body()
-		if body != null and bool(body.get("active")):
-			var mouth: Variant = body.call("mouth_point")
-			if mouth is Vector3 and (mouth as Vector3).is_finite():
+		var raw: Variant = facts.missionary_body()
+		var body := raw as POSES.MISSIONARY_ANON
+		if body != null and body.active:
+			var mouth := body.mouth_point()
+			if mouth.is_finite():
 				return mouth
 	var point: Vector3 = view.global_position + view.global_basis \
 		* (Vector3(0.0, -0.07, -0.02) * float(facts.anon_height_scale))
@@ -513,14 +515,13 @@ func _mouth_view() -> Camera3D:
 func _release_kiss_face() -> void:
 	if not is_instance_valid(pony):
 		return
-	var expressions: Variant = pony.get("expressions")
-	if expressions != null and expressions.has_method("release_touch"):
-		expressions.call("release_touch", "affection")
-	var head: Variant = pony.get("head")
-	var mouth: Variant = head.get("mouth") if head != null else null
+	var expressions := GAME.expressions_of(pony)
+	if expressions != null:
+		GAME.release_touch(expressions, "affection")
+	var mouth := GAME.mouth_of(GAME.head_of(pony))
 	if mouth != null:
-		mouth.call("set_expression", "pout", 0.0)
-		mouth.call("set_expression", "open_soft", 0.0)
+		GAME.set_expression(mouth, "pout", 0.0)
+		GAME.set_expression(mouth, "open_soft", 0.0)
 
 
 ## Shared shoulder touch point. The lean reach and the full-lean caress must use exactly the
@@ -558,14 +559,14 @@ func _sync() -> void:
 	pony = facts.pony
 	var cfg: Variant = facts.presentation_config
 	_presentation_cfg = cfg if cfg is Dictionary else {}
-	var view: Variant = facts.pose_view
+	var view := _pose_view()
 	var pose_cfg: Variant = view.from_config if view != null else null
 	if not pose_cfg is Dictionary or (pose_cfg as Dictionary).is_empty():
 		pose_cfg = view.pose_config if view != null else null
 	_pose_cfg = pose_cfg if pose_cfg is Dictionary else {}
 
 
-func _init(facts_context: Variant = null) -> void:
+func _init(facts_context: ACT_FACTS = null) -> void:
 	facts = facts_context
 
 
@@ -676,7 +677,7 @@ func lean_kiss_tick() -> void:
 		return
 	if _lean_kiss_active:
 		if _base_kiss_active:
-			var affection: Variant = _base_kiss_affection
+			var affection := _base_kiss_affection
 			if not is_instance_valid(affection) or str(affection.get("kind")) != "kiss":
 				end_lean_kiss()
 		elif not _custom_kiss_active:

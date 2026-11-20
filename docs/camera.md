@@ -253,7 +253,11 @@ effect when the panel closes.
 |---|---|---|---|
 | service | world | `world/service.gd` | the eye's camera |
 | service | world | `world/game.gd` | the base-game members the view reads and writes |
+| service | hands | `hands/service.gd` | the caress and the reach the lean drives |
+| service | kiss | `kiss/service.gd` | the kiss lean, side and mouth target |
+| service | poses | `poses/service.gd` | the pose node's typed look-target write |
 | read model | act_facts | `shared/act_facts.gd` | the typed act context the view reads |
+| shared | pose_view | `shared/pose_view.gd` | the pose family, contact kind and lean profile |
 | service | settings | `settings/service.gd` | settings declarations and live values |
 | shared | act_state | `shared/act_state.gd` | act state constants |
 | shared | act_motion | `shared/act_motion.gd` | lean and travel math |

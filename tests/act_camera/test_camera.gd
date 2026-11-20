@@ -14,10 +14,15 @@ const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
 const CAMERA_VIEW := preload("res://mods/unfplap/camera/view.gd")
+const CAMERA_CONFIG := preload("res://mods/unfplap/camera/config.gd")
+const HANDS := preload("res://mods/unfplap/hands/service.gd")
+const KISS := preload("res://mods/unfplap/kiss/service.gd")
 const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
+const POSE := preload("res://mods/unfplap/poses/skeleton_pose.gd")
 
 const STATE_IDLE := 0
 const STATE_ACTIVE := 2
+const STATE_CLIMAX := 3
 const STATE_AFTERGLOW := 4
 
 var failures := 0
@@ -76,7 +81,7 @@ class FakePlayer extends Node3D:
 		return float(_stand_eye)
 
 
-class FakeHands extends RefCounted:
+class FakeHands extends HANDS:
 	var calls: Array[String] = []
 
 	func return_tick() -> void:
@@ -98,7 +103,7 @@ class FakeHands extends RefCounted:
 		calls.append("end_reach")
 
 
-class FakeKiss extends RefCounted:
+class FakeKiss extends KISS:
 	var calls: Array[String] = []
 
 	func lean() -> float:
@@ -135,7 +140,7 @@ class FakeKiss extends RefCounted:
 		calls.append("reset")
 
 
-class FakeView extends RefCounted:
+class FakeView extends CAMERA_VIEW:
 	var calls: Array[String] = []
 
 	func apply_lean_look() -> void:
@@ -295,6 +300,7 @@ func run() -> void:
 	_check_motion()
 	_check_neck()
 	_check_standing_cache()
+	_check_look_target()
 
 	print("ACT_CAMERA_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
@@ -305,10 +311,10 @@ func run() -> void:
 func _check_session() -> void:
 	var made := _fixture()
 	var camera: Variant = made["camera"]
-	camera.call("configure", {"surge": 0.5, "bob": 0.25})
+	camera.configure(CAMERA_CONFIG.Config.from_dict({"surge": 0.5, "bob": 0.25}))
 	check(near(camera.camera_surge, 0.5) and near(camera.camera_bob, 0.25),
 		"the camera_thrust block reaches the facade")
-	camera.call("configure", {"surge": 1.0, "bob": 0.35})
+	camera.configure(CAMERA_CONFIG.Config.from_dict({"surge": 1.0, "bob": 0.35}))
 	check(near(camera.camera_surge, 1.0) and near(camera.camera_bob, 0.35),
 		"configure replaces the block")
 	camera.lean = 0.2
@@ -348,7 +354,7 @@ func _check_session() -> void:
 func _check_shot() -> void:
 	var made := _fixture()
 	var camera: Variant = made["camera"]
-	camera.call("configure", {"surge": 1.0, "bob": 1.0})
+	camera.configure(CAMERA_CONFIG.Config.from_dict({"surge": 1.0, "bob": 1.0}))
 	for i in 200:
 		camera.call("tick_shot", 0.02, STATE_ACTIVE, 4.0, 0.0)
 	check(near(camera.lean, CAMERA.CAM_SURGE_M, 0.002),
@@ -1021,24 +1027,21 @@ func _check_accessors() -> void:
 	var nav := FakeNavigator.new()
 	nav.name = "Navigator"
 	pony.add_child(nav)
-	GAME.clear_face_point(pony)
+	GAME.clear_facing(pony)
 	var face: Vector3 = nav.face_point
 	check(not face.is_finite(), "the facing clear drops her stale face point")
-	GAME.clear_conversation_target(pony)
-	check(nav.conversation_clears == 1, "the facing clear drops her conversation aim")
+	check(nav.conversation_clears == 1, "one facing clear drops her conversation aim too")
 
 	var bare := FakePony.new()
 	root.add_child(bare)
 	var bare_nav := Node.new()
 	bare_nav.name = "Navigator"
 	bare.add_child(bare_nav)
-	GAME.clear_face_point(bare)
-	GAME.clear_conversation_target(bare)
+	GAME.clear_facing(bare)
 	check(bare_nav.get("face_point") == null, "a navigator without the member takes no write")
 	var no_nav := FakePony.new()
 	root.add_child(no_nav)
-	GAME.clear_face_point(no_nav)
-	GAME.clear_conversation_target(no_nav)
+	GAME.clear_facing(no_nav)
 	check(no_nav.get_child_count() == 0, "a body without a navigator takes both clears")
 
 	var secondary := FakeSecondary.new()
@@ -1226,3 +1229,25 @@ func _check_view_writes() -> void:
 	main.free()
 	root.remove_child(game)
 	game.free()
+
+
+## The camera's rendered look write lands on the typed pose node: the standing look goes to the
+## player camera, and the kiss amount and climax flag follow the frame's state.
+func _check_look_target() -> void:
+	var made := _fixture()
+	var camera: Variant = made["camera"]
+	var facts: RefCounted = made["facts"]
+	var pose := POSE.new()
+	_pose(facts, "standing")
+	camera.write_look_target(pose)
+	check(pose.look_point.is_equal_approx((made["main"] as FakeMain).view.global_position),
+		"the standing look target is the player camera")
+	check(not pose.climaxing and near(pose.kiss, 0.0), "a kissless active frame writes no climax")
+	facts.state = STATE_CLIMAX
+	camera.write_look_target(pose)
+	check(pose.climaxing, "the climax frame marks the pose")
+	_pose(facts, "bed")
+	camera.write_look_target(pose)
+	check(not pose.look_point.is_finite(),
+		"the bed gaze with no anatomy callback stays infinite")
+	pose.free()

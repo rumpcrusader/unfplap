@@ -130,6 +130,25 @@ func run() -> void:
 	check(main.eligibility.eligible(pony), "an adult mare is an act target")
 	check(main.eligibility.witness_age(pony) == ELIGIBILITY.Age.ADULT,
 		"an adult mare witnesses as an adult")
+
+	# The identity record is reused until its era moves. An in-place identity edit is not re-read;
+	# a new identity resource, a relationship-meta change and a settings generation do rebuild it.
+	var early_identity: FakeIdentity = pony.identity
+	early_identity.filly = true
+	check(main.eligibility.eligible(pony),
+		"the identity record is reused while its era holds")
+	pony.identity = FakeIdentity.new()
+	pony.identity.filly = true
+	check(not main.eligibility.eligible(pony),
+		"a new identity resource rebuilds the record")
+	pony.identity = FakeIdentity.new()
+	check(main.eligibility.eligible(pony), "the rebuilt record follows the new identity")
+	pony.set_meta("relationship_id", "rarity_two")
+	check(str(main.eligibility.get_verdict(pony, ELIGIBILITY.Mode.START).facts.id) == "rarity_two",
+		"a relationship-meta change rebuilds the record's id")
+	pony.set_meta("relationship_id", "rarity")
+	check(main.eligibility.witness_age(pony) == ELIGIBILITY.Age.ADULT,
+		"the rebuilt record keeps the witness age")
 	check(main.eligibility.eligible_id("rarity"),
 		"a non-live adult shape is a character target")
 	check(not main.eligibility.eligible_id("scootaloo"),

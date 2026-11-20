@@ -5,6 +5,7 @@ extends SceneTree
 
 const FACTS := preload("res://mods/unfplap/eligibility/facts.gd")
 const POLICY := preload("res://mods/unfplap/eligibility/policy.gd")
+const IDENTITY_RECORD := preload("res://mods/unfplap/eligibility/identity_record.gd")
 
 var failures := 0
 var checks := 0
@@ -102,6 +103,26 @@ func run() -> void:
 		"a stallion is no target")
 	check(not POLICY.participates(facts({"has_identity": false}), "acts"),
 		"no identity is no target")
+
+	# The typed record answers the same predicate without a facts dictionary.
+	var typed := IDENTITY_RECORD.IdentityRecord.new()
+	typed.id = "rarity"
+	typed.has_identity = true
+	typed.participation = {"acts": true, "anatomy": true, "tail": true}
+	check(POLICY.participates_identity(typed, "acts"), "the typed record is an act target")
+	check(POLICY.participates_identity(typed, ""), "the typed record has a character target")
+	typed.participation = {"acts": false}
+	check(not POLICY.participates_identity(typed, "acts"),
+		"the typed record respects the participation veto")
+	check(POLICY.participates_identity(typed, ""), "an opt-out keeps the typed character target")
+	typed.participation = {}
+	typed.is_stallion = true
+	check(not POLICY.participates_identity(typed, ""), "a stallion is no typed target")
+	typed.is_stallion = false
+	typed.has_eligible_assertion = true
+	typed.eligible = false
+	check(not POLICY.participates_identity(typed, ""), "a provider veto closes the typed record")
+	check(not POLICY.participates_identity(null, ""), "no record is no target")
 
 	# Witness age categories. A provider's `eligible` assertion wins over the identity flag.
 	check(POLICY.age_kind(mare) == FACTS.AgeKind.ADULT,

@@ -7,6 +7,7 @@ extends RefCounted
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const POLICY := preload("res://mods/unfplap/eligibility/policy.gd")
 const FACTS := preload("res://mods/unfplap/eligibility/facts.gd")
+const IDENTITY_RECORD := preload("res://mods/unfplap/eligibility/identity_record.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const PARTICIPATION := preload("res://mods/unfplap/shared/participation.gd")
 const CONSENT := preload("res://mods/unfplap/shared/consent.gd")
@@ -193,6 +194,8 @@ class Verdict extends RefCounted:
 
 ## False once the entry clears the service: every capability read answers no.
 var _live := true
+## Pony instance -> its typed identity record. Cleared with the world.
+var _identity_records: Dictionary = {}
 ## Shape id -> its scene identity, for the id-only capability. Cleared with the world.
 var _shape_identities: Dictionary = {}
 
@@ -200,25 +203,32 @@ var _shape_identities: Dictionary = {}
 ## A world enter: every capability read answers again.
 func on_world(_host: Node) -> void:
 	_live = true
+	_identity_records.clear()
+
+
+## The world closed: the records belonged to the bodies that are gone.
+func on_world_closed() -> void:
+	_identity_records.clear()
 
 
 ## The process exit: every capability read answers no.
 func shutdown() -> void:
 	_live = false
+	_identity_records.clear()
 	_shape_identities.clear()
 
 
 ## One capability answer for a consumer, called in per-frame discovery loops.
-## Cheap: identity, provider assertion, stable id and the veto, never the full snapshot.
+## Cheap: the cached identity record, provider assertion, stable id and the veto.
 func eligible(pony: Node, target: Target = Target.ACT) -> bool:
 	if not _live or not is_instance_valid(pony):
 		return false
 	if not TARGET_KEYS.has(target):
 		return false
-	var snapshot := _identity_facts(pony)
-	if str(snapshot.get("id", "")).is_empty():
+	var record := _identity_record(pony)
+	if record.id.is_empty():
 		return false
-	return POLICY.participates(snapshot, str(TARGET_KEYS[target]))
+	return POLICY.participates_identity(record, str(TARGET_KEYS[target]))
 
 
 ## The id-only answer for a body that is not live, from a named shape's scene identity.
@@ -255,7 +265,7 @@ func relationship_ok(pony: Node) -> bool:
 		if pony.has_meta("relationship_runtime") else null
 	if rel == null or not is_instance_valid(rel):
 		return false
-	var id := _pony_id(pony)
+	var id := _identity_record(pony).id
 	var romance := GAME.bond_eligible_for_romance(GAME.bonds_of(pony), id)
 	var love := _love_level(rel, id)
 	var floor_ok := POLICY.level_ok(str(SETTINGS.promiscuity.get_choice()), love)
@@ -297,7 +307,9 @@ func _bond_levels() -> Dictionary:
 func witness_age(pony: Node) -> Age:
 	if not _live or not is_instance_valid(pony):
 		return Age.NONE
-	match POLICY.age_kind(_identity_facts(pony)):
+	var record := _identity_record(pony)
+	match FACTS.age_kind(record.has_identity, record.is_player_pony, record.is_filly,
+			record.eligible_assertion()):
 		FACTS.AgeKind.ADULT:
 			return Age.ADULT
 		FACTS.AgeKind.YOUNG:
@@ -356,7 +368,7 @@ func _facts_data(pony: Node) -> Dictionary:
 	var out := FACTS.empty()
 	if not is_instance_valid(pony):
 		return out
-	out.merge(_identity_facts(pony), true)
+	out.merge(_record_facts(pony), true)
 	var id := str(out.get("id", ""))
 	_read_relationship(pony, id, out)
 	_read_settings(out)
@@ -427,7 +439,7 @@ func cycle_note(pony: Node) -> String:
 	var verdict := get_verdict(pony, Mode.START)
 	if verdict == null or not verdict.base:
 		return ""
-	return CYCLE.prompt_note(cycle_phase_for(pony, _pony_id(pony)))
+	return CYCLE.prompt_note(cycle_phase_for(pony, _identity_record(pony).id))
 
 
 func _read_cycle(pony: Node, out: Dictionary) -> void:
@@ -452,21 +464,57 @@ func _read_history(id: String, out: Dictionary) -> void:
 	}
 
 
-## The identity half of the snapshot. `eligible()` and `witness_age()` build only this block, so a
-## discovery scan never reads bonds, history or cycle.
-func _identity_facts(pony: Node) -> Dictionary:
-	var identity: Variant = pony.get("identity")
-	var id := _pony_id(pony)
-	var profile: Dictionary = SETTINGS.profile_identity(id).raw()
+## The identity half of the snapshot, copied from the record into the cold facts dictionary.
+func _record_facts(pony: Node) -> Dictionary:
+	var record := _identity_record(pony)
 	return {
-		"id": id,
-		"eligible": profile.get("eligible", null),
-		"participation": profile.get("participation", {}),
-		"has_identity": identity != null,
-		"is_player_pony": _is_player_pony(pony),
-		"is_filly": identity != null and bool(identity.get("filly")),
-		"is_stallion": identity != null and bool(identity.get("stallion")),
+		"id": record.id,
+		"eligible": record.eligible_assertion(),
+		"participation": record.participation,
+		"has_identity": record.has_identity,
+		"is_player_pony": record.is_player_pony,
+		"is_filly": record.is_filly,
+		"is_stallion": record.is_stallion,
 	}
+
+
+## One pony's identity record, rebuilt only when its era moves: the relationship meta, the
+## identity resource, the settings generation or the provider revision.
+func _identity_record(pony: Node) -> IDENTITY_RECORD.IdentityRecord:
+	var key := int(pony.get_instance_id())
+	var identity: Variant = pony.get("identity")
+	var era := _identity_era(pony, identity)
+	var cached: Variant = _identity_records.get(key)
+	if cached is IDENTITY_RECORD.IdentityRecord:
+		var known := cached as IDENTITY_RECORD.IdentityRecord
+		if known.era == era:
+			return known
+	var record := IDENTITY_RECORD.IdentityRecord.new()
+	record.era = era
+	record.has_identity = identity != null
+	record.is_player_pony = _is_player_pony(pony)
+	record.is_filly = identity != null and bool(identity.get("filly"))
+	record.is_stallion = identity != null and bool(identity.get("stallion"))
+	record.id = PONY_ID.from(str(pony.get_meta("relationship_id", "")), identity)
+	var profile: Dictionary = SETTINGS.profile_identity(record.id).raw()
+	var assertion: Variant = profile.get("eligible", null)
+	record.has_eligible_assertion = assertion is bool
+	record.eligible = assertion is bool and bool(assertion)
+	var participation: Variant = profile.get("participation", {})
+	record.participation = participation if participation is Dictionary else {}
+	_identity_records[key] = record
+	return record
+
+
+## The era of one record: four integers mixed without an allocation.
+func _identity_era(pony: Node, identity: Variant) -> int:
+	var identity_id := 0
+	if identity is Object and is_instance_valid(identity):
+		identity_id = int((identity as Object).get_instance_id())
+	var era := SETTINGS.generation
+	era = era * 31 + MARE_REGISTRY.revision
+	era = era * 31 + identity_id
+	return era * 31 + hash(str(pony.get_meta("relationship_id", "")))
 
 
 func _typed_facts(data: Dictionary) -> Facts:

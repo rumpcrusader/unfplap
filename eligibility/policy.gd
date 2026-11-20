@@ -3,6 +3,7 @@ extends RefCounted
 ## no scene, no Time, no Settings and no file access. See `docs/eligibility.md`.
 
 const FACTS := preload("res://mods/unfplap/eligibility/facts.gd")
+const IDENTITY_RECORD := preload("res://mods/unfplap/eligibility/identity_record.gd")
 
 ## The Promiscuity setting, pickiest first. `any` skips the love-level check entirely.
 const LEVELS := {
@@ -53,6 +54,18 @@ static func participates(facts: Dictionary, key := "") -> bool:
 	if key.is_empty():
 		return true
 	return bool((facts.get("participation", {}) as Dictionary).get(key, true))
+
+
+## The same read over the cached typed identity record, with no facts dictionary.
+static func participates_identity(record: IDENTITY_RECORD.IdentityRecord, key := "") -> bool:
+	if record == null:
+		return false
+	if not FACTS.adult_mare(record.has_identity, record.is_player_pony, record.is_filly,
+			record.is_stallion, record.eligible_assertion()):
+		return false
+	if key.is_empty():
+		return true
+	return bool(record.participation.get(key, true))
 
 
 ## None when she is neither a witness adult nor a young one.

@@ -15,7 +15,8 @@ node: the bridge handle (`toggle_hole`, `oral_ready`, `vr_forward`, `vr_depth`),
 dispatcher for the oral id, the `align` write-back, the `touch` readiness event and a
 `pony_source` read. It also receives `player`, `hip_target`, `camera` and `origin`, and queues
 itself free in `vr_stop()`. The runtime owns the standing act state; the bridge owns the anatomy
-hooks the controller calls.
+hooks the controller calls. The controller reads the bridge's oral gate and fires the touch
+host's caress event through `world/game.gd`.
 
 ## Controls
 
@@ -89,8 +90,8 @@ controller.
 
 ## Tests
 
-- `tests/test_vr_act.gd` — tracker selection, depth clamping, hand action routing and the start
-  hooks.
+- `tests/test_vr_act.gd` — tracker selection, depth clamping, hand action routing, the start
+  hooks and the base-game accessors' absent answers.
 
 ## Related docs
 

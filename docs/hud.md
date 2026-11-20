@@ -197,8 +197,8 @@ world enter and never repeats inside one world.
 readout and the tint. `tests/hud/test_hud.gd` covers the card rows, the style helpers and the
 form-change hint. `tests/hud/test_caption.gd` covers the caption move's five conditions (the mode,
 the three act states, the game's speech setting, the settings-page preview and a live card), the
-scale rounding, the moved-caption tracking, the two toast durations, the toast line's own timer and
-the once-per-world key notice. `tests/afterglow/test_afterglow.gd` drives the runtime's HUD
+scale rounding, the moved-caption tracking, the two toast durations, the toast line's own timer, the
+once-per-world key notice and the base-game accessors' absent answers. `tests/afterglow/test_afterglow.gd` drives the runtime's HUD
 forwards. `tests/test_runtime_teardown.gd` drives the idle inventory safety against a live act
 owner inside the fixture.
 

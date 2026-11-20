@@ -52,17 +52,17 @@ same answer, so a service never names the entry to ask whether the scene is live
 
 ## Base-game access
 
-`world/game.gd` is the base-game accessor module: static functions with explicit arguments, no
-bound state and no service preload. `world/service.gd` delegates its raw reads to it, and the act
-calls it directly for the eye line and the blush sustainer. Every accessor answers with a typed
-zero when the member is absent or renamed — `null` for a handle, `false` for a flag, `NAN` for a
-measurement. An argument that is not a live node is answered the same way, so a caller that holds a
-freed handle gets the absent answer instead of a crash.
+`world/game.gd` is the base-game and presentation accessor module: static functions with explicit
+arguments, no bound state and no service preload. `world/service.gd` delegates its raw reads to it,
+and the act calls it directly for the eye line and the blush sustainer. Every accessor answers with
+a typed zero when the member is absent or renamed — `null` for a handle, `false` for a flag, `NAN`
+for a measurement. An argument that is not a live node is answered the same way, so a caller that
+holds a freed handle gets the absent answer instead of a crash.
 
-The private game members below are quirks of this game version: the accessor mirrors their
+The private members below are quirks of this game version and its HUD: the accessor mirrors their
 behaviour exactly, and a game update that renames one is a change here rather than in a caller.
 
-| Accessor | Game member | Returns | Absent answer |
+| Accessor | Member | Returns | Absent answer |
 |---|---|---|---|
 | `GAME.headset_view(game)` | `headset_view` | `bool` | `false` |
 | `GAME.game_player(game)` | `player` | `Node3D` | `null` |
@@ -237,7 +237,9 @@ hold, its eye line and its look pitch, the chat lock, her navigator's face point
 owner, wander, speed, pace and destination, her posture request, her face-turn rate, the carry
 flags, the seated Q hold, a body's velocity, her gaze and pupils, the stock kiss's latch and side
 hold, the affection it feeds, the director's authored-line queue, the world-context situation
-record, the mod state section, and the briefcase's slot writes and world drops.
+record, the mod state section, the briefcase's slot writes and world drops, the inventory's quick-slot
+card and its bar, the HUD's toast line, the seated space and rest holds, and the VR touch bridge's
+caress event.
 
 ## Internal API
 

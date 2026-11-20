@@ -66,7 +66,8 @@ label.
 
 Nothing is saved. The service reads `PONIES.active()`, the debug facade's `wheel_open()`,
 `WORLD.player`, `WORLD.menu_panel_open()` and the viewport focus owner, plus the `act_key` and
-`act_input_shield` settings. It does not store runtime state.
+`act_input_shield` settings. Its seated guard and movement hold read and write the rig's private
+members through `world/game.gd`. It does not store runtime state.
 
 ## Lifecycle
 
@@ -201,8 +202,9 @@ The controls table is `docs/runtime.md`. Debug actions and the wheel are in `doc
 - `tests/test_input.gd` — the legacy fallback, the installed action, a captured rebind, typing
   protection, the start route into the offer facade's `try_start()`, the release-injection spike,
   the shield (a foreign key consumed and cleared, an act-polled key kept, the pass list, typing, a
-  paused tree, an open panel and the setting off) and the `V`/`N` dispatch: each emits its command
-  id once when ready, a non-ready or refused command does not dispatch, and the key is consumed.
+  paused tree, an open panel and the setting off), the `V`/`N` dispatch (each emits its command id
+  once when ready, a non-ready or refused command does not dispatch, and the key is consumed), the
+  seated guard's save/restore and the movement hold's guarded writes.
   `B` is retired: it dispatches nothing and is only shielded.
 - `tests/test_act_commands.gd` — the pure vocabulary: unique `lower_snake_case` ids, the
   continuous/discrete partition, the helpers and the reserved `end`.

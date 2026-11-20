@@ -1,7 +1,7 @@
 extends RefCounted
 ## Service: world
 ## Contract: docs/world.md `## Base-game access`
-## Stateless readers for the base-game members the mod touches; the scene root is an argument.
+## Stateless readers for the base-game and presentation members; the scene root is an argument.
 
 const MATTRESS := preload("res://world/life/couch/mattress.gd")
 const HYBRID_NEAR_MESH := preload("res://world/characters/hybrid_mare/hybrid_near_mesh.gd")

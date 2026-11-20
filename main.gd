@@ -95,10 +95,8 @@ func _ready() -> void:
 		set_process(false)
 		return
 	add_to_group("pony_prompt_notes")
-	# The two debug switches: the log sink re-reads its own on every settings edit, and the
-	# profiler recomposes its gate once per frame.
-	LOG.debug_read = Callable(SETTINGS.debug_mode, "get_bool")
-	LOG.enabled = SETTINGS.debug_mode.get_bool()
+	# The two debug switches: each module binds its own read and keeps its gate in step.
+	LOG.bind(Callable(SETTINGS.debug_mode, "get_bool"))
 	PERF.bind(Callable(SETTINGS.debug_perf, "get_bool"), self)
 	_build_services()
 	# The per-pony registry binds the services above once and builds its runtimes through the

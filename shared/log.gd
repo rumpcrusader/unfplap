@@ -12,10 +12,10 @@ const PREFIX := "[unfplap] "
 ## The game setting ENABLE DEBUG: every debug line is silent while it is off.
 static var enabled := false
 ## The switch read the entry injects; a shared file cannot import a service.
-static var debug_read := Callable()
+static var _read := Callable()
 ## The change notification's listener. A static module has no instance, so it is a bare closure.
 static var _listener := func() -> void:
-	enabled = debug_read.is_valid() and bool(debug_read.call())
+	enabled = _read.is_valid() and bool(_read.call())
 ## Joined at load: the one settings notification that keeps the gate in step.
 static var _joined := _join()
 
@@ -24,6 +24,12 @@ static var _joined := _join()
 static func _join() -> bool:
 	CHANGE.on_changed(_listener)
 	return true
+
+
+## Bind the entry's debug read and apply it now; later edits arrive through the notification.
+static func bind(read: Callable) -> void:
+	_read = read
+	_listener.call()
 
 
 ## One debug line: formatted and prefixed only while the gate is on.

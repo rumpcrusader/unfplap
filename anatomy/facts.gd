@@ -1,7 +1,7 @@
 extends RefCounted
 ## The typed anatomy context: one per pony, rewritten as the state changes.
 ## The controller and the act read only this object, never the runtime node.
-## Host callbacks are the boundary for logging, the perf probe and the body-coat hook.
+## Host callbacks are the boundary for the body-coat hook.
 ## See `docs/anatomy.md` (`## Architecture`).
 
 var state := 0
@@ -18,15 +18,7 @@ var penetration_reach := 0.2
 var bed_frame: Variant = null
 var cycle_phase := "normal"
 ## Host callbacks; a missing one is a no-op.
-var perf_note := Callable()
-## No idle perf clock while this is false.
-var perf_on := false
 var body_coat_smack := Callable()
-
-
-func perf(chunk: String, usec: int) -> void:
-	if perf_note.is_valid():
-		perf_note.call(chunk, usec)
 
 
 func smack_body_coat() -> void:

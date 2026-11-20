@@ -15,6 +15,7 @@ const LET_GO := -0.72
 ## integration: her rear half in the shared body's rest space, scaled by the pony's body_scale.
 const BODY_CENTRE := Vector3(0.0, 0.47, 0.12)
 const BODY_RADII := Vector3(0.165, 0.175, 0.215)
+const PERF := preload("res://mods/unfplap/shared/perf.gd")
 
 enum { FLYING, STUCK, POOLED }
 
@@ -22,7 +23,6 @@ var skeleton: Skeleton3D
 var ground_y := 0.0
 ## integration: the shared body ellipsoid is authored at scale 1.
 var body_scale := 1.0
-var perf_note := Callable()
 
 var _hips := -1
 var _drops: Array[Dictionary] = []
@@ -123,7 +123,7 @@ func _physics_process(delta: float) -> void:
 	if _drops.is_empty() and _leaks.is_empty():
 		set_physics_process(false)
 		return
-	var started := Time.get_ticks_usec()
+	PERF.begin("climax_fluid")
 	for leak: Dictionary in _leaks:
 		leak.left -= delta
 		leak.due += delta * float(leak.rate)
@@ -150,8 +150,7 @@ func _physics_process(delta: float) -> void:
 	_draw_drops()
 	if _drops.is_empty() and _leaks.is_empty():
 		set_physics_process(false)
-	if perf_note.is_valid():
-		perf_note.call("climax_fluid", Time.get_ticks_usec() - started)
+	PERF.end("climax_fluid")
 
 
 func _fly(drop: Dictionary, frame: Transform3D, inverse: Transform3D, delta: float) -> void:

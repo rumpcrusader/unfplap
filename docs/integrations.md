@@ -473,6 +473,7 @@ overlay reads them.
 | shared | body_profile | `shared/body_profile.gd` | rig profiles for the borrowed forms |
 | shared | integrations | `shared/integrations.gd` | verified mod catalog |
 | shared | log | `shared/log.gd` | log sink, perf entry and panel |
+| shared | perf | `shared/perf.gd` | one profiler |
 | shared | settings_change | `shared/settings_change.gd` | the settings change notification |
 | service | ponies | `ponies/service.gd` | the live character list and the late prepare |
 

@@ -32,6 +32,7 @@ const TOUCH_MARGIN_M := 0.02
 const HOLE_SWAP_S := 0.9
 const PULLED_OUT_PHASE := 0.35
 const PONY_FLUID_COLOR := Color(0.9, 0.93, 1.0, 0.72)
+const PERF := preload("res://mods/unfplap/shared/perf.gd")
 
 var pony: Node3D
 var anatomy: Node
@@ -296,7 +297,7 @@ func tick(delta: float, facts: RefCounted) -> void:
 		_face_parted = false
 		if is_instance_valid(part):
 			part.call("encounter", true)
-	var started := Time.get_ticks_usec()
+	PERF.begin("anatomy_tick")
 	var frame: Transform3D = (mesh as Node3D).global_transform
 	var mesh_scale := maxf(frame.basis.get_scale().x, 0.001)
 	var width: float = -1.0
@@ -364,13 +365,13 @@ func tick(delta: float, facts: RefCounted) -> void:
 	_aim_debug_tick(delta, part)
 	if _debug != null:
 		_debug.tick(part)
-	_facts.perf("anatomy_tick", Time.get_ticks_usec() - started)
+	PERF.end("anatomy_tick")
 
 
 ## Face contact: park the part once, hold her shapes neutral, point at his mouth.
 ## Nothing grips the shaft here, so the hug beat and the act wink stay off.
 func _face_tick(_delta: float, part: Variant) -> void:
-	var started := Time.get_ticks_usec()
+	PERF.begin("anatomy_tick")
 	if not _face_parted:
 		_face_parted = true
 		if is_instance_valid(part):
@@ -389,7 +390,7 @@ func _face_tick(_delta: float, part: Variant) -> void:
 	_contact_point = point
 	_contact_normal = Vector3.ZERO
 	_contact_rear = Vector3.ZERO
-	_facts.perf("anatomy_tick", Time.get_ticks_usec() - started)
+	PERF.end("anatomy_tick")
 
 
 ## Her own wink: rest beats while touching, faster ones once she has climaxed.
@@ -515,10 +516,11 @@ func afterglow_tick(delta: float, facts: RefCounted) -> void:
 		_facts = facts
 	if _facts == null or not is_instance_valid(anatomy) or not is_instance_valid(pony):
 		return
-	var started := Time.get_ticks_usec()
+	PERF.begin("anatomy_afterglow")
 	var mesh: Variant = anatomy.call("winking_mesh")
 	var part: Variant = _part()
 	if not is_instance_valid(mesh) or not is_instance_valid(part) or not bool(part.call("showing")):
+		PERF.end("anatomy_afterglow")
 		return
 	# The held phase rests the tip at her entrance; no finish state drives this depth any more.
 	var rest_m := 0.0
@@ -535,7 +537,7 @@ func afterglow_tick(delta: float, facts: RefCounted) -> void:
 		anatomy.call("player_track", _contact_point, _contact_rear,
 			(mesh as Node3D).global_transform.basis.y.normalized(), false, rest_m, delta,
 			(mesh as Node3D).get_parent(), true)
-	_facts.perf("anatomy_afterglow", Time.get_ticks_usec() - started)
+	PERF.end("anatomy_afterglow")
 
 
 func end() -> void:

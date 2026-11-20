@@ -9,6 +9,7 @@ const CARESS_UP_BIAS_M := 0.05
 ## Backward lean reaches the rump top at this magnitude, not at a full -1 lean.
 const CARESS_RUMP_LEAN := 0.5
 const LOG := preload("res://mods/unfplap/shared/log.gd")
+const PERF := preload("res://mods/unfplap/shared/perf.gd")
 
 var _flank: Node
 var _paths: Dictionary = {}
@@ -157,18 +158,17 @@ func _path_for(hand_side: String) -> Variant:
 	var path: Variant = _paths.get(key)
 	if path != null and bool(path.get("valid")):
 		return path
-	var started := Time.get_ticks_usec()
+	PERF.begin("caress_path")
 	path = PATH.new()
 	var built := bool(path.call("build_areas", pony, hand_side, "standing"))
-	report_path_build(started)
+	PERF.end("caress_path")
 	if not built:
 		_path_failed[key] = true
 		return null
 	_paths[key] = path
 	if bool(SETTINGS.caress_debug.get_bool()):
-		LOG.debug("caress path side=%s path=areas anchors=%d build_ms=%.1f", [hand_side,
-			(path.get("anchors") as Array).size(),
-			float(Time.get_ticks_usec() - started) / 1000.0])
+		LOG.debug("caress path side=%s path=areas anchors=%d", [hand_side,
+			(path.get("anchors") as Array).size()])
 		for note: Variant in (path.get("debug_notes") as Array):
 			LOG.debug("caress " + str(note))
 		var world: Array = path.call("skinned")

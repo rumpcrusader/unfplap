@@ -12,9 +12,6 @@ var checks := 0
 
 
 class Sink extends RefCounted:
-	var perf_calls := 0
-	var last_chunk := ""
-	var last_usec := 0
 	var smack_calls := 0
 	var look_yaw := 0.0
 	var look_pitch := 0.0
@@ -31,11 +28,6 @@ class Sink extends RefCounted:
 
 	func mod_on(_id: String) -> bool:
 		return mod_active
-
-	func note(chunk: String, usec: int) -> void:
-		perf_calls += 1
-		last_chunk = chunk
-		last_usec = usec
 
 	func smack() -> void:
 		smack_calls += 1
@@ -98,12 +90,10 @@ func run() -> void:
 	check(is_zero_approx(facts.clock()), "the line clock starts at zero")
 	check(not facts.director.is_valid(), "the director callback starts absent")
 	check(not facts.now.is_valid(), "the clock callback starts absent")
-	check(not facts.perf_note.is_valid(), "perf callback starts absent")
 	check(not facts.kiss.is_valid(), "kiss callback starts absent")
 	check(not facts.neck_point.is_valid(), "neck callback starts absent")
 	check(not facts.set_look.is_valid(), "look write-back starts absent")
 
-	facts.perf("nothing", 5)
 	facts.smack_body_coat()
 	facts.write_look(1.0, 2.0)
 	facts.write_forced_glance("L")
@@ -112,7 +102,6 @@ func run() -> void:
 	check(facts.neck_midpoint() == Vector3.INF, "absent neck callback returns infinity")
 
 	var sink := Sink.new()
-	facts.perf_note = Callable(sink, "note")
 	facts.body_coat_smack = Callable(sink, "smack")
 	facts.set_look = Callable(sink, "look")
 	facts.set_forced_glance = Callable(sink, "force_glance")
@@ -120,9 +109,6 @@ func run() -> void:
 	facts.kiss = Callable(sink, "controller")
 	facts.neck_point = Callable(sink, "neck_point")
 	facts.now = Callable(sink, "clock_now")
-	facts.perf("act_tick", 42)
-	check(sink.perf_calls == 1 and sink.last_chunk == "act_tick" and sink.last_usec == 42,
-		"the perf callback keeps the chunk and microseconds")
 	facts.smack_body_coat()
 	check(sink.smack_calls == 1, "the smack callback receives one call")
 	facts.write_look(0.4, -0.2)
@@ -174,23 +160,13 @@ func run() -> void:
 	facts.pose_view = null
 	check(facts.pose_view == null, "the pose view clears")
 
-	# The anatomy context shares the host-callback boundary: an unbound call is a no-op and a
-	# bound one receives the chunk and the smack.
 	var anatomy_facts := ANATOMY_FACTS.new()
-	anatomy_facts.perf("nothing", 5)
 	anatomy_facts.smack_body_coat()
 	var anatomy_sink := Sink.new()
-	anatomy_facts.perf_note = Callable(anatomy_sink, "note")
 	anatomy_facts.body_coat_smack = Callable(anatomy_sink, "smack")
-	anatomy_facts.perf("anatomy_tick", 42)
-	check(anatomy_sink.perf_calls == 1 and anatomy_sink.last_chunk == "anatomy_tick"
-		and anatomy_sink.last_usec == 42,
-		"the anatomy perf callback keeps the chunk and microseconds")
 	anatomy_facts.smack_body_coat()
 	check(anatomy_sink.smack_calls == 1, "the anatomy smack callback receives one call")
-	anatomy_facts.perf_note = Callable()
 	anatomy_facts.body_coat_smack = Callable()
-	anatomy_facts.perf("nothing", 5)
 	anatomy_facts.smack_body_coat()
 
 	# The anatomy view predicates: a null view matches nothing, and a set one reads its family,

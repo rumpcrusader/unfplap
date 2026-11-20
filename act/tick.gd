@@ -14,6 +14,7 @@ const ACT_CONSENT := preload("res://mods/unfplap/act/consent.gd")
 const CYCLE := preload("res://mods/unfplap/shared/cycle.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
+const PERF := preload("res://mods/unfplap/shared/perf.gd")
 
 const State := ACT_STATE.State
 
@@ -27,8 +28,6 @@ var swap: Variant = null
 var exit: Variant = null
 ## The frame-level presentation and its write-backs.
 var phases: Variant = null
-## The perf probe, bound once after `PERF.build()`; a null probe is a no-op.
-var probe: Variant = null
 
 
 func bind(host_in: ACT_HOST, context_in: ACT_CONTEXT, session_in: ACT_SESSION,
@@ -40,18 +39,15 @@ func bind(host_in: ACT_HOST, context_in: ACT_CONTEXT, session_in: ACT_SESSION,
 
 
 ## One physics frame: the ordered act work, then the anatomy facts the persistent controller
-## polls outside the act. `idle_perf` only times the idle window.
+## polls outside the act.
 func tick(delta: float) -> void:
-	var started := Time.get_ticks_usec()
-	var idle_gate := session.idle_perf and session.state == State.IDLE
+	PERF.begin("runtime_physics")
 	_tick(delta)
-	var sync_started := Time.get_ticks_usec() if idle_gate else 0
+	PERF.begin("runtime_anatomy_sync")
 	context.anatomy.bind(context.anatomy_host)
 	context.anatomy.sync_facts()
-	if idle_gate:
-		host.perf_note("runtime_anatomy_sync", Time.get_ticks_usec() - sync_started)
-	if probe != null and probe.on():
-		host.perf_note("runtime_physics", Time.get_ticks_usec() - started)
+	PERF.end("runtime_anatomy_sync")
+	PERF.end("runtime_physics")
 
 
 ## The ordered act work. The handover owns the pause overlay: a suspended act runs nothing until
@@ -62,18 +58,18 @@ func _tick(delta: float) -> void:
 		return
 	session.tick_clock(delta)
 	if session.state != State.IDLE:
-		var pose_started := Time.get_ticks_usec()
+		PERF.begin("pose_tick")
 		context.pose.tick(delta)
-		_timed("pose_tick", pose_started)
-	var facts_started := Time.get_ticks_usec()
+		PERF.end("pose_tick")
+	PERF.begin("runtime_facts")
 	session.refresh_view()
-	_timed("runtime_facts", facts_started)
+	PERF.end("runtime_facts")
 	if session.state != State.IDLE:
-		var fanout_started := Time.get_ticks_usec()
+		PERF.begin("pose_fanout")
 		_fanout()
-		_timed("pose_fanout", fanout_started)
+		PERF.end("pose_fanout")
 	if session.state == State.IDLE:
-		idle.tick(delta, session.idle_perf)
+		idle.tick(delta)
 		return
 	if not is_instance_valid(host.pony) or not is_instance_valid(WORLD.game):
 		exit.force_stop()
@@ -94,31 +90,31 @@ func _tick(delta: float) -> void:
 	context.camera.tick_lean(delta, tree != null and tree.paused,
 		session.input.auto_panel_open())
 	if session.state in [State.POSING_IN, State.ACTIVE, State.CLIMAX, State.AFTERGLOW]:
-		var presentation_started := Time.get_ticks_usec()
+		PERF.begin("runtime_presentation")
 		phases.presentation(delta)
-		_timed("runtime_presentation", presentation_started)
+		PERF.end("runtime_presentation")
 	if session.state in [State.POSING_IN, State.ACTIVE]:
 		if context.consent.tick(delta) == ACT_CONSENT.STOP:
 			context.consent.stop_with_her(context.consent.stop_kind)
 	phases.log_settled()
-	var kiss_started := Time.get_ticks_usec()
+	PERF.begin("kiss_tick")
 	context.kiss.tick(delta)
-	_timed("kiss_tick", kiss_started)
+	PERF.end("kiss_tick")
 	if session.state in [State.ACTIVE, State.CLIMAX]:
-		var ai_started := Time.get_ticks_usec()
+		PERF.begin("runtime_ai")
 		context.impact.auto_advance(delta)
 		context.impact.tick()
-		_timed("runtime_ai", ai_started)
+		PERF.end("runtime_ai")
 		if context.anatomy.act_available():
 			context.anatomy.bind(context.anatomy_host)
 			context.anatomy.tick(delta)
 		if session.state == State.ACTIVE:
-			var talk_started := Time.get_ticks_usec()
+			PERF.begin("runtime_talk")
 			context.readiness.tick(delta)
 			talk(delta)
 			context.handover.offer_tick()
 			context.dialogue.bystander_tick(delta)
-			_timed("runtime_talk", talk_started)
+			PERF.end("runtime_talk")
 	if session.state in [State.ACTIVE, State.CLIMAX, State.AFTERGLOW, State.RESTORE]:
 		context.dialogue.tick()
 	var phase: int = session.tick_timers(delta)
@@ -139,7 +135,7 @@ func _tick(delta: float) -> void:
 	if session.state == State.AFTERGLOW:
 		context.afterglow.phase_tick(delta, context.anatomy, context.anatomy_host,
 			session.pose_family() == "standing")
-	var camera_started := Time.get_ticks_usec()
+	PERF.begin("runtime_camera")
 	context.standing_camera.lock_facing()
 	context.standing_camera.drive_glance(delta)
 	context.gate.suppress_auto_cuddle()
@@ -148,17 +144,17 @@ func _tick(delta: float) -> void:
 	context.standing_anon.tick_phase(delta)
 	context.reactions.blush_tick(delta)
 	session.apply_camera_motion()
-	_timed("runtime_camera", camera_started)
+	PERF.end("runtime_camera")
 	if session.state in [State.POSING_IN, State.ACTIVE, State.CLIMAX, State.AFTERGLOW] \
 			and session.consume_check_clock(delta):
 		var verdict: Variant = context.gate.running_verdict(context.hold.nav, session.bed,
 			session.player_pony, context.kiss.base_active())
 		if not verdict.ok:
 			exit.stop(verdict.reason)
-	var face_started := Time.get_ticks_usec()
+	PERF.begin("runtime_face")
 	context.face.eyes_for(session.state, context.afterglow.close_rewarded,
 		context.kiss.eyes_active())
-	_timed("runtime_face", face_started)
+	PERF.end("runtime_face")
 
 
 ## One talk turn: the handover's form reading and the readiness score read the same director turn.
@@ -196,7 +192,7 @@ static func _changed(owner: Variant, view: Variant) -> void:
 ## One render frame: the pose write, the look target, the shot and the breath. Idle keeps only the
 ## standing presentation's own render pass; a suspended act returns first.
 func render(delta: float) -> void:
-	var started := Time.get_ticks_usec()
+	PERF.begin("runtime_process")
 	if session.state == State.IDLE:
 		context.presentation.process()
 	elif not context.handover.suspended:
@@ -211,12 +207,4 @@ func render(delta: float) -> void:
 		context.camera.tick_shot(delta, session.state, context.standing_camera.speed(),
 			session.climax_progress())
 		context.audio.tick(delta, session.state, context.readiness.thrusts_per_second())
-	if probe != null and probe.on():
-		host.perf_note("runtime_process", Time.get_ticks_usec() - started)
-		probe.tick(delta)
-
-
-## Time one call site for the probes; the probe owns the reporting window.
-func _timed(key: String, started: int) -> void:
-	if probe != null:
-		probe.time(key, started)
+	PERF.end("runtime_process")

@@ -11,7 +11,6 @@ const WORLD := preload("res://mods/unfplap/world/service.gd")
 var node: Node
 ## The presented body. The runtime's pony setter keeps it in step.
 var pony: Node
-var perf_sink: Callable = Callable()
 ## The tail-tuck node the exit starts and the runtime clears. It needs the runtime node to host
 ## the pose-scope node, so it stays a typed host op rather than a service call.
 var _tail_tuck: Node = null
@@ -110,11 +109,6 @@ func near_mesh() -> Variant:
 
 func tier() -> Variant:
 	return pony.get("sim_tier") if is_instance_valid(pony) else null
-
-
-func perf_note(key: String, usec: int) -> void:
-	if perf_sink.is_valid():
-		perf_sink.call(key, usec)
 
 
 ## Start the aftercare tail tuck on the host's node. The pose-scope node needs the runtime as its

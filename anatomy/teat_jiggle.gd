@@ -8,10 +8,10 @@ const INERTIA := 0.08
 const MAX_ACCELERATION := 60.0
 const TELEPORT_SPEED := 6.0
 const MAX_SWAY_M := 0.014
+const PERF := preload("res://mods/unfplap/shared/perf.gd")
 
 var material: ShaderMaterial
 var skeleton: Skeleton3D
-var perf_note := Callable()
 ## integration: bigger ones swing further.
 var swing := 1.0
 ## integration: a heavier pair (the princesses) settles slower: the spring and its damping are
@@ -29,10 +29,11 @@ var _last_velocity := Vector3.ZERO
 func _physics_process(delta: float) -> void:
 	if not is_instance_valid(skeleton) or not is_instance_valid(material) or delta <= 0.0:
 		return
-	var started := Time.get_ticks_usec()
+	PERF.begin("teat_jiggle")
 	if _hips < 0:
 		_hips = skeleton.find_bone("pony_hips")
 		if _hips < 0:
+			PERF.end("teat_jiggle")
 			return
 	var at: Vector3 = skeleton.global_transform * skeleton.get_bone_global_pose(_hips).origin
 	var velocity := Vector3.ZERO if _last_position == Vector3.INF else (at - _last_position) / delta
@@ -51,5 +52,4 @@ func _physics_process(delta: float) -> void:
 		side.lag = lag
 		side.speed = speed
 		material.set_shader_parameter(side.uniform, to_local * lag)
-	if perf_note.is_valid():
-		perf_note.call("teat_jiggle", Time.get_ticks_usec() - started)
+	PERF.end("teat_jiggle")

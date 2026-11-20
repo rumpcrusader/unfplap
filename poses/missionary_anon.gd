@@ -27,6 +27,7 @@ const MOUTH_OFFSET := Vector3(0.0, -0.07, -0.02)
 const HOLD_BLEND_S := 0.35
 const HOLD_RELEASE_S := 0.35
 const LOG := preload("res://mods/unfplap/shared/log.gd")
+const PERF := preload("res://mods/unfplap/shared/perf.gd")
 
 ## The typed act view. Every live value and callback comes through it; the runtime node is never
 ## read directly.
@@ -700,8 +701,8 @@ func _solve_hand(name: String, target: Vector3, hand_basis: Basis, natural := fa
 	# authored arm and mattress contact.
 	var caress := natural
 	var stretch := 1.0
-	var arm_started := Time.get_ticks_usec()
 	if caress:
+		PERF.begin("caress_arm")
 		var shoulder_cap := maxf(float(SETTINGS.caress_reach_shoulder_m.get_num()), 0.0)
 		var plan := REACH_PLAN.plan(shoulder, upper_len, lower_len, target, 1.0,
 			shoulder_cap, 0.0)
@@ -723,6 +724,8 @@ func _solve_hand(name: String, target: Vector3, hand_basis: Basis, natural := fa
 	var to_target := target - shoulder
 	var raw := to_target.length()
 	if raw < 0.001:
+		if caress:
+			PERF.end("caress_arm")
 		return
 	var dir := to_target / raw
 	var distance := clampf(raw, absf(upper_len_eff - lower_len_eff) + 0.001,
@@ -758,8 +761,8 @@ func _solve_hand(name: String, target: Vector3, hand_basis: Basis, natural := fa
 	RIG.set_global(skeleton, lower,
 		Transform3D(Basis(q2) * lower_g.basis.orthonormalized(), lower_g.origin))
 	RIG.set_global(skeleton, hand, Transform3D(hand_basis, target))
-	if caress and facts != null:
-		facts.perf("caress_arm", Time.get_ticks_usec() - arm_started)
+	if caress:
+		PERF.end("caress_arm")
 
 
 ## The game's regular desktop arm pole: the elbow bends below the shoulder-to-wrist line with room

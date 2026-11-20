@@ -24,6 +24,7 @@ const MARE_BITS_PATH := ASSET_DIR + "mare_bits_v2.scn"
 const TEATS_PATH := ASSET_DIR + "teats.scn"
 const STRIP_PATH := ASSET_DIR + "skin_bridge.scn"
 const LOG := preload("res://mods/unfplap/shared/log.gd")
+const PERF := preload("res://mods/unfplap/shared/perf.gd")
 
 var pony: Node3D
 ## The typed runtime context. The controller never reads the runtime node.
@@ -132,7 +133,7 @@ func setup(pony_node: Node3D, facts_node: RefCounted, service_node: Node = null,
 	placement.setup(pony)
 	coat_line.setup(pony, placement)
 	appearance = APPEARANCE.new()
-	appearance.setup(pony, shapes, dock_refresh, facts.perf_note)
+	appearance.setup(pony, shapes, dock_refresh)
 	appearance.set_form(form())
 	_read_hull_settings()
 	_read_toggles()
@@ -144,8 +145,6 @@ func set_facts(facts_node: RefCounted) -> void:
 	facts = facts_node if facts_node != null else FACTS.new()
 	if attach != null:
 		attach.facts = facts
-	if appearance != null:
-		appearance.set_perf(facts.perf_note)
 
 
 ## The body form the controller measures from: the body-change service's form, or the default own
@@ -321,39 +320,31 @@ func _attach() -> void:
 
 
 func _process(delta: float) -> void:
-	# The idle probe times the whole process. `process_started` stays 0 during an act so the act
-	# probe keeps the rows it had before this chunk existed.
-	var process_started := Time.get_ticks_usec() if facts.perf_on and facts.state == 0 else 0
+	PERF.begin("anatomy_process")
 	_heat_idle_tick(delta)
 	coat.tick()
 	coat.tick_debug()
 	placement.tick(_missionary_pose(), _pose_depth(), _bed_frame())
-	var line_started := Time.get_ticks_usec()
+	PERF.begin("anatomy_coat_line")
 	coat_line.set_enabled(_coat_line_on)
 	coat_line.tick(attach.visible())
-	facts.perf("anatomy_coat_line", Time.get_ticks_usec() - line_started)
+	PERF.end("anatomy_coat_line")
 	_tick_line_debug(delta)
 	_visibility_clock -= delta
 	if _visibility_clock > 0.0:
-		_note_process(process_started)
+		PERF.end("anatomy_process")
 		return
 	_visibility_clock = ATTACH.VISIBILITY_POLL_S
 	_apply_place()
 	shapes.refresh_anal()
 	if appearance != null:
 		appearance.apply_strip_scale()
-	var started := Time.get_ticks_usec()
+	PERF.begin("anatomy_visibility")
 	attach.apply_visibility(_act_visible())
-	facts.perf("anatomy_visibility", Time.get_ticks_usec() - started)
+	PERF.end("anatomy_visibility")
 	# After visibility, so the vulva coat cut opens and closes with the mesh in the same poll.
 	_apply_body_coat()
-	_note_process(process_started)
-
-
-## The idle probe's whole-process chunk. `started` is 0 outside idle, so an act reports no row.
-func _note_process(started: int) -> void:
-	if started > 0:
-		facts.perf("anatomy_process", Time.get_ticks_usec() - started)
+	PERF.end("anatomy_process")
 
 
 ## integration: the visibility pill. `act` shows her only during the act's states: POSING_IN,

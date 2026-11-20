@@ -35,8 +35,6 @@ var _contact_seen := false
 ## access so a suite can build a runtime without entering the tree.
 func bind(host_in: ACT_HOST) -> void:
 	host = host_in
-	facts.perf_note = host.perf_note()
-	facts.perf_on = host.perf_enabled()
 	facts.body_coat_smack = host.body_coat_smack()
 
 

@@ -33,6 +33,7 @@ const JIGGLE_BASE_BOB_FREQ := 24.0
 const JIGGLE_BASE_BOB_DECAY := 3.6
 const JIGGLE_BASE_BOB_DELAY := 0.035
 const JIGGLE_BASE_NORMAL := 0.8
+const PERF := preload("res://mods/unfplap/shared/perf.gd")
 
 var mare: Node3D
 ## The typed act view: the live depth and the perf callback. Absent outside an act.
@@ -164,10 +165,9 @@ func _flick_angle(delta: float) -> float:
 
 
 func _process_modification_with_delta(delta: float) -> void:
-	var started := Time.get_ticks_usec()
+	PERF.begin("tail_pose")
 	_apply(delta)
-	if facts != null:
-		facts.perf("tail_pose", Time.get_ticks_usec() - started)
+	PERF.end("tail_pose")
 
 
 func _apply(delta: float) -> void:

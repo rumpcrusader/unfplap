@@ -157,18 +157,17 @@ func close_hint(session: ACT_SESSION, pose_family: String) -> String:
 	return context.afterglow.hint()
 
 
-func apply_live(session: ACT_SESSION) -> bool:
-	var perf := LOG.enabled and LOG.debug_perf
+func apply_live(session: ACT_SESSION) -> void:
 	var settings: Variant = session.settings
 	# Read the pre-edit mute before the snapshot replaces `features`.
 	var previous_mute: bool = settings.muted()
 	session.snapshot_settings()
 	if settings.suspended():
-		return perf
+		return
 	if session.state == State.IDLE:
 		refresh(context.facts, session)
 		settings.apply_idle_live()
-		return perf
+		return
 	settings.apply_act_live_pre()
 	refresh(context.facts, session)
 	var live_preferences: Dictionary = settings.live_preferences(session.pony_id)
@@ -180,7 +179,6 @@ func apply_live(session: ACT_SESSION) -> bool:
 		sync_hud(context.facts, session, settings.max_pony_climaxes, session.cycle_heat,
 			session.pose_family())
 		HUD.instance.update_from(context.facts)
-	return perf
 
 
 func reset_act_state(session: ACT_SESSION) -> void:

@@ -9,6 +9,7 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
+const PERF := preload("res://mods/unfplap/shared/perf.gd")
 const HUD := preload("res://mods/unfplap/hud/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const NEGOTIATION := preload("res://mods/unfplap/negotiation/service.gd")
@@ -96,18 +97,15 @@ func bind(negotiation_node: Node, privacy_node: PRIVACY, hud_node: Node) -> void
 ## One idle frame: the scan cadence, the hint that follows it and the Agreement auto-start clock.
 ## The act key's immediate rescan is `scan()`.
 func tick(delta: float) -> void:
-	var timed := LOG.idle_on()
 	_offer_clock += delta
 	if _offer_clock >= OFFER_SCAN_S:
 		_offer_clock = 0.0
-		var scan_started := Time.get_ticks_usec() if timed else 0
+		PERF.begin("offer_scan")
 		scan()
-		if timed:
-			LOG.close("offer_scan", scan_started)
-	var hint_started := Time.get_ticks_usec() if timed else 0
+		PERF.end("offer_scan")
+	PERF.begin("entry_hint")
 	_sync_native_hint(_hint_text())
-	if timed:
-		LOG.close("entry_hint", hint_started)
+	PERF.end("entry_hint")
 	_tick_agreement_auto_start(delta)
 
 
@@ -387,18 +385,15 @@ func scan() -> void:
 
 	# Standing: Anon in the cone behind her rump, no crosshair aim. Only clearance and the scene
 	# rows make her ready.
-	var timed := LOG.idle_on()
-	var cone_started := Time.get_ticks_usec() if timed else 0
+	PERF.begin("offer_cone")
 	var standing: Node = _rump_cone_target(view)
-	if timed:
-		LOG.note("offer_cone", Time.get_ticks_usec() - cone_started)
+	PERF.end("offer_cone")
 	if is_instance_valid(standing):
 		var runtime: Node = PONIES.runtime_for(standing)
 		if is_instance_valid(runtime):
-			var gate_started := Time.get_ticks_usec() if timed else 0
+			PERF.begin("offer_gate")
 			var ready := _standing_ready(standing, runtime)
-			if timed:
-				LOG.note("offer_gate", Time.get_ticks_usec() - gate_started)
+			PERF.end("offer_gate")
 			if ready:
 				_offer = _new_offer(runtime, standing, CATALOG.STANDING, "", null)
 				_log_offer()

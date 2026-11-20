@@ -28,6 +28,7 @@ const PROCESS_PRIORITY := 100
 ## The debug heatmap sits this far in front of the field surface (anatomy-local metres).
 const OVERLAY_Z_LIFT := 0.0015
 const OVERLAY_ALPHA := 0.78
+const PERF := preload("res://mods/unfplap/shared/perf.gd")
 
 
 ## One garment node's saved overrides, so a feature-off, a mod-off or a world close restores
@@ -192,12 +193,11 @@ func rebuild_hull() -> String:
 	var anatomy := _anatomy()
 	if anatomy == null or not anatomy.has_method("garment_hull_rebuild"):
 		return "No anatomy service."
-	var started := Time.get_ticks_usec()
+	PERF.begin("garment_hull")
 	anatomy.call("garment_hull_rebuild")
 	scan()
-	var usec := Time.get_ticks_usec() - started
-	if usec > 0:
-		LOG.debug("[pantyhose] " + "garment hull rebuilt in %.2f ms", [(float(usec) / 1000.0)])
+	PERF.end("garment_hull")
+	LOG.debug("[pantyhose] " + "garment hull rebuilt")
 	return "Garment hull rebuilt."
 
 

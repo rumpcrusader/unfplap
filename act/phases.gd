@@ -7,6 +7,7 @@ extends RefCounted
 const ACT_HOST := preload("res://mods/unfplap/act/host.gd")
 const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")
 const ACT_SESSION := preload("res://mods/unfplap/act/session.gd")
+const PERF := preload("res://mods/unfplap/shared/perf.gd")
 const ACT_FACE := preload("res://mods/unfplap/shared/act_face.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 
@@ -38,10 +39,10 @@ func presentation(delta: float) -> void:
 	if boop != null and boop.has_method("sustain_blush"):
 		boop.call("sustain_blush", ACT_FACE.blush_for(ACT_FACE.phase_for(session.state),
 			context.readiness.satisfaction, session.feature("blush_arc")))
-	var wings_started := Time.get_ticks_usec()
+	PERF.begin("wings_tick")
 	context.wings.tick(delta, str(context.pose.view().family), context.readiness.satisfaction,
 		session.act_seconds())
-	host.perf_note("wings_tick", Time.get_ticks_usec() - wings_started)
+	PERF.end("wings_tick")
 	context.integrations.tick(delta)
 
 

@@ -19,7 +19,6 @@ const PLACEMENT_EDITOR := preload("res://mods/unfplap/anatomy/placement_editor.g
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const GARMENT_HULL := preload("res://mods/unfplap/anatomy/garment_hull.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
-const LOG := preload("res://mods/unfplap/shared/log.gd")
 const HUD := preload("res://mods/unfplap/hud/service.gd")
 
 ## A per-act handle was built; a world integration can undress on it.
@@ -49,11 +48,8 @@ func setup() -> void:
 	add_child(tail_visibility)
 	tail_seat = TAIL_SEAT.new()
 	tail_seat.name = "UnfplapTailSeat"
-	var perf_call := func() -> bool:
-		return LOG.debug_perf
 	var eligible_tail := func(pony_node: Node) -> bool:
 		return _eligible_target(pony_node, ELIGIBILITY.Target.TAIL)
-	tail_seat.set("perf_on", perf_call)
 	tail_seat.set("eligible", eligible_tail)
 	add_child(tail_seat)
 	CHANGE.on_changed(Callable(self, "apply_settings"))

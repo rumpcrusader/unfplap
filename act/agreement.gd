@@ -6,6 +6,7 @@ extends RefCounted
 
 const ACT_HOST := preload("res://mods/unfplap/act/host.gd")
 const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")
+const PERF := preload("res://mods/unfplap/shared/perf.gd")
 const ACT_SESSION := preload("res://mods/unfplap/act/session.gd")
 const ACT_START := preload("res://mods/unfplap/act/start.gd")
 const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
@@ -93,9 +94,9 @@ func hotkey_ready(pose: String, act_source: String, bed_in: Variant = null) -> b
 	var pair := Vector2i(-1, -1)
 	if stool_act != null:
 		pair = stool_act.call("hotkey_pair", pose)
-	var started := Time.get_ticks_usec()
+	PERF.begin("offer_rows")
 	var allowed: bool = context.gate.hotkey_ready(pose, act_source, bed_in, pair)
-	host.perf_note("offer_rows", Time.get_ticks_usec() - started)
+	PERF.end("offer_rows")
 	return allowed
 
 

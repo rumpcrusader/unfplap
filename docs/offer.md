@@ -197,6 +197,7 @@ Agreement does not start on a stale answer.
 | service | world | `world/service.gd` | player, camera, mares, headset, menu panel and pause |
 | shared | act_keys | `shared/act_keys.gd` | the act key's key cap label |
 | shared | log | `shared/log.gd` | the offer and start lines and the idle offer chunks |
+| shared | perf | `shared/perf.gd` | perf probe |
 | shared | pony_id | `shared/pony_id.gd` | the mare id in the start log lines |
 | shared | pose_catalog | `shared/pose_catalog.gd` | the two offerable pose ids |
 | shared | pose_offer | `shared/pose_offer.gd` | the typed act offer |

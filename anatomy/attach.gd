@@ -197,7 +197,6 @@ func fluid() -> Node3D:
 		fluid_node = CLIMAX_FLUID.new()
 		fluid_node.name = FLUID_NAME
 		pony.add_child(fluid_node)
-	fluid_node.set("perf_note", facts.perf_note if facts != null else Callable())
 	fluid_node.set("skeleton", pony.get("skeleton"))
 	fluid_node.set("body_scale",
 		float(pony.get("body_scale")) if pony.get("body_scale") != null else 1.0)

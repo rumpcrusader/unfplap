@@ -12,6 +12,7 @@ const COOLDOWN_MIN_S := 0.45
 const COOLDOWN_MAX_S := 1.80
 const TWITCH_GAIN_MIN := 0.75
 const TWITCH_GAIN_MAX := 1.15
+const PERF := preload("res://mods/unfplap/shared/perf.gd")
 
 var mare: Node3D
 ## The typed act view: the perf callback. Absent outside an act.
@@ -72,10 +73,9 @@ func try_trigger(strength: float) -> void:
 
 
 func _process_modification_with_delta(delta: float) -> void:
-	var started := Time.get_ticks_usec()
+	PERF.begin("ear_twitch")
 	_apply(delta)
-	if facts != null:
-		facts.perf("ear_twitch", Time.get_ticks_usec() - started)
+	PERF.end("ear_twitch")
 
 
 func _apply(delta: float) -> void:

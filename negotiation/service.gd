@@ -17,6 +17,7 @@ const WORLD := preload("res://mods/unfplap/world/service.gd")
 const CLEARANCE := preload("res://mods/unfplap/shared/clearance.gd")
 const CONTEXT := preload("res://mods/unfplap/shared/context.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
+const PERF := preload("res://mods/unfplap/shared/perf.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const POSE_OPTIONS := preload("res://mods/unfplap/shared/pose_options.gd")
 const POSE_PLACEMENT := preload("res://mods/unfplap/shared/pose_placement.gd")
@@ -267,12 +268,10 @@ func agreement() -> AGREEMENT.Package:
 ## watch keeps its own perf chunk, so a stalled watch stays visible next to the exchange.
 func tick(delta: float) -> void:
 	_tick_offer(delta)
-	var timed := LOG.idle_on()
-	var started := Time.get_ticks_usec() if timed else 0
+	PERF.begin("entry_watch")
 	if _bridge != null:
 		_bridge.tick_watch()
-	if timed:
-		LOG.close("entry_watch", started)
+	PERF.end("entry_watch")
 
 
 func _tick_offer(delta: float) -> void:

@@ -27,6 +27,7 @@ const DOCK_SETTLE_S := 0.12
 const PLACEMENT_KEYS := [["tail_y", 0.0], ["tail_z", 0.0], ["dock_y", 0.0],
 	["dock_scale", 1.0], ["tail_tilt_deg", 0.0]]
 const LOG := preload("res://mods/unfplap/shared/log.gd")
+const PERF := preload("res://mods/unfplap/shared/perf.gd")
 
 ## One mare's seat: the measured anchor and cap, the cached originals and the live placement.
 class SeatRow:
@@ -67,7 +68,6 @@ class SeatRow:
 		return reference_anchor + Vector3(0.0, tail_y, tail_z)
 
 
-var perf_on := Callable()
 ## The anatomy facade's capability answer for this pony (identity + tail participation).
 var eligible := Callable()
 
@@ -92,11 +92,10 @@ func _ready() -> void:
 	_settle.wait_time = DOCK_SETTLE_S
 	_settle.timeout.connect(_flush_dirty)
 	add_child(_settle)
-	set_process(_perf_on())
 
 
 func _process(delta: float) -> void:
-	if not _perf_on():
+	if not PERF.enabled:
 		_perf_window = 0.0
 		return
 	_perf_window += delta
@@ -194,23 +193,15 @@ func attach(pony: Node, form: BODY_FORM.BodyForm = null) -> void:
 		_rows[pony] = off_row
 		pony.tree_exiting.connect(func() -> void: _forget(pony))
 		return
-	var started := Time.get_ticks_usec()
+	PERF.begin("tail_attach")
 	var row := _prepare(pony, form)
 	if row == null:
+		PERF.end("tail_attach")
 		return
-	var prepared := Time.get_ticks_usec()
 	_rows[pony] = row
 	pony.tree_exiting.connect(func() -> void: _forget(pony))
 	_apply(row)
-	var done := Time.get_ticks_usec()
-	if _perf_on():
-		var verts := 0
-		if is_instance_valid(row.dock) and row.dock.mesh != null:
-			var arrays: Array = row.dock.mesh.surface_get_arrays(0)
-			if arrays[Mesh.ARRAY_VERTEX] is PackedVector3Array:
-				verts = (arrays[Mesh.ARRAY_VERTEX] as PackedVector3Array).size()
-		LOG.debug("tail perf attach %s prepare=%dus apply=%dus verts=%d", [
-			row.id, prepared - started, done - prepared, verts])
+	PERF.end("tail_attach")
 	LOG.debug("tail seat %s anchor=(%.3f,%.3f,%.3f) delta=(%.3f,%.3f,%.3f)", [
 		row.id, row.anchor.x, row.anchor.y, row.anchor.z,
 		row.applied.x, row.applied.y, row.applied.z])
@@ -291,8 +282,6 @@ func refresh_all() -> void:
 	var dock_style := SETTINGS.dock_style.get_choice()
 	var style_changed := dock_style != _dock_style
 	_dock_style = dock_style
-	set_process(_perf_on())
-	var started := Time.get_ticks_usec()
 	var checked := 0
 	var rebuilt := 0
 	for pony: Variant in _rows.keys():
@@ -355,9 +344,8 @@ func refresh_all() -> void:
 		else:
 			_apply_lift(row)
 		rebuilt += 1
-	if _perf_on() and rebuilt > 0:
-		LOG.debug("tail perf refresh checked=%d rebuilt=%d usec=%d", [
-			checked, rebuilt, Time.get_ticks_usec() - started])
+	if PERF.enabled and rebuilt > 0:
+		LOG.debug("tail perf refresh checked=%d rebuilt=%d", [checked, rebuilt])
 	if style_changed:
 		for pony: Variant in _rows.keys():
 			if is_instance_valid(pony):
@@ -813,10 +801,6 @@ func _invalidate_far(pony: Node) -> void:
 	if bool(pony.get("_far_mesh_shown")) and pony.is_inside_tree() \
 			and pony.has_method("set_near_mesh"):
 		pony.call("set_near_mesh", true)
-
-
-func _perf_on() -> bool:
-	return perf_on.is_valid() and bool(perf_on.call())
 
 
 func _log_perf() -> void:

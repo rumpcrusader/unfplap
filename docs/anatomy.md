@@ -973,6 +973,7 @@ stay event-time reads.
 | service | vr | `vr/service.gd` | VR act controls |
 | service | world | `world/service.gd` | the player body and the live scene |
 | shared | act_state | `shared/act_state.gd` | act state constants |
+| shared | perf | `shared/perf.gd` | perf probe |
 | shared | pose_catalog | `shared/pose_catalog.gd` | the standing oral edge ids |
 | shared | anatomy_placement | `shared/anatomy_placement.gd` | placement defaults |
 | shared | body_binding | `shared/body_binding.gd` | the anatomy body binding base |

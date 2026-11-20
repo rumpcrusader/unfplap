@@ -9,6 +9,7 @@ const HAND := preload("res://mods/unfplap/hands/palm.gd")
 const MISSIONARY_CARESS_LATERAL_M := 0.045
 const MISSIONARY_CARESS_PALM_ROLL_DEG := 30.0
 const LOG := preload("res://mods/unfplap/shared/log.gd")
+const PERF := preload("res://mods/unfplap/shared/perf.gd")
 
 var _paths: Dictionary = {}
 var _last_world: Dictionary = {}
@@ -135,17 +136,16 @@ func _path_for(hand_side: String) -> Variant:
 	var path: Variant = _paths.get(key)
 	if path != null and bool(path.get("valid")):
 		return path
-	var started := Time.get_ticks_usec()
+	PERF.begin("caress_path")
 	path = PATH.new()
 	var built := bool(path.call("build", pony, hand_side, _camera_position(), path_id))
-	report_path_build(started)
+	PERF.end("caress_path")
 	if not built:
 		return null
 	_paths[key] = path
 	if bool(SETTINGS.caress_debug.get_bool()):
-		LOG.debug("caress path side=%s path=%s anchors=%d build_ms=%.1f", [hand_side,
-			path_id, (path.get("anchors") as Array).size(),
-			float(Time.get_ticks_usec() - started) / 1000.0])
+		LOG.debug("caress path side=%s path=%s anchors=%d", [hand_side,
+			path_id, (path.get("anchors") as Array).size()])
 		for note: Variant in (path.get("debug_notes") as Array):
 			LOG.debug("caress " + str(note))
 		var world: Array = path.call("skinned")

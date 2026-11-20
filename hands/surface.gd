@@ -6,6 +6,7 @@ extends RefCounted
 ## posed positions belong to one patch.
 
 const CACHE_LIMIT := 12
+const PERF := preload("res://mods/unfplap/shared/perf.gd")
 ## The local window keeps at most this many faces; a dense source body would otherwise pay
 ## for every face it contains on each closest query and skin.
 const LOCAL_FACE_BUDGET := 384
@@ -36,12 +37,6 @@ var source: Dictionary = {}
 var skeleton: Skeleton3D
 var faces := PackedVector3Array()
 var vertex_normals := PackedVector3Array()
-var build_us := 0
-var query_us := 0
-var skin_us := 0
-var tri_us := 0
-var blur_us := 0
-var closest_us := 0
 var ray_hits := 0
 var ray_misses := 0
 var source_key := ""
@@ -140,11 +135,11 @@ func select(point: Vector3) -> bool:
 		var core := _local_radius * LOCAL_CORE_SCALE
 		if local_point.distance_squared_to(_local_center) <= core * core:
 			return true
-	var started := Time.get_ticks_usec()
+	PERF.begin("caress_select")
 	var collected := _collect_faces(local_point)
 	if collected.is_empty():
 		# Off-source: spending the whole coat here would cost a dense body its full skin every tick.
-		_perf_note("caress_select", Time.get_ticks_usec() - started)
+		PERF.end("caress_select")
 		if full_fallback:
 			if _local_valid:
 				_local_valid = false
@@ -152,15 +147,16 @@ func select(point: Vector3) -> bool:
 			return true
 		return false
 	_build_local(collected, local_point)
-	_perf_note("caress_select", Time.get_ticks_usec() - started)
+	PERF.end("caress_select")
 	return true
 
 
 ## Build a stable patch for a body region, anchored to the rig's rest pose rather than the query.
 ## Returns false when the pony, rig or region is unavailable.
 func ensure(pony: Variant, region: String, radius := 0.0) -> bool:
-	var started := Time.get_ticks_usec()
+	PERF.begin("caress_ensure")
 	if not is_instance_valid(pony):
+		PERF.end("caress_ensure")
 		return false
 	# The same pony and region keep the same mesh, skeleton and rest anchor; skip the scene-tree
 	# lookup and key build on every hand call.
@@ -168,14 +164,16 @@ func ensure(pony: Variant, region: String, radius := 0.0) -> bool:
 			and is_equal_approx(_radius, radius) and not source.is_empty() \
 			and is_instance_valid(_mesh) and _mesh.get_instance_id() == _mesh_id \
 			and is_instance_valid(skeleton) and skeleton.get_instance_id() == _skeleton_id:
-		_perf_note("caress_ensure", Time.get_ticks_usec() - started)
+		PERF.end("caress_ensure")
 		return true
 	var found := find_mesh(pony, region)
 	if found.is_empty():
+		PERF.end("caress_ensure")
 		return false
 	var mesh: MeshInstance3D = found["mesh"]
 	var sk: Variant = found["skeleton"]
 	if not sk is Skeleton3D:
+		PERF.end("caress_ensure")
 		return false
 	skeleton = sk as Skeleton3D
 	_mesh = mesh
@@ -186,6 +184,7 @@ func ensure(pony: Variant, region: String, radius := 0.0) -> bool:
 	_radius = radius
 	var anchor := _region_anchor(skeleton, region)
 	if anchor.is_empty():
+		PERF.end("caress_ensure")
 		return false
 	var local_center: Vector3 = anchor["center"]
 	var use_radius: float = radius if radius > 0.0 else float(anchor["radius"])
@@ -205,6 +204,7 @@ func ensure(pony: Variant, region: String, radius := 0.0) -> bool:
 			source = _gather(mesh, region, local_center, use_radius, skeleton)
 			if source.is_empty() or (source.get("vertices", []) as Array).is_empty():
 				source = {}
+				PERF.end("caress_ensure")
 				return false
 			_source_cache[cache_key] = source
 			_cache_order.append(cache_key)
@@ -213,7 +213,7 @@ func ensure(pony: Variant, region: String, radius := 0.0) -> bool:
 				_source_cache.erase(old)
 		_flatten()
 		_last_update = -1
-	_perf_note("caress_ensure", Time.get_ticks_usec() - started)
+	PERF.end("caress_ensure")
 	return not source.is_empty() and not (source.get("vertices", []) as Array).is_empty()
 
 
@@ -229,7 +229,7 @@ func update_pose(force := false) -> void:
 	var now := Time.get_ticks_msec()
 	if not force and not _soup_dirty and _last_update >= 0 and now - _last_update < update_ms:
 		return
-	var started := Time.get_ticks_usec()
+	PERF.begin("caress_skin")
 	var base := skeleton.global_transform
 	var count := _bindings.size()
 	if _scratch.size() != count:
@@ -249,6 +249,7 @@ func update_pose(force := false) -> void:
 			changed = true
 	if not changed and not force and not _soup_dirty:
 		# The body barely moved since the last skin; keep the posed patch and retry next tick.
+		PERF.end("caress_skin")
 		return
 	var previous := _transforms
 	_transforms = _scratch
@@ -279,9 +280,7 @@ func update_pose(force := false) -> void:
 	_tri = null
 	_tri_stamp = -1
 	_last_update = now
-	skin_us = Time.get_ticks_usec() - started
-	build_us = skin_us
-	_perf_note("caress_skin", skin_us)
+	PERF.end("caress_skin")
 
 
 ## True when two bound-bone transforms differ by less than the refresh tolerance. Two basis axes
@@ -328,7 +327,7 @@ func _write_soup() -> void:
 func closest(point: Vector3) -> Dictionary:
 	if faces.is_empty():
 		return {}
-	var started := Time.get_ticks_usec()
+	PERF.begin("caress_closest")
 	var best := INF
 	var best_point := Vector3.ZERO
 	var best_normal := Vector3.ZERO
@@ -353,10 +352,9 @@ func closest(point: Vector3) -> Dictionary:
 			normal = (b - a).cross(c - a)
 		best_normal = normal.normalized()
 	if best_index < 0:
+		PERF.end("caress_closest")
 		return {}
-	closest_us = Time.get_ticks_usec() - started
-	_perf_note("caress_closest", closest_us)
-	query_us = closest_us
+	PERF.end("caress_closest")
 	return {
 		"point": best_point,
 		"normal": best_normal,
@@ -378,14 +376,14 @@ func nearest(point: Vector3, outward: Vector3) -> Dictionary:
 		return {}
 	if _soup_dirty:
 		update_pose(true)
-	var started := Time.get_ticks_usec()
+	PERF.begin("caress_ray")
 	var hit := _cast(point + normal * 0.20, point - normal * 0.20)
 	if hit.is_empty():
 		ray_misses += 1
 		if accurate_miss:
+			PERF.end("caress_ray")
 			return closest(point)
-		query_us = Time.get_ticks_usec() - started
-		_perf_note("caress_ray", query_us)
+		PERF.end("caress_ray")
 		return {
 			"point": point,
 			"normal": normal,
@@ -394,8 +392,7 @@ func nearest(point: Vector3, outward: Vector3) -> Dictionary:
 			"face": -1,
 		}
 	ray_hits += 1
-	query_us = Time.get_ticks_usec() - started
-	_perf_note("caress_ray", query_us)
+	PERF.end("caress_ray")
 	var surface: Vector3 = hit.get("position", point)
 	var hit_normal: Vector3 = hit.get("normal", normal)
 	if hit_normal.length_squared() < 0.5:
@@ -417,7 +414,7 @@ func nearest(point: Vector3, outward: Vector3) -> Dictionary:
 func normal_blur(point: Vector3, radius: float, hint: Vector3, seed := -1) -> Vector3:
 	if radius <= 0.0 or _positions.is_empty():
 		return Vector3.ZERO
-	var started := Time.get_ticks_usec()
+	PERF.begin("caress_blur")
 	var hint_normal := hint.normalized()
 	if hint_normal.length_squared() < 0.5:
 		hint_normal = Vector3.UP
@@ -440,8 +437,7 @@ func normal_blur(point: Vector3, radius: float, hint: Vector3, seed := -1) -> Ve
 		if normal.dot(hint_normal) < 0.2:
 			continue
 		sum += normal * (1.0 - distance / r2)
-	blur_us = Time.get_ticks_usec() - started
-	_perf_note("caress_blur", blur_us)
+	PERF.end("caress_blur")
 	if sum.length_squared() < 0.0001:
 		return Vector3.ZERO
 	return sum.normalized()
@@ -461,11 +457,10 @@ func _cast(from: Vector3, to: Vector3) -> Dictionary:
 	if faces.is_empty():
 		return {}
 	if _tri == null or _tri_stamp != _pose_serial:
-		var tri_started := Time.get_ticks_usec()
+		PERF.begin("caress_tri")
 		_tri = TriangleMesh.new()
 		_tri.create_from_faces(faces)
-		tri_us = Time.get_ticks_usec() - tri_started
-		_perf_note("caress_tri", tri_us)
+		PERF.end("caress_tri")
 		_tri_stamp = _pose_serial
 	var hit: Dictionary = _tri.intersect_segment(from, to)
 	if hit.is_empty():
@@ -690,11 +685,6 @@ func _blur_candidates(seed: int, radius: float) -> PackedInt32Array:
 		if front.is_empty():
 			break
 	return seen
-
-
-func _perf_note(chunk: String, usec: int) -> void:
-	if facts != null:
-		facts.perf(chunk, usec)
 
 
 func face_count() -> int:

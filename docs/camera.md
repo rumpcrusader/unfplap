@@ -274,6 +274,7 @@ takes effect when the panel closes.
 ### Uses
 | service | world | `world/service.gd` | the eye's camera |
 
+| shared | perf | `shared/perf.gd` | perf probe |
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
 | service | settings | `settings/service.gd` | settings declarations and live values |

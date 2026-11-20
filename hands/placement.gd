@@ -3,6 +3,7 @@ extends RefCounted
 ## engine applies the oval, snaps it to the coat unless the candidate is exact, smooths the
 ## contact and builds the palm frame. It never reads the pose, the input or the camera.
 
+const PERF := preload("res://mods/unfplap/shared/perf.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const SURFACE := preload("res://mods/unfplap/hands/surface.gd")
 const HAND := preload("res://mods/unfplap/hands/palm.gd")
@@ -155,14 +156,14 @@ func _place_candidate(pony: Variant, hand_side: String, candidate: Dictionary,
 func _place_precise(pony: Variant, hand_side: String, candidate: Dictionary,
 		context: Dictionary, intended: Vector3, normal: Vector3, finger: Vector3,
 		mode: String, roll: float, region: String, hover: float) -> Transform3D:
-	var surface_started := Time.get_ticks_usec()
+	PERF.begin("caress_surface")
 	var surface: Variant = _surface(pony, region, hand_side, intended)
 	if not is_instance_valid(surface):
-		_perf_note("caress_surface", Time.get_ticks_usec() - surface_started)
+		PERF.end("caress_surface")
 		return _last_or_invalid(hand_side)
 	var hit: Variant = surface.call("nearest", intended, normal)
 	if not hit is Dictionary or (hit as Dictionary).is_empty():
-		_perf_note("caress_surface", Time.get_ticks_usec() - surface_started)
+		PERF.end("caress_surface")
 		return _last_or_invalid(hand_side)
 	var hit_point: Vector3 = (hit as Dictionary).get("point", intended)
 	var hit_normal: Vector3 = (hit as Dictionary).get("normal", normal)
@@ -177,7 +178,7 @@ func _place_precise(pony: Variant, hand_side: String, candidate: Dictionary,
 		var blurred: Vector3 = surface.call("normal_blur", hit_point, blur, hit_normal, seed)
 		if blurred.length_squared() > 0.5:
 			hit_normal = blurred.normalized()
-	_perf_note("caress_surface", Time.get_ticks_usec() - surface_started)
+	PERF.end("caress_surface")
 	var delta := maxf(float(context.get("delta", 0.001)), 0.001)
 	var smoothed := _smooth_precise(_state(hand_side), intended, hit_point, hit_normal, delta)
 	var contact: Vector3 = smoothed["point"]
@@ -365,16 +366,10 @@ func _log_precise(hand_side: String, mode: String, surface: Variant, frame: Tran
 	_logged[hand_side] = true
 	var info := "anchors"
 	if is_instance_valid(surface) and surface is SURFACE:
-		info = "faces=%d/%d build_us=%d query_us=%d ray_hit=%d ray_miss=%d" % [
+		info = "faces=%d/%d ray_hit=%d ray_miss=%d" % [
 			int(surface.call("face_count")), int(surface.call("patch_face_count")),
-			int(surface.get("build_us")), int(surface.get("query_us")),
 			int(surface.get("ray_hits")), int(surface.get("ray_misses"))]
 	LOG.debug("precise caress side=%s mode=%s u=%.2f target=%s normal=%s finger=%s roll=%.0f over=%.3f surface=%s", [
 		hand_side, mode, u, str(frame.origin), str(normal), str(finger), roll_deg, hover, info])
-
-
-func _perf_note(chunk: String, usec: int) -> void:
-	if facts != null:
-		facts.perf(chunk, usec)
 
 

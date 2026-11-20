@@ -8,6 +8,7 @@ extends SkeletonModifier3D
 const BODY_SWAY_MAX_M := 0.035
 const SWAY_STIFFNESS := 90.0
 const SWAY_DAMPING := 16.0
+const PERF := preload("res://mods/unfplap/shared/perf.gd")
 
 var mare: Node3D
 ## The typed act view: the live depth and the world-space sway the standing Anon reads.
@@ -25,10 +26,9 @@ var _hook_seen := false
 
 
 func _process_modification_with_delta(delta: float) -> void:
-	var started := Time.get_ticks_usec()
+	PERF.begin("body_sway")
 	_apply(delta)
-	if facts != null:
-		facts.perf("body_sway", Time.get_ticks_usec() - started)
+	PERF.end("body_sway")
 
 
 ## The session's render-time replay: the body bones are rewritten after the modifier pass, so

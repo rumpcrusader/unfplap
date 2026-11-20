@@ -11,12 +11,12 @@ const NOD_STIFFNESS := 70.0
 const NOD_DAMPING := 15.0
 ## Flip if the slide should follow the other end of the bed on a given body orientation.
 const SLIDE_SIGN := -1.0
+const PERF := preload("res://mods/unfplap/shared/perf.gd")
 
 var mare: Node3D
 ## The typed act view: the live state and depth. Absent outside an act.
 var facts: Variant
 ## Host boundary: the modifier reports one timed chunk and writes no scene value back.
-var perf := Callable()
 
 var _spine := -1
 var _base_local_origin := Vector3.ZERO
@@ -57,10 +57,9 @@ func _process_modification_with_delta(delta: float) -> void:
 		return
 	if int(facts.state) not in [2, 3]: # ACTIVE / CLIMAX
 		return
-	var started := Time.get_ticks_usec()
+	PERF.begin("pose_prone")
 	_apply(delta)
-	if perf.is_valid():
-		perf.call("pose_prone", Time.get_ticks_usec() - started)
+	PERF.end("pose_prone")
 
 
 ## The session's render-time replay: the body bones are rewritten after the modifier pass, so

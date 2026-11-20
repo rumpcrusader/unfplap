@@ -158,7 +158,6 @@ var saved_hair: Array[Transform3D] = []
 var saved_skeleton: Skeleton3D
 var saved_hair_skeleton: Skeleton3D
 
-var perf := Callable()
 ## The typed act view the pose modifiers read for the live depth, state and bed frame.
 var facts: Variant = null
 ## Park the game presentation for the bed family, for `render_write()`.
@@ -250,7 +249,6 @@ func begin(context: Dictionary) -> bool:
 	pose_node = POSE.new()
 	pose_node.name = "UnfplapPose"
 	pose_node.mare = pony
-	pose_node.perf = perf
 	# Fill the view first: the active settings group and family drive the start config sync, not the
 	# act's start id. One live object: the sync merges the character's pose into `pose_config` in
 	# place, so the modifier, the view and the runtime share it.
@@ -1457,7 +1455,6 @@ func _install_prone_sway(skeleton: Skeleton3D) -> void:
 	prone_sway.name = "UnfplapProneSway"
 	prone_sway.set("mare", pony)
 	prone_sway.set("facts", facts)
-	prone_sway.set("perf", perf)
 	skeleton.add_child(prone_sway)
 
 

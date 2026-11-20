@@ -34,6 +34,7 @@ const STATE_ACTIVE := ACT_STATE.State.ACTIVE
 const STATE_CLIMAX := ACT_STATE.State.CLIMAX
 const STATE_AFTERGLOW := ACT_STATE.State.AFTERGLOW
 const LOG := preload("res://mods/unfplap/shared/log.gd")
+const PERF := preload("res://mods/unfplap/shared/perf.gd")
 
 ## The typed act view. Presentation modules read it; the runtime refreshes it once per phase
 ## through `refresh_view()`.
@@ -347,11 +348,10 @@ func tick_lean(delta: float, paused: bool, auto_open: bool) -> void:
 		end_lean_action()
 		if kiss != null:
 			kiss.call("lean_kiss_tick")
-		var frozen_caress := Time.get_ticks_usec()
+		PERF.begin("caress_tick")
 		if hands != null:
 			hands.call("tick", delta)
-		if facts != null:
-			facts.perf("caress_tick", Time.get_ticks_usec() - frozen_caress)
+		PERF.end("caress_tick")
 		apply_standing_lean_look()
 		return
 	var side := 0.0
@@ -391,11 +391,10 @@ func tick_lean(delta: float, paused: bool, auto_open: bool) -> void:
 	if pose_family() == "standing" or int(facts.state) != STATE_AFTERGLOW:
 		if kiss != null:
 			kiss.call("lean_kiss_tick")
-	var caress_started := Time.get_ticks_usec()
+	PERF.begin("caress_tick")
 	if hands != null:
 		hands.call("tick", delta)
-	if facts != null:
-		facts.perf("caress_tick", Time.get_ticks_usec() - caress_started)
+	PERF.end("caress_tick")
 	apply_standing_lean_look()
 
 
@@ -412,11 +411,10 @@ func oral_lean_tick(delta: float) -> void:
 	lean_block_logged = false
 	if kiss != null:
 		kiss.call("end_lean_kiss")
-	var caress_started := Time.get_ticks_usec()
+	PERF.begin("caress_tick")
 	if hands != null:
 		hands.call("tick", delta)
-	if facts != null:
-		facts.perf("caress_tick", Time.get_ticks_usec() - caress_started)
+	PERF.end("caress_tick")
 	apply_standing_lean_look()
 
 

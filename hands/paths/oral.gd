@@ -6,6 +6,7 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 
 const ORAL_PALM_ROLL_DEG := 24.0
 const LOG := preload("res://mods/unfplap/shared/log.gd")
+const PERF := preload("res://mods/unfplap/shared/perf.gd")
 
 var _paths: Dictionary = {}
 var _failed: Dictionary = {}
@@ -80,10 +81,10 @@ func _path_for(anchor_side: String) -> Variant:
 	var path: Variant = _paths.get(anchor_side)
 	if path != null and bool(path.get("valid")):
 		return path
-	var started := Time.get_ticks_usec()
+	PERF.begin("caress_path")
 	path = PATH.new()
 	var built := bool(path.call("build_single_area", pony, anchor_side, "head_side"))
-	report_path_build(started)
+	PERF.end("caress_path")
 	if not built:
 		_failed[anchor_side] = true
 		LOG.debug("caress oral head_side missing side=%s", [anchor_side])
@@ -92,8 +93,7 @@ func _path_for(anchor_side: String) -> Variant:
 		return null
 	_paths[anchor_side] = path
 	if bool(SETTINGS.caress_debug.get_bool()):
-		LOG.debug("caress path side=%s path=oral anchors=1 build_ms=%.1f", [anchor_side,
-			float(Time.get_ticks_usec() - started) / 1000.0])
+		LOG.debug("caress path side=%s path=oral anchors=1", [anchor_side])
 		var world: Array = path.call("skinned")
 		for anchor: Dictionary in world:
 			LOG.debug("caress anchor %s pos=%s normal=%s", [anchor["id"],

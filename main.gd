@@ -14,6 +14,7 @@ const INITIATION := preload("res://mods/unfplap/initiation/service.gd")
 const NEGOTIATION := preload("res://mods/unfplap/negotiation/service.gd")
 const PRIVACY := preload("res://mods/unfplap/privacy/service.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
+const PERF := preload("res://mods/unfplap/shared/perf.gd")
 const BUILD_STAMP := preload("res://mods/unfplap/shared/build_stamp.gd")
 const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/actions.gd")
 const DEBUG_STRETCH := preload("res://mods/unfplap/debug/idle_stretch.gd")
@@ -94,14 +95,11 @@ func _ready() -> void:
 		set_process(false)
 		return
 	add_to_group("pony_prompt_notes")
-	# The two debug switches arrive through the log sink's own settings listener: the entry binds
-	# the reads once, and every later edit reaches `LOG.apply_settings()` through the notification.
+	# The two debug switches: the log sink re-reads its own on every settings edit, and the
+	# profiler recomposes its gate once per frame.
 	LOG.debug_read = Callable(SETTINGS.debug_mode, "get_bool")
-	LOG.perf_read = Callable(SETTINGS.debug_perf, "get_bool")
-	LOG.attach(self)
-	LOG.act_running = Callable(PONIES, "act_running")
-	LOG.runtime_count = Callable(PONIES, "runtime_count")
-	LOG.mare_count = Callable(PONIES, "mare_count")
+	LOG.enabled = SETTINGS.debug_mode.get_bool()
+	PERF.bind(Callable(SETTINGS.debug_perf, "get_bool"), self)
 	_build_services()
 	# The per-pony registry binds the services above once and builds its runtimes through the
 	# one factory, so no other entry member holds a runtime.
@@ -193,11 +191,9 @@ func _on_world(host: Node) -> void:
 	for service: Variant in _services:
 		if is_instance_valid(service) and service.has_method("on_world"):
 			service.on_world(host)
-	# The two static facades are not list members: the registry drops the swap of the world that is
-	# gone and the log opens a fresh probe window. The world binds before the first service and
-	# unbinds after the last, because every service reads it.
+	# The registry is not a list member: it drops the swap of the world that is gone. The world
+	# binds before the first service and unbinds after the last, because every service reads it.
 	PONIES.reset()
-	LOG.reset()
 
 
 func _on_world_closed(_host: Node) -> void:
@@ -211,8 +207,6 @@ func _release() -> void:
 		if is_instance_valid(service) and service.has_method("on_world_closed"):
 			service.on_world_closed()
 	WORLD.unbind()
-	LOG.reset()
-	LOG.clear_panel()
 
 
 func _on_player(body: Node) -> void:
@@ -247,16 +241,14 @@ func _on_settings_page(page: Node) -> void:
 
 
 func _process(delta: float) -> void:
-	var timed := LOG.tick(delta)
-	var started := Time.get_ticks_usec() if timed else 0
-	_process_entry(delta, timed)
-	if timed:
-		LOG.close("entry_process", started)
+	PERF.start_frame()
+	_process_entry(delta)
+	PERF.end_frame()
 
 
-## The entry's per-frame body. `_process` above only times it for the idle probe; the call order
+## The entry's per-frame body. `_process` above only brackets it for the profiler; the call order
 ## here is load-bearing.
-func _process_entry(delta: float, timed: bool) -> void:
+func _process_entry(delta: float) -> void:
 	# The caption move is an act-only path the HUD owns: the entry only reports the live state,
 	# and the HUD's process priority keeps the move after the caption's own _process.
 	var active: RUNTIME = PONIES.active() as RUNTIME
@@ -266,26 +258,24 @@ func _process_entry(delta: float, timed: bool) -> void:
 		if is_instance_valid(body):
 			_on_player(body)
 	if is_instance_valid(active):
-		var camera_started := Time.get_ticks_usec()
+		PERF.begin("camera_motion")
 		active.act.apply_camera_motion()
-		active.act.host.perf_note("camera_motion", Time.get_ticks_usec() - camera_started)
-		var hud_started := Time.get_ticks_usec()
+		PERF.end("camera_motion")
+		PERF.begin("hud")
 		hud.update_from(active.act.facts())
-		active.act.host.perf_note("hud", Time.get_ticks_usec() - hud_started)
+		PERF.end("hud")
 		offer.hide_hint()
 		return
 
 	offer.tick(delta)
 	if is_instance_valid(initiation):
-		var initiation_started := Time.get_ticks_usec() if timed else 0
+		PERF.begin("entry_initiation")
 		initiation.tick(delta)
-		if timed:
-			LOG.close("entry_initiation", initiation_started)
+		PERF.end("entry_initiation")
 	if is_instance_valid(negotiation):
-		var negotiation_started := Time.get_ticks_usec() if timed else 0
+		PERF.begin("entry_negotiation")
 		negotiation.tick(delta)
-		if timed:
-			LOG.close("entry_negotiation", negotiation_started)
+		PERF.end("entry_negotiation")
 
 
 func _exit_tree() -> void:
@@ -307,7 +297,6 @@ func _shutdown() -> void:
 			service.queue_free()
 	_services.clear()
 	SETTINGS_UI.clear_pages()
-	LOG.detach()
 	MEMORY.instance = null
 	HUD.instance = null
 	STOOL.instance = null

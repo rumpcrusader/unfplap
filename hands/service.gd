@@ -48,6 +48,7 @@ const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const STATE_ACTIVE := ACT_STATE.State.ACTIVE
 const STATE_CLIMAX := ACT_STATE.State.CLIMAX
 const LOG := preload("res://mods/unfplap/shared/log.gd")
+const PERF := preload("res://mods/unfplap/shared/perf.gd")
 
 ## Pure palm geometry for tests and the controller.
 static func palm_clearance_for(body_scale: float, distance := 0.02) -> float:
@@ -472,11 +473,10 @@ func _set_caress_hand(side: String, apply := true) -> Transform3D:
 	var path: Variant = _path_for_pose()
 	if path == null:
 		return Transform3D.IDENTITY
-	var started := Time.get_ticks_usec()
+	PERF.begin("caress_precise")
 	var target: Transform3D = _engine().frame(pony, path, hand_side,
 		_caress_context(side, hand_side))
-	if facts != null:
-		facts.perf("caress_precise", Time.get_ticks_usec() - started)
+	PERF.end("caress_precise")
 	if not target.is_finite() or target.origin.length_squared() < 0.0001:
 		return Transform3D.IDENTITY
 	if not apply:

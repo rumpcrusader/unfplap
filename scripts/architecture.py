@@ -210,6 +210,20 @@ NODE_PROPERTIES = {
 # A file over this many lines is reported as a smell, never as a failure. Size is a hint that a
 # module may be mixing concerns; the ownership and boundary rules below are the hard gates.
 LARGE_FILE_LINES = 1000
+# One sink and one profiler: every other shipped script reaches them through `LOG` and `PERF`. A
+# hand-written print, warning, timestamp or engine monitor is a second one.
+LOG_MODULES = {"shared/log.gd", "shared/perf.gd"}
+LOG_BLEED = (
+    "print(",
+    "printerr(",
+    "push_warning(",
+    "push_error(",
+    '"[unfplap] "',
+    "get_ticks_usec() -",
+    "Performance.get_monitor",
+    "Engine.get_frames_per_second",
+    "RenderingServer.get_rendering_info",
+)
 
 RUNTIME_RAW_INPUT = (
     re.compile(r"\bInput\."),
@@ -535,7 +549,7 @@ PURPOSE = {
     "shared/preferences.gd": "profile schema and math",
     "shared/character_preferences.gd": "roster and catalog templates",
     "shared/act_history.gd": "stored history rows",
-    "shared/log.gd": "log sink and perf entry",
+    "shared/log.gd": "log sink",
     "shared/act_face.gd": "face beat data",
     "shared/act_facts.gd": "typed act read model",
     "shared/act_commands.gd": "act command vocabulary",
@@ -548,10 +562,7 @@ PURPOSE = {
     "shared/hands_reach_plan.gd": "reach planning math",
     "shared/hands_scale.gd": "palm scale",
     "shared/participation.gd": "participation defaults",
-    "shared/perf.gd": "perf probe",
-    "shared/perf_idle.gd": "idle perf aggregate",
-    "shared/perf_tree.gd": "perf tree layout",
-    "shared/perf_view.gd": "perf panel",
+    "shared/perf.gd": "one profiler",
     "shared/pose_catalog.gd": "pose ids and schema",
     "shared/pose_offer.gd": "typed act offer",
     "shared/pose_specs.gd": "pose capability table",
@@ -1514,6 +1525,21 @@ def check_entry_shape(failure: Failure) -> None:
             % line_of(text, match.start()))
 
 
+def check_log_bleed(failure: Failure) -> None:
+    """Only the log sink prints and only the profiler reads a clock or an engine monitor."""
+    for path in shipped_sources():
+        name = rel(path)
+        if name in LOG_MODULES:
+            continue
+        for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+            if line.lstrip().startswith("#"):
+                continue
+            for needle in LOG_BLEED:
+                if needle in line:
+                    failure.add("%s:%d writes outside the one sink (%s): use LOG or PERF" % (
+                        name, number, needle))
+
+
 def check() -> int:
     failure = Failure()
     violations = scan_violations()
@@ -1525,6 +1551,7 @@ def check() -> int:
     check_boundaries(failure)
     check_runtime_shape(failure)
     check_entry_shape(failure)
+    check_log_bleed(failure)
     check_owners(failure)
     check_tests(failure)
     failures = len(failure.messages)

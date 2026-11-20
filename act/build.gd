@@ -30,7 +30,6 @@ const SUMMARY := preload("res://mods/unfplap/summary/service.gd")
 const AFTERGLOW := preload("res://mods/unfplap/afterglow/service.gd")
 const FACE := preload("res://mods/unfplap/face/service.gd")
 const REACTIONS := preload("res://mods/unfplap/reactions/service.gd")
-const PERF := preload("res://mods/unfplap/shared/perf.gd")
 const AUDIO_ACT := preload("res://mods/unfplap/audio/act.gd")
 const HUD := preload("res://mods/unfplap/hud/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
@@ -93,7 +92,6 @@ class Bundle extends RefCounted:
 	var placement: PLACEMENT = null
 	var placement_facts: PLACEMENT.Facts = null
 	var facts: ACT_FACTS = null
-	var perf_probe: PERF = null
 	var view: ACT_VIEW = null
 	var idle: ACT_IDLE = null
 	var consent: ACT_CONSENT = null
@@ -153,12 +151,6 @@ static func build(pony: Node, node: Node) -> Bundle:
 	_bind_pose_hosts(node, b)
 	b.anatomy_bridge.bind(b.anatomy_host)
 	_bind_facts(node, b)
-	b.perf_probe = PERF.build(_perf_host(b))
-	b.tick.probe = b.perf_probe
-	b.host.perf_sink = Callable(b.perf_probe, "note")
-	b.pose.perf = Callable(b.perf_probe, "note")
-	b.facts.perf_note = Callable(b.perf_probe, "note")
-	b.anatomy_host.perf_note_cb = Callable(b.perf_probe, "note")
 	b.gate.bind(b.pony, b.pose)
 	b.gate.configure(b.act.state, b.act.pony_id, b.act.features)
 	return b
@@ -358,7 +350,6 @@ static func _bind_anatomy_host(b: Bundle) -> void:
 	host.fluid_ground_y_cb = Callable(b.phases, "fluid_ground_y")
 	host.cycle_phase_cb = Callable(b.act, "cycle_phase")
 	host.bed_frame_cb = Callable(b.pose, "_bed_frame_value")
-	host.perf_enabled_cb = Callable(LOG, "perf_on")
 	host.body_coat_smack_cb = Callable(b.reactions, "body_coat_target")
 	host.status_cb = Callable(HUD, "anatomy_status")
 	host.command_cb = Callable(b.input, "command")
@@ -434,24 +425,3 @@ static func _bind_handover_host(b: Bundle) -> void:
 	host.rebind_body_cb = Callable(b.swap, "rebind_body")
 	host.prepare_standing_camera_cb = Callable(b.swap, "prepare_standing_camera")
 	host.new_body_adult_cb = Callable(b.swap, "new_body_is_adult")
-
-
-## The debug perf probe's host: the live reads one summary window prints.
-static func _perf_host(b: Bundle) -> PERF.Host:
-	var host := PERF.Host.new()
-	host.enabled_cb = Callable(LOG, "perf_on")
-	host.show_cb = Callable(LOG, "perf_block")
-	host.id_cb = Callable(b.act, "act_id")
-	host.pose_cb = Callable(b.act, "current_pose_id")
-	host.state_cb = Callable(b.act, "state_value")
-	host.lean_forward_cb = Callable(b.camera, "shot_lean_forward")
-	host.lean_side_cb = Callable(b.camera, "lean_side_value")
-	host.hand_left_cb = Callable(b.hands, "active").bind("L")
-	host.hand_right_cb = Callable(b.hands, "active").bind("R")
-	host.near_mesh_cb = Callable(b.host, "near_mesh")
-	host.tier_cb = Callable(b.host, "tier")
-	host.wing_hold_cb = Callable(b.wings, "wing_hold")
-	host.winged_cb = Callable(b.wings, "winged")
-	host.idle_note_cb = Callable(LOG, "note")
-	return host
-

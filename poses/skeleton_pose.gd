@@ -7,6 +7,7 @@ const MISSIONARY := preload("res://mods/unfplap/poses/missionary_recipe.gd")
 const STANDING := preload("res://mods/unfplap/poses/standing_recipe.gd")
 const STANDING_ORAL := preload("res://mods/unfplap/poses/standing_oral_recipe.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
+const PERF := preload("res://mods/unfplap/shared/perf.gd")
 
 ## The typed live mode. `MODE_SINGLE` runs the one-driver fast path; `MODE_BLEND` evaluates both
 ## bases, blends the captured transforms and applies the overlays once.
@@ -25,9 +26,6 @@ const DRIVERS := {
 }
 
 var mare: Node3D
-## Host boundary: the pose writes no scene value back; it only reports a timed chunk and a
-## debug line. A pose built without a context is silent.
-var perf := Callable()
 ## The live effective mode: typed, with no "afterglow" value.
 var mode := MODE_SINGLE
 ## The resolved pair. Paths are the service's effective driver/delta paths, configs are by
@@ -194,10 +192,9 @@ func _cache() -> void:
 
 
 func _process_modification_with_delta(delta: float) -> void:
-	var started := Time.get_ticks_usec()
+	PERF.begin("pose_recipe")
 	_apply(delta)
-	if perf.is_valid():
-		perf.call("pose_recipe", Time.get_ticks_usec() - started)
+	PERF.end("pose_recipe")
 
 
 func _apply(delta: float) -> void:

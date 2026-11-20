@@ -112,7 +112,6 @@ var pose: Variant = null
 var viewport: Variant = null
 
 # Host callbacks. A missing callback is a no-op.
-var perf_note := Callable()
 var body_coat_smack := Callable()
 var on_touch := Callable()
 var on_smack := Callable()
@@ -152,11 +151,6 @@ var release_excitement := Callable()
 var mod_enabled := Callable()
 ## The opaque host handle for the Anon pose-driver write-backs.
 var pose_host := Callable()
-
-
-func perf(chunk: String, usec: int) -> void:
-	if perf_note.is_valid():
-		perf_note.call(chunk, usec)
 
 
 func smack_body_coat() -> void:

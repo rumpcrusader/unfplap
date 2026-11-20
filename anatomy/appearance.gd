@@ -33,7 +33,6 @@ const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 var pony: Node3D
 var dock_refresh := Callable()
-var perf_note := Callable()
 var mesh: MeshInstance3D
 var skeleton: Skeleton3D
 var shapes: RefCounted
@@ -50,17 +49,10 @@ var _strip_gap := Vector2(2.0, 2.0)
 
 
 func setup(pony_node: Node3D, shapes_node: RefCounted,
-		dock_refresh_callable := Callable(), perf_callable := Callable()) -> void:
+		dock_refresh_callable := Callable()) -> void:
 	pony = pony_node
 	shapes = shapes_node
 	dock_refresh = dock_refresh_callable
-	perf_note = perf_callable
-
-
-func set_perf(perf_callable: Callable) -> void:
-	perf_note = perf_callable
-	if is_instance_valid(teats_jiggle):
-		teats_jiggle.set("perf_note", perf_note)
 
 
 ## The presented form supplies the rig and the placement fit the teats and strip are built for.
@@ -276,7 +268,6 @@ func _attach_teats() -> void:
 	teats_jiggle = TEAT_JIGGLE.new()
 	teats_jiggle.name = "UnfplapAnatomyTeatJiggle"
 	teats_jiggle.set("skeleton", skeleton)
-	teats_jiggle.set("perf_note", perf_note)
 	teats_mesh.add_child(teats_jiggle)
 	# Bigger ones swing further; the sway is in metres, so a bigger body's swing scales with her.
 	# A princess's own look (PRINCESS_TEATS) adds bounce and a slower spring.

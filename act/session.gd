@@ -110,8 +110,6 @@ var _check_clock := 0.0
 var _climax_progress := 0.0
 var _clock_s := 0.0
 var _act_seconds := 0.0
-## True while the idle window's perf probe is enabled; set by the settings apply and `_ready`.
-var idle_perf := false
 func bind(host_in: ACT_NODE, context_in: ACT_CONTEXT) -> void:
 	host = host_in
 	context = context_in
@@ -307,9 +305,8 @@ func snapshot_settings() -> void:
 	settings.snapshot_values(start_group(), start_family(), preferences, preserve_auto_shape)
 	refresh_gate()
 
-func apply_live_settings() -> bool:
-	idle_perf = view.apply_live(self)
-	return idle_perf
+func apply_live_settings() -> void:
+	view.apply_live(self)
 
 
 ## The typed act view the HUD and the entry read: the facts object the view fills.
@@ -661,11 +658,6 @@ func form_set_face(smile: float) -> void:
 
 func form_status(text: String) -> void:
 	HUD.toast(text, 2.5)
-
-
-## The idle probe's one cached flag. The node sets it on ready and `apply_live_settings()` again.
-func prepare_idle_perf() -> void:
-	idle_perf = LOG.perf_on()
 
 
 ## The anatomy bridge's persistent refresh: bind its host and let the controller re-resolve.

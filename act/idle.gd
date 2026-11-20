@@ -9,6 +9,7 @@ const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const ACT_NODE := preload("res://mods/unfplap/act/host.gd")
 const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")
 const ACT_SESSION := preload("res://mods/unfplap/act/session.gd")
+const PERF := preload("res://mods/unfplap/shared/perf.gd")
 
 var host: ACT_NODE = null
 var context: ACT_CONTEXT = null
@@ -21,20 +22,17 @@ func bind(host_in: ACT_NODE, context_in: ACT_CONTEXT, session_in: ACT_SESSION) -
 	session = session_in
 
 
-## One idle physics tick. `idle_perf` is the runtime's cached probe gate; the chunk labels and the
-## clock calls stay identical to the inline schedule this replaces.
-func tick(delta: float, idle_perf: bool) -> void:
+## One idle physics tick: the standing presentation, then the history scan.
+func tick(delta: float) -> void:
 	# Last-resort safety: a missed exit path must not leave the quick slots hidden.
 	if is_instance_valid(HUD.instance):
 		HUD.instance.ensure_act_inventory_visible(PONIES.active())
-	var presentation_started := Time.get_ticks_usec() if idle_perf else 0
+	PERF.begin("runtime_presentation")
 	context.presentation.physics(delta)
-	if idle_perf:
-		host.perf_note("runtime_presentation", Time.get_ticks_usec() - presentation_started)
-	var history_started := Time.get_ticks_usec() if idle_perf else 0
+	PERF.end("runtime_presentation")
+	PERF.begin("runtime_history")
 	history_tick(delta)
-	if idle_perf:
-		host.perf_note("runtime_history", Time.get_ticks_usec() - history_started)
+	PERF.end("runtime_history")
 
 
 ## Idle-only history scan. `dialogue/service.gd` reads the scene and owns the decisions and the

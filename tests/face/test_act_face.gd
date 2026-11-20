@@ -1,12 +1,10 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## Pure act-face mapping: face beats, the live climax style, blush levels and prompt hints.
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/face/test_act_face.gd
 
 const ACT_FACE := preload("res://mods/unfplap/shared/act_face.gd")
 const MOOD_FACE := preload("res://mods/unfplap/face/mood_face.gd")
-var checks := 0
-var failures := 0
 
 
 class FakeExpressions extends Node:
@@ -29,17 +27,6 @@ class FakeExpressions extends Node:
 class FakeMoodPony extends Node3D:
 	var expressions: Variant = null
 	var boop_node: Variant = null
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func near(a: float, b: float, eps := 0.001) -> bool:
@@ -204,7 +191,6 @@ func run() -> void:
 	mood_pony.queue_free()
 	other_pony.queue_free()
 
-	print("ACT_FACE_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("ACT_FACE_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()

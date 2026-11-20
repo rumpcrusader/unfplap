@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The pose-scope/act-scope teardown split: the two leave steps keep the pose node, the live config
 ## and the view; the final release clears them and repeats safely; no pose-scope step reaches an
 ## act exit.
@@ -10,8 +10,6 @@ const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 
-var failures := 0
-var checks := 0
 
 
 class FakePony extends Node3D:
@@ -44,17 +42,6 @@ class FakeFacePoints:
 		return opening
 
 
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
-
-
 func _values(raw: Dictionary) -> SESSION.ActPose:
 	return SESSION.ActPose.from_dict(raw)
 
@@ -69,10 +56,9 @@ func run() -> void:
 	_check_body_tail_scope()
 	_check_transition_path()
 	_check_facesit_transition()
-	print("POSE_TEARDOWN_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("POSE_TEARDOWN_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()
 
 
 ## A fitted body tail chain for the princess-style fixtures: no devkit hair tail.

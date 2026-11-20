@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## What this suite pins: the act session's one state writer, its timer verbs, its clock and its
 ## reset, plus the typed host/context seam and its no-op host. No tree and no act are needed.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/act/test_session.gd
@@ -11,19 +11,6 @@ const SCENE_GATE := preload("res://mods/unfplap/scene_gate/service.gd")
 
 const State := ACT_STATE.State
 
-var failures := 0
-var checks := 0
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 ## The one frame handle the schedule binds: it records the frame the session forwards.
@@ -157,5 +144,4 @@ func run() -> void:
 	check(orphan.get_parent() == null, "a node-less host parents nothing")
 	orphan.free()
 
-	print("ACT_SESSION_RESULT checks=%d failures=%d" % [checks, failures])
-	quit(0 if failures == 0 else 1)
+	finish()

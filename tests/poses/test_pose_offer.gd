@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The typed pose offer: the empty handle, validity, the blocked record and the trigger policy
 ## round-trip. The start path that consumes the offer is the offer service's; its outcomes are
 ## `tests/offer/test_start.gd`.
@@ -7,8 +7,6 @@ extends SceneTree
 
 const POSE_OFFER := preload("res://mods/unfplap/shared/pose_offer.gd")
 
-var failures := 0
-var checks := 0
 
 
 class FakePony extends Node3D:
@@ -26,23 +24,11 @@ class Counter extends RefCounted:
 		count += 1
 
 
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
-
-
 func run() -> void:
 	_check_handle()
-	print("POSE_OFFER_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("POSE_OFFER_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()
 
 
 func _check_handle() -> void:

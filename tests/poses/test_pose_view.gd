@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The pose read model: the filled identity and profiles, the live mirrors and the reused clear.
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/poses/test_pose_view.gd
@@ -10,19 +10,6 @@ const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const PROFILES := ["camera", "hands", "controls", "audio", "afterglow", "presentation",
 	"contact", "anon", "scene", "modifiers"]
 
-var failures := 0
-var checks := 0
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func run() -> void:
@@ -35,10 +22,9 @@ func run() -> void:
 	_check_transition(view, spec, config)
 	_check_clear(view, spec, config)
 	_check_reuse(view, spec, config)
-	print("POSE_VIEW_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("POSE_VIEW_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()
 
 
 func _check_defaults(view: RefCounted) -> void:

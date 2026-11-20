@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The afterglow facade (the standing close window and its reward) plus the runtime HUD surfaces
 ## that read it.
 ##   godot --headless --xr-mode off --path <project> \
@@ -9,8 +9,6 @@ const AFTERGLOW := preload("res://mods/unfplap/afterglow/service.gd")
 const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 const WING := preload("res://mods/unfplap/poses/wing_control.gd")
 const PREF := preload("res://mods/unfplap/shared/preferences.gd")
-var failures := 0
-var checks := 0
 
 
 class Host extends RefCounted:
@@ -22,17 +20,6 @@ class Host extends RefCounted:
 
 class HostNode extends Node:
 	pass
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func _view(pose: String) -> RefCounted:
@@ -270,10 +257,9 @@ func run() -> void:
 	pony.free()
 	host_node.free()
 
-	print("AFTERGLOW_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("AFTERGLOW_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()
 
 
 ## A pose node with the weight fields and no pose mode: a write to `mode`/`afterglow_pose` lands

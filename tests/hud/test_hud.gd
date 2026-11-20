@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## HUD style and control rows.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/hud/test_hud.gd
 
@@ -6,8 +6,6 @@ const HUD := preload("res://mods/unfplap/hud/service.gd")
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 const POSE_VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 
-var failures := 0
-var checks := 0
 
 
 ## The typed act view the card reads. The runtime writes the same fields; the test sets them.
@@ -32,26 +30,14 @@ func _view() -> RefCounted:
 	return facts
 
 
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
-
-
 func run() -> void:
 	_check_style()
 	_check_anatomy_rows()
 	_check_controls()
 	_check_form_hint()
-	print("HUD_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("HUD_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()
 
 
 func _check_style() -> void:

@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## Pure long-term act history: hurt/comfort, tiers, offer weight and cooldown, repair and decay.
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/summary/test_act_history.gd
@@ -6,19 +6,6 @@ extends SceneTree
 const HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 
-var failures := 0
-var checks := 0
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func outcome(grade: String, severe := false, text := "The act happened.") -> Dictionary:
@@ -338,7 +325,6 @@ func run() -> void:
 	check(not HISTORY.reset(revision_section, "rarity"), "an absent reset does nothing")
 	check(HISTORY.revision == after_reset, "a no-op reset does not bump the revision")
 
-	print("ACT_HISTORY_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("ACT_HISTORY_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()

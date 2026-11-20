@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The act-body adapter's authored pair: the placement blend, the v7 local-rest bone blend and the
 ## service-bound pair setter. A bare Anon skeleton keeps it off every game scene.
 ##   godot --headless --xr-mode off --path <project> \
@@ -14,19 +14,6 @@ const LEFT_HAND := "LeftHand"
 const RIGHT_HAND := "RightHand"
 const ANON_BONES := [HIPS, SPINE, HEAD, LEFT_HAND, RIGHT_HAND]
 
-var failures := 0
-var checks := 0
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func near(a: float, b: float, eps := 0.0001) -> bool:
@@ -37,10 +24,9 @@ func run() -> void:
 	_check_placement()
 	_check_bones()
 	_check_pair()
-	print("ACT_BODY_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("ACT_BODY_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()
 
 
 ## Two placements: the basis slerps, the origin lerps, and a non-finite side returns the other.

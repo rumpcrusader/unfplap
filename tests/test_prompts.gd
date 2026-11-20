@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The prompt graph contract over the shipped prompts document: structure, rendering and each
 ## structural failure the renderer must refuse. The only suite that reads `prompts.json`.
 ##   godot --headless --xr-mode off --path <project> \
@@ -35,19 +35,6 @@ const CONSUMER_IDS := [
 	"body_change.offer",
 ]
 
-var failures := 0
-var checks := 0
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func run() -> void:
@@ -61,10 +48,9 @@ func run() -> void:
 		"every id the code names is in the file: %s" % str(_missing(document, CONSUMER_IDS)))
 	_check_render(document)
 	_check_failures(document)
-	print("PROMPTS_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("PROMPTS_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()
 
 
 func _check_render(document: Dictionary) -> void:

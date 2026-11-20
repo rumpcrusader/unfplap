@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## Act-history wiring that can be checked without a live world: the runtime commits one
 ## summary, the afterglow HUD carries it, and the snapshot uses the action counters.
 ##   godot --headless --xr-mode off --path <project> \
@@ -12,8 +12,6 @@ const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const HUD_LINES := preload("res://mods/unfplap/hud/lines.gd")
 
-var failures := 0
-var checks := 0
 
 
 class FakeMods extends Node:
@@ -58,17 +56,6 @@ class FakePeakSink extends Node:
 class FakeMain extends Node:
 	var game: Node
 	var memory
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func _hud_view(runtime: Node) -> RefCounted:
@@ -144,10 +131,9 @@ func run() -> void:
 	_check_commit()
 	_check_peak_commit()
 
-	print("ACT_FLOW_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("ACT_FLOW_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()
 
 
 func _check_summary_shapes() -> void:

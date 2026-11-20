@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## Dock attach skin: the rebuilt dock must be a two-bind skin on the hair tail. The bind math must
 ## reproduce the body-space cuff at the build pose, the base ring must stay on `mPelvis`, and the
 ## outer end must follow `mTail1`.
@@ -11,19 +11,6 @@ const DOCK_SEAT := preload("res://mods/unfplap/anatomy/tail/dock_seat.gd")
 const HYBRID_DOCK := preload("res://world/characters/hybrid_mare/hybrid_dock.gd")
 const APPROVED_FIT := "res://world/characters/hybrid_mare/dock_fit.json"
 
-var failures := 0
-var checks := 0
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func run() -> void:
@@ -164,7 +151,6 @@ func _mid_index(weights: PackedFloat32Array) -> int:
 
 
 func _finish() -> void:
-	print("DOCK_ATTACH_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("DOCK_ATTACH_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()

@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The changelings adapter: installed listing, provider profile, and the body-fit/tail metadata.
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/integrations/test_changelings.gd
@@ -22,8 +22,6 @@ const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 
-var failures := 0
-var checks := 0
 
 
 class FakeEligibility extends RefCounted:
@@ -113,17 +111,6 @@ class FakeSourceMod extends Node:
 
 	func bring_out() -> void:
 		brought += 1
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func near(a: float, b: float, eps := 0.0001) -> bool:
@@ -895,5 +882,4 @@ func run() -> void:
 	root.remove_child(main)
 	main.free()
 	REGISTRY.reset()
-	print("CHANGELINGS_RESULT checks=%d failures=%d" % [checks, failures])
-	quit(0 if failures == 0 else 1)
+	finish()

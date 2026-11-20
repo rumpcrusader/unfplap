@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The act's scene hold: navigator claim/keep/release, the face-turn rate, the conversation
 ## attention, the player hold, the carry release and the cuddle end.
 ##   godot --headless --xr-mode off --path <project> \
@@ -12,8 +12,6 @@ const STATE_IDLE := 0
 const STATE_ACTIVE := 2
 const STATE_AFTERGLOW := 4
 
-var failures := 0
-var checks := 0
 
 
 class FakeNav extends Node:
@@ -80,17 +78,6 @@ class FakeMain extends Node:
 	var game: FakeGame = null
 
 
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
-
-
 func _fixture(pose_family := "standing", state := STATE_ACTIVE) -> Dictionary:
 	var pony := FakePony.new()
 	var nav := FakeNav.new()
@@ -141,10 +128,9 @@ func run() -> void:
 	_check_player()
 	_check_carry()
 	_check_cuddle()
-	print("SCENE_HOLD_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("SCENE_HOLD_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()
 
 
 func _check_nav() -> void:

@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The Pantyhose & Panties world adapter and the garment hull: the depth field, the transform
 ## mapping, the surface overrides, the cloth follower, the act-start undress and the debug controls.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/integrations/test_pantyhose.gd
@@ -26,8 +26,6 @@ const COAT_SHADER_CODE := "shader_type spatial;\n" \
 const INSTANCE_UNIFORM_LIMIT := 16
 const SHADER_DIR := "res://mods/unfplap/integrations/shaders/"
 
-var failures := 0
-var checks := 0
 
 
 class FakeAnatomy extends Node:
@@ -129,17 +127,6 @@ class FakeDirector extends Node:
 	var _turn_id := 7
 
 
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
-
-
 func near(a: float, b: float, eps := 0.00001) -> bool:
 	return absf(a - b) <= eps
 
@@ -164,8 +151,7 @@ func run() -> void:
 	_check_undress()
 	_check_overlay_parenting()
 	_check_debug()
-	print("PANTYHOSE_RESULT checks=%d failures=%d" % [checks, failures])
-	quit(0 if failures == 0 else 1)
+	finish()
 
 
 # --------------------------------------------------------------------------- hull builder

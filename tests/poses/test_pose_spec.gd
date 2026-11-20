@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The typed pose spec: the shipped rows, the shared validator and the base/driver rule.
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/poses/test_pose_spec.gd
@@ -6,29 +6,15 @@ extends SceneTree
 const SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const POSE_SPEC := preload("res://mods/unfplap/poses/pose_spec.gd")
 
-var failures := 0
-var checks := 0
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func run() -> void:
 	_check_shipped()
 	_check_base_driver()
 	_check_errors()
-	print("POSE_SPEC_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("POSE_SPEC_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()
 
 
 func _copy(id := SPECS.MISSIONARY) -> Dictionary:

@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The runtime's live footstool gate: opening/part heights, threshold and case slot.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/stool/test_gate.gd
 
@@ -10,8 +10,6 @@ const STOOL := preload("res://mods/unfplap/stool/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const STORE := preload("res://world/inventory/inventory_store.gd")
 
-var failures := 0
-var checks := 0
 
 
 class FakeController extends "res://mods/unfplap/anatomy/controller.gd":
@@ -92,17 +90,6 @@ class TestPony extends Node3D:
 class FakeNav extends Node:
 	var reserved_by := ""
 	var command_owner := ""
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func run() -> void:
@@ -210,5 +197,4 @@ func run() -> void:
 	inventory.free()
 	SETTINGS.anatomy_mode.set_choice("never")
 
-	print("STOOL_GATE_RESULT checks=%d failures=%d" % [checks, failures])
-	quit(0 if failures == 0 else 1)
+	finish()

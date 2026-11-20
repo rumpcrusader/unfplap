@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## Pure anatomy helpers: the princess body profile and the off-roster list. The stable pony id is
 ## `shared/pony_id.gd` and the adult capability is the eligibility service.
 ##   godot --headless --xr-mode off --path <project> \
@@ -6,8 +6,6 @@ extends SceneTree
 
 const IDENTITY := preload("res://mods/unfplap/anatomy/identity.gd")
 
-var failures := 0
-var checks := 0
 
 
 class FakeIdentity extends Resource:
@@ -17,17 +15,6 @@ class FakeIdentity extends Resource:
 
 class FakePony extends Node3D:
 	var identity: Resource = null
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func _identity(id: String, character_id := "") -> FakeIdentity:
@@ -90,5 +77,4 @@ func run() -> void:
 	check(out.size() == 1 and out[0] == "not_a_base_mare",
 		"the off-roster list deduplicates and excludes the base roster")
 
-	print("ANATOMY_IDENTITY_RESULT checks=%d failures=%d" % [checks, failures])
-	quit(0 if failures == 0 else 1)
+	finish()

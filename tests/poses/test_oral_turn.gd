@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The pose-owned oral turn: the forward capture, the eased root and facing, the opening anchor
 ## while turning and the live mouth once settled, the reverse weight mapping, the soft-kiss timer
 ## and the one restore. The turn is pure scene math with host callables.
@@ -8,23 +8,10 @@ extends SceneTree
 const TURN := preload("res://mods/unfplap/poses/oral_turn.gd")
 const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 
-var failures := 0
-var checks := 0
 
 
 class FakePony extends Node3D:
 	pass
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func near(a: float, b: float, eps := 0.001) -> bool:
@@ -60,10 +47,9 @@ func run() -> void:
 	_check_forward()
 	_check_size()
 	_check_reverse()
-	print("ORAL_TURN_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("ORAL_TURN_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()
 
 
 func _check_forward() -> void:

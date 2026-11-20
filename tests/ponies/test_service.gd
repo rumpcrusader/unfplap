@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The pony registry: attach and detach, the live act pointer, the serial allocator, the prepare
 ## hooks, the adoption order with its duplicate guard, the character lists and the teardown.
 ##   godot --headless --xr-mode off --path <project> \
@@ -9,8 +9,6 @@ const WORLD := preload("res://mods/unfplap/world/service.gd")
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 
-var failures := 0
-var checks := 0
 
 
 class FakeIdentity extends Resource:
@@ -131,17 +129,6 @@ class FakeSource extends Node:
 		return is_instance_valid(next) and pony == next
 
 
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
-
-
 func _pony(id: String, node_name := "Pony") -> FakePony:
 	var pony := FakePony.new()
 	pony.name = node_name
@@ -207,8 +194,7 @@ func run() -> void:
 	_check_duplicate_guard()
 	_check_world_close()
 	_check_character_lists()
-	print("PONIES_RESULT checks=%d failures=%d" % [checks, failures])
-	quit(0 if failures == 0 else 1)
+	finish()
 
 
 ## The standing cone scan: one live pass over the game's mares, eligibility only for the winner.

@@ -1,22 +1,9 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## Pure voice-routing classification checks.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_voice.gd
 
 const VOICE := preload("res://mods/unfplap/audio/voice_status.gd")
 
-var failures := 0
-var checks := 0
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func run() -> void:
@@ -92,7 +79,6 @@ func run() -> void:
 	no_server.free()
 
 	tts.free()
-	print("VOICE_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("VOICE_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()

@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The per-act anatomy bridge: host callbacks, facts sync, action gates, aim/gaze, placement and
 ## the act/controller lifecycle.
 ##   godot --headless --xr-mode off --path <project> \
@@ -17,8 +17,6 @@ const STATE_IDLE := 0
 const STATE_ACTIVE := 2
 const STATE_CLIMAX := 3
 
-var failures := 0
-var checks := 0
 
 
 class FakeAct extends "res://mods/unfplap/anatomy/act.gd":
@@ -202,17 +200,6 @@ class FakeHost extends RefCounted:
 		return 0.0
 
 
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
-
-
 ## The pose read model the anatomy context mirrors.
 func _view(family: String) -> RefCounted:
 	var view: RefCounted = VIEW.new()
@@ -265,10 +252,9 @@ func run() -> void:
 	_check_host_callbacks()
 	_check_vr()
 	_check_vr_start()
-	print("ANATOMY_ACT_BRIDGE_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("ANATOMY_ACT_BRIDGE_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()
 
 
 func _check_bind_and_facts() -> void:

@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The hand-authored missionary pose asset the runtime poses from, and the rig check that refuses
 ## to pose a body missing one of its bones.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/poses/test_pose_asset.gd
@@ -26,19 +26,6 @@ const REQUIRED := [
 const BANNED := ["pony_head", "pony_lid", "pony_ear", "pony_Wing", "pony_wing", "pony_Feather",
 	"pony_foldedWing", "pony_tail", "rd_", "jaw", "EYETARGET", "MOUNT_"]
 
-var failures := 0
-var checks := 0
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func run() -> void:
@@ -166,7 +153,6 @@ func _rig_skeleton(skip := "") -> Skeleton3D:
 
 
 func _finish() -> void:
-	print("POSE_ASSET_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("POSE_ASSET_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()

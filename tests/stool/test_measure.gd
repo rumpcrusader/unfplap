@@ -1,22 +1,9 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## Pure footstool reach-gap arithmetic.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/stool/test_measure.gd
 
 const MEASURE := preload("res://mods/unfplap/stool/measure.gd")
 
-var failures := 0
-var checks := 0
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func run() -> void:
@@ -37,5 +24,4 @@ func run() -> void:
 	check(MEASURE.count(0.20, 0.20, 0.20) == 0, "a gap at the threshold needs none")
 	check(MEASURE.count(0.40, 0.20, 0.0) == 0, "a zero step is guarded")
 
-	print("STOOL_MEASURE_RESULT checks=%d failures=%d" % [checks, failures])
-	quit(0 if failures == 0 else 1)
+	finish()

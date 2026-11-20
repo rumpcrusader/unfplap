@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The readiness facade: heat, stroke scoring, touch/talk input, cues and the act counters.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/readiness/test_readiness.gd
 
@@ -8,8 +8,6 @@ const PREF := preload("res://mods/unfplap/shared/preferences.gd")
 const ACTIVE := 2
 const CLIMAX := 3
 
-var failures := 0
-var checks := 0
 
 
 class Host extends RefCounted:
@@ -47,17 +45,6 @@ class Host extends RefCounted:
 
 	func is_heat() -> bool:
 		return heat
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func near(a: float, b: float, eps := 0.0001) -> bool:
@@ -174,8 +161,7 @@ func run() -> void:
 	check(readiness.take_debug() == "warning", "the debug request is consumed once")
 	check(readiness.take_debug() == "", "the debug request clears")
 
-	print("READINESS_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("READINESS_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()
 

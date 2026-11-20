@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The Negotiation bridge: the typed host the service builds from its facades, the Context both
 ## reasoning stages read, the global Anon-offer watch and its guard table, the react line per
 ## close reason, the terminal outcome routing and the Agreement handoff. Fake scene, director,
@@ -21,19 +21,6 @@ const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const PROMPTS := preload("res://mods/unfplap/negotiation/prompts.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
-var failures := 0
-var checks := 0
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 class FakePony extends Node3D:
@@ -367,8 +354,7 @@ func run() -> void:
 	_check_react_line()
 	_check_outcome_routing()
 	_check_agreement_handoff()
-	print("NEGOTIATION_HOST_RESULT checks=%d failures=%d" % [checks, failures])
-	quit(0 if failures == 0 else 1)
+	finish()
 
 
 ## The bridge answers the typed host callbacks from the facades the entry binds.

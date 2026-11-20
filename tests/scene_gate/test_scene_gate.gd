@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The scene gate: the live scene rows, the structural rows, the policy/scene merge, the
 ## start/offer verdicts, the debug status line, the bed search, the player/navigator predicates
 ## and the buck/push the live strict stop calls. The policy itself is the runtime's callback.
@@ -14,8 +14,6 @@ const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const STATE_IDLE := 0
 const STATE_ACTIVE := 2
 
-var failures := 0
-var checks := 0
 
 
 class FakePony extends Node3D:
@@ -144,17 +142,6 @@ class FakeForm extends Node:
 	var form: Dictionary = {}
 
 
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
-
-
 func _fixture() -> Dictionary:
 	var gate: RefCounted = GATE.new()
 	var pony := FakePony.new()
@@ -243,10 +230,9 @@ func run() -> void:
 	await _check_buck_or_push()
 	await _check_suppress()
 
-	print("SCENE_GATE_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("SCENE_GATE_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()
 
 
 func _check_conversation() -> void:

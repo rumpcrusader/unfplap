@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The kiss facade's pose-change retarget: the live config and the base kiss profile follow the
 ## view without ending a running kiss.
 ##   godot --headless --xr-mode off --path <project> \
@@ -8,19 +8,6 @@ const KISS := preload("res://mods/unfplap/kiss/service.gd")
 const FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 
-var failures := 0
-var checks := 0
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func run() -> void:
@@ -71,7 +58,6 @@ func run() -> void:
 
 	kiss._base_kiss_active = false
 	kiss._kiss_amount = 0.0
-	print("KISS_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("KISS_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()

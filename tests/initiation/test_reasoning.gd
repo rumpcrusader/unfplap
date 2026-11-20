@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The Mare Initiation Reasoning: the payload shape and the reply parser. Pure strings; no model.
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/initiation/test_reasoning.gd
@@ -8,19 +8,6 @@ const CONTEXT := preload("res://mods/unfplap/shared/context.gd")
 const POSE_OPTIONS := preload("res://mods/unfplap/shared/pose_options.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 
-var failures := 0
-var checks := 0
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func _option(pose: String, source := "", bed: Variant = null, cuddle := false) -> POSE_OPTIONS.Option:
@@ -71,5 +58,4 @@ func run() -> void:
 	check(decision.failed, "a provider error is a failure")
 	check(not REASONING.instruction().is_empty(), "the reasoning has an instruction")
 	bed.free()
-	print("INITIATION_REASONING_RESULT checks=%d failures=%d" % [checks, failures])
-	quit(0 if failures == 0 else 1)
+	finish()

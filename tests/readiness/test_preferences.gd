@@ -1,21 +1,8 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## Pure preference/pattern/talk-classifier tests.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/readiness/test_preferences.gd
 
 const PREF := preload("res://mods/unfplap/shared/preferences.gd")
-var failures := 0
-var checks := 0
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func run() -> void:
@@ -119,10 +106,9 @@ func run() -> void:
 	check(str(PREF.resolve({"intensity": "nonsense"}).get("intensity", "")) == "firm",
 		"unknown intensity falls back")
 
-	print("PREFERENCES_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("PREFERENCES_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()
 
 
 func _strokes(travel: float, duration: float, count: int) -> Array:

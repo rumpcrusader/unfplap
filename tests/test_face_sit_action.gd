@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The bed face-sit debug action and its runtime refusal helper: the pair toggle, every refusal
 ## reason in order and the ready case. Pure fakes; no game scene.
 ##   godot --headless --xr-mode off --path <project> \
@@ -15,8 +15,6 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 
-var failures := 0
-var checks := 0
 
 
 ## The real bridge's shape, with the lifecycle calls stubbed so a bare Node handle is enough.
@@ -80,24 +78,12 @@ class FakeRuntime extends Node:
 		return POSES.PoseResult.make("ok")
 
 
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
-
-
 func run() -> void:
 	_check_helper()
 	_check_action()
-	print("FACE_SIT_ACTION_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("FACE_SIT_ACTION_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()
 
 
 func _fixture() -> Dictionary:

@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The held afterglow keeps the act's attached player-part alignment: the part stays on Anon's
 ## Hips and turns to the current opening normal instead of riding the detached bed holder, which
 ## rolls it upside down in the lying pose.
@@ -12,8 +12,6 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 
-var failures := 0
-var checks := 0
 
 
 class FakePart extends "res://mods/unfplap/anatomy/player.gd":
@@ -68,17 +66,6 @@ class FakeAnatomy extends "res://mods/unfplap/anatomy/controller.gd":
 
 class FakePony extends Node3D:
 	pass
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func near(a: float, b: float, eps := 0.0001) -> bool:
@@ -195,5 +182,4 @@ func run() -> void:
 	oral_anatomy.free()
 	oral_part.free()
 
-	print("ANATOMY_AFTERGLOW_TRACK_RESULT checks=%d failures=%d" % [checks, failures])
-	quit(0 if failures == 0 else 1)
+	finish()

@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The reaction facade: jiggle tuning, body-coat targets, the act smack, the rump blush and the
 ## climax hearts.
 ##   godot --headless --xr-mode off --path <project> \
@@ -10,8 +10,6 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const RUMP_CONE := preload("res://mods/unfplap/shared/rump_cone.gd")
 const FLANK_TOUCH := preload("res://world/characters/hybrid_mare/pony_flank_touch.gd")
 
-var failures := 0
-var checks := 0
 
 
 class FakeFlank extends Node:
@@ -81,17 +79,6 @@ class FakePony extends Node3D:
 	var hair_skeleton: Variant = null
 
 
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
-
-
 func near(a: float, b: float, eps := 0.0001) -> bool:
 	return absf(a - b) <= eps
 
@@ -127,10 +114,9 @@ func run() -> void:
 	_check_accessors()
 	_check_rump_point()
 
-	print("REACTIONS_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("REACTIONS_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()
 
 
 func _check_defaults() -> void:

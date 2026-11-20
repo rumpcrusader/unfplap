@@ -1,23 +1,10 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The build stamp's max logic and its source scan.
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/log/test_build_stamp.gd
 
 const BUILD_STAMP := preload("res://mods/unfplap/shared/build_stamp.gd")
 
-var failures := 0
-var checks := 0
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func run() -> void:
@@ -28,7 +15,6 @@ func run() -> void:
 	check(BUILD_STAMP.source_mtime() >= 0, "the source scan returns a non-negative mtime")
 	check(BUILD_STAMP.PATHS.size() == 7, "the stamp scans seven source files")
 
-	print("BUILD_STAMP_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("BUILD_STAMP_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()

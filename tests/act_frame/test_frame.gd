@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The act frame's player contract: the pure solve for one standing and one missionary start, and
 ## the plan's player-only shape. The live placement stays pinned by the teardown suite.
 ##   godot --headless --xr-mode off --path <project> \
@@ -11,8 +11,6 @@ const ACT_SESSION := preload("res://mods/unfplap/act/session.gd")
 const FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 
-var failures := 0
-var checks := 0
 
 
 class FakePlayer extends Node3D:
@@ -32,17 +30,6 @@ class FakePlayer extends Node3D:
 			camera.position.y = value
 
 
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
-
-
 func near(a: float, b: float, epsilon := 0.0001) -> bool:
 	return absf(a - b) <= epsilon
 
@@ -57,10 +44,9 @@ func run() -> void:
 	_check_world_aim()
 	_check_round_trip()
 	_check_plan_shape()
-	print("ACT_FRAME_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("ACT_FRAME_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()
 
 
 ## Her forward is -Z and the gap is 0.42 m: Anon lands exactly on her centreline behind her,

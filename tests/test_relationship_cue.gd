@@ -1,22 +1,9 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## Pure relationship/tone and peak-memory gate tests.
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/test_relationship_cue.gd
 
 const REL := preload("res://mods/unfplap/shared/relationship_cue.gd")
-var failures := 0
-var checks := 0
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func facts(overrides := {}) -> Dictionary:
@@ -87,7 +74,6 @@ func run() -> void:
 	check(REL.peak_score(100.0, 10, 2, 1, 0) > REL.peak_score(100.0, 4, 1, 1, 0),
 		"more clean matches score higher")
 
-	print("RELATIONSHIP_CUE_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("RELATIONSHIP_CUE_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()

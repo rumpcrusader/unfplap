@@ -1,22 +1,9 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The act prop loads the base-game footstool visual and builds a standable top.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/stool/test_prop.gd
 
 const PROP := preload("res://mods/unfplap/stool/prop.gd")
 
-var failures := 0
-var checks := 0
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func run() -> void:
@@ -55,5 +42,4 @@ func run() -> void:
 	pony.queue_free()
 	host.queue_free()
 
-	print("STOOL_PROP_RESULT checks=%d failures=%d" % [checks, failures])
-	quit(0 if failures == 0 else 1)
+	finish()

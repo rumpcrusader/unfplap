@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## Caress contact surface, hand shape and reach plan.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/hands/test_caress.gd
 
@@ -64,19 +64,6 @@ class FakePony extends RefCounted:
 	var skeleton: Skeleton3D
 	var head: Variant = null
 
-var checks := 0
-var failures := 0
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func near(a: float, b: float, eps := 0.001) -> bool:
@@ -958,7 +945,6 @@ func run() -> void:
 	check(near(float(body_plan.get("body_shift", 0.0)), 0.15),
 		"the body cap is used after the shoulder cap")
 
-	print("HANDS_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("HANDS_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()

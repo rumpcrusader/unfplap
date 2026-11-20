@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The entry's ordered service list: every lifecycle broadcast walks the list in order, the scene
 ## facade is bound around it, and a world close and the process exit share one release sequence.
 ##   godot --headless --xr-mode off --path <project> \
@@ -10,8 +10,6 @@ extends SceneTree
 const MAIN := preload("res://mods/unfplap/main.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 
-var failures := 0
-var checks := 0
 ## Every hook call, in the order the entry made it: `<id>.<hook>`.
 var order: Array = []
 
@@ -61,17 +59,6 @@ class CloseOnly extends RefCounted:
 		sink.append("%s.on_world_closed" % id)
 
 
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
-
-
 func _stand_in(id: String) -> StandIn:
 	var service := StandIn.new()
 	service.id = id
@@ -111,8 +98,7 @@ func run() -> void:
 	host.free()
 	entry.free()
 	WORLD.unbind()
-	print("ENTRY_SERVICES_RESULT checks=%d failures=%d" % [checks, failures])
-	quit(0 if failures == 0 else 1)
+	finish()
 
 
 ## `_on_world`: every `on_world` in list order, each one with the scene facade already bound.

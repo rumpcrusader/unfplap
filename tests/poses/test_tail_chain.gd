@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The visible tail chain: devkit hair tails use `mTail1..6`, fitted body exports use
 ## `pony_tail_01..05`. The resolver and both standing tail modifiers must work on either.
 ##   godot --headless --xr-mode off --path <project> \
@@ -9,8 +9,6 @@ const TAIL_POSE := preload("res://mods/unfplap/poses/tail_pose.gd")
 const TAIL_LAY := preload("res://mods/unfplap/poses/tail_lay.gd")
 const TAIL_TUCK := preload("res://mods/unfplap/poses/tail_tuck.gd")
 
-var failures := 0
-var checks := 0
 
 
 class FakePony extends Node3D:
@@ -20,17 +18,6 @@ class FakePony extends Node3D:
 
 class FakeFacts extends RefCounted:
 	var bed_frame: Variant = null
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 ## A fitted body tail: ponytail root under the body hips, with five rest segments.
@@ -187,5 +174,4 @@ func run() -> void:
 	pony.free()
 	hair.free()
 
-	print("TAIL_CHAIN_RESULT checks=%d failures=%d" % [checks, failures])
-	quit(0 if failures == 0 else 1)
+	finish()

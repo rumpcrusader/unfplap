@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The per-act footstool handle: the reach rule, the case loans, the placed stack and the release.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/stool/test_act.gd
 
@@ -10,8 +10,6 @@ const PROP := preload("res://mods/unfplap/stool/prop.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const STORE := preload("res://world/inventory/inventory_store.gd")
 
-var failures := 0
-var checks := 0
 
 
 class FakeFacade extends "res://mods/unfplap/stool/service.gd":
@@ -103,17 +101,6 @@ class FakeMain extends Node:
 	var anatomy: Variant = null
 
 
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
-
-
 func _fixture() -> Dictionary:
 	SETTINGS.anatomy_mode.set_choice("always")
 	SETTINGS.standing_stool.set_bool(true)
@@ -172,10 +159,9 @@ func run() -> void:
 	_check_place_release()
 	_check_blocks()
 
-	print("STOOL_ACT_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("STOOL_ACT_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()
 
 
 func _check_rule() -> void:

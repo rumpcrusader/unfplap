@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The readiness facade's auto-thrust generator and hold-X layer: defaults, toggle, step, wheel,
 ## the panel actions and the reset. The runtime only supplies the key states and applies the
 ## returned depth.
@@ -14,10 +14,8 @@ const STATE_IDLE := 0
 const STATE_ACTIVE := 2
 const STATE_CLIMAX := 3
 
-var failures := 0
 ## No layer key held; an untyped `[]` cannot cross the typed key array.
 var no_keys: Array[bool] = []
-var checks := 0
 
 
 class FakeState extends RefCounted:
@@ -25,17 +23,6 @@ class FakeState extends RefCounted:
 
 	func state_now() -> int:
 		return value
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func near(a: float, b: float, eps := 0.0001) -> bool:
@@ -56,10 +43,9 @@ func run() -> void:
 	_check_panel()
 	_check_panel_repeat()
 	_check_reset()
-	print("READINESS_AUTO_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("READINESS_AUTO_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()
 
 
 func _check_defaults() -> void:

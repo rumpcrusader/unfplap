@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The player part and the act's part seam: prepare/encounter, the tip and root, the bed holder,
 ## `reset_state`, the throb/girth/length shaping, the controller's part handle, the face contact's
 ## parked part and the act wink scheduler.
@@ -13,8 +13,6 @@ const PLAYER_PART := preload("res://mods/unfplap/anatomy/player.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 
-var failures := 0
-var checks := 0
 
 class FakeIdentity extends Resource:
 	var id := ""
@@ -135,17 +133,6 @@ class FakeFacePart extends "res://mods/unfplap/anatomy/player.gd":
 
 	func tip_center() -> Vector3:
 		return Vector3.INF
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func _pony(id: String, filly := false, stallion := false) -> FakePony:
@@ -458,5 +445,4 @@ func run() -> void:
 	check(detached.fluid() == null, "a detached controller answers no fluid node")
 	detached.free()
 
-	print("ANATOMY_PART_RESULT checks=%d failures=%d" % [checks, failures])
-	quit(0 if failures == 0 else 1)
+	finish()

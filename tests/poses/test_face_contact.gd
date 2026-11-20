@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The bed face-sit contact driver: the begin capture, the mouth follow, the depth press, the
 ## moving-bed carry, the missing-provider hold and the one restore. Pure RefCounted and fakes only.
 ##   godot --headless --xr-mode off --path <project> \
@@ -7,8 +7,6 @@ extends SceneTree
 const FACE := preload("res://mods/unfplap/poses/face_contact.gd")
 const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 
-var failures := 0
-var checks := 0
 
 
 class FakePoints:
@@ -28,17 +26,6 @@ class FakePoints:
 
 class FakePoseNode extends "res://mods/unfplap/poses/skeleton_pose.gd":
 	pass
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func near(a: float, b: float, eps := 0.0001) -> bool:
@@ -66,10 +53,9 @@ func run() -> void:
 	_check_moving_bed()
 	_check_missing_provider()
 	_check_restore()
-	print("FACE_CONTACT_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("FACE_CONTACT_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()
 
 
 func _make(points: FakePoints) -> Variant:

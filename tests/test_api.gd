@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## Cross-mod API: the public surface, the contract, provider registration and resolution.
 ##
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_api.gd
@@ -26,25 +26,12 @@ const DESCRIPTION_KEYS := [
 	"cue_gap", "aftercare_min", "smack_zone_radius",
 ]
 
-var failures := 0
-var checks := 0
 var api: Node
 var owner: Node
 
 
 class FakeMain extends Node:
 	var eligibility: ELIGIBILITY
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func near(a: float, b: float, eps := 0.0001) -> bool:
@@ -82,10 +69,9 @@ func run() -> void:
 	root.remove_child(main)
 	main.free()
 	REGISTRY.reset()
-	print("API_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("API_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()
 
 
 func _check_surface() -> void:

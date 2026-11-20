@@ -1,23 +1,10 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## Footstool briefcase ownership, counting and take/put.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/stool/test_item.gd
 
 const ITEM := preload("res://mods/unfplap/stool/item.gd")
 const STORE := preload("res://world/inventory/inventory_store.gd")
 
-var failures := 0
-var checks := 0
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func run() -> void:
@@ -44,5 +31,4 @@ func run() -> void:
 	check(ITEM.case_slot(missing) == -1, "no store has no case slot")
 	check(ITEM.owned_count(missing) == 0, "no store owns nothing")
 
-	print("STOOL_ITEM_RESULT checks=%d failures=%d" % [checks, failures])
-	quit(0 if failures == 0 else 1)
+	finish()

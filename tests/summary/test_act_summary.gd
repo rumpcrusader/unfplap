@@ -1,23 +1,10 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## Pure act-outcome scoring: per-act action checklist, good/bad bands, early end and silence.
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/summary/test_act_summary.gd
 
 const SUMMARY := preload("res://mods/unfplap/summary/score.gd")
 
-var failures := 0
-var checks := 0
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func base_preferences() -> Dictionary:
@@ -179,7 +166,6 @@ func run() -> void:
 	check(not severe_prompt.is_empty(), "a severe early end asks for a line")
 	check(severe_prompt != early_prompt, "a severe early end has its own line")
 
-	print("ACT_SUMMARY_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("ACT_SUMMARY_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()

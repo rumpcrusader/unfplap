@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## Pure act-action checks: lean mapping, threshold hysteresis, pose support, smack side.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/hands/test_actions.gd
 
@@ -131,19 +131,6 @@ func _check_missionary_hand_hold() -> void:
 	sk.free()
 	anon.free()
 
-var failures := 0
-var checks := 0
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func near(a: float, b: float, eps := 0.0001) -> bool:
@@ -786,10 +773,9 @@ func run() -> void:
 	_check_missionary_hand_hold()
 	_check_pose_retarget()
 
-	print("ACTIONS_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("ACTIONS_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()
 
 
 ## The pose hook retargets the hands contact path without resetting the controller.

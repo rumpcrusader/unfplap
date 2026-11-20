@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## vr/service.gd: the VR standing act's controller bindings and fake-waist depth path.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_vr_act.gd
 ##
@@ -10,8 +10,6 @@ extends SceneTree
 const VR_ACT := preload("res://mods/unfplap/vr/service.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
 
-var failures := 0
-var checks := 0
 
 
 class FakeTouch:
@@ -54,17 +52,6 @@ class FakeBridge extends RefCounted:
 
 	func pony_node() -> Variant:
 		return pony
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 ## The base-game accessors the controller routes through: the live answer and the absent one.
@@ -245,7 +232,6 @@ func run() -> void:
 	hip.free()
 	pony.free()
 	player.free()
-	print("VR_ACT_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("VR_ACT_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()

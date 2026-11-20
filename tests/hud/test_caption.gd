@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The caption move, the toast sink and the one-time Dance Mod key notice. The caption needs the
 ## game's speech setting and the game's mods host, so both are faked under `/root` here.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/hud/test_caption.gd
@@ -12,8 +12,6 @@ const ACT_KEYS := preload("res://mods/unfplap/shared/act_keys.gd")
 ## Where the suite leaves the caption card before a move: any place but the top margin.
 const BOTTOM_Y := 640.0
 
-var failures := 0
-var checks := 0
 
 
 ## The game's settings autoload: one speech setting and the change signal the HUD subscribes to.
@@ -70,17 +68,6 @@ class FakeHotbar extends Control:
 		hud_calls.append(on)
 
 
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
-
-
 func run() -> void:
 	_check_caption_conditions()
 	_check_caption_scale()
@@ -89,10 +76,9 @@ func run() -> void:
 	await _check_toast_line()
 	_check_dance_notice()
 	_check_live_settings()
-	print("CAPTION_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("CAPTION_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()
 
 
 ## The five conditions: the player's mode, an act in POSING_IN/ACTIVE/CLIMAX, the game's explicit

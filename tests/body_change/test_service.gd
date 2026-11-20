@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The typed body-change data, the base contracts and the body-change service: BodyForm and its
 ## default form, the RigProfile mapping, BodyChange, the BodyBinding/BodyChangePolicy virtual bases,
 ## the service's form store, legacy mirror, binding fan-out and source registry. Run:
@@ -21,8 +21,6 @@ const LOG := preload("res://mods/unfplap/shared/log.gd")
 const SMACK_BINDING := preload("res://mods/unfplap/body_change/smack_binding.gd")
 const WIRE := preload("res://mods/unfplap/body_change/wire.gd")
 
-var failures := 0
-var checks := 0
 
 
 class FakePony extends Node3D:
@@ -190,17 +188,6 @@ class RecordingPolicy extends "res://mods/unfplap/shared/body_change_policy.gd":
 		return POLICY.BodyChangeEffects.new()
 
 
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
-
-
 func run() -> void:
 	_check_rig_profiles()
 	_check_default_form()
@@ -211,8 +198,7 @@ func run() -> void:
 	_check_runtime_binding()
 	_check_scale_clamp()
 	_check_service()
-	print("BODY_CHANGE_RESULT checks=%d failures=%d" % [checks, failures])
-	quit(0 if failures == 0 else 1)
+	finish()
 
 
 func _check_rig_profiles() -> void:

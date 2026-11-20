@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## Pure estrus-cycle rules and the feature flag.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_cycle.gd
 
@@ -6,19 +6,6 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const CYCLE := preload("res://mods/unfplap/shared/cycle.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 
-var failures := 0
-var checks := 0
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func run() -> void:
@@ -83,7 +70,6 @@ func run() -> void:
 	pony.free()
 	runtime.free()
 
-	print("CYCLE_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("CYCLE_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()

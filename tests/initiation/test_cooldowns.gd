@@ -1,12 +1,10 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The request cooldown store: the `request_times` read, the history wait with the heat shortening,
 ## and the set/clear round trip. No world file is written outside the throwaway data dir.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/initiation/test_cooldowns.gd
 
 const COOLDOWNS := preload("res://mods/unfplap/initiation/cooldowns.gd")
 
-var failures := 0
-var checks := 0
 
 
 class FakeGame extends Node:
@@ -19,17 +17,6 @@ class FakeWorldContext extends Node:
 
 	func _changed() -> void:
 		changed += 1
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func run() -> void:
@@ -74,7 +61,6 @@ func run() -> void:
 		fake_game.free()
 		fake_context.free()
 
-	print("INITIATION_COOLDOWNS_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("INITIATION_COOLDOWNS_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()

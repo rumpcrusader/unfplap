@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The standing oral segment's quiet gate: the impact keeps the slide, vocal, wings, blush and ear
 ## twitch but drops the plap and the rump/tail jiggle; her act line, voice and climax line stop
 ## while the base game's soft kiss plays on the idle timer. Regular standing is unchanged.
@@ -24,8 +24,6 @@ const CAMERA_VIEW := preload("res://mods/unfplap/camera/view.gd")
 
 const STATE_ACTIVE := 2
 
-var failures := 0
-var checks := 0
 
 
 class FakeBridge extends "res://mods/unfplap/anatomy/act_bridge.gd":
@@ -227,17 +225,6 @@ class FakeMain extends Node:
 	var anatomy: Variant = null
 	var hud: Variant = null
 	var game: Variant = null
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func _fixture() -> Dictionary:
@@ -448,5 +435,4 @@ func run() -> void:
 	root.remove_child(main)
 	main.free()
 
-	print("RUNTIME_ORAL_QUIET_RESULT checks=%d failures=%d" % [checks, failures])
-	quit(0 if failures == 0 else 1)
+	finish()

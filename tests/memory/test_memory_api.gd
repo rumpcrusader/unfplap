@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The memory facade's public API: one impression and its event per slot, one event per note,
 ## and the stay-close reward.
 ##   godot --headless --xr-mode off --path <project> \
@@ -7,8 +7,6 @@ extends SceneTree
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 
-var failures := 0
-var checks := 0
 
 
 class FakeGame extends Node:
@@ -41,17 +39,6 @@ class FakeImpressions extends Node:
 
 	func commit(id: String, data: Dictionary, event_id: String) -> void:
 		calls.append({"id": id, "data": data.duplicate(true), "event_id": event_id})
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func run() -> void:
@@ -186,7 +173,6 @@ func run() -> void:
 	MEMORY.instance = null
 	main.queue_free()
 
-	print("MEMORY_API_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("MEMORY_API_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()

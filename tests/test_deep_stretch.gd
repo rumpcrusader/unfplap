@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The Idle Life deep-stretch debug bridge: the entry path, the forced call and the interrupt.
 ##
 ##   godot --headless --xr-mode off --path <project> \
@@ -6,8 +6,6 @@ extends SceneTree
 
 const BRIDGE := preload("res://mods/unfplap/debug/idle_stretch.gd")
 
-var failures := 0
-var checks := 0
 
 
 class FakePony extends Node3D:
@@ -41,24 +39,12 @@ class PlainEntry extends Node:
 	pass
 
 
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
-
-
 func run() -> void:
 	_check_contract()
 	_check_calls()
-	print("DEEP_STRETCH_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("DEEP_STRETCH_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()
 
 
 func _pony(pony_name: String) -> FakePony:

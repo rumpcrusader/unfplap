@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The negotiation adapter: the one director bridge, the quiet gate, the ask-line queue, the
 ## world-context record, the answer watch, the model calls and their reply parsing. No live
 ## director, classifier or model.
@@ -13,19 +13,6 @@ const POSE_OPTIONS := preload("res://mods/unfplap/shared/pose_options.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
-var failures := 0
-var checks := 0
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 class FakeConfig extends RefCounted:
@@ -167,8 +154,7 @@ func run() -> void:
 	_check_answer()
 	_check_offer_watch()
 	_check_models()
-	print("NEGOTIATION_ADAPTER_RESULT checks=%d failures=%d" % [checks, failures])
-	quit(0 if failures == 0 else 1)
+	finish()
 
 
 func _check_quiet() -> void:

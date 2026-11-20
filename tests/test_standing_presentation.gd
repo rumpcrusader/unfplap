@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The standing invitation: the accepted offer presents even with the pre-turn offer gate closed,
 ## the navigator's face_point owns the turn away, the pose attaches only after the 60-degree away
 ## settle, a blocked turn aborts without snapping, the settled pose holds the affectionate face
@@ -15,8 +15,6 @@ const AWAY_YAW := PI
 const AWAY_EPSILON := deg_to_rad(60.0)
 const PRESENT_FACE := "affectionate"
 
-var failures := 0
-var checks := 0
 var clock := {"now": 0.0}
 
 
@@ -118,17 +116,6 @@ class FakeMain extends Node:
 
 	func camera() -> Camera3D:
 		return view
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func near(a: float, b: float, eps := 0.0001) -> bool:
@@ -309,10 +296,9 @@ func run() -> void:
 	root.remove_child(body)
 	body.free()
 
-	print("STANDING_PRESENTATION_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("STANDING_PRESENTATION_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()
 
 
 ## The settled presentation holds the affectionate face, and closing it leaves a foreign line's

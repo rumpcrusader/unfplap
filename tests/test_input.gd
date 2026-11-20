@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The act key: the 6 default, any-key capture, the mod-owned InputMap action, typing protection,
 ## the start route through the input service and the act input shield.
 ##
@@ -13,8 +13,6 @@ const OFFER := preload("res://mods/unfplap/offer/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 
-var failures := 0
-var checks := 0
 
 
 ## The offer facade the act key hands its one press. Its own act-live rule is
@@ -188,17 +186,6 @@ class FakeRuntime extends Node:
 
 
 
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
-
-
 func run() -> void:
 	_check_choices()
 	_check_accessors()
@@ -210,10 +197,9 @@ func run() -> void:
 	await _check_auto_layer()
 	await _check_mouse()
 	await _check_act_commands()
-	print("INPUT_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("INPUT_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()
 
 
 ## The base-game accessors the seated guard now routes through: the live answer and the absent one.

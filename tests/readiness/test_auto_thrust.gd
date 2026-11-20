@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## Auto thrust: the generated depth must be real tracker strokes, and the pace range must
 ## reach every intensity and pattern class the preference system uses.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/readiness/test_auto_thrust.gd
@@ -7,19 +7,6 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const AUTO := preload("res://mods/unfplap/readiness/auto_thrust.gd")
 const THRUST := preload("res://mods/unfplap/readiness/thrust.gd")
 const PREF := preload("res://mods/unfplap/shared/preferences.gd")
-var failures := 0
-var checks := 0
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func near(a: float, b: float, eps := 0.0001) -> bool:
@@ -240,7 +227,6 @@ func run() -> void:
 		"auto depth high matches")
 	check(near(AUTO.PACE_STEP, 0.25), "wheel pace step is fixed")
 
-	print("AUTO_THRUST_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("AUTO_THRUST_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()

@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The authored pose edges: the typed validator, the documents' requirement and policy rows and
 ## the edge run. Plain dictionaries and `FileAccess` only: no scene, no node, no autoload.
 ##   godot --headless --xr-mode off --path <project> \
@@ -17,19 +17,6 @@ const ORAL_REVERSE_PATH := "res://mods/unfplap/poses/transitions/standing_oral__
 const FACESIT_FORWARD_PATH := "res://mods/unfplap/poses/transitions/missionary__bed_facesit.json"
 const FACESIT_REVERSE_PATH := "res://mods/unfplap/poses/transitions/bed_facesit__missionary.json"
 
-var failures := 0
-var checks := 0
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func near(a: float, b: float, eps := 0.0001) -> bool:
@@ -44,10 +31,9 @@ func run() -> void:
 	_check_facesit_runs()
 	_check_rejections()
 	_check_shapes()
-	print("POSE_EDGE_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("POSE_EDGE_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()
 
 
 func _read(path: String) -> Dictionary:

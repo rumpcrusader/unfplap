@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The act dialogue facade: pacing configuration, cue admission, the memory line channel, reaction
 ## lines and the recent-line reads.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/dialogue/test_act_dialogue.gd
@@ -9,8 +9,6 @@ const FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 
-var failures := 0
-var checks := 0
 
 
 class FakeGame extends Node:
@@ -98,17 +96,6 @@ class FakeMods extends Node:
 
 	func save_changed() -> void:
 		saves += 1
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func _mods() -> FakeMods:
@@ -305,7 +292,6 @@ func run() -> void:
 	check(main.memory.requests.size() == queued_before + 1, "a busy scene queues no reminder")
 	director.state = "idle"
 
-	print("ACT_DIALOGUE_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("ACT_DIALOGUE_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()

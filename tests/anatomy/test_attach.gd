@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The anatomy attachment identity: the per-mare consent, the eligibility capability, the body
 ## profile and off-roster list, the provider assertion, the participation veto, the runtime gates
 ## and the body-owned marker.
@@ -20,8 +20,6 @@ const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const ROWS := preload("res://mods/unfplap/settings/rows.gd")
 
-var failures := 0
-var checks := 0
 
 class FakeIdentity extends Resource:
 	var id := ""
@@ -53,17 +51,6 @@ class FakeRuntime extends Node:
 
 	func anatomy_facts() -> RefCounted:
 		return context
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func _pony(id: String, filly := false, stallion := false) -> FakePony:
@@ -306,5 +293,4 @@ func run() -> void:
 	for pony: Node in [twilight, filly, stallion, off_roster, no_id, no_identity, player]:
 		if is_instance_valid(pony):
 			pony.free()
-	print("ANATOMY_ATTACH_RESULT checks=%d failures=%d" % [checks, failures])
-	quit(0 if failures == 0 else 1)
+	finish()

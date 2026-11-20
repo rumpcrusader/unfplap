@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The Agreement package and its opaque handle: the frozen fields, the TTL, the exact hotkey
 ## match and the late-handle guard. Pure data; no service.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/negotiation/test_agreement.gd
@@ -8,19 +8,6 @@ const POSE_OPTIONS := preload("res://mods/unfplap/shared/pose_options.gd")
 const CLEARANCE := preload("res://mods/unfplap/shared/clearance.gd")
 const CONTEXT := preload("res://mods/unfplap/shared/context.gd")
 
-var failures := 0
-var checks := 0
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func _option(pose := "missionary", source := "bed_side", bed: Variant = null,
@@ -88,5 +75,4 @@ func run() -> void:
 
 	package.pony.free()
 	bed.free()
-	print("AGREEMENT_RESULT checks=%d failures=%d" % [checks, failures])
-	quit(0 if failures == 0 else 1)
+	finish()

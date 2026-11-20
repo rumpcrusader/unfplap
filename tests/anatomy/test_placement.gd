@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The anatomy placement: the global default, the provider and player layers, the body-fit key,
 ## the stable id, the saved override and the tail seat integration.
 ##   godot --headless --xr-mode off --path <project> \
@@ -17,8 +17,6 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const TAIL_HIDE := preload("res://mods/unfplap/anatomy/tail/hide.gd")
 const TAIL_SEAT := preload("res://mods/unfplap/anatomy/tail/seat.gd")
 
-var failures := 0
-var checks := 0
 
 class FakeIdentity extends Resource:
 	var id := ""
@@ -47,17 +45,6 @@ class FakePlayer extends Node3D:
 
 class FakeWorld extends Node:
 	var mares: Array = []
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func near(a: float, b: float, eps := 0.0001) -> bool:
@@ -391,5 +378,4 @@ func run() -> void:
 	tail_skeleton.free()
 
 	meta_first.free()
-	print("ANATOMY_PLACEMENT_RESULT checks=%d failures=%d" % [checks, failures])
-	quit(0 if failures == 0 else 1)
+	finish()

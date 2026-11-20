@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The outside-act stock smack sound: install, restore, live switch and the act handoff.
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/act_audio/test_smack_sound.gd
@@ -7,19 +7,6 @@ const STOCK := preload("res://mods/unfplap/audio/stock_smack.gd")
 const CUES := preload("res://mods/unfplap/audio/smack_cues.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 
-var failures := 0
-var checks := 0
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func near(a: float, b: float, eps := 0.0001) -> bool:
@@ -109,8 +96,7 @@ func run() -> void:
 	bare.free()
 	SETTINGS.pack_smack_sound.set_bool(before)
 
-	print("STOCK_SMACK_RESULT checks=%d failures=%d" % [checks, failures])
-	quit(0 if failures == 0 else 1)
+	finish()
 
 
 func _pony() -> Node3D:

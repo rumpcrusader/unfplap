@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## Dock base seat: both the reference fit and the common +40 mm visibility fit must end with every
 ## base-ring vertex at or inside `rump_z - EMBED`. The outer dock must not move.
 ##
@@ -9,19 +9,6 @@ const DOCK_SEAT := preload("res://mods/unfplap/anatomy/tail/dock_seat.gd")
 const HYBRID_DOCK := preload("res://world/characters/hybrid_mare/hybrid_dock.gd")
 const APPROVED_FIT := "res://world/characters/hybrid_mare/dock_fit.json"
 
-var failures := 0
-var checks := 0
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func run() -> void:
@@ -32,10 +19,9 @@ func run() -> void:
 	position[2] = float(position[2]) + 0.04
 	offset["position"] = position
 	_check_fit(offset, "+40 mm visibility")
-	print("DOCK_SEAT_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("DOCK_SEAT_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()
 
 
 func _check_fit(fit: Dictionary, label: String) -> void:

@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## Act exit paths: one teardown, every borrowed value restored, safe to call twice.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_runtime_teardown.gd
 
@@ -18,8 +18,6 @@ const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const HUD := preload("res://mods/unfplap/hud/service.gd")
 const CATALOG_STANDING := "standing"
 const CATALOG_STANDING_TEST := "standing_test"
-var failures := 0
-var checks := 0
 
 
 class FakePony extends Node3D:
@@ -152,17 +150,6 @@ class FakeAnatomyService extends "res://mods/unfplap/anatomy/service.gd":
 
 	func player_reset_pelvis() -> void:
 		reset_calls += 1
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func _fixture() -> Dictionary:
@@ -615,7 +602,6 @@ func run() -> void:
 
 	for item: Dictionary in [f, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11]:
 		(item["runtime"] as Node).free()
-	print("RUNTIME_TEARDOWN_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("RUNTIME_TEARDOWN_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()

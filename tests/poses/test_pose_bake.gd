@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The bake tool's capture/compare math on a synthetic rig, the deterministic writer and its test
 ## path refusal. The shipped standing asset is the rig's rest pose plus the reference recipe, and
 ## the live base is proven equal to the old procedural pose on every owned bone (head included).
@@ -19,19 +19,6 @@ const SIZES := [1.0, 1.35, 1.7, 2.3]
 
 const PONY_BONES := AUTHORED.PONY_BONES
 
-var failures := 0
-var checks := 0
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func run() -> void:
@@ -40,10 +27,9 @@ func run() -> void:
 	_check_writer()
 	await _check_shipped_standing()
 	await _check_missionary()
-	print("POSE_BAKE_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("POSE_BAKE_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()
 
 
 func _check_capture() -> void:

@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The reduced proactive service: Base clearance, the placeable options, the reasoning, the walk,
 ## the ask line and the Mare-offer handoff, against a fake director bridge, privacy and runtime.
 ##   godot --headless --xr-mode off --path <project> \
@@ -16,19 +16,6 @@ const CLASSIFIER := preload("res://mods/unfplap/initiation/classifier.gd")
 const ADAPTER := preload("res://mods/unfplap/negotiation/adapter.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 
-var failures := 0
-var checks := 0
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 class FakeView extends RefCounted:
@@ -296,10 +283,9 @@ func run() -> void:
 	_check_cuddle_target()
 	_check_outcome_and_reset()
 	_check_scan_quiet()
-	print("INITIATION_API_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("INITIATION_API_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()
 
 
 func _check_force() -> void:

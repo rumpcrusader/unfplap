@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## Pure anatomy geometry: the lip-radius rule, the body-local mapping, the still-zone radius,
 ## the V2 anal ring weights/centre, the coat line targets/bend/frames and the shader sample sync.
 ##   godot --headless --xr-mode off --path <project> \
@@ -7,19 +7,6 @@ extends SceneTree
 const GEOMETRY := preload("res://mods/unfplap/anatomy/geometry.gd")
 const COAT_LINE := preload("res://mods/unfplap/anatomy/coat_line.gd")
 
-var failures := 0
-var checks := 0
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func near(a: float, b: float, eps := 0.0001) -> bool:
@@ -187,5 +174,4 @@ func run() -> void:
 	check(shader.contains("const int LINE_N = %d;" % COAT_LINE.LINE_SAMPLES),
 		"the shader declares the coat line sample count")
 
-	print("ANATOMY_GEOMETRY_RESULT checks=%d failures=%d" % [checks, failures])
-	quit(0 if failures == 0 else 1)
+	finish()

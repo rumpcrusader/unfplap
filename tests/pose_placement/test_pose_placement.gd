@@ -1,23 +1,10 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## Pure pose placement: the live feasibility facts for one chosen option.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/pose_placement/test_pose_placement.gd
 
 const PLACEMENT := preload("res://mods/unfplap/shared/pose_placement.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 
-var failures := 0
-var checks := 0
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func run() -> void:
@@ -68,5 +55,4 @@ func run() -> void:
 	check(not PLACEMENT.source_allowed(CATALOG.MISSIONARY, "flying"),
 		"missionary rejects an unborn source")
 
-	print("POSE_PLACEMENT_RESULT checks=%d failures=%d" % [checks, failures])
-	quit(0 if failures == 0 else 1)
+	finish()

@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The typed act context: defaults, host callbacks and the runtime write-backs.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/act_facts/test_act_facts.gd
 
@@ -7,8 +7,6 @@ const ANATOMY_FACTS := preload("res://mods/unfplap/anatomy/facts.gd")
 const ANATOMY_ACT := preload("res://mods/unfplap/anatomy/act.gd")
 const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 
-var failures := 0
-var checks := 0
 
 
 class Sink extends RefCounted:
@@ -67,17 +65,6 @@ class Sink extends RefCounted:
 
 	func host() -> Variant:
 		return self
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func run() -> void:
@@ -208,7 +195,6 @@ func run() -> void:
 	check(is_same(act.get("_facts"), kept), "reset keeps the context it was given")
 	act.free()
 
-	print("ACT_FACTS_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("ACT_FACTS_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()

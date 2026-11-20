@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The pose evaluator: the typed single/blend modes, the single fast path, the base+delta order,
 ## the two-base capture/blend/overlay math and the reused capture buffers. A bare skeleton and
 ## fake drivers keep it off every game file.
@@ -15,8 +15,6 @@ const FAKE_B := "fake_b"
 const FAKE_DELTA := "fake_delta"
 const BONE := "pony_spine1"
 
-var failures := 0
-var checks := 0
 
 
 class FakeMare extends Node3D:
@@ -98,17 +96,6 @@ class FakeDelta extends "res://mods/unfplap/poses/pose_driver.gd":
 		log.append("delta:%.3f" % weight)
 
 
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
-
-
 func near(a: float, b: float, eps := 0.0001) -> bool:
 	return absf(a - b) <= eps
 
@@ -125,10 +112,9 @@ func run() -> void:
 	_check_render_order()
 	_check_shipped_driver()
 	_check_oral_delta()
-	print("POSE_BLEND_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("POSE_BLEND_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()
 
 
 ## A bare rig with the two spine/neck chains the recipes and the fakes write. The evaluator is the

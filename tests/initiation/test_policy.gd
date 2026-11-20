@@ -1,23 +1,10 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## Pure proactive-request rules: the timer lock, the cooldown, the retry, the approach, the bed
 ## search and the wording mode.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/initiation/test_policy.gd
 
 const POLICY := preload("res://mods/unfplap/initiation/policy.gd")
 
-var failures := 0
-var checks := 0
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func run() -> void:
@@ -49,7 +36,6 @@ func run() -> void:
 		"the phase spellings are stable")
 	check(POLICY.PHASE_BED_APPROACH == "bed_approach", "the bed approach phase is named")
 
-	print("INITIATION_POLICY_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("INITIATION_POLICY_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()

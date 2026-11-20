@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The pure HUD text: hearts/cue, readiness, auto and the End tint.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/hud/test_hud_lines.gd
 
@@ -7,19 +7,6 @@ const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const POSE_VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 
-var failures := 0
-var checks := 0
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func near(a: float, b: float) -> bool:
@@ -52,10 +39,9 @@ func run() -> void:
 	_check_y()
 	_check_view_helpers()
 
-	print("HUD_LINES_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("HUD_LINES_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()
 
 
 func _check_cue() -> void:

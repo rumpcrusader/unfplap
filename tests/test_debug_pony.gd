@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The debug pony-preparation helper shared by the wheel's Bed cuddle and Sex ready actions.
 ## Run:
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_debug_pony.gd
@@ -9,8 +9,6 @@ extends SceneTree
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const DEBUG_PONY := preload("res://mods/unfplap/debug/pony.gd")
 
-var failures := 0
-var checks := 0
 
 
 class FakeNavigator extends Node:
@@ -135,17 +133,6 @@ class Fixture extends RefCounted:
 		impressions.free()
 
 
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
-
-
 func run() -> void:
 	_check_upright()
 	_check_idle()
@@ -155,10 +142,9 @@ func run() -> void:
 	_check_sex_ready_kept()
 	_check_sex_ready_floors()
 	_check_sex_ready_refusals()
-	print("DEBUG_PONY_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("DEBUG_PONY_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()
 
 
 func _pony(name: String) -> FakePony:

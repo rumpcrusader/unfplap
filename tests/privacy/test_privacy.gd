@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The privacy provider: house/outdoors, target exclusion, the other-mare radius, the offer vs.
 ## cuddle rule. A fake house and fake mares; no live world.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/privacy/test_privacy.gd
@@ -6,20 +6,6 @@ extends SceneTree
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const PRIVACY := preload("res://mods/unfplap/privacy/service.gd")
 const PRIVACY_RULES := preload("res://mods/unfplap/shared/privacy_rules.gd")
-
-var failures := 0
-var checks := 0
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 class FakeHouse extends Node3D:
@@ -130,5 +116,4 @@ func run() -> void:
 
 	main.queue_free()
 	house.queue_free()
-	print("PRIVACY_RESULT checks=%d failures=%d" % [checks, failures])
-	quit(0 if failures == 0 else 1)
+	finish()

@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The settings change notification: registration order, one place per callable, a released
 ## listener skipped on the next pass, and an explicit leave at construction, on shutdown, or during
 ## a pass. `tests/test_settings.gd` holds the API shape; this suite holds the ordering rule.
@@ -9,8 +9,6 @@ extends SceneTree
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 
-var failures := 0
-var checks := 0
 ## The order the listeners were called in, shared by every listener of one check.
 var order: Array[String] = []
 
@@ -31,17 +29,6 @@ class Listener extends RefCounted:
 			leave.call()
 
 
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
-
-
 func run() -> void:
 	var base := CHANGE.listener_count()
 	_check_order(base)
@@ -49,10 +36,9 @@ func run() -> void:
 	_check_release(base)
 	_check_leave_during_pass(base)
 	check(CHANGE.listener_count() == base, "every listener of this suite left the list")
-	print("SETTINGS_CHANGE_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("SETTINGS_CHANGE_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()
 
 
 ## The pass runs in registration order, so the subscribers land in the same order as the service

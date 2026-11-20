@@ -1,23 +1,10 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## Pure per-act tolerance: tiers, warnings, compensation, decay and stop cooldowns.
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/readiness/test_act_tolerance.gd
 
 const TOLERANCE := preload("res://mods/unfplap/readiness/tolerance.gd")
 
-var checks := 0
-var failures := 0
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func make(kind: String) -> RefCounted:
@@ -103,7 +90,6 @@ func run() -> void:
 		"a new act resets the meter")
 	check(reset.tier == "normal", "a new act reads the new tier")
 
-	print("ACT_TOLERANCE_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("ACT_TOLERANCE_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()

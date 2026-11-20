@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The standing oral mouth/contact provider: her mouth point, the base opening, the D viseme hold
 ## and the clear. It owns no turn, mix, facing or pose keys.
 ##   godot --headless --xr-mode off --path <project> \
@@ -6,8 +6,6 @@ extends SceneTree
 
 const ORAL := preload("res://mods/unfplap/anatomy/act/oral.gd")
 
-var failures := 0
-var checks := 0
 
 
 class FakeAnatomy extends "res://mods/unfplap/anatomy/controller.gd":
@@ -43,17 +41,6 @@ class FakeHead extends Node:
 class FakePony extends Node3D:
 	var boop_node: Variant
 	var head: Variant = null
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func near(a: float, b: float, eps := 0.0001) -> bool:
@@ -118,5 +105,4 @@ func run() -> void:
 
 	pony.free()
 	anatomy.free()
-	print("ANATOMY_ORAL_TURN_RESULT checks=%d failures=%d" % [checks, failures])
-	quit(0 if failures == 0 else 1)
+	finish()

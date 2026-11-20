@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## Pure/unit checks for the act audio facade and its pack cue table.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/act_audio/test_act_audio.gd
 
@@ -11,19 +11,6 @@ const POSE_VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const HANDS := preload("res://mods/unfplap/hands/service.gd")
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
-var failures := 0
-var checks := 0
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func near(a: float, b: float, eps := 0.0001) -> bool:
@@ -198,5 +185,4 @@ func run() -> void:
 	root.remove_child(smack_pony)
 	smack_pony.free()
 
-	print("ACT_AUDIO_RESULT checks=%d failures=%d" % [checks, failures])
-	quit(1 if failures > 0 else 0)
+	finish()

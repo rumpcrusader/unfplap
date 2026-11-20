@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The pose session facade: the standing and missionary config sync, the bed frame follow, the
 ## bone snapshots, the modifiers and the pose diagnostics.
 ##   godot --headless --xr-mode off --path <project> \
@@ -17,8 +17,6 @@ const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 const POSE := preload("res://mods/unfplap/poses/skeleton_pose.gd")
 
 
-var failures := 0
-var checks := 0
 
 
 class FakePony extends Node3D:
@@ -86,17 +84,6 @@ class FakeFacePoints:
 		return opening
 
 
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
-
-
 func near(a: float, b: float, eps := 0.0001) -> bool:
 	return absf(a - b) <= eps
 
@@ -152,10 +139,9 @@ func run() -> void:
 	_check_anon_pair()
 	_check_no_act_exit()
 
-	print("POSE_SESSION_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("POSE_SESSION_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()
 
 
 func _session(pose: String) -> Dictionary:

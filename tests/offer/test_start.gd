@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The offer service's act start: the act key's one press, the hotkey attempt and its Agreement
 ## exact match, the blocked and empty toasts, the live Agreement start's wait/start/fail answers
 ## and the Agreement auto-start clock with its act, menu and privacy guards.
@@ -21,8 +21,6 @@ const POSE_OPTIONS := preload("res://mods/unfplap/shared/pose_options.gd")
 const AGREEMENT := preload("res://mods/unfplap/negotiation/agreement.gd")
 const NEGOTIATION := preload("res://mods/unfplap/negotiation/service.gd")
 
-var failures := 0
-var checks := 0
 
 
 class FakePony extends Node3D:
@@ -183,17 +181,6 @@ class FakePlayer extends Node3D:
 	var camera: Variant = null
 
 
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
-
-
 func run() -> void:
 	SETTINGS.load_settings()
 	check_answers()
@@ -201,10 +188,9 @@ func run() -> void:
 	check_blocked()
 	check_start_outcomes()
 	check_auto_start()
-	print("OFFER_START_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("OFFER_START_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()
 
 
 ## The offer restates the runtime's Agreement answer, because a service never preloads the

@@ -1,23 +1,10 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The supported-mod catalog: metadata, feature declarations and binding specs.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/integrations/test_catalog.gd
 
 const CATALOG := preload("res://mods/unfplap/shared/integrations.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 
-var failures := 0
-var checks := 0
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func run() -> void:
@@ -106,5 +93,4 @@ func run() -> void:
 		and SETTINGS.pantyhose_hull_min_margin_mm.debug
 		and SETTINGS.pantyhose_hull_show.debug,
 		"the hull controls stay in the Debug block")
-	print("INTEGRATIONS_CATALOG_RESULT checks=%d failures=%d" % [checks, failures])
-	quit(0 if failures == 0 else 1)
+	finish()

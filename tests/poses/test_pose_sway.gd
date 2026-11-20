@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The pose modifiers' sway: the standing body sway follows depth outside the oral segment and the
 ## missionary prone sway slides and nods, both replaying their offset after the pose evaluator
 ## rewrites the body.
@@ -9,8 +9,6 @@ const BODY_SWAY := preload("res://mods/unfplap/poses/body_sway.gd")
 const PRONE_SWAY := preload("res://mods/unfplap/poses/prone_sway.gd")
 const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 
-var failures := 0
-var checks := 0
 
 
 class FakeFacts extends RefCounted:
@@ -23,22 +21,10 @@ class FakeFacts extends RefCounted:
 		pass
 
 
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
-
-
 func run() -> void:
 	_check_body_sway()
 	_check_prone_sway()
-	print("POSE_SWAY_RESULT checks=%d failures=%d" % [checks, failures])
-	quit(0 if failures == 0 else 1)
+	finish()
 
 
 ## The standing sway holds at its base while the oral segment owns the act and returns afterwards.

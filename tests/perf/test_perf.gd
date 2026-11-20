@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The one profiler: the gate, the open-frame stack, one window a second, the rows and the panel
 ## helpers.
 ##   godot --headless --xr-mode off --path <project> \
@@ -7,20 +7,7 @@ extends SceneTree
 const PERF := preload("res://mods/unfplap/shared/perf.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
-var failures := 0
-var checks := 0
 var perf_read := true
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func _switch() -> bool:
@@ -62,10 +49,9 @@ func run() -> void:
 	await _check_tree()
 	await _check_discard()
 	_check_panel()
-	print("PERF_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("PERF_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()
 
 
 ## Both switches on is the gate; off, a chunk costs nothing and the window stays shut.

@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The closed act-start vocabulary and the runtime setup dispatch: the shipped rows, the helper
 ## defaults, a synthetic `auto`/`bed_keep_lying` row, and the two bed adapters through the same
 ## dispatcher the real start uses.
@@ -11,8 +11,6 @@ const POSE_SPEC := preload("res://mods/unfplap/poses/pose_spec.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 
-var failures := 0
-var checks := 0
 
 
 class FakePony extends Node3D:
@@ -35,25 +33,13 @@ class FakeMain extends Node:
 	var player: FakePlayer = null
 
 
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
-
-
 func run() -> void:
 	_check_vocabulary()
 	_check_synthetic_row()
 	_check_dispatch()
-	print("START_SETUP_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("START_SETUP_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()
 
 
 func _check_vocabulary() -> void:

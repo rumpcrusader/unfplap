@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The director line channel: the typed line state, the keep-active cancel and the cancel prefix.
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/memory/test_dialogue.gd
@@ -6,8 +6,6 @@ extends SceneTree
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 
-var failures := 0
-var checks := 0
 
 
 class FakeMain extends Node:
@@ -28,17 +26,6 @@ class FakeDirector extends Node:
 	func cancel_authored_line(key: String) -> void:
 		cancelled.append(key)
 		_authored_lines.erase(key)
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func run() -> void:
@@ -123,7 +110,6 @@ func run() -> void:
 	main.queue_free()
 	director.queue_free()
 
-	print("MEMORY_DIALOGUE_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("MEMORY_DIALOGUE_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()

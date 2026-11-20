@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The generated teats and the body fit: the size curve, the build guards, the mare-rest to
 ## her-rest map and the profile of the body a pony is wearing.
 ##   godot --headless --xr-mode off --path <project> \
@@ -8,23 +8,10 @@ const UDDER := preload("res://mods/unfplap/anatomy/udder.gd")
 const BODY_FIT := preload("res://mods/unfplap/anatomy/body_fit.gd")
 const BODY_PROFILE := preload("res://mods/unfplap/shared/body_profile.gd")
 
-var failures := 0
-var checks := 0
 
 
 class FakePony extends Node3D:
 	var identity: Variant = null
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func near(a: float, b: float, eps := 0.0001) -> bool:
@@ -37,10 +24,9 @@ func run() -> void:
 	_check_base_map()
 	_check_part_map()
 	_check_body_profile_for()
-	print("ANATOMY_TEATS_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("ANATOMY_TEATS_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()
 
 
 ## The shape grows with the size, clamps at both ends and never shrinks between steps.

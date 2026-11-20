@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The act audio facade: the pack foley layer plus the base-game breath/climax, the Ponese mute
 ## policy, her own generated vocal and the act identity it binds. The pure pack catalogue is
 ## covered by `test_act_audio.gd`.
@@ -13,8 +13,6 @@ const POSE_VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 
-var failures := 0
-var checks := 0
 
 
 class FakePony extends Node3D:
@@ -61,17 +59,6 @@ class FakeDirector extends Node:
 	var characters: Dictionary = {}
 	var tts: Node = null
 	var vocal: Node = null
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func run() -> void:
@@ -265,10 +252,9 @@ func run() -> void:
 
 	_check_live_mute()
 
-	print("AUDIO_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("AUDIO_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()
 
 
 ## A live Ponese mute edit has to reach the voice policy during an act. `apply_live_settings()`

@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The pure Kissing 1.2.9 policy: availability, the readiness-driven level, the bond cap, the
 ## activity fade, the climax boost and the climax-only fidget set.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/integrations/test_kissing.gd
@@ -7,19 +7,6 @@ const KISSING := preload("res://mods/unfplap/integrations/kissing.gd")
 const CONTEXT := preload("res://mods/unfplap/integrations/context.gd")
 const ACTION := preload("res://mods/unfplap/integrations/action.gd")
 
-var failures := 0
-var checks := 0
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func _context(feature := true) -> RefCounted:
@@ -186,8 +173,7 @@ func run() -> void:
 	check(_find(after, "fidgets", "_root").get("value") == -1,
 		"afterglow suppresses a climax's fidgets")
 
-	print("INTEGRATIONS_KISSING_RESULT checks=%d failures=%d" % [checks, failures])
-	quit(0 if failures == 0 else 1)
+	finish()
 
 
 func near(a: float, b: float, eps := 0.00001) -> bool:

@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## Pure eligibility policy: adults, Promiscuity, willingness, history, cycle and per-mare
 ## consent. No world or user:// file is touched.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/eligibility/test_eligibility.gd
@@ -7,19 +7,6 @@ const FACTS := preload("res://mods/unfplap/eligibility/facts.gd")
 const POLICY := preload("res://mods/unfplap/eligibility/policy.gd")
 const IDENTITY_RECORD := preload("res://mods/unfplap/eligibility/identity_record.gd")
 
-var failures := 0
-var checks := 0
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func facts(over: Dictionary = {}) -> Dictionary:
@@ -197,7 +184,6 @@ func run() -> void:
 	check(str(relation_row.get("effect", "")) == "refuse", "relation row uses the refusal effect")
 	check(not bool(relation_row.get("ok", true)), "relation row fails when unwilling")
 
-	print("ELIGIBILITY_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("ELIGIBILITY_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()

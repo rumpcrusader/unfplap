@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The version 7 authored asset: the schema and its refusals, the `local_rest` bone math, the
 ## anchor/contact placement at four sizes, the v6 uniform scale, variants, the bed clearance and
 ## the spec asset resolution. Synthetic assets keep the suite away from the shipped file's numbers.
@@ -15,20 +15,7 @@ const MISSIONARY_PATH := "res://mods/unfplap/poses/missionary_pose.json"
 const SIZES := [1.0, 1.35, 1.7, 2.3]
 const PONY_BONES := AUTHORED.PONY_BONES
 
-var failures := 0
-var checks := 0
 var _scenes: Array[Node] = []
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func near(a: float, b: float, eps := 0.0001) -> bool:
@@ -49,10 +36,9 @@ func run() -> void:
 	_check_v6_scale()
 	_check_facesit_asset()
 	await _check_bed_clearance()
-	print("POSE_ASSET_V7_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("POSE_ASSET_V7_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()
 
 
 ## A valid synthetic asset dictionary. Each call is fresh, so a case can mutate one field.

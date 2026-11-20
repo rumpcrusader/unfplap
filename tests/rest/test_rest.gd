@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The bed/couch rest and cuddle rejoin facade: the bed anchor, the shared bed rest lookup, the
 ## rejoin decision and note, the restore posture and the early rejoin exits.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/rest/test_rest.gd
@@ -6,8 +6,6 @@ extends SceneTree
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const REST := preload("res://mods/unfplap/rest/service.gd")
 
-var failures := 0
-var checks := 0
 
 
 class FakePony extends CharacterBody3D:
@@ -101,17 +99,6 @@ class FakeRest extends Node3D:
 		return false
 
 
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
-
-
 func _fixture() -> Dictionary:
 	var facade: RefCounted = REST.new()
 	var pony := FakePony.new()
@@ -180,10 +167,9 @@ func run() -> void:
 	await _check_place()
 	_check_early_rejoin()
 
-	print("REST_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("REST_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()
 
 
 func _check_wanted() -> void:

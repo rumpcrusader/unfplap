@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The pure pose state and edge math: the transition table, the request codes, the edge start and
 ## validation, the duration/constraint resolution, the channel weights and switches, the events,
 ## the completion and the reused arrays. Plain dictionaries only: no scene, no node, no autoload.
@@ -8,19 +8,6 @@ extends SceneTree
 const STATE := preload("res://mods/unfplap/poses/pose_state.gd")
 const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 
-var failures := 0
-var checks := 0
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func near(a: float, b: float, eps := 0.0001) -> bool:
@@ -42,10 +29,9 @@ func run() -> void:
 	_check_reuse()
 	_check_base()
 
-	print("POSE_STATE_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("POSE_STATE_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()
 
 
 ## One valid edge dictionary; every check starts from its own copy.

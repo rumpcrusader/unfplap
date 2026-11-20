@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## Minimal integration test for ACTIVE readiness and pony-climax separation, without a world.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/readiness/test_runtime_thrust.gd
 
@@ -7,19 +7,6 @@ const THRUST_STATE := preload("res://mods/unfplap/readiness/thrust_state.gd")
 const PREF := preload("res://mods/unfplap/shared/preferences.gd")
 const CYCLE := preload("res://mods/unfplap/shared/cycle.gd")
 const HUD_LINES := preload("res://mods/unfplap/hud/lines.gd")
-var failures := 0
-var checks := 0
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func near(a: float, b: float, eps := 0.0001) -> bool:
@@ -215,7 +202,6 @@ func run() -> void:
 	runtime.act.reset_thrust_state()
 	runtime.free()
 
-	print("RUNTIME_THRUST_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("RUNTIME_THRUST_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()

@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The settings API contract, tested once.
 ##
 ## The declarations are compile-time: a wrong accessor, a mistyped name or a missing setting fails
@@ -18,8 +18,6 @@ const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/service.gd")
 const CONSENT := preload("res://mods/unfplap/shared/consent.gd")
 const INTEGRATIONS := preload("res://mods/unfplap/shared/integrations.gd")
 
-var failures := 0
-var checks := 0
 var original := {}
 
 
@@ -70,17 +68,6 @@ class FakeSettings extends Node:
 		return "mounting" if key == "ponies/size" else null
 
 
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
-
-
 func near(a: float, b: float, eps := 0.0001) -> bool:
 	return absf(a - b) <= eps
 
@@ -122,10 +109,9 @@ func run() -> void:
 	_check_player_file_recovery()
 	_check_player_split()
 	_check_player_recovery()
-	print("SETTINGS_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("SETTINGS_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()
 
 
 ## Every declaration is well formed and reachable.

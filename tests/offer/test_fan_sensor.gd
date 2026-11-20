@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The offer fan sensor: the standing fan boundary, the candidate distance order, the lying
 ## candidate, the scene fingerprint transitions, the far-mare silence and the act-inert state.
 ##   godot --headless --xr-mode off --path <project> \
@@ -8,8 +8,6 @@ const SENSOR := preload("res://mods/unfplap/offer/fan_sensor.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 
-var failures := 0
-var checks := 0
 
 
 class FakeMare extends Node3D:
@@ -37,17 +35,6 @@ class FakeGame extends Node:
 	var headset_view := false
 
 
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
-
-
 func run() -> void:
 	_check_fan_boundary()
 	_check_order_and_focus()
@@ -56,10 +43,9 @@ func run() -> void:
 	_check_rotation()
 	_check_poll_cadence()
 	_check_reset_and_act()
-	print("FAN_SENSOR_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("FAN_SENSOR_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()
 
 
 ## The fan is the rump's reach and half-plane; a held mare is still a candidate until the poll.

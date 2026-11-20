@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The modifier-profile reconcile: a pose change keeps the shared owner, installs the target-only
 ## owners and removes the source-only ones, while `leave_pose_body()` stays the act-exit removal.
 ## The synthetic profile lives only in the session's test seam, never in the shipped table.
@@ -12,8 +12,6 @@ const POSE_SPEC := preload("res://mods/unfplap/poses/pose_spec.gd")
 const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 const POSE_STATE := preload("res://mods/unfplap/poses/pose_state.gd")
 
-var failures := 0
-var checks := 0
 
 
 class FakePony extends Node3D:
@@ -40,17 +38,6 @@ class FakeActBody extends "res://mods/unfplap/poses/missionary_anon.gd":
 
 class FakeRun extends POSE_STATE.Run:
 	pass
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func _values(raw: Dictionary) -> SESSION.ActPose:
@@ -165,10 +152,9 @@ func run() -> void:
 	check(not session._started and session.view().id == "",
 		"the final release leaves the session idle")
 
-	print("MODIFIER_PROFILE_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("MODIFIER_PROFILE_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()
 
 
 ## Point the live view at a profile pair without rebuilding the evaluator. `pose_changed` reads

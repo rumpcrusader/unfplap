@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The world facade: the bound scene handles, the camera cache, the bed resolution, the menu and
 ## headset gates, the player body and mare reads, the LOD rebuild and the act chat.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/world/test_world.gd
@@ -8,19 +8,6 @@ const GAME := preload("res://mods/unfplap/world/game.gd")
 const HYBRID_NEAR_MESH := preload("res://world/characters/hybrid_mare/hybrid_near_mesh.gd")
 const HYBRID_FAR_MESH := preload("res://world/characters/hybrid_mare/hybrid_far_mesh.gd")
 
-var failures := 0
-var checks := 0
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 class FakePlayer extends Node3D:
@@ -389,8 +376,7 @@ func run() -> void:
 	WORLD.unbind()
 	check(WORLD.game == null and WORLD.player == null, "unbind clears the bound handles")
 
-	print("WORLD_RESULT checks=%d failures=%d" % [checks, failures])
-	quit(0 if failures == 0 else 1)
+	finish()
 
 
 ## A bound handle freed without unbind answers the unbound values, not a dead node's.

@@ -141,6 +141,9 @@ SETTINGS_DECLARATION = re.compile(
 TESTS = ROOT / "tests"
 TEST_SUITE_CHECK = re.compile(r"^func check\(", re.MULTILINE)
 TEST_SUITE_RESULT = re.compile(r"_RESULT checks=")
+TEST_SUITE_BASE = re.compile(
+    r'^extends\s+"res://mods/unfplap/tests/support/suite\.gd"', re.MULTILINE)
+TEST_SUITE_BASE_PATH = TESTS / "support" / "suite.gd"
 TEST_TRUE_CALL = re.compile(r"\bcheck\(\s*true\b")
 TEST_NUMERIC_LITERAL = re.compile(r"(?<![\w.])-?\d+(?:\.\d+)?(?![\w.])")
 TEST_SETTING_DEFAULT = re.compile(r"[A-Za-z_][\w.]*\.default\b")
@@ -1092,14 +1095,26 @@ def check_calls(text: str) -> list[tuple[int, str]]:
 
 
 def check_tests(failure: Failure) -> None:
-    # The runner contract: a suite defines the check() helper and prints its result line.
+    # The runner contract: a suite defines the check() helper or extends the shared base, and
+    # prints its result line either way.
     for path in test_suites():
         text = path.read_text(encoding="utf-8")
         name = rel(path)
-        if not TEST_SUITE_CHECK.search(text):
+        extends_base = bool(TEST_SUITE_BASE.search(text))
+        if not extends_base and not TEST_SUITE_CHECK.search(text):
             failure.add("%s does not define a check() helper" % name)
-        if not TEST_SUITE_RESULT.search(text):
+        if not extends_base and not TEST_SUITE_RESULT.search(text):
             failure.add("%s does not print a _RESULT check summary" % name)
+
+    # The base carries the helper and the result line for every suite that extends it.
+    if not TEST_SUITE_BASE_PATH.exists():
+        failure.add("%s is missing" % rel(TEST_SUITE_BASE_PATH))
+    else:
+        base_text = TEST_SUITE_BASE_PATH.read_text(encoding="utf-8")
+        if not TEST_SUITE_CHECK.search(base_text):
+            failure.add("%s does not define a check() helper" % rel(TEST_SUITE_BASE_PATH))
+        if not TEST_SUITE_RESULT.search(base_text):
+            failure.add("%s does not print a _RESULT check summary" % rel(TEST_SUITE_BASE_PATH))
 
     for path in sorted(TESTS.rglob("*.gd")):
         text = path.read_text(encoding="utf-8")

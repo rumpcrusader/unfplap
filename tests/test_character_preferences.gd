@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The base-game character catalog is an explicit, adult, well-formed preference profile for every
 ## roster mare. One validation pass per row, plus the settings merge for one catalog mare.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_character_preferences.gd
@@ -21,19 +21,6 @@ const STALLIONS := [
 	"shining_armor", "soarin", "sunburst", "thunderlane",
 ]
 
-var failures := 0
-var checks := 0
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func run() -> void:
@@ -82,10 +69,9 @@ func run() -> void:
 		and not (merged_preference.get("touch", []) as Array).is_empty(),
 		"a catalog mare's profile merges through the settings service")
 
-	print("CHARACTER_PREFERENCES_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("CHARACTER_PREFERENCES_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()
 
 
 ## The whole row schema. A non-empty result names the first broken rule; the caller prints it with

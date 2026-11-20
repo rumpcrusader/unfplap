@@ -1,23 +1,10 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## Pure act-anatomy decisions: the hole/oral mix, the shared shape drive and the wink scheduler.
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/anatomy/test_act_state.gd
 
 const STATE := preload("res://mods/unfplap/anatomy/act/state.gd")
 
-var failures := 0
-var checks := 0
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func near(a: float, b: float, eps := 0.0001) -> bool:
@@ -65,5 +52,4 @@ func run() -> void:
 	check(STATE.wink_mode(STATE.PULLED_OUT_PHASE, false, 1) == 0,
 		"the pulled-out threshold is exclusive")
 
-	print("ANATOMY_ACT_STATE_RESULT checks=%d failures=%d" % [checks, failures])
-	quit(0 if failures == 0 else 1)
+	finish()

@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## Runtime stop path: neutral and strict stops end the act, commit a severe summary, and only
 ## strict requests space and bucks. The stop mood reaches the summary and its impression, and the
 ## stop face waits for an in-tree runtime. No live world is needed.
@@ -10,8 +10,6 @@ const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 
-var checks := 0
-var failures := 0
 
 
 class FakeMods extends Node:
@@ -145,17 +143,6 @@ class FakeMain extends Node:
 
 	func camera() -> Camera3D:
 		return null
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func fixture(kind: String) -> Dictionary:
@@ -311,7 +298,6 @@ func run() -> void:
 	if paused_fixture["existing"] != null and is_instance_valid(paused_fixture["existing"]):
 		paused_fixture["existing"].name = "Mods"
 
-	print("ACT_STOP_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("ACT_STOP_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()

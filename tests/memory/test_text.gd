@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## Pure memory wording and ids: adults are told what it was, fillies and colts get a perception
 ## with the place it happened, and impressions never carry an explicit thought for a young
 ## witness. The director keep-active rule is pure too.
@@ -8,19 +8,6 @@ extends SceneTree
 const TEXT := preload("res://mods/unfplap/memory/text.gd")
 const FACTS := preload("res://mods/unfplap/memory/facts.gd")
 
-var failures := 0
-var checks := 0
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func run() -> void:
@@ -126,7 +113,6 @@ func run() -> void:
 	check(cue_row.has_all(["friendship", "love", "stage", "anger", "mood",
 		"first_time", "careful"]), "the cue facts dictionary carries its keys")
 
-	print("MEMORY_TEXT_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("MEMORY_TEXT_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()

@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The idle offer service: the fan sensor's transitions, the scene fingerprint, the standing
 ## target, the footstool block and its one toast, the hint row in the game's prompt row and the
 ## HUD fallback, the live Agreement offer, the pure `offer_target()` read and the offer cleared
@@ -18,8 +18,6 @@ const NEGOTIATION := preload("res://mods/unfplap/negotiation/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 
-var failures := 0
-var checks := 0
 
 
 class FakeHints extends Node:
@@ -154,17 +152,6 @@ class Targets extends ELIGIBILITY:
 		return true
 
 
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
-
-
 func run() -> void:
 	SETTINGS.load_settings()
 	_check_sensor_transition()
@@ -176,10 +163,9 @@ func run() -> void:
 	_check_agreement_first()
 	_check_lying_act_target()
 	_check_hide_while_act_live()
-	print("OFFER_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("OFFER_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()
 
 
 ## Two standing mares inside the fan, with a stallion nearer inside it and a mare outside it: the

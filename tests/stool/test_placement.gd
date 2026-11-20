@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The standing placement raises the player onto the stool and lowers him again.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/stool/test_placement.gd
 
@@ -8,8 +8,6 @@ const STOOL := preload("res://mods/unfplap/stool/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const FRAME := preload("res://mods/unfplap/act/frame.gd")
 
-var failures := 0
-var checks := 0
 
 
 ## A bare world root: the scene reads the standing placement makes.
@@ -22,17 +20,6 @@ class FakeMain extends Node:
 	var player: Node3D
 	var stool: Node
 	var game: Node
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func run() -> void:
@@ -112,5 +99,4 @@ func run() -> void:
 	pony.free()
 	floor.free()
 
-	print("STOOL_PLACEMENT_RESULT checks=%d failures=%d" % [checks, failures])
-	quit(0 if failures == 0 else 1)
+	finish()

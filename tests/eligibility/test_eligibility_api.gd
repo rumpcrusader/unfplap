@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## Eligibility API adapter: live facts, capability targets, consent, the typed verdict and the
 ## provider profile layer. No world file is touched; SETTINGS uses
 ## a throwaway XDG data dir in the test runner.
@@ -14,8 +14,6 @@ const ROWS := preload("res://mods/unfplap/settings/rows.gd")
 const CYCLE := preload("res://mods/unfplap/shared/cycle.gd")
 const MARE_REGISTRY := preload("res://mods/unfplap/registry/service.gd")
 
-var failures := 0
-var checks := 0
 
 
 class FakeIdentity extends RefCounted:
@@ -86,17 +84,6 @@ class FakeMain extends Node:
 	var game: Node
 	var player: Node
 	var eligibility: ELIGIBILITY
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func run() -> void:
@@ -409,7 +396,6 @@ func run() -> void:
 	var restored: ELIGIBILITY.Verdict = main.eligibility.get_verdict(pony, ELIGIBILITY.Mode.START)
 	check(bool(restored.show), "setup after clear restores the verdict")
 
-	print("ELIGIBILITY_API_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("ELIGIBILITY_API_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()

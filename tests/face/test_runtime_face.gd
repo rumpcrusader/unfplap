@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## Runtime face beats with a fake expressions node: start, close, warning, afterglow, climax and
 ## the line-face ownership rule. No live world is needed.
 ##   godot --headless --xr-mode off --path <project> \
@@ -7,8 +7,6 @@ extends SceneTree
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const FACE := preload("res://mods/unfplap/face/service.gd")
 const TOLERANCE := preload("res://mods/unfplap/readiness/tolerance.gd")
-var checks := 0
-var failures := 0
 
 
 class FakeExpressions extends Node:
@@ -59,17 +57,6 @@ class FakePony extends Node3D:
 
 class FakeTolerance extends TOLERANCE:
 	pass
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 ## The runtime's post-act face path without the runtime wrapper: the afterglow's plan carries
@@ -237,7 +224,6 @@ func run() -> void:
 
 	pony.free()
 	runtime.free()
-	print("RUNTIME_FACE_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("RUNTIME_FACE_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()

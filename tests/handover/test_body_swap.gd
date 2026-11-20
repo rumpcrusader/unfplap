@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The generic body-swap handover: suspend an act, adopt the runtime on a new body with the same
 ## stable id, rebuild the pose and resume, and keep `act/exit.gd:run()` the only exit.
 ##   godot --headless --xr-mode off --path <project> \
@@ -28,8 +28,6 @@ const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 
-var failures := 0
-var checks := 0
 
 
 class FakeIdentity extends Resource:
@@ -391,17 +389,6 @@ class FakePlayerAnatomy extends "res://mods/unfplap/anatomy/service.gd":
 		reset_calls += 1
 
 
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
-
-
 func _pony(display_name: String, node_name := "Pony") -> FakePony:
 	var pony := FakePony.new()
 	pony.name = node_name
@@ -522,8 +509,7 @@ func run() -> void:
 	_check_idle_body_binding()
 	_check_same_node_refresh()
 	_check_origins()
-	print("BODY_SWAP_RESULT checks=%d failures=%d" % [checks, failures])
-	quit(0 if failures == 0 else 1)
+	finish()
 
 
 ## The watcher reads the service at the existing cadence and never pumps the provider. The

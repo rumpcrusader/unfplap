@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The Negotiation service through its public API with a fake host: the Anon offer and its
 ## captured options, the live placement re-check, the Anon decision, the Mare response, the lock,
 ## the hold, privacy, the TTL, the Agreement handle and the terminal outcomes. No live scene and no
@@ -12,19 +12,6 @@ const CLEARANCE := preload("res://mods/unfplap/shared/clearance.gd")
 const POSE_OPTIONS := preload("res://mods/unfplap/shared/pose_options.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 
-var failures := 0
-var checks := 0
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 class FakePony extends Node3D:
@@ -269,8 +256,7 @@ func run() -> void:
 	_check_report_and_cancel()
 	_check_lock()
 	_check_ready_offer()
-	print("NEGOTIATION_RESULT checks=%d failures=%d" % [checks, failures])
-	quit(0 if failures == 0 else 1)
+	finish()
 
 
 func _check_anon_accept() -> void:

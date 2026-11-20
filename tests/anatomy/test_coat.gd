@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The anatomy mesh and the body coat: the refined winking mesh, the V2 anal keys, the rig and
 ## near-palette shader patch, the vulva cut and the still zones.
 ##   godot --headless --xr-mode off --path <project> \
@@ -16,8 +16,6 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const SHAPES := preload("res://mods/unfplap/anatomy/shapes.gd")
 const STILL_ZONES := preload("res://mods/unfplap/anatomy/still_zone_debug.gd")
 
-var failures := 0
-var checks := 0
 
 class NearCoatPony extends Node3D:
 	var _near: Dictionary = {}
@@ -48,17 +46,6 @@ class FakeAppearanceIdentity extends Resource:
 
 class FakeAppearancePony extends Node3D:
 	var identity: Resource
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func near(a: float, b: float, eps := 0.0001) -> bool:
@@ -521,5 +508,4 @@ func run() -> void:
 	appearance_pony.queue_free()
 	near_pony.free()
 
-	print("ANATOMY_COAT_RESULT checks=%d failures=%d" % [checks, failures])
-	quit(0 if failures == 0 else 1)
+	finish()

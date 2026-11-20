@@ -1,22 +1,9 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## Pure per-mare participation layer: defaults, the partial merge and the capability check.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_participation.gd
 
 const PARTICIPATION := preload("res://mods/unfplap/shared/participation.gd")
 
-var failures := 0
-var checks := 0
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func run() -> void:
@@ -47,5 +34,4 @@ func run() -> void:
 	check(PARTICIPATION.allows({"acts": true}, "acts") == true, "a true capability is allowed")
 	check(PARTICIPATION.allows({}, "acts") == true, "a missing capability is allowed")
 
-	print("PARTICIPATION_RESULT checks=%d failures=%d" % [checks, failures])
-	quit(0 if failures == 0 else 1)
+	finish()

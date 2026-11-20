@@ -1,23 +1,10 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## Pure admission-policy tests for act lines.
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/dialogue/test_utterance_scheduler.gd
 
 const SCHED := preload("res://mods/unfplap/dialogue/utterance_scheduler.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
-var failures := 0
-var checks := 0
-
-
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
 
 
 func fresh() -> RefCounted:
@@ -143,7 +130,6 @@ func run() -> void:
 	check(SCHED.base_cue(preference, 1.0, 10.0, "firm", "steady") == "She's overwhelmed.",
 		"overwhelmed beats everything")
 
-	print("UTTERANCE_SCHEDULER_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("UTTERANCE_SCHEDULER_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()

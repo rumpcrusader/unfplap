@@ -1,4 +1,4 @@
-extends SceneTree
+extends "res://mods/unfplap/tests/support/suite.gd"
 ## The act camera facade and the live view: the lean and its smoothing, the shot response, the free
 ## look, the standing offsets, the missionary eye view and the head clearance.
 ##   godot --headless --xr-mode off --path <project> \
@@ -25,8 +25,6 @@ const STATE_ACTIVE := 2
 const STATE_CLIMAX := 3
 const STATE_AFTERGLOW := 4
 
-var failures := 0
-var checks := 0
 
 
 class FakeMain extends Node:
@@ -226,17 +224,6 @@ class FakeListener extends Node3D:
 		return Vector3(0.5, 1.5, 0.5)
 
 
-func _initialize() -> void:
-	run.call_deferred()
-
-
-func check(ok: bool, text: String) -> void:
-	checks += 1
-	if not ok:
-		failures += 1
-		print("FAIL ", text)
-
-
 func near(a: float, b: float, eps := 0.0001) -> bool:
 	return absf(a - b) <= eps
 
@@ -302,10 +289,9 @@ func run() -> void:
 	_check_standing_cache()
 	_check_look_target()
 
-	print("ACT_CAMERA_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
 		print("ACT_CAMERA_PASS")
-	quit(0 if failures == 0 else 1)
+	finish()
 
 
 func _check_session() -> void:

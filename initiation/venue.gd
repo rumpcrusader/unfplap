@@ -1,7 +1,6 @@
 extends Node
-## The request system's venue adapter: the only file that touches navigators, posture, the bed
-## search and the world house. It answers with plain values; the facade owns the reasons and the
-## debug log. The privacy scan lives in `privacy/service.gd`. See `docs/initiation.md`.
+## The scene adapter: it alone reads navigators, posture, beds and the world house.
+## It returns plain values; the facade owns the reasons and the log.
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const BED_REST := preload("res://world/relationships/shared_bed.gd")
@@ -67,7 +66,7 @@ func house_at(at: Vector3) -> Node3D:
 	return _privacy.house_at(at)
 
 
-## A standing offer needs a free navigator in Anon's region and within reach.
+## A standing offer needs a navigator free near Anon, in his region.
 func can_approach(pony: Node3D) -> bool:
 	var node := player()
 	if not is_instance_valid(node):

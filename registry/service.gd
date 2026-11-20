@@ -1,14 +1,5 @@
 extends RefCounted
-## In-memory provider registry for mare templates. The cross-mod API contract is `docs/api.md`.
-##
-## Another mod's entry script registers one mare id and a character-template-shaped descriptor.
-## This module validates it, layers it over the built-in template, and lets `settings/service.gd` resolve
-## the same data it already resolves for a base-game mare. Provider data is never written to
-## `settings.json`: the player's saved block always wins, and removing the provider leaves the
-## player's choices intact.
-##
-## The registry is process-wide and main-thread only. It is empty until a provider registers, so
-## tests and a run without other mods behave exactly as before.
+## In-memory provider registry for mare templates; the API contract is `docs/api.md`.
 
 const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
 const PARTICIPATION := preload("res://mods/unfplap/shared/participation.gd")
@@ -42,8 +33,7 @@ static var _next_order := 0
 static var revision := 0
 
 
-## Validate and add one provider layer. Re-registering the same owner + id replaces that layer
-## in place, so a provider can refresh its template without changing precedence.
+## Add one validated provider layer; the same owner and id replaces it in place.
 static func register(owner_id: int, descriptor: Dictionary) -> Dictionary:
 	var warnings: Array = []
 	var errors: Array = []
@@ -151,10 +141,8 @@ static func register(owner_id: int, descriptor: Dictionary) -> Dictionary:
 	return result
 
 
-## Write the identity half of one owner's layer: the eligible assertion, consent and participation.
-## The rest of that owner's template is preserved. A missing layer is created with only identity
-## keys. `eligible` absent from `identity` clears any previous assertion. Returns the same result
-## shape as `register()`.
+## Write the identity half of one owner's layer, preserving the rest of its template.
+## A missing layer is created with identity keys only; no `eligible` clears the assertion.
 static func set_profile(owner_id: int, source: String, id: String,
 		identity: Dictionary) -> Dictionary:
 	var warnings: Array = []

@@ -3,14 +3,7 @@ extends RefCounted
 ## Contract: docs/world.md
 ## Scope: world
 ## Import: world/service.gd only
-##
-##   const WORLD := preload("res://mods/unfplap/world/service.gd")
-##   if WORLD.menu_open():
-##       return
-##
-## The one place a service reads the live scene: the world root, Anon's body and the reads derived
-## from them. It answers where and what, never whether, so every rule stays with its caller. The
-## state is bound by the entry on world/player enter and cleared on world close.
+## The one live-scene reader; it answers where and what, not whether.
 
 const HYBRID_NEAR_MESH := preload("res://world/characters/hybrid_mare/hybrid_near_mesh.gd")
 const HYBRID_FAR_MESH := preload("res://world/characters/hybrid_mare/hybrid_far_mesh.gd")
@@ -87,7 +80,7 @@ static func camera() -> Camera3D:
 	return current
 
 
-## The player rig's reach node, resolved once per body.
+## The rig's reach node, cached per body.
 static func interactor() -> Node:
 	if is_instance_valid(_interactor):
 		return _interactor
@@ -124,8 +117,8 @@ static func player_body() -> Node3D:
 	return player
 
 
-## The game's own player property, read defensively: a game that renames it returns null instead of
-## crashing. The entry uses this when the player rig arrives before `bind_player()`.
+## The game's player property, read defensively so a rename returns null.
+## The entry uses this when the rig arrives before `bind_player()`.
 static func game_player() -> Node3D:
 	if not is_instance_valid(game):
 		return null
@@ -173,9 +166,8 @@ static func bed_under(point: Vector3, exclude: RID = RID()) -> Node3D:
 	return null
 
 
-## The actual bed/couch behind a physics hit. A `SharedTorsoSupport` is a temporary child of the
-## bed that also carries `soft_support`; using it as the bed leaves the act with a freed node
-## once the cuddle support is removed.
+## The real bed behind a physics hit; a `SharedTorsoSupport` is a temporary child of it.
+## Returning the support instead would leave the act with a freed node.
 static func real_bed(node: Node) -> Node3D:
 	if not is_instance_valid(node):
 		return null
@@ -217,7 +209,7 @@ static func bed_for_cradle(pony: Node3D) -> Node3D:
 	return real_bed(MATTRESS.bed_of(hit.get("collider")))
 
 
-## Another mare already lying on the mattress top, excluding the target.
+## Whether another mare (not the target) already lies on the mattress.
 static func bed_occupied(bed: Node3D, target: Node) -> bool:
 	if not is_instance_valid(bed):
 		return false
@@ -240,7 +232,7 @@ static func bed_occupied(bed: Node3D, target: Node) -> bool:
 	return false
 
 
-## True while Anon's seat is the bed or couch itself.
+## True while Anon is seated on the bed or couch.
 static func player_beside_bed(bed: Node3D) -> bool:
 	if not is_instance_valid(player):
 		return false
@@ -262,9 +254,8 @@ static func player_beside_bed(bed: Node3D) -> bool:
 	return false
 
 
-## True while a menu or panel owns the mouse: the tree is paused or a known UI panel is open.
-## Deliberately excludes "the mouse is visible" so a menu that leaves the cursor visible cannot
-## keep offers and act input dead after it closes. Use menu_open() for "can he interact now".
+## True while a menu or panel owns the mouse: the tree paused or a known panel open.
+## "Mouse is visible" is deliberately excluded: a closed menu would leave input dead.
 static func menu_panel_open() -> bool:
 	var tree := _tree()
 	if tree != null and tree.paused:

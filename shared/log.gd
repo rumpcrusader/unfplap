@@ -1,14 +1,7 @@
 extends RefCounted
-## The mod's one log sink and perf entry: the two debug switches, the `[unfplap] ` prefix, the idle
-## perf probe and the corner panel. Static like `settings/service.gd`, so printing a line costs a
-## preload and never a host reference.
-##
-##   const LOG := preload("res://mods/unfplap/shared/log.gd")
-##   LOG.debug("offer pony=%s pose=%s" % [str(pony.name), pose])
-##
-## The entry binds the two switch reads, because a shared module never imports a service; the
-## settings change notification re-reads them on every edit and nothing else reads `settings` for
-## them. See `docs/log.md`.
+## The mod's only log sink, and its act and idle perf entry. Static, so printing a line costs a
+## preload and never a host reference. The entry binds the two debug switch reads, because a shared
+## module cannot import a service, and the change notification re-reads them on every edit.
 
 const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 const PERF_IDLE := preload("res://mods/unfplap/shared/perf_idle.gd")
@@ -18,7 +11,7 @@ const PERF_VIEW := preload("res://mods/unfplap/shared/perf_view.gd")
 static var debug_logs := false
 ## The game setting PRINT PERF LOGS: needs `debug_logs` too.
 static var debug_perf := false
-## The two settings reads, bound by the entry: a shared module never imports a service.
+## The switch reads are injected by the entry; a shared file cannot import a service.
 static var debug_read := Callable()
 static var perf_read := Callable()
 ## The change notification's listener. A static module has no instance, so the callable is a
@@ -27,15 +20,13 @@ static var _listener := func() -> void: apply_settings()
 ## True while an act owns the frame. The idle window stays off inside an act; the entry installs
 ## `ponies`' read, because a shared module never sees the runtime.
 static var act_running := Callable()
-## The idle block's header counts, `{runtimes, mares}`, read once per window. The entry installs
-## `ponies`' two reads: the live runtimes are its registry and the mares come from the world
-## facade. Two counters rather than one dictionary keeps the header out of a service's privates.
+## The idle block's header counts, `{runtimes, mares}`, read once per window from two entry-injected
+## reads, so the header never reaches into a service's privates.
 static var runtime_count := Callable()
 static var mare_count := Callable()
 ## The idle (outside-act) debug perf probe; see `docs/perf.md`.
 static var _probe := _new_probe()
-## The line sink: empty in game, where every line goes to the console. A suite binds one to read
-## the text it asserts.
+## The line sink. Empty in game, where every line prints; a suite binds one to read its text.
 static var sink := Callable()
 ## The entry node: it parents the panel and nothing else.
 static var _host: Node = null
@@ -67,7 +58,7 @@ static func detach() -> void:
 	_probe.reset()
 
 
-## Re-read the two debug switches. A panel that is no longer both on closes instead of drawing.
+## Re-read the two debug switches. A panel that lost either switch closes.
 static func apply_settings() -> void:
 	debug_logs = debug_read.is_valid() and bool(debug_read.call())
 	debug_perf = perf_read.is_valid() and bool(perf_read.call())
@@ -75,8 +66,8 @@ static func apply_settings() -> void:
 		clear_panel()
 
 
-## Every line carries the mod's id, so a block's continuation lines stay attributable after the
-## game's own output interleaves with them.
+## Each line repeats the mod's id, so interleaved game output cannot claim a block's continuation
+## line.
 static func debug(text: String) -> void:
 	if not debug_logs:
 		return
@@ -105,7 +96,7 @@ static func note(key: String, usec: int, owner := "") -> void:
 	_probe.note(key, usec, owner)
 
 
-## Close one idle chunk whose stamp the caller took. The note itself stays outside the next chunk.
+## Close an idle chunk the caller stamped; the close itself stays outside the next chunk.
 static func close(key: String, started: int) -> void:
 	_probe.note(key, Time.get_ticks_usec() - started)
 
@@ -115,8 +106,7 @@ static func idle_on() -> bool:
 	return _probe.on()
 
 
-## One frame of the probe. Returns the idle gate so the entry reads it once at the top of
-## `_process`; the entry closes its own `entry_process` chunk after the body.
+## One frame of the probe; the returned gate is the idle window's on state.
 static func tick(delta: float) -> bool:
 	_probe.tick(delta)
 	return _probe_on()
@@ -150,7 +140,7 @@ static func perf_on() -> bool:
 	return debug_logs and debug_perf
 
 
-## Enabled only while both debug switches are on and no act is running.
+## The idle probe runs only with both switches on and no act live.
 static func _probe_on() -> bool:
 	if not debug_logs or not debug_perf:
 		return false

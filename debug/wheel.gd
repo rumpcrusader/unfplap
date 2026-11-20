@@ -1,7 +1,6 @@
 extends CanvasLayer
-## The debug action wheel: holding the middle mouse button in captured desktop play opens a ring
-## of the actions for the aimed mare, or for the live act; releasing on a slot runs it. It does
-## not pause the tree, claim a hotkey or write a setting; see docs/debug.md.
+## The debug action wheel: hold the middle button in captured desktop play and release on a slot.
+## It never pauses the tree, claims a hotkey or writes a setting. See `docs/debug.md`.
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/service.gd")
@@ -54,7 +53,7 @@ func is_open() -> bool:
 	return _open
 
 
-## Open at the context root: Act while an act runs, Mare otherwise. Reopening always starts here.
+## Open at the context root. Reopening always starts here, never on the last page.
 func open() -> bool:
 	if not _can_open():
 		return false
@@ -83,9 +82,8 @@ func close() -> void:
 	set_process(false)
 
 
-## Every event while open is ours. Releasing the middle button runs the highlighted slot, or
-## closes when the reticle is in the centre; Escape and right click close, left click runs the
-## highlighted slot, and the game's dev F-keys close and pass through.
+## Every event while open is ours. Middle release runs the hovered slot; Escape and right click
+## close, and the dev F-keys pass through.
 func handle_input(event: InputEvent) -> bool:
 	if not _open:
 		if event is InputEventMouseButton:

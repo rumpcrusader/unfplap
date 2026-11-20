@@ -107,7 +107,7 @@ func apply_settings() -> void:
 	sync_skeleton_overlay()
 
 
-## The settings page's Debug block builder: `debug/ui.gd`'s builder bound to this node.
+## The entry's Debug block hook; it forwards to the shared builder in `debug/ui.gd`.
 func build_settings_block(list: VBoxContainer, font_size: int, tab: String) -> void:
 	DEBUG_UI.build_actions(list, font_size, self, tab)
 
@@ -128,9 +128,7 @@ func on_idle_life(node: Node) -> void:
 	_idle_life = node if node.has_method("play") else null
 
 
-## Debug Actions entries (`DEBUG_ACTIONS.ACTIONS`). The offer helper forces a proactive request for
-## the aimed mare, bypassing the quiet/cooldown/AI-usage checks so the lab can test requests with
-## ai_usage=talk.
+## Debug Actions entries; the two offer buttons force a proactive ask through the initiation path.
 func action_bed_offer() -> String:
 	return _debug_offer_request(CATALOG.MISSIONARY)
 
@@ -139,8 +137,7 @@ func action_standing_offer() -> String:
 	return _debug_offer_request(CATALOG.STANDING)
 
 
-## Debug: form an Anon offer for the aimed mare as if Anon had just asked her. The classifier still
-## decides the option and the response; this only skips typing the line in a conversation.
+## Debug: form an Anon offer without typing the line; the classifier still decides the answer.
 func action_anon_offer() -> String:
 	if not is_instance_valid(negotiation) or not is_instance_valid(WORLD.player):
 		return "Act system not ready."
@@ -190,8 +187,7 @@ func action_deep_stretch() -> String:
 	return DEBUG_STRETCH.stretch(_idle_life, target as Node3D)
 
 
-## Wheel-only: qualify the aimed adult mare for the act gate. The helper clears her busy state,
-## writes the game's bond record and a neutral mood; her romance tier is untouched.
+## Wheel-only: qualify the aimed adult mare for the act gate through the shared debug helper.
 func action_sex_ready() -> String:
 	var target: Node = _aim()
 	if not is_instance_valid(target) or not target is Node3D or not _is_act_target(target):
@@ -259,9 +255,8 @@ func _debug_cycle_request(phase_name: String) -> String:
 	return "Cycle for %s: %s." % [str(target.name), label]
 
 
-## Debug form-change actions. They use the active source through the act's generic request when an
-## act is live, and the source directly while idle. A source that is absent says so and does
-## nothing; there is no global hotkey.
+## Debug form actions: the act's generic request when an act is live, the source directly while
+## idle. A missing source refuses and does nothing.
 func action_form_true() -> String:
 	return _form_change_request(true, "")
 
@@ -364,8 +359,7 @@ func _debug_offer_request(pose := "") -> String:
 	return "Offer rejected for %s%s: %s." % [str(target.name), label, reason]
 
 
-## Debug: re-read the active pose's authored base without restarting. A running act picks the new
-## pose up on its next frame, so the lab (export) -> game (reload) loop works while posing.
+## Debug: re-read the authored pose base in place; a live act takes it on the next frame.
 func action_reload_pose() -> String:
 	var error := ""
 	var act: Node = _act()
@@ -406,9 +400,8 @@ func action_pose_test_variant() -> String:
 	return "Pose request failed."
 
 
-## Debug: toggle the internal bed face-sit in a live missionary act. The face-sit has no offer and
-## no key; this button is its only trigger. The edge changes the arrangement and the contact and
-## never ends the act.
+## Debug: toggle the internal bed face-sit in a live missionary act. It has no offer or key: this
+## button is the only trigger, and the edge never ends the act.
 func action_facesit_variant() -> String:
 	var act: Node = _act()
 	if not is_instance_valid(act):
@@ -431,8 +424,7 @@ func action_facesit_variant() -> String:
 	return "Pose request failed."
 
 
-## Debug: one structured dump for the aimed mare. Show data, and a future always-on overlay, can
-## render the same sections: TARGET, CYCLE, GATE, REQUEST, ACT, STOOL, HISTORY, PROMPT, BED.
+## Debug: the Show data action: one tab-indented log block for the aimed mare.
 func action_show_data() -> String:
 	if not is_instance_valid(WORLD.player):
 		return "Player not ready."
@@ -452,7 +444,7 @@ func action_show_data() -> String:
 	return "Data written to the debug log for %s." % str(target.name)
 
 
-## The structured per-mare collector. `ACT` is present only while this target owns the live act.
+## The structured per-mare collector; its `ACT` section exists only for the live act's target.
 func debug_data(target: Node) -> Dictionary:
 	var data := {"target": target, "sections": []}
 	if not is_instance_valid(target):
@@ -582,7 +574,7 @@ func action_force_act_face() -> String:
 		"" if shown else " (a spoken line owns the face)"]
 
 
-## Debug: clear the aimed mare's proactive-offer cooldown and short retry.
+## Debug: drop her offer cooldown, so the next scan may offer her again.
 func action_clear_cooldown() -> String:
 	var target: Node = _aim()
 	if not is_instance_valid(target):
@@ -933,8 +925,7 @@ func debug_wheel_context() -> Dictionary:
 	return out
 
 
-## Run a wheel action, toast its one-line result and log it. Show data's multi-line block stays in
-## the log; the toast only carries the summary.
+## Run a wheel action and show its result as a toast, keeping the block in the log.
 func debug_wheel_action(name: String) -> String:
 	var result := DEBUG_ACTIONS.run_action(name, self)
 	LOG.debug("wheel %s: %s" % [name, result])

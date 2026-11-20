@@ -1,8 +1,7 @@
 extends RefCounted
-## The act's ordered start ledger. One recipe: the presentation guard, the stool, the camera
-## session, the borrows, the id/profile snapshot, the placement, the pose build and the act open,
-## in that order. A failed step runs the one partial-start abort and restores only what the act
-## took.
+## The act's ordered start ledger: the presentation guard, the stool, the camera session, the
+## borrows, the id/profile snapshot, the placement, the pose build and the act open, in that order.
+## A failed step runs the one partial-start abort.
 ##
 ## See `docs/runtime.md`.
 
@@ -198,8 +197,8 @@ func abort() -> void:
 	exit.abort()
 
 
-## The new-act prep: run the one pose teardown first so a pose left from the offer cannot stack,
-## then build the act's pose from the session's typed values.
+## The new-act prep: the pose teardown runs first, so an offer's leftover pose cannot stack, then
+## the act's pose is built from the session's typed values.
 func _build_pose() -> void:
 	exit.free_pose()
 	var camera: Camera3D = WORLD.camera()

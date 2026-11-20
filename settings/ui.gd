@@ -1,19 +1,9 @@
 extends RefCounted
-## Draws the Unfplap settings tabs from the declarations in `settings/service.gd` and injects the
-## Unfplap tab into the game's settings page.
+## Draws the Unfplap settings tabs from the declarations and injects the tab into the game's page.
 ##
-## This is the only file allowed to create the declaration-drawn settings widgets. Do not add a
-## SpinBox, CheckButton or OptionButton control for a setting anywhere else: declare the setting
-## instead and it appears here. The Characters form is `settings/characters_ui.gd`; the
-## catalog-driven Integrations tab reads `shared/integrations.gd`; the Debug action buttons are
-## `debug/ui.gd`. See docs/settings.md.
-##
-## Every section heading is a click-to-collapse button wearing the menu's open sidebar row (the
-## `Tab` look: a pink accent while the section is open). Every setting is one of the settings
-## page's own row cards (`world/ui/menu_style.gd` and `settings_page.gd`): the name with a Faint
-## note, the control on the right, a switch beside its Off/On state, and a few short choices as
-## Segment pills in a track. Settings render in declaration order, so the declarations double as
-## the panel layout.
+## The only file allowed to create a declaration-drawn setting widget: a row that needs one is
+## declared, never hand-built. The Characters form and the Integrations tab have their own
+## builders.
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
@@ -83,15 +73,8 @@ class KeyCaptureButton extends Button:
 		get_viewport().set_input_as_handled()
 
 
-## Fill `list` with one tab's settings: the player-facing sections first, then one Debug section at
-## the bottom holding that tab's debug settings under their own group names.
-##
-## The Debug section is always built and its visibility follows `debug_mode`, so the toggle takes
-## effect without rebuilding the panel. `actions_builder` is called with the Debug body, the font
-## size and the tab; the entry passes the debug actions node's `build_settings_block()`. `debug_only`
-## keeps only the Debug block, for a tab whose player-facing content another builder already drew.
-## Returns the Debug
-## section, or null when the tab has no debug settings.
+## Fill `list` with one tab's settings: the player sections, then the tab's debug rows in one
+## block. The block is always drawn, so toggling debug mode needs no rebuild of the panel.
 static func build(list: VBoxContainer, tab: String, font_size: int, page: Node,
 		changed: Callable, actions_builder := Callable(), debug_only := false) -> Control:
 	var player: Array = []
@@ -208,10 +191,8 @@ static func _set_enabled_deep(root: Node, enabled: bool) -> void:
 		_set_enabled_deep(child, enabled)
 
 
-## The catalog-driven Integrations tab. Every supported mod gets its own collapsible section,
-## named after the mod and open by default. The section body carries the verified version and that
-## provider's player-facing feature flags; debug-only switches and actions sit in the tab's Debug
-## block at the bottom. There is no installed/mismatch status.
+## The catalog-driven Integrations tab: one collapsible section per supported mod, open by default.
+## There is no installed/mismatch state; only the catalog decides what is listed.
 static func build_integrations(list: VBoxContainer, font_size: int, page: Node,
 		changed: Callable, actions_builder := Callable()) -> Control:
 	_build_experimental_notice(list, font_size)
@@ -283,12 +264,12 @@ static func _add_integration_version(parent: VBoxContainer, provider: Dictionary
 ## One section pass. `prefix` separates the Debug block's section state from the player sections.
 static func _build_sections(list: VBoxContainer, tab: String, prefix: String, settings: Array,
 		font_size: int, page: Node, changed: Callable) -> void:
-	# The act key is a hidden numeric declaration because a capture is not one of the declaration
-	# widgets. It is still the first row of the General tab, with no section heading.
+	# The act key is a hidden number because no declaration widget captures a key; it stays the first
+	# row of General, with no section heading.
 	if tab == SETTINGS.GENERAL and prefix.is_empty():
 		_build_act_key_row(list, font_size, page, changed)
-	# Settings with no group are not a section: they sit at the top of the tab (or Debug block)
-	# without a heading. A group needs at least three related settings to earn one.
+	# An ungrouped setting sits at the top of the tab (or Debug block) with no heading; a group too
+	# small for its own heading merges into the parent.
 	var loose: Array = []
 	for raw: Variant in settings:
 		var setting := raw as SETTINGS.Setting
@@ -358,9 +339,8 @@ static func _build_sections(list: VBoxContainer, tab: String, prefix: String, se
 		_add_row(list, tail[index] as SETTINGS.Setting, font_size, page, changed)
 
 
-## The six missionary geometry settings are per pony size. One dropdown picks which size is edited;
-## the six rows below belong to that size. The act always reads the game's current preset, so this
-## only chooses which preset's values are being edited.
+## One dropdown picks which pony size's preset the geometry rows below edit; the act itself always
+## reads the game's current preset, so this only chooses the edit target.
 static func _build_missionary_size(parent: VBoxContainer, font_size: int, page: Node,
 		changed: Callable) -> void:
 	var values := VBoxContainer.new()
@@ -551,8 +531,8 @@ static func _inject_now(page: Node, actions_builder: Callable, live_character_id
 	var font_size := int(page.get("font_size"))
 	if font_size <= 0:
 		font_size = 20
-	# Appended at the foot of the sidebar like the other mod tabs: below the game's own "More"
-	# group (Updates, and Debug once unlocked), with no caption of its own.
+	# The Unfplap row goes at the foot of the sidebar, under the game's own More group, with no
+	# caption of its own.
 	var button: Button = page.call("_button", side, "Unfplap",
 		func() -> void: _show_settings_tab(page))
 	button.theme_type_variation = "Tab"
@@ -656,10 +636,8 @@ static func _settings_tab_list(title: String, tabs_box: TabContainer) -> VBoxCon
 	return list
 
 
-## The sub-tabs wear the page's "Segment" look: the chosen tab is a lit pill, the
-## other a quiet one, and there is no tab strip or default panel behind either. The internal TabBar
-## is a separate control, so its tab items are set on it directly (a theme resource would be
-## inherited, but per-node overrides on the TabContainer are not).
+## The sub-tabs wear the page's Segment look: the chosen one is a lit pill, the others quiet, with
+## no strip behind them. The TabBar is styled directly because a TabContainer override misses it.
 static func _style_tabs(tabs: TabContainer, font_size: int) -> void:
 	var empty := STYLE.rounded(StyleBoxEmpty.new())
 	tabs.add_theme_stylebox_override("panel", empty)
@@ -785,10 +763,8 @@ static func _settings_in(settings: Array, group: String) -> Array:
 	return out
 
 
-## A collapsible section heading in the menu's own open-row look: the `Tab` variation draws the
-## pink accent and tint while the section is open, and a quiet row while it is closed. A section
-## keeps its declared wording (like the page's own sidebar rows); a subheading is smaller and
-## indented under it.
+## A collapsible section heading in the menu's open-row look: the `Tab` variation accents it while
+## open. A subheading is smaller and indented.
 static func _heading(text: String, font_size: int, sub: bool, open := true) -> Button:
 	var button := Button.new()
 	button.text = ("        " + text) if sub else text

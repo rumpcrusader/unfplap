@@ -1,19 +1,7 @@
 extends RefCounted
 ## The Pantyhose & Panties cloth jiggle: makes one worn node follow one pony's live `FlankTouch`
-## wobble through six per-node instance uniforms the copied shaders displace their vertices with.
-##
-## The coat is the only simulator. This helper reads the `jiggle_*` uniforms `FlankTouch` writes
-## into a live `_jiggle_targets` material every frame (a visible target first, then the game body,
-## then the first live pair) and carries them into the worn node's own model space, so the cloth
-## moves by the coat's world displacement in the same frame instead of running a second spring that
-## can land out of phase. The world adapter processes after `FlankTouch`, so these are the values
-## the rendered coat uses.
-##
-## The adapter calls `begin_frame()` once per garment pass, `sample(pony)` for each tracked node
-## (the pony's wobble is read once and cached for the rest of the pass) and `apply(node)` for every
-## worn node of a pony that is wobbling; `clear(node)` and `reset()` undo it. Every read of the
-## game's `FlankTouch` is duck-typed and guarded, so a renamed field, a missing target or a malformed
-## value leaves the cloth rigid instead of raising an error. No dictionary is allocated per frame.
+## wobble. That coat is the only simulator, so the cloth never runs a second spring out of phase;
+## six per-node uniforms carry the coat's displacement in the worn node's own space.
 ##
 ## See `docs/integrations.md` (`## Pantyhose & Panties`).
 
@@ -25,7 +13,7 @@ const MIN_SCALE := 0.000001
 
 var _pony_id := 0
 var _live := false
-## The coat's live field, in its target mesh's local space.
+## Coat field in target-mesh space.
 var _amount := 0.0
 var _time := 0.0
 var _center := Vector3.ZERO
@@ -69,10 +57,8 @@ func sample(pony: Node3D) -> bool:
 	return _live
 
 
-## Converts the coat's field into `node`'s own model space, where the shader displaces vertices at
-## the rest cloth position. The centre, the outward normal and the body's up are mapped through the
-## target mesh's live transform; the amplitude and the radius go through the target/garment scale
-## ratio, so a trimmed, rotated or scaled piece keeps the coat's world amplitude and spread.
+## Converts the coat's field into `node`'s model space, where the shader displaces rest-vertex
+## cloth. The scale ratio keeps a trimmed or rotated piece at the coat's world amplitude.
 func apply(node: MeshInstance3D) -> void:
 	if not _live or not is_instance_valid(node) or not node.is_inside_tree():
 		return
@@ -89,8 +75,8 @@ func apply(node: MeshInstance3D) -> void:
 		_axis(inverse.basis * (basis * Vector3.UP), Vector3.UP))
 
 
-## Returns the six uniforms to their defaults. The caller does this while the compatibility
-## material is still the override, because the pack's own shader does not know the names.
+## Returns the six uniforms to their defaults. Call it before the pack's material takes over;
+## that shader lacks these names.
 static func clear(node: MeshInstance3D) -> void:
 	if not is_instance_valid(node):
 		return
@@ -102,9 +88,8 @@ static func clear(node: MeshInstance3D) -> void:
 	node.set_instance_shader_parameter("garment_jiggle_up", Vector3.UP)
 
 
-## The pair the cloth follows: a visible mesh with live values, otherwise the game body, otherwise
-## the first pair with live values. Everything `FlankTouch._end_jiggle()` leaves behind (a null
-## amount) and every malformed or renamed field is not a wobble.
+## The pair the cloth follows: a visible mesh with live values, else the game body, else the
+## first live pair. A null amount or malformed field is no wobble.
 func _read(pony: Node3D) -> bool:
 	var flank := pony.get_node_or_null("FlankTouch")
 	if flank == null:
@@ -168,9 +153,8 @@ static func _live_values(material: ShaderMaterial) -> bool:
 	return (normal as Vector3).length_squared() > 0.5
 
 
-## Copies the chosen pair's material values into the cache. The radius is the act's own when the
-## reactions widened it, the stock spread otherwise; a material that lost its field between the
-## checks is not a wobble.
+## Copies the chosen pair's values into the cache. The radius is the coat's live value, or the
+## stock spread when that is unusable.
 func _store(row: Variant) -> bool:
 	var pair := row as Array
 	var material_value: Variant = pair[0]

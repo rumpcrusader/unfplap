@@ -21,8 +21,7 @@ const WINKING_STRETCH_MAX := 1.4
 const CLIMAX_WINKS := 3.0
 const CLIMAX_WINK_S := 1.35
 const WINK_OPEN := 0.25
-## Her own wink during the act: one quiet beat while the tip rests at her lips, and a frequent
-## beat once a climax has been pulled out of her. The tip counts as touching within this margin.
+## Her own act wink beat, layered on the live shape drive.
 const ACT_WINK_S := 0.5
 const TOUCH_WINK_MIN_S := 4.0
 const TOUCH_WINK_MAX_S := 7.0
@@ -42,7 +41,7 @@ var _display_name := ""
 var _facts: RefCounted = null
 ## The controller's player-part handle. The act reads the anatomy it was given, never the facade.
 var _part_handle: Node
-## The missionary part inset, read once per act. A live debug edit applies at the next act.
+## Missionary part inset, read once in setup.
 var _part_inset_m := 0.0
 var _anal := false
 var _hole_mix := 0.0
@@ -177,8 +176,7 @@ func _mouth_contact() -> bool:
 	return _facts != null and _facts.mouth_contact()
 
 
-## True while the pose view names the face contact. The act parks the part; the pose's face driver
-## owns the contact placement.
+## True in face contact, where the act parks the part.
 func _face_contact() -> bool:
 	return _facts != null and _facts.face_contact()
 
@@ -258,9 +256,8 @@ func _status(text: String) -> void:
 		status.call(text)
 
 
-## The point the part targets this tick. In mouth contact it is the pose turn's anchor (the
-## captured opening while the turn runs, the live mouth once settled); otherwise the vulva opening
-## and its resolved normal. `_normal` must be set first.
+## The part target and contact normal for this tick.
+## The normal must be resolved first; in mouth contact the anchor comes from the pose turn.
 func _contact() -> void:
 	if _mouth_contact():
 		var view: Variant = _pose_view()
@@ -331,9 +328,8 @@ func tick(delta: float, facts: RefCounted) -> void:
 		# and the lips cannot read as gripping it.
 		anatomy.call("set_fill", _fill)
 		anatomy.call("drive", closed)
-		# Solve the lips against the real shaft radius instead of a fixed stretch constant. `_wide`
-		# is the local girth ratio, so convert back to world metres here: `set_grip()` converts to
-		# mesh units itself. Passing the local value made the hole ~1/scale (12 %) too large.
+		# Convert back to world metres: set_grip() takes world radii, and passing the local ratio
+		# made the hole about 12 % too large.
 		var grip_world := _wide * WINKING_STRETCH_RADIUS * mesh_scale
 		anatomy.call("set_grip", grip_world * front)
 		# The anal ring is solved against the same real shaft radius as the vulva, so it opens to
@@ -370,9 +366,8 @@ func tick(delta: float, facts: RefCounted) -> void:
 	_facts.perf("anatomy_tick", Time.get_ticks_usec() - started)
 
 
-## The face contact: part once, then hold her shapes at the neutral closed value and point the
-## contact at his authored mouth. The part is parked, so the shaft-hug beat and the act wink have
-## nothing to close on and are not driven; the emphasis stays on her body and the pose's press.
+## Face contact: park the part once, hold her shapes neutral, point at his mouth.
+## Nothing grips the shaft here, so the hug beat and the act wink stay off.
 func _face_tick(_delta: float, part: Variant) -> void:
 	var started := Time.get_ticks_usec()
 	if not _face_parted:
@@ -396,9 +391,8 @@ func _face_tick(_delta: float, part: Variant) -> void:
 	_facts.perf("anatomy_tick", Time.get_ticks_usec() - started)
 
 
-## Her own wink while the act runs: one quiet beat while the tip rests at her lips, and a
-## frequent beat once a climax has been pulled out of her. Only the vulva, and never on top of a
-## climax pulse, because both share the one countdown.
+## Her own wink: rest beats while touching, faster ones once she has climaxed.
+## It shares the climax countdown, so the two pulse trains never overlap.
 func _act_wink_tick(delta: float, part: Variant) -> void:
 	if _state() != 2 or _hole_mix >= 0.5 or _mouth_contact() or _wink_left > 0.0:
 		return
@@ -439,10 +433,7 @@ func _start_wink(seconds: float, beats: float) -> void:
 	_wink_beats = beats
 
 
-## The vulva plane's normal, oriented out of her. The V2 mesh authors the vulva's outward side on
-## its own +Z (the coat shader reads the same axis), so the mesh is authoritative: a body fit or a
-## body swap may move the hips reference, but it cannot reverse the authored mesh. The hips sign is
-## only the fallback for a degenerate rear axis.
+## The vulva plane's normal, flipped to point at Anon rather than into her.
 func _compute_normal(_part: Variant) -> Vector3:
 	if not is_instance_valid(anatomy):
 		return Vector3.ZERO

@@ -14,13 +14,11 @@ const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const ACT_HOST := preload("res://mods/unfplap/body_change/act_host.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 
-## The act watcher reads the body-change service at this cadence and gives up after the watchdog.
-## The provider observes its own pack; the flame and the spawn are well inside it, so a longer wait
-## means no body is coming.
+## Watcher cadence and the watchdog that gives up on a swap with no new body.
+## The provider observes its own pack faster, so a longer wait means no body is coming.
 const BODY_SWAP_POLL_S := 0.1
 const BODY_SWAP_WATCHDOG_S := 8.0
-## The source may clear its changing state before the spawn hook reaches the entry. Keep the act
-## suspended while the source still reports a new body; after this grace the entry adopts it.
+## Grace after the source stops changing: a body it still reports is adopted by the entry.
 const BODY_SWAP_ADOPT_GRACE_S := 0.5
 
 ## The debug log's form-state labels. They are never copied to the act facts.
@@ -65,9 +63,7 @@ func _init(act_host: ACT_HOST) -> void:
 	host = act_host
 
 
-## One watcher/swap tick. The provider observes its own pack and pushes the change; a live act
-## reads the body-change service's active change, and a suspended act waits for the adopted
-## body's shape, the source's completion, or the watchdog.
+## One watcher or suspended-act tick; it only returns the action the runtime applies.
 func tick(delta: float) -> int:
 	candidate = null
 	if host.restoring():
@@ -114,9 +110,8 @@ func adopt(swap_body: Node) -> void:
 	PONIES.clear_body_swap(host.runtime())
 
 
-## Release the old body for a change. The act keeps its state; this stops its work in the order the
-## pose and camera were built, so the old body can be freed. Returns true only when this call
-## released the act; the runtime applies the one tick's action and never repeats the order.
+## Release the old body for a change; the act keeps its state.
+## True only when this call released it: the runtime applies one action, never a repeat.
 func release(swap: BODY_CHANGE) -> bool:
 	if suspended or not host.act_live() or swap == null:
 		return false
@@ -149,9 +144,8 @@ func release(swap: BODY_CHANGE) -> bool:
 	return true
 
 
-## Resume the same act on the adopted body: anatomy, pose, camera, ownership and the body-bound
-## controllers are rebuilt in that order; the act's state and history are not. Returns false only
-## when there is no body to resume on, which the runtime ends through the one exit.
+## Resume the same act on the adopted body, rebuilding the body-bound systems in order.
+## State and history survive; a missing body returns false and ends through the one exit.
 func resume() -> bool:
 	if not suspended:
 		return false
@@ -240,9 +234,8 @@ func clear_auto() -> void:
 	auto_on = false
 
 
-## The act-side form request. It only starts a change; the watcher suspends the act on a later
-## tick, so the act's state, depth and climaxes are never handed to a second runtime.
-## `by_player` marks a player's own ask; only a requested reveal is exceptional.
+## Ask for a form change; it only starts one, the watcher suspends on a later tick.
+## `by_player` marks the player's own ask, which is the only exceptional beat.
 func request(true_form: bool, shape_id: String, by_player: bool) -> Dictionary:
 	if suspended:
 		return {"ok": false, "reason": "a form change is already in progress",
@@ -392,9 +385,8 @@ func _presented_shape(swap: BODY_CHANGE, body: Node) -> String:
 	return owner.presented_form_id(body).strip_edges()
 
 
-## The source finished before the new body's spawn reached the entry. Keep the act suspended
-## while the typed change reports a new body, then let the entry adopt it through the same
-## pending-swap path; resuming the old body here would attach a second runtime to the new one.
+## Keep the act suspended while the change still reports a new body: resuming the old body here
+## would attach a second runtime to the new one.
 func _late_body_pending(swap: BODY_CHANGE) -> bool:
 	if swap == null:
 		return false
@@ -407,8 +399,7 @@ func _late_body_pending(swap: BODY_CHANGE) -> bool:
 
 
 ## A change her AI starts inside the restore window can free the body under the runtime before
-## the one exit has returned the act's borrowed state. Finish the restore now instead; the act is
-## already ending, so the change is not suspended.
+## the one exit has returned the act's state; finish the restore now, the act is already ending.
 func _restore_tick() -> int:
 	var body := host.pony()
 	if body == null:
@@ -528,8 +519,7 @@ func _on_player_line(text: String) -> void:
 				host.id(), str(result.get("reason", ""))])
 
 
-## The provider policy owns the offer timing and the prompt. The once-per-act gate stays here; a
-## false before the provider's trigger does not spend the offer.
+## The once-per-act gate stays here, so a refusal before the provider's trigger spends nothing.
 func offer_tick() -> void:
 	if offer_done or suspended or host.state() != ACT_STATE.State.ACTIVE:
 		return
@@ -584,10 +574,8 @@ func hint_tick() -> void:
 		host.log("form hint suppressed \"%s\"" % next)
 
 
-## The new body is up. A player-requested return to her own form is the act's exceptional beat;
-## any other change is a neutral continuation. A named change that failed before the new body
-## arrived, or a new body that never reported the named shape, puts the offer back. Her own change
-## never spends the player's offer; only the call the player made does.
+## The new body is up; her own form at the player's ask is the exceptional beat.
+## Only the player's own call spends the offer; a failed named change puts it back.
 func complete_resume(change: BODY_CHANGE, changed: bool, confirmed := false) -> void:
 	var provider := change_source(change)
 	var target := change.target_form_id.strip_edges() if change != null else ""
@@ -630,9 +618,8 @@ func _restore_shape_offer(target: String, by_player: bool) -> void:
 	host.log("form change failed; the shape offer stands again id=%s" % host.id())
 
 
-## Once per act: the provider's typed effects become the readiness spike, cue, special impression
-## and peak. The private thought says he wanted her, not the shape; the world event stays
-## non-graphic. The summary's generic `form_reveal` input carries the comfort; the effects do not.
+## Once per act: the provider's typed effects become the readiness spike, cue and peak.
+## The private thought names her, not the shape; the world event stays non-graphic.
 func _commit_form_reveal(change: BODY_CHANGE) -> void:
 	var policy := _policy(change_source(change))
 	var effects: BODY_CHANGE_POLICY.BodyChangeEffects = null

@@ -1,8 +1,5 @@
 extends RefCounted
-## The negotiation model requests: the three instructions, the JSON payload builders and the
-## reply parsers. Pure data and strings; no service, scene, clock or file. The Negotiation's
-## adapter owns the LLM call and the cancel scope; this module owns what is asked and how a reply is
-## read.
+## The negotiation model requests: the payload builders, the reply parsers and their instructions.
 ## Contract: `docs/negotiation.md` (`## Decisions`).
 
 const CONTEXT := preload("res://mods/unfplap/shared/context.gd")
@@ -19,9 +16,8 @@ const MAX_REPLY_CHARS := 256
 const MAX_TEXT_CHARS := 600
 
 
-## The parsed model answer. `failed` marks a missing, malformed or untrustworthy reply.
-## `out_of_range` marks a clear offer whose index is outside the request's captured option list;
-## the service validates the index against that list and reports it as a no-context pose.
+## The parsed model answer. `failed` marks a missing, malformed or untrustworthy reply, and
+## `out_of_range` a clear offer whose index falls beyond the options sent.
 class Reply:
 	var answer := ""
 	var option_index := -1
@@ -108,9 +104,8 @@ static func mare_response_payload(text: String, option: POSE_OPTIONS.Option,
 	return payload
 
 
-## Parse an Anon-offer classifier reply. A clear offer returns the raw index even when it is
-## outside the request's captured list, so the service can validate it against the live options;
-## `out_of_range` marks that case. A missing or non-integer option is a failure.
+## Parse an Anon-offer reply. A clear offer keeps the raw index even when it lies beyond the
+## options sent, so the service can validate it; a bad index is a failure.
 static func parse_anon_offer(reply: String, error: String, option_count: int) -> Reply:
 	var out := Reply.new()
 	out.answer = "no_offer"

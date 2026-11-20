@@ -1,13 +1,8 @@
 extends "res://mods/unfplap/shared/body_binding.gd"
-## The garment body binding: re-scans the worn pantyhose/panties nodes when a presented body
-## changes form, so the cloth follows the new body instead of waiting for the adapter's fixed
-## discovery fallback. The adapter is world-side and exposes a full `scan()`; it has no per-pony
-## rebind, and a body change is rare enough for the one pass.
-##
-## Scope: world. `body_change.wire()` registers one instance after the Pantyhose
-## adapter exists. The target is a narrow host handle, so this file never preloads the adapter.
-##
-## See `docs/body_change.md` (`## Bindings`) and `docs/integrations.md`.
+## The garment body binding: one worn-garment scan when a presented body changes form.
+## Scope: world; `body_change.wire()` registers one instance after the Pantyhose adapter exists.
+## The adapter exposes only a world-side `scan()`, so one pass is all a change can do.
+## See `docs/body_change.md` (`## Bindings`).
 
 ## The Pantyhose & Panties world adapter, for its public `scan()`.
 var pantyhose: Node = null

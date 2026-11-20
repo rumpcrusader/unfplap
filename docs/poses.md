@@ -634,7 +634,8 @@ here.
   - `up = sk.global_basis.inverse() * pony.global_basis.y`
   - `forward = sk.global_basis.inverse() * -pony.global_basis.z`
 - `up` is world gravity, not the pony's rolled dorsal axis.
-- `bed_frame` is the live mattress top and the bed's axes; it follows a moving bed. `ground_frame`
+- `bed_frame` is the live mattress top and the bed's axes; it follows a moving bed. The tail-lay
+  direction reads it, so a laid tail lies toward her rump on any bed orientation. `ground_frame`
   is the pony root's orthonormal basis and position at pose start, and it follows the root's
   position and yaw each physics tick. A ground asset is authored in that frame; the bed and the
   ground never mix.

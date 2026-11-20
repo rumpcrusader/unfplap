@@ -3,13 +3,7 @@ extends Node
 ## Contract: docs/negotiation.md
 ## Scope: world
 ## Import: negotiation/service.gd only
-##
-## The Act Negotiation: Anon offers, the Anon decision, the Mare response, pose re-checks,
-## privacy sampling, Agreement formation and ownership, the one global lock and the terminal
-## outcome. The service owns the whole negotiation and the Agreement window; the Act service
-## receives an opaque handle and never mutates the package. `negotiation/host.gd` is the bridge to
-## the live world and `negotiation/adapter.gd` the one director and model host: this file builds
-## the typed `Host` from them and runs the exchange on it.
+## The Act Negotiation: one live offer or Agreement, its global lock and its terminal outcome.
 
 const AGREEMENT := preload("res://mods/unfplap/negotiation/agreement.gd")
 const PROMPTS := preload("res://mods/unfplap/negotiation/prompts.gd")
@@ -75,9 +69,8 @@ class Terminal:
 	var cooldown_s := 0.0
 
 
-## The host boundary. Every field is a named callback the service builds from its bridge and its
-## model host; nothing outside this service assembles one, and the service never touches the
-## runtime's private fields.
+## The host boundary. Every field is a named callback; nothing outside this service assembles one,
+## and no runtime field is read directly.
 class Host:
 	## Seconds. The service's one clock.
 	var now: Callable
@@ -91,8 +84,8 @@ class Host:
 	var privacy_private: Callable
 	## (runtime) -> PoseOptions.Placement: the plain placement facts.
 	var placement_for: Callable
-	## (runtime, PoseOptions.Option) -> bool: the live scene-only placement re-check before an
-	## Agreement forms. A missing callback refuses.
+	## (runtime, PoseOptions.Option) -> bool: the scene-only placement check again, right before
+	## an Agreement forms. A missing callback refuses.
 	var pose_placed: Callable
 	## () -> FormView: the player's live form and display.
 	var form_view: Callable
@@ -103,7 +96,7 @@ class Host:
 	var classify: Callable
 	## (PROMPTS.Request, scope, done) -> bool: the Mare reasoning call.
 	var reason: Callable
-	## (pony, scope, done) -> bool: watch the first new line from the conversation target.
+	## (pony, scope, done) -> bool: the target's next spoken line, watched once.
 	var await_answer: Callable
 	## (scope) -> void: cancel one classifier scope.
 	var cancel_scope: Callable
@@ -155,9 +148,8 @@ var _serial := 0
 var _deadline := 0.0
 var _privacy_clock := 0.0
 
-## The services the bridge reads, bound once by the entry. `eligibility` is rebuilt on every world
-## enter, so the entry rebinds it there and calls `on_world()`; `initiation` and `offer` are plain
-## nodes because each of them preloads this facade.
+## The services the bridge reads, bound once by the entry. `eligibility` alone is handed over
+## again on each world enter, because the entry constructs a fresh one.
 var eligibility: ELIGIBILITY = null
 var memory: MEMORY = null
 var privacy: PRIVACY = null
@@ -234,7 +226,7 @@ func _bind_host() -> void:
 	_host = host
 
 
-## The classifier is the Proactive service's; this side only calls it.
+## This side only calls the classifier; the Proactive service owns that node.
 func _classifier() -> Node:
 	if not is_instance_valid(initiation) or not initiation.has_method("classifier_node"):
 		return null
@@ -308,8 +300,8 @@ func _tick_offer(delta: float) -> void:
 		_close(Outcome.INTERRUPTED, AGREEMENT.REASON_PRIVACY, 0.0, true)
 
 
-## The Proactive service's handoff: a formed Mare offer. The service owns the exchange from here;
-## the Anon decision is the first new line from the conversation target.
+## The Proactive service's formed Mare offer. From here the exchange and the answer watch are this
+## service's.
 func begin_mare_offer(offer: MareOffer) -> bool:
 	if _host == null or offer == null or not offer.valid():
 		return false
@@ -467,9 +459,8 @@ func _form_view() -> FormView:
 
 # --------------------------------------------------------------------------- terminal handoffs
 
-## The shared terminal line. The purpose follows the close reason: a counter-offer still wants
-## him, a privacy loss lets the moment go, and every other close is the generic release. It is a
-## short generated line, queued and not delaying the clear.
+## The shared terminal line. Its purpose follows the close reason: a counter-offer still wants
+## him, a privacy loss lets the moment go, anything else is the generic release.
 func _react_line(pony: Node, reason: String) -> void:
 	if not is_instance_valid(pony) or not is_instance_valid(_adapter):
 		return
@@ -607,9 +598,8 @@ func _close(outcome: int, reason: String, cooldown: float, reaction := false) ->
 		_react(package_pony, reason)
 
 
-## A genuine non-offer: cancel the scopes, release any claim and clear the state without a
-## terminal outcome, a toast or a reaction. The Proactive pacing sees nothing, so a normal
-## conversation line cannot write a retry or a cooldown.
+## A genuine non-offer closes silently: the scopes and the claim are released and the pacing is
+## never told.
 func _silent_close() -> void:
 	if _offer != null:
 		_cancel_scope(_offer.scope)
@@ -778,8 +768,6 @@ func _on_anon_offer_classified(live: Offer, reply: PROMPTS.Reply) -> void:
 		_close(Outcome.NO_OFFER, AGREEMENT.REASON_NO_CONTEXT_POSE, 0.0)
 		return
 	if reply.answer != CONTEXT.ANSWER_ACCEPT:
-		# A normal line that is not an offer is silent for the player: no outcome, no toast,
-		# no cooldown. The debug line keeps it visible in the log.
 		_log_line("negotiation non-offer id=%s answer=%s" % [live.pony_id, reply.answer])
 		_silent_close()
 		return

@@ -1,7 +1,7 @@
 extends RefCounted
-## Mare Initiation Reasoning: whether she offers and which available option she chooses. This is
-## the pure instruction, JSON payload and reply parser; the host adapter owns the bounded model
-## call. Context and the placeable options are the only inputs. No service, scene, clock or file.
+## Mare Initiation Reasoning: whether to offer, and which available option.
+## Pure instruction, payload and parser; the adapter owns the model call.
+## Context and the placeable options are the only inputs; no service, scene, clock or file.
 ## Contract: `docs/initiation.md` (`## Reasoning`).
 
 const CONTEXT := preload("res://mods/unfplap/shared/context.gd")
@@ -20,7 +20,7 @@ class Decision:
 	var failed := false
 
 
-## The request payload: the Context facts and the indexed options.
+## The payload: the Context facts plus the option list, each row indexed.
 static func payload(context: CONTEXT.Context, options: Array[POSE_OPTIONS.Option]) -> Dictionary:
 	var rows: Array = []
 	for index: int in range(options.size()):

@@ -1,8 +1,6 @@
 extends RefCounted
-## Act aim markers: the vulva opening, the V2 anal opening and the current player tip. They are
-## debug-only and stay out of the act's normal state.
-##
-## See `docs/anatomy.md` (`## Act anatomy`).
+## Debug aim markers for the two openings and the player tip.
+## Debug-only: they stay out of the act's normal state.
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 

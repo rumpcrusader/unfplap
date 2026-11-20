@@ -1,12 +1,7 @@
 extends Node
-## One per pony. **The host**: it exists, it is parented under the body and reparented across a
-## body swap, it forwards the two engine frames to the act session, and it releases the per-pony
-## services when the world closes. The `act/` modules own the state, the schedule, the ledgers, the
-## view and the act's behaviour; this node owns no act rule and holds no act value.
-##
-## The public surface is `act`, `gate`, `pony`, `live_id()`, `attach_to_body()`, `adopt_body()` and
-## the engine callbacks. Everything the act modules and the services need is constructed by
-## `act/build.gd` and read from there.
+## One per pony: **the host**. It exists, is parented under the body and reparented across a body
+## swap, forwards both engine frames and releases what outlives an act. The `act/` modules own
+## the state and the behaviour; this node holds no act rule or act value.
 ##
 ## See `docs/runtime.md`.
 
@@ -16,8 +11,8 @@ const ACT_GATE := preload("res://mods/unfplap/act/gate.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 
-## The pony this runtime presents. Assigning a body rebinds the pose session and the act host
-## through the bundle; nothing else is rebound per frame.
+## The presented body. A new assignment rebinds the pose session and host through the bundle;
+## nothing rebinds per frame.
 var pony: Node:
 	get:
 		return _pony_node
@@ -93,9 +88,8 @@ func attach_to_body(parent: Node) -> void:
 	_swapping_parent = false
 
 
-## `ponies` calls this when the source's new body spawns. The runtime is already under the entry;
-## it moves under the new body, binds its pose, face and anatomy, and waits for the handover's
-## resume. A body that is not an adult mare ends the act through the one exit.
+## Called when the source's new body spawns, while the runtime is already under the entry: it moves
+## under the new body, binds pose, face and anatomy and waits for the resume; a non-adult ends it.
 func adopt_body(new_pony: Node) -> void:
 	if not act.suspended() or not is_instance_valid(new_pony):
 		return
@@ -109,8 +103,7 @@ func adopt_body(new_pony: Node) -> void:
 
 
 ## World close or mod switch-off: release what outlives an act. The kiss foreleg overrides are
-## global AffectionPose settings, the anatomy nodes are persistent, and the face timer is a child;
-## none of them may be left behind.
+## global AffectionPose settings, the anatomy nodes are persistent and none may be left behind.
 func _exit_tree() -> void:
 	if _swapping_parent:
 		return

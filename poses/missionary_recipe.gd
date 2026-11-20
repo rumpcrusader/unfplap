@@ -1,10 +1,7 @@
 extends RefCounted
-## Missionary pose: the hand-authored bed-space base pose plus the live overlays (nuzzle and the
-## gaze solve). This is the only missionary implementation; there is no correction stack and no
-## fallback pose. The asset is the pose.
-##
-## The base writes the skeleton root (placement) and the body bones. The head bone is reset to rest
-## here, because the runtime owns the face: the gaze solve aims `pony_head`'s frame at Anon.
+## Missionary pose: the hand-authored bed-space base plus the live nuzzle and gaze overlays.
+## The asset is the pose, with no correction stack and no fallback. The runtime owns the face, so the
+## base resets the head bone to rest and the gaze solve aims its frame at Anon.
 
 var _config: Dictionary = {}
 
@@ -31,10 +28,8 @@ func apply_base(_rig, sk: Skeleton3D, weight: float, state: Dictionary) -> bool:
 	return true
 
 
-## The face contact's residual correction: the pose driver writes a world-space offset and this
-## moves her armature root by it. The v7 placement already put the authored pose on the bed, so the
-## offset is only the live mouth/opening residual. Scaled by the recipe weight, so POSING_IN and an
-## edge blend it in instead of snapping.
+## Move her armature root by the driver's world-space residual: the authored placement already sits
+## on the bed, so only the live mouth/opening error is left. Weighted so a blend eases it in.
 func _apply_contact_offset(sk: Skeleton3D, weight: float, state: Dictionary) -> void:
 	var value: Variant = state.get("contact_offset", Vector3.ZERO)
 	if not value is Vector3:
@@ -78,9 +73,8 @@ func _neutral_head(sk: Skeleton3D, weight: float) -> void:
 	sk.set_bone_pose_rotation(head, sk.get_bone_pose_rotation(head).slerp(rest, weight))
 
 
-## Current skull frame in world space. The body's `pony_head` bone is mapped to the OpenPony
-## head by HybridNeckLink with a fixed per-pair offset; applying that offset gives the same
-## `mHead` frame the head skeleton will use after this pose.
+## The skull frame in world space. The body head bone is mapped to the OpenPony head by a fixed
+## per-pair offset, so that offset must be applied to match the frame the head skeleton will use.
 func _head_gaze_frame(rig, sk: Skeleton3D) -> Dictionary:
 	if rig.neck.is_empty():
 		return {}
@@ -112,9 +106,8 @@ func _head_gaze_frame(rig, sk: Skeleton3D) -> Dictionary:
 		"up": world.basis.y.normalized()}
 
 
-## Rotate the neck/head chain by the shortest arc between her current face direction and Anon.
-## Shortest-arc from the *current* pose, so it is independent of the bed and body orientation.
-## `rotate_free` because the authored pose can sit outside the game's joint limits.
+## Swing the neck chain toward the look point by the shortest arc from its current pose, so the bed
+## and body orientation drop out. `rotate_free()` because the authored pose exceeds the joint limits.
 func _aim_gaze(rig, sk: Skeleton3D, weight: float, look_point: Vector3) -> void:
 	if rig.neck.is_empty() or not look_point.is_finite() or weight <= 0.0001:
 		return
@@ -156,9 +149,8 @@ func _aim_gaze(rig, sk: Skeleton3D, weight: float, look_point: Vector3) -> void:
 	_level_head(rig, sk, weight)
 
 
-## Keep her face upright. The aim only sets the face direction; a pose that rolls the neck leaves her
-## staring at Anon sideways. Rolling the head about its own forward axis keeps the aim and puts her
-## up with the world's.
+## Roll the head about its own forward axis until her head is level with the world; aiming alone
+## fixes only the face direction and leaves the head tilted when the pose rolls the neck.
 func _level_head(rig, sk: Skeleton3D, weight: float) -> void:
 	if rig.neck.is_empty() or weight <= 0.0001:
 		return

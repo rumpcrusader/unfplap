@@ -1,18 +1,9 @@
 extends Node
-## Re-seats every adult mare's hair tail at the game's exact reference dock and moves the
-## OpenPonyDock with it. One controller under the anatomy facade; it never touches the body,
-## skeleton, mane or act systems. Mares from other mods use the game's tail seat and the global
-## placement until a per-mare override is saved.
-##
-## The reference is the body-space anchor of the game's reference dock, read from
-## `dock_tail_mounts.json`. The per-mare row under `anatomy.placement.<id>` moves the tail, trims
-## and scales the dock and tilts the tail about the body's rear axis. The controller caches every
-## original before it writes, so turning the setting off restores the game's tail and dock exactly.
-##
-## Nothing is measured or written while the setting is off: the row then holds only the mare's id,
-## so a disabled seat costs one row per pony. A placement edit writes the tail at once and the
-## skinned dock follows it; the dock mesh is rebuilt once per settled edit, not once per settings
-## tick.
+## Per-mare tail seat: each adult mare's hair tail moves to the game's reference dock, and the
+## dock comes with it. One controller under the anatomy facade; it never touches the body,
+## skeleton, mane or act systems.
+## Originals are cached up front, so switching the seat off restores the game tail and dock.
+## With the seat off the row holds only her id, so a disabled seat stays cheap.
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
@@ -30,15 +21,13 @@ const REFERENCE_PATH := "res://world/characters/hybrid_mare/dock_tail_mounts.jso
 ## The reference's cap sits just below and in front of the body's own tail root. This fallback is
 ## the current game relation; the JSON reference wins whenever it is available.
 const FALLBACK_TAIL_OFFSET := Vector3(0.0, -0.0044, -0.0235)
-## A placement edit writes the tail at once and the skinned dock follows it; the dock mesh is
-## rebuilt once this long after the last edit, because only the base-ring snap needs it.
+## Settle delay before the one dock rebuild a placement edit needs: only the base-ring snap does.
 const DOCK_SETTLE_S := 0.12
 ## The per-mare placement keys and their defaults, compared in `refresh_all()`.
 const PLACEMENT_KEYS := [["tail_y", 0.0], ["tail_z", 0.0], ["dock_y", 0.0],
 	["dock_scale", 1.0], ["tail_tilt_deg", 0.0]]
 
-## One mare's seat: the measured anchor and cap, the cached originals and the live placement. A
-## row created while the setting is off holds only her node and id.
+## One mare's seat: the measured anchor and cap, the cached originals and the live placement.
 class SeatRow:
 	var pony: Node
 	var id := ""
@@ -82,7 +71,7 @@ var log := Callable()
 ## The anatomy facade's capability answer for this pony (identity + tail participation).
 var eligible := Callable()
 
-## pony -> cached original values, target and live state. See `_prepare()`.
+## pony -> cached original values, target and live state.
 var _rows: Dictionary = {}
 ## Last applied values of Anatomy › Re-seat tails and docks, Dock style and the two debug offsets.
 var _enabled: bool
@@ -142,9 +131,8 @@ static func reference(pony: Node = null) -> Vector3:
 	return Vector3.INF
 
 
-## Vertical centre of the pinned hair tail cap in body bind space. The dock's outer opening is
-## seated on this line, which is what makes the visible band sit under the tail base instead of on
-## its upper side. Returns NAN when the cap cannot be measured.
+## Vertical centre of the pinned hair tail cap in body bind space, or NAN when unmeasurable.
+## The dock's cuff sits here, which puts the visible band under the tail base.
 static func _tail_cap_centre(pony: Node) -> float:
 	if not is_instance_valid(pony):
 		return NAN
@@ -228,8 +216,7 @@ func attach(pony: Node, form: BODY_FORM.BodyForm = null) -> void:
 		row.applied.x, row.applied.y, row.applied.z])
 
 
-## Release one body's seat without waiting for its tree-exiting hook. A binding can unbind a body
-## that stays in the tree, so the tail and dock must go back and the row must drop its old fit.
+## Release one body's seat now, for a body whose fit was dropped while it stayed put.
 func release(pony: Node) -> void:
 	if not is_instance_valid(pony):
 		return
@@ -240,8 +227,7 @@ func release(pony: Node) -> void:
 	_forget(pony)
 
 
-## The same body carries a revised form. A source-owned tail returns to its provider; a regular
-## hair tail re-resolves its placement row and re-seats the tail and dock when the fit changed.
+## The same body, revised: re-resolve the row and re-seat only when the fit changed.
 func refresh_form(pony: Node, form: BODY_FORM.BodyForm) -> void:
 	if not is_instance_valid(pony):
 		return
@@ -315,8 +301,7 @@ func refresh_all() -> void:
 			continue
 		var row: SeatRow = _rows[pony]
 		if not enabled:
-			# Only the toggle itself restores; a settings tick with the seat already off writes
-			# nothing, and the row keeps her id for the next toggle.
+			# Only the toggle restores anything; an off tick keeps the row for the next toggle.
 			if toggle_changed and _seated(row):
 				_restore(row)
 			continue
@@ -353,7 +338,7 @@ func refresh_all() -> void:
 			changed = true
 			match key:
 				"dock_y":
-					# A post-skin lift on the dock instance transform: no mesh rebuild.
+					# No rebuild: the offset rides the instance transform after skinning.
 					pass
 				"dock_scale":
 					dock_stale = true
@@ -413,7 +398,7 @@ func _exit_tree() -> void:
 	_dirty.clear()
 
 
-## The live seat row for a pony, or null. The placement suite reads it instead of `_rows`.
+## The live seat row for a pony, or null. The placement suite reads it.
 func row(pony: Node) -> SeatRow:
 	return _rows.get(pony) as SeatRow
 
@@ -423,8 +408,7 @@ func pending_rebuilds() -> int:
 	return _dirty.size()
 
 
-## True for a row `_prepare()` measured. A row created while the setting is off holds only her id
-## and is prepared when the setting is turned back on.
+## True for a measured row; an off row holds only her id until the next toggle.
 func _seated(row: SeatRow) -> bool:
 	return row != null and row.seated
 
@@ -497,8 +481,8 @@ func _prepare(pony: Node, form: BODY_FORM.BodyForm = null) -> SeatRow:
 	var placement := SETTINGS.anatomy_placement(id, fit_id)
 	var hair: Skeleton3D = pony.get("hair_skeleton") as Skeleton3D
 	var original_skin: Skin = dock.skin
-	# A far pony's dock may be parked by the game's rig parking: the path is empty and the real
-	# one is in `parked_skeleton`. Cache the resolved path so `_restore()` always puts it back.
+	# Far ponies' docks may be parked with an empty skeleton path and the real one in
+	# `parked_skeleton`; cache the resolved path so the restore always puts it back.
 	var original_skeleton: NodePath = dock.skeleton
 	if original_skeleton.is_empty() and dock.has_meta(&"parked_skeleton"):
 		original_skeleton = dock.get_meta(&"parked_skeleton")
@@ -572,8 +556,7 @@ func _apply(row: SeatRow) -> void:
 	_apply_dock(row)
 
 
-## Write the seat to the hair link. The dock is skinned to the tail, so it follows this write
-## without a rebuild; only the base-ring snap needs `_apply_dock()`.
+## Write the seat to the hair link; the skinned dock follows without a rebuild.
 func _apply_tail(row: SeatRow) -> bool:
 	var pony := row.pony
 	if not is_instance_valid(pony) or not pony.is_inside_tree():
@@ -665,7 +648,7 @@ func _restore(row: SeatRow) -> void:
 	_clear_skin(row)
 	var dock := row.dock
 	if is_instance_valid(dock):
-		# Same relative-path hazard as `_install_skin`: detach first, then move the node.
+		# Same relative-path hazard as the skin install: detach first, then move the node.
 		dock.skeleton = NodePath()
 		dock.skin = null
 		var original_parent := row.original_parent
@@ -681,8 +664,7 @@ func _restore(row: SeatRow) -> void:
 		dock.skin = row.original_skin
 		dock.skeleton = row.original_skeleton
 		dock.transform = row.original_transform
-		# Back under `_model`; carry the far-mesh hide again if the pony is far right now, so the
-		# game's own far-end restore takes it down with the other rig meshes.
+		# Back under the body model; re-hide if the pony is far, so the far-end restore takes it too.
 		if bool(pony.get("_far_mesh_shown")) and dock.visible:
 			dock.set_meta(&"far_hidden", true)
 			dock.visible = false
@@ -692,9 +674,8 @@ func _restore(row: SeatRow) -> void:
 	_invalidate_far(pony)
 
 
-## Place the dock in its fitted/snapped cuff position, then install the hair-bound two-bone skin
-## that carries it with the hair tail root. The fit is captured before the first write, so repeated
-## nudges rebuild from the game's original fit instead of accumulating.
+## Place the dock in its fitted position and install the hair-bound two-bone skin.
+## The fit is captured before the first write, so repeated nudges rebuild from the original.
 func _move_dock(row: SeatRow, delta: Vector3) -> void:
 	var dock := row.dock
 	if not is_instance_valid(dock):
@@ -743,9 +724,8 @@ func _install_skin(row: SeatRow, mesh: ArrayMesh, delta: Vector3) -> void:
 	# must not resolve against the new parent while the node is re-entering the tree.
 	dock.skeleton = NodePath()
 	dock.skin = null
-	# The dock is skinned to the hair skeleton, so it must live under it: the game bakes every
-	# visible `_model` mesh with a skin into the far mesh, and a hair-bound skin there would be
-	# remapped onto body bones. Under `hair`, `_show_far_mesh()` hides the cuff with the hair.
+	# The hair-bound skin must live under the hair skeleton: the far bake would remap it onto body
+	# bones, and under the hair the far-mesh pass hides the cuff with it.
 	var parent: Node = dock.get_parent()
 	if parent != hair:
 		if is_instance_valid(parent):
@@ -761,8 +741,7 @@ func _install_skin(row: SeatRow, mesh: ArrayMesh, delta: Vector3) -> void:
 	# no skin would make Godot register a temporary rest skin for the whole hair rig.
 	dock.skin = skin
 	dock.skeleton = dock.get_path_to(hair)
-	# The dock left `_model`, so the far-mesh pass cannot restore a `far_hidden` mark it set
-	# before the move. Only a visible dock gets that mark; return it to the anatomy's switch.
+	# The dock left the body model, so the far-mesh pass cannot undo the mark it set: hand it back.
 	if dock.has_meta(&"far_hidden"):
 		dock.remove_meta(&"far_hidden")
 		dock.visible = SETTINGS.dock_style.get_choice() != "hide"
@@ -784,10 +763,9 @@ func _dock_material(row: SeatRow) -> Material:
 				if is_instance_valid(anatomy) and not anatomy.is_queued_for_deletion():
 					var base := anatomy.get_active_material(0)
 					if base is ShaderMaterial:
-						# The anatomy material is shared with the vulva; a copy keeps the dock's
-						# recolour and the shader reset away from it. The main material never sets
-						# `coat_color` (only the teats copy does), so a direct reuse is black:
-						# the dock's missing COLOR leaves `to_coat` at 1.
+						# The anatomy material is shared with the vulva and never sets `coat_color`, so the dock
+						# needs a copy: without one its missing COLOR leaves `to_coat` at 1 and the cuff renders
+						# black.
 						var dock := (base as ShaderMaterial).duplicate() as ShaderMaterial
 						var skin: Variant = base.get_shader_parameter("skin_color")
 						var shadow: Variant = base.get_shader_parameter("skin_shadow")
@@ -820,8 +798,7 @@ func refresh_dock_color(pony: Node) -> void:
 	dock.set_surface_override_material(0, _dock_material(row))
 
 
-## The dock is a real skinned mesh now, so there is no follower node to free. `_restore()` puts
-## the game's body-skinned dock back; a rebuild simply overwrites the installed mesh and skin.
+## The dock is a real skinned mesh, so there is no follower to free; a rebuild overwrites it.
 func _clear_skin(row: SeatRow) -> void:
 	row.attached = false
 

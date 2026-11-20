@@ -1,9 +1,6 @@
 extends Node
-## The one conversation-director bridge and model host for the negotiation routes. The Negotiation
-## service owns one adapter as its child, wires the `Host` model callbacks to it and hands the same
-## instance to the Proactive service. Every private director read, the one answer watch and the
-## bounded classifier calls live here; no service reads the director directly, and the classifier
-## node arrives through `classifier_source`.
+## The one conversation-director bridge and model host for the negotiation routes; no service
+## reads the director directly.
 ## Contract: `docs/negotiation.md` (`## Director and model host`).
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
@@ -11,20 +8,18 @@ const PROMPTS := preload("res://mods/unfplap/negotiation/prompts.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const AI_CONFIG := preload("res://world/ai/ai_config.gd")
 
-## Set by the service that owns this node: () -> the bounded classifier node the Proactive service
-## owns, or null. The classifier file is not this service's to import.
+## The classifier node the service owns, or null. The file is not this service's to import.
 var classifier_source := Callable()
-## The director's player-line fields when the answer watch began, and the newest line seen since.
-## An old line left in `_player_text` is not the answer to this offer.
+## The director's player-line fields when the watch began, and the newest line seen since: an old
+## line left there is not the answer to this offer.
 var _baseline_text := ""
 var _baseline_held := ""
 var _last_text := ""
 var _seen := false
 ## The one live answer watch: `{scope, done, pony}`. Empty when nothing is waiting.
 var _watch: Dictionary = {}
-## The global Anon-offer watch: the first new player line while he talks to a mare. The callback
-## receives the line once the director is idle again, so the classifier never races her reply to
-## the same line.
+## The Anon-offer watch: his first new line while he addresses a mare, held until the director
+## falls idle so her own reply cannot be mistaken for his.
 var _offer_watch := Callable()
 var _offer_pending := ""
 ## The idle offer watch reads the director at 10 Hz, not per frame; the transcript signal still
@@ -96,9 +91,8 @@ func idle() -> bool:
 	return node != null and str(node.get("state")) == "idle"
 
 
-## The scan's quiet gate: not paused, no menu, captured input, a free player, an idle director
-## with no group exchange or hearing, background AI allowed and no recent chat. `chat_gap_s` is
-## the caller's pacing window.
+## The scan's quiet gate: not paused, no menu, captured input, a free player, an idle director with
+## no group exchange or hearing, AI allowed and no recent chat. `chat_gap_s` is the pacing window.
 func quiet(chat_gap_s: float) -> bool:
 	return quiet_reason(chat_gap_s) == ""
 
@@ -152,9 +146,8 @@ func quiet_reason(chat_gap_s: float) -> String:
 	return ""
 
 
-## Baseline the director's player-line fields when an answer watch starts. The fallback queue
-## path leaves an old `_player_text` in place, and it must not be read as the answer to this
-## offer.
+## Reset the turn baseline when an answer watch starts: the fallback queue path leaves an old line
+## in place, so a stale line must not pass as the answer.
 func begin_turn() -> void:
 	_baseline_text = ""
 	_baseline_held = ""
@@ -272,8 +265,8 @@ func complete_raw(system: String, payload: Dictionary, scope: String, done: Call
 	return bool(classifier.call("complete_raw", system, payload, scope, done))
 
 
-## Watch the first new player line for an Anon offer. The negotiation service enables it while no
-## negotiation and no act is live; the callback receives the line once the director is idle again.
+## Watch the first new player line for an Anon offer; the service arms it only while nothing is
+## negotiating or acting.
 func watch_player(callback: Callable) -> void:
 	if not callback.is_valid():
 		return
@@ -305,8 +298,7 @@ func _poll_offer_watch() -> void:
 		_offer_watch.call(text)
 
 
-## Watch the first new line from the conversation target. The service baselines nothing; the
-## adapter owns the turn and the director fields.
+## Watch the target's next spoken line; the turn baseline is this node's job, not the caller's.
 func await_answer(pony: Node, scope: String, done: Callable) -> bool:
 	if not is_instance_valid(pony) or scope.is_empty() or not done.is_valid():
 		return false

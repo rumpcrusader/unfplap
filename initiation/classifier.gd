@@ -8,10 +8,8 @@ const AI_CONFIG := preload("res://world/ai/ai_config.gd")
 
 const DEADLINE_SECONDS := 8.0
 const MAX_QUEUE := 4
-## The negotiation model calls answer in JSON with one short answer or an option index. The
-## caller owns the schema; the classifier only bounds the request and the deadline. The budget
-## reserves private-reasoning room on top of the visible JSON budget: a reasoning model that
-## exhausts it produces no JSON at all.
+## The negotiation calls answer JSON: one short answer or an option index; the caller owns it.
+## The budget keeps private-reasoning room, because a model that exhausts it emits no JSON.
 const NEGOTIATION_LIMITS := {
 	"purpose": "unfplap_negotiation", "input_bytes": 4096, "output_tokens": 64,
 	"reasoning_room": 768, "max_attempts": 1,
@@ -76,9 +74,8 @@ func available() -> bool:
 	return _ensure_configured()
 
 
-## One raw bounded completion. The caller owns the schema and parses the text; the classifier
-## owns the one client, the queue and the deadline. `done` receives the raw reply and the
-## provider error.
+## One raw bounded completion: the caller owns the schema and parses the text.
+## `done` receives the raw reply and the provider error.
 func complete_raw(system: String, payload: Dictionary, key: String, done: Callable) -> bool:
 	if not _ensure_configured() or not done.is_valid():
 		return false

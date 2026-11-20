@@ -3,19 +3,7 @@ extends RefCounted
 ## Contract: docs/ponies.md
 ## Scope: world
 ## Import: ponies/service.gd only
-##
-##   const PONIES := preload("res://mods/unfplap/ponies/service.gd")
-##   PONIES.attach(pony)
-##   if PONIES.act_running():
-##       return
-##
-## The one registry of per-pony runtimes: the attach and prepare hooks every new body passes
-## through, the typed pending body swap and its adoption, the live act pointer, the serial
-## allocator and the prompt note the game reads. Static like `world/service.gd`: a consumer
-## preloads it and the entry binds the pieces it built.
-##
-## The runtime is built by the entry's factory, so this service never imports `runtime.gd`; every
-## call into a runtime is dynamic on its `Node`.
+## The registry that owns one runtime per pony body.
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
@@ -29,8 +17,8 @@ const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 
 ## (`Node pony`) -> Node, the entry's runtime factory. The runtime file stays the entry's preload.
 static var factory := Callable()
-## The services one attached body passes through, bound once by the entry. `eligibility` is rebuilt
-## on every world enter, so the entry rebinds that one.
+## The services one attached body passes through, bound once by the entry.
+## Eligibility is rebuilt each world enter, so the entry rebinds that one.
 static var anatomy: Node = null
 static var body_change: Node = null
 static var stock_smack: Node = null
@@ -51,8 +39,8 @@ static func eligibility_service() -> ELIGIBILITY:
 
 ## pony -> its one runtime.
 static var _runtimes: Dictionary = {}
-## One suspended act waiting for the body its source is building. The runtime reparents itself to
-## the entry before the old body goes; the new body's spawn adopts it here.
+## The one suspended act awaiting the body its source is building.
+## The runtime waits under the entry while the old body goes; the newcomer adopts it here.
 static var _swap: Dictionary = {}
 ## The runtime of the live act, or null.
 static var _active: Node = null
@@ -63,9 +51,8 @@ static var _serial_issued := 0
 static var _listener := func() -> void: _on_settings_changed()
 
 
-## A body entered the world. The player's own AnonPony is a pony_locomotion too and never gets an
-## intimacy runtime; a body the pending swap claims is adopted instead, so a suspended act is never
-## displaced by a second act owner.
+## A body entered the world; the player's own AnonPony is refused, an unclaimed body gets a runtime.
+## The pending swap is offered first, so a suspended act is never displaced by a second owner.
 static func attach(pony: Node) -> void:
 	if not is_instance_valid(pony):
 		return
@@ -109,8 +96,7 @@ static func runtime_for(pony: Node) -> Node:
 	return child if is_instance_valid(child) else null
 
 
-## An act took the frame: the idle offer that would start another is dropped and the stock smack
-## layer begins its act.
+## An act took the frame: the idle offer is cleared and the smack layer starts.
 static func set_active(runtime: Node) -> void:
 	_active = runtime
 	if is_instance_valid(offer):
@@ -132,7 +118,7 @@ static func active() -> Node:
 	return _active if is_instance_valid(_active) else null
 
 
-## True while an act owns the frame: the idle probe, the act key and the offer all gate on it.
+## An act owns the frame; every starter gates on it.
 static func act_running() -> bool:
 	return is_instance_valid(_active)
 
@@ -144,8 +130,8 @@ static func act_target(pony: Node) -> bool:
 		and eligibility.eligible(pony, ELIGIBILITY.Target.ACT)
 
 
-## The mares that hold a runtime, for the settings tail pass and the debug block. Allocation is
-## fine here: both callers run on a settings edit or a closed wheel, never per frame.
+## The live bodies holding a runtime.
+## Called on an edit or a closed wheel, never per frame, so allocation is fine here.
 static func live_ponies() -> Array[Node]:
 	var out: Array[Node] = []
 	for pony: Variant in _runtimes.keys():
@@ -179,9 +165,8 @@ static func prompt_note(id: String) -> String:
 	return ""
 
 
-## Live adult mares that are not in the base roster, for the Characters selector. A modded mare
-## appears while she is in the world; her saved preset stays in settings.json when she despawns.
-## Installed-profile sources also list their mares while they are away.
+## Live adult mares outside the base roster, for the Characters selector.
+## A despawned mare keeps her saved preset; an installed source still lists hers.
 static func live_character_ids() -> Array[String]:
 	var ids: Array[String] = []
 	for pony: Variant in _runtimes.keys():
@@ -198,17 +183,16 @@ static func live_character_ids() -> Array[String]:
 	return out
 
 
-## Mares an active installed-profile source lists even while she is away. The source owns the
-## installation gate; the base roster stays the base roster.
+## Mares an active installed source lists while she is away.
+## The source owns its installation gate; the base roster is unchanged.
 static func installed_character_ids() -> Array[String]:
 	if not is_instance_valid(body_change):
 		return []
 	return body_change.call("installed_character_ids")
 
 
-## One serial per act, the `unfplap.serial` state key. The stored value is the record; the last
-## value issued here is a floor under it, so a store that cannot keep the write never hands out a
-## serial twice.
+## The next serial for a new act, stored under the `unfplap.serial` key.
+## The process's last value outranks a stale store, so no serial repeats.
 static func allocate_serial() -> int:
 	var value: int = _serial_issued + 1
 	var mods := _mods()
@@ -255,8 +239,8 @@ static func adopt_pending_body(pony: Node) -> bool:
 	return _adopt_pending(pony)
 
 
-## The live settings pass over every runtime, not only the act's: a settings edit or an API layer
-## change reaches each attached body.
+## Push a settings edit into every attached body's act.
+## Each act keeps its own snapshot, so every one needs the new values.
 static func apply_live_settings() -> void:
 	for runtime: Variant in _runtimes.values():
 		if not is_instance_valid(runtime):
@@ -272,9 +256,8 @@ static func bind_settings() -> void:
 	CHANGE.on_changed(_listener)
 
 
-## Bind the services one attached body passes through. The entry builds every service first and
-## calls this once at the end of its list, so a body spawned during construction still reads a
-## complete set.
+## Bind the services one attached body passes through.
+## The entry binds at the end of its build, so a body spawned mid-build still reads a complete set.
 static func bind(anatomy_service: Node, body_change_service: Node, offer_service: Node,
 		stock_smack_service: Node, eligibility_service: ELIGIBILITY, api_service: Node) -> void:
 	anatomy = anatomy_service
@@ -285,7 +268,7 @@ static func bind(anatomy_service: Node, body_change_service: Node, offer_service
 	api = api_service
 
 
-## A settings edit: the pass above, and the act a pending body swap has taken out of the registry.
+## A settings edit: also the swapped act the registry no longer holds.
 static func _on_settings_changed() -> void:
 	apply_live_settings()
 	if is_instance_valid(_active) and not _runtimes.has(_active.get("pony")):
@@ -294,7 +277,7 @@ static func _on_settings_changed() -> void:
 			session.apply_live_settings()
 
 
-## A world started: the pending swap belongs to the world that is gone.
+## A world started: the old world's pending swap is dropped.
 static func reset() -> void:
 	_swap = {}
 
@@ -310,8 +293,8 @@ static func close_world() -> void:
 	_swap = {}
 
 
-## The entry is leaving: close the act, stop and free every runtime and drop the bound handles, so
-## a fresh entry binds its own.
+## The entry is leaving: close the act, free every runtime and drop the bound handles.
+## A fresh entry then binds its own.
 static func shutdown() -> void:
 	CHANGE.off_changed(_listener)
 	close_world()
@@ -332,9 +315,8 @@ static func shutdown() -> void:
 	api = null
 
 
-## Fit and prepare a new body before it can take a runtime or an act. The body-change service asks
-## the handling provider for the body's form and mirrors it before anatomy attaches. Every hook is
-## idempotent.
+## Fit and prepare a new body before it can take a runtime or an act.
+## The provider's form is mirrored before anatomy attaches; every hook is idempotent.
 static func _prepare(pony: Node) -> void:
 	if is_instance_valid(body_change):
 		body_change.call("notify_body_ready", pony)
@@ -397,10 +379,8 @@ static func _mods() -> Node:
 	return loop.root.get_node_or_null("Mods")
 
 
-## The idle perf block's header counts, `{runtimes, mares}`. The entry binds the two counters to
-## `LOG.runtime_count` and `LOG.mare_count`
-## and it is read once per window, never per note.
-## The live runtimes, for the idle perf block's header.
+## The live runtime count, for the idle perf block's header.
+## Read once per window, never per note.
 static func runtime_count() -> int:
 	var runtimes := 0
 	for runtime: Variant in _runtimes.values():
@@ -433,9 +413,8 @@ static func identity_of(body: Node) -> Identity:
 	return out
 
 
-## The presented body's name for the act caption and dialogue. The form's presentation name
-## wins, the identity's display name is the fallback and the stable id is the last resort. A
-## borrowed shape still belongs to the same relationship, preferences and history.
+## The presented body's name for the act caption and dialogue.
+## A borrowed shape still belongs to the same relationship, preferences and history.
 static func display_name_for(form: BODY_FORM.BodyForm, body: Node, id: String) -> String:
 	var presented := str(form.form_name).strip_edges() if form != null else ""
 	if presented.is_empty() and is_instance_valid(body):

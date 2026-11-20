@@ -1,10 +1,9 @@
 extends RefCounted
 ## The static pose capability table: one row per pose the act can run. Pure data: no service, no
-## settings read, no FileAccess and no scene. `poses/registry.gd` validates it and the pose view
-## carries the row the session is in. Contract: `docs/poses.md`.
+## settings read, no FileAccess and no scene. Contract: `docs/poses.md`.
 ##
-## The profile vocabulary is fixed. Add keys, never rename one; `poses/pose_spec.gd` owns the
-## required-key list a new profile key must extend.
+## The profile vocabulary is fixed: add keys, never rename one, and extend the required-key list
+## with a new key.
 
 const ACT_COMMANDS := preload("res://mods/unfplap/shared/act_commands.gd")
 
@@ -25,12 +24,8 @@ const BED_FACESIT := "bed_facesit"
 const START_MODES := ["key", "auto"]
 const START_SETUPS := ["bed_stand_up", "bed_keep_lying", "standing_place"]
 
-## `asset` is the row's authored pose document under `poses/`; a base chain supplies it to an
-## internal row. `driver` is the procedural recipe, `base` an inherited pose id and `delta` an
-## authored delta asset. `start` is the act-start contract: every row declares its `mode` and
-## `setup`, and the runtime matches that closed vocabulary. `forms` are the game's `human`/`pony`
-## identifiers and `views` the `desktop`/`vr` configurations the pose is authored for; A0/A1
-## declare them and the scene gate enforces them in Phase B1.
+## `asset` is the row's authored pose document; a base chain supplies it to an internal row.
+## `driver` is the procedural recipe, `base` an inherited pose id, `delta` an authored asset.
 const SPECS := {
 	MISSIONARY: {
 		"id": MISSIONARY,
@@ -206,18 +201,16 @@ const SPECS := {
 }
 
 
-## The modifier owners each authored profile installs. The session keeps the shared owners on a
-## pose change, installs the target-only ones and removes the source-only ones. The act-exit
-## `leave_pose_body()` still removes every extra modifier.
+## The modifier owners each profile installs. A pose change keeps shared owners and swaps the rest;
+## the act exit still removes every extra modifier.
 const MODIFIER_PROFILES := {
 	"missionary": ["prone_sway", "tail_lay"],
 	"standing": ["body_sway", "ear_twitch", "tail"],
 }
 
 
-## The commands each pose's `controls.set` profile allows. `end` is reserved and always allowed,
-## and `request_command()` also allows it before the profile lookup, so an edge lock cannot deny
-## it. `pose_back`/`pose_forward` are reserved for pose navigation and no key emits them.
+## The commands each pose's `controls.set` profile allows. `end` bypasses an edge lock, and
+## `pose_back`/`pose_forward` have no key behind them.
 const CONTROL_SETS := {
 	MISSIONARY: [
 		ACT_COMMANDS.THRUST, ACT_COMMANDS.LEAN, ACT_COMMANDS.CARESS, ACT_COMMANDS.KISS,
@@ -277,7 +270,7 @@ static func start(pose: String) -> Dictionary:
 	return block if block is Dictionary else NO_START
 
 
-## The act-start mode: `key` waits for the act key, `auto` lets a trigger call the start path.
+## The act-start mode: `key` needs the act key, `auto` starts on a trigger.
 static func start_mode(pose: String) -> String:
 	return str(start(pose).get("mode", "key"))
 

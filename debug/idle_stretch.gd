@@ -1,7 +1,6 @@
 extends RefCounted
-## Debug-only deep-stretch preview through the installed Idle Life mod. Idle Life owns the pose;
-## this bridge only calls its entry's `play()` and, when she is already idling, the `_finish()`
-## that ends the current one. The wheel's Force deep stretch action uses it; see `docs/debug.md`.
+## Debug-only deep-stretch preview through the installed Idle Life mod; it calls the entry's play
+## and end callbacks and lets the pose own everything else. See `docs/debug.md`.
 
 ## The Idle Life entry script this bridge was written against (1.4.2) and the idle id.
 const ENTRY_PATH := "res://mods/idle_life/main.gd"

@@ -1,10 +1,8 @@
 extends RefCounted
-## The visible body's typed descriptor: the stable pony identity, the form id and name, the anatomy
-## and tail placement fit, the rig, the source body's mesh-hide marker and tail root, the live body
-## scale, and the form revision. A source's form overrides the pony's default own form.
+## The visible body's typed descriptor: identity, form id and name, the anatomy and tail fit, the
+## rig, the source's mesh-hide marker and tail root, the live scale and the form revision.
 ##
-## Shared read model: it reads a pony's identity and metadata, never a service, runtime, scene or
-## file.
+## Shared read model: it reads a pony's identity and metadata, never a service, runtime or scene.
 
 const BODY_PROFILE := preload("res://mods/unfplap/shared/body_profile.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")

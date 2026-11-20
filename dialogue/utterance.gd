@@ -2,9 +2,8 @@ extends RefCounted
 ## Pure prompt formatting for act lines. Admission and pacing belong to
 ## `dialogue/utterance_scheduler.gd`; this file only turns values into prompt text.
 
-## A demand cue asks Anon to change something. These get the longer repeat budget. The base
-## fallback ("She wants you to keep going.") is a trend cue, not a demand, so it stays on the
-## normal cue gap.
+## A demand cue asks Anon to change something and gets the longer repeat budget; the trend
+## fallback stays on the normal cue gap.
 const INTENSITY_ORDER := ["soft", "firm", "rough"]
 const PATTERN_ORDER := ["teasing", "steady", "quick"]
 

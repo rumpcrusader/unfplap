@@ -13,7 +13,7 @@ var node: Variant = null
 ## The runtime node: the one parent of the audio node and the source of the log sink.
 var host: Node = null
 var log := Callable()
-## Named holds on the game's excitement Beat. The last release restores the saved pause state.
+## Named holds on the game's excitement Beat, one per owner that asked for it.
 var _holders: Array[String] = []
 var _beat: Timer = null
 var _beat_saved := false

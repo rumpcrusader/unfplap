@@ -202,9 +202,8 @@ func auto_active() -> bool:
 	return auto_on and _state_in([STATE_ACTIVE, STATE_CLIMAX])
 
 
-## Snapshot the auto defaults once per act and on every live settings apply. The live shape
-## follows the setting, matching the old runtime behaviour; a body swap keeps the shape the act
-## already chose with `Z`, because the snapshot there is not a settings edit.
+## Snapshot the auto defaults once per act and on every live settings apply. A body swap keeps the
+## shape the act chose with `Z`, because that snapshot is not a settings edit.
 func configure_auto(pace: float, max_depth: float, shape: String, min_depth: float,
 		keep_shape := false) -> void:
 	auto_default_pace = pace
@@ -262,9 +261,8 @@ func auto_panel_open() -> bool:
 	return auto_panel.open
 
 
-## The hold-X layer. The input service supplies the key states and the runtime the current
-## depth; the layer owns tap/hold, the grace, the key repeats, the row nudges and the shape
-## write. Returns the actions it applied for the one-per-adjustment log line.
+## The hold-X layer: consumes the input service's key states and returns the actions it applied,
+## so one log line lands per adjustment rather than per frame.
 func auto_panel_tick(delta: float, x_down: bool, keys: Array,
 		current_depth: float) -> Array[String]:
 	if not _state_in([STATE_ACTIVE, STATE_CLIMAX]):
@@ -286,7 +284,6 @@ func auto_panel_tick(delta: float, x_down: bool, keys: Array,
 					else -AUTO_PANEL.PACE_STEP)
 			"shape_next":
 				auto_cycle_shape()
-	# One line per player adjustment, never per frame: the policy ticks every physics frame.
 	if not actions.is_empty():
 		_log("auto layer %s min=%.0f%% max=%.0f%% pace=%.2f/s" % [
 			",".join(actions), auto_thrust.min_depth * 100.0, auto_thrust.max_depth * 100.0,
@@ -407,7 +404,6 @@ func end_climax(max_climaxes: int) -> void:
 	_log("pony climax end=%d/%s readiness=0" % [pony_climaxes, limit_text])
 
 
-## Drop the live cue without touching the meter. The held afterglow and the close reward use it.
 func clear_cues() -> void:
 	cue = ""
 	cue_override = ""
@@ -532,8 +528,8 @@ func score_thrust() -> void:
 		heat, satisfaction])
 
 
-## Readiness never decays on its own. Real thrusts add the chunks in `_score_thrust`; only a
-## disliked touch/talk subtracts. This tick clears stale thrust memory and updates cues.
+## The meter only moves on an action: real thrusts add, a disliked touch/talk subtracts, and time
+## alone changes nothing. This tick clears stale thrust memory and updates the cue.
 func tick(delta: float) -> void:
 	if _state() != STATE_ACTIVE:
 		return
@@ -565,9 +561,8 @@ func tick(delta: float) -> void:
 		on_cue.call(mood, cue, not cue_override.is_empty())
 
 
-## One real action per call, including the tolerance meter. Continuous inputs must emit discrete
-## events: a held caress calls this once per touch interval, never once per physics tick, or a
-## liked caress would erase all distress every frame.
+## One real action per call, including the tolerance meter. A held caress must call this once per
+## touch interval, never per frame, or every frame would erase all distress.
 func touch(kind: String) -> void:
 	if _state() != STATE_ACTIVE:
 		return

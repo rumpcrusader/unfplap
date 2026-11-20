@@ -1,8 +1,7 @@
 extends RefCounted
 ## The typed act context. The runtime owns one per act and rewrites it as the state and the camera
-## change; presentation modules (cameras, hands, kiss, Anon bodies) read this object instead of the
-## runtime node. Callbacks are the host boundary for services and the few values only the runtime
-## can write back, so tests can build a context without a runtime.
+## change; presentation modules read this object instead of the runtime node. Callbacks are the
+## host boundary for services, so tests can build a context without a runtime.
 ##
 ## See `AGENTS.md` (`## Architecture: isolated systems`).
 
@@ -85,7 +84,7 @@ var profile: Dictionary = {}
 ## The physics delta the hand and reach easing uses, so a controller never asks the tree.
 var physics_delta := 0.016
 
-# HUD card values. `hud/service.gd` reads these instead of calling back into the runtime.
+# HUD card values: filled once per rendered frame for the HUD module.
 var max_pony_climaxes := 0
 var close_hint := ""
 var summary_hud := ""
@@ -150,10 +149,9 @@ var restore_face_turn := Callable()
 ## runtime restores the Beat's original pause state when the last holder releases.
 var hold_excitement := Callable()
 var release_excitement := Callable()
-## Whether another mod's entry is active in this launch, by mod id.
+## Whether a named external mod is loaded this launch.
 var mod_enabled := Callable()
-## The node that answers the Anon pose-driver write-backs (`apply_anon_thrust`,
-## `apply_anon_lean`, `apply_anon_align`). It is passed as an opaque host handle.
+## The opaque host handle for the Anon pose-driver write-backs.
 var pose_host := Callable()
 
 
@@ -226,7 +224,7 @@ func pose_driver() -> Variant:
 	return desktop_pose_driver.call() if desktop_pose_driver.is_valid() else null
 
 
-## The node that answers the Anon pose-driver write-backs.
+## The host handle for pose-driver write-backs, or null.
 func driver_host() -> Variant:
 	return pose_host.call() if pose_host.is_valid() else null
 

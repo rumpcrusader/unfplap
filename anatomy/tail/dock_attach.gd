@@ -1,16 +1,7 @@
 extends RefCounted
-## Two-bone GPU skin for the standard OpenPonyDock.
-##
-## The dock is authored as a body-skinned mesh, not a second tail: its base belongs at the hair
-## tail root and its outer end follows the first tail joint. This module rebuilds the fitted dock
-## as a two-bind skinned mesh on the hair skeleton, so the engine does the blend every frame:
-## `mPelvis` at the base, `mTail1` at the outer end, and the same smoothstep between them the old
-## CPU follower used. There is no per-frame mesh rebuild.
-##
-## The mesh stays in the body skeleton's space. The bind poses convert body space into the hair
-## skeleton's bind space (`bind = rest_pose^-1 * hair_global^-1 * body_global`), and the dock is
-## parented under the hair skeleton. The instance translation carries the dock lift as a post-skin
-## body-space Y offset, which is exactly what the old follower added after its blend.
+## Two-bone GPU skin for the standard OpenPonyDock, blended by the engine every frame.
+## The binds carry the dock from body space onto the hair skeleton, and the lift rides the
+## instance transform.
 
 
 ## Body-space blend weight for every dock vertex: 0 at the base ring, 1 at the farthest vertex,
@@ -56,10 +47,8 @@ static func lift_transform(body: Skeleton3D, hair: Skeleton3D, dock_lift: float)
 	return Transform3D(Basis.IDENTITY, into_hair.basis * Vector3(0.0, dock_lift, 0.0))
 
 
-## Build the skinned dock mesh and skin. Returns
-## {"mesh": ArrayMesh, "skin": Skin, "transform": Transform3D} or {} when the cuff or rig cannot
-## be skinned. The transform is the dock's local transform under the hair skeleton: it carries
-## `dock_lift` as a post-skin body-space offset.
+## Build the skinned dock mesh and skin, or {} when the cuff or rig cannot be skinned.
+## The returned transform is the dock's local one under the hair skeleton, lift included.
 static func build(mesh: ArrayMesh, body: Skeleton3D, hair: Skeleton3D,
 		dock_lift: float) -> Dictionary:
 	if mesh == null or mesh.get_surface_count() == 0:

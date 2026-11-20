@@ -1,7 +1,5 @@
 extends RefCounted
-## Scene adapter: the only reader of the conversation director's authored-line queue. The facade
-## never touches a director field. Every lookup is guarded: a game change that removes the queue
-## makes the mod's lines stop instead of erroring.
+## The director's authored-line queue, read through guarded calls.
 
 const FACTS := preload("res://mods/unfplap/memory/facts.gd")
 const TEXT := preload("res://mods/unfplap/memory/text.gd")

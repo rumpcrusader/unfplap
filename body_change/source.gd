@@ -1,8 +1,6 @@
 extends Node
-## The typed base for a body-change source: the provider that observes its own pack and supplies
-## body forms. A source is a world node; the body-change service owns the transition and calls these
-## virtual methods. The base answers the neutral default, so a provider overrides only what it
-## supports. No `class_name`: a provider extends this file by path.
+## The documented provider base: a world node that observes its own pack and supplies body forms.
+## Providers extend it by path; the service owns the transition and calls these hooks.
 
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
@@ -49,8 +47,8 @@ func request_own_form(_body: Node3D, _origin: BODY_CHANGE.Origin) -> bool:
 	return false
 
 
-## Prepare the next body and return its form. Called before anatomy, tail, camera and pose attach.
-## A provider may call it again when a late variant settles and bump the form revision.
+## The next body's form, built before the act's systems attach to it.
+## A late variant settles by preparing again with a bumped revision.
 func prepare_body(_body: Node3D, _change: BODY_CHANGE) -> BODY_FORM.BodyForm:
 	return null
 

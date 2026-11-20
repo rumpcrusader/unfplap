@@ -1,11 +1,7 @@
 extends Node
-## The anatomy system's world facade. One world service owns the per-pony controllers, the
-## player part, the tail seating and the placement editor delegate. Other systems call this facade,
-## never a controller's internals.
-##
-## The per-pony controller is `anatomy/controller.gd`; it owns the per-act handle
-## `anatomy/act.gd`.
-##
+## The anatomy system's world facade: controllers, the player part, tail seats and the
+## placement editor. Other systems call this facade, never a controller's internals.
+## The per-pony controller is `anatomy/controller.gd`; it owns the per-act handle `anatomy/act.gd`.
 ## See `docs/anatomy.md`.
 
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
@@ -26,20 +22,18 @@ const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const HUD := preload("res://mods/unfplap/hud/service.gd")
 
-## Emitted when a pony's per-act anatomy handle is built, before the pose starts. A world
-## integration uses it to take a worn garment off before the first rendered act frame.
+## A per-act handle was built; a world integration can undress on it.
 signal act_started(pony: Node3D)
 
 var player: Node
 var tail_seat: Node
 var tail_visibility: Node
-## The Anatomy Placement editor. The facade keeps the debug entry points and delegates here.
+## The Placement editor; the facade only delegates to it.
 var placement_editor: RefCounted
 
 ## pony -> controller
 var _controllers: Dictionary = {}
-## Presented body -> the body-change service's form. A body with no stored form keeps the default
-## own form built from its identity.
+## Body -> its presented form; a body with none keeps the default own form.
 var _forms: Dictionary = {}
 var _player_part: Node
 ## The part whose hidden mesh is already built, and whether a deferred warm is queued.
@@ -107,9 +101,8 @@ func _eligible_target(pony_node: Node, target: ELIGIBILITY.Target) -> bool:
 	return service.eligible(pony_node, target)
 
 
-## The live controller for a pony, created on first use. The runtime supplies its typed facts;
-## the facade supplies the anatomy service and the host callbacks for the act handle. A controller
-## created by a body binding before its runtime exists receives the runtime's facts here.
+## The live controller for a pony, created on first use with the runtime's typed facts.
+## A controller a body binding created earlier receives them here.
 func controller_for(pony: Node, runtime: Node) -> Node:
 	if not is_instance_valid(pony):
 		return null
@@ -160,9 +153,8 @@ func form_for(pony: Node) -> BODY_FORM.BodyForm:
 	return stored as BODY_FORM.BodyForm if stored is BODY_FORM.BodyForm else null
 
 
-## A new presented body's form: store it, make sure its controller exists and refresh the tail
-## seat's row. The body-change service calls this before `tail_ready` and before the runtime
-## attaches, so the anatomy and tail measure the form that is already on the body.
+## A new presented body's form: store it, ensure its controller and refresh the tail row.
+## The body-change service calls this before the runtime attaches, so both measure the real form.
 func bind_body(pony: Node3D, form: BODY_FORM.BodyForm) -> void:
 	_apply_body_form(pony, form)
 
@@ -188,9 +180,8 @@ func _apply_body_form(pony: Node3D, form: BODY_FORM.BodyForm) -> void:
 		tail_seat.call("refresh_form", pony, form)
 
 
-## The body is leaving: release its tail seat row here instead of waiting for the node's
-## tree-exiting hook, then drop its form and controller. A body that stays in the tree must not
-## keep the old fit's seated tail.
+## The body is leaving: release its tail row here, then drop its form and controller.
+## A body that outlives its fit must not keep the old seated tail.
 func unbind_body(pony: Node3D) -> void:
 	if not is_instance_valid(pony):
 		return
@@ -259,9 +250,7 @@ func garment_parent(pony_node: Node) -> Node3D:
 	return null
 
 
-## Clear the shared hull cache and every controller's cached field after a precision edit or the
-## debug Rebuild button. The next `garment_hull()` read rebuilds once per source mesh; no
-## per-frame work.
+## Clear the shared hull cache and every controller's cached field; the next read rebuilds once.
 func garment_hull_rebuild() -> void:
 	GARMENT_HULL.clear_cache()
 	for pony: Variant in _controllers.keys():
@@ -393,7 +382,7 @@ func on_player(body: Node) -> void:
 	refresh_player()
 
 
-## A world enter or a world close: the player part belongs to the world that is gone.
+## A world enter or close: the player part dies with its world.
 func on_world_closed() -> void:
 	if is_instance_valid(_player_part):
 		_player_part.call("encounter", false)

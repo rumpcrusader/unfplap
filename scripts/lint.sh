@@ -27,4 +27,12 @@ if [[ "${#files[@]}" -eq 0 ]]; then
 fi
 
 gdlint "${files[@]}"
+
+# The gate carries its own fixtures; a broken rule must fail here, not silently pass.
+if ! python3 "$ROOT/scripts/comments.py" --self-test >/dev/null; then
+	python3 "$ROOT/scripts/comments.py" --self-test
+	exit 1
+fi
+python3 "$ROOT/scripts/comments.py" --check
+
 printf 'LINT_PASS %d files\n' "${#files[@]}"

@@ -1,10 +1,8 @@
 extends RefCounted
-## The act's dialogue lines: cue admission, prompt assembly, the shared utterance slot, reaction
-## lines and the bystander line. The runtime keeps the act state machine and passes its typed
-## `shared/act_facts.gd` view; this system owns the scheduler, the recent-line memory and the line text.
+## The per-act dialogue facade: admission, prompt notes, the one director slot, reactions and
+## bystanders. It reads no runtime field; the facts view and the memory channel are its inputs.
 ##
-## It reads the mod's own line channel through `MEMORY.instance` and the conversation director from
-## the act facts. See `docs/dialogue.md`.
+## See `docs/dialogue.md`.
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const PROMPTS := preload("res://mods/unfplap/dialogue/prompts.gd")
@@ -22,8 +20,7 @@ const RECENT_LINES := 8
 const CLIMAX_PROMPT := "You have just climaxed. Say one short sentence, at most 12 words, in " \
 	+ "your own voice. Begin with [surprised], [happy] or [calm]. Staying quiet is fine."
 
-## The normal prompt note's act values. The session fills one instance per note; the history and
-## relationship notes are read here.
+## The act values one prompt note carries; the session fills one instance per note.
 class ActValues extends RefCounted:
 	var state := 0
 	var pony_id := ""
@@ -231,9 +228,8 @@ func bystander_tick(delta: float) -> void:
 		_log("bystander line from %s" % row.id)
 
 
-## Idle-only: a sincere apology repairs once per in-game day, and a pending reminder or
-## complaint becomes one short line in a quiet moment. This module reads the scene values it
-## needs and owns the decisions and the line queueing.
+## Idle-only: the apology repair and the one pending reminder line; this module reads the scene
+## values it needs, and the runtime passes only the pony, its id, the event and the clock.
 func history_tick(delta: float, pony: Node3D, pony_id: String, event_id: String, now: float) -> void:
 	if facts == null:
 		return
@@ -413,9 +409,8 @@ func _cancel_pending_utterance(reason := "") -> void:
 		MEMORY.instance.cancel_line(key)
 
 
-## Drop all act lines that have not started speaking. A line that is already speaking may
-## finish; one that is only queued or still being generated is cancelled. This runs at every
-## climax/afterglow boundary and every act end, so a delayed line cannot start afterward.
+## Cancel the act's queued and generating lines; a line already speaking may finish, so a
+## delayed line cannot start after the boundary.
 func end_act(event_id: String, keep_speaking := true) -> void:
 	if _game_ok():
 		var cancelled: int = MEMORY.instance.cancel_act(event_id, keep_speaking)
@@ -466,8 +461,7 @@ func climax_line(mouth_busy: bool, cue: String, act_id: String, count: int, max_
 	return _climax_key
 
 
-## Interrupt the shared director only when it is driving this mare, so a bystander's turn is not
-## cut by her mouth being busy.
+## Interrupt the director only if this mare owns its turn, so a bystander's line is not cut.
 func stop_oral_turn(pony_id: String) -> void:
 	var director := _director()
 	if director == null or not director.has_method("interrupt"):
@@ -479,7 +473,7 @@ func stop_oral_turn(pony_id: String) -> void:
 	director.call("interrupt")
 
 
-## The stored-history note while a hurt history is active.
+## The stored-history note for a hurt pony.
 func history_note(pony_id: String) -> String:
 	var row := ACT_HISTORY.effective_row(ACT_HISTORY.section(), pony_id, ACT_HISTORY.day_now())
 	return ACT_HISTORY.prompt_note(row)
@@ -492,8 +486,8 @@ func relationship_note(pony_id: String, event_id: String) -> String:
 	return RELATIONSHIP_CUE.note(MEMORY.instance.cue_facts(pony_id, event_id).to_dict())
 
 
-## The normal dialogue prompt note from the session's act values. The history and relationship
-## notes are read here; the wording and precedence stay in `dialogue/prompts.gd`.
+## The facade entry for the pure note assembly; the wording and precedence stay in the prompts
+## module.
 func act_prompt(values: ActValues) -> String:
 	return prompt_note({
 		"state": values.state,
@@ -510,9 +504,8 @@ func act_prompt(values: ActValues) -> String:
 	})
 
 
-## True while the director or the pony is actually speaking. Unlike `channel_free`, this ignores
-## our own pending key, so a queued line can tell the difference between "still talking" and
-## "stuck".
+## Unlike `channel_free`, this ignores our own pending key, so a queued line can tell "still
+## talking" from "stuck".
 func busy() -> bool:
 	return _speech_busy()
 

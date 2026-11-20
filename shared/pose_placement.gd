@@ -1,10 +1,9 @@
 extends RefCounted
-## Pure pose placement: plain world facts for one chosen option produce a typed ok/reason. The
-## caller gathers the facts from the scene gate and the venue adapter; this file never reads a
-## scene, service, setting, clock or file. Contract: `docs/scene_gate.md` (`## Pose placement`).
+## Pure pose placement: plain world facts for one chosen option produce a typed ok/reason. It reads
+## no scene, service, setting, clock or file. Contract: `docs/scene_gate.md`
+## (`## Pose options and placement`).
 ##
-## Placement is live world feasibility, not a re-check of the Agreement package: the pose
-## capability is frozen at formation, the bed, ground, stool and Anon's position are live.
+## Placement is live world feasibility; the pose capability froze at formation, the rest is live.
 
 const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 

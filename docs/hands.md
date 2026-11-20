@@ -320,6 +320,7 @@ selection and starts the swing.
   `smack.height_m` (signed) and `smack.hind_m`, then snaps
   to the nearest `FlankSurface` point and jitters within `smack_zone_radius`.
 - Missionary keeps the decal-centre target shifted `0.08 m` up and `0.08 m` back.
+- Every smack offset and the raise scale with the pony's body size.
 - Standing runs raise -> strike -> contact -> recover. A caress raise lifts off the coat; a
   free-hand raise is a backswing from behind and below. The strike is cubic, CONTACT holds the
   exact frame for `0.03 s`, and RECOVER returns to the live caress or the captured rest hand.

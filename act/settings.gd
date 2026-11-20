@@ -1,5 +1,5 @@
 extends RefCounted
-## The act's settings snapshot and its live-settings apply. One per pony, owned by
+## The act's settings boundary: one snapshot per act and one live re-apply. One per pony, owned by
 ## `act/session.gd`: the session is the only reader of the act tunables, through this module.
 ## Values arrive once per act and again on `apply_live()`, never per frame.
 ##
@@ -12,11 +12,11 @@ const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")
 ## The `CLIMAX` length the reaction window and the face beat read.
 const CLIMAX_SECONDS := 5.0
 
-## The one bulk snapshot. A consumer reads `<settings>.<value>` at the use site; a zeroed
-## snapshot stands in until the first act.
+## The one bulk snapshot; consumers read it at the use site, and a zeroed stand-in covers the
+## time before the first act.
 var snapshot: SETTINGS.ActSnapshot = SETTINGS.ActSnapshot.new()
-## The snapshot values the act itself reads: the feature flags, the pose presentation block,
-## the caress quality, the climax limit and mode, and the camera mode.
+## The typed reads the act itself makes from the snapshot, so no caller reaches into the raw
+## settings document.
 var features: Dictionary = {}
 var presentation_config: Dictionary = {}
 var caress_quality := ""
@@ -34,9 +34,8 @@ func bind(host_in: ACT_HOST, context_in: ACT_CONTEXT) -> void:
 	context = context_in
 
 
-## Snapshot every tunable the act reads per stroke or per frame and push it to its owners.
-## `group` is the start spec's settings group: an internal pose has no block of its own and must
-## never be passed here.
+## Snapshot every tunable the act reads while running and push it to its owners. `group` is the
+## start spec's settings group: an internal pose has no block of its own and must never come here.
 func snapshot_values(group: String, family: String, preferences: Dictionary,
 		preserve_auto_shape: bool) -> void:
 	snapshot = SETTINGS.act_snapshot(group)

@@ -12,9 +12,8 @@ const MIN_TOP_Z := 0.40
 const MIN_STEP_M := 0.01
 
 
-## Build a static stool stack at `at` (its base sits on that floor point). Returns
-## {"node": StaticBody3D, "height": float, "count": int, "step": float}, or {} when the host is
-## invalid. `ignore` is the partner pony: the stack must not push her while Anon stands on it.
+## Static stool stack at `at`, its base on that floor point.
+## `ignore` is the partner pony, which the stack must not push.
 static func build(host: Node, at: Vector3, yaw: float, count := 1,
 		step_height := 0.20, ignore: PhysicsBody3D = null) -> Dictionary:
 	if not is_instance_valid(host) or not at.is_finite() or not is_finite(yaw):

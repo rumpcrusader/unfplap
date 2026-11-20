@@ -344,8 +344,9 @@ the log sink joins the same list.
   them.
 - `characters.<id>.profile` is a sparse per-mare participation layer. `profile.participation` holds
   `acts`, `anatomy` and `tail`; only differences from the resolved default are stored. A provider's
-  `eligible` assertion is top-level and never a player value. The `characters` block is the same
-  per-mare block as the preference, consent, prompt and pose overrides.
+  `eligible` assertion is top-level and never a player value, because a player cannot age a
+  character up. The `characters` block is the same per-mare block as the preference, consent,
+  prompt and pose overrides.
 - Unknown keys are ignored on load.
 - Never name a settings API function after a `Script`/`Object` built-in (`reload`, `set_path`,
   `get`, `set`): a preloaded script constant resolves the built-in instead. `tests/test_settings.gd`

@@ -14,9 +14,8 @@ const FLUID_NAME := "UnfplapAnatomyFluid"
 const DOCK_NAME := "OpenPonyDock"
 const VISIBILITY_POLL_S := 0.2
 const IDLE_FLUID_COLOR := Color(0.9, 0.93, 1.0, 0.72)
-## Idle heat discharge: droplets leave the vulva opening along the ground and fall under the
-## fluid node's gravity. Speed and count scale with the Discharge debug setting; the vertical
-## speed is the Fluid Y speed setting.
+## Idle heat discharge: drops leave the vulva along the ground under the fluid node's gravity.
+## Count and speed follow the Discharge debug setting.
 const IDLE_FLUID_SPEED := 0.9
 ## Ignore the body ellipsoid for this long after a discharge spawn, so a drop leaving the vulva
 ## flies instead of sticking to the rump and creeping down to the tail.
@@ -111,9 +110,8 @@ func attach(mesh_path: String) -> bool:
 	return true
 
 
-## Some bodies hide every mesh under their model unless it carries the body's own marker. The
-## pony names that marker on `anatomy_owned_meta`; anatomy parts ride the same skeleton, so mark
-## them or the body's pass hides them for good.
+## The body's far-mesh pass hides every mesh without its ownership marker, so anatomy parts
+## carry it; they share the body's skeleton and need the same mark.
 func mark_owned() -> void:
 	if not attached or not is_instance_valid(pony) or not is_instance_valid(skeleton):
 		return

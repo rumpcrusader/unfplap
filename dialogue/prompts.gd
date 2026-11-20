@@ -23,8 +23,8 @@ static func in_act(state: int) -> bool:
 	return state in [STATE_ACTIVE, STATE_CLIMAX, STATE_AFTERGLOW]
 
 
-## The live presented-body line. A body-change source supplies the form's name and whether the
-## body is her own; a pony with no source adds nothing, so ordinary dialogue is unchanged.
+## The presented-body line; a pony with no body-change source adds none, so ordinary dialogue
+## stays unchanged.
 static func body_note(values: Dictionary) -> String:
 	if not bool(values.get("form_source", false)):
 		return ""
@@ -34,9 +34,7 @@ static func body_note(values: Dictionary) -> String:
 	return BODY_OWN_NAMED % form_name if not form_name.is_empty() else BODY_OWN
 
 
-## Build the note. Every value is plain data: `state`, `warm`, `history`, `beat`, `relation`,
-## `caressing`, `leaning`, `missionary`, and the presented body's `form_source`/`form_name`/
-## `form_borrowed`.
+## Build the note from plain data, so the wording and precedence are testable without a scene.
 static func note(values: Dictionary) -> String:
 	var state := int(values.get("state", 0))
 	var history := str(values.get("history", ""))

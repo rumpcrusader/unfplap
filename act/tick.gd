@@ -55,8 +55,7 @@ func tick(delta: float) -> void:
 
 
 ## The ordered act work. The handover owns the pause overlay: a suspended act runs nothing until
-## the one resume. The pose edge advances before the view read, and the fan-out runs after it and
-## before any presentation tick.
+## the one resume. The pose edge advances before the view read, then the fan-out, then presentation.
 func _tick(delta: float) -> void:
 	swap.tick(delta)
 	if context.handover.suspended:
@@ -176,9 +175,8 @@ func _director() -> Node:
 	return host.node.get_tree().get_first_node_in_group("conversation_director")
 
 
-## The fixed-order pose-change fan-out. The pose service reconciles its modifier profile and the
-## act body first, then the camera, hands, kiss, anatomy and audio retarget in that order. Each
-## owner's `pose_changed(view)` is cheap and idempotent.
+## The pose-change fan-out has a fixed order: the pose service reconciles its modifiers and the
+## act body, then the camera, hands, kiss, anatomy and audio retarget. Every hook is idempotent.
 func _fanout() -> void:
 	var view: Variant = context.pose.view()
 	context.pose.pose_changed(view)
@@ -195,8 +193,8 @@ static func _changed(owner: Variant, view: Variant) -> void:
 		owner.call("pose_changed", view)
 
 
-## One render frame: the pose write, the look target, the shot and the breath. The idle window
-## runs only the standing presentation's render tick, and a suspended act runs nothing.
+## One render frame: the pose write, the look target, the shot and the breath. Idle keeps only the
+## standing presentation's own render pass; a suspended act returns first.
 func render(delta: float) -> void:
 	var started := Time.get_ticks_usec()
 	if session.state == State.IDLE:

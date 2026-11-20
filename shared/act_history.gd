@@ -1,11 +1,7 @@
 extends RefCounted
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 ## Durable per-mare act history. Pure policy plus one `Mods.state("unfplap").act_history`
-## dictionary; no scene access. A good act builds comfort and repairs hurt, a bad act adds hurt
-## and costs comfort, and the middle of the range changes nothing. Time and apologies repair hurt.
-##
-## There is deliberately no break-up path. The highest tier is a spoken refusal, not a change to
-## the base relationship stage.
+## dictionary; no scene access.
 
 
 const MOD_ID := "unfplap"
@@ -224,7 +220,7 @@ static func repair(section: Dictionary, id: String, amount: int, now_day: float)
 	return repaired
 
 
-## A sincere apology repairs at most once per in-game day. The caller saves.
+## Repairs hurt once per in-game day. The caller saves.
 static func apology_repair(section: Dictionary, id: String, now_day: float) -> bool:
 	if id.is_empty():
 		return false
@@ -330,8 +326,8 @@ static func offer_cooldown(row: Dictionary, base_seconds := -1.0) -> float:
 	return maxf(floor_s, base * (1.0 - float(int(row.get("comfort", 0))) * scale))
 
 
-## The stored summary is for the HUD. A normal-dialogue note keeps the reason and drops the
-## repeated "You and Anon made love ..." opening sentence.
+## The stored summary feeds the HUD. A normal-dialogue note keeps only the part after the opening
+## love sentence.
 static func private_text(row: Dictionary) -> String:
 	var text := str(row.get("last_text", "")).strip_edges()
 	var cut := text.find(". ")

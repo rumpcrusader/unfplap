@@ -1,8 +1,6 @@
 extends SkeletonModifier3D
-## SkeletonModifier3D evaluator. The session resolves the effective driver/delta paths and the two
-## per-pose configs, then `set_pose()` stores the pair and `set_weight()` the live edge weight.
-## Pose-specific numbers and bone steps live in `missionary_recipe.gd` / `standing_recipe.gd`;
-## shared bone access lives in `pose_rig.gd`. Contract: `docs/poses.md`.
+## SkeletonModifier3D evaluator for one pose pair and the live edge weight.
+## Contract: `docs/poses.md`.
 
 const RIG := preload("res://mods/unfplap/poses/pose_rig.gd")
 const MISSIONARY := preload("res://mods/unfplap/poses/missionary_recipe.gd")
@@ -47,15 +45,14 @@ var amount := 0.0
 var target_amount := 0.0
 var climaxing := false
 var pose_config: Dictionary = {}
-## Hand-authored base pose (poses/authored_pose.gd) and the space it is placed in. A null asset or
-## a missing frame leaves the recipe's correction stack as the fallback.
+## Hand-authored base pose and the space it is placed in. A null asset or a missing frame leaves
+## the recipe's correction stack as the fallback.
 var authored: Variant = null
 ## The face contact's world-space correction, written by the session's face driver and applied by
 ## the recipe to the armature root. Zero on every other contact.
 var contact_offset := Vector3.ZERO
-## The authored assets of the two sides. `authored` stays the live rendered asset; a pair with
-## different assets takes the two-base blend even when the driver and config match. A null side
-## falls back to the live asset (the presentation node has no authored base).
+## The authored assets of the two sides. A pair with different assets blends even when driver and
+## config match; a null side reuses the live asset.
 var from_authored: Variant = null
 var to_authored: Variant = null
 var bed_frame: Variant = null
@@ -76,26 +73,23 @@ var _from_config: Dictionary = {}
 var _to_config: Dictionary = {}
 var _blend_weight := 1.0
 var _single := true
-## The capture buffers for the two-base blend. Resized once per bone count and reused, so a blend
-## allocates nothing per frame.
+## Scratch transforms for the two-base blend, sized once per bone count; a blend then allocates
+## nothing per frame.
 var _pre: Array[Transform3D] = []
 var _from_pose: Array[Transform3D] = []
 var _to_pose: Array[Transform3D] = []
 var _debug_dumped := false
 var _clock := 0.0
-## Act diagnostics (Show pose state / the settled log): frames this modifier ran, the last weight
-## and base, and how far the live hips pose drifted from what the previous frame wrote. A readback
-## near zero means our writes survive to the next modification pass; anything else means something
-## overwrote the pose between them.
+# Act diagnostics: frames run, last weight and base, and hips drift since the last write. A near
+# zero readback means our writes survive the next modification pass. Anything else means another
+# writer overwrote the pose in between.
 var diag_frames := 0
 var diag_readback_deg := 0.0
 ## Angle between the authored hips rotation and what the skeleton holds immediately after the
 ## modifier wrote it. Near zero means the write landed; large means the write itself is not taking.
 var diag_after_write_deg := 0.0
-## Placement trace: the armature bone (the pose's skeleton placement) and the hips, in world space,
-## at the start of our pass, right after the write, and - read by the runtime at render time - again
-## after every physics and process writer. The authored targets are carried into the live bed frame
-## here, so the three readings compare directly against `wanted`.
+## Placement trace: the armature bone and the hips in world space, before our write, right after
+## it and again at render time. The readings are carried into the live bed frame, so they compare.
 var diag_root := -1
 var diag_asset_root := -1
 var diag_root_name := ""
@@ -117,10 +111,8 @@ func _init() -> void:
 	driver_objects[STANDING_PATH] = _standing
 
 
-## The service's resolved pair. Paths are the effective driver/delta paths; configs are by
-## reference. A second call with the same pair keeps the same objects, and the buffers are sized
-## for the skeleton when it is already available. The trailing assets are the authored documents
-## of the two sides; a different pair is a blend even with equal drivers and configs.
+## The service's resolved pair, configs by reference; a same-pair call keeps the same objects.
+## The trailing assets are the two sides' authored documents.
 func set_pose(from_path: String, to_path: String, from_delta_path: String, to_delta_path: String,
 		from_config: Dictionary, to_config: Dictionary,
 		from_asset: Variant = null, to_asset: Variant = null) -> void:
@@ -227,10 +219,8 @@ func _apply(delta: float) -> void:
 	_write(sk, weight, true)
 
 
-## Apply the pose once more, outside the modifier pass and after every other writer of the frame.
-## The game re-poses this rig after our modifier pass (the clip tier's `enter`/`leave`, the posture
-## and the solver), so the modifier's write is not what the renderer sees; this is. The blend
-## `amount` is not advanced here: the modifier pass owns the ramp and the clock.
+## Re-apply the pose outside the modifier pass, after every other writer of the frame. The
+## renderer sees this write; `amount` still advances only in the modifier pass.
 func apply_render(sk: Skeleton3D) -> void:
 	if sk == null or not is_instance_valid(mare):
 		return
@@ -312,9 +302,8 @@ func _write_single(sk: Skeleton3D, weight: float, state: Dictionary) -> void:
 		_dump_if_needed(sk, weight)
 
 
-## The two-base form: capture the game's pre-pose, evaluate each side at full base weight, restore
-## between the sides, blend the captured local transforms, then apply the overlays once. A false
-## base skips that side's delta; the overlay still runs with the recipe's own guard.
+## The two-base form: capture the pre-pose, evaluate each side at full weight, blend the captured
+## transforms, then run the overlays once.
 func _write_blend(sk: Skeleton3D, state: Dictionary) -> void:
 	_resize_buffers(sk)
 	_capture(sk, _pre)
@@ -365,7 +354,7 @@ func _apply_delta(delta: Variant, sk: Skeleton3D, weight: float, state: Dictiona
 
 
 ## Blend the two captured local poses at the edge weight. Rotation slerps, scale and origin lerp;
-## a non-finite result is skipped rather than written to the rig.
+## a non-finite result is dropped instead of written.
 func _blend_bones(sk: Skeleton3D, weight: float) -> void:
 	var count := mini(_from_pose.size(), _to_pose.size())
 	count = mini(count, sk.get_bone_count())

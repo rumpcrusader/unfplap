@@ -3,12 +3,7 @@ extends RefCounted
 ## Contract: docs/integrations.md
 ## Scope: per-act
 ## Import: integrations/service.gd only
-##
-## The one scene adapter for optional act-time bridges to other installed mods. Providers are pure:
-## they receive a typed context and return property/binding actions. This facade resolves the
-## catalog's binding paths against the act pony, saves every original value before the first write,
-## watches optional bindings that appear mid-act, and restores everything on stop, feature-off,
-## missing required binding, act end or failed start.
+## The one scene adapter for optional act-time bridges: resolve bindings, save originals, restore.
 
 const CATALOG := preload("res://mods/unfplap/shared/integrations.gd")
 const CONTEXT := preload("res://mods/unfplap/integrations/context.gd")
@@ -293,8 +288,8 @@ func _stop(provider: ProviderState, reason: String) -> void:
 		_log("integration %s off: %s" % [provider.id, reason])
 
 
-## Ask the runtime for the act-level excitement Beat hold. The runtime refcounts owners, so the
-## kiss service and a provider can hold it at the same time.
+## Ask the runtime for the act-level excitement Beat hold. Owners are refcounted, so the kiss
+## service can hold the same Beat.
 func _hold_excitement(provider: ProviderState) -> void:
 	if provider.held_excitement:
 		return
@@ -377,8 +372,7 @@ func _write(provider: ProviderState, node: Node, property: String, value: Varian
 	return true
 
 
-## Put one saved original back without dropping the record, so a later write still keeps the
-## act-start value and the final reset restores it again.
+## Reapply one saved value but keep its record, so the final reset still has it.
 func _restore_saved(provider: ProviderState, node: Node, property: String) -> void:
 	for raw: Variant in _saved:
 		var saved := raw as Saved

@@ -1,9 +1,6 @@
 extends RefCounted
-## The bed face-sit's contact driver: her authored pose follows his live mouth so her vulva stays on
-## it as he leans, the size changes or the bed moves. `poses/service.gd` owns one and binds the live
-## pony, the act body's `face_point()` and her `opening_point()`; the driver writes the pose node's
-## `contact_offset` and the view's `contact_target`. It preloads nothing and never calls the camera,
-## hands, anatomy or kiss. Contract: `docs/poses.md`.
+## The bed face-sit contact driver: her pose follows his live mouth.
+## Contract: `docs/poses.md`.
 
 ## The offset eases at this exponential rate; a few centimetres of residual land in a few frames
 ## without dragging her across the mattress.
@@ -46,9 +43,8 @@ func bind(pony_node: Node3D, face: Callable, opening: Callable, logger := Callab
 	log = logger
 
 
-## Capture the bed frame, his mouth and her opening. Returns false when the frame or a point is
-## missing; the driver still activates so a later tick can recover. Called on the contact switch to
-## `face` and on a pose that starts in face contact.
+## Capture the live frame, his mouth and her opening point. A missing frame or point still
+## activates the driver, so a later tick can recover.
 func begin(view: Variant, frame: Variant) -> bool:
 	active = true
 	captured = false
@@ -82,9 +78,8 @@ func begin(view: Variant, frame: Variant) -> bool:
 	return true
 
 
-## Follow the live mouth. `depth` is the act's 0..1 depth; `frame` is the current bed frame and
-## `pose_node` the pose modifier whose `contact_offset` the recipe applies. A missing provider holds
-## the last valid offset and writes one diagnostic line, never an invalid point.
+## Follow the live mouth at the act's `depth`. A missing provider holds the last offset and logs
+## once; it never writes an invalid point.
 func tick(delta: float, view: Variant, depth: float, frame: Variant, pose_node: Variant) -> void:
 	if not active or not captured:
 		return
@@ -118,8 +113,7 @@ func tick(delta: float, view: Variant, depth: float, frame: Variant, pose_node: 
 	(view as RefCounted).set("contact_target", mouth)
 
 
-## Clear the offset and the view's contact target once. The reverse contact switch, the reverse
-## completion and the one act exit call it; a second call is a no-op.
+## Zero the offset and the view's contact target once. A second call is a no-op.
 func restore(view: Variant, pose_node: Variant) -> void:
 	if pose_node != null:
 		(pose_node as Object).set("contact_offset", Vector3.ZERO)

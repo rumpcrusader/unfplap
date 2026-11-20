@@ -1,7 +1,7 @@
 extends RefCounted
-## The standing act's placement: her forward, the act gap, the floor probe, the stool spot, the
-## whole-body fit and the pelvis handshake. The runtime fills the live facts and keeps the ordered
-## start adapters; this handle owns the math. Contract: `docs/poses.md` (`## Standing`).
+## The standing act's placement: facing, act gap, floor probe, stool spot, whole-body fit and pelvis
+## handshake. The runtime fills the live facts; this handle owns the math. Contract: `docs/poses.md`
+## (`## Standing`).
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
@@ -10,8 +10,8 @@ const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const ACT_CAMERA := preload("res://mods/unfplap/camera/service.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 
-## The fit may place Anon closer or farther so the shaft rests at her entrance before the act.
-## Beyond this the offer cone would be wrong and the fit is left to the hip offset.
+## The largest whole-body fit: past it the offer cone no longer matches her, and the hip offset is
+## left to carry the rest.
 const FIT_MAX_M := 0.6
 
 
@@ -98,7 +98,7 @@ func begin_act() -> Transform3D:
 	return begin(facts)
 
 
-## A body resume or a same-node form revision: re-anchor a standing act from the last bind.
+## Re-anchor the standing act from the last bound record after a body resume or form revision.
 func reanchor_act(family: String) -> Variant:
 	return reanchor(facts, family)
 
@@ -116,9 +116,8 @@ func new_body_is_adult_act() -> bool:
 	return new_body_is_adult(facts)
 
 
-## Place the standing start and return the facing transform. Her rig is the camera rig (headset)
-## or another body (AnonPony), so she goes in front of the player instead of the player going
-## behind her; otherwise Anon goes behind her at the act gap.
+## Place the standing start and return the facing transform. A headset or player-pony act puts her
+## in front of the player, because she rides that rig; otherwise Anon stands behind her.
 func begin(facts: Facts) -> Transform3D:
 	var forward := _forward(facts)
 	var standing := Transform3D(Basis.looking_at(forward, Vector3.UP), facts.pony.global_position)
@@ -181,9 +180,8 @@ func transform(facts: Facts) -> Transform3D:
 	return Transform3D(Basis.looking_at(forward, Vector3.UP), at)
 
 
-## The horizontal shift that puts the part's natural pivot one shaft behind her entrance, so a
-## standing start touches her instead of asking the Hips bone to carry the pre-act gap. The fit
-## moves Anon's whole body before the act; the per-frame aim still owns the stroke correction.
+## Move the part's rest pivot out to a shaft length from her entrance, so the start meets her
+## instead of the Hips bone spanning the pre-act gap; the fit shifts him once, the aim still strokes.
 func part_shift(facts: Facts) -> Vector3:
 	var service: Variant = facts.anatomy
 	if service == null or not service.has_method("player_prepare") \
@@ -223,9 +221,8 @@ func part_shift(facts: Facts) -> Vector3:
 	return shift
 
 
-## The act gap from her centre, with the body's entrance offset folded in. A princess body's
-## entrance sits further back or forward than the mare's the gaps were tuned on, so Anon keeps the
-## same distance from her entrance.
+## The act gap from her centre with the body's entrance offset folded in, because a princess body's
+## entrance sits elsewhere than the mare body the gaps were tuned on.
 func gap(facts: Facts) -> float:
 	return _gap(facts, facts.form)
 
@@ -247,8 +244,8 @@ func reset_pelvis(facts: Facts) -> void:
 		service.call("player_reset_pelvis")
 
 
-## The new body must still pass the act's adult-mare gate. A missing service reads as allowed, so a
-## suite can drive the handover without the world's eligibility graph.
+## The replacement body must still clear the adult-mare gate. Without the service it is let through,
+## so a suite can drive the handover without the world's eligibility graph.
 func new_body_is_adult(facts: Facts) -> bool:
 	if not is_instance_valid(WORLD.game):
 		return true

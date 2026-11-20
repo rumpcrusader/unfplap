@@ -11,8 +11,7 @@ const THRUST := preload("res://mods/unfplap/readiness/thrust.gd")
 const NOMINAL_SHAFT_M := 0.2
 ## The body slap fires only when his skin has actually reached her coat.
 const CONTACT_GAP_M := 0.0
-## Visual impact = physical strength × this, so normal and fast thrusts keep their tuned
-## reaction while slow or shallow strokes stay lighter.
+## Strength to visual response: slow or shallow strokes stay light, hard ones saturate.
 const THRUST_IMPACT_GAIN := 2.0
 
 
@@ -76,9 +75,8 @@ func shaft_length_m() -> float:
 	return NOMINAL_SHAFT_M
 
 
-## The deepest the tip can reach, in metres. Both poses carry his body on the stroke, so the
-## pelvis gap keeps his pelvis that far behind her rear surface; a detached placement is limited
-## by the shaft alone.
+## The deepest the tip can reach. Both poses carry his body on the stroke, so the pelvis gap keeps
+## him that far back; a detached placement is limited by the shaft alone.
 func reach() -> float:
 	var length := shaft_length_m()
 	if _pose_family() in ["standing", "bed"]:
@@ -95,8 +93,8 @@ func mouse_travel(dy_pixels: float) -> float:
 	return THRUST.pixels_to_metres(dy_pixels, pixels_per_cm, up_is_deep)
 
 
-## Move the physical penetration and mirror it into the public 0..1 depth. The tip rests at her
-## entrance when it is out, and the depth stays at zero there, so no standoff eats a stroke.
+## Move the physical penetration and mirror it into the public 0..1 depth. Depth is zero at her
+## entrance, so the resting standoff never eats the start of a stroke.
 func set_penetration(target_m: float, now: float) -> Array[StrokeEvent]:
 	var reach_m := reach()
 	penetration_m = clampf(target_m, 0.0, reach_m)

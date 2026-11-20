@@ -3,8 +3,7 @@ extends RefCounted
 ##
 ## A mare's preference profile has two continuous axes (intensity and pattern), concrete touch/talk
 ## likes, how quickly she warms, and how much neglect she tolerates before a warning or a stop.
-## Readiness is accumulated by the runtime; this file only validates the profile and
-## classifies the player's input.
+## Readiness is accumulated by the runtime; this file only validates and classifies.
 
 const DEFAULTS_DATA := preload("res://mods/unfplap/shared/defaults_data.gd")
 
@@ -15,13 +14,11 @@ const TOUCHES := ["smack", "caress", "kiss"]
 const TALKS := ["praise", "reassurance", "dirty", "playful"]
 const WARMTHS := ["quick", "normal", "slow"]
 const TOLERANCES := ["forgiving", "normal", "strict"]
-## Her teat size (the generated pair, anatomy/udder.gd): `auto` keeps the size picked for her (a
-## princess's own, or one from her name).
+## Her teat size: `auto` keeps whatever size her own body or name gave her.
 const TEAT_SIZES := ["auto", "small", "medium", "large", "huge"]
 const TEAT_SIZE_VALUES := {"small": 0.0, "medium": 0.5, "large": 1.0, "huge": 1.4}
-## The profile fields, in display order. Most shipped values live under `default.preferences` in
-## `settings/defaults.json`; `teat_size` has no shipped row and resolves to `auto`. This list is
-## the schema, not a default.
+## The profile fields, in display order. The shipped values live in the defaults document.
+## `teat_size` has no row there and resolves to `auto`.
 const KEYS := ["intensity", "pattern", "touch", "dislikes", "talk", "warmth", "tolerance", "notes",
 	"teat_size"]
 
@@ -29,14 +26,12 @@ const KEYS := ["intensity", "pattern", "touch", "dislikes", "talk", "warmth", "t
 ## impact value used by the audio and the foley, not the preference axis.
 const SOFT_MAX := 0.33
 const FIRM_MAX := 0.60
-## The intensity preference is read from the stroke's travel, so the player can choose depth and
-## tempo independently. A deep slow stroke is rough and a shallow slow stroke is soft; the
-## physical strength stays speed-led for the plap, the impact and the wobble.
+## The preference axis is travel, so depth and tempo stay independent. Physical strength is
+## speed-led instead, and drives the sound and the jiggle.
 const TRAVEL_SOFT_MAX := 0.35
 const TRAVEL_FIRM_MAX := 0.65
-## The pattern classifier is intentionally a small, readable window, not a curve fit. It is a
-## tempo axis: depth must not decide the rhythm, or a full-depth fast stroke could never read
-## quick and a full-depth slow stroke could never read teasing.
+## The pattern classifier is intentionally a small, readable window, not a curve fit. It reads
+## tempo only, so a full-depth stroke can still land on either end of the axis.
 const PATTERN_MIN_STROKES := 3
 const TEASE_DURATION := 0.45
 const QUICK_DURATION := 0.30
@@ -71,8 +66,7 @@ static func resolve(raw: Variant) -> Dictionary:
 
 
 ## "soft", "firm" or "rough" from a closed stroke's strength. This is the physical impact
-## classification used by the audio, the foley and the plap; the preference axis is
-## `intensity_for_travel()`.
+## classification; the preference axis is `intensity_for_travel()`.
 static func intensity_for(strength: float) -> String:
 	var value := clampf(strength, 0.0, 1.0)
 	if value < SOFT_MAX:
@@ -82,9 +76,8 @@ static func intensity_for(strength: float) -> String:
 	return "rough"
 
 
-## "soft", "firm" or "rough" from a closed stroke's travel. The preference axis is the depth
-## axis, so a deep slow stroke is rough and a shallow fast stroke is soft. Keeping the two axes
-## independent makes all nine intensity x pattern combinations reachable.
+## "soft", "firm" or "rough" from a closed stroke's travel. Depth decides, keeping the two axes
+## independent so every intensity and pattern pairing is reachable.
 static func intensity_for_travel(travel: float) -> String:
 	var value := clampf(travel, 0.0, 1.0)
 	if value < TRAVEL_SOFT_MAX:
@@ -113,9 +106,8 @@ static func pattern_for(strokes: Array) -> String:
 	return "steady"
 
 
-## One short category for the player's words. Returns "" when nothing matches. This is a
-## classifier, not a parser: the AI still writes her reply, and the category only decides
-## whether the line landed with her preferences.
+## One short category for the player's words, or "" when nothing matches. This is a classifier,
+## not a parser: the AI still writes her reply.
 static func classify_talk(text: String) -> String:
 	var lower := text.to_lower().strip_edges()
 	if lower.is_empty():
@@ -133,8 +125,8 @@ static func classify_talk(text: String) -> String:
 	return ""
 
 
-## A mare who lists any talk category actively seeks it, so silence counts for her. A mare with
-## an empty talk list is not punished for a quiet act.
+## A mare who lists any talk category actively seeks it, so silence counts for her. An empty list
+## means a quiet act costs her nothing.
 static func seeks_talk(preferences: Dictionary) -> bool:
 	return not (preferences.get("talk", []) as Array).is_empty()
 

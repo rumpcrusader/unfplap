@@ -1,21 +1,8 @@
 extends RefCounted
 ## The one settings module: every global setting, the settings file, and the per-mare profiles.
 ##
-##   const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
-##   if SETTINGS.hud_readouts.get_bool(): ...
-##   SETTINGS.smack_raise.set(0.25)
-##
-## Every setting is declared once in the declarations block below: name, JSON path, label, help,
-## tab, group, bounds and options. Its default comes from `settings/defaults.json`, never from the
-## declaration. Call sites use the typed accessor on the named setting and never a string; the
-## JSON path lives only in the declaration. A setting gains the debug flag with `.as_debug()`,
-## which also removes its clamp. See docs/settings.md.
-##
-## The same file owns the per-mare profile data (`preferences`, `poses`, `consent`, prompts),
-## because it shares the file, the generation counter and the migration pipeline.
-##
-## A settings edit ends in one `apply_live()` pass: every subscriber of the change notification
-## (`shared/settings_change.gd`) re-reads the values it caches. No service fans the edit out.
+## A setting is declared here once, with its JSON path; its default lives in the shipped document
+## and call sites use the typed accessor. See docs/settings.md.
 
 const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
@@ -27,8 +14,7 @@ const ACT_KEYS := preload("res://mods/unfplap/shared/act_keys.gd")
 const DEFAULTS := preload("res://mods/unfplap/shared/defaults_data.gd")
 const ID := "unfplap"
 const FILE := "settings.json"
-## The shipped defaults document. It holds one value per declared setting and the global `default`
-## profile, and is the only source of a declared setting's default; see docs/settings.md.
+## The shipped settings document: one value per declared setting and the global `default` profile.
 const DEFAULTS_FILE := "res://mods/unfplap/settings/defaults.json"
 ## One-release migration for settings written before the poses were renamed. These tables are
 ## the only place the legacy ids and keys are kept; remove them after the migration window.
@@ -45,9 +31,8 @@ const LEGACY_PRESENTATION_KEYS := {
 	"pose1_pitch_deg": "pitch_deg",
 }
 const LEGACY_DROPPED_KEYS := ["pose1_camera", "pose1_side_lean"]
-## One-release migration for the act key, which was a choice string before it became a key
-## capture. The old shipped default `o` moves to the new default; an explicit `y` choice is kept.
-## The setting is new enough that the table can go after this window.
+## One-release migration for the act key, a choice string before it became a key capture: `o` moves
+## to the new default, an explicit `y` is kept.
 const LEGACY_ACT_KEYS := {"o": KEY_6, "y": KEY_Y, "6": KEY_6, "7": KEY_7}
 ## One-release migration for the tolerance tier names and their setting paths.
 const LEGACY_TOLERANCE_KEYS := {
@@ -86,10 +71,8 @@ const CHARACTER_NAMES := CHARACTERS.NAMES
 ## Cross-mod provider layers; see docs/api.md. Provider data is in memory only.
 const MARE_REGISTRY := preload("res://mods/unfplap/registry/service.gd")
 
-## Tabs, in panel order. Poses holds the pose family switches plus the `presentation.missionary.*`
-## and `presentation.standing.*` tuning rows; the tuning rows stay behind debug mode, the pose
-## switches do not. Characters is the hand-built per-mare form; Integrations is the catalog-driven
-## supported-mod list whose switches are ordinary declarations.
+## Tabs, in panel order. Poses holds the pose family switches plus the tuning rows, which stay
+## behind debug mode; Characters and Integrations are hand-built and catalog-driven.
 const GENERAL := "general"
 const ANATOMY := "anatomy"
 const POSES := "poses"
@@ -267,8 +250,8 @@ class ColorSetting extends Setting:
 static var _registry: Array[Setting] = []
 static var _by_path: Dictionary = {}
 static var _by_name: Dictionary = {}
-## The shipped defaults document is parsed once per process by `shared/defaults_data.gd`. `_bind`
-## reads it while the declaration block initializes, so these statics must stay above that block.
+## The shipped defaults document is parsed once per process by the shared defaults parser. The bind
+## step reads it while the declaration block initialises, so these statics must stay above it.
 static var _shipped_valid := true
 static var _shipped_error := ""
 static var _shipped_problems := 0
@@ -361,9 +344,7 @@ static func by_name(n: String) -> Setting:
 
 
 # ---------------------------------------------------------------- change notification
-## One reload-and-notify pass: every subscriber re-reads what it caches, in registration order.
-## Called after a settings edit, from the API when a provider layer changes, and from a caller
-## that changed a value outside the panel.
+## One pass: every subscriber re-reads what it caches, in registration order.
 static func apply_live() -> void:
 	CHANGE.notify()
 
@@ -394,10 +375,8 @@ static func _default_block(prefix: String) -> Dictionary:
 
 
 # ---------------------------------------------------------------- per-act snapshot
-## The typed values an act reads per stroke or per frame. The settings service owns the fields;
-## the runtime takes one snapshot at act start and refreshes it on `apply_live_settings()`.
-## `features`, `jiggle`, `camera_thrust` and `presentation` stay dictionaries for the presentation
-## modules that already consume config dictionaries.
+## The typed values an act reads on every stroke or frame. Dictionaries stay dictionaries for the
+## presentation modules that consume config dictionaries.
 class ActSnapshot:
 	var features: Dictionary
 	var caress_quality: String
@@ -499,10 +478,7 @@ static func _placement_default_values() -> Dictionary:
 
 
 ## The placement a mare gets from the global default and the shipped per-mare table, before any
-## player override. `use_draft` includes the unsaved default preview from the Placement
-## actions; saving a per-mare override compares against the persisted default instead. `fit_id`
-## selects the body-fit row (a pony's metadata, else her character id, else her own id); an empty
-## value uses `id`, so every existing caller is unchanged.
+## player override; `fit_id` picks the body-fit row, and an empty value falls back to `id`.
 static func anatomy_placement_default(id: String, use_draft: bool = true,
 		fit_id: String = "") -> Dictionary:
 	var key := fit_id if not fit_id.is_empty() else id
@@ -533,9 +509,8 @@ static func _persisted_placement_default_values() -> Dictionary:
 	}, declared)
 
 
-## The placement a mare actually uses: her player override, then the shipped per-mare default,
-## then the global default. The override is keyed by her stable id; `fit_id` only selects the
-## catalog/provider default, so a changed body keeps the player's edit on the same mare.
+## The placement a mare actually uses: her player override, then the shipped per-mare default, then
+## the global default. The override is keyed by her stable id, so a changed body keeps her edit.
 static func anatomy_placement(id: String, fit_id: String = "") -> Dictionary:
 	var base := anatomy_placement_default(id, true, fit_id)
 	var data := _read()
@@ -769,8 +744,8 @@ static func set_section_open(tab: String, group: String, open: bool) -> void:
 
 
 # ---------------------------------------------------------------- declarations
-## Every setting, declared once. Order here is the panel order. `debug` entries are shown in the
-## tab's Debug block only; see docs/settings.md.
+## Every setting, declared once. Order here is the panel order; debug entries are shown in that
+## tab's Debug block only.
 
 
 
@@ -1023,9 +998,8 @@ static var part_inset_m := num("part_inset_m", "presentation.missionary.part_ins
 	POSES, "Missionary").with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
 
 # -- Missionary size  (debug)
-## The six geometry values are tuned per pony size. The dropdown above them picks which size is
-## edited; the act always reads the size the game is currently set to. Every size starts at the old
-## single default, so an unedited file behaves the same at every size.
+## The geometry values are tuned per pony size: the dropdown picks which preset the rows below
+## edit, and the act reads the size the game is currently set to.
 const MISSIONARY_SIZES: Array[String] = ["canon", "mounting", "same height", "hoers"]
 const MISSIONARY_SIZE_LABELS: Array[String] = ["Canon", "JRHNBR", "Same height", "Hoers"]
 const MISSIONARY_SIZE_BASES: Array[String] = ["vulva_shift_mm", "vulva_pitch_deg",
@@ -1794,21 +1768,20 @@ static var pantyhose_hull_show := flag("pantyhose_hull_show", "debug.pantyhose_h
 	"Show hull", "Draw the depth field over the anatomy as a heatmap.",
 	INTEGRATIONS, "Pantyhose").as_debug()
 
-## The built-in act prompts from `settings/catalogs.json`. The player file stores only overrides,
-## and `_fill_prompts()` supplies the current built-ins at read time so a release can update them.
+## The built-in act prompts from the shipped catalog. The player file stores only overrides, and
+## the current built-ins are supplied at read time so a release can update them.
 static var DEFAULT_ACT_PROMPTS: Dictionary = DEFAULTS.catalog_block("act_prompts")
 
 ## Every spawnable adult mare's preference template lives in the same catalog. A provider layer is
-## applied by `profile_for()`, never written here.
+## applied when the profile is read, never written here.
 static var CHARACTER_TEMPLATES: Dictionary = DEFAULTS.catalog_block("character_templates")
 
-## The settings file's schema version. Bump it when `_migrate()` gains a one-time step, so an old
-## file runs the step exactly once.
+## The settings file's schema version. Bump it when a one-time migration step is added, so an old
+## file runs that step exactly once.
 const SCHEMA_VERSION := 10
 
-## Retired settings, declared where their replacement lives. `map` receives the stored value and
-## returns the dictionary to merge, or an empty dictionary to drop it. The loader applies every
-## entry before the defaults merge, so a retired key cannot linger in the file.
+## Retired settings, declared where their replacement lives. `map` turns the stored value into the
+## dictionary to merge, or drops it; applied before the defaults merge, so no retired key lingers.
 static var _deprecated := [
 	# Caress settings moved from pose blocks to one shared `caress.*` block.
 	deprecated("presentation.standing.caress.palm_distance",
@@ -1887,7 +1860,7 @@ static var _deprecated := [
 	# Unprompted act lines and their fresh-angle wording are always on; both switches are retired.
 	deprecated("features.act_lines", func(_value: Variant) -> Dictionary: return {}),
 	deprecated("features.act_line_angles", func(_value: Variant) -> Dictionary: return {}),
-	# The standing VR act always starts on a headset; the switch is retired.
+	# The standing VR act always starts on a headset, so the switch has nothing left to gate.
 	deprecated("features.anatomy_vr", func(_value: Variant) -> Dictionary: return {}),
 	# One mare bits mesh ships with the pack; the mesh choice is retired.
 	deprecated("anatomy.mare_bits", func(_value: Variant) -> Dictionary: return {}),
@@ -1898,7 +1871,7 @@ static var _deprecated := [
 	# The hull precision became separate width and height cells.
 	deprecated("debug.pantyhose_hull_resolution", func(value: Variant) -> Dictionary:
 		return {"debug.pantyhose_hull_width": value, "debug.pantyhose_hull_height": value}),
-	# The adapter updates the hull every frame; the refresh-rate control is retired.
+	# The adapter rebuilds the hull every frame, so there is no refresh rate to tune.
 	deprecated("debug.pantyhose_update_hz", func(_value: Variant) -> Dictionary: return {}),
 	# Missionary is one authored pose and one authored shot now; the correction stack, its neck
 	# offsets and its frozen-shot tuning are retired.
@@ -1992,7 +1965,7 @@ static var _deprecated := [
 ]
 
 
-## One retired setting. Add the entry to `_deprecated` above.
+## One retired setting; list it with its replacement above.
 static func deprecated(path: String, map: Callable) -> Dictionary:
 	return {"path": path, "map": map}
 
@@ -2081,9 +2054,8 @@ static func _same_set(a: Variant, b: Variant) -> bool:
 	return true
 
 
-## The player's differences in the global `default` profile from the shipped one. Preferences keep
-## their list-as-set comparison; every other block is a recursive dictionary diff. An empty result
-## means the player never changed the profile, so the file stores no `default` block at all.
+## The player's differences in the global `default` profile from the shipped one. An empty result
+## means the file stores no `default` block at all.
 static func _default_profile_diff(resolved: Dictionary, shipped: Dictionary) -> Dictionary:
 	var out: Dictionary = {}
 	for key: Variant in resolved.keys():
@@ -2117,10 +2089,8 @@ static func _dict_diff(value: Variant, reference: Variant) -> Variant:
 	return null if _same_leaf(value, reference) else value
 
 
-## integration: her consent for the optional anatomy actions. A per-character override wins;
-## otherwise the deterministic id defaults apply. The resolved block is memoized per settings
-## generation and provider revision, like `profile_identity`, so an act gate does not rebuild the
-## whole template for one mare on every scan.
+## integration: her consent for the optional anatomy actions. A per-character override wins, else
+## the id's deterministic defaults. Memoized on the settings generation and provider revision.
 static func consent(id: String) -> Dictionary:
 	# A pending `reload_file()` must bump the generation before the cache check, not after.
 	_read()
@@ -2178,9 +2148,8 @@ static func _profile_consent(base: Dictionary, id: String) -> Dictionary:
 	return CONSENT.resolve(id, template.get("consent", {}))
 
 
-## The participation block a character gets from her built-in template plus provider layers,
-## before the player's saved differences. The provider's `eligible` assertion is a separate
-## top-level key and is not part of this block.
+## The participation block a character gets from her built-in template plus provider layers; the
+## provider's `eligible` assertion lives outside it.
 static func _profile_participation(base: Dictionary, id: String) -> Dictionary:
 	var template := profile_for(base, {}, id)
 	return PARTICIPATION.resolve(_profile_participation_raw(template))
@@ -2193,10 +2162,8 @@ static func _profile_participation_raw(template: Dictionary) -> Variant:
 	return {}
 
 
-## The identity half of a mare's resolved profile in one pass: the provider-only `eligible`
-## assertion and the participation block. Discovery scans ask for both; the resolved result is
-## memoized per settings generation and provider revision, so a scan pays a dictionary lookup
-## instead of rebuilding the whole template for every mare.
+## The identity half of a mare's resolved profile: the provider-only `eligible` assertion and the
+## participation block. Memoized on the settings generation and provider revision.
 static func profile_identity(id: String) -> Dictionary:
 	var data := _read()
 	if _identity_generation != generation or _identity_revision != MARE_REGISTRY.revision:
@@ -2216,8 +2183,8 @@ static func profile_identity(id: String) -> Dictionary:
 	return resolved.duplicate(true)
 
 
-## The resolved participation block for a mare: built-in default, provider layer, then the
-## player's saved differences. The block is subtractive: `true` means "does not veto".
+## The resolved participation block for a mare: built-in default, provider layer, then her saved
+## differences. It is a subtractive layer, so `true` means "does not veto".
 static func profile_participation(id: String) -> Dictionary:
 	return profile_identity(id).get("participation", {})
 
@@ -2244,9 +2211,8 @@ static func default_participation(id: String) -> Dictionary:
 	return default_participation_for(_profile_base(data), id)
 
 
-## Save only the participation block. Preferences, consent, prompts and poses are preserved. Only
-## the keys that differ from her resolved default are stored, so a provider can update the rest
-## later and a player's edit never pins a field they did not touch.
+## Save only the participation block; preferences, consent, prompts and poses are preserved, and
+## only keys that differ from her resolved default are stored.
 static func save_participation(id: String, values: Dictionary) -> void:
 	var data := _draft()
 	var characters: Variant = data.get("characters", {})
@@ -2324,9 +2290,8 @@ static func character_name(id: String) -> String:
 	return id.replace("_", " ").capitalize()
 
 
-## Save only the preference block. Character prompts and pose settings are preserved. Only the
-## keys that differ from her resolved default are stored, so a provider can update the rest later
-## and a player's edit never pins fields they did not touch.
+## Save only the preference block; prompts and poses are preserved. Only keys that differ from her
+## resolved default are stored, so a provider update still reaches the rest.
 static func save_preferences(id: String, preferences: Dictionary) -> void:
 	var data := _draft()
 	var characters: Variant = data.get("characters", {})
@@ -2506,11 +2471,8 @@ static func _normalize_character_preferences(data: Dictionary) -> Dictionary:
 	return data
 
 
-## Reduce a saved character block to the player's real differences from the shipped template.
-## Older settings files materialized every built-in template; without this step those copies
-## would shadow a cross-mod provider layer. A value that differs from the current built-in is
-## kept: it may be a real player edit, or an old template pinned by the previous mod version, and
-## preserving it is safer than guessing. Idempotent.
+## Strip a saved character block down to the player's genuine changes against her template. A value
+## that disagrees with today's template is kept, because it may be a real edit. Idempotent.
 static func _normalize_character_overrides(data: Dictionary) -> Dictionary:
 	var roster: Variant = data.get("characters")
 	if not roster is Dictionary:
@@ -2523,8 +2485,7 @@ static func _normalize_character_overrides(data: Dictionary) -> Dictionary:
 			cleaned[id] = raw
 			continue
 		var entry: Dictionary = (raw as Dictionary).duplicate(true)
-		# A player cannot age a character up; the provider's `eligible` assertion is not a player
-		# field, so it is never written into the player's block.
+		# The provider's `eligible` assertion never becomes a player value.
 		entry.erase("eligible")
 		# The profile block is a sparse capability layer; only the player's real differences
 		# from the provider's default are stored.
@@ -2620,10 +2581,8 @@ static func _normalize_tolerance(data: Dictionary) -> Dictionary:
 	return data
 
 
-## Move the pre-split flat presentation block into pose sections. Old unknown keys are dropped
-## instead of being written back forever.
-## The old precise-caress reach default pulled the upper arm 12 cm off the chest. The safe
-## default is 2 cm, so migrate only the shipped old default and leave a tuned value alone.
+## Migrate only the shipped old caress reach, which pulled the upper arm off the chest; a tuned
+## value is left alone.
 static func _normalize_caress_reach(data: Dictionary) -> Dictionary:
 	var path := "features.caress_reach_shoulder_m"
 	var value: Variant = _read_path(data, path, null)
@@ -2633,9 +2592,8 @@ static func _normalize_caress_reach(data: Dictionary) -> Dictionary:
 	return data
 
 
-## The act key was a choice string before it became a physical-key capture. Convert the old
-## shipped default `"o"` to the new default and keep an explicit `"y"` (and the short-lived
-## `"6"`/`"7"` choices) as keycodes.
+## The act key was a choice string before it became a key capture: the old default `"o"` moves to
+## the new default, an explicit `"y"` (and the short-lived `"6"`/`"7"`) becomes a keycode.
 static func _normalize_act_key(data: Dictionary) -> Dictionary:
 	var value: Variant = _read_path(data, "controls.act_key", null)
 	if value is String:
@@ -2686,9 +2644,8 @@ static func _normalize_presentation(data: Dictionary) -> Dictionary:
 ## when a value changes or when the merged defaults differ from what is on disk.
 static var _cache: Dictionary = {}
 static var _loaded := false
-## Resolved identity facts per mare, rebuilt when the settings generation or the provider registry
-## revision changes. Discovery scans ask for every adult; resolving the whole template per mare per
-## scan was the idle offer scan's largest cost.
+## Resolved identity facts per mare, rebuilt on a settings generation or provider revision change;
+## resolving a whole template per mare per scan was the idle offer scan's largest cost.
 static var _identity_cache: Dictionary = {}
 static var _identity_generation := -1
 static var _identity_revision := -1
@@ -2700,9 +2657,8 @@ static var _consent_revision := -1
 ## Bumped on every load and every write. The flat value table rebuilds when it
 ## changes, so a save anywhere invalidates the cached setting reads.
 static var generation := 0
-## Bumped whenever the placement view can have changed: a settings load/write, an unsaved
-## default preview, or a cross-mod provider layer. The anatomy controller re-reads its resolved
-## placement on the change.
+## Bumped whenever the placement view can have changed: a settings load or write, a default
+## preview, or a provider layer; the anatomy controller re-reads its placement on the change.
 static var placement_revision := 0
 
 
@@ -2714,27 +2670,23 @@ static func bump_placement_revision() -> void:
 static var _placement_draft: Dictionary = {}
 
 
-## Parse, migrate, merge and write the player file once per process. The entry's `_ready()` calls this
-## before any getter, so the hot read path never touches the disk. Returns false when the shipped
-## defaults or catalog document is invalid; the caller then refuses to install the mod.
+## Parse, migrate, merge and write the player file once per process, so the hot read path never
+## touches the disk. False means the shipped document is invalid and the mod must not install.
 static func load_settings() -> bool:
 	if not _loaded:
 		_load()
 	return _shipped_valid
 
 
-## Reload the player file now. The settings page calls this when it opens, so a hand-edited
-## settings.json applies without restarting the game. The shipped document is process-static and
-## is not re-read.
-## Not named `reload`: `Script` already has `reload()`, and a preloaded script constant resolves
-## the built-in instead of a same-named static function.
+## Reload the player file now; the settings page calls this when it opens, so a hand edit applies
+## without a restart. Not named `reload`, which `Script` already defines.
 static func reload_file() -> void:
 	_loaded = false
 	load_settings()
 
 
 ## The merged settings view, detached from the live cache. Public callers (the tools, the suites)
-## own the copy; the mod's internal readers use `_read()`.
+## own the copy; the mod's internal readers use the shared view.
 static func data() -> Dictionary:
 	return _draft()
 
@@ -2793,16 +2745,15 @@ static func pose(id: String, pose_id: String) -> Dictionary:
 	return CATALOG.defaults(pose_id)
 
 
-## The merged settings view. The first call parses the file, migrates it and writes the merged
-## result back once. Read-only: callers must not mutate it or keep it across a write; the setters
-## start from `_draft()`.
+## The merged settings view, parsed, migrated and written back on the first call. Read-only:
+## callers must not mutate it or keep it across a write; a write starts from a detached copy.
 static func _read() -> Dictionary:
 	if not _loaded:
 		_load()
 	return _cache
 
 
-## A detached copy for a write. Only the settings setters start here, and they end at `_write()`,
+## A detached copy for a write. Only the settings setters start here, and they end at the write,
 ## so the live cache never carries a half-applied edit.
 static func _draft() -> Dictionary:
 	if not _loaded:
@@ -2991,9 +2942,8 @@ static func defaults() -> Dictionary:
 	return base.duplicate(true)
 
 
-## The shipped defaults document, parsed once by `shared/defaults_data.gd`. `{}` and one logged
-## error per problem when the file is missing or malformed; `_shipped_valid` stays the authority on
-## whether it can be used.
+## The shipped defaults document, parsed once by the defaults data module. Empty, plus one logged
+## error per problem, when the file is missing or malformed; whether it is usable is tracked apart.
 static func _shipped() -> Dictionary:
 	var document := DEFAULTS.document()
 	if not DEFAULTS.valid():
@@ -3014,9 +2964,8 @@ static func _shipped_value(path: String) -> Variant:
 	return node
 
 
-## The shipped catalog document, parsed once by `shared/defaults_data.gd`. It holds the built-in
-## act prompts, the character templates and the per-mare placement rows; it is never part of
-## `defaults()`, `data()` or the player file.
+## The shipped catalog document, parsed once by the defaults data module: act prompts, character
+## templates and placement rows. It never reaches the player file.
 static func _catalog() -> Dictionary:
 	var document := DEFAULTS.catalog()
 	if not DEFAULTS.catalog_valid():
@@ -3062,8 +3011,7 @@ static func _shipped_fail(message: String) -> void:
 		push_error("unfplap settings: further shipped-default problems suppressed")
 
 
-## The block that still lives in code: the section state. Declared settings and the global
-## `default` profile come from `settings/defaults.json`.
+## The one block that is code rather than shipped data: the section state.
 static func _code_defaults() -> Dictionary:
 	# Built-in character templates are not materialized here: `profile_for()` seeds them, and the
 	# saved `characters` block holds only the player's real differences. That is what lets a
@@ -3093,9 +3041,8 @@ static func _profile_base(data: Dictionary) -> Dictionary:
 	return value if value is Dictionary else _filled_default()
 
 
-## Retired settings, then the version-gated structural steps. `deprecated()` entries always run,
-## whatever the version, so a retired key can never linger in the file. A file older than 9 runs
-## the renames; every file older than 10 also resolves the global profile and placement rows.
+## Retired settings, then the version-gated structural steps. The retired entries always run, so a
+## retired key can never linger; each structural step runs once, on an older file.
 static func _migrate(data: Dictionary, version := 0) -> Dictionary:
 	for entry: Variant in _deprecated:
 		var path := str((entry as Dictionary).get("path", ""))
@@ -3135,9 +3082,8 @@ static func _migrate_to_9(data: Dictionary) -> Dictionary:
 	return data
 
 
-## Schema 10: the global `default` profile and the per-mare placement rows resolve at read time, so
-## a saved full copy is reduced to the player's real differences. The legacy placement import runs
-## here, so a file older than 9 imports it exactly once through this path.
+## A saved full copy of the global profile or of a placement row is reduced to real differences,
+## because both resolve at read time; an older file imports its legacy rows here.
 static func _migrate_to_10(data: Dictionary) -> Dictionary:
 	data = _normalize_anatomy_placement(data)
 	data = _normalize_default_profile(data)
@@ -3160,7 +3106,8 @@ static func _erase_path(data: Dictionary, path: String) -> void:
 	node.erase(parts[parts.size() - 1])
 
 
-## Legacy placement files imported during `_migrate`; renamed only after the settings write.
+## Legacy placement files imported during the schema migration; renamed only after the settings
+## write.
 static var _legacy_mare_placement_pending := false
 static var _legacy_anon_placement_pending := false
 static var _legacy_mare_placement_path := ""
@@ -3223,9 +3170,8 @@ static func _migrate_tail_seat_placement(data: Dictionary) -> void:
 	data["anatomy"] = block
 
 
-## Move the old anatomy_place.json and anon_place.json rows into the one anatomy.placement block.
-## Rows that already equal the resolved default are skipped, so the old "every mare has a row"
-## file collapses to real overrides.
+## Move the old anatomy place and anon place rows into the one placement block. A row that already
+## equals the resolved default is skipped, so only real overrides survive.
 static func _normalize_anatomy_placement(data: Dictionary) -> Dictionary:
 	_migrate_tail_seat_placement(data)
 	_legacy_mare_placement_pending = false
@@ -3288,8 +3234,7 @@ static func _legacy_placement_default(data: Dictionary, path: String) -> Diction
 
 
 ## Reduce a saved full `default` block to the player's real differences from the shipped profile.
-## Older files materialised every shipped value; keeping those would pin a release update and hide
-## a provider layer. Idempotent.
+## A materialised shipped value would pin a release update and hide a provider layer. Idempotent.
 static func _normalize_default_profile(data: Dictionary) -> Dictionary:
 	var raw: Variant = data.get("default")
 	if not raw is Dictionary:
@@ -3302,9 +3247,8 @@ static func _normalize_default_profile(data: Dictionary) -> Dictionary:
 	return data
 
 
-## Remove the per-mare placement rows an older build materialised from the shipped table. A row
-## that matches the resolved default is dropped; a real override is kept as its difference, so a
-## provider layer still wins where the player did not edit.
+## Drop the per-mare placement rows an older build materialised. A row that matches the resolved
+## default is dropped; a real override is kept as its difference.
 static func _strip_materialized_placement_rows(data: Dictionary) -> Dictionary:
 	var anatomy: Variant = data.get("anatomy")
 	if not anatomy is Dictionary:
@@ -3412,8 +3356,8 @@ static func _normalize_anatomy(data: Dictionary) -> Dictionary:
 	return data
 
 
-## Keys the mod no longer reads. Erased once on a schema upgrade so a settings file cannot carry
-## them forever; `_load()` writes the merged cache back, so an ignored key would otherwise persist.
+## Keys the mod no longer reads. Erased once on a schema upgrade: the load writes the merged cache
+## back, so an ignored key would otherwise persist forever.
 const RETIRED_PATHS := [
 	"features.act_chat",
 	"features.act_text_only_ponese",
@@ -3504,9 +3448,8 @@ static func _write(data: Dictionary) -> void:
 		push_error("unfplap settings: the new value is live in memory but was not saved")
 
 
-## The sparse player document. Declared settings stay materialised; the global `default` profile
-## keeps only the player's differences from the shipped one, and `characters`/placement rows are
-## already sparse. Shipped catalog content never reaches this file.
+## The sparse player document: declared settings stay materialised, the global `default` profile
+## keeps only the player's differences, and catalog content never reaches the file.
 static func _player_document(data: Dictionary) -> Dictionary:
 	var out := data.duplicate(true)
 	var resolved: Variant = out.get("default")
@@ -3521,10 +3464,8 @@ static func _player_document(data: Dictionary) -> Dictionary:
 	return out
 
 
-## Write through a temporary file first, so a placement save cannot truncate the whole profile.
-## Returns false only when neither the rename nor the direct fallback could write, and logs the
-## path with both errors in that case. A rename failure followed by a working direct write is the
-## normal Windows fallback and stays silent.
+## Write through a temp file and rename, so a save cannot truncate the profile. A failed rename
+## followed by a direct write is the normal Windows fallback and stays silent; both failing logs.
 static func _write_file(data: Dictionary) -> bool:
 	var path := _path()
 	var folder := path.get_base_dir()

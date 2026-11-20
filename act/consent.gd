@@ -1,7 +1,6 @@
 extends RefCounted
-## The act's consent response. One frame asks `readiness/service.gd` for the meter's decision and
-## turns it into the act's cue, face beat and one generated line; a stop decision ends the act
-## through the one exit and this owner presents it. The meter's math and tiers stay in
+## The act's consent response: one frame asks the readiness meter, then presents its cue, face beat
+## and line; a stop leaves by the act's one exit. The meter's math stays in
 ## `readiness/tolerance.gd`.
 ##
 ## See `docs/runtime.md` and `docs/readiness.md`.
@@ -140,9 +139,8 @@ func finish_stop(strict: bool, upset: bool) -> void:
 	queue_stop_line(strict)
 
 
-## A real consent stop. It ends the act without the normal afterglow/cuddle restore, commits a
-## severe bad summary, and only Strict additionally bucks and requests space. This owner presents
-## the warning, the space request and the stop line; the one exit stays the exit's.
+## A real consent stop: it skips the normal afterglow/cuddle restore and commits a severe bad
+## summary; only Strict additionally bucks and requests space. The one exit stays the exit's.
 func stop_with_her(reason: String) -> void:
 	var stop: Dictionary = begin_stop(reason)
 	if stop.is_empty():

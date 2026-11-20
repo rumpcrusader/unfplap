@@ -45,9 +45,8 @@ static func adult_player(facts: Dictionary) -> bool:
 	return not bool(facts.get("player_young", false))
 
 
-## The capability answer for a consumer: adult mare plus the named participation veto. An empty
-## key means identity only, which the Characters selector needs so an opted-out mare stays
-## editable. See `docs/eligibility.md` (`## Capability targets`).
+## Adult mare plus the target's participation veto; no key means identity alone.
+## The Characters selector needs that, so an opted-out mare can be re-enabled.
 static func participates(facts: Dictionary, key := "") -> bool:
 	if not adult_mare(facts):
 		return false
@@ -56,8 +55,8 @@ static func participates(facts: Dictionary, key := "") -> bool:
 	return bool((facts.get("participation", {}) as Dictionary).get(key, true))
 
 
-## The witness age category, or `FACTS.AgeKind.NONE` when she can be neither an adult nor a young
-## witness. A provider's `eligible` assertion wins over the identity flag in both directions.
+## None when she is neither a witness adult nor a young one.
+## The provider assertion beats the identity flag either way.
 static func age_kind(facts: Dictionary) -> int:
 	return FACTS.age_kind(bool(facts.get("has_identity", false)),
 		bool(facts.get("is_player_pony", false)), bool(facts.get("is_filly", false)),

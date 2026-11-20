@@ -1,10 +1,9 @@
 extends RefCounted
-## Pure pose-option builder: the capability table plus plain placement facts produce the list of
-## options an offer may choose from. It never reads a scene, service, setting, clock or file.
-## Contract: `docs/scene_gate.md` (`## Pose placement`) and `docs/poses.md`.
+## Pure pose-option builder: the capability table plus plain placement facts produce the options an
+## offer may choose from. It never reads a scene, service, setting, clock or file.
+## Contract: `docs/scene_gate.md` (`## Pose options and placement`) and `docs/poses.md`.
 ##
-## An option is `(pose, source, bed)`. Only placeable, offerable options are returned; an empty
-## list means no offer and no reasoning.
+## An option is `(pose, source, bed)`; an empty list means no offer.
 
 const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
@@ -66,9 +65,8 @@ static func source_for(form: String) -> String:
 	return SOURCE_ALREADY_LYING if form == "pony" else SOURCE_BED_SIDE
 
 
-## Build the available options, in the order the caller should preference them: cuddle, bed,
-## standing. A pose whose capability row rejects the form or view, or whose scene rejects the
-## source, is omitted.
+## Build the available options in preference order: cuddle, bed, standing. A pose whose row or
+## scene rejects the form, view or source is omitted.
 static func build(form: String, view: String, placement: Placement) -> Array[Option]:
 	var out: Array[Option] = []
 	if placement == null:

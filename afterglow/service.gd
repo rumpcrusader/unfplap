@@ -1,9 +1,6 @@
 extends RefCounted
-## The post-act afterglow phase and the aftercare that follows it: the private afterglow beat,
-## the standing close window with its caress reward, the presentation the phase asks for, the
-## satisfaction decay and the post-act aftercare node. The runtime owns the act state, its exit
-## and the frame hooks; this facade owns what the after-act looks like and how long it lives.
-## Contract: `docs/afterglow.md`.
+## The held after-act phase and its aftercare; the runtime owns the act state.
+## Contract: `docs/afterglow.md`
 
 const ACT_SUMMARY := preload("res://mods/unfplap/summary/score.gd")
 const AFTERCARE := preload("res://mods/unfplap/afterglow/aftercare.gd")
@@ -22,9 +19,8 @@ const STAY_CLOSE_CARESS_SECONDS := 2.5
 ## The satisfaction meter runs down to zero over this window after every act.
 const SATISFACTION_DECAY_SECONDS := 30.0
 
-## The post-act decision the runtime hosts. One act ends in either the tail tuck after a partner
-## stop or the aftercare beat the summary and the meter earn; the post-act face reads the same
-## values.
+## The post-act decision: the tail tuck after a partner stop, or the earned aftercare beat.
+## The post-act face reads the same values.
 class PostAct extends RefCounted:
 	## After a partner stop she keeps her tail tucked and gets no aftercare beat.
 	var tail_tuck := false
@@ -119,11 +115,8 @@ func begin(summary: Dictionary) -> void:
 	close_left = STAY_CLOSE_SECONDS if close_window else 0.0
 
 
-## The presentation the runtime applies when the act enters the held afterglow. The facade owns
-## the phase decisions; the runtime applies the row in this order and owns the scene calls the
-## row cannot make (the face beat, the summary commit). The tail targets follow the active view
-## family, not the act's start pose. The held pose is the act's current pose: the row names no
-## pose mode and no afterglow pose.
+## The afterglow row the runtime applies: tail, flicks, HUD state, wings.
+## Tail targets follow the active view family, not the act's start pose.
 func presentation() -> Dictionary:
 	var standing := view != null and str(view.family) == "standing"
 	return {
@@ -134,9 +127,8 @@ func presentation() -> Dictionary:
 	}
 
 
-## Apply the row in the built order: the held pose weight, the tail target and flicks, then the
-## HUD state. Returns whether the row asks for the wing return, which the session starts through
-## the wing owner.
+## Apply the row in its built order: pose weight, tail, HUD state.
+## Returns whether the wing return is asked for; the session starts it through the wing owner.
 func apply_presentation(pose: POSE_SESSION) -> bool:
 	var row := presentation()
 	if is_instance_valid(pose.pose()):
@@ -230,9 +222,8 @@ func close_tick(delta: float) -> void:
 		_finish_close()
 
 
-## One AFTERGLOW frame: the optional bed-body part keeps tracking while the front two thirds of
-## the phase is presentable, then the standing close window counts its caress time. The tick owner
-## calls this only in AFTERGLOW, so the phase guard stays there.
+## One AFTERGLOW frame: the optional bed-body part keeps tracking, then the close window counts.
+## The tick owner calls this only in AFTERGLOW, so the phase guard stays there.
 func phase_tick(delta: float, anatomy: RefCounted, anatomy_host: RefCounted,
 		standing: bool) -> void:
 	# integration: keep the optional bed-body part tracking through afterglow.

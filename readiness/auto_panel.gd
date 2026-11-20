@@ -1,12 +1,8 @@
 extends RefCounted
 ## Hold-X auto settings layer. Pure: the caller feeds the key state in and executes the actions.
 ##
-## A short press of X toggles auto thrust, as it always did. Holding it for `HOLD_S` opens the
-## layer, which stays open while X is pressed; releasing keeps it open for `GRACE_S` so a re-press
-## does not flicker, and closes it otherwise. A press that ever opened the layer can never toggle,
-## so a slow release never surprises the player.
-##
 ## Layer keys are positional: top row adds, home row subtracts, in the same order the HUD shows.
+## A press that ever opened the layer can never toggle, so a slow release cannot surprise.
 
 const HOLD_S := 0.28
 const GRACE_S := 0.28

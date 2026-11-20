@@ -1,8 +1,7 @@
 extends RefCounted
-## The scene ownership the act borrows: the navigator lease, the player's movement hold, the
-## face-turn rate, the conversation attention, the carry and the cuddle session. The runtime owns
-## the act state and the one teardown ledger; this object owns the flags and the release order.
-## Contract: `docs/scene_hold.md`.
+## The scene ownership an act borrows and gives back.
+## The runtime owns the act state; this ledger owns the flags and the release order.
+## Contract: `docs/scene_hold.md`
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
@@ -56,16 +55,14 @@ func claim_nav(owner_id: String) -> bool:
 	return _claim(owner_id, TOKEN_ACT)
 
 
-## Claim the negotiation lease: `unfplap:negotiation:<id>`. It works while the runtime is IDLE.
-## A missing or reserved navigator, another mod's live owner, or a routine owner with an active
-## route is Occupied.
+## Claim the negotiation lease, which works while the runtime is IDLE.
+## A reserved navigator, a foreign owner or a live route is Occupied.
 func claim_negotiation(owner_id: String) -> bool:
 	return _claim(owner_id, TOKEN_NEGOTIATION)
 
 
-## Take the attention and physical affection hold without a navigator lease. A cuddle session
-## already owns the navigator; the negotiation keeps Anon as the target, owns the affection meta
-## and leaves the session's lease alone.
+## Take attention and the affection hold with no navigator lease.
+## A cuddle session already has the navigator, so that owner is left alone.
 func claim_attention() -> bool:
 	var pony: Variant = _host("pony")
 	if not is_instance_valid(pony):
@@ -123,16 +120,15 @@ func adopt_hold() -> bool:
 	return true
 
 
-## True while this ledger owns the negotiation lease.
+## True while the negotiation lease is ours.
 func holds_negotiation() -> bool:
 	if not negotiation or token.is_empty() or nav == null or not is_instance_valid(nav):
 		return false
 	return str(nav.get("command_owner")) == token
 
 
-## The scene gate's hold-compatibility predicate. It is true while the affection hold is ours
-## and, when there is a navigator lease, the owner is this ledger's token. An attention-only
-## cuddle hold has no lease of its own.
+## The scene gate's hold predicate: our affection hold, plus our lease when there is one.
+## An attention-only cuddle hold has none.
 func accepts_hold(_pose: String, _source: String) -> bool:
 	if not affection_owned:
 		return false
@@ -280,10 +276,8 @@ func restore_face_turn() -> void:
 	face_turn_rate_saved = -1.0
 
 
-## Keep the act's attention while another character talks to Anon. Clearing the listener every
-## tick stops the director from turning her away or pinning her gaze; speech, emotions and
-## locomotion keep running, and the act's own interruption check does not treat conversation as a
-## stop.
+## Drop the conversation listener every tick so another speaker cannot turn her away.
+## Speech, emotions and locomotion keep running; conversation is not an interruption.
 func keep_attention() -> void:
 	if int(_host("state", 0)) in [STATE_IDLE, STATE_RESTORE, STATE_AFTERGLOW]:
 		return

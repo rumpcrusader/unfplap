@@ -1,17 +1,7 @@
 extends RefCounted
-## The memory system's entry point: the mod's act memory and its own dialogue lines. Every
-## event text is short and non-graphic. A witness text is a perception, never a conclusion: the
-## game's per-pony story summary forms her memory from it. The event id makes both
-## world_context.record and impressions.commit idempotent.
-##
-## This is the only file another system may preload or call. The entry creates it and binds it as
-## `MEMORY.instance`. It reads `WORLD.game` and `PONIES.eligibility` per call and stores nothing;
-## `memory/store.gd` owns the only persisted value, the per-world peak memories.
-##
-## The boundary is deliberately small: three writes (`commit`, `note`, `record_peak`), two pure
-## reveal builders (`form_reveal_impression`, `form_reveal_peak`), four calls on the mod's own line
-## channel, four reads, and `setup`. Variants live in the typed objects in `memory/facts.gd`, never
-## in extra functions. See `docs/memory.md`.
+## Service: memory
+## Contract: `docs/memory.md`
+## The only file other systems preload or call; the peak store is the one persisted value.
 
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
@@ -64,7 +54,7 @@ static func stop_reason(text: String) -> int:
 			return FACTS.StopReason.NONE
 
 
-## Write one impression and, when its slot carries a world event, that event.
+## Write one impression, plus its world event when the slot has one.
 func commit(impression: Impression) -> void:
 	if impression == null or impression.id.is_empty():
 		return
@@ -147,8 +137,7 @@ func form_reveal_peak(id: String, event_id: String, score: float) -> Peak:
 	return out
 
 
-## Queue one of the mod's own lines. `Line.key` always names it; `Line.queued` says whether the
-## director accepted it.
+## Queue one mod-owned line and report whether it was accepted.
 func line(request: LineRequest) -> Line:
 	var out := Line.new()
 	if request == null or request.id.is_empty():
@@ -226,7 +215,7 @@ func shared_memory(id: String, cue: String, event_id: String, used: Array) -> Me
 	return out
 
 
-## Adult ponies who can perceive the act right now. Read-only; nothing is committed.
+## Adults perceiving the act now; the read commits nothing.
 func observers(partner: Node3D) -> Array[Observer]:
 	var out: Array[Observer] = []
 	for row: Variant in PERCEPTION.observers(_game(), _eligibility(), partner):
@@ -260,8 +249,7 @@ func _eligibility() -> ELIGIBILITY:
 	return service if is_instance_valid(service) else null
 
 
-## True when this act is her first with the player: the durable act history plus the world
-## context. The start and the cue prompt read the same fact.
+## True when this is her first act with the player.
 func first_time(pony_id: String, event_id: String) -> bool:
 	if not is_instance_valid(WORLD.game) or pony_id.is_empty():
 		return false

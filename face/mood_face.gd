@@ -1,7 +1,6 @@
 extends Node
-## Holds one base-game expression face after an act, matching the fresh impression mood. It yields
-## to any spoken line face and ends after the mood's 300 s freshness. The runtime owns the start
-## and the warm prompt note; this node only keeps the face and the light blush.
+## The held post-act face node: it yields to a spoken line and ends when the mood's freshness
+## does. The facade starts it.
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const ACT_FACE := preload("res://mods/unfplap/shared/act_face.gd")

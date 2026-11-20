@@ -1,15 +1,7 @@
 extends RefCounted
-## The shipped settings data, read once per process:
-##
-##   settings/defaults.json   the declared settings at the root and the global `default` profile
-##   settings/catalogs.json   provider-overridable content: built-in act prompts, per-mare
-##                            character templates and per-mare placement rows
-##
-## Both files are tracked, packed and read-only in a build. `defaults.json` is the player-settings
-## document; `catalogs.json` is content and never reaches `defaults()`, `data()` or the player file.
-## Every caller gets a detached copy of the block it asks for. This module preloads nothing, so the
-## pure modules (`preferences`, `pose_catalog`, `character_preferences`) and `settings/service.gd`
-## can all read it without a cycle.
+## The shipped settings data, read once per process: `defaults.json` holds the declared settings and
+## the global profile, `catalogs.json` holds provider-overridable content that never reaches the
+## player file. Preloading nothing keeps the pure modules free of an import cycle.
 
 const DEFAULTS_FILE := "res://mods/unfplap/settings/defaults.json"
 const CATALOG_FILE := "res://mods/unfplap/settings/catalogs.json"

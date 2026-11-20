@@ -51,9 +51,8 @@ static func lean_step(current: float, target: float, delta: float,
 	return move_toward(current, target, delta / maxf(LEAN_RAMP_SECONDS, 0.001))
 
 
-## Pose support for the threshold-triggered side action.
-## The side-lean action a pose profile fires at full lean. Kissing is no longer a lean action: both
-## poses use the front/shoulder lean with F held (see kiss_control.lean_kiss_tick).
+## The side-lean action a pose profile fires at full lean. Kissing is not a lean action; both poses
+## use the front/shoulder lean with F held.
 static func lean_action_kind(profile: String, _side: float) -> String:
 	if profile == CATALOG.STANDING:
 		return "reach"

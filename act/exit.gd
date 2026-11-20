@@ -1,8 +1,6 @@
 extends RefCounted
-## The act's one exit ledger. It gives back everything the act borrowed in the order the pose and
-## camera were built; every step checks the ownership flag it restores, so a failed start runs the
-## same body and restores only what it took. `run()` is the only scene-restoring teardown in the
-## mod; this ledger's own routes and the consent stop are its only callers.
+## The act's one exit ledger: the returns run in the order the pose and camera were built, and an
+## ownership flag decides what to restore, so a failed start restores only what it took.
 ##
 ## See `docs/runtime.md` and `docs/poses.md`.
 
@@ -32,12 +30,8 @@ func bind(host_in: ACT_HOST, context_in: ACT_CONTEXT, session_in: ACT_SESSION) -
 	session = session_in
 
 
-## Give back everything the act borrowed, in the order the pose and camera were built. Every step
-## checks its own ownership flag, so a start that failed early runs the same function and restores
-## only what it took. Keep this the only teardown. The act's end lines are deliberately outside:
-## `act/input.gd:cancel()` queues the early-stop reaction after the restore begins, and
-## `finish_restore()` must
-## not cut it. The utterance scheduler is start/finalize state, not a session borrow.
+## The one teardown, in the order the pose and camera were built; each step restores only what its
+## ownership flag says it took. End lines stay outside: `finish_restore()` must not cut them.
 func run(rejoin_cuddle: bool) -> void:
 	context.readiness.stop_auto()
 	# A suspended act may end here (world close, a failed swap or an invalid body). Drop the
@@ -123,8 +117,7 @@ func abort() -> void:
 
 
 ## The one pose teardown ledger: the pose-scope start and body steps at their current positions,
-## the act-scope releases between them, then the session's final pose clear. A later pose
-## transition calls only the pose-scope steps; it never calls this function.
+## the act-scope releases between them, then the session's final pose clear; never a transition.
 func free_pose() -> void:
 	# A lost body must not reach the pose session's oral/face bindings.
 	context.pose.bind(host.node, host.pony if is_instance_valid(host.pony) else null)
@@ -143,9 +136,8 @@ func free_pose() -> void:
 	context.pose.release_pose()
 
 
-## The after-act. The order is the act exit's: the stroke state resets, the meter runs down, and
-## the act ends in either the tail tuck after a partner stop or the aftercare beat. The afterglow
-## facade owns the decisions and the values; this hosts the nodes.
+## The after-act, in the act exit's order: the stroke state resets, the meter runs down, then the
+## tail tuck after a partner stop or the aftercare beat. The afterglow facade owns the decisions.
 func reset_after_act() -> void:
 	if not is_instance_valid(host.node) or not host.node.is_inside_tree():
 		return
@@ -162,9 +154,8 @@ func reset_after_act() -> void:
 		context.face.start_post_act(plan.face_context(context.summary.summary))
 
 
-## Give the bed back: restore the pre-act scene and stand her. A bed missionary act that ended well
-## is re-seated and re-invited by `rejoin_bed_cuddle()` after the session is fully back to IDLE.
-## A forced stop never reaches it; the world is going away or the pony is already invalid.
+## Give the bed back: restore the pre-act scene and stand her; a bed act that ended well is
+## re-seated and re-invited by `rejoin_bed_cuddle()` once the session is back to IDLE.
 func restore_posture(frame: String, rejoin_cuddle: bool) -> void:
 	session.posture_owned = false
 	context.rest.bind(host.pony, session.bed)

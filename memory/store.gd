@@ -1,6 +1,5 @@
 extends RefCounted
-## Scene adapter: the only reader and writer of `Mods.state("unfplap").peak_memories`, and the
-## only memory file that asks the mod to save.
+## The peak-memory store; the only memory file that saves.
 
 const MOD_ID := "unfplap"
 const KEY := "peak_memories"

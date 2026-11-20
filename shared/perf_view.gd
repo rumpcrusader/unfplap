@@ -155,7 +155,7 @@ static func height(entries: Array) -> float:
 	return float(entries.size() + 1) * ROW_H
 
 
-## The permanent top row: every root's window total, and the worst single call in the window.
+## The permanent top row: the roots' summed total and the window's worst call.
 static func totals(entries: Array) -> Dictionary:
 	var average := 0.0
 	var peak := 0.0

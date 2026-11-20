@@ -1,18 +1,6 @@
 extends RefCounted
-## The authored pose asset loader: version 7 (`space: local_rest`) with the version 6 bed-space
-## migration path. Contract: `docs/poses.md`.
-##
-## Version 7 stores:
-## - `anchor`: the hips global pose in the frame, plus a contact point in the hips frame and the
-##   support height. Placement is the anchor and the contact, never a scaled asset origin.
-## - `root`: the armature root global pose in the frame at canon.
-## - `pony.bones`: one delta per body bone from the bone's rest local transform
-##   (`delta = rest.affine_inverse() * pose`, `pose = rest * delta`).
-## - optional `anon` (act body), `shots`, `bed` and `variants`.
-##
-## Version 6 is bed space with absolute local bone poses and a uniformly scaled placement. It is
-## read for one release so a deck authored before the conversion still loads; it is refused for a
-## ground frame. Nothing new is authored in it.
+## The authored pose asset loader: v7 local-rest poses, v6 bed-space migration.
+## Contract: `docs/poses.md`.
 
 const PATH := "res://mods/unfplap/poses/missionary_pose.json"
 const MIN_VERSION := 6
@@ -24,15 +12,12 @@ const RIG_VERSION := 1
 const RIG_BONES := 30
 const ANON_RIG := "Anon3"
 
-## How far the body under a skeleton sinks below the support in this pose, per unit of body scale:
-## the pose is authored on the mare body, which lies on the mattress (about 4 mm in, like the soft
-## top). A bed pose only.
+## How far the mare body sinks below the support per unit of body scale. Bed poses only.
 const BED_SINK_M := 0.004
 const BED_LIFT_MIN_M := 0.005
 
-## The body bones the act owns, in the pose lab's order. Version 7 must carry every one of them,
-## including the ones left at rest: the runtime writes only what the file holds and never resets
-## the rig, so a missing bone keeps the game's pose and breaks the chain it hangs from.
+## The body bones the act owns, in the pose lab's order. Every v7 file carries all of them,
+## rest included: the runtime never resets a bone it is not given.
 const PONY_BONES := [
 	"pony_hips",
 	"pony_spine1", "pony_spine2", "pony_spine3",
@@ -76,7 +61,7 @@ var anon_rig := ""
 var anon_transform := Transform3D.IDENTITY
 var anon_bones: Dictionary = {}
 ## Authored shot camera transforms in frame space, keyed `start`, `back`, `front`, `left`, `right`.
-## Only the origins are used: the act aims them at her live face and vulva.
+## The act reads each origin and aims it at her live face and vulva; the rotations are unused.
 var shots: Dictionary = {}
 var has_shots := false
 ## Bed reference metadata (`size`, `mattress_top`); placement uses the live mattress frame.
@@ -237,9 +222,8 @@ static func root_bone(sk: Skeleton3D) -> int:
 	return -1
 
 
-## The authored body bones this rig does not have. The runtime writes only what it holds, so a
-## missing bone leaves the game's pose on that link and the chain above it reads broken. The act
-## refuses to start instead of posing half a body.
+## The authored body bones this rig lacks. A gap leaves the game's pose on that link, so the act
+## refuses the rig rather than pose half a body.
 func missing_bones(sk: Skeleton3D) -> Array[String]:
 	var out: Array[String] = []
 	if sk == null:
@@ -344,8 +328,8 @@ func body_lift(world_frame: Transform3D, body_scale: float) -> float:
 	return (world_frame.origin.y + support()) - scaled.y
 
 
-## The anchor/contact size rule for one authored point: the hips anchor and the body scale, plus
-## the contact lift. The Anon act body and the authored shots use the same rule.
+## The anchor/contact size rule for one authored point: hips anchor, body scale, contact lift.
+## The act body and the authored shots are placed by the same math.
 func place_origin(world_point: Vector3, world_frame: Transform3D, body_scale: float) -> Vector3:
 	var here := anchor_world(world_frame).origin
 	return here + (world_point - here) * body_scale \
@@ -353,7 +337,7 @@ func place_origin(world_point: Vector3, world_frame: Transform3D, body_scale: fl
 
 
 ## The world armature root at `body_scale`: scaled about the hips anchor, basis scaled once, and
-## lifted so the contact stays on the support.
+## offset so the contact lands on the support height.
 func placed_root(world_frame: Transform3D, body_scale: float) -> Transform3D:
 	var here := anchor_world(world_frame).origin
 	var canon_root := (world_frame * active_root()).origin
@@ -374,10 +358,8 @@ func shot_origin(shot_id: String, world_frame: Transform3D, body_scale: float) -
 	return place_origin(world_point, world_frame, body_scale)
 
 
-## Applies the base pose to the pony's skeleton. `weight` blends from the game's current pose (0)
-## to the authored pose (1) and the caller ramps it. `world_frame` is the live bed or ground frame
-## and `body_scale` is applied once at the root about the hips anchor. Version 6 keeps its uniform
-## bed-space placement.
+## Applies the base pose about the hips anchor, ramping from the game's current pose by `weight`
+## (the caller drives it). Version 6 keeps its uniform bed-space placement.
 func apply_pony(sk: Skeleton3D, weight: float, world_frame: Transform3D, body_scale: float,
 		size_name := "") -> bool:
 	if not available or sk == null:
@@ -388,9 +370,9 @@ func apply_pony(sk: Skeleton3D, weight: float, world_frame: Transform3D, body_sc
 	var root_index := root_bone(sk)
 	if root_index >= 0:
 		var wanted := placed_root(world_frame, body_scale)
-		# A bigger body (the princesses' own) hangs further from its armature root than the mare
-		# the pose was authored on, so the mare's root placement sinks her into the mattress.
-		# Lift her by the measured amount (0 for the mare and any body that already clears it).
+		# A bigger body (the princesses' own) sits lower from its armature root, so the mare's
+		# placement sinks her. Lift by the measured amount; zero for a mare and any body that
+		# already clears.
 		if frame == "bed":
 			wanted.origin += Vector3.UP * bed_clearance(sk) * body_scale
 		var desired := sk.global_transform.affine_inverse() * wanted
@@ -407,10 +389,8 @@ func apply_pony(sk: Skeleton3D, weight: float, world_frame: Transform3D, body_sc
 	return true
 
 
-## How far the body under `sk` sinks below the support in this pose, per unit of body scale: the
-## pose is authored on the mare body, which lies on the mattress. Measured once per body mesh and
-## variant by posing her rest skeleton with the authored bones in frame space and skinning her body
-## on the CPU; 0 when she clears the support already or no body mesh is found. A bed pose only.
+## This body's sink margin below the support, per unit body scale; bed poses only. Measured once
+## per body mesh and variant by skinning the posed rest skeleton on the CPU.
 func bed_clearance(sk: Skeleton3D) -> float:
 	if sk == null:
 		return 0.0
@@ -549,15 +529,14 @@ func _write_bone(sk: Skeleton3D, bone: int, entry: Dictionary, weight: float) ->
 		rotation = basis.get_rotation_quaternion().normalized()
 	sk.set_bone_pose_rotation(bone, sk.get_bone_pose_rotation(bone).slerp(rotation, weight))
 	sk.set_bone_pose_position(bone, sk.get_bone_pose_position(bone).lerp(position, weight))
-	# Reset the scale to the rig's rest. `FillyProportions` and the part hiders *multiply* the
-	# pose scale every modifier pass and rely on the animation resetting it each frame; the act
-	# replaced the animation with this write, so without this the factor compounds (0.92^N → 0,
-	# or >1^N → inf) and the neck/head stretch or collapse.
+	# Reset the scale to the rig's rest. The proportion and part-hiding modifiers multiply it every
+	# pass and lean on the animation to reset it; this write replaced that animation, so the factor
+	# would compound and stretch her neck and head.
 	sk.set_bone_pose_scale(bone, sk.get_bone_rest(bone).basis.get_scale())
 
 
-## Version 6: the bed-space absolute pose, placed with the old uniform bed-space scaling. It is the
-## one-release migration path; the v7 path above never uses `_v6_place`.
+## Version 6: the bed-space absolute pose with the old uniform bed-space scaling. The one-release
+## migration path; the v7 path never uses it.
 func _apply_v6(sk: Skeleton3D, weight: float, world_frame: Transform3D, body_scale: float) -> bool:
 	var root_index := root_bone(sk)
 	if root_index >= 0:
@@ -808,8 +787,8 @@ func _parse_shots(raw: Variant) -> Dictionary:
 	return out
 
 
-## A variant replaces `anchor`, `root`, `anon` and `shots` and merges `pony.bones` per bone. It may
-## not change `space`, `frame`, `rig` or `reference`; that is a base-authoring error.
+## A variant supplies its own `anchor`, `root`, `anon` and `shots`, plus per-bone `pony.bones`
+## overrides. `space`, `frame`, `rig` and `reference` stay base-owned; a variant that sets one is an error.
 func _parse_variants(raw: Variant) -> String:
 	variants = {}
 	if raw == null:

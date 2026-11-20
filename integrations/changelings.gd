@@ -1,18 +1,9 @@
 extends "res://mods/unfplap/body_change/source.gd"
-## Queen Chrysalis, by changelings: the typed body-change provider for the installed-mare profile,
-## the forms the pack brings and her own spring tail.
+## Queen Chrysalis, by changelings: the typed body-change provider for her own body and the forms
+## the pack brings.
 ##
-## The pack's own body script extends the game's pony, so unfplap already attaches its runtime and
-## anatomy controller. This adapter adds only what the generic core cannot know: her approved
-## profile as a provider layer, the body form for each body the pack brings, the installed list
-## entry while the pack is active, and the player's own words for the reveal ask and the named
-## shape. It reads the pack's public nodes and state; it never edits the pack and never requires a
-## rebuild.
-##
-## Scope: world. The entry constructs it once and registers it with the body-change service.
-## It never preloads the entry or `runtime.gd`.
-##
-## See `docs/integrations.md` and `docs/anatomy.md` (`## Placement`, `## Tail seating`).
+## Scope: world. Reads the pack's public nodes; never edits the pack, never preloads a host.
+## See `docs/integrations.md`.
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const BODY_PROFILE := preload("res://mods/unfplap/shared/body_profile.gd")
@@ -28,15 +19,15 @@ const ID := "chrysalis"
 ## chain under the tail attachment (`Hair_` + part).
 const TAIL_ATTACHMENT := "Hair_tail"
 const TAIL_CHAIN := "Chain"
-## The adapter-owned placement node above the chain. The act tail modifiers keep rotating the
-## chain itself, so a placement edit and an act never restore each other.
+## The adapter-owned placement node above the chain. Act modifiers rotate the chain itself, not
+## this wrapper.
 const TAIL_WRAPPER := "UnfplapTailPlacement"
 ## A disguise marks its body with this geometry variant (`changeling=<pony id>` in 0.2.12).
 const SHAPE_PREFIX := "changeling="
-## Her own body script hides every mesh under her model that lacks this pack marker, so the
-## anatomy mesh on her skeleton must carry it or it is hidden for good.
+## Her hide pass needs this marker on the anatomy, or the anatomy stays hidden for good.
 const BODY_OWN_META := "chrysalis_own"
-## Her own body's rig row. The cell body is the princess profile, not the ordinary mare body.
+## Her own body's rig row.
+## The cell body is the princess profile.
 const OWN_RIG := "celestia"
 ## The pack builds her hair a few frames after the body's first prepare. Retry the tail-root
 ## lookup for a short grace so the wrapper can attach once the chain exists.
@@ -65,8 +56,7 @@ const NOTE_WEARING := "She is already wearing that shape."
 const NOTE_HERSELF := "She is already herself."
 const NOTE_CANNOT := "She cannot wear that shape."
 
-## The approved provider profile. No `eligible` assertion: her identity decides age, so a young
-## disguised shape still fails the act gate.
+## The approved provider profile. Her identity sets age; a young shape still fails the gate.
 const DESCRIPTOR := {
 	"schema": 1,
 	"id": ID,
@@ -109,8 +99,8 @@ var _policy: POLICY = null
 ## The last body the source lookup asked about. The runtime resolves its source through
 ## `handles_pony` before each observation, so this is the act pony without a new contract method.
 var _act_pony: Node = null
-## The pack's `busy` on the previous poll. A rising edge with the act pony as `actor` is a change
-## her own AI started, which no `request_*` call announced.
+## The pack's `busy` on the previous poll. A rising edge on the act pony means her AI changed
+## shape unasked.
 var _busy_seen := false
 ## The provider's observation clock; the pack read runs once per `OBSERVE_S`, not per frame.
 var _observe_clock := 0.0
@@ -155,8 +145,7 @@ func policy() -> POLICY:
 
 
 # --------------------------------------------------------------------------- body-change source
-#
-# Only this adapter reads the pack's own `busy`, `actor` and `disguised_as` fields and calls
+# Only this adapter reads the pack's `busy`, `actor` and `disguised_as` fields and calls
 # `reveal()` / `disguise()`.
 
 ## The stable provider id for the body-change service.
@@ -228,9 +217,8 @@ func presented_form_id(body: Node3D) -> String:
 	return ""
 
 
-## The shape she wears now; empty while she is her own form. The spawned body's geometry variant
-## is exact as soon as the pack brings it, while `disguised_as` is only written once the change
-## has settled.
+## The shape she wears now; empty for her own form. The new body's geometry variant is exact
+## before `disguised_as` settles.
 func current_shape() -> String:
 	var mod := _source_mod()
 	if mod == null:
@@ -296,9 +284,8 @@ func request_appear() -> bool:
 	return true
 
 
-## Read the pack's completion state on the provider's own observation tick. A change her own AI
-## starts is caught without a zero-frame gap between the flame and the handover; once the new
-## body's variant reports the target, prepare the form again so the revision can bump.
+## Read the pack's own completion state each observation tick, never on the act clock. A settled
+## variant re-prepares the form so its revision bumps.
 func poll() -> void:
 	var mod := _source_mod()
 	if mod == null:
@@ -336,9 +323,8 @@ func poll() -> void:
 		_end_change()
 
 
-## A `busy` edge with the act pony as `actor` is a change no `request_*` announced: her own AI
-## took the shape off or put one on. Only the act pony's own change reaches the handover; any
-## other `busy` still ends when the pack goes idle.
+## Her own AI's change arrives as a `busy` edge on the act pony. Another body's edge never
+## reaches the handover.
 func _observe(mod: Node) -> void:
 	var busy := bool(mod.get("busy"))
 	var rising := busy and not _busy_seen
@@ -406,8 +392,7 @@ func named_form(text: String) -> String:
 	return best if _copyable(best) else ""
 
 
-## A short status when the line names a shape she wears, herself, or a known ineligible body.
-## Ordinary talk returns "", so the offer can stay pending without a status on every line.
+## A one-line reason when a named shape is refused; ordinary talk gets none.
 func named_form_note(text: String) -> String:
 	if not active():
 		return ""
@@ -445,10 +430,8 @@ func refresh() -> void:
 		set_process(false)
 
 
-## Build one presented body's form. Her own body carries her rig, fit, marker and spring-tail
-## root; a borrowed form carries the copied pony's fit and rig, keeps the source marker and has no
-## own tail root. The old body and unrelated ponies never receive the new body's form, and a late
-## variant that changes the descriptor bumps this body's revision.
+## The form follows the body handed in, never a shared fit flag. A changed descriptor bumps only
+## this body's revision.
 func prepare_body(body: Node3D, change: BODY_CHANGE) -> BODY_FORM.BodyForm:
 	if not is_instance_valid(body):
 		return null
@@ -612,8 +595,7 @@ func _apply_tail_placement_now(pony: Node, root: Node3D) -> bool:
 		wrapper.transform = Transform3D.IDENTITY
 		wrapper.set_meta("unfplap_tail_offset", Vector3.ZERO)
 		return true
-	# The resolved tail keys are absolute from the pack's modelled chain, like the seat's from
-	# its reference dock; her provider placement bakes her own tail reference.
+	# The keys are absolute from the pack's modelled tail; her placement bakes that reference.
 	var placement := SETTINGS.anatomy_placement(ID, ID)
 	var offset := Vector3(0.0, float(placement.get("tail_y", 0.0)),
 		float(placement.get("tail_z", 0.0)))
@@ -804,8 +786,7 @@ func _same_relationship(a: Node, b: Node) -> bool:
 
 
 ## Every adult mare the player may name: the base roster plus the live off-roster and provider
-## mares the entry lists. The base roster is adult by construction; the entry's list is already
-## gated for a character.
+## mares, both already gated for age.
 func _shape_candidates() -> Array[String]:
 	var out: Array[String] = []
 	for id: String in SETTINGS.CHARACTER_ORDER:
@@ -817,9 +798,8 @@ func _shape_candidates() -> Array[String]:
 	return out
 
 
-## Every body the pack may copy: the adult candidates plus the population catalogue's own ids.
-## The extra ids are what the note needs to recognize a young or male name; a real choice still
-## has to pass `_is_adult_shape()` and the copyable check.
+## Every body the pack may copy: the candidates plus the population catalogue's ids. The extras
+## let the note recognize a young or male name; a real choice still passes the adult gate.
 func _all_shape_ids(candidates: Array[String]) -> Array[String]:
 	var out := candidates.duplicate()
 	if is_instance_valid(WORLD.game):
@@ -836,8 +816,7 @@ func _all_shape_ids(candidates: Array[String]) -> Array[String]:
 	return out
 
 
-## The eligibility facade is the age/sex authority for a body that may not be live. The adult
-## candidate list is already gated; a population-only body asks the service's id-only target.
+## The candidates are already gated; a population-only body asks the eligibility facade.
 func _is_adult_shape(id: String, candidates: Array[String]) -> bool:
 	if candidates.has(id):
 		return true
@@ -864,10 +843,8 @@ func _copyable(shape_id: String) -> bool:
 	return not str((available as Dictionary).get(shape_id, "")).is_empty()
 
 
-## 0 for no match. A whole display name beats the id's words, which beat one distinctive word.
-## A name inside a sentence only counts with an imperative request, so "you are a rarity",
-## "I don't want Rarity" and "your name is Rarity" never silently pick Rarity, and "apple"
-## still never silently picks one apple mare.
+## 0 for no match. A whole name beats the id's words, which beat one distinctive word; a name
+## inside a sentence needs an imperative.
 func _name_score(key: String, id: String) -> int:
 	var name := _normalize(SETTINGS.character_name(id))
 	var ident := _normalize(id.replace("_", " "))
@@ -1002,7 +979,7 @@ func _process(delta: float) -> void:
 	poll()
 
 
-## Her own body: the pack's own meshes, or its spring-tail script. A copied pony has neither.
+## A copy has neither the pack meshes nor the spring tail.
 func _is_own_body(pony: Node) -> bool:
 	if is_instance_valid(_tail_root(pony)):
 		return true

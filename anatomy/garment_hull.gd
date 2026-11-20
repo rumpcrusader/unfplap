@@ -1,45 +1,26 @@
 extends RefCounted
-## The garment hull: a rest-surface outer depth field built from the anatomy mesh. A worn garment
-## (the Pantyhose & Panties cloth) samples it in the vertex shader and lifts itself over the
-## anatomy surface instead of letting the mesh poke through. The field is built once per source
-## mesh, width, height and smoothing, and is shared by every mare; only the transform is per-mare.
-##
-## The mesh is read in anatomy-local space (+Z toward the tail). Every rest triangle is
-## rasterised into a `width × height` grid that stores the maximum Z per cell. The inner canal and
-## body-facing surfaces sit behind the outer surface and never win the max, so no normal filter is
-## needed; the curved ponut-top/vulva-bottom silhouette is included. The field uses the rest
-## appearance only (the authored `closed` shape and the rest `ponut_scale`); the act's opened and
-## stretched shapes are excluded because the garment is removed at act start.
-##
-## The domain is the X/Y bounds of the rest mesh plus a margin. The field is normalised over
-## `z_min`/`z_max`; an empty cell keeps the `INVALID` marker and the shader skips it.
-##
-## Pure: it takes a mesh and plain numbers and reads no Node, scene or settings.
-## See `docs/anatomy.md` (`## Garment hull`) and `docs/integrations.md`.
+## The garment hull: a rest-surface outer depth field the worn cloth samples in its vertex shader.
+## A per-cell maximum-Z raster of the rest triangles leaves the inner canal behind the surface, so
+## no normal filter is needed.
+## It bakes the rest pose only, and is pure: no Node or settings read.
+## See `docs/anatomy.md` (`## Garment hull`).
 
-## The authored mesh's outer surface faces the tail on +Z. The field takes the maximum Z per
-## cell over every rest triangle, so the inner canal and body-facing surfaces never win the max;
-## no normal filter is needed, and the curved ponut-top/vulva-bottom silhouette is included.
-## Extra room around the rest mesh so the shader's edge fade has a border. The
-## Y margin is larger: the ponut top and vulva bottom sit on the vertical bounds, and the field
-## must extend past them so the fade does not cut their lift.
+## Extra room around the rest mesh so the shader's edge fade has a border.
+## Y needs more room than X: the ponut and vulva bounds sit where the fade would cut the lift.
 const DOMAIN_MARGIN_X := 0.004
 const DOMAIN_MARGIN_Y := 0.014
 ## Dilation passes that fill the empty cells between rasterised triangles before smoothing.
 const DILATE_PASSES := 6
 ## A cell the outer surface never covered. The shader reads a negative value and skips the cell.
 const INVALID := -1.0
-## The rest appearance outside an act: the authored closed lips and the rest ponut scale. The
-## garment is removed at act start, so the opened/stretched act shapes are not part of the field.
+## The shape key whose weight the rest field bakes in.
 const REST_SHAPE := "closed"
 const PONUT_SHAPE := "ponut_scale"
 
 static var _cache: Dictionary = {}
 
 
-## The built field. A typed value object so the controller and the service expose a strong
-## signature; the shader-facing values are the texture, the domain, the Z range and the
-## normalised field.
+## The built field, typed so the controller and the service share one signature.
 class Hull extends RefCounted:
 	var field: PackedFloat32Array
 	var domain: Rect2
@@ -51,14 +32,8 @@ class Hull extends RefCounted:
 	var texture: ImageTexture
 
 
-## Build (or return the cached) depth field for `mesh`. `field` is row-major over
-## `resolution_x × resolution_y`, normalised over `z_min`/`z_max`, with `INVALID` in an uncovered
-## cell. The field is the rest appearance: the base mesh with `closed` at 1 and `ponut_scale` at
-## `ponut_scale` (the rest `anal_scale - 1`). Every act shape is at 0; the garment is removed
-## at act start, so the field does not need the opened or stretched shapes.
-## Resolution and smoothing are debug values and are not clamped above; they are only floored so
-## the grid is valid. A high resolution is expensive: the texture is `x × y × 4` bytes and the
-## rasterisation is GDScript.
+## Build (or return the cached) field for `mesh`, row-major and normalised, `INVALID` uncovered.
+## Resolution and smoothing are floored only: a high grid is expensive and rasterises here.
 static func build(mesh: ArrayMesh, resolution_x: int, resolution_y: int, smoothing: int,
 		ponut_scale := 0.0) -> Hull:
 	if mesh == null:
@@ -185,9 +160,8 @@ static func _build(mesh: ArrayMesh, res_x: int, res_y: int, smooth: int,
 	return hull
 
 
-## The rest appearance of one surface: the authored `closed` shape at weight 1, plus the
-## `ponut_scale` shape at the rest weight (`anal_scale - 1`). `wink`, the anal keys and `stretch`
-## are at 0. The blend shapes are additive relative to the base mesh, matching Godot's blend.
+## The rest pose of one surface: `closed` at 1 and `ponut_scale` at `anal_scale - 1`, added to
+## the base mesh because Godot's blend shapes are additive.
 static func _rest_vertices(verts: PackedVector3Array, shapes: Array[PackedVector3Array],
 		mesh: ArrayMesh, ponut_scale: float) -> PackedVector3Array:
 	var out := verts.duplicate()

@@ -50,7 +50,7 @@ func tween() -> Tween:
 
 
 ## Move the runtime node under the world before a freed body is dropped. The runtime owns the
-## reparent and its `_swapping_parent` flag; the host only names the world.
+## reparent and its swap flag; the host only names the world.
 func attach_to_world() -> void:
 	if is_instance_valid(node) and is_instance_valid(WORLD.game):
 		node.call("attach_to_body", WORLD.game)
@@ -78,7 +78,7 @@ func director() -> Node:
 	return node.get_tree().get_first_node_in_group("conversation_director")
 
 
-## Whether another mod's entry is active in this launch.
+## A missing Mods autoload or an unknown id reads false rather than failing.
 func mod_enabled(id: String) -> bool:
 	if id.is_empty() or not is_instance_valid(node) or not node.is_inside_tree():
 		return false

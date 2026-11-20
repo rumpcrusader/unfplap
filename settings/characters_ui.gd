@@ -1,19 +1,15 @@
 extends RefCounted
-## The hand-built Characters preference form. It borrows the setting rows' card, switch and pill
-## pieces so it does not read as a different panel, and fills its own Characters sub-tab.
-##
-## This is the interim home until a characters service owns the per-mare profile. The entry
-## supplies the live off-roster ids and the resolved participation block through host callbacks;
-## the form itself uses the settings facade for the profile reads and writes. See
-## docs/preferences.md.
+## The hand-built Characters preference form, drawn with the setting rows' own card, switch and
+## pill pieces so it does not read as a different panel. The entry hands it the live off-roster ids
+## and a participation lookup.
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
 const PARTICIPATION := preload("res://mods/unfplap/shared/participation.gd")
 const CONSENT := preload("res://mods/unfplap/shared/consent.gd")
 const STYLE := preload("res://world/ui/menu_style.gd")
-## The game's in-page dropdown (`world/ui/menu_picker.gd`). An OptionButton's popup is a bare
-## desktop window and cannot be reached in a headset; its list also runs past the settings window.
+## The game's in-page dropdown. An OptionButton's popup is a bare desktop window a headset cannot
+## reach, and its list runs past the settings window.
 const PICKER := preload("res://world/ui/menu_picker.gd")
 ## Height cap of the unfolded pony list; the page scrolls the rest.
 const PICKER_LIST_HEIGHT := 260.0
@@ -29,9 +25,7 @@ const PREFERENCE_STATE_LABELS := {
 }
 
 
-## Fill the Characters tab. `live_character_ids` returns the off-roster adult mares currently in
-## the world; `participation` resolves one mare's live participation block; `changed` applies the
-## saved preset live. `debug` is the entry node's log callback.
+## Fill the Characters tab; `changed` applies a saved preset to a live act.
 static func build(list: VBoxContainer, font_size: int, live_character_ids: Callable,
 		participation: Callable, changed: Callable, debug: Callable = Callable()) -> void:
 	var stack := VBoxContainer.new()
@@ -185,9 +179,8 @@ static func build(list: VBoxContainer, font_size: int, live_character_ids: Calla
 	fill_selector.call()
 
 
-## One selector entry. The metadata carries the stable pony id, so an off-roster mare can be edited
-## with the same form as a base-game mare. `group` becomes the picker's section header; the row
-## itself still shows only her name.
+## One selector entry; the metadata carries the stable pony id, so an off-roster mare edits the
+## same form. The group prefix only becomes the picker's section header.
 static func _add_character_selector_item(selector: Control, id: String, current: String,
 		group := "") -> void:
 	var display := SETTINGS.character_name(id)
@@ -210,9 +203,8 @@ static func _show_selector_name(selector: Control) -> void:
 	(selector.head() as Button).text = named
 
 
-## A form row's name, in the same type as a setting row's name. It takes the row's spare width so
-## the control sits at the right edge, as a setting row does. It must not autowrap: in a
-## GridContainer an autowrap label reports a one-character minimum, which collapses its column.
+## A form row's name, with a setting row's type and width so the control sits at the right edge.
+## It must not autowrap: in a GridContainer a wrapping label reports a one-character minimum.
 static func _form_label(text: String, font_size: int) -> Label:
 	var label := STYLE.label(text, "", font_size)
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -240,8 +232,8 @@ static func _check_row(form: GridContainer, label_text: String, prefix: String, 
 	return out
 
 
-## A few short values as the page's Segment pills in one track; the chosen one is lit. A row label
-## and an optional hint stack in the first grid cell so the help sits under its control's name.
+## Short values as one track of Segment pills, the chosen one lit, with an optional hint under the
+## row's name.
 static func _preference_pills(parent: GridContainer, label_text: String, values: Array,
 		font_size: int, pill_labels: Dictionary = {}, hint: String = "") -> HBoxContainer:
 	var label_box := VBoxContainer.new()

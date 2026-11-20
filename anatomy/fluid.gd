@@ -68,10 +68,8 @@ func _radii() -> Vector3:
 	return BODY_RADII * body_scale
 
 
-## `clear_seconds` lets a discharge drop ignore the body ellipsoid while it leaves the vulva, so
-## a spawn on the surface cannot stick to the rump and creep down to the tail. `y_speed` replaces
-## the direction's vertical component when supplied, so a caller can set the droplet's rise or
-## fall directly; it is applied verbatim.
+## `clear_seconds` lets a fresh drop ignore the body ellipsoid while it leaves the vulva, and
+## `y_speed` replaces the direction's vertical component verbatim.
 func spray(at: Vector3, direction: Vector3, count: int, speed: float, size: float, color: Color,
 		clear_seconds := 0.0, y_speed := NAN) -> void:
 	set_physics_process(true)

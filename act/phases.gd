@@ -1,8 +1,6 @@
 extends RefCounted
-## The act's frame-level presentation and the small values the live systems write back to it: the
-## act clock and blush, the wings and integrations tick, the render-pose diagnostic, the look and
-## forced-glance writes, the anatomy's fluid ground and shaft length, the readiness cue and the
-## oral edge's speech stop. No owner's rules live here.
+## The act's frame-level presentation and the small values the live systems write back to it; no
+## owner's rules live here.
 ##
 ## See `docs/runtime.md`, `docs/face.md`, `docs/readiness.md` and `docs/anatomy.md`.
 

@@ -1,8 +1,7 @@
 extends RefCounted
-## Service: summary. The act's grade and its post-act record. The runtime owns the act state, the
-## scene stop executor and the line/face presentation; this system owns the scoring trigger, the
-## grade-aware commit and the peak-memory record. The idle apology/reminder scan is lines and the
-## neglect meter is readiness. See docs/summary.md.
+## Service: summary
+## Contract: `docs/summary.md`
+## Owns the scoring trigger, the grade-aware commit and the peak-memory record.
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const ACT_SUMMARY := preload("res://mods/unfplap/summary/score.gd")

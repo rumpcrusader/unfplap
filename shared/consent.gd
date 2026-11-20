@@ -1,11 +1,9 @@
 extends RefCounted
-## integration: per-mare consent for the optional anatomy actions. Public consent is opt-in: no
-## mare offers sex with others around until the player enables it for her. Anal and oral are
-## deterministic from her id so a fresh save always gives the same mare the same answer until the
-## player edits it.
+## integration: per-mare consent for the optional anatomy actions. Public consent is opt-in, and
+## anal and oral follow from her id so a fresh save gives the same answer until the player edits it.
 ##
-## `KEYS` is the only consent key table: settings, the registry validator, the eligibility snapshot
-## and the Characters form all derive from it. See `docs/eligibility.md`.
+## `KEYS` is the only consent key table; settings, the validator, the eligibility snapshot and the
+## Characters form all derive from it. See `docs/eligibility.md`.
 
 const KEYS := ["public", "anal", "oral"]
 const LABELS := {

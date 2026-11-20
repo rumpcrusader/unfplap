@@ -1,11 +1,8 @@
 extends RefCounted
-## Snap the fitted dock's base ring to the rump surface.
-##
-## The dock is a body-skinned mesh, not a second skeleton tail: its 102 base-ring vertices are
-## weighted 100% to `pony_hips`. The game's `reach_rump()` only pushes the frontmost vertices
-## forward along Z, so most of the ring can stay 5-33 mm behind the rump. This module moves every
-## base-ring vertex to `hybrid_dock.rump_z(y) - EMBED`, then blends that correction over the first
-## FALLOFF of the dock so the base stretches into the coat instead of creasing.
+## Snap the fitted dock's base ring to the rump surface: every base-ring vertex moves to
+## `hybrid_dock.rump_z(y) - EMBED`, then the correction blends over the first FALLOFF.
+## The game's `reach_rump()` only pushes the frontmost vertices along Z, so most of the ring
+## would otherwise stay behind the rump.
 
 const HYBRID_DOCK := preload("res://world/characters/hybrid_mare/hybrid_dock.gd")
 
@@ -89,13 +86,12 @@ static func snap_base(mesh: ArrayMesh, body: String) -> ArrayMesh:
 	return out
 
 
-## Rebuild outward normals after the base ring moves. `reach_rump()` leaves the old normals;
-## this keeps the stretched base lit correctly. The topology winding is consistent, so the
-## original normals decide the sign.
+## Rebuild outward normals after the base ring moves; the original normals decide the sign
+## because the winding is consistent.
 static func _recompute_normals(arrays: Array) -> void:
 	var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
-	# Accumulate in an Array: GDScript Packed arrays are value types, so a PackedVector3Array
-	# passed to `_accumulate()` would only be modified locally.
+	# Accumulate in an Array: Packed arrays are value types, so a passed-in one would only change
+	# locally.
 	var normals: Array = []
 	normals.resize(vertices.size())
 	normals.fill(Vector3.ZERO)

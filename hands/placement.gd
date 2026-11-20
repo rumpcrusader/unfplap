@@ -27,9 +27,8 @@ func _init(facts_context: Variant = null) -> void:
 	facts = facts_context
 
 
-## Build the palm frame for one hand. `path` is a hand path (see hands/path_base.gd), and
-## `context` carries lean, oval phase/radii, hover and the snap state. Returns an invalid
-## transform when the path and the last good target are both unavailable.
+## Build the palm frame for one hand from the path's ordered candidates.
+## An invalid transform means neither the path nor a last good target is available.
 func frame(pony: Variant, path: Variant, hand_side: String, context: Dictionary) -> Transform3D:
 	if not is_instance_valid(pony) or path == null:
 		return _last_or_invalid(hand_side)
@@ -136,9 +135,7 @@ func _place_candidate(pony: Variant, hand_side: String, candidate: Dictionary,
 	var roll := float(candidate.get("roll", 0.0))
 	var region := str(candidate.get("region", "torso"))
 	var hover := float(context.get("hover", 0.0))
-	# A single published vertex is already on the coat: its skinned point is the contact, so the
-	# posed-coat snap, normal blur and correction smoothing are redundant. This keeps a moving
-	# head path out of the surface rebuild cost.
+	# Skipping the snap and blur keeps a moving head path out of the surface rebuild.
 	if bool(candidate.get("exact", false)):
 		var exact_target := HAND.place(intended, normal, finger, hand_side, mode, roll, hover)
 		_debug[hand_side] = {
@@ -255,9 +252,8 @@ func _state(key: String) -> Dictionary:
 	return _states[key]
 
 
-## The intended contact is never delayed: only the correction from the intended point to the
-## exact surface hit is low-passed. A moving oval therefore keeps its size and speed, while a
-## triangle flip at a crease is eased.
+## Only the correction from the intended point to the surface hit is low-passed.
+## A moving oval keeps its size and speed; a triangle flip at a crease is eased.
 func _smooth_precise(state: Dictionary, intended: Vector3, hit: Vector3, normal: Vector3,
 		delta: float) -> Dictionary:
 	var fresh := str(state.get("source", "")) != "precise" \

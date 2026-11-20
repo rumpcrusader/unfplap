@@ -28,6 +28,26 @@ run `scripts/lint.sh`. The source-checks CI job runs the same command and blocks
 finding. The tree is clean; a new finding fails. Pin gdtoolkit 4.5.0; bump it deliberately with a
 Godot upgrade and re-run the gate.
 
+## Comments
+
+Comments are shape-gated, not prose-reviewed. `scripts/comments.py --check` runs inside
+`scripts/lint.sh` and in the source-checks CI job; tests and tools are excluded like gdlint. The
+rules:
+
+- a file header is at most five `##` lines: `Service:`/`Contract:`/`Scope:`/`Import:` plus one
+  purpose sentence;
+- any other `##` block is at most two lines: the promise, then one clause of why;
+- a `#` block is at most three lines;
+- no backticked private `_member` (Godot engine virtuals excepted);
+- every backticked `docs/x.md` and its `` `## Heading` `` anchor must exist;
+- a comment sentence may not copy a sentence from `docs/*.md` or `ARCHITECTURE.md`.
+
+`--audit` prints every finding as JSON and `--self-test` runs the rule fixtures that `lint.sh`
+executes first. The gate checks shape and rename-safety only; whether a comment earns its place is
+review, under `AGENTS.md`. The reason for
+the caps is churn: a comment that names a member, a count or a doc sentence must be edited on every
+rename or refactor, and a two-line block cannot grow back into a second copy of the owning doc.
+
 ## Complexity
 
 Complexity. gdradon cc is not used. It converts GDScript to Python and cannot parse some of the

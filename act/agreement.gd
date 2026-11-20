@@ -1,7 +1,6 @@
 extends RefCounted
 ## The scene-only Agreement start and the act key's immediate start: the frozen-pose verdict, the
-## presentation wait, the hotkey readiness and the footstool hint. It runs the start ledger only
-## after every gate passes.
+## presentation wait, the hotkey readiness and the footstool hint.
 ##
 ## See `docs/runtime.md`, `docs/offer.md`, `docs/negotiation.md` and `docs/scene_gate.md`.
 
@@ -86,7 +85,7 @@ func agreement_offer_ready(handle: Variant, skip_presentation := false) -> bool:
 	return true
 
 
-## The hotkey's readiness: the scene-only rows plus Base clearance. The act key never bucks.
+## The act key's readiness check; unlike a policy start it never bucks.
 func hotkey_ready(pose: String, act_source: String, bed_in: Variant = null) -> bool:
 	session.refresh_identity()
 	var stool_act: Variant = session.stool()

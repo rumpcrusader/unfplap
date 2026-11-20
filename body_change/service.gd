@@ -3,10 +3,7 @@ extends Node
 ## Contract: docs/body_change.md
 ## Scope: world
 ## Import: body_change/service.gd only
-##
-## The base body-change service: the per-body form store and its default own form, the typed source
-## and binding registries, the active-change read and the legacy metadata mirror. A source provider
-## owns its pack and its own observation; the service never polls.
+## Per-body form store, provider and binding registries, binding fan-out.
 
 const ANATOMY_BINDING := preload("res://mods/unfplap/anatomy/body_binding.gd")
 const BODY_BINDING := preload("res://mods/unfplap/shared/body_binding.gd")
@@ -23,15 +20,13 @@ const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
-## The game's pony `set_body_scale()` clamps its capsule to this range. A provider's form carries
-## the same value the capsule takes, so the descriptor, the mesh scale and the capsule never
-## disagree.
+## The game's `set_body_scale()` clamps the capsule to this range; a form carries the clamped
+## value so the descriptor, the mesh scale and the capsule never disagree.
 const BODY_SCALE_MIN := 0.25
 const BODY_SCALE_MAX := 4.0
 
 ## The log sink. `LOG.debug()` carries the mod id and obeys the debug toggle.
 var _log: Callable = Callable()
-## Registration order is the binding fan-out order and the source lookup order.
 var _sources: Array[BODY_CHANGE_SOURCE] = []
 var _bindings: Array[BODY_BINDING] = []
 ## Presented body -> its form. The default form is cached here too, so a read never rebuilds it.
@@ -40,8 +35,6 @@ var _forms: Dictionary = {}
 ## mutation still refreshes; comparing the stored form's own field would compare the new value.
 var _revisions: Dictionary = {}
 var _bound: Dictionary = {}
-## Active changes by provider and by presented body. A provider runs one change at a time, so the
-## source key is unique; the body key makes the runtime's lookup O(1) for the old and new body.
 var _active_by_source: Dictionary = {}
 var _active_by_body: Dictionary = {}
 
@@ -63,10 +56,7 @@ func apply_settings() -> void:
 			apply_tail_placement(pony)
 
 
-## Construct and register every body-bound system from the facades the entry built. The order is
-## the fan-out order and the service log's order: anatomy, runtime, LOD, garments, stock smack. A
-## facade the build or the player did not provide registers no binding, so an absent pack leaves
-## the rest of the chain running.
+## Builds the built-in binding chain in fan-out order; a missing facade registers none.
 func wire(anatomy: Node, pantyhose: Node, stock_smack: Node) -> void:
 	if is_instance_valid(anatomy):
 		var anatomy_binding: RefCounted = ANATOMY_BINDING.new()
@@ -212,15 +202,14 @@ func active_change_for(body: Node3D) -> BODY_CHANGE:
 	var stored: Variant = _active_by_body.get(body)
 	if stored is BODY_CHANGE and _is_live_change(stored):
 		return stored
-	# The provider may have filled a typed field without a notification; a miss is not per frame.
+	# A typed field can fill without a notification; a miss here is not per frame.
 	for change: BODY_CHANGE in _active_by_source.values():
 		if _is_live_change(change) and (change.previous_body == body or change.next_body == body):
 			return change
 	return null
 
 
-## Compatibility read of the first live change in source order. The runtime uses
-## `active_change_for()`; this is the diagnostics and tests read.
+## Compatibility read for diagnostics and tests; the runtime uses `active_change_for()`.
 func active_change() -> BODY_CHANGE:
 	for source: BODY_CHANGE_SOURCE in _sources:
 		var stored: Variant = _active_by_source.get(source)
@@ -273,15 +262,14 @@ func apply_form(body: Node3D, form: BODY_FORM.BodyForm) -> void:
 	_log_apply(body, form, previous, action)
 	if action == "bind":
 		_bound[body] = true
-		# A body that leaves the tree releases its bindings once. The seat's own exiting hook only
-		# covers its tree life; an explicit unbind that keeps the body is the binding's call.
+		# The seat's own exiting hook only covers its tree life; an explicit unbind that keeps the
+		# body is the binding's call.
 		body.tree_exiting.connect(_unbind_on_exit.bind(body), CONNECT_ONE_SHOT)
 		_notify_bind(body, form)
 	elif action == "refresh":
 		_notify_refresh(body, form)
 
 
-## Adopt a presented body with its stored or default form. Idempotent for an already bound body.
 func bind_body(body: Node3D) -> void:
 	if not is_instance_valid(body) or _bound.has(body):
 		return
@@ -465,8 +453,6 @@ func _drop_body_index(change: BODY_CHANGE) -> void:
 			_active_by_body.erase(body)
 
 
-## A body that leaves releases only the change keyed to it. The old body of an adopted change keeps
-## the change on the new body; a new body that leaves cannot settle and clears it.
 func _prune_body_change(body: Node3D) -> void:
 	var stored: Variant = _active_by_body.get(body)
 	if not stored is BODY_CHANGE:

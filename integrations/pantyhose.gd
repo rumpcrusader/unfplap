@@ -1,21 +1,7 @@
 extends Node
-## Pantyhose & Panties by mitty: the world-side compatibility adapter for the optional anatomy.
-##
-## The pack cuts a worn piece from the pony's own body and skins it with her skin, so the
-## anatomy mesh pokes through the cloth. This adapter samples a depth field built from the
-## anatomy mesh (see `anatomy/garment_hull.gd`) and lifts each garment surface over it with a
-## self-contained copy of the 0.1.1 look shaders. While the cloth-jiggle flag is on, the same
-## copied shaders make the worn piece follow the pony's live flank wobble through
-## `integrations/garment_jiggle.gd`. It also takes the lower garment off when an
-## anatomy act starts, through the game's own `take_off` action, so the pack's `pony_off` state and
-## the outcome her dialogue prompt reads are the same as when she takes it off herself.
-##
-## Scope: world. The entry's service list constructs it once and calls
-## `on_world(host)`/`on_world_closed()` with the world; `apply_live_settings()` runs on every
-## settings edit. It never preloads the entry, `runtime.gd` or an anatomy private file; it reads
-## the anatomy facade and the scene's public nodes. The pack itself is never edited.
-##
-## See `docs/integrations.md` and `docs/anatomy.md` (`## Garment hull`).
+## Pantyhose & Panties world adapter: keeps worn panties and pantyhose clear of the optional
+## anatomy, lets the cloth follow the rump wobble and starts each act undressed.
+## Scope: world. It never preloads the entry or `runtime.gd` and never edits the pack.
 
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
@@ -36,10 +22,8 @@ const KIND_PREFIXES := ["panties-", "pantyhose-"]
 const DISCOVER_S := 0.5
 ## A precision edit waits for the drag to settle before the one-time rebuild.
 const REBUILD_DELAY_S := 0.3
-## The garment pass runs at this priority, after the coat's own `FlankTouch._process` (priority 0),
-## so it reads the wobble the rendered coat uses in the same frame. The entry's 100 does not
-## reach a
-## child, and a game change that moves `FlankTouch` later must move this with it.
+## Runs after the coat's own `FlankTouch` pass, so the cloth reads this frame's wobble. A game
+## change that delays `FlankTouch` must delay this too.
 const PROCESS_PRIORITY := 100
 ## The debug heatmap sits this far in front of the field surface (anatomy-local metres).
 const OVERLAY_Z_LIFT := 0.0015
@@ -81,8 +65,8 @@ var _tracked: Dictionary = {}
 var _applied: Dictionary = {}
 ## original material instance id + variant -> compatibility material
 var _materials: Dictionary = {}
-## The debug heatmap. It is a top-level child of this node and copies the anatomy mesh's
-## transform, so it is visible even when the anatomy mesh is hidden (far mesh / act mode).
+## The debug heatmap. It is top-level and copies the anatomy transform, so a hidden anatomy
+## still shows it.
 var _overlay: MeshInstance3D
 var _overlay_texture: Variant = null
 var _overlay_parent: Node3D = null
@@ -99,7 +83,7 @@ func setup() -> void:
 	CHANGE.on_changed(Callable(self, "apply_live_settings"))
 
 
-## The world entered. Called from the entry's `_on_world`.
+## Called by the entry when the world is ready.
 func on_world(host: Node) -> void:
 	_game = host
 	_discover_clock = 0.0
@@ -287,9 +271,8 @@ func _update_garments() -> void:
 		_apply_node(mesh_node, pony as Node3D, hull, xform)
 
 
-## Gives the node's surfaces the compatibility override, the lift's instance values when there is a
-## lift, and the pony's wobble while the cloth-jiggle flag is on. Restores the node when neither
-## the lift nor the jiggle needs the copy.
+## Gives the surfaces the compatibility override plus the lift values and, with the flag on, the
+## pony's wobble. Restores the node when neither is needed.
 func _apply_node(node: MeshInstance3D, pony: Node3D, hull: Variant, xform: Transform3D) -> void:
 	if hull == null and not _jiggle_enabled:
 		_restore_if_applied(node)
@@ -369,8 +352,8 @@ func _apply_node(node: MeshInstance3D, pony: Node3D, hull: Variant, xform: Trans
 		applied.jiggling = false
 
 
-## A margin in millimetres as anatomy-local units; the shader converts the local push back by
-## the basis' Z scale, so the slider stays in world millimetres on every body size.
+## Millimetres as anatomy-local units. The shader scales the push back, so the slider reads
+## world millimetres.
 static func _margin_local(xform: Transform3D, millimetres: float) -> float:
 	var scale := (xform.basis * Vector3(0.0, 0.0, 1.0)).length()
 	return (millimetres / 1000.0) / maxf(scale, 0.0001)
@@ -387,8 +370,7 @@ func _restore_node(node: Node, applied: Applied) -> void:
 	if not is_instance_valid(node) or not node is MeshInstance3D:
 		return
 	var mesh_node := node as MeshInstance3D
-	# Clear the instance uniforms while our compatibility material is still the override; the
-	# pack's shader does not know their names.
+	# Clear the uniforms before the pack material returns; it lacks these names.
 	mesh_node.set_instance_shader_parameter("hull_on", 0.0)
 	if applied.jiggling:
 		GARMENT_JIGGLE.clear(mesh_node)
@@ -496,11 +478,8 @@ func _disconnect_anatomy() -> void:
 		anatomy.disconnect("act_started", _on_act_started)
 
 
-## The act start. `wanted()` names the pieces she wears, and `_take_off_action()` sends one
-## `take_off` per kind, so the pack's `set_worn`/`dress` run synchronously and the first rendered
-## act frame is already undressed. A missing director, executor or accepted commit falls back to
-## the same two wardrobe calls. There is no restore on act end: she stays undressed until she is
-## asked or given a new piece.
+## The act start: one `take_off` per worn kind, so dialogue records the undress; a missing
+## director or executor falls back to the wardrobe calls.
 func _on_act_started(pony: Node3D) -> void:
 	if not _undress or not _mod_active_now():
 		return
@@ -546,9 +525,8 @@ static func _worn_hosiery(worn: Variant) -> Array[String]:
 	return kinds
 
 
-## The `take_off` action her own reply would use. The game's executor runs the pack's `set_worn`
-## and `dress` and records the outcome for her prompt. False when it cannot run or the pieces are
-## still worn, so the caller takes the direct path.
+## The `take_off` action her own reply would use, so its outcome reaches her prompt. False when
+## it cannot run or the pieces survive, and the caller then takes the direct path.
 func _take_off_action(tree: SceneTree, id: String, kinds: Array[String], wardrobe: Node,
 		season: String) -> bool:
 	var director: Node = tree.get_first_node_in_group("conversation_director")
@@ -609,8 +587,8 @@ func _show_overlay(pony: Node3D, hull: Variant, parent: Node3D) -> void:
 		if overlay.get_parent() != null:
 			overlay.get_parent().remove_child(overlay)
 		add_child(overlay)
-	# The field is in the anatomy mesh's local space. Copy that mesh's live transform instead of
-	# parenting to it, so a hidden far/act mesh does not hide the debug heatmap.
+	# The field lives in anatomy-mesh space; copy the transform rather than parenting, so a
+	# hidden mesh leaves the heatmap visible.
 	overlay.top_level = true
 	overlay.global_transform = parent.global_transform
 	if _overlay_texture != hull.texture:

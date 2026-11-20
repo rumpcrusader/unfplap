@@ -3,17 +3,7 @@ extends Node
 ## Contract: docs/offer.md
 ## Scope: world
 ## Import: offer/service.gd only
-##
-##   offer = OFFER.new()
-##   offer.bind(negotiation, privacy, hud)
-##   add_child(offer)
-##
-## The idle act offer: the one-second scene scan, the standing gate behind it, the typed offer the
-## act key would start, the footstool block and the "Make love" hint beside the game's prompt row.
-## It also owns the act start that follows a scan: the act key's press, the hotkey attempt, the
-## live Agreement start and the Agreement's own auto-start. Every scene read is `WORLD`; the pony
-## registry, the act-target rule and the live act are the preloaded `PONIES` facade, so this
-## service never preloads the runtime.
+## The idle act offer: what a press could start, and the start itself.
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
@@ -33,23 +23,20 @@ const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const RUMP_CONE := preload("res://mods/unfplap/shared/rump_cone.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 
-## The offer hint beside the game's prompt row: a single act-key press starts the act, so it reads
-## like the base game's tap prompts ("G · Carry"), not a hold. Only holding the act key during an
-## act is a hold.
+## The act-key hint in the prompt row. A press taps it like a base prompt, so it never reads as a
+## hold.
 const OFFER_HINT := "Make love"
 ## The idle offer hint's scan cadence.
 const OFFER_SCAN_S := 1.0
-## The standing gate's refresh cadence while the same mare stays the cone target; the scan reads
-## the cone every `OFFER_SCAN_S`, the full gate is the expensive half.
+## The standing gate's refresh cadence for one mare; the full gate is expensive, so the cone scan
+## reuses its verdict between refreshes.
 const GATE_REFRESH_S := 2.0
 ## The standing-act note when her reach needs a footstool and Anon has none in the case.
 const NEEDS_STOOL_HINT := "Needs a footstool"
 ## The Agreement auto-start's readiness cadence.
 const AGREEMENT_START_S := 0.25
-## The runtime's Agreement start answer, the protocol `runtime.start_agreement()` returns: a
-## transient row or an unsettled presentation waits, a technical rollback is a failure. It is
-## restated here because a service never preloads the runtime; `tests/offer/test_start.gd` holds
-## the two in agreement.
+## The runtime's Agreement start answer: a wait leaves it for the next press, started and failed
+## both end it. Kept local because this service never preloads the runtime.
 const AGREEMENT_WAIT := 0
 const AGREEMENT_STARTED := 1
 
@@ -57,9 +44,8 @@ const AGREEMENT_STARTED := 1
 func _gate(runtime: Node) -> Variant:
 	return runtime.get("gate")
 
-## Set by the entry's `bind()`: the Negotiation service, whose live Agreement is offered before the
-## scan. A plain handle because this side only calls its public reads, and `agreement_offer()`
-## keeps the typed `AGREEMENT.Handle` contract.
+## The Negotiation service bound by the entry; its live Agreement is offered before the scan. It
+## stays a plain handle because only its public reads are used.
 var negotiation: Node = null
 ## Set by the entry's `bind()`: the privacy provider, resampled before a private Agreement
 ## auto-starts.
@@ -72,8 +58,8 @@ var hud: Node = null
 var _offer: POSE_OFFER = null
 var _offer_blocked: POSE_OFFER = null
 var _offer_clock := 0.0
-## The standing gate's last verdict and its footstool pair, reused while the same mare stays the
-## cone target. See `_standing_ready()`.
+## The standing gate's last verdict and its footstool pair, kept while the same mare holds the
+## cone target.
 var _gate_target: Node
 var _gate_at := 0.0
 var _gate_ready := false
@@ -125,8 +111,8 @@ func tick(delta: float) -> void:
 	_tick_agreement_auto_start(delta)
 
 
-## The current offer's pony, for the Proactive service's cuddle check. It reads the scan result
-## and never rescans: the loop owns the cadence.
+## The current offer's pony, for the Proactive service's cuddle check; a pure read that never
+## rescans, because the loop owns the cadence.
 func offer_target() -> Node:
 	if _offer == null:
 		return null
@@ -134,7 +120,7 @@ func offer_target() -> Node:
 	return target if is_instance_valid(target) else null
 
 
-## The playable offer the act key would start, or null.
+## The offer a press would start, or null.
 func current() -> POSE_OFFER:
 	return _offer
 
@@ -157,8 +143,8 @@ func hide_hint() -> void:
 	_sync_native_hint("")
 
 
-## The act key's one start entry. The act key is the hotkey: it always accepts, never bucks or
-## refuses, and a missing context pose is no attempt. The tolerance stop owns the refusal path.
+## The act key's one start entry. It always accepts and never refuses; a missing context pose is
+## no attempt, since the tolerance stop owns the refusal path.
 func try_start() -> bool:
 	if PONIES.act_running():
 		return false
@@ -172,8 +158,7 @@ func try_start() -> bool:
 	return start_pose_offer(_offer)
 
 
-## The one typed act-start path. The act key and the Agreement auto-start call this. The offer
-## carries its pose and trigger, so this function never names a pose.
+## Dispatch a typed offer to its trigger's start path, so no pose is named here.
 func start_pose_offer(offer: POSE_OFFER) -> bool:
 	if offer == null or not offer.valid():
 		return false
@@ -187,9 +172,8 @@ func start_pose_offer(offer: POSE_OFFER) -> bool:
 	return _start_hotkey_offer(offer)
 
 
-## The hotkey: a live Agreement's exact match starts it immediately and skips the presentation;
-## any other live negotiation or Agreement is interrupted and the immediate attempt runs. The
-## attempt is Base clearance plus the scene-only rows, with no offer cooldown.
+## The hotkey: an exact Agreement match starts it and skips the presentation; otherwise any live
+## negotiation or Agreement is interrupted and the immediate attempt runs.
 func _start_hotkey_offer(offer: POSE_OFFER) -> bool:
 	var runtime: Node = offer.runtime
 	if not is_instance_valid(runtime):
@@ -227,9 +211,8 @@ func _option_for(offer: POSE_OFFER) -> POSE_OPTIONS.Option:
 	return option
 
 
-## The act key consumes a live Agreement through its scene-only start. `WAIT` keeps the hint and
-## the Agreement for the next press; a started or failed attempt clears the hint and hands the
-## result to the Negotiation service. `skip_presentation` is the exact hotkey match.
+## Consume a live Agreement through its scene-only start. A wait keeps both for the next press;
+## started or failed clears the hint and reports the result.
 func _start_agreement_offer(offer: POSE_OFFER, skip_presentation: bool) -> bool:
 	var handle: Variant = negotiation.call("handle") if is_instance_valid(negotiation) else null
 	if handle == null or not is_instance_valid(offer.runtime):
@@ -248,15 +231,13 @@ func _start_agreement_offer(offer: POSE_OFFER, skip_presentation: bool) -> bool:
 	return result == AGREEMENT_STARTED
 
 
-## The Agreement's automatic start: it waits for the presentation to settle and Anon to be in
-## position, then consumes the handle with no key press. A live act, a menu, a paused tree or a
-## loose cursor holds it. A private Agreement takes a fresh privacy sample; the exact hotkey match
-## does not, because a live Agreement's own visibility wins for that press.
+## The Agreement's automatic start: once the presentation settles and Anon is in position it
+## consumes the handle with no key press. A live act, menu, paused tree or free cursor holds it back.
 func _tick_agreement_auto_start(delta: float) -> void:
 	if PONIES.act_running() or not is_instance_valid(negotiation):
 		return
-	# The clock runs before the handle read so the common frame pays one arithmetic step: a
-	# handle that appears between polls is consumed on the next one, 0.25 s later at most.
+	# The clock ticks before the handle read, so the common frame pays one arithmetic step and a
+	# handle that shows up mid-poll is caught on the next tick.
 	_agreement_clock += delta
 	if _agreement_clock < AGREEMENT_START_S:
 		return
@@ -291,8 +272,8 @@ func _tick_agreement_auto_start(delta: float) -> void:
 	_start_agreement_offer(typed, false)
 
 
-## A fresh privacy sample for the auto-start, with the offer's cuddle rule. A missing provider
-## reads as public, so a private Agreement does not start on a stale answer.
+## A fresh privacy sample for the auto-start, with the offer's cuddle rule. Without a provider the
+## answer is public, so nothing starts on a stale one.
 func _agreement_private_now(pony: Node, cuddle: bool) -> bool:
 	if not is_instance_valid(privacy):
 		return false
@@ -332,8 +313,8 @@ func on_world(_host: Node) -> void:
 		POSES.warm_asset(asset_path)
 
 
-## A world enter or a world close: no offer, no gate verdict, no one-shot flags, and the hint row
-## is detached from the world that is gone.
+## A world enter or a world close: drop the offer, the gate verdict, the one-shot flags and the
+## hint row of the world that is gone.
 func on_world_closed() -> void:
 	_offer = null
 	_offer_blocked = null
@@ -349,8 +330,7 @@ func on_world_closed() -> void:
 	_clear_native_hint()
 
 
-## One full scan: the live Agreement first, then the bed-side and already-lying missionary rows,
-## then the standing cone and its gate.
+## The scan order: the Agreement, then the two bed rows, then the standing cone and gate.
 func scan() -> void:
 	_offer = null
 	_offer_blocked = null
@@ -405,8 +385,8 @@ func scan() -> void:
 					_log_offer()
 					return
 
-	# Standing: Anon must stand in the cone behind her rump. No crosshair aim is needed. The
-	# hotkey readiness is Base clearance plus the scene-only rows, with no policy snapshot.
+	# Standing: Anon in the cone behind her rump, no crosshair aim. Only clearance and the scene
+	# rows make her ready.
 	var timed := LOG.idle_on()
 	var cone_started := Time.get_ticks_usec() if timed else 0
 	var standing: Node = _rump_cone_target(view)
@@ -431,8 +411,8 @@ func scan() -> void:
 					_log_blocked_offer(runtime, standing, need)
 
 
-## The hint beside the game's prompt row: the offer, else the blocked note, else nothing. No
-## offer of either kind clears both logged keys, so the same offer logs again when it returns.
+## The prompt-row hint: the offer, else the blocked note, else nothing. With neither, both logged
+## keys reset so the next offer logs again.
 func _hint_text() -> String:
 	if _offer != null:
 		return OFFER_HINT
@@ -444,11 +424,8 @@ func _hint_text() -> String:
 	return ""
 
 
-## The standing gate, with its verdict reused while the same mare stays the cone target. The full
-## gate costs about half a millisecond (the scene rows, the pose rows and her relationship ladder),
-## and its inputs change on a state transition the cone scan cannot see, so it is refreshed every
-## `GATE_REFRESH_S`. The act key runs the gate again on every press, so a reused verdict can only
-## hold the hint back, never start or block an act.
+## The standing gate, with one mare's verdict reused across scans. The act key runs it again on
+## every press, so a stale yes can only hide the hint, never start an act.
 func _standing_ready(target: Node, runtime: Node) -> bool:
 	var now := Time.get_ticks_msec() * 0.001
 	if target == _gate_target and now - _gate_at < GATE_REFRESH_S:
@@ -465,8 +442,8 @@ func _standing_ready(target: Node, runtime: Node) -> bool:
 	return _gate_ready
 
 
-## Build one typed offer for the idle scan. A live Agreement press is consumed by the scene-only
-## start, not a request close, so the idle offers carry no cancel callback.
+## Build one typed offer for the idle scan. The idle offers carry no cancel callback because a
+## live Agreement press goes through the scene-only start.
 func _new_offer(runtime: Node, pony: Node, pose: String, source: String,
 		bed: Variant = null) -> POSE_OFFER:
 	var offer := POSE_OFFER.new()
@@ -483,15 +460,14 @@ func _blocked_record(need: int, hint: String) -> Dictionary:
 	return {"hint": hint, "need": maxi(1, need), "toast": _stool_find_hint(need)}
 
 
-## The standing act-key zone: the nearest standing mare whose rear cone holds Anon. The cone alone
-## decides, so the crosshair can point anywhere as long as he stands behind her rump.
+## The standing act-key zone: the nearest standing mare whose rear cone holds Anon. Only the cone
+## decides; the crosshair may point anywhere.
 func _rump_cone_target(view: Camera3D) -> Node:
 	if not is_instance_valid(view):
 		return null
 	var eye: Vector3 = view.global_position
-	# Geometry first: eligibility resolves a whole profile per mare, so only the in-cone
-	# candidates pay for it, and only while they beat the nearest eligible one already found.
-	# One pass keeps the scan allocation-free: the scan runs every second in the frame.
+	# Geometry first: a profile resolve is expensive, so only in-cone candidates pay for it and
+	# only while they beat the nearest eligible find. One pass keeps the scan allocation-free.
 	var best: Node3D = null
 	var best_distance := INF
 	for node: Variant in WORLD.mares():
@@ -545,8 +521,7 @@ func _native_row() -> HBoxContainer:
 	return null
 
 
-## The offer hint is one more unit in the game's own prompt row, in that row's style and phrasing
-## ("Hold G · Bridal carry" reads as "Hold: ..."), so it sits beside base prompts unnoticed.
+## Match the native prompt row's style so the hint blends in beside base prompts.
 func _make_native_hint_label(text: String) -> Control:
 	var cap := _act_key_label() if text == OFFER_HINT else ""
 	return HUD.prompt_row("", text, cap)
@@ -607,7 +582,7 @@ func _sync_native_hint(text: String) -> void:
 		hud.call("hide_prompt")
 
 
-## The act key's key cap label, read when a hint row is built and never per frame.
+## The act key's cap label, resolved once when a hint row is built.
 func _act_key_label() -> String:
 	return ACT_KEYS.label(int(SETTINGS.act_key.get_num()))
 
@@ -637,9 +612,8 @@ func _log_blocked_offer(runtime: Node, target: Node, need: int) -> void:
 		HUD.toast(_stool_find_hint(need), 4.0)
 
 
-## The live Agreement as the act key's own typed offer. It is a yes already, so the rump fan and
-## the policy snapshot do not rediscover it; the scene-only rows and the settled presentation
-## decide the hint. Null while the world is not ready.
+## A live Agreement typed as a press offer; no rump fan or policy snapshot is needed.
+## Null while the world is not ready.
 func agreement_offer(handle: NEGOTIATION.AGREEMENT.Handle) -> POSE_OFFER:
 	if handle == null:
 		return null

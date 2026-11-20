@@ -9,8 +9,7 @@ const STYLE := preload("res://world/ui/menu_style.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 
-## The Debug block's action buttons, plus the last result. Actions that share a `row` are drawn
-## compactly on one line under the row's caption, so the block stays short.
+## Fill a Debug block with its action buttons and the last result; shared rows draw on one line.
 static func build_actions(list: VBoxContainer, font_size: int, target: Node, tab := "general") -> void:
 	var box := VBoxContainer.new()
 	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL

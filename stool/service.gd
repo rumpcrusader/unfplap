@@ -97,8 +97,7 @@ func free_prop(prop: Variant) -> void:
 	PROP.remove(prop)
 
 
-## One act's footstool state. The runtime creates one per pony, resets it per act and binds the
-## scene each access.
+## One act's handle; the runtime keeps it and resets it per act.
 func new_act() -> RefCounted:
 	var act: RefCounted = ACT.new()
 	act.facade = self

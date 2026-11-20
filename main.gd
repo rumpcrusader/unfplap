@@ -1,23 +1,8 @@
 extends Node
-## unfplap mod entry: the primitives, the ordered service list, the frame order and one teardown.
+## unfplap mod entry: the ordered service list, the entry frame and the one release.
 ##
-## `_ready()` loads the settings, attaches the log sink and builds every long-running service in
-## the one list `_build_services()` writes. The list order is the call order of every broadcast:
-##
-## - `_on_world(host)`: `WORLD.bind_world`, every `on_world(host)` in list order, then the two
-##   static facades that are not list members (`PONIES.reset()`, `LOG.reset()`);
-## - `_on_player(body)`: `WORLD.bind_player`, every `on_player(body)` in list order;
-## - `_on_world_closed()`: the "world closed" line, then `_release()`;
-## - `_exit_tree()`: `_release()`, the registry shutdown, every `shutdown()` in reverse list order.
-##
-## `_release()` is the one release sequence: every service's `on_world_closed()`, then
-## `WORLD.unbind()`, then the log window. A world close and the process exit both run it, so a
-## service cannot be released in one path and forgotten in the other. `WORLD` stays outside the
-## loop because it is the scene read every service makes: bound before the first service and
-## unbound after the last.
-##
-## A service takes part in a broadcast by naming the hook (`on_world(host)`, `on_world_closed()`,
-## `on_player(body)`, `shutdown()`); a hook it does not implement is skipped.
+## A service joins a broadcast by being in the list and naming the hook; the world close and the
+## process exit run the same release, so a service cannot be released on one path and forgotten.
 
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
@@ -47,15 +32,15 @@ const API := preload("res://mods/unfplap/api.gd")
 const PONY_PATH := "res://world/characters/locomotion/pony_locomotion.gd"
 const SETTINGS_PAGE_PATH := "res://world/ui/settings_page.gd"
 
-## The long-running services in construction order. The list is the lifecycle: `_on_world`,
-## `_on_player`, `_release` and `_shutdown` walk it, so a service joins a broadcast by being here.
+## The long-running services in construction order: every broadcast walks the list, so a service
+## joins a broadcast by being here.
 var _services: Array = []
 
 var hud: HUD
 var input: INPUT
 ## Cross-mod API facade; see docs/api.md.
 var api: API
-## Anatomy system facade: per-pony controllers, the player part and tail seating.
+## Anatomy system facade: one controller per pony, the player part and its tail seat.
 var anatomy: ANATOMY
 ## Base body-change service: the per-body form store and the source/binding registries. Inert until
 ## `wire()` builds the bindings from the facades above and the providers register with it.
@@ -85,9 +70,8 @@ var offer: OFFER
 var debug_actions: DEBUG_ACTIONS
 
 
-## Live act/afterglow context for the game's normal dialogue prompt (pony_prompt_notes). The
-## game calls a Node in the group, so the entry keeps the group join and this forward;
-## `ponies` is a RefCounted facade and owns the note.
+## Live act/afterglow context for the game's normal dialogue prompt; the game calls a Node in the
+## group, so the entry joins it and forwards to the RefCounted facade that owns the note.
 func prompt_note(pony: String) -> String:
 	return PONIES.prompt_note(pony)
 
@@ -123,7 +107,7 @@ func _ready() -> void:
 	# one factory, so no other entry member holds a runtime.
 	PONIES.factory = Callable(self, "_new_runtime")
 	PONIES.bind_settings()
-	# Proves which build is live: a real source file has a non-zero mtime; a pack/PCK reports 0.
+	# A source run carries a non-zero mtime and a pack 0, which the one log line records.
 	BUILD_STAMP.log_stamp()
 	mods.world_ready.connect(_on_world)
 	mods.world_closed.connect(_on_world_closed)
@@ -142,9 +126,8 @@ func _ready() -> void:
 			_on_player(existing)
 
 
-## The one ordered service list: each line constructs its service and joins it to the tree and to
-## `_services`; its `bind()` hands it the facades it reads. The order is load-bearing: a consumer is
-## built after the services it reads, and the static `PONIES` registry binds last.
+## The one ordered service list: each line constructs its service, joins it to the tree and binds
+## the facades it reads.
 func _build_services() -> void:
 	eligibility = _add(ELIGIBILITY.new())
 	memory = _add(MEMORY.new())
@@ -213,7 +196,8 @@ func _on_world(host: Node) -> void:
 		if is_instance_valid(service) and service.has_method("on_world"):
 			service.on_world(host)
 	# The two static facades are not list members: the registry drops the swap of the world that is
-	# gone and the log opens a fresh probe window.
+	# gone and the log opens a fresh probe window. The world binds before the first service and
+	# unbinds after the last, because every service reads it.
 	PONIES.reset()
 	LOG.reset()
 
@@ -241,15 +225,14 @@ func _on_player(body: Node) -> void:
 			service.on_player(body)
 
 
-## Every body the game spawns arrives here. `ponies` owns the registry, the prepare hooks
-## and the pending-swap adoption; the factory below is the entry's only runtime
-## construction.
+## Every body the game spawns arrives here; the registry owns the prepare hooks and the
+## pending-swap adoption, and the factory below is the entry's only runtime construction.
 func _on_pony(pony: Node) -> void:
 	PONIES.attach(pony)
 
 
-## The entry's one runtime construction: `ponies` calls it once per attached body. The
-## runtime file is the entry's preload, so the registry never imports it.
+## The entry's one runtime construction, called once per attached body. The runtime file is the
+## entry's preload, so the registry never imports it.
 func _new_runtime(pony: Node) -> Node:
 	var runtime: RUNTIME = RUNTIME.new()
 	runtime.name = "UnfplapRuntime"
@@ -257,9 +240,8 @@ func _new_runtime(pony: Node) -> Node:
 	return runtime
 
 
-## The settings page hook. No game-script extension is used. Opening the page re-reads
-## settings.json; the settings UI owns the deferred injection and the sub-tabs. Every call it
-## takes is a facade's, so the page never calls back into the entry.
+## The settings page hook: no game-script extension is used, the settings UI owns the deferred
+## injection. Every callable it takes is a facade's, so the page never calls back into the entry.
 func _on_settings_page(page: Node) -> void:
 	SETTINGS_UI.inject(page, Callable(debug_actions, "build_settings_block"),
 		Callable(PONIES, "live_character_ids"), Callable(SETTINGS, "profile_participation"),
@@ -314,8 +296,7 @@ func _exit_tree() -> void:
 
 
 ## The process-only release: the registry goes first, so every runtime is stopped and freed while
-## the services it reads are still alive; then each service's `shutdown()` runs in reverse list
-## order and the nodes leave the tree.
+## the services it reads are alive; then the service shutdown runs in reverse list order.
 func _shutdown() -> void:
 	PONIES.shutdown()
 	for index: int in range(_services.size() - 1, -1, -1):

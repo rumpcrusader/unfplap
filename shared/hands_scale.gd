@@ -1,11 +1,8 @@
 extends SkeletonModifier3D
-## Caress presentation: shrink the visible hands by scaling the hand bones themselves. Used by
-## both the standing and missionary holders.
-## Scaling a presentation marker would be discarded by `valve_body_ik.gd`, which orthonormalizes
-## the hand target before writing the bone. The hand bone includes the palm and every finger.
-##
-## This modifier is added after the stock BodyIK modifier, caches the hand scales it finds, and
-## restores them when the act ends.
+## Caress presentation: shrink the visible hands by scaling the hand bones themselves, used by both
+## holders. Scaling a presentation marker would be discarded by the body IK, which orthonormalizes
+## the hand target before writing the bone. The modifier is added after the stock BodyIK one, caches
+## the hand scales it finds and restores them when the act ends.
 
 const HAND_BONES := ["LeftHand", "RightHand"]
 

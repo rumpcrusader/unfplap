@@ -47,11 +47,8 @@ func cache(mare_node: Node3D, sk: Skeleton3D) -> void:
 			hind.append({"femur": femur, "lower": lower})
 
 
-## Write a bone's local pose so its global (skeleton space) pose becomes `target`, without ever
-## inverting a scaled basis. The stock hiders collapse a bone by scaling it to 0.001; Godot's
-## `set_bone_global_pose()` inverts the *parent's* full basis for that, which multiplies the offset
-## by 1000 every write — the pose then grows to `inf`. Only the parent's rotation and origin are
-## needed here, so the collapse cannot compound. The bone's own scale is carried through `target`.
+## Write a bone's local pose so its skeleton-space pose becomes `target`, using the parent's
+## orthonormal rotation. Stock hiders collapse bones to 0.001 and that inversion would grow 1000×.
 static func set_global(sk: Skeleton3D, bone: int, target: Transform3D) -> void:
 	if sk == null or bone < 0:
 		return
@@ -82,9 +79,8 @@ func rotate(sk: Skeleton3D, bone: int, axis: Vector3, angle: float) -> void:
 	_limit(sk, bone)
 
 
-## Same, without the joint-limit clamp. The hand-authored base pose can sit outside the limits the
-## game derives from its own motion library, and clamping the small gaze/presentation corrections
-## applied on top of it would snap the authored pose back.
+## As `rotate()`, with no joint-limit clamp: the hand-authored base sits beyond the limits of the
+## game's motion library, and a clamp would undo it together with its corrections.
 func rotate_free(sk: Skeleton3D, bone: int, axis: Vector3, angle: float) -> void:
 	if bone < 0 or absf(angle) < 0.00001:
 		return

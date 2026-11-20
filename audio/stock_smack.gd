@@ -1,11 +1,7 @@
 extends Node
-## The outside-act stock smack sound. The game's `FlankTouch` player keeps the decal, blush,
-## jiggle and reaction; this layer swaps only its stream, level and pitch for the pack hand-smack
-## variants while the pony is not in an act. The act hands path keeps its own per-impact swap.
+## Scope: world.
+## Swaps the native flank-smack sound for the pack variants while she is not in an act.
 ##
-## Scope: world. The entry's service list creates one; the entry calls `pony_ready()` for every
-## pony, `apply_settings()` on every settings edit and `act_start()`/`act_end()` with the act pony,
-## the list calls `on_world_closed()` on a world enter and close, and `shutdown()` runs on mod exit.
 ## See `docs/audio.md`.
 
 const CUES := preload("res://mods/unfplap/audio/smack_cues.gd")

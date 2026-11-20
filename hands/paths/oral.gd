@@ -1,7 +1,5 @@
 extends "res://mods/unfplap/hands/path_base.gd"
-## Standing oral caress path: one authored head-side node per hand. Anon faces her, so his left
-## hand holds her right side; the head area is authored from the mare's point of view and the
-## lookup is flipped here. There is no lean chain and no flank fallback.
+## Standing oral: a single authored node per hand on her head side, no chain and no fallback.
 
 const PATH := preload("res://mods/unfplap/hands/paths/anchors.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")

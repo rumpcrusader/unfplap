@@ -37,9 +37,8 @@ static func resolve(pony: Variant) -> Dictionary:
 	return {}
 
 
-## A visible tail that is not on either game skeleton: an integration sets the pony's
-## `tail_pose_root` metadata (or property) to the `Node3D` whose transform carries it. The tail
-## modifiers rotate and restore that node instead of the bone chain.
+## A visible tail off both game skeletons: an integration sets the pony's `tail_pose_root` metadata
+## to the node that carries it. The modifiers rotate that node instead of bones.
 static func custom_root(pony: Variant) -> Node3D:
 	if not is_instance_valid(pony):
 		return null

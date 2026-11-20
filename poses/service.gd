@@ -1,12 +1,9 @@
 extends RefCounted
-## The act's pose session: the skeleton pose modifier, the authored missionary base, the bed
-## frame, the extra modifiers (tail, tail lay, body sway, prone sway, ear twitch), the bone
-## snapshots and the pose diagnostics. The runtime owns the act state, the start order and the one
-## teardown ledger; it binds this session and calls the render-time write.
-##
-## The teardown is split by lifetime: the session owns the pose-scope steps
-## (`leave_pose_start()`, `leave_pose_body()` and the final `release_pose()`), while the act-scope
-## resets between them stay in the runtime's one pose ledger. Contract: docs/poses.md.
+## The act's pose session: the skeleton pose modifier, the authored missionary base, the bed frame,
+## the extra modifiers, the bone snapshots and the pose diagnostics. The act state, the start order
+## and the ledger behind the one teardown belong to the runtime. Contract: `docs/poses.md`.
+## The teardown is split by lifetime: the session owns the pose-scope steps and the act-scope resets
+## between them stay in the runtime's ledger.
 
 const POSE := preload("res://mods/unfplap/poses/skeleton_pose.gd")
 const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
@@ -104,8 +101,8 @@ var _target_spec: Variant = null
 ## The target's settings snapshot, by reference from the view's `to_config`.
 var _target_config: Dictionary = {}
 var _target_presentation: Dictionary = {}
-## The authored asset of each side of the live edge, or the live pose's asset outside an edge.
-## `_target_asset` is cached at request and adopted on completion.
+## The authored asset on each side of the live edge, or the live pose's asset outside one; the
+## target side is cached at request and adopted on completion.
 var _from_asset: Variant = null
 var _target_asset: Variant = null
 
@@ -135,8 +132,8 @@ var _tail_anchor := Vector3.INF
 var bed_frame: Variant = null
 var bed_frame_source := Transform3D.IDENTITY
 var bed_frame_source_saved := false
-## Ground space for a ground pose: the pony root's basis and position at pose start. It follows the
-## root's position and yaw each tick; the runtime reads it through `_pose_session.ground_frame`.
+## Ground space for a ground pose, seeded from the pony root at pose start. It tracks the root's
+## position and yaw every tick.
 var ground_frame: Variant = null
 var ground_frame_source := Transform3D.IDENTITY
 var ground_frame_source_saved := false
@@ -175,8 +172,8 @@ var eye_camera := Callable()
 ## actions the edge events fire. A missing callback is a no-op.
 var mouth_point := Callable()
 var opening_point := Callable()
-## The face contact's real anchor on the act body. The face driver (D5) reads it; a missing
-## callback is a no-op.
+## The face contact's real anchor on the act body, read by the face driver; without a bound callback
+## it does nothing.
 var face_point := Callable()
 var oral_kiss := Callable()
 var oral_speech_stop := Callable()
@@ -214,15 +211,13 @@ func set_pose_config(config: Dictionary) -> void:
 	pose_config.merge(config, true)
 
 
-## Build the pose for a fresh act. `context` carries the start spec id, `id`, `features`, `bed`,
-## `presentation`, `look_point` and `camera_position` from the runtime's start sequence. Returns
-## false, before installing anything, when a pose is already live or the pony has no body skeleton;
-## `_started` only follows a complete install.
+## Build the pose for a fresh act from the start context. A live pose or a pony with no body skeleton
+## returns false with nothing installed; the started flag only follows an install.
 func begin_act(values: ActPose) -> bool:
 	return begin(values.as_context())
 
 
-## Rebuild the live pose on a new skeleton at the pose the act was in. The start ramp is skipped
+## Rebuild the live pose on a new skeleton, keeping the pose the act had; the start ramp is skipped
 ## because the act is continuing, not entering.
 func rebuild_act(values: ActPose) -> bool:
 	if not begin_act(values):
@@ -319,8 +314,8 @@ func begin(context: Dictionary) -> bool:
 		var anchor: Variant = context.get("camera_position")
 		_tail_anchor = anchor if anchor is Vector3 else Vector3.INF
 		_install_tail()
-	# A pose row whose base contact is already `face` begins the live mouth follow here; the
-	# authored asset is already placed, so this only captures the residual.
+	# A row whose base contact is already `face` starts the live mouth follow here, only to capture
+	# the residual: the authored asset is already on the bed.
 	if str(_view.contact_kind) == "face":
 		_face_driver.begin(_view, bed_frame)
 		_face_tick(0.0)
@@ -366,8 +361,8 @@ func _oral_pair(from_id: String, to_id: String) -> bool:
 		or (from_id == CATALOG.STANDING_ORAL and to_id == CATALOG.STANDING)
 
 
-## The spec's own driver, or its base chain's driver; `standing_test` resolves to `standing`. A
-## missing row, an empty chain or a repeat is empty.
+## The spec's driver, or the driver of a base further up; the first row that names one wins and a
+## repeated base ends the search.
 func _effective_driver(spec: Variant) -> String:
 	var cursor: Variant = spec
 	var seen: Dictionary = {}
@@ -411,15 +406,15 @@ func asset_for(spec_id: String) -> String:
 	return _effective_asset(_registry.spec(spec_id))
 
 
-## Parse one authored asset into the shared cache before anything reads it, so a first idle scan
-## or act start never pays for the load. A row with no asset is a quiet no-op.
+## Warm the shared asset cache with one authored file before its first reader, so no idle scan or act
+## start pays for the parse. A row with no asset is a quiet no-op.
 static func warm_asset(path: String) -> void:
 	if not path.is_empty():
 		AUTHORED.shared(path)
 
 
-## Re-read the authored missionary base from disk, for the debug block's Reload posed base action.
-## Returns "" on success and the reader's complaint otherwise.
+## Re-read the authored missionary base from disk for the debug Reload posed base action; returns an
+## empty string on success, otherwise the reader's complaint.
 static func reload_authored_base() -> String:
 	return AUTHORED.reload_file()
 
@@ -464,8 +459,8 @@ func _live_spec_id() -> String:
 	return str(_view.id)
 
 
-## Request one authored edge. Returns the A3.1 `PoseResult`: `{ok, code, edge, reason}`. It never
-## ends the act, releases the pose or restores bones.
+## Request one authored edge and return the `PoseResult` `{ok, code, edge, reason}`. It leaves the act
+## running and touches neither the live pose nor the bones.
 func request_pose(target_id: String, trigger: String, context: Dictionary = {}) -> Dictionary:
 	var from_id := str(_view.id)
 	var target_spec: Variant = _registry.spec(target_id)
@@ -483,8 +478,8 @@ func request_pose(target_id: String, trigger: String, context: Dictionary = {}) 
 	var run: Variant = POSE_STATE.start_edge(edge.data, from_id, target_id)
 	if run == null:
 		return POSE_STATE.result("missing_asset", edge_id, "the edge did not start")
-	# Cache the target by settings group: `standing_test` uses the standing pose and presentation
-	# blocks and has no block of its own.
+	# Cache the target by settings group, so a row with no blocks of its own (`standing_test`) still
+	# gets the standing pose and presentation.
 	_from_id = from_id
 	_target_id = target_id
 	_target_spec = target_spec
@@ -625,9 +620,8 @@ func _reason(code: String, target_id: String) -> String:
 	return ""
 
 
-## The transition view: the target identity and profiles from `fill()`, the from/to sides and the
-## live edge clock filled explicitly. The live `pose_config` is the from side; the target snapshot
-## is the to side.
+## The transition view: target identity and profiles from `fill()`, the from/to sides and the live
+## edge clock. The live config is the from side and the target snapshot the to side.
 func _fill_transition_view() -> void:
 	_view.fill(_target_spec, pose_config)
 	_view.from_id = _from_id
@@ -640,9 +634,8 @@ func _fill_transition_view() -> void:
 	_view.pose_state = _state
 
 
-## Advance the live edge, apply its switches/events and settle the view. No-op outside an edge.
-## The oral turn follows the edge weight from the same tick, so the frame write and the pose blend
-## are one frame; a steady oral pose keeps the turn and the live mouth anchor.
+## Advance the live edge, apply its switches and events, then settle the view; a no-op outside an
+## edge. The oral turn follows the same weight, so the frame write and the blend are one frame.
 func tick(delta: float) -> void:
 	_bind_oral()
 	_bind_face()
@@ -664,8 +657,8 @@ func tick(delta: float) -> void:
 	_absorb_events()
 	if not _run.complete():
 		return
-	# Capture the target pair before `_abort_target()` drops the target snapshot, adopt its config
-	# into the live object, then settle the evaluator on that one pose and its authored asset.
+	# Capture the target pair before the target snapshot is dropped, adopt its config into the live
+	# object, then settle the evaluator on that pose and its authored asset.
 	var completed_target := _target_id
 	var completed_driver := _effective_driver(_target_spec)
 	var completed_delta := _effective_delta(_target_spec)
@@ -727,8 +720,8 @@ func _apply_contact_switch(kind: String) -> void:
 		oral_viseme.call("")
 
 
-## Release the mouth contact without ending the turn. The afterglow calls this to keep the turned
-## frame and the neck pose while the part returns to the opening and no close window opens.
+## Release the mouth contact while the turn continues: the afterglow holds the turned frame and neck
+## pose as the part returns to the opening, and no close window opens.
 func release_mouth_contact() -> void:
 	if str(_view.contact_kind) != "mouth":
 		return
@@ -736,9 +729,8 @@ func release_mouth_contact() -> void:
 	_oral_turn.release_contact(_view)
 
 
-## Advance the face driver from the live depth. It writes the pose node's frame-space offset and
-## the view's contact target; outside a face contact it is a no-op. No allocation in the steady
-## tick.
+## Advance the face driver from the live depth: it writes the pose node's frame-space offset and the
+## view's contact target, is a no-op outside a face contact, and allocates nothing.
 func _face_tick(delta: float) -> void:
 	if _face_driver == null or str(_view.contact_kind) != "face":
 		return
@@ -821,8 +813,8 @@ func _lock_denies(command_id: String) -> bool:
 	return false
 
 
-## Refresh the target snapshot mid-edge. The active pose's config refresh stays in the runtime's
-## existing `_sync_standing_pose_config()`/`_sync_missionary_pose_config()` path.
+## Refresh the target snapshot mid-edge. The active pose's own config refresh stays on the runtime's
+## standing and missionary sync paths.
 func apply_live_settings() -> void:
 	if _target_spec == null:
 		return
@@ -846,9 +838,8 @@ func _abort_target() -> void:
 	_target_asset = null
 
 
-## Adopt the target's settings into the live config in place. The alias object and every consumer
-## that holds it (the view, the pose node, the evaluator) see the target; the caller then
-## drops the target snapshot.
+## Adopt the target's settings into the live config in place, so the view, the pose node and the
+## evaluator all see the target through the same alias object. The caller then drops the snapshot.
 func _adopt_target_config() -> void:
 	if _target_spec == null or is_same(_target_config, pose_config):
 		return
@@ -858,9 +849,8 @@ func _adopt_target_config() -> void:
 		pose_node.pose_config = pose_config
 
 
-## The pose block for a settings group plus that group's presentation values. Standing applies the
-## presentation chin/neck/tail the same way `sync_standing_config()` does; missionary and an unknown
-## group use the live settings block unchanged.
+## The pose block for a settings group plus that group's presentation values. Standing folds in the
+## presentation chin, neck and tail; other groups use the live settings block unchanged.
 func _config_for_group(group: String, presentation: Dictionary) -> Dictionary:
 	var config := SETTINGS.pose(id, group)
 	if group != CATALOG.STANDING:
@@ -894,10 +884,8 @@ func sync_standing_config(presentation: Dictionary) -> bool:
 	return true
 
 
-## The missionary recipe reads these from pose_config every frame. Re-reading the character's
-## pose keeps its nuzzle overrides live. The authored asset is owned by the session's begin,
-## request, completion, reload and release, so a missionary-group sync cannot reset a live pose
-## whose asset differs from the missionary file.
+## Refresh the missionary block in place each frame. The session's own begin, request, completion,
+## reload and release own the authored asset, so this must never reset a live pose's asset.
 func sync_missionary_config() -> bool:
 	if str(_view.settings_group) != CATALOG.MISSIONARY or not is_instance_valid(pony):
 		return false
@@ -908,10 +896,8 @@ func sync_missionary_config() -> bool:
 	return true
 
 
-## The authored base pose for a candidate spec, the live view's pose, or the default missionary
-## asset. Parsed once per path; the debug action rewrites the same instance in place, so a live act
-## picks the new pose up on its next frame. A row with no asset of its own reads the default so the
-## diagnostics still have a rig to describe; `authored_ready()` is the gate.
+## The authored base for a candidate spec, else the live pose's, else the default missionary asset,
+## parsed once per path. A row without its own asset still reads the default for diagnostics.
 func authored(candidate := "") -> Variant:
 	var asset: Variant = _asset_for(candidate)
 	if asset != null:
@@ -938,8 +924,8 @@ func authored_asset(candidate := "") -> Variant:
 	return authored(candidate)
 
 
-## Ground space for an authored ground pose: the pony root's orthonormal basis and position at
-## pose start. The frame follows the root each tick, like the bed frame follows its bed.
+## Ground space for an authored ground pose, seeded from the pony root. Like the bed frame with its
+## bed, it is carried by the root from then on.
 func ground_pose_frame() -> Variant:
 	if not is_instance_valid(pony):
 		return null
@@ -1022,10 +1008,8 @@ func missionary_origin() -> Vector3:
 	return pony.global_position if is_instance_valid(pony) else Vector3.ZERO
 
 
-## Bed space for the authored pose: the middle of the real bed's mattress top, in the bed's axes,
-## with the pillow end at -Z so the authored `+Z` (her head) points at the head of the bed. The
-## pose is stored relative to this frame, so any bed size or yaw works; `null` leaves the
-## correction stack in charge.
+## Bed space for the authored pose: the middle of the real mattress top, in the bed's axes, the
+## pillow end at -Z. `null` when no bed pose is live, so the procedural driver stays in charge.
 func missionary_pose_frame() -> Variant:
 	if str(_view.frame) != "bed" or not is_instance_valid(bed_node):
 		return null
@@ -1039,10 +1023,8 @@ func missionary_pose_frame() -> Variant:
 	return Transform3D(basis, Vector3(at.x, top, at.z))
 
 
-## A bed can move under the act: the Cloudominium's CloudDrift moves it every 0.1 s from
-## TimeOfDay.active_seconds. The authored pose, the act body, the camera shot and the anatomy
-## placement are all bed-space, so carry them with the bed instead of leaving them at the world
-## transform where the act started. The delta is rigid; the mattress top is not re-measured.
+## Carry the bed-space pose, act body, shot and anatomy placement with a bed that moves under the
+## act (CloudDrift); the delta is rigid, so the top height is not measured again.
 func sync_bed_frame() -> void:
 	if str(_view.frame) != "bed" or not is_instance_valid(bed_node) \
 			or not bed_frame_source_saved or not bed_frame is Transform3D:
@@ -1057,8 +1039,8 @@ func sync_bed_frame() -> void:
 		pose_node.bed_frame = bed_frame
 
 
-## The ground frame follows the pony root's position and rotation each tick, the way the bed frame
-## follows its bed. The oral turn moves the root, so the frame turns with her exactly once.
+## Turn the ground frame with the pony root each tick; the oral turn moves the root, so the frame
+## turns with her exactly once.
 func sync_ground_frame() -> void:
 	if str(_view.frame) != "ground" or not is_instance_valid(pony) \
 			or not ground_frame_source_saved or not ground_frame is Transform3D:
@@ -1110,9 +1092,8 @@ func restore_bones() -> void:
 	saved_hair_skeleton = null
 
 
-## The pose-scope start state: clear the rig-check cache and release the tail lay and the bed frame.
-## A pose change that keeps the act alive calls this first and keeps the pose node, the modifiers,
-## `pose_config` and the view.
+## The pose-scope start state: clear the rig-check cache, release the tail lay and drop the bed and
+## ground frames, keeping the pose node, the modifiers, the config and the view.
 func leave_pose_start() -> void:
 	rig_checked = false
 	rig_skeleton = 0
@@ -1132,8 +1113,8 @@ func leave_pose_start() -> void:
 	ground_frame_source = Transform3D.IDENTITY
 
 
-## The pose-scope body state: drop the live-installed extra modifiers. It keeps the pose node, the
-## standing tail, `pose_config` and the view.
+## Drop the live-installed extra modifiers, keeping the pose node, the standing tail, the config and
+## the view.
 func leave_pose_body() -> void:
 	if is_instance_valid(body_sway):
 		_drop(body_sway)
@@ -1146,10 +1127,8 @@ func leave_pose_body() -> void:
 	ear_twitch = null
 
 
-## The final pose clear: free the pose modifier and the standing tail, and clear the act's state so
-## `base_info()` and `state_rows()` stop describing an act that ended and the next `begin()` starts
-## clean. The runtime calls this last in the one pose teardown, then re-stamps its identity mirror
-## on the next access. A pose change never calls it. Safe to repeat.
+## The final pose clear: free the pose modifier and the standing tail and reset the act's state, so
+## the next `begin()` starts clean. Safe to repeat; a pose change never calls it.
 func release_pose() -> void:
 	# A release aborts a live edge and returns the oral frame before the view is cleared; it never
 	# runs a second act exit.
@@ -1190,9 +1169,8 @@ func release_pose() -> void:
 	_state = POSE_STATE.next(_state, "released")
 
 
-## One pose-change fan-out. Reconciles the modifier profile and applies the `act_body`/`anon`
-## channel; the pose evaluator pair was already set by `begin`/`request_pose`/`tick`. Cheap and
-## idempotent: every owner compares against its own cache, so a steady tick installs nothing.
+## One pose-change fan-out: reconcile the modifier profile and apply the `act_body`/`anon` channel;
+## the evaluator pair is already set. Idempotent, so a steady tick installs nothing.
 func pose_changed(view: Variant) -> void:
 	if not _started or view == null:
 		return
@@ -1313,10 +1291,8 @@ func _anon_channel() -> Dictionary:
 	return value as Dictionary if value is Dictionary else NO_CHANNEL
 
 
-## Apply the `act_body` specs' Anon channel: `hold` keeps the adapter, `blend` carries the edge
-## weight and `switch` names the authored profile. The service also binds the authored asset pair:
-## both sides of the live asset outside an edge, the source and target on a blend, and the target
-## twice on a switch. The player-body specs never install the adapter.
+## Apply the `act_body` specs' Anon channel (`hold`, `blend`, `switch`) and bind the authored asset
+## pair for it; the player-body specs never install the adapter.
 func _apply_anon_channel(view: Variant) -> void:
 	var anon_value: Variant = view.anon
 	if not anon_value is Dictionary:
@@ -1401,17 +1377,15 @@ func _release_act_body() -> void:
 	act_body = null
 
 
-## The live settings edit's entry: swap the session's feature flags and run the same
-## `pose_changed(view)` pass the tick does. The view carries the active profile, so no pose id is
-## needed.
+## The live settings edit's entry: swap the feature flags and run the same `pose_changed(view)` pass
+## the tick does; the view already carries the active profile.
 func refresh_modifiers(feature_flags: Dictionary) -> void:
 	features = feature_flags
 	pose_changed(_view)
 
 
-## Detach a released modifier before freeing it. `queue_free()` alone leaves it parented for the
-## rest of the frame, where it still gets a modification pass, and a new act built in the same
-## frame would run two. Callers restore their own bones before the detach.
+## Detach a modifier before freeing it: `queue_free()` alone leaves it parented for the rest of the
+## frame, still taking its pass, so a new act in that frame would run two.
 func _drop(node: Node) -> void:
 	if node == null or not is_instance_valid(node):
 		return
@@ -1517,18 +1491,15 @@ func apply_render(skeleton: Skeleton3D) -> void:
 		pose_node.call("apply_render", skeleton)
 
 
-## The whole render-time step for one frame, in order: park the game presentation and place the
-## act's own Anon body over it, write her pose, replay the sway that pose write would erase, then
-## let the eye-shot camera read his posed head. `act/tick.gd:render` owns the call site; this
-## facade owns the sequence.
-## Context: `bed_frame`, `body_scale`, `eye_camera_active`. The view family is the active pose's.
+## The whole render-time step for one frame, in order: park the presentation, place the act's own
+## Anon body, write her pose, replay the sway, then let the eye-shot camera read his posed head.
 func render_write(context: Dictionary) -> void:
 	if not is_instance_valid(pony):
 		return
 	var family := str(_view.family)
 	if family == "standing":
-		# Same order as the bed family: the ground frame, the pose write after every physics and
-		# process writer of the frame, then the sway replay on top of that write.
+		# Same order as the bed family: sync the ground frame, write the pose after every writer of
+		# the frame, then replay the sway on top of that write.
 		sync_ground_frame()
 		var standing_sk: Variant = pony.get("skeleton")
 		if is_instance_valid(pose_node) and standing_sk is Skeleton3D:
@@ -1565,8 +1536,8 @@ func sync_frame(family: String) -> void:
 		sync_ground_frame()
 
 
-## The render-time step's typed entry. The bed frame is this session's own live frame; the
-## session supplies the body scale, the size name and the eye-camera mode.
+## The typed entry for the render-time step: the session supplies its own bed frame plus the scale,
+## size name and eye-camera flag it read from the act.
 func write_render_frame(body_scale: float, size_name: String, eye_camera_active: bool) -> void:
 	render_write({
 		"bed_frame": bed_frame,
@@ -1605,9 +1576,8 @@ func basis_amount() -> float:
 	return float(pose_node.get("amount")) if is_instance_valid(pose_node) else 0.0
 
 
-## Which missionary base is in charge and why. One dictionary so the log, the settled line and the
-## debug action cannot drift apart. The live side is the rendered asset while an edge runs; the
-## target path names where the edge is going.
+## Which missionary base is in charge and why, in one dictionary so the log, the settled line and the
+## debug action cannot drift apart.
 func base_info() -> Dictionary:
 	var live_id := _live_spec_id()
 	var asset: Variant = authored_asset()
@@ -1656,10 +1626,8 @@ func pose_frame() -> Variant:
 	return null
 
 
-## The authored body bones the live rig lacks. The pose writes only the bones it holds, so a missing
-## one leaves the game's pose on that link and the chain above it reads broken; the act refuses to
-## start. Cached per skeleton instance and asset revision, because the gate polls every frame and a
-## posed-base reload must re-check the new asset.
+## The authored body bones the live rig lacks: the pose writes only the bones it holds, so a missing
+## one leaves the game's pose on that link. Cached per skeleton instance and asset revision.
 func rig_missing(candidate := "") -> Array:
 	var sk: Variant = pony.get("skeleton") if is_instance_valid(pony) else null
 	if not sk is Skeleton3D:
@@ -1694,9 +1662,8 @@ func rig_reason(missing: Array) -> String:
 	return text
 
 
-## Render-time placement trace, two lines per act: printed from idle, after every physics and process
-## writer, so it reads the pose the renderer is about to use. `root` is the armature bone the authored
-## placement is written to; `wanted` is that pose carried into the live bed frame.
+## Render-time placement trace, printed from idle after every writer of the frame so it reads the
+## pose the renderer is about to use; `diag_root` is the armature bone the placement is written to.
 func idle_sample(state: int) -> void:
 	if pose_trace_frames >= 2 or str(_view.frame) != "bed" or state == 0:
 		return

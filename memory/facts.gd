@@ -1,7 +1,6 @@
 extends RefCounted
-## Typed boundary data for the memory service. Pure: plain values only, no scene, tree, time,
-## file or settings access. Inner classes cannot see the script enums, so a stored enum value is
-## an int and `0` is the first member of each enum.
+## Typed boundary data for the memory service, pure and plain-valued.
+## Inner classes cannot see script enums, so a stored enum is an int with `0` as first member.
 
 ## What the director currently holds for one mod-owned key.
 enum LineState { ABSENT, QUEUED, GENERATING, SPEAKING, DELIVERED, UNKNOWN }

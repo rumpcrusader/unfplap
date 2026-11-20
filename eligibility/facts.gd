@@ -1,9 +1,7 @@
 extends RefCounted
-## Pure eligibility fact schema and identity predicates. This file has no scene access: the shell
-## `eligibility/service.gd` builds the dictionary and the policy reads it.
-##
-## Facts are a per-call snapshot. They are never saved, cached across frames or added to the
-## per-character profile. See `docs/eligibility.md`.
+## Pure eligibility fact schema and identity predicates.
+## The shell builds the dictionary and the policy reads it; this file has no scene access.
+## Facts are a per-call snapshot, never cached or stored. See `docs/eligibility.md`.
 
 const PARTICIPATION := preload("res://mods/unfplap/shared/participation.gd")
 const CONSENT := preload("res://mods/unfplap/shared/consent.gd")
@@ -79,10 +77,8 @@ static func normalize(raw: Variant) -> Dictionary:
 	return out
 
 
-## An adult pony is any identified pony that is not a filly or colt (the game's `filly` age flag)
-## and is not the player's own pony. A provider's `eligible` assertion overrides the identity's age
-## flag; `null` means the identity decides. Stallions are adults here; use `adult_mare` for the
-## act-target, anatomy and tail predicate.
+## An adult: an identified body that is no filly or colt, and not the player's own.
+## A provider's assertion overrides the age flag; stallions still count as adults.
 static func adult_pony(has_identity: bool, is_player_pony: bool, is_filly: bool,
 		eligible: Variant) -> bool:
 	if not has_identity or is_player_pony:
@@ -101,8 +97,8 @@ static func adult_mare(has_identity: bool, is_player_pony: bool, is_filly: bool,
 	return not is_stallion
 
 
-## The witness age category, or `AgeKind.NONE` when she can be neither an adult nor a young
-## witness. A provider's `eligible` assertion wins over the identity flag in both directions.
+## None when she is neither a witness adult nor a young one.
+## The provider assertion beats the identity flag either way.
 static func age_kind(has_identity: bool, is_player_pony: bool, is_filly: bool,
 		eligible: Variant) -> int:
 	if not has_identity or is_player_pony:

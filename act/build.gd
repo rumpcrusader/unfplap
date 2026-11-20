@@ -1,8 +1,6 @@
 extends RefCounted
-## The per-pony composition root. One `Bundle` per runtime node, built once by `runtime.gd:_init()`:
-## it constructs every system, host, collaborator set and act module and binds every callable to its
-## owner. It contains no behaviour: no gate, input, start, exit, tick or view wrapper and no
-## forwarder. Construction and the pony rebind are all it does.
+## The per-pony composition root. One `Bundle` per runtime node: it constructs every system, host
+## and act module and binds every callable to its owner. It contains no behaviour.
 ##
 ## See `docs/runtime.md`.
 
@@ -144,10 +142,8 @@ static func build(pony: Node, node: Node) -> Bundle:
 	b.dialogue = ACT_DIALOGUE.new(b.facts)
 	b.afterglow = AFTERGLOW.new()
 	b.hold = SCENE_HOLD.new()
-	# The anatomy bridge and its host are created now, so the act context can hold them; the
-	# handover host is created with the other systems. Both hosts are filled after the act frame
-	# exists, because their callbacks read the session and the modules. `bind_pony()` carries the
-	# body instead of binding it here.
+	# The anatomy bridge and its host exist before the act context can hold them; both hosts are
+	# filled after the act frame exists, because their callbacks read the session and the modules.
 	b.anatomy_host = ACT_HOST.new()
 	b.anatomy_bridge = ANATOMY.new_act(b.anatomy_host)
 	_build_systems(node, b)
@@ -190,7 +186,7 @@ static func _build_systems(node: Node, b: Bundle) -> void:
 	b.audio.log = Callable(LOG, "debug")
 
 
-## The act's own host, context, session and modules, in `_bind_act_frame()`'s order.
+## The act's own host, context, session and modules, in binding order.
 static func _bind_act_frame(node: Node, b: Bundle) -> void:
 	b.host = ACT_NODE.new()
 	b.host.bind(node)
@@ -353,8 +349,8 @@ static func _bind_facts(node: Node, b: Bundle) -> void:
 	b.facts.pose_host = Callable(b.host, "runtime")
 
 
-## The typed host for the per-act anatomy bridge. It is created with the bundle and filled once the
-## act frame exists, so every callback names its owner rather than a runtime node method.
+## The typed host for the per-act anatomy bridge; its callbacks name their owners, never the
+## runtime node.
 static func _bind_anatomy_host(b: Bundle) -> void:
 	var host: ACT_HOST = b.anatomy_host
 	host.pony_cb = Callable(b.host, "pony_value")

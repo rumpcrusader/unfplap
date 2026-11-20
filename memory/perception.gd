@@ -1,6 +1,5 @@
 extends RefCounted
-## Scene adapter: the only reader of the witness perception — ponies, awareness, sleeping, the
-## house lookup and the age rule (through the eligibility capability answer).
+## Scene adapter for the witness perception: ponies, awareness, sleep, the house and the age rule.
 
 const HOUSE := preload("res://world/buildings/house_interior.gd")
 const AWARENESS := preload("res://world/ai/pony_awareness.gd")
@@ -11,8 +10,8 @@ const FACTS := preload("res://mods/unfplap/memory/facts.gd")
 const TEXT := preload("res://mods/unfplap/memory/text.gd")
 
 
-## Adult ponies who can perceive the act right now, plus the sense they used. Read-only: it
-## commits nothing. Young ponies are never included.
+## Adult ponies perceiving the act right now, and the sense they used.
+## Read-only, and young ponies are never included.
 static func observers(game: Node, service: ELIGIBILITY, partner: Node3D) -> Array:
 	var out: Array = []
 	if game == null or service == null or not is_instance_valid(partner):
@@ -51,9 +50,8 @@ static func observers(game: Node, service: ELIGIBILITY, partner: Node3D) -> Arra
 	return out
 
 
-## One event per observer, private to her (`witnesses = [observer_id]`). Every witness gets a
-## perception, never a conclusion; the neutral impression replaces her old one, and the game's
-## per-pony story summary forms the memory she can hold. Returns the recorded rows for the debug log.
+## One private event and perception per observer, for the debug log.
+## A perception, never a conclusion; the game builds the memory she keeps.
 static func witnesses(game: Node, service: ELIGIBILITY, partner_id: String,
 		partner_name: String, serial: int, partner: Node3D) -> Array:
 	var out: Array = []

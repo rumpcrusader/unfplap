@@ -114,8 +114,8 @@ func apply() -> void:
 	if _body_mesh != body or _body_surface != surface or not is_instance_valid(_body_material) \
 			or body.get_active_material(surface) != _body_material:
 		restore()
-		# The body material is shared between ponies of one identity. FlankTouch owns the
-		# per-pony copies and keeps the outline in the pony's outline list.
+		# The body material is shared across an identity, so the per-pony copy lives on FlankTouch
+		# along with the outline.
 		var flank := pony.get_node_or_null("FlankTouch")
 		if flank != null and flank.has_method("_own_body_materials"):
 			flank.call("_own_body_materials")
@@ -164,8 +164,7 @@ func apply() -> void:
 	_apply_uniforms()
 
 
-## Put the game shaders back. The per-pony material copies stay; only the shader resource and
-## the mod uniforms are undone.
+## Put the game shaders back; the per-pony material copies stay.
 func restore() -> void:
 	if _body_patched:
 		if is_instance_valid(_body_material) and is_instance_valid(_body_original_shader):
@@ -461,9 +460,8 @@ func _ensure_zone_debug() -> void:
 	_zone_debug.call("setup")
 
 
-## One coat-patch line per distinct body/material state, so a form change is visible and a
-## steady frame is silent. A skipped patch is also a warning: without it the vulva cut and spread
-## do not exist on the drawn coat even though the anatomy mesh is correct.
+## One patch log line per body/material state, so a form change speaks and a steady frame does
+## not. A skipped patch is a warning, not a debug line.
 func _log_once(text: String) -> void:
 	if _patch_log == text:
 		return
@@ -482,9 +480,8 @@ func _log_patch(text: String) -> void:
 		log.call(text)
 
 
-## One coat-uniform readout per second: the grip target the coat sees, its spread/depth and both
-## mesh scales. A cut that stays at the rest spread while the grip target is larger names the
-## remaining break between the anatomy mesh and the drawn coat.
+## One uniform readout per second: the coat's grip target, its spread and both mesh scales.
+## A cut stuck at the rest spread while the grip target is larger names a break in the mapping.
 func _log_uniforms(lip: float, hole: float, spread: float, reach: float, depth: float,
 		hole_radius: float, hole_vertical: float, local_scale: float) -> void:
 	if not log.is_valid() or not is_instance_valid(mesh):

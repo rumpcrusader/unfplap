@@ -13,7 +13,8 @@ whether or not the other mod is installed.
   are a pinned copy under `integrations/shaders/`.
 - `integrations/garment_jiggle.gd` is the adapter's scene-side cloth-jiggle helper: it reads the
   coat's live wobble off a `FlankTouch` target material and carries it into one worn node's own
-  model space through per-node instance uniforms; it preloads nothing.
+  model space through per-node instance uniforms; it preloads nothing and allocates nothing per
+  frame.
 - `shared/integrations.gd` is the provider catalog: mod identity, verified version, feature names
   and binding paths.
 - `integrations/provider.gd`, `context.gd`, `action.gd` and `kissing.gd` are pure service

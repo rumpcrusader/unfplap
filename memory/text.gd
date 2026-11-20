@@ -1,9 +1,6 @@
 extends RefCounted
-## Pure memory wording and ids. No Node, tree, time, file or settings access.
-## The event texts must read correctly after the profile rewrites a leading "You and Anon " to
-## "You and <name>", so no event line uses second-person pronouns for the pony. The private
-## thoughts stay first-person. An adult witness event is only what she perceived; the game's
-## per-pony story summary forms the personal memory.
+## Pure memory wording and ids, with no scene or settings access.
+## Event text must survive the profile's "You and Anon " prefix swap; thoughts stay first-person.
 
 const FACTS := preload("res://mods/unfplap/memory/facts.gd")
 
@@ -46,9 +43,8 @@ static func impression_suffix(slot: int) -> String:
 			return ":gain"
 
 
-## The idempotent event-id suffix for one impression slot. The act summary keeps its own
-## `:summary` id so a later prompt can recall the act. The reveal is its own beat, so it never
-## collides with the summary written at the act's end.
+## The idempotent event-id suffix for one slot; the reveal is its own beat.
+## It never collides with the summary written at the act's end.
 static func event_suffix(slot: int) -> String:
 	match slot:
 		FACTS.ImpressionSlot.FORM_REVEAL:

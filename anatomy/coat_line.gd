@@ -1,10 +1,7 @@
 extends RefCounted
-## Per-pony coat line: a vertical line in the anatomy mesh's local space. The hind-leg motion
-## bends the line uniformly; the shader bends every cross-section with it. The act's hole point
-## and normal use the same frames.
-##
-## The line is the mesh's own vertical axis, not a sample of the body coat. See
-## `docs/anatomy.md` (`## Coat line`).
+## Per-pony coat line: the mesh's own vertical axis, bent by the hind legs, with the shader
+## bending every cross-section to match.
+## See `docs/anatomy.md` (`## Coat line`).
 
 const GEOMETRY := preload("res://mods/unfplap/anatomy/geometry.gd")
 
@@ -33,8 +30,8 @@ var _built := false
 ## A missing mesh or skeleton is a stable condition; do not scan for it every frame.
 var _retry_at_msec := 0
 
-## The line in anatomy-local space. `_rest_local` is the mesh's vertical axis; `_live` is the
-## bent line. The shader arrays are padded to `LINE_SAMPLES` with the last frame.
+## The line in anatomy-local space: the rest axis and the bent one, padded to the sample
+## count with the last frame.
 var _rest_local := PackedVector3Array()
 var _live := PackedVector3Array()
 var _leg_tips := PackedInt32Array()
@@ -135,8 +132,7 @@ func is_enabled() -> bool:
 	return _enabled
 
 
-## Called every frame by the controller. Builds the line lazily; the frames themselves come from
-## `_on_skeleton_updated`, where the skeleton reports its final modifier-applied pose.
+## Called every frame; builds the line lazily and lets the pose signal fill it.
 func tick(visible: bool) -> void:
 	_hidden = not visible or not _enabled
 	if _hidden:

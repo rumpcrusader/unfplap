@@ -1,9 +1,8 @@
 extends RefCounted
-## The act's debug perf probe: timed chunks report microseconds here and one summary prints per
-## window so a pony-specific stall can be attributed to a modifier without a live profiler.
+## The act's debug perf probe. Timed chunks land here and a per-window summary names the worst, so a
+## stall can be pinned on a modifier without a live profiler.
 ##
-## The typed `Host` supplies the gates, the sinks, the header values and the idle forward, so this
-## module has no scene access. See `docs/perf.md` and `docs/settings.md`.
+## The typed `Host` carries the gates, sinks, header values and idle forward; no scene access.
 
 const TREE := preload("res://mods/unfplap/shared/perf_tree.gd")
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
@@ -43,9 +42,8 @@ const PARENTS := {
 	"tail_pose": "runtime_process",
 }
 
-## One runtime's side of the act probe: the gates, the sinks, the live header values and the idle
-## window its chunks also feed. The runtime fills the named callbacks once; this module owns the
-## header line's shape and display strings, and never reads a scene. See `docs/perf.md`.
+## One runtime's side of the act probe. Callbacks are filled once by the runtime; this module owns
+## the header's shape and never reads a scene.
 class Host extends RefCounted:
 	## Both debug switches are on.
 	var enabled_cb := Callable()
@@ -83,7 +81,7 @@ class Host extends RefCounted:
 	func state() -> int:
 		return int(_value(state_cb, ACT_STATE.STATE_IDLE))
 
-	## True while an act is running; the window clears outside it.
+	## Whether an act owns this pony's frame.
 	func active() -> bool:
 		return state() != ACT_STATE.STATE_IDLE
 
@@ -106,7 +104,7 @@ class Host extends RefCounted:
 			"wings": wings(),
 		}
 
-	## The latched caress hands: `LR`, `L`, `R` or `-`.
+	## Which caress hands are latched, as a compact flag.
 	func hands() -> String:
 		var left := bool(_value(hand_left_cb, false))
 		var right := bool(_value(hand_right_cb, false))
@@ -140,7 +138,7 @@ var _physics_mark := -1
 
 ## Host boundary. A missing callable keeps the probe off, so tests can build one without a runtime.
 var enabled := Callable()
-## True while an act is running; the window clears outside it.
+## The act gate: false clears the window.
 var active := Callable()
 ## Header facts for the summary line: pony, pose, state, lean, hands, near_mesh, tier, wings.
 var header := Callable()
@@ -180,8 +178,7 @@ func idle_on() -> bool:
 	return idle.is_valid() and bool(idle.call())
 
 
-## Record one timed chunk, and forward it to the idle window while that one owns the frame. Cheap
-## no-op with both windows off.
+## Record one timed chunk; with the idle window owning the frame it is forwarded there.
 func note(key: String, usec: int) -> void:
 	if on():
 		var row: Array = _rows.get(key, [0, 0, 0])

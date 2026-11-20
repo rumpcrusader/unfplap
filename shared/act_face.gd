@@ -73,8 +73,6 @@ static func blush_for(phase: String, readiness: float, enabled := true) -> float
 
 
 ## Live quality for the auto climax face. Presentation only; the act summary owns history.
-## `inputs` keys: intensity_total/right, pattern_total/right, both_matches, liked_touch,
-## liked_talk, dislikes_total, distress, seeks_touch, seeks_talk, overwhelmed.
 static func climax_style(inputs: Dictionary) -> Dictionary:
 	var intensity_total := int(inputs.get("intensity_total", 0))
 	var intensity_right := int(inputs.get("intensity_right", 0))
@@ -259,9 +257,8 @@ static func moment_faces(moment: String, mood := "") -> Array:
 	return []
 
 
-## Short private prompt hint. Voice emotions stay in the prompt/fallback: they are a separate
-## vocabulary from face names. The face is momentary; the base game's feeling tag belongs after
-## the spoken words, where its impression parser reads it.
+## Short private prompt hint. Voice emotions belong in the prompt/fallback, not in face names; the
+## feeling tag goes after the spoken words, where the game's impression parser reads it.
 static func prompt_note(moment: String, mood := "") -> String:
 	var names := moment_faces(moment, mood)
 	if names.is_empty():

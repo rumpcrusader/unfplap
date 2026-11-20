@@ -1,17 +1,12 @@
 extends RefCounted
-## Carries a part modelled on the shared mare body (the teats) onto a body it was not modelled on.
-## The part keeps its own mesh, weights and blend shapes; only its skin binds change, so her skin
-## places it where the mare's would be on her: scaled about her anatomy anchor like the anatomy
-## itself (anatomy/placement.gd base_place), then moved up or down so the part meets her belly the
-## way it meets the mare's (both bodies measured by vertical rays at the part's top). Pure: reads
-## only the meshes it is given and the shared mare body scene.
+## Carries a mare-shaped part onto another body, changing only its skin binds.
+## The rest map is the anatomy's own; the height is found by rays against both bellies.
+## Pure: reads only the meshes it is given and the shared mare body scene.
 
 const BODY_PROFILE := preload("res://mods/unfplap/shared/body_profile.gd")
 const MARE_BODY := "res://world/characters/body_shapes/mare.scn"
 
-## Hand placement on top of the fit, per body-fit key, in her rest space (metres at her own size).
-## Celestia's pair sits 7.6 cm further back, toward her hind legs; its height is then found on her
-## belly again.
+## Hand placement per body-fit key, in her rest space (metres at her own size).
 const PART_OFFSETS := {
 	"celestia": Vector3(0.0, 0.0, 0.0759),
 }

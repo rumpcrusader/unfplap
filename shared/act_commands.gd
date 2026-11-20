@@ -32,6 +32,6 @@ static func is_continuous(id: String) -> bool:
 	return id in CONTINUOUS
 
 
-## True only for `end`, the one always-allowed command. The act-key hold still owns the act exit.
+## True only for `end`. The act-key hold, not this command, owns the act exit.
 static func is_reserved(id: String) -> bool:
 	return id == END

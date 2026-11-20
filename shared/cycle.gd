@@ -16,9 +16,8 @@ const DIESTRUS_DAYS := 2.0
 const WINK_TRIPLE_BELOW := 0.05
 const WINK_DOUBLE_BELOW := 0.30
 
-## Debug-only session overrides, by pony id. Never saved: the debug actions write them and the
-## phase readers honour them even when the feature is off, so the lab can test heat and diestrus
-## without waiting in-game days.
+## Debug-only session overrides, by pony id. Never saved, and honoured even with the feature off so
+## the lab can test heat and diestrus without waiting in-game days.
 static var _overrides: Dictionary = {}
 
 

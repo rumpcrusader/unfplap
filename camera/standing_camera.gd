@@ -20,8 +20,8 @@ var pony: Variant
 var camera: Camera3D
 var _presentation_cfg: Dictionary = {}
 var _pose_cfg: Dictionary = {}
-## The pose config is re-read only when the view's settings group or pose id changes, so the
-## standing debug pair holds the live config instead of re-reading the target every tick.
+## Re-read the pose config only on a settings-group or pose-id change, so the standing debug pair
+## keeps the live values instead of snapping to the target every tick.
 var _pose_cfg_group := ""
 var _pose_cfg_key := ""
 
@@ -191,9 +191,8 @@ func _lock_body_facing() -> void:
 func _glance_back_fade() -> float:
 	return MOTION.glance_back_fade_for(float(_presentation_cfg["glance_back_speed"]))
 
-## Every few seconds she turns her head back toward Anon, then forward again. The game's
-## secondary gaze owns the turn; standing only adds the optional throw-back rotation (`head_back`),
-## eased so it does not snap.
+## Every few seconds she turns her head back toward Anon. The game's secondary gaze owns the turn;
+## standing only adds the optional `head_back` throw-back, eased so it does not snap.
 
 func _drive_glance(delta: float) -> void:
 	var kiss: Variant = facts.kiss_controller()

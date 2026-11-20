@@ -1,17 +1,8 @@
 extends RefCounted
-## Public eligibility API and the only scene adapter. The rules live in
-## `eligibility/policy.gd`; this file reads the live relationship runtime, settings profile,
-## act history, cycle and per-mare consent, then discards its working snapshot.
-##
-## The callable surface is deliberately small:
-##   eligible()       one capability answer for a consumer
-##   witness_age()    the witness age category
-##   get_verdict()    the typed act gate
-##   get_profile()    the resolved provider/player profile, by id
-##   set_profile()    write the provider identity layer, by owner
-## Age, sex and the provider assertion stay private here.
-##
-## Verdicts are built per call and never stored. See `docs/eligibility.md`.
+## Service: eligibility
+## Contract: docs/eligibility.md
+## Scope: world
+## Public eligibility API and the only scene adapter; age and sex stay private here.
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const POLICY := preload("res://mods/unfplap/eligibility/policy.gd")
@@ -26,8 +17,8 @@ const CLEARANCE := preload("res://mods/unfplap/shared/clearance.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const MARE_REGISTRY := preload("res://mods/unfplap/registry/service.gd")
 
-## Capability targets. A consumer asks about its own target; it never inspects age, sex or the
-## provider assertion. See `docs/eligibility.md` (`## Capability targets`).
+## Capability targets: a consumer names its own target and never reads identity.
+## See `docs/eligibility.md` (`## Capability targets`).
 enum Target { ACT, ANATOMY, TAIL, CHARACTER }
 ## Verdict modes. The mode is recorded; every verdict field is always computed.
 enum Mode { START, OFFER }
@@ -216,9 +207,8 @@ func shutdown() -> void:
 	_shape_identities.clear()
 
 
-## One capability answer for a consumer. Cheap by design: identity, provider assertion, stable id
-## and the target's participation veto, never the full snapshot. This is called in per-frame
-## discovery loops.
+## One capability answer for a consumer, called in per-frame discovery loops.
+## Cheap: identity, provider assertion, stable id and the veto, never the full snapshot.
 func eligible(pony: Node, target: Target = Target.ACT) -> bool:
 	if not _live or not is_instance_valid(pony):
 		return false
@@ -230,10 +220,8 @@ func eligible(pony: Node, target: Target = Target.ACT) -> bool:
 	return POLICY.participates(snapshot, str(TARGET_KEYS[target]))
 
 
-## The id-only form of `eligible()` for a body that may not be live. A named shape resolves the
-## population scene's identity and the provider assertion, then the same target predicates. The
-## default is the character target: an adult mare with no participation veto, which is what a
-## shape source asks about a player-named body.
+## The id-only answer for a body that is not live, from a named shape's scene identity.
+## Its default is the character target, which a shape source asks about.
 func eligible_id(id: String, target: Target = Target.CHARACTER) -> bool:
 	var mare_id := id.strip_edges()
 	if mare_id.is_empty() or not _live or not TARGET_KEYS.has(target):
@@ -257,9 +245,8 @@ func eligible_id(id: String, target: Target = Target.CHARACTER) -> bool:
 	return POLICY.participates(facts, str(TARGET_KEYS[target]))
 
 
-## The Base clearance relationship row for the negotiation routes: a live relationship, romance
-## eligibility and the Promiscuity floor. Reads only those facts; willingness, history, cycle,
-## player form and consent belong to the full verdict and are not built here.
+## The relationship row of Base clearance: live relationship, romance, the Promiscuity floor.
+## Only those facts: willingness, history, cycle, player form and consent are the verdict's.
 func relationship_ok(pony: Node) -> bool:
 	if not _live or not is_instance_valid(pony):
 		return false
@@ -277,12 +264,8 @@ func relationship_ok(pony: Node) -> bool:
 	return CLEARANCE.relationship_ok(true, romance, floor_ok)
 
 
-## Her love level, read from the game's own ladder cache. `relationship_runtime._level_check()`
-## writes `world_context.state.bond_levels` on every impression and bond change, which is the whole
-## set that can move a level, so the row is as current as `ladder()` for one dictionary read.
-## `ladder()` rebuilds every fact and deep-copies her bond record three times, so it is only the
-## fallback for a pony the game has not recorded yet. The cache cannot see a player-form change,
-## which empties the game's love row without a signal; the romance row gates that before the floor.
+## Her love level in one read, from the level cache the game keeps current.
+## A player-form change is invisible here, so the romance row gates it first.
 func _love_level(rel: Variant, id: String) -> int:
 	var cached: Variant = _bond_levels().get(id)
 	if cached is Dictionary:
@@ -344,7 +327,7 @@ func get_verdict(pony: Node, mode: Mode = Mode.START) -> Verdict:
 	return out
 
 
-## The resolved provider/player profile for one id: eligible assertion, participation and consent.
+## The resolved profile for one id: assertion, participation and consent.
 ## This is the cross-mod read side and the anatomy consent lookup.
 func get_profile(id: String) -> Profile:
 	var mare_id := id.strip_edges()
@@ -356,9 +339,8 @@ func get_profile(id: String) -> Profile:
 	return out
 
 
-## Write the provider identity layer for one owner: the eligible assertion, participation and
-## consent. The layer lives in `mare_registry`; this service stores nothing. Returns the standard
-## registration result.
+## Write the provider layer for one owner: assertion, participation and consent.
+## It lives in the registry; this service stores nothing and returns the registration result.
 func set_profile(owner: Node, id: String, profile: Profile) -> Dictionary:
 	var mare_id := id.strip_edges()
 	if not is_instance_valid(owner) or not owner.is_inside_tree():
@@ -429,9 +411,8 @@ func _read_player(out: Dictionary) -> void:
 	out["player_pony"] = PLAYER_FORM.is_pony(form)
 
 
-## The debug override wins even when the feature is off, so the lab can test heat and diestrus
-## without waiting in-game days. A pony that has only just spawned has no relationship runtime yet,
-## and the anatomy bridge asks for the phase during its own bind, so that reads as normal.
+## The debug override wins even with the feature off, so the lab can force heat.
+## A just-spawned pony has no relationship runtime, so that reads as normal.
 static func cycle_phase_for(pony: Node, id: String) -> String:
 	var override := CYCLE.override_for(id)
 	if not override.is_empty():
@@ -449,8 +430,8 @@ static func cycle_phase_for(pony: Node, id: String) -> String:
 	return CYCLE.phase(float(bonds.call("day")), id)
 
 
-## Private heat/diestrus note for the normal dialogue prompt, outside and during acts. Empty when
-## the act gate would not open.
+## The heat/diestrus note for the normal dialogue prompt, during and outside acts.
+## Empty while the act gate would stay shut.
 func cycle_note(pony: Node) -> String:
 	if not is_instance_valid(pony):
 		return ""

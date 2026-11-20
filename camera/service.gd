@@ -1,8 +1,6 @@
 extends RefCounted
-## The act camera session: the lean input and its smoothing, the speed-driven thrust camera, the
-## debug free look, the free-camera lock, the standing eye override, the captured player look and
-## the shot geometry helpers. The two pose cameras (`camera/missionary_camera.gd`, `camera/standing_camera.gd`)
-## stay the shot implementations; this facade owns the session around them.
+## The act camera session: the lean and its smoothing, the thrust camera, the debug free look,
+## the standing eye override and the captured player look.
 ## Contract: docs/camera.md.
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
@@ -149,9 +147,8 @@ func camera_profile() -> String:
 	return str((view.camera as Dictionary).get("profile", "")) if view != null else ""
 
 
-## The pose-change hook: a new shot family or profile retires the pose-local lean action and
-## re-aims the next shot. The camera session, the eye override and the captured look stay put, and
-## the eye-camera tick remains the runtime's render-time callback.
+## Retarget seam: a new family or profile ends the pose-local lean action and aims the next shot
+## afresh; the eye override, the session and the captured look all survive.
 func pose_changed(view: Variant) -> void:
 	if view == null:
 		return
@@ -170,10 +167,8 @@ func pose_changed(view: Variant) -> void:
 		camera_basis_ready = false
 
 
-## Write the pose's look target for this rendered frame: the missionary gaze versus the kissing
-## mouth, the authored-Anon fallback and the pose's kiss/climax weights. The runtime calls this
-## after the pose session's render write and before the shot tick, so the head solves against
-## this frame's lean. See `docs/poses.md`.
+## Aim the pose's look point for this rendered frame, after the pose write but before the shot, so
+## the head solve follows this frame's lean.
 func write_look_target(pose: Node) -> void:
 	if not is_instance_valid(pose) or facts == null or not is_instance_valid(WORLD.player):
 		return
@@ -188,9 +183,7 @@ func write_look_target(pose: Node) -> void:
 	if is_instance_valid(view):
 		if custom_kiss and is_instance_valid(kiss_view):
 			if camera_profile() == "missionary_shots":
-				# Best-effort lean: blend from his eyes to his mouth with the kiss's own 0.35 s
-				# fade, so the head leans in with the kiss instead of snapping to the mouth on
-				# the first frame. The pose solve still aims at the moving point every frame.
+				# Fade the mouth in with the kiss; the raw point would snap on the first frame.
 				var mouth: Variant = kiss.target(kiss_view)
 				var gaze := gaze_point()
 				if mouth is Vector3 and (mouth as Vector3).is_finite() and gaze.is_finite():
@@ -284,8 +277,7 @@ func finish_act_shot() -> void:
 
 
 
-## Open the shot before the first camera frame. AnonPony and headset/VR keep the stock camera and
-## return before `begin_free()`.
+## Open the shot before the first camera frame; AnonPony and headset/VR never reach `begin_free()`.
 func open_shot() -> void:
 	camera_owned = true
 	camera_basis_ready = false
@@ -328,9 +320,8 @@ func at_actions_allowed() -> bool:
 	return int(facts.state) in [STATE_ACTIVE, STATE_CLIMAX, STATE_AFTERGLOW]
 
 
-## Q/E drive the side lean; W/S lean forward/back. Q/E add a forward-plus-side diagonal and also
-## fire a pose reaction once the smoothed side lean crosses MOTION.LEAN_FIRE. `auto_open` is the
-## hold-X auto settings layer, which freezes the shot exactly where it is.
+## The lean input: Q/E side, W/S forward/back, with Q/E also firing the pose reaction once the
+## smoothed side lean crosses MOTION.LEAN_FIRE. `auto_open` freezes the shot in place.
 func tick_lean(delta: float, paused: bool, auto_open: bool) -> void:
 	if hands != null:
 		hands.call("return_tick")
@@ -388,18 +379,16 @@ func tick_lean(delta: float, paused: bool, auto_open: bool) -> void:
 	var alpha := 1.0 - exp(-CAMERA_INERTIA_SMOOTH * delta)
 	lean_view_forward = lerpf(lean_view_forward, lean_forward, alpha)
 	lean_view_side = lerpf(lean_view_side, lean_side, alpha)
-	# Idle breathing is a true offset on top of the displayed lean. Adding it into
-	# `lean_view_forward` itself let the smoother amplify it (a forced offset of
-	# HOLD_SWAY_FORWARD / (1 - exp(-CAMERA_INERTIA_SMOOTH * delta)), about twelve times the
-	# intended amount) so the shot crept when nobody was leaning.
+	# Keep idle breathing as an offset: folded into the displayed lean, the smoother multiplied it
+	# roughly twelvefold and the shot crept with nobody leaning.
 	lean_sway = 0.0
 	lean_block_logged = false
 	if feature("idle_camera_sway"):
 		hold_rock_clock += delta
 		lean_sway = sin(hold_rock_clock * HOLD_SWAY_HZ) * MOTION.HOLD_SWAY_FORWARD
 	tick_lean_action()
-	# Missionary afterglow keeps lean and caress live but not the kiss; standing afterglow keeps
-	# its kiss. `_afterglow_begin()` releases a missionary kiss when the state changes.
+	# Missionary afterglow keeps lean and caress live but not the kiss; standing keeps its kiss.
+	# The afterglow begin releases a missionary kiss when the state changes.
 	if pose_family() == "standing" or int(facts.state) != STATE_AFTERGLOW:
 		if kiss != null:
 			kiss.call("lean_kiss_tick")
@@ -411,9 +400,8 @@ func tick_lean(delta: float, paused: bool, auto_open: bool) -> void:
 	apply_standing_lean_look()
 
 
-## Oral keeps Anon's body and the shot neutral: no Q/E reach, no lean and no F lean kiss. The
-## caress stays live, so the hands still tick and A/D, Z/C keep their own input. A running lean kiss
-## is ended here; its release still advances through the `kiss.tick` call.
+## Oral keeps the shot neutral: no reach, no lean and no lean kiss, while the caress still ticks
+## and A/D and Z/C keep their own input.
 func oral_lean_tick(delta: float) -> void:
 	end_lean_action()
 	lean_forward = move_toward(lean_forward, 0.0, delta / MOTION.LEAN_RETURN_SECONDS)
@@ -486,8 +474,8 @@ func standing_lean_scale() -> float:
 	return scale
 
 
-## Standing torso angle: hinge Anon's upper body forward over her by moving the head/camera
-## forward and down by the spine arc, then countering the hip in `poses/standing_anon.gd`.
+## The standing torso hinge angle. The head and camera follow the spine arc, and the hip counters it
+## so the pelvis stays put.
 func anon_torso_angle() -> float:
 	var presentation: Variant = facts.presentation_config if facts != null else null
 	if not presentation is Dictionary:
@@ -695,9 +683,8 @@ func motion_ready() -> bool:
 	return is_instance_valid(camera)
 
 
-## Debug: the player camera replaces the act shot so the pose can be inspected. The mouse stops
-## feeding thrust while it is on and drives this look instead, because the act holds
-## `controls_locked` (the stock mouse look is dead during an act).
+## Debug: the player camera replaces the act shot so the pose can be inspected. The mouse drives
+## this look instead of thrust because the act holds `controls_locked`.
 func free_look_active() -> bool:
 	return int(facts.state) != STATE_IDLE and SETTINGS.free_look.get_bool()
 
@@ -726,9 +713,8 @@ func tick_free_look() -> void:
 	write_log("free look %s" % ("on" if active else "off"))
 
 
-## Recompute the shot for a presented body form. The caller reanchors the pose (standing) and
-## prepares the shot; this only resets the camera's own state. The old eye override is undone
-## before the new target is derived, so a form revision cannot compound the previous offset.
+## Recompute the shot for a presented body form. The old eye override is undone before the new
+## target is derived, so a form revision cannot compound the previous offset.
 func reset_for_form(family: String, player_pony: bool,
 		form: BODY_FORM.BodyForm = null) -> void:
 	reset_shot()
@@ -750,9 +736,8 @@ func reset_for_form(family: String, player_pony: bool,
 		facts.player_eye_height = player_eye_height()
 
 
-## Standing eye height follows the body preset, raised to the pony's live rest eye line and never
-## above Anon's own eye; missionary is owned by the game's bed rest/seat camera and AnonPony has
-## its own eye height. The previous values are restored at act end.
+## Standing eye height follows the body preset, raised to her live rest eye line but never above
+## Anon's own eye; missionary and AnonPony keep their own heights.
 func apply_eye_override(family: String, player_pony: bool,
 		form: BODY_FORM.BodyForm = null) -> void:
 	camera_target_eye = 0.0
@@ -833,9 +818,8 @@ func capture_look() -> void:
 	look_captured = true
 
 
-## Restore the player's yaw/pitch captured at act start. Missionary restores exactly; standing
-## leaves Anon facing where the act left him, because snapping the pre-act view back looks worse.
-## The lean/caress/kiss state is reset either way.
+## Restore the player look captured at act start; standing leaves Anon facing where the act left
+## him, since snapping the pre-act view back looks worse.
 func restore_look(family: String) -> void:
 	if not look_captured:
 		return
@@ -911,10 +895,8 @@ func player_eye_height() -> float:
 	return 1.6
 
 
-## Her live eye line in Anon's root frame, from the rest head bone. The OpenPony head rest sits
-## at the eye target height in both the standard and the fitted princess exports. Rest, not the
-## posed bone: a conversation bow or the act neck-down must not move the camera. The player root
-## can be raised by terrain or the footstool, and the eye target is relative to it.
+## Her live eye line in Anon's root frame, from the rest head bone: the OpenPony rest sits at eye
+## height, a bow must not move the camera, and the root may stand on a raised floor.
 func pony_eye_height() -> float:
 	var pony: Variant = facts.pony if facts != null else null
 	if not is_instance_valid(pony):

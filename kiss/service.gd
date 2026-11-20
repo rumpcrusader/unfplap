@@ -22,8 +22,7 @@ const KISS_LEAN_SECONDS := 0.35
 const KISS_PONY_SIDE_SIGN := 1.0
 const KISS_RESTART_COOLDOWN_MS := 500
 const STANDING_KISS_LEAN := 0.90
-## Front lean needed in missionary. W must be held too, because `lean_targets` adds `|side|` to the
-## forward lean, and a pure side lean must not pull the kiss.
+## The side lean alone would drag the kiss along, so W is required too.
 const MISSIONARY_KISS_LEAN := 0.90
 
 var facts: Variant
@@ -138,14 +137,11 @@ func _stop_kiss_leg_pin() -> void:
 	_kiss_leg_pin = null
 
 
-## Reuse the game's own kiss in standing. `pony_kisser.begin_from_pony()` runs the same eligibility
-## checks as a normal Ponese kiss, including `controls_locked`, so unlock for that one call only.
-## The AffectionPose modifier is moved to the end of the skeleton chain so its kiss IK layers on
-## top of the act pose instead of being overwritten by it. Missionary always returns false here.
+## Reuse the game's own kiss in standing; the pose modifier is moved last so its IK layers on top.
+## Its eligibility checks read `controls_locked`, so unlock for that one call only.
 func _start_base_kiss() -> bool:
-	# The stock kiss pose is authored for a standing pony. On the bed its chest/neck give lifts
-	# the lying body off the mattress and turns her head across it, so missionary uses the act's own
-	# head aim instead.
+	# The stock kiss is authored standing: on the bed it lifts her chest off the mattress and
+	# turns her head across it, so missionary uses the act's own head aim instead.
 	if _pose_family() == "bed":
 		return false
 	if not is_instance_valid(pony) or not is_instance_valid(WORLD.game) \
@@ -229,9 +225,8 @@ func _restore_base_kiss_pose() -> void:
 	_restore_base_kiss_excitement()
 
 
-## A base kiss otherwise triggers the stock unicorn horn sparkle and flutter beat. Hold the shared
-## act-level Beat so the kiss does not read as spellcasting; the runtime restores it after the last
-## holder releases.
+## A base kiss otherwise plays the stock horn sparkle, which reads as spellcasting.
+## Hold the shared act-level Beat instead; the runtime restores it after the last holder.
 func _suppress_base_kiss_excitement() -> void:
 	if is_instance_valid(_base_kiss_excitement) or not is_instance_valid(pony):
 		return
@@ -311,9 +306,8 @@ static func kiss_pony_side(lean_side: float) -> float:
 	return KISS_PONY_SIDE_SIGN * signf(lean_side)
 
 
-## Lateral shot/hip travel. The lean offset hands over to the single kiss offset as the kiss
-## blends in, instead of adding both (0.18 m + 0.18 m is further sideways than her neck reaches,
-## and the clearance pass then pushed her muzzle back into him).
+## Lateral travel: hand the lean offset over to the kiss offset as the kiss blends in.
+## Adding both overshoots her neck reach, and the clearance pass then pushes her muzzle back.
 static func kiss_lateral_offset(lean_side: float, kiss_side: float, kiss_lean: float,
 		size_scale := 1.0) -> float:
 	var blend := clampf(kiss_lean, 0.0, 1.0)
@@ -357,10 +351,8 @@ func _clear_side() -> void:
 	_kiss_diag_clock = 0.0
 
 
-## Pin the game's AffectionPose to the side Anon leaned to. The stock kiss picks and switches
-## sides on its own; the act keeps her on the complementary side so their heads interlock.
-## Private AffectionPose fields are the only side switch the script exposes, so this is done
-## from the mod and quietly skipped if a future game update renames them.
+## Pin the game's AffectionPose to the side Anon leaned to, so their heads interlock.
+## The stock kiss switches sides on its own; a renamed field skips this quietly.
 func _pin_base_side() -> void:
 	if not _base_kiss_active or not is_instance_valid(_base_kiss_pose):
 		return

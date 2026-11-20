@@ -3,10 +3,8 @@ extends RefCounted
 ## and the touch hulls, but nothing about poses, paths or palms.
 
 
-## PonyTouchBody follows the game's own hands, and the missionary act parks them. Without this the
-## hull query reads the last standing/pre-act hulls and the palm floats at their old height. The
-## act's physics pose is live, so refresh the body rig before the coat query. Guarded: a game
-## without the internal sync simply uses the hulls as they are.
+## PonyTouchBody follows the game's own hands, which the missionary act parks; a stale hull puts
+## the palm at an old height, so refresh the rig first. A game without the sync is left alone.
 static func sync_touch(pony: Variant) -> void:
 	if not is_instance_valid(pony):
 		return
@@ -96,9 +94,8 @@ static func nearest_touch(pony: Variant, point: Vector3, ignore: Array,
 	return best
 
 
-## Nearest coat point/normal for a palm. FlankSurface owns the flank/rump patch; the body
-## hull query covers the shoulder and any point outside that patch. A non-empty `regions` list
-## skips the flank patch and restricts the hulls to those regions.
+## Nearest coat point and normal for a palm: the flank patch first, then the body hulls.
+## A non-empty `regions` list skips the flank patch and restricts the hulls to those regions.
 static func contact(pony: Variant, point: Vector3, outward_hint: Vector3,
 		ignore: Array = [], regions: Array = []) -> Dictionary:
 	if not is_instance_valid(pony):
@@ -153,9 +150,8 @@ static func contact(pony: Variant, point: Vector3, outward_hint: Vector3,
 	return {"point": point, "normal": outward, "source": "fallback"}
 
 
-## Keep a genuine coat normal: blending toward a torso radial tilts the palm off the surface
-## and presses its heel into the coat. The radial is only a fallback for a degenerate normal or
-## one that points into the body.
+## Keep a genuine coat normal: a torso radial tilts the palm off the surface and presses its heel in.
+## The radial is only the fallback for a degenerate normal or one that points into the body.
 static func stable_outward(pony: Variant, point: Vector3, hint: Vector3,
 		use_radial := true) -> Vector3:
 	if not is_instance_valid(pony) or not use_radial:

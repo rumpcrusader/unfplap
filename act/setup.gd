@@ -42,8 +42,7 @@ func run(setup: String) -> bool:
 
 
 ## The bed stand-up start: Anon leaves the mattress before the player snapshot and the lock, and
-## she leaves the game's lying state. The bed rest/cradle release already ran in the common
-## prelude; the authored body owns her pose from here.
+## she leaves the game's lying state. The bed rest/cradle release already ran in the prelude.
 func bed_stand_up() -> bool:
 	if session.bed == null:
 		return false

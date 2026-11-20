@@ -47,7 +47,8 @@ is a separate repository; never commit game-source changes from the mod repo.
    GDScript. Do not re-run either after every commit or every file.
 8. Commit the code with one scoped, imperative subject line and no body. Do not stage `.md` files
    or comment-only edits, except the minimum doc text a test or checker reads to stay green.
-9. After the task's last code commit, write the owning `.md` prose and every code-comment edit.
+9. After the task's last code commit, write the owning `.md` prose and fix only the comments the
+   change made false; never reword a comment that is still true.
    Run `scripts/check.sh --all`, `scripts/lint.sh` and the suites that read the edited docs, then
    commit them as `docs: <summary>`. See "Documentation commits" below.
 10. Commit locally only. Do not push, fetch, pull or force-push. The maintainer may push and tag;
@@ -144,7 +145,8 @@ for the last one.
 
 - The code commit carries the behavior, its tests and only the doc text a test or checker reads to
   stay green. Run `scripts/test_all.sh` before it.
-- The docs commit carries the owning `.md` prose and every code-comment edit.
+- The docs commit carries the owning `.md` prose and fixes only the comments the change made
+  false.
 - Before the docs commit, run `scripts/check.sh --all`, `scripts/lint.sh`,
   `python3 scripts/architecture.py --check` and `scripts/test.sh test_api` when `docs/api.md`
   changed.

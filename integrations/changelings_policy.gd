@@ -1,8 +1,6 @@
 extends "res://mods/unfplap/shared/body_change_policy.gd"
-## The changelings provider's offer/reveal policy. The base runtime executes the generic effects;
-## this file owns the pack's offer prompt, its after-the-first-climax/own-form decision and the
-## reveal's heat, peak, cue and memory values. `should_offer()` owns its timing, so the generic
-## `on_act_event()` milestones need no override. No `class_name`.
+## The changelings offer/reveal policy: prompt, decision and effect values. Its offer gate owns
+## timing, so the generic milestone hook stays a no-op.
 
 const POLICY := preload("res://mods/unfplap/shared/body_change_policy.gd")
 
@@ -29,12 +27,12 @@ func offer_prompt() -> String:
 	return OFFER_PROMPT
 
 
-## A named shape is a neutral continuation: no effects.
+## Naming a shape applies nothing.
 func on_offer_accepted(_context: POLICY.BodyChangeActContext) -> POLICY.BodyChangeEffects:
 	return POLICY.BodyChangeEffects.new()
 
 
-## The player-requested return to her own form is the act's one exceptional reveal.
+## Only the own-form reveal is exceptional.
 func on_reveal(_context: POLICY.BodyChangeActContext) -> POLICY.BodyChangeEffects:
 	var effects := POLICY.BodyChangeEffects.new()
 	effects.heat = REVEAL_HEAT

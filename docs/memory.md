@@ -120,6 +120,7 @@ Rules:
 - The event id is the idempotency key: `world_context.record` and `impressions.commit` both
   ignore a repeated id. The same act never writes the same event twice.
 - The store is the only memory file that calls `Mods.save_changed()`.
+- Event text is short and non-graphic.
 
 ## Impressions and events
 

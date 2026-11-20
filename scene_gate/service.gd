@@ -1,8 +1,7 @@
 extends RefCounted
-## The scene half of the act gate: the live state, cuddle, affection, navigator, player, pose,
-## stool and bed rows, the bed search, the structural rows, the policy/scene merge, the
-## start/offer verdicts, the debug status line and the buck/push. Eligibility owns the policy.
-## Contract: `docs/scene_gate.md`.
+## The scene half of the act gate: the rows, the bed search, the verdicts and the buck.
+## Eligibility owns the policy.
+## Contract: `docs/scene_gate.md`
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
@@ -32,8 +31,7 @@ var presentation_active := Callable()
 ## override the gate reads the eligibility service itself.
 var policy_verdict := Callable()
 var debug_context := Callable()
-## The negotiation hold's compatibility predicate. The host binds it; it returns true when the
-## navigator owner and the affection hold belong to the live negotiation hold. Missing is false.
+## The negotiation hold's predicate, bound by the host; missing means false.
 var hold_compatible := Callable()
 
 ## The transient scene-only rows: the auto-start waits on them inside the Agreement TTL.
@@ -42,10 +40,8 @@ const SCENE_ONLY_TRANSIENT := ["player", "bed_gate"]
 const NO_STOOL_PAIR := Vector2i(-1, -1)
 
 
-## The Agreement's frozen pose capability. It is recorded at formation; a settings or form change
-## does not rebuild it.
 ## The running interrupt verdict. `ok` false means the act must stop; `reason` is the typed stop
-## text `runtime._stop()` applies.
+## text the runtime applies.
 class RunningVerdict extends RefCounted:
 	var ok := true
 	var reason := ""
@@ -55,6 +51,7 @@ class RunningVerdict extends RefCounted:
 		reason = reason_in
 
 
+## The Agreement's frozen pose capability, recorded at formation and never rebuilt.
 class FrozenPose:
 	var pose_profile_ok := false
 	var pose_source_ok := false
@@ -177,11 +174,8 @@ func offer_verdict(pose: String, act_source: String, bed_in: Variant = null,
 	}
 
 
-## The scene-only start of an accepted Agreement: no policy rebuild, no formation row, no
-## aftercare. `frozen` carries the pose capability recorded at formation. `player` and `bed_gate`
-## are transient; every other row is hard. `hold_compatible` exempts the negotiation hold's
-## navigator owner and affection hold. `stool_need`/`stool_have` are the footstool pair the
-## runtime read for this call; `-1` in either reads the live provider callbacks.
+## The scene-only start of an accepted Agreement: no policy rebuild, no formation row.
+## `player` and `bed_gate` stay transient; every other row is hard.
 func scene_only_verdict(pose: String, act_source: String, bed: Node3D = null,
 		frozen: FrozenPose = null, stool_need: int = -1, stool_have: int = -1) -> SceneVerdict:
 	var rows_out: Array[ELIGIBILITY.Row] = []
@@ -258,10 +252,8 @@ func _scene_only_result(rows_in: Array[ELIGIBILITY.Row]) -> SceneVerdict:
 	return out
 
 
-## The act key's readiness: the scene-only rows, then the eligibility service's act and
-## relationship read. No policy verdict, no offer cooldown and no history refusal. The scene runs
-## first, so a blocked scene never pays for the eligibility reads. `stool_pair` is the footstool
-## pair the host read for this call; `(-1, -1)` skips the row.
+## The act key's readiness: the scene rows first, then eligibility's act and relationship read.
+## The scene runs first so a blocked scene never pays for those reads.
 func hotkey_ready(pose: String, act_source: String, bed_in: Node3D = null,
 		stool_pair: Vector2i = NO_STOOL_PAIR) -> bool:
 	var frozen := FrozenPose.new(true, true)
@@ -419,8 +411,7 @@ func debug_line(pose: String, act_source: String, bed_in: Variant = null,
 	return text
 
 
-## The footstool rule lives in the per-act handle `stool/act.gd`; the rows reach it through the
-## runtime's callbacks.
+## Footstool rows through the host's callbacks.
 func needed_stool() -> int:
 	return int(stool_need.call()) if stool_need.is_valid() else 0
 
@@ -535,9 +526,8 @@ func free_of_affection() -> bool:
 	return true
 
 
-## The running interrupt verdict: `{ok, reason}`. The runtime passes the four live values its own
-## systems hold; every other row is the gate's own scene read. A conversation is not an
-## interruption: the act clears the listener, so another character may talk to Anon.
+## The running interrupt verdict; the runtime passes the live values it holds.
+## Conversation is not an interruption: the act clears the listener.
 func running_verdict(nav: Node, bed: Node3D, player_pony: bool, our_kiss: bool) -> RunningVerdict:
 	if not is_instance_valid(pony):
 		return RunningVerdict.new(false, "picked up")

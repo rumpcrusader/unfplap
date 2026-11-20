@@ -1,7 +1,6 @@
 extends RefCounted
-## The idle side of the frame schedule. `act/tick.gd` keeps the ordered tick; this module runs the
-## idle-only work after the early return: the inventory safety, the standing presentation's physics
-## and the dialogue history scan.
+## The idle side of the frame schedule; `act/tick.gd` still owns the ordered tick and calls in
+## after its early return.
 ##
 ## See `docs/runtime.md` and `docs/perf.md`.
 

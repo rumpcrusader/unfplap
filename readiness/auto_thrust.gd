@@ -1,25 +1,16 @@
 extends RefCounted
 ## Pure auto-thrust depth generator. No scene access.
 ##
-## A cycle is one thrust: the phase advances at `pace` cycles per second and the output follows
-## `wave(shape, phase)` from a bottom to `max_depth` and back. The runtime feeds the difference
-## between successive outputs into the same `readiness/thrust.gd` tracker the mouse uses, so strength,
-## readiness, intensity, pattern, audio, camera and presentation all stay unchanged.
-##
-## `max_depth` is the requested peak, set by the mouse. `_amplitude` is the smoothed peak the
-## waveform actually uses, so scrolling depth does not inject a depth-speed spike.
-##
-## `shape` is the experiment switch: every shape starts and ends at the bottom and stays in 0..1,
-## so a shape can never look like a jump or an invalid stroke to the tracker.
+## It emits absolute depth only; the runtime feeds the delta into the same tracker as the mouse, so
+## scoring, intensity, pattern and presentation stay identical.
 
 ## Wheel bounds. Keep these equal to `settings/service.gd`'s `auto_thrust.*` bounds.
 const PACE_MIN := 1.0
 const PACE_MAX := 3.75
 ## One mouse-wheel notch while auto owns the stroke. Fixed: it is not a setting.
 const PACE_STEP := 0.25
-## `readiness/thrust.gd` closes a reversal only after `REVERSAL_HYSTERESIS` (0.06), so every automatic
-## stroke after the first starts 0.06 above the bottom. The minimum peak keeps that stroke at
-## or above `THRUST_MIN_TRAVEL` (0.12): 0.20 - 0.06 = 0.14.
+## Every auto stroke after the first starts `REVERSAL_HYSTERESIS` above the bottom, so the minimum
+## peak must still clear `THRUST_MIN_TRAVEL`; a lower peak would silently stop scoring.
 const DEPTH_MIN := 0.20
 const DEPTH_MAX := 1.0
 ## Low-pass on the requested peak depth. The shape already eases the ends of a stroke; this only
@@ -29,9 +20,8 @@ const DEPTH_SMOOTH_S := 0.18
 const PHASE_SAMPLES := 64
 ## Every supported stroke waveform.
 const SHAPES := ["cosine", "thrust", "tease", "saw", "hold"]
-## The narrowest depth band that still produces a real thrust: `THRUST_MIN_TRAVEL` (0.12) plus
-## the reversal hysteresis (0.06) that the next stroke loses at the bottom. A narrower band would
-## silently stop scoring.
+## Minimum band: `THRUST_MIN_TRAVEL` plus the hysteresis the next stroke loses at the bottom.
+## Anything narrower silently stops scoring.
 const MIN_BAND := 0.18
 
 var active := false

@@ -85,9 +85,8 @@ func build(pony: Variant, hand_side: String, camera_position := Vector3.INF,
 	return true
 
 
-## Build a lean-sampled chain from the marked caress areas. The standing area order and the
-## no-lean `start` come from `hands/areas/areas.json`; every area resolves to the nearest source
-## vertex on the body or head mesh, so the chain keeps the live skin weights.
+## Build a lean-sampled chain from the marked caress areas.
+## Each area resolves to its nearest source vertex, so the chain keeps the live skin weights.
 func build_areas(pony_node: Variant, hand_side: String, pose_name: String) -> bool:
 	valid = false
 	anchors.clear()
@@ -378,7 +377,7 @@ static func _authored(path_id: String) -> Dictionary:
 	return {}
 
 
-## The marked caress areas from the Blender vertex groups. Loaded once per process.
+## The marked caress areas, parsed once per process and shared.
 static func _areas() -> Dictionary:
 	if not _areas_data.is_empty():
 		return _areas_data
@@ -411,10 +410,8 @@ func _authored_ready(hand_side: String, path_id: String) -> bool:
 	return true
 
 
-## Authored path from the Blender vertex groups. Positions are rest-space points on the body or
-## head mesh; each is snapped to the nearest source vertex, so the runtime keeps the skin weights.
-## `order` and `shared` drive the slot chain; path one uses lower-belly-chest-neck-cheek and
-## path two uses flank-shoulder-neck.
+## Authored path from the Blender vertex groups: each slot snaps to its nearest source vertex.
+## The slot chain comes from the file's own order, so the runtime keeps the live skin weights.
 func _build_authored(pony: Variant, hand_side: String, path_id: String) -> Array:
 	var data := _authored(path_id)
 	var order: Variant = data.get("order", [])

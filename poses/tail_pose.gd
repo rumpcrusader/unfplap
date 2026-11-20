@@ -24,9 +24,8 @@ const JIGGLE_DECAY := 3.6
 const JIGGLE_FREQ := 18.0
 const JIGGLE_PITCH := 0.16
 const JIGGLE_YAW := 0.08
-## The tail base is pinned to the hair pelvis by the game's tail anchor, so the bone wave alone
-## cannot move it. Translate the hair mPelvis with the same wave the rump shader uses, then
-## restore the mane bones.
+## The game pins the tail base to the hair pelvis, so the bone wave alone cannot move it. Push the
+## hair pelvis by the rump shader's wave, then restore the mane bones.
 const JIGGLE_BASE_M := 0.02
 const JIGGLE_BASE_FREQ := 28.0
 const JIGGLE_BASE_DECAY := 4.2
@@ -40,9 +39,8 @@ var mare: Node3D
 var facts: Variant
 var amount := 0.0
 var target_amount := 0.0
-## Hinge the whole tail at `mTail1` and leave the rest of the chain rigid, instead of spreading
-## the rotation down it with a falloff. The post-refusal tuck uses this so the base pivots rather
-## than the middle of the tail.
+## Hinge the whole tail at `mTail1` and leave the rest rigid instead of spreading a falloff. The
+## post-refusal tuck needs the base to pivot.
 var base_pivot := false
 ## +1 or -1: which way the tail sweeps. Randomized per act.
 var aside_sign := 1.0
@@ -50,7 +48,7 @@ var aside_sign := 1.0
 var _bones: Array[int] = []
 var _saved: Dictionary = {}
 var _cached := false
-## A visible tail that is not on the game skeleton: its own root is rotated and restored instead.
+## A tail living off the game skeletons: its own root is rotated and restored instead.
 var _root: Node3D
 var _root_saved := Transform3D.IDENTITY
 var _root_direction := Vector3.BACK
@@ -131,8 +129,7 @@ func choose_side(anchor := Vector3.INF) -> void:
 	aside_sign = 1.0 if randf() < 0.5 else -1.0
 
 
-## Put the tail chain back where the game left it before the act. The game's own tail motion
-## resumes on top of it next frame.
+## Hand the tail chain back as the game left it before the act; its own motion resumes next frame.
 func restore_tail() -> void:
 	var sk := get_skeleton()
 	if sk != null:
@@ -143,7 +140,7 @@ func restore_tail() -> void:
 		_root_ready = false
 
 
-## A thrust restarts the tail's short jiggle at the same strength as the rump shader.
+## A thrust restarts the tail's short jiggle, matched to the rump shader's strength.
 func thrust(strength: float) -> void:
 	_thrust_strength = maxf(_thrust_strength, clampf(strength, 0.0, 1.0))
 	_thrust_clock = 0.0

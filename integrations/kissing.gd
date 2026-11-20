@@ -1,14 +1,9 @@
 extends "res://mods/unfplap/integrations/provider.gd"
-## Kissing 1.2.9 reaction bridge. Kissing's own build-up is held back while the act drives its
-## `Feelings.level` directly: nothing before she is close, a bond-capped ramp while she is close and
-## being stroked, and her full cap through the climax. A pause releases the build, and the afterglow
-## hands the fade back to Kissing. Her horn aura/hum (unicorn and alicorn), wing shiver (pegasus and
-## alicorn) and earth-pony tail/ear fidgets all read that level.
+## Kissing reaction bridge. The act drives Kissing's build-up directly: nothing before close, a
+## bond-capped ramp while she is close and stroked, and the full cap through climax.
 ##
-## Kissing's weight shift and hoof taps are suppressed except at her climax: they move the skeleton
-## root or lift a planted hoof, which the act's pinned hips cannot follow. The climax restores them
-## so her whole fidget set runs with the reaction. Its own kiss driver, guard, rear, reach and
-## memory recorder are out of scope.
+## The weight-shift root and hoof-tap clock stay suppressed until climax, since the act pins
+## her hips.
 
 const ACTION := preload("res://mods/unfplap/integrations/action.gd")
 const FEATURE := "kissing_reactions"

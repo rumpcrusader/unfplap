@@ -1,14 +1,9 @@
 extends Node
-## The stable cross-mod API facade. The human contract lives in `docs/api.md`; this file is the
-## only unfplap script another mod may call. It returns plain data only, never internal Nodes,
-## runtimes, settings paths or resource handles.
+## The stable cross-mod API facade, and the only script of this mod another mod calls. It returns
+## plain data, never internal Nodes, runtimes, settings paths or resource handles.
 ##
-## Discovery is by group:
-##   group:unfplap_api      the current major
-##   group:unfplap_api_v1   pinned major 1
-##
-## V1 is deliberately small: register a mare template, remove it, and read everything resolved
-## for one mare. Signals, act events and live-state queries are additive later.
+## Discovery is by group, `unfplap_api` and the pinned `unfplap_api_v1`; the human contract is
+## `docs/api.md`.
 
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
@@ -60,9 +55,8 @@ func supports(capability: String, min_version: int = 1) -> bool:
 	return int(CAPABILITIES.get(capability, 0)) >= maxi(1, min_version)
 
 
-## Register or replace one provider template for `owner`. `owner` is normally the caller's entry
-## Node; its removal from the tree removes every layer it registered. Returns
-## {ok, id, source, replaced, warnings, errors}.
+## Register or replace one provider template for `owner`; removing that Node from the tree removes
+## every layer it registered. Returns {ok, id, source, replaced, warnings, errors}.
 func register_mare(owner: Node, descriptor: Dictionary) -> Dictionary:
 	if not is_instance_valid(owner) or not owner.is_inside_tree():
 		return _failure(descriptor, "owner: must be a valid Node inside the scene tree")
@@ -91,10 +85,8 @@ func unregister_mare(owner: Node, id: String) -> Dictionary:
 	return {"ok": true, "id": mare_id, "removed": removed}
 
 
-## Everything static unfplap resolves for one mare: her resolved template, consent, placement,
-## pose settings, prompts, timing values, provider metadata and settings label. Never live act,
-## history, relationship or anatomy state. Always returns a complete dictionary; an unknown id
-## gets global defaults with `known: false`.
+## Everything static unfplap resolves for a mare, never live act, history, relationship or anatomy
+## state. Always complete; an unknown id gets global defaults with `known: false`.
 func describe_mare(id: String) -> Dictionary:
 	var mare_id := id.strip_edges()
 	var template: Dictionary = SETTINGS.template_for(mare_id)

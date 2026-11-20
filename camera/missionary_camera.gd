@@ -1,13 +1,6 @@
 extends RefCounted
-## Missionary framing and the act avatar hiding. There is one shot: the **authored** one. The eye
-## blends between the five camera transforms (position and direction) authored in the pose lab,
-## selected by the lean; a pure axis lean meets the saved transform exactly. See docs/camera.md.
-##
-## Free look (debug) turns the shot where it stands.
-##
-## The eye stays on that trajectory unless **Third-person views** (debug) is on: then the lean also
-## tilts the eye and the thrust surge travels along the mattress, so the shot drifts around the two
-## bodies instead of following the authored positions.
+## Missionary framing and the act avatar hiding: one authored shot, blended from the pose lab's
+## five transforms, with third-person views (debug) the only deviation.
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
@@ -16,9 +9,8 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 const SHOT_IDS := ["start", "back", "front", "left", "right"]
-## In Anon eyes a kiss leans the eye in toward her face, but never closer than this to the face
-## point: her muzzle extends past it, and the old 0.30 m floor put the eye inside the muzzle. The
-## authored shot does not move for a kiss; its front transform is the kiss framing.
+## The closest an Anon-eyes kiss lean-in may put the eye to her face point: her muzzle extends past
+## it, and the authored shot does not move for a kiss.
 const KISS_CLEARANCE_M := 0.45
 
 var facts: Variant
@@ -73,16 +65,14 @@ func prepare() -> void:
 
 
 ## Re-read the scene once the act is fully posed. `prepare()` snapshots while Anon is still standing
-## up from the bed, so the eye height it catches is the old reclined one; the pose settle is when his
-## eye height and the camera have finished moving, and nothing else changes after it.
+## up from the bed, so the eye height it catches is the old reclined one.
 func resnapshot() -> void:
 	_sync()
 	if not is_instance_valid(WORLD.game) or not is_instance_valid(WORLD.player) \
 			or not is_instance_valid(pony):
 		return
-	# Only the *game* camera's transform is refreshed. `_missionary_start_camera` stays the game camera
-	# captured by `prepare()`; asking the viewport now would return the act's own view, which is freed
-	# at the end.
+	# Only the game camera's transform is refreshed: asking the viewport now would return the act's
+	# own view, which is freed at the end. The start camera stays the one prepare() captured.
 	_missionary_start_player_transform = WORLD.player.global_transform
 	if is_instance_valid(WORLD.camera()):
 		_missionary_start_camera = WORLD.camera()
@@ -178,10 +168,8 @@ func _tick_eye(kiss: Variant, look: Vector3) -> void:
 		_log("free look eye=%s rotation=%s" % [str(at), str(look)])
 
 
-## The authored shot. The eye is a weighted blend of the five authored camera transforms: the
-## neutral start plus the forward/back shot and the side shot selected by the lean. At a pure axis
-## extreme (S, W, Q or E) the weight is exactly one, so the eye meets the pose lab's camera position
-## **and direction**; everything between is interpolated. See docs/camera.md.
+## Blend the five authored transforms by lean; a pure axis extreme is exactly the pose lab's saved
+## position and direction.
 func _tick_authored(kiss: Variant, look: Vector3) -> void:
 	if not is_instance_valid(_missionary_view):
 		_make_missionary_view()
@@ -200,16 +188,16 @@ func _tick_authored(kiss: Variant, look: Vector3) -> void:
 	if tf > 0.0001:
 		entries.append([_shot_transform("front" if forward > 0.0 else "back", scale), tf / total])
 	if ts > 0.0001:
-		# The asset's `left` shot is on Anon's screen right and vice versa (the lab names them from
-		# her side), so Q reads `right` and E reads `left` to make the keys match the screen.
+		# Q/E read opposite the asset's side names because the lab names them from her side of
+		# the bed, not the player's.
 		entries.append([_shot_transform("right" if side < 0.0 else "left", scale), ts / total])
 	var shot := _blend_shots(entries)
 	if not shot.is_finite():
 		return
 	var at := shot.origin
 	var view_basis := shot.basis.orthonormalized()
-	# The speed-driven surge/bob from standing: zero at rest, so the eye is exactly the authored
-	# transform; during a stroke the view rocks with it.
+	# Standing's surge/bob rides on top and is zero at rest, so the eye stays on the authored
+	# transform between strokes.
 	at += Vector3.UP * float(facts.bob)
 	at -= view_basis.z * float(facts.lean)
 	if SETTINGS.third_person.get_bool():
@@ -272,8 +260,8 @@ func _aimed_basis(at: Vector3, aim: Vector3) -> Basis:
 	return Basis.looking_at(dir, pole.normalized())
 
 
-## Weighted position and quaternion average. A pure axis lean has a single weight of one, so the
-## result is the authored transform itself, not an approximation.
+## Weighted position and quaternion average; the quaternion sum is sign-aligned so opposite ends
+## do not cancel.
 func _blend_shots(entries: Array) -> Transform3D:
 	if entries.is_empty():
 		return Transform3D.IDENTITY
@@ -302,9 +290,8 @@ func _blend_shots(entries: Array) -> Transform3D:
 	return Transform3D(Basis(qsum.normalized()), origin / total)
 
 
-## One end of the authored shot in world space. A shot that is not authored falls back to a fixed
-## bed-relative point, never to her live body: the eye then only ever moves between fixed positions,
-## and the log names what is still missing.
+## One end of the authored shot in world space. A missing shot keeps the fixed bed-relative
+## fallback rather than her live body, so the eye only moves between fixed positions.
 func _shot_position(id: String, scale: float) -> Vector3:
 	var asset: Variant = facts.call_value(facts.authored_pose_asset) if facts != null else null
 	var frame: Variant = _bed_frame()
@@ -417,9 +404,8 @@ func _bed_surface_top() -> float:
 	return MATTRESS.visible_top(bed, points, fallback)
 
 
-## Her live head as a skull sphere plus a muzzle capsule. The camera is Anon's eye, so pushing it
-## out of those volumes is what keeps a close lean from entering her head no matter which way she
-## turns or pulls her head; a point target cannot do that because the surface moves under it.
+## Push the eye out of her skull sphere and muzzle capsule. The surfaces move as she turns, so a
+## point target cannot keep a close lean out of her head.
 func _clear_live_head(at: Vector3) -> Vector3:
 	var clearance := SETTINGS.head_clearance_mm_for(SETTINGS.pony_size_name()) / 1000.0
 	if clearance <= 0.0001 or not is_instance_valid(pony):
@@ -577,9 +563,8 @@ func _pose_family() -> String:
 	return str(view.family) if view != null else ""
 
 
-## Change the player's own eye height for the act instead of writing camera.position.y.
 ## Park the game's desktop presentation, which would otherwise show and drive his body from the
-## player rig. The act's own body (`poses/missionary_anon.gd`) is placed and posed over it after this.
+## player rig; the act's own body is placed and posed over it after this.
 func _hide_anon_avatar_for_missionary() -> void:
 	if _pose_family() != "bed" or not is_instance_valid(WORLD.game) \
 			or not is_instance_valid(WORLD.player):
@@ -611,9 +596,8 @@ func _restore_anon_avatar() -> void:
 	_desktop_presentation_processing = true
 
 
-## Put the player, the pony and the camera back at the same place relative to the bed as the act
-## found them. The act's own state is over here; the runtime's bed cuddle rejoin starts from this
-## restored standing spot.
+## Put the player, the pony and the camera back relative to the bed as the act found them; the
+## runtime's bed cuddle rejoin starts from this restored standing spot.
 func _restore_scene() -> void:
 	if not is_instance_valid(pony) or not is_instance_valid(WORLD.game) or not is_instance_valid(WORLD.player):
 		return

@@ -1,19 +1,9 @@
 extends RefCounted
-## Runtime shader patch for the rig coat (MareBody) and its outline hull. The game body uses
-## addons/cel-shader/cel-shader-base.gdshader and the hull uses cel-outline-lit or
-## outline-tinted; all three already include flank_jiggle.gdshaderinc and call
-## `VERTEX += flank_jiggle(VERTEX);`. The cel cutout and occlusion variants use the base include
-## without that hook, so the patch injects the include and call into their duplicate. We duplicate
-## the Shader resource and swap those strings for the mod's extended include and deform call, then
-## add the vulva coat cut to the fragment. No game source file is edited and no full shader is
-## copied into the mod.
-##
-## The merged near pony uses near_pony, near_pony_occlusion and near_pony_outline. Their
-## jiggle call is multiplied by `jiggle_entry[pal]`; the patch keeps the rig body entries and
-## leaves every other palette entry on the stock path. `patched()` caches one Shader per source
-## shader. A game update that changes a required hook makes it return null, which the caller
-## treats as "leave the original shader alone". A missing `void fragment()` keeps the deform and
-## only drops the cut.
+## Runtime shader patch for the rig coat and its outline hull: duplicate the game Shader,
+## swap the jiggle include and call for the mod's deform, and add the vulva cut. No game file
+## is edited and no full shader is copied.
+## The cel cutout/occlusion variants have no hook, so the patch injects one; a game update
+## that breaks a hook yields null and the caller keeps the original shader.
 
 const GAME_INCLUDE := "res://world/characters/hybrid_mare/flank_jiggle.gdshaderinc"
 const GAME_INCLUDE_LINE := "#include \"" + GAME_INCLUDE + "\""
@@ -40,8 +30,7 @@ static func patched(source: Shader) -> Shader:
 	var code: String = source.code
 	var game_hook := code.contains(GAME_INCLUDE_LINE)
 	if not game_hook:
-		# The cel cutout and occlusion variants use the same base include but omit the game's
-		# flank_jiggle hook. Add the hook in the duplicate, then run the same deform/cut patch.
+		# The variants omit the jiggle hook, so inject it before running the same deform/cut patch.
 		if not code.contains(BASE_INCLUDE_LINE) or not code.contains(VERTEX_HOOK) \
 				or not code.contains(FRAGMENT_HOOK):
 			_cache[key] = null
@@ -68,8 +57,8 @@ static func patched(source: Shader) -> Shader:
 	if near and not code.contains("const int ENTRIES"):
 		_cache[key] = null
 		return null
-	# Keep the game include and add the mod file after it. Nesting `#include` inside the mod
-	# include is not reliable here: Godot's preprocessor tokenised the nested directive.
+	# The mod include follows the game one: Godot's preprocessor tokenised a nested `#include`
+	# directive, so the mod file cannot include it itself.
 	var includes := GAME_INCLUDE_LINE + "\n#include \"" + MOD_INCLUDE + "\""
 	if near:
 		includes += "\n" + NEAR_ENTRY_UNIFORM
@@ -79,8 +68,8 @@ static func patched(source: Shader) -> Shader:
 	if patched_code.contains(FRAGMENT_HOOK):
 		patched_code = patched_code.replace(FRAGMENT_HOOK,
 			PATCHED_NEAR_FRAGMENT if near else PATCHED_FRAGMENT)
-	# The duplicate Shader has no resource_path, so the cel shader's relative includes must
-	# become absolute or they resolve against the wrong directory.
+	# A duplicated Shader has no resource_path, so relative includes resolve against the wrong
+	# directory and must become absolute.
 	patched_code = patched_code.replace("#include \"includes/",
 		"#include \"res://addons/cel-shader/includes/")
 	var shader := Shader.new()

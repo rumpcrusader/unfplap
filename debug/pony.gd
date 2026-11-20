@@ -19,9 +19,8 @@ const TRUST_FLOOR := 40.0
 const TOGETHER_FLOOR_S := 3600.0
 
 
-## The live scene values the scene gate's debug status line reads. `act` carries the runtime's own
-## act-session values (state, readiness, penetration, preferences, voice); everything else is
-## gathered from the pony, the world, the relationship and the player body.
+## The values the scene gate's status line prints: the act's own session values, plus the pony,
+## the world, the relationship and the player body.
 static func context(pony: Node, id: String, act: Dictionary) -> Dictionary:
 	var identity: Variant = pony.get("identity") if is_instance_valid(pony) else null
 	var pony_id := id if not id.is_empty() else PONY_ID.from("", identity)
@@ -148,10 +147,8 @@ static func clear_busy(pony: Node3D) -> String:
 	return "none" if notes.is_empty() else ", ".join(notes)
 
 
-## Clear her busy state and write the bond record that opens the act gate: dating when she is
-## below it, the lab's familiarity/trust/together floors, no pending plan/offer and no boundary or
-## dating cooldown. A record path that cannot save refuses before anything changes; the romance
-## ladder, tier and love are never touched.
+## Clear her busy state and write the bond record that opens the act gate, refusing before any
+## change when the record cannot save. The romance tier is never touched.
 static func sex_ready(host: Node, pony: Node3D) -> String:
 	if not is_instance_valid(host) or not is_instance_valid(pony):
 		return "No adult mare under the crosshair."

@@ -1,7 +1,6 @@
 extends RefCounted
-## Pure proactive-request wording: the ask context, the ask purpose, the observed-situation text
-## and the heat sentence. The facade supplies the relationship and history notes as strings, so
-## this file has no Settings, scene or game access. See `docs/initiation.md`.
+## Wording for a proactive ask: context, purpose, situation and heat lines.
+## Notes arrive as strings, so this file reads no Settings, scene or game state.
 
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const FACTS := preload("res://mods/unfplap/initiation/facts.gd")

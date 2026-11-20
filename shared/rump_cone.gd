@@ -4,8 +4,8 @@ extends RefCounted
 ## The fan is horizontal: eye height does not matter, and the reach is the ground distance from
 ## her rump anchor. `HALF_ANGLE_DEG` is a half-angle, so the full fan is twice this value.
 
-## 180 degrees total, 90 to each side of her backward axis. The fan is the whole rear half-plane,
-## so a player who steps to her side at a normal offset still gets the prompt.
+## The fan spans a half-plane behind her, so stepping to her side at a normal offset still gets the
+## prompt.
 const HALF_ANGLE_DEG := 90.0
 ## Ground distance from her rump anchor. Large enough to offer from a step back, still inside the
 ## act-start placement's bounded correction.

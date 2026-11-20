@@ -43,9 +43,10 @@ gate (`docs/scene_gate.md`).
 | `on_world_closed()` | the world enter and close: no offer, no gate verdict, no one-shot flag, no hint row |
 
 The scan runs one second apart because the cone geometry and the gate are cheap enough to keep
-live and expensive enough not to pay per frame. The gate behind it is the expensive half: its
-verdict is reused while the same mare stays the cone target and refreshed every `GATE_REFRESH_S`,
-so a reused verdict can only hold the hint back, never start or block an act. The live Agreement is
+live and expensive enough not to pay per frame. The gate behind it is the expensive half and its
+inputs change on a state transition the cone scan cannot see, so its verdict is reused while the
+same mare stays the cone target and refreshed every `GATE_REFRESH_S`; a reused verdict can only
+hold the hint back, never start or block an act. The live Agreement is
 checked first: it is already a yes, so the rump fan and the policy snapshot do not rediscover it.
 
 An offer of either kind keeps its logged key, and no offer at all clears both keys, so the same

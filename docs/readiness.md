@@ -85,7 +85,8 @@ The auto surface:
   and blush response while slow or shallow strokes stay lighter; the foley scales from `strength`
   directly. The rump/tail wobble is separate: `THRUST.jiggle_amount(travel, strength)` follows
   travel, so a full stroke wobbles the same at any speed, and the soft band fades the gentlest
-  strokes to `0.04`. The camera is on its own speed-driven channel, not this impact value.
+  strokes to `0.04`, under the stock jiggle's own `0.3` floor. The camera is on its own
+  speed-driven channel, not this impact value.
 - `satisfaction` is her arousal/readiness 0–100. At 100 she climaxes; the player chooses afterglow
   separately. Readiness rises in discrete chunks from real thrusts, not on a passive timer.
 

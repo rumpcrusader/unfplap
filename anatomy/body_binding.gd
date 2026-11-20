@@ -1,10 +1,7 @@
 extends "res://mods/unfplap/shared/body_binding.gd"
-## The anatomy body binding: forwards the presented body's form to the anatomy facade, which keeps
-## the per-pony controller and the tail seat in step with it.
-##
-## Scope: world. `body_change.wire()` registers one instance after the service and the
-## anatomy facade exist. It never preloads `main.gd` or `runtime.gd`.
-##
+## Forwards the presented body's form to the anatomy facade, so the controller and the tail
+## seat stay in step with it.
+## Scope: world. Never preloads `main.gd` or `runtime.gd`.
 ## See `docs/anatomy.md` (`## Attachment and identity`).
 
 const SERVICE := preload("res://mods/unfplap/anatomy/service.gd")

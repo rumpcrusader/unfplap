@@ -1,20 +1,7 @@
 extends Node
-## Proactive offers. One episode at a time: she waits for a quiet moment, builds the placeable
-## options, decides with her own reasoning whether to offer and which option, walks to Anon or to
-## the bed front, asks in character and hands the formed Mare offer to the Negotiation service.
-## The exchange, privacy sampling, the Agreement and the act start belong to
-## `negotiation/service.gd` and the runtime; this service keeps the pacing, the approach and the
-## offer formation. Nothing starts the act here.
-##
-## The facade owns the attempt, admission and phase orchestration. One `Candidate` carries the
-## offer and the live route; `_begin_route` is the single route entry and reports a short reason
-## for a route that ends before the ask. Rules are `initiation/policy.gd`, wording is
-## `initiation/prompts.gd`, the reasoning request is `initiation/reasoning.gd`, and every scene
-## read is behind `initiation/venue.gd` (navigators, posture, beds) or the
-## `negotiation/adapter.gd` director bridge the Negotiation service owns and hands over. The
-## bounded classifier is this service's. See `docs/initiation.md`.
-##
-## Automatic requests are background AI turns, so they require AI usage Full.
+## Proactive offers: she reads the place, reasons, walks and asks; nothing starts the act here.
+## Scope: world
+## Contract: docs/initiation.md
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const POLICY := preload("res://mods/unfplap/initiation/policy.gd")
@@ -59,9 +46,8 @@ func _state_of(runtime: Node) -> int:
 	return int(session.state) if session != null else 0
 
 
-## One mare's offer candidate and, once `_begin_route` starts it, the live attempt: the placeable
-## choices, the chosen option and the walk/ask route state. The scan builds candidates for several
-## mares, so route-time privacy reads and lease fields stay in `_begin_route`, not in the scan.
+## One mare's offer candidate and, once a route starts, the live attempt's fields.
+## The scan builds several candidates, so route-time privacy reads stay out of it.
 class Candidate extends RefCounted:
 	var id := ""
 	var runtime: Node
@@ -116,9 +102,9 @@ var _scan_reason: Dictionary = {}
 var _scan_log_at: Dictionary = {}
 var _venue: VENUE
 var _privacy: PRIVACY
-## The idle offer service: the cuddle offer must match the offer the act key would start.
+## The idle offer service; a cuddle must target the mare the act key would start.
 var _offer: OFFER
-## The Negotiation service: the exchange, the lock, the form view and the Context both stages read.
+## The Negotiation service, which owns the exchange, the lock, the form and the Context.
 var _negotiation: NEGOTIATION = null
 ## The director bridge and model host. The Negotiation service owns it; see
 ## `negotiation/adapter.gd`.
@@ -207,9 +193,8 @@ func on_world_closed() -> void:
 		_classifier.cancel_all()
 
 
-## Manual lab/debug entry point: bypass the quiet, cooldown, retry and reasoning; keep Base
-## clearance, the placeable options and the formation check. An empty `pose` lets the scan's
-## first option decide. A route that ends before the ask reports its reason in `reject`.
+## Lab entry that skips quiet, cooldown, retry and reasoning but keeps clearance and poses.
+## A pre-ask route failure comes back in `reject`.
 func force(runtime: Node, pose := "") -> ForceResult:
 	var out := ForceResult.new()
 	if not is_instance_valid(WORLD.game) or not is_instance_valid(runtime):
@@ -258,7 +243,7 @@ func on_negotiation_outcome(terminal: RefCounted) -> void:
 		float(terminal.cooldown_s)])
 
 
-## A new Anon offer or hotkey cancels a live attempt that has not formed a Mare offer.
+## An interrupting Anon offer or hotkey ends a live attempt before it forms an offer.
 func cancel_approach() -> void:
 	if _episode == null:
 		return
@@ -492,9 +477,8 @@ func _on_reasoning(candidate: Candidate, serial: int, reply: String, error: Stri
 	_begin_route(candidate)
 
 
-## The single route entry: a cuddle asks from the bed, a bed walks to its front, a standing offer
-## walks to Anon; already near means the ask starts now. Returns `""` when the route started or the
-## ask formed, otherwise the close reason.
+## The single route entry: cuddle asks from bed, bed walks to its front, standing walks to Anon.
+## Returns `""` on a started route or formed ask, else the close reason.
 func _begin_route(candidate: Candidate) -> String:
 	var player: Node3D = _venue.player()
 	if not is_instance_valid(player) or not is_instance_valid(candidate.pony):
@@ -718,9 +702,8 @@ func _claim(reason: String) -> String:
 	return ""
 
 
-## Form the Mare offer and hand it to the Negotiation service, then speak the ask line. The
-## request lease moves to the negotiation at formation; a refused handoff releases it and sets the
-## short retry. Returns the close reason on failure, `""` after a successful handoff.
+## Form the Mare offer, hand it to the Negotiation service, then speak the ask line.
+## The lease moves at formation; a refusal releases it and sets the short retry.
 func _start_ask_handoff() -> String:
 	if _episode == null:
 		return ""
@@ -749,7 +732,7 @@ func _start_ask_handoff() -> String:
 	offer.line = _offer_line(option)
 	offer.cuddle = option.cuddle
 	var episode := _episode
-	# The request's speed and pace overrides are not part of the negotiation lease.
+	# Restore her speed and pace before the lease leaves: the negotiation does not own them.
 	_venue.restore_limits(episode.nav, episode.prev_limit, episode.prev_pace)
 	var handed := is_instance_valid(_negotiation) and _negotiation.begin_mare_offer(offer)
 	if not handed:
@@ -831,9 +814,8 @@ func _apply_claim(episode: Candidate, claim: Dictionary) -> void:
 	episode.prev_pace = claim.get("pace")
 
 
-## The one request close path. Stamps the short retry for any non-empty reason and returns it, so a
-## route can report the close. The negotiator owns the lease after a successful handoff, so this
-## only handles the request's own attempt.
+## The one request close path; it stamps the short retry for a non-empty reason and returns it.
+## After a handoff the negotiator owns the lease, so this only ends its own attempt.
 func _close_episode(reason: String) -> String:
 	if _episode == null:
 		return reason

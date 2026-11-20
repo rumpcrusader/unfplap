@@ -1,7 +1,5 @@
 extends Node3D
-## Debug overlay for the coat line, parented to the anatomy mesh so the line is drawn in the same
-## local space the shader deforms. Redraws the rest line, the live line and one cross-section
-## marker per sample. Live segments tint towards warm when stretched and cool when compressed.
+## Debug overlay for the coat line, drawn in the same local space the shader deforms.
 ## Unshaded and no-depth-test, so the line stays readable through the coat.
 
 const REST_COLOR := Color(0.35, 0.55, 1.0, 0.55)

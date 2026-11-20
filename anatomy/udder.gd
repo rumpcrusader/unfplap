@@ -1,18 +1,9 @@
 extends RefCounted
-## Teats built from the mare's own belly.
-##
-## Instead of one mare-shaped mesh laid onto every body, the pair is grown out of the body it is
-## worn on: an oval patch of her own rest belly surface (found by vertical rays) is pushed out into
-## two rounded lobes joined in the middle, each with a nipple. The patch's outer ring stays on her
-## surface and carries her coat colour, so there is no rim; it is skinned with her own weights at
-## each point, so it rides with her belly. `CUSTOM0.x` is the sway weight (0 at the base, 1 at the
-## tip), so the bounce swings the tips while the base stays put (anatomy.gdshader `sway_custom`).
-##
-## Vertex colours follow the old teats asset: G 0.7 skin, 0.9 the darker nipple; B 1 is coat,
-## fading to 0 where the lobes rise; R 0 and A 1.
-##
-## Sizes are in mare metres and scale with the body (`scale`): 0 is small, 1 the old "full" size,
-## up to SIZE_MAX for bigger. See build().
+## Teats grown from the mare's own belly: a patch of her rest surface found by vertical rays,
+## pushed into two lobes with nipples, then skinned with her own weights.
+## `CUSTOM0.x` is the sway weight, 0 at the base and 1 at the tip, so the base holds.
+## Vertex colour follows the old teats asset: G the skin/nipple mix, B the coat weight, fading
+## out where the lobes rise. Sizes are in mare metres and scale with the body.
 
 ## The pair's centre on the mare body (her rest space): between the hind legs, on the belly.
 const MARE_CENTRE := Vector3(0.0, 0.391, 0.180)

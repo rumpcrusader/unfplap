@@ -2,8 +2,7 @@ extends RefCounted
 ## Pure stable pony id: the relationship metadata first, then the identity id. Eligibility,
 ## runtime, preferences, placement, memory and the anatomy internals all key off this one rule.
 ##
-## It takes plain values and reads no Node, scene or settings file. The node-shaped convenience
-## stays on the owning facade (`anatomy/service.gd:pony_id()`). See `docs/eligibility.md`
+## It takes plain values and reads no Node, scene or settings file. See `docs/eligibility.md`
 ## (`## Data ownership`).
 
 

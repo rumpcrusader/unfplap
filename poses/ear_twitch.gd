@@ -1,7 +1,6 @@
 extends SkeletonModifier3D
-## A small, eased ear twitch on a thrust (feature: thrust_ear_twitch), layered on top of the
-## act's pinned ears. The shape is a short forward/back plus mirrored sideways flick of both ear
-## roots, not a change of expression weight, so it cannot fight the fluster/line-face ear system.
+## An eased ear twitch on a thrust, on top of the act's pinned ears. It rotates the two ear
+## roots and leaves the face weights alone.
 
 const TWITCH_CHANCE := 0.22
 const TWITCH_ANGLE := 0.20
@@ -35,8 +34,8 @@ var _hook_profile := ""
 var _hook_seen := false
 
 
-## The pose-change hook: a family or profile change clears the running twitch and the bone cache;
-## a shared keep is a cheap no-op.
+## The pose-change hook. A new family or profile drops the running twitch and the bone cache. A
+## shared keep does nothing.
 func pose_changed(view: Variant) -> void:
 	if view == null:
 		return
@@ -63,7 +62,7 @@ func try_trigger(strength: float) -> void:
 	_time = 0.0
 	_duration = randf_range(TWITCH_MIN_S, TWITCH_MAX_S)
 	_strength = clampf(strength, 0.25, 1.0)
-	# Side sign: +1 both ears outward, -1 both ears toward the head.
+	# Ears outward together, or inward together.
 	_sign = 1.0 if randf() < 0.5 else -1.0
 	_pitch_sign = 1.0 if randf() < 0.5 else -1.0
 	_side_ratio = randf_range(TWITCH_SIDE_RATIO_MIN, TWITCH_SIDE_RATIO_MAX)
@@ -106,8 +105,8 @@ func _apply(delta: float) -> void:
 	var left_origin := sk.get_bone_global_pose(_left).origin if _left >= 0 else Vector3.ZERO
 	var right_origin := sk.get_bone_global_pose(_right).origin if _right >= 0 else Vector3.ZERO
 	var center := (left_origin + right_origin) * 0.5
-	# Same forward/back flick on both ears. The side flick is derived per ear so both roots
-	# move outward together or toward the head together, never both to the same world side.
+	# Both ears take the same pitch. Each sideways sign follows its own root's lateral offset, so
+	# the pair opens or closes together.
 	if _left >= 0:
 		_twitch_side(sk, _left, right_axis, forward_axis, center, pitch_angle * _left_gain,
 			side_magnitude * _left_gain, -1.0)
@@ -122,7 +121,7 @@ func _twitch_side(sk: Skeleton3D, bone: int, right_axis: Vector3, forward_axis: 
 	var outward := signf((pose.origin - center).dot(right_axis))
 	if is_zero_approx(outward):
 		outward = fallback_side
-	# `_sign` +1 means both ears outward; -1 means both toward the head.
+	# The side sign is shared: +1 both ears outward, -1 both toward the head.
 	var target := right_axis * outward * _sign
 	var turn_sign := signf(forward_axis.cross(pose.basis.y).dot(target))
 	if is_zero_approx(turn_sign):

@@ -45,10 +45,8 @@ static func from_dict(edge_id: String, document: Dictionary, specs: Dictionary =
 	return edge
 
 
-## Every authoring problem in one document, never only the first. `specs` is the raw id -> spec-row
-## table (`SPECS.SPECS`); an empty table skips the endpoint row, family and form/view support
-## checks, not the id, shape or timing rules. The timing check runs only when the structural
-## checks passed.
+## Every authoring problem, never only the first; an empty `specs` skips the endpoint, family and
+## support checks but keeps the shape, id and timing rules, and timing resolves only after them.
 static func errors(edge_id: String, document: Dictionary, specs: Dictionary = {}) -> Array[String]:
 	var out: Array[String] = []
 	var version_value: Variant = document.get("version")

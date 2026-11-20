@@ -27,9 +27,8 @@ const CAESS_TOUCH_SECONDS := 5.0
 ## A smack swings the caress hand to the cheek and back; ease the return so the contact reset
 ## does not read as a teleport.
 const CARESS_RETURN_SECONDS := 0.12
-## Caress-point offsets are per size preset, in metres before the body scale is applied to
-## only the circle radius. `out` moves each hand out from the flank; both hands together gain
-## twice that amount. JRHNBR (`mounting`) is 4 cm wider; Canon sits lower.
+## Per-preset caress-point offsets in metres, before the body scale reaches the oval radius only.
+## `out` moves each hand off the flank, so both hands together gain twice it.
 const CARESS_PROFILES := {
 	"canon": {"up": 0.08, "back": 0.06, "out": 0.0},
 	"mounting": {"up": 0.16, "back": 0.08, "out": 0.02},
@@ -39,20 +38,12 @@ const CARESS_PROFILES := {
 const SMACK_UP_M := 0.08
 const SMACK_BACK_M := 0.08
 const SMACK_ZONE_RADIUS_M := 0.035
-## Missionary keeps the old hidden-hand swing; the standing hand uses the phases below.
-## Standing smack: lift off the coat, accelerate into the contact, hold for a frame or two,
-## then return to the live caress point or the rest hand. The raise distance is the debug
-## `presentation.standing.smack.raise_m` value, scaled by the pony's body size.
-## Non-caress smack: the query is offset vertically from the cheek centre by
-## `presentation.standing.smack.height_m` (positive up, default -0.03 = 3 cm below), and the
-## wind-up is a backswing from behind/below rather than an outward lift. All distances scale
-## with the pony.
+## The free-hand query offset: `height` is signed (positive up) and `hind` back, both scaled with the pony.
+## Missionary keeps its old hidden-hand swing through the same constants.
 const SMACK_HEIGHT_M := -0.03
 const SMACK_HIND_M := 0.10
 ## Native impact strength for the smack; also drives the tail jiggle propagation.
-## The stock flank slap is bright and compressed. Install a peak-normalised pack hand-smack
-## variant on the native FlankTouch player; the stock stream, level and pitch are restored at
-## act end.
+## A peak-normalised pack hand-smack plays on the native player; the stock level and pitch return at act end.
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const STATE_ACTIVE := ACT_STATE.State.ACTIVE
 const STATE_CLIMAX := ACT_STATE.State.CLIMAX
@@ -121,7 +112,7 @@ static func smack_finger_hint(caressing: bool, forward: Vector3) -> Vector3:
 	return Vector3.DOWN
 
 
-## Non-caress wind-up: a backswing from behind and below the contact, with the fingers down.
+## Nearest point on the posed flank faces, for the free-hand smack query.
 static func closest_flank_hit(faces: PackedVector3Array, normals: PackedVector3Array,
 		point: Vector3) -> Dictionary:
 	if faces.size() < 3:
@@ -240,9 +231,8 @@ var _oral_path: RefCounted
 var _caress_oral_was_active := false
 var _caress_oral_from := {"L": Transform3D.IDENTITY, "R": Transform3D.IDENTITY}
 var _caress_oral_started := {"L": 0, "R": 0}
-## Hands whose contact path still needs a warm build. The first caress of an act builds the
-## path's anchors and the coat source; spending one hand per actionable tick puts that cost in
-## the start transition instead of the player's first `A`/`D`. See `docs/hands.md`.
+## Hands whose contact path still needs a warm build, one hand per tick while the act starts.
+## That puts the anchors and coat source build in the start transition, not the player's first `A`/`D`.
 var _warm_sides: Array = ["L", "R"]
 var _debug_draw_mesh: MeshInstance3D = null
 var _debug_draw_depth_mesh: MeshInstance3D = null
@@ -313,9 +303,6 @@ func _mouth_contact() -> bool:
 	return view != null and str(view.contact_kind) == "mouth"
 
 
-## The pose-change hook: a new `hands.path` retargets the contact path without resetting the
-## controller. A live caress ends its holds; a contact switch (opening -> mouth) keeps them and the
-## oral blend captures the hand frames on the next tick.
 func pose_changed(view: Variant) -> void:
 	if view == null:
 		return
@@ -397,9 +384,8 @@ func _caress_tick(delta: float) -> void:
 	_caress_touch_tick(delta)
 
 
-## Capture the live hand frame when the oral turn starts or ends, so the hand eases onto the
-## other path instead of snapping. Only a hand that is already caressing gets the blend; a fresh
-## caress start resets the hand through the normal path.
+## Capture the live hand frame when the oral turn starts or ends, so the hand eases, not snaps.
+## Only a hand already caressing blends; a fresh start resets through the normal path.
 func _caress_oral_tick() -> void:
 	if facts == null:
 		return
@@ -476,9 +462,8 @@ func _caress_oval_up_m() -> float:
 	return float(SETTINGS.oval_up_m.get_num())
 
 
-## Place one caress hand. The path decides where the caress is; the shared engine does the
-## contact and palm frame. This function only blends the smack return and hands the frame to the
-## pose's palm holder.
+## Place one caress hand: the path decides where, the engine does the contact and palm frame.
+## This function only blends the smack return and hands the frame to the pose's palm holder.
 func _set_caress_hand(side: String, apply := true) -> Transform3D:
 	if not is_instance_valid(pony):
 		return Transform3D.IDENTITY
@@ -801,9 +786,8 @@ func _flank_frame() -> Transform3D:
 	return _flank.global_transform
 
 
-## Nearest point on the posed FlankSurface patch to a world point. The patch is the cheek
-## region of her flank; the body hull is deliberately not consulted, so a shoulder or belly
-## caress still smacks the flank.
+## Nearest point on the posed FlankSurface patch; the body hull is deliberately not consulted.
+## The patch is the cheek region, so a shoulder or belly caress still smacks the flank.
 func _closest_flank_contact(point_world: Vector3) -> Dictionary:
 	if not is_instance_valid(_flank):
 		_flank = pony.get_node_or_null("FlankTouch") if is_instance_valid(pony) else null
@@ -856,9 +840,8 @@ func _closest_flank_contact(point_world: Vector3) -> Dictionary:
 	return {"point": world_point, "normal": world_normal, "local": local_point}
 
 
-## Standing smack target: the live caress point when that hand is already on the flank patch,
-## otherwise the bottom of the chosen cheek for a free-hand smack, jittered within the
-## character's smack zone. Empty only when the flank patch is unavailable.
+## Standing smack target: the live caress point when that hand is already on the flank patch.
+## Otherwise the chosen cheek, jittered in the smack zone; empty when the patch is unavailable.
 func _standing_smack_target(hand_side: String, hand_world: Vector3,
 		caressing: bool) -> Dictionary:
 	var caress_side := "L" if hand_side == "left" else "R"
@@ -1057,16 +1040,15 @@ func _init(facts_context: Variant = null) -> void:
 	facts = facts_context
 
 
-## One physics tick: ease the reach hand home, hold it on the shoulder, then run the caress
-## and the smack swing in the same order the runtime used before.
-## Return easing runs at the top of every lean tick, even while the act is leaving the
-## actionable states, so a released reach still blends home.
+## Return easing runs every lean tick, even while the act leaves the actionable states, so a
+## released reach still blends home.
 func return_tick() -> void:
 	if facts == null:
 		return
 	_reach_hand_return_tick()
 
 
+## One physics tick: ease the reach hand home, hold it on the shoulder, then caress and smack.
 func tick(delta: float) -> void:
 	if facts == null:
 		return
@@ -1135,11 +1117,8 @@ func active(side: String) -> bool:
 	return bool(_caress_active.get(side, false))
 
 
-## Warm one contact path for the next actionable tick. The first press in an act builds the
-## path's anchors and the coat source on the spot, so the controller spends one hand per tick
-## while the act is starting instead. The frame is not applied and no caress is latched; a
-## fresh `A`/`D` still resets that hand through the normal start. Returns true while a hand
-## still waits for its warm build.
+## Warm one contact path per actionable tick, so the first `A`/`D` of an act does not build it.
+## The frame is not applied and nothing latches; a fresh press still resets the hand.
 func warm_contact_paths() -> bool:
 	if facts == null or _warm_sides.is_empty():
 		return false

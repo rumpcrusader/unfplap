@@ -105,8 +105,8 @@ Non-code tasks: a release is `.opencode/skills/release/SKILL.md`; syncing shippe
 Read `WORKFLOW.md` before any task. Commit in small, testable units; never push.
 
 - **Code first, docs second.** Land the behavior and its tests, plus only the doc text a gate
-  reads, run every gate, and commit the code. Then update the owning `.md` prose and every code
-  comment in one separate `docs:` commit, after the task's last code commit.
+  reads, run every gate, and commit the code. Then update the owning `.md` prose and the comments
+  the change made false in one separate `docs:` commit, after the task's last code commit.
 - Settle the design before touching files. Once it is settled, apply every code edit first, then
   check the change. Gate the code once per task, not per commit: `scripts/test.sh <touched>`,
   `scripts/check.sh` and `scripts/lint.sh` before each commit, `scripts/test_all.sh` once when the
@@ -183,11 +183,16 @@ Read `WORKFLOW.md` before any task. Commit in small, testable units; never push.
   changes documentation has one `docs:` commit, after its last code commit; never mix
   documentation into a code commit. The only exception is the minimum doc text a test or checker
   reads to stay green — a new service's contract stub and index row, a `Uses` row, the public
-  names in `docs/api.md` — which the code commit may carry for the docs commit to complete.
-- **Comments explain why, not what.** Add one only when the reason is not obvious from the code
-  flow and is too low-level or specific for the owning doc. Keep it concise: an invariant, a
-  workaround, an ordering constraint or a game quirk. Do not narrate the statements, restate a doc
-  or record history; delete a comment that only says what the code already says.
+  names in `docs/api.md` — which the code commit may carry for the docs commit to complete. A
+  `docs:` commit fixes only the comments the change made false; a comment that is still true is
+  never reworded.
+- **Comments state what the code cannot.** A `##` block is at most two lines: the promise, then one
+  clause of why when the reason is not visible. A file header is at most five lines — the
+  `Service:`/`Contract:`/`Scope:`/`Import:` fields plus one purpose sentence; the owning doc carries
+  the rest. A `#` block is at most three lines and only for an invariant, an order constraint, a
+  game quirk or a workaround. Do not restate a doc sentence, a member name, a count, an ordinal or a
+  numeric value the code owns; a rename must never force a comment edit. `scripts/comments.py
+  --check` enforces the shape in `scripts/lint.sh`.
 - A doc names settings and behaviour, not copied numeric defaults; the shipped
   `settings/defaults.json` is the source for the default and the declaration in
   `settings/service.gd` for the bounds.

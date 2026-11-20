@@ -1,8 +1,6 @@
 extends RefCounted
-## The per-mare anatomy placement: the saved offset/pitch/scale, the calibrated lift and the
-## missionary trims. It owns only placement state; the controller supplies the mesh, its bone
-## bind and the act depth/frame.
-##
+## One mare's anatomy placement: the saved transform, the calibrated lift and the pose trims.
+## It owns placement state only; the controller supplies the mesh, the bone bind and the depth.
 ## See `docs/anatomy.md` (`## Placement`).
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
@@ -90,8 +88,7 @@ func base_place() -> Transform3D:
 		place = Vector3(place.x * size, rig.rear_y + (place.y - WINKING_REAR_Y) * size,
 			rig.rear_z + (place.z - WINKING_REAR_Z) * size)
 		basis = basis.scaled(Vector3.ONE * size)
-	# Push the whole mesh out along its own normal. A pose that tucks the anatomy into the coat
-	# then shows the vulva instead of clipping it.
+	# The pose tucks the mesh into the coat; pushing along the normal keeps the vulva visible.
 	var out := _vulva_out_mm / 1000.0
 	if absf(out) > 0.00001:
 		place += basis.z.normalized() * out

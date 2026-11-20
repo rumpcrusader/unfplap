@@ -192,7 +192,7 @@ func log(text: String) -> void:
 
 
 ## Move the live runtime under the world before the old body is freed. The runtime owns the
-## reparent and the `_swapping_parent` flag.
+## reparent and its own swapping flag.
 func attach_to_world() -> void:
 	_call(attach_to_world_cb)
 
@@ -258,8 +258,7 @@ func set_act_pose_config() -> void:
 	_call(set_act_pose_config_cb)
 
 
-## Rebuild the live pose on the new skeleton at the pose the act was in; the runtime reads the
-## swap record's live pose id.
+## The new skeleton takes the live pose again; the runtime supplies the pose id.
 func rebuild_act_pose() -> void:
 	_call(rebuild_act_pose_cb)
 
@@ -344,7 +343,6 @@ func prepare_standing_camera() -> void:
 	_call(prepare_standing_camera_cb)
 
 
-## The new body must still pass the act's adult-mare gate.
 func new_body_adult() -> bool:
 	return bool(_value(new_body_adult_cb, true))
 

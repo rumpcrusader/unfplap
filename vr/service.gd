@@ -1,7 +1,6 @@
 extends Node
-## integration: optional VR standing act. Desktop paths
-## do not create it. It drives the same depth and anatomy actions as the desktop keys; the
-## auto-speed/stroke-depth controls from the fork are deliberately not imported.
+## Optional VR standing act; not built on desktop.
+## The fork's auto-speed controls are deliberately not imported.
 
 const ACT_COMMANDS := preload("res://mods/unfplap/shared/act_commands.gd")
 
@@ -9,9 +8,8 @@ const HIP_RANGE_M := 0.16
 const STICK_DEAD := 0.5
 const STICK_REPEAT_S := 0.18
 
-## Host boundary. The bridge owns the anatomy actions and the headset depth; the typed act view
-## supplies her node and the readiness touch; `command` is the runtime's discrete command
-## dispatcher. Missing callbacks are no-ops.
+## Host boundary: the bridge owns the anatomy actions and the headset depth.
+## `command` is the runtime's discrete command dispatcher; missing callbacks are no-ops.
 var bridge: Variant = null
 var align := Callable()
 var touch := Callable()

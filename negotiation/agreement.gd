@@ -71,10 +71,8 @@ class Package:
 		return option.matches(option_in.pose, option_in.source, option_in.bed, option_in.cuddle)
 
 
-## The opaque handle. The Act service gets the operational frozen values, the id, the generation
-## and one cancel callback; the callback's bound arguments are the id and generation, so a late
-## handle cannot touch a newer Agreement. `cancel(reason)` is the only way the Act ends the
-## package. Clearance, Context and the classifier scope stay inside the service.
+## The opaque handle. The cancel callback is bound to the id and generation, so a late handle
+## cannot touch a newer Agreement; clearance, Context and the scope stay inside the service.
 class Handle:
 	var id := 0
 	var generation := 0

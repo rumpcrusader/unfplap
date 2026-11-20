@@ -19,8 +19,8 @@ const ASSET_DIR := "res://mods/unfplap/assets/anatomy/mare/"
 const TEATS_PATH := ASSET_DIR + "teats.scn"
 const STRIP_PATH := ASSET_DIR + "skin_bridge.scn"
 
-## The princesses' own teat look: `size` 0..1 as `_teat_size` (1 = the "full" shape), `bounce`
-## multiplies the sway, `stiffness`/`damping` scale the spring (lower = slower, longer bounce).
+## The princesses' own teat look: `size` 0..1 (1 = the "full" shape), `bounce` multiplies
+## the sway, and `stiffness`/`damping` scale the spring (lower = slower, longer bounce).
 const PRINCESS_TEATS := {
 	"celestia": {"size": 1.0, "bounce": 1.3, "stiffness": 0.7, "damping": 0.75},
 }
@@ -79,8 +79,7 @@ func _fit_id() -> String:
 	return current.fit_id
 
 
-## The placement profile in the array shape `anatomy/body_fit.gd` takes; empty for the ordinary
-## rig so an ordinary mare keeps the shared mare body's own teats.
+## The placement profile the body fit takes; empty for the ordinary rig.
 func _profile() -> Array:
 	var rig := _rig()
 	if rig == null or rig.is_ordinary():
@@ -116,7 +115,6 @@ func apply_material(missionary: bool) -> void:
 	material.set_shader_parameter("inner_shadow", inner_color.darkened(0.22))
 	material.set_shader_parameter("clitoris_color", clitoris_color)
 	material.set_shader_parameter("clitoris_shadow", clitoris_color.darkened(0.22))
-	# Act hack: drop the vertex-alpha fold/clitoris masks so the whole mesh uses her skin tones.
 	material.set_shader_parameter("fold_coloring",
 		0.0 if missionary and SETTINGS.disable_fold_coloring.get_bool() else 1.0)
 	var world_scale := maxf(mesh.global_transform.basis.get_scale().x, 0.001)
@@ -129,8 +127,6 @@ func apply_material(missionary: bool) -> void:
 	material.set_shader_parameter("lip_vertical",
 		clampf(SETTINGS.lip_vertical.get_num(), 0.0, 1.0))
 	material.set_shader_parameter("vulva_height", SETTINGS.vulva_height.get_num())
-	# `coat_color` is the shader's `to_coat` fallback (the dock and the strip edges read it). It
-	# must match her coat here, or those vertices render black.
 	var identity: Variant = pony.get("identity")
 	var coat_fill: Variant = identity.get("coat_fill") if identity != null else null
 	var coat_shade: Variant = identity.get("coat_shade") if identity != null else null
@@ -189,8 +185,6 @@ func apply_teats_material(base: ShaderMaterial) -> void:
 	material.set_shader_parameter("contour_amount", 0.0)
 	# The teats and strip are engine-skinned; the copy must not inherit the anatomy line.
 	material.set_shader_parameter("line_count", 0)
-	# The generated pair carries its own sway weight in CUSTOM0.x; the old asset fades with the
-	# vertex alpha instead.
 	var teats_material := material
 	if generated_teats:
 		teats_material = material.duplicate() as ShaderMaterial
@@ -246,8 +240,6 @@ func _attach_teats() -> void:
 	var profile := _profile()
 	var who := _fit_id()
 	var size := _teat_size()
-	# Grown from her own belly (anatomy/udder.gd), so they fit her body, whatever it is; the old
-	# mare-shaped asset is the fallback when her belly cannot be found.
 	generated_teats = false
 	var model: Variant = pony.get("_model")
 	var body: MeshInstance3D = (model as Node).find_child("MareBody", true, false) \

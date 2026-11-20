@@ -1,11 +1,9 @@
 extends RefCounted
-## The act's one state, timer, clock and value owner. One per pony, created once and reset per
-## act. It writes `state` through `_set_state()`; a transition guards and dispatches, and the
-## owner services do the work. The settings snapshot lives in `act/settings.gd`, the read
-## composition in `act/view.gd` and the ordered frame in `act/tick.gd`. The session is the act's
-## public handle: its typed one-liners are the contract callers use, not wrappers to move onto the
-## owners.
+## The act's one state, timer, clock and value owner: a transition guards and dispatches, and the
+## owner services do the work. Its typed one-liners are the contract callers use, not wrappers to
+## move onto the owners.
 ##
+## See `docs/runtime.md`.
 
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const ACT_NODE := preload("res://mods/unfplap/act/host.gd")
@@ -52,7 +50,7 @@ var exit: Variant = null
 var swap: Variant = null
 ## The act's settings snapshot and live apply, owned by `act/settings.gd`.
 var settings: ACT_SETTINGS = ACT_SETTINGS.new()
-## The live act state. `_set_state()` is the only writer.
+## The live act state, written only by the session itself.
 var state: int = State.IDLE
 var pose_id := ""
 var source := ""

@@ -30,9 +30,8 @@ func bind(host_in: ACT_NODE, context_in: ACT_CONTEXT) -> void:
 	context = context_in
 
 
-## Compose the view from the session and the live systems. The tick refreshes it once per phase:
-## idle before the idle systems, physics after the pose tick and before the fan-out, render before
-## the camera work, and the entry's `apply_camera_motion()` hand-off.
+## Compose the view from the session and the live systems. Each phase refreshes it in its own slot:
+## idle first, physics between pose tick and fan-out, render before the camera.
 func refresh(facts: ACT_FACTS, session: ACT_SESSION) -> void:
 	var pose_session: Variant = context.pose
 	var pose_view: Variant = pose_session.view()
@@ -119,9 +118,8 @@ func refresh(facts: ACT_FACTS, session: ACT_SESSION) -> void:
 		facts.kiss_side = 0.0
 
 
-## Gather the HUD card's live values into the act view. `main.gd` calls `apply_camera_motion()`
-## once per rendered frame just before `hud.update_from()`, so the card reads fields instead of
-## calling back into the runtime.
+## Gather the HUD card's live values into the act view; `main.gd` calls it once per rendered frame
+## just before the card updates, so the card reads fields instead of calling back.
 func sync_hud(facts: ACT_FACTS, session: ACT_SESSION, max_climaxes: int,
 		cycle_heat: bool, pose_family: String) -> void:
 	var features: Dictionary = session.features if session.features is Dictionary else {}

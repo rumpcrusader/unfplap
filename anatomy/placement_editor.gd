@@ -1,9 +1,6 @@
 extends RefCounted
-## The Anatomy Placement editor: the draft/save/reset actions and the text report for the Placement
-## buttons. The pointed mare is the debug facade's aim rule, so the wheel and the editor agree on
-## who is targeted. The facade owns one instance; the editor calls back into the service for the
-## tail capability and the settings pass that re-reads the tail seats.
-##
+## The Anatomy Placement editor: the draft, save and reset actions and the text report.
+## It resolves the pointed mare with the debug facade's aim rule, so wheel and editor agree.
 ## See `docs/anatomy.md` (`## Placement`).
 
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")

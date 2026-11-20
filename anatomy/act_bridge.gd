@@ -1,8 +1,6 @@
 extends RefCounted
-## One act's anatomy bridge: the persistent controller handle, the per-act handle, the typed
-## context, the missionary Anon body, the VR standing controller, the action gates and the
-## aim/gaze reads. The runtime creates one per act and keeps the orchestration. Contract:
-## `docs/anatomy.md`.
+## One act's anatomy bridge: handles, the typed context, the act's bodies and the action gates.
+## Contract: `docs/anatomy.md` (`## Act bridge`).
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
@@ -15,8 +13,7 @@ const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const STATE_ACTIVE := ACT_STATE.State.ACTIVE
 const STATE_CLIMAX := ACT_STATE.State.CLIMAX
 
-## The typed host. The runtime supplies the scene, the live state and the callbacks; a missing
-## callback is a no-op. The bridge never reads the runtime's private fields.
+## The typed host; every callback is optional.
 var host: ACT_HOST = null
 ## The typed per-act context. The persistent controller reads it; the act writes it.
 var facts: RefCounted = FACTS.new()
@@ -168,9 +165,8 @@ func tick(delta: float) -> void:
 	act.call("tick", delta, context())
 
 
-## The act's end. The controller owns the act; the bridge owns the bodies and the VR handle. The
-## service-owned missionary body is only restored here: the pose session clears the handle and frees
-## the node in its own release, so the bridge never frees it.
+## The act's end: the bridge owns the bodies and the VR handle.
+## The pose session frees the missionary body; the bridge only restores it.
 func end() -> void:
 	if is_instance_valid(controller) and controller.has_method("end_act"):
 		controller.call("end_act")
@@ -210,8 +206,7 @@ func hole_ready() -> bool:
 		and SETTINGS.anatomy_holes.get_bool() and not _mouth_contact() and not _face_contact()
 
 
-## The oral command's gate: the feature, the standing pose family and an active act. It stays
-## open in either direction so N can request the return.
+## The oral gate: open both ways, so N can also request the return edge.
 func oral_ready() -> bool:
 	return is_instance_valid(act) and host.state() == STATE_ACTIVE \
 		and pose_family() == "standing" and SETTINGS.anatomy_oral.get_bool()
@@ -241,8 +236,7 @@ func mouth_point() -> Vector3:
 	return value if value is Vector3 and (value as Vector3).is_finite() else Vector3.ZERO
 
 
-## The real face/mouth anchor on the act body: his authored `Head` plus the game's eye-to-mouth
-## offset. A missing or inactive body, or a non-finite value, is Vector3.INF.
+## The act body's mouth point; INF when the body is missing, inactive or non-finite.
 func face_point() -> Vector3:
 	if not is_instance_valid(missionary_anon) or not bool(missionary_anon.get("active")):
 		return Vector3.INF
@@ -255,9 +249,8 @@ func toggle_hole() -> void:
 		act.call("toggle_hole", host.state())
 
 
-## The `oral` command: request the standing oral pose, or the return edge when it is already
-## active. The per-mare consent string is passed only when the anatomy service says yes; the
-## feature is checked by the edge requirements, not here.
+## The oral command: request the standing oral edge, or its return when active.
+## Consent rides the call; the edge requirements check the feature, not this.
 func toggle_oral(pose: Variant, display_name: String, features_block: Dictionary) -> void:
 	var live: Variant = pose.view()
 	var from_id := str(live.id) if live != null else ""

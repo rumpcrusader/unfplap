@@ -1,11 +1,8 @@
 extends Node
-## The act audio facade: the pack foley layer, the base-game breath and squee climax, the Ponese
-## mute policy and her own generated vocal. The runtime creates one node and keeps it for the
-## process; `bind()` names the act's pony, id and bed and `begin()` opens the layer for an act,
-## `end()` closes it.
+## Service: act audio
+## One node per runtime owns the pack foley, the breath and the Ponese mute for an act.
 ##
-## `foley` covers thrust plaps, slides, bed/fabric and mouth kisses. The base-game breath, Ponese
-## voice and `squee_*` climax are separate and always on. See `docs/audio.md`.
+## See `docs/audio.md`.
 
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const CATALOGUE := preload("res://mods/unfplap/audio/cues.gd")
@@ -13,9 +10,8 @@ const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
 const SOUND := preload("res://mods/unfplap/audio/sound.gd")
 const VOICE := preload("res://mods/unfplap/audio/voice_status.gd")
 
-## The withdraw sound fires when the depth crosses back out. The impact itself fires from the
-## tracker's `impact` event, the moment the inward stroke bottoms out, so the plap lands with
-## the motion instead of when the stroke closes.
+## The withdraw cue fires when the depth crosses back out; the impact fires at the inward bottom,
+## so the plap lands with the motion instead of at the stroke's close.
 const WITHDRAW_DEPTH := 0.22
 ## Full-strength cue level is lowered by this much at strength 0.
 const STRENGTH_GAIN_DB := 10.0
@@ -36,17 +32,15 @@ var _ready_at: Dictionary = {}
 var _rng := RandomNumberGenerator.new()
 ## The base-game breath and squee players, one child node for the act.
 var _sound: Node
-## The act's pony, its stable id and its bed. `bind()` sets them; they resolve the snout, the bed
-## point, the soft-bed flag, the oral kiss and the director's vocal cache key, so the call sites
-## carry only the stroke facts.
+## The act's pony, id and bed; `bind()` sets them and they resolve every cue position, so the
+## call sites carry only the stroke facts.
 var _pony: Node3D
 var _id := ""
 var _bed: Node3D
 var _bed_soft := false
 ## The generated-vocal cooldown runs on processed time: a paused tree freezes it with the act.
 var _vocal_cooldown := 0.0
-## Ponese mute policy state. Kept on the persistent facade, so a settings edit at IDLE can still
-## give the voice player its volume back.
+## Ponese mute state, kept here so an IDLE settings edit can restore the volume the act saved.
 var _voice_player: AudioStreamPlayer3D
 var _voice_volume_saved := 0.0
 var _text_only_voice := false
@@ -82,9 +76,8 @@ func begin() -> void:
 	_sound.call("start")
 
 
-## One pose-change hook: the impact profile follows the live view, so an internal pose (`standing_test`)
-## or a later oral edge never inherits the act's start pose. A missing profile falls back to the bed
-## profile; standing and standing_test carry `impact = "standing"`.
+## One pose-change hook: the impact profile follows the live view, so an internal or oral pose
+## never inherits the act's start profile; an empty profile falls back to the bed.
 func pose_changed(view: Variant) -> void:
 	var audio: Variant = view.audio if view != null else null
 	_impact_profile = str((audio as Dictionary).get("impact", "")) if audio is Dictionary else ""
@@ -325,19 +318,15 @@ func play_plap(tier: String, strength: float, at: Vector3, extra_db := 0.0) -> b
 	return play(cue_for_plap(tier), at, 1.0, extra_db, pitch_for(strength))
 
 
-## The act's impact fan-out: the plap, the bed layer and the slide at one bottom. The facade
-## resolves the bed point and the soft-bed flag from its bound bed, so the call site passes only
-## the stroke facts and the rump point the reactions computed.
+## The act's impact fan-out: the plap, the bed layer and the slide at one bottom; the bed point
+## comes from the bound bed, so the call site passes only the stroke facts.
 func impact(tier: String, strength: float, rump: Vector3,
 		gap: float, eps: float, plap := true) -> void:
 	play_impact(tier, strength, rump, bed_point(rump), _bed_soft, gap, eps, plap)
 
 
-## Called from the tracker's impact event: the deepest point of the stroke, so it also catches
-## shallow strokes that never crossed a fixed depth. `tier` is empty below the firm impact speed,
-## and `gap` is how far his skin still is from her coat in metres; `eps` is the contact epsilon.
-## A stroke outside it gets no plap, while the bed fabric and the slide still play. `plap` is
-## false for the oral segment, which keeps the slide and the bed but has no body slap.
+## The tracker's impact event, at the stroke's deepest point, so a shallow stroke still plaps when
+## the contact gap fits `eps`; `plap` is false for the oral segment.
 func play_impact(tier: String, strength: float, rump: Vector3,
 		bed_at: Vector3, soft_bed: bool, gap: float, eps: float, plap := true) -> void:
 	var level := clampf(strength, 0.0, 1.0)
@@ -409,10 +398,8 @@ func tick_vocal(delta: float) -> void:
 	_vocal_cooldown = maxf(0.0, _vocal_cooldown - delta)
 
 
-## The base game's vocal cache maps a pony id to an AudioStreamPlayer3D parented to her body.
-## A body swap frees that body and leaves a freed instance in the cache; the game's typed read at
-## `vocal_noises.gd:play()` then fails before its own validity guard. Clear only this act's stable
-## id so the game can create the player on the presented body. Guarded for a changed cache.
+## A body swap leaves a freed player in the game's vocal cache; drop only this id so the typed
+## read at `play()` cannot error. Guarded for a changed cache.
 func prune_freed_vocal(vocal: Node) -> void:
 	if not is_instance_valid(vocal):
 		return

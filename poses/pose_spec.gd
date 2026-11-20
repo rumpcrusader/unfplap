@@ -120,9 +120,8 @@ static func _check_choice(out: Array[String], data: Dictionary, key: String, kno
 		out.append("%s %s is unknown" % [key, str(value)])
 
 
-## The driver/base rule: a row needs a driver unless it inherits an authored base. A declared base
-## must not be the row itself and, with a table, must exist in the same family and reach a row
-## without a cycle.
+## A row needs a driver unless it inherits an authored base; that base must differ from the row and,
+## given a table, exist in the same family and reach the row without a cycle.
 static func _check_base(out: Array[String], spec_id: String, data: Dictionary,
 		table: Dictionary) -> void:
 	var base := str(data.get("base", ""))

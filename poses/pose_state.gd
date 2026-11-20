@@ -1,9 +1,5 @@
 extends RefCounted
-## Pure pose state and edge math: the state transitions, the request-acceptance codes and one
-## running edge with per-channel tracks, easing, switch points, `after` constraints, edge events,
-## completion and the interrupt policy. It is scene-free and reads no settings, files, service,
-## runtime or the entry; it only names the shared pose view's state constants. It owns the pose
-## session's state machine and edge clock; the session passes the runtime's act state as a value.
+## Pure pose state and edge math: transitions, request codes and one running edge.
 ## Contract: `docs/poses.md`.
 
 const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
@@ -15,8 +11,8 @@ const ACT_ACTIVE := 2
 const LIVE_STATES := [VIEW.ENTERING, VIEW.STEADY, VIEW.TRANSITIONING]
 
 
-## One pose state transition. An unknown event, or an event that does not apply in this state,
-## leaves the state unchanged. The service reports the refusal; this only owns the table.
+## One pose state transition. A foreign event, or one that does not apply here, keeps the state.
+## This table owns only the state; the service reports a refusal.
 static func next(state: int, event: String) -> int:
 	match event:
 		"begin":
@@ -40,10 +36,8 @@ static func next(state: int, event: String) -> int:
 	return state
 
 
-## Why a pose request was accepted or refused, in the exact order the session reports it. `checks`
-## keys are optional and pass by default: form_ok, view_ok, features_ok, consent_ok, asset_ok and
-## `locked` (which defaults false). The service decides which checks apply; this
-## module never reads settings, assets or consent.
+## Why a pose request was accepted or refused, in the order the session reports it. `checks` keys
+## are optional and pass by default; the service decides which apply.
 static func request_code(pose_state: int, act_state: int, from_id: String, to_id: String,
 		edge_exists: bool, checks: Dictionary = {}) -> String:
 	if from_id == to_id:
@@ -66,9 +60,8 @@ static func request_code(pose_state: int, act_state: int, from_id: String, to_id
 	return "ok"
 
 
-## The edge's `requires` block against the same checks. A requirement list that is absent or empty
-## passes; a present one is represented by its `form_ok`, `view_ok`, `features_ok` or `consent_ok`
-## flag. The order is form, view, refused.
+## The edge's `requires` block against the same checks. A missing or empty requirement passes; the
+## order is form, view, refused.
 static func requirement_code(edge: Dictionary, checks: Dictionary = {}) -> String:
 	var requires_value: Variant = edge.get("requires", {})
 	var requires: Dictionary = requires_value as Dictionary if requires_value is Dictionary else {}
@@ -125,9 +118,8 @@ static func start_edge(edge: Dictionary, from_id: String, to_id: String) -> Vari
 	return Run.start(edge, from_id, to_id)
 
 
-## One running edge: the edge clock, one precomputed record per channel, the eased channel weights,
-## the switch names and the edge events that fired since the last tick. `start` allocates; `tick`
-## reuses the same event/switch arrays and records, so a live edge costs no per-frame allocation.
+## One running edge: the clock, one precomputed record per channel, the eased weights and the
+## events since the last tick. `start` allocates; `tick` reuses everything.
 class Run extends RefCounted:
 	const KIND_HOLD := 0
 	const KIND_BLEND := 1
@@ -159,9 +151,8 @@ class Run extends RefCounted:
 	var _order: Array[String] = []
 	var _has_base := false
 
-	## Build the run and its channel records. Returns null for a missing field, a mismatched edge,
-	## an unknown channel kind, an unknown constraint reference, a cycle, or an unresolved
-	## duration. Constraints are start floors, not time shifts of the referenced channel.
+	## Build the run and its channel records, or return null for a bad field, kind, constraint,
+	## duration or cycle. Constraints are start floors, not time shifts.
 	static func start(edge_data: Dictionary, from_pose: String, to_pose: String) -> Run:
 		if edge_data.is_empty():
 			return null
@@ -281,8 +272,8 @@ class Run extends RefCounted:
 			var record: Dictionary = run._channels[name]
 			if int(record["kind"]) == KIND_SWITCH:
 				record["at"] = maxf(float(record["at"]), float(record["start"]))
-		# The edge duration is the base; a longer channel or switch extends it. Without an edge
-		# duration every channel must supply its own timing.
+		# A configured edge duration is the floor; anything longer (channel or switch) wins.
+		# With none, each channel supplies its own timing.
 		var longest := edge_duration
 		var timed := has_edge_duration
 		for name: String in run._order:
@@ -310,9 +301,8 @@ class Run extends RefCounted:
 		run._sync_weight()
 		return run
 
-	## Advance the clock and fire the switches and events reached this tick. The first call may be
-	## `tick(0.0)` to fire the `at: 0` points. Clears and reuses the event/switch arrays; after
-	## completion it only clears them.
+	## Advance the clock and fire the switches and events reached this tick. `tick(0.0)` fires the
+	## `at: 0` points; after completion only the arrays clear.
 	func tick(delta: float) -> void:
 		_events.clear()
 		_switches.clear()
@@ -342,8 +332,8 @@ class Run extends RefCounted:
 		_sync_weight()
 		done = t >= duration and _all_settled()
 
-	## The current eased weight of one channel; 0 for an unknown channel. Hold and lock are 1 from
-	## the start; a switch is 1 once it fires; blend/delta/path ease over their own window.
+	## The eased weight of one channel; 0 for an unknown channel. Hold and lock read 1 at once; a
+	## switch turns 1 when it fires; blend/delta/path ease across their window.
 	func channel_weight(channel: String) -> float:
 		if not _channels.has(channel):
 			return 0.0
@@ -387,7 +377,7 @@ class Run extends RefCounted:
 					pass
 		return true
 
-	## The base channel owns the view weight; an absent base is fully weighted.
+	## The base channel carries the view weight; with no base the weight stays at one.
 	func _sync_weight() -> void:
 		weight = channel_weight("base") if _has_base else 1.0
 

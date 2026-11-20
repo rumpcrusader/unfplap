@@ -178,8 +178,7 @@ func bind(log_sink: Callable) -> void:
 	log = log_sink
 
 
-## The mod's settings, applied once by the entry at construction and on every settings edit through
-## the change notification: the act-key row's cap and the cached caption mode.
+## Refresh the two settings the HUD caches.
 func apply_settings() -> void:
 	set_act_key(_act_key_label())
 	_apply_caption_top()
@@ -213,16 +212,14 @@ func caption_node(node: Node) -> void:
 	_caption_top_tick()
 
 
-## One frame of the caption move. The entry reports the live act state and the HUD decides
-## whether anything moves; the entry's process priority keeps this after the caption's own
-## `_process`.
+## One frame of the caption move, with the live act state from the entry.
+## The entry's process priority keeps this after the caption's own `_process`.
 func caption_tick(act_state: int) -> void:
 	_act_state = act_state
 	_caption_top_tick()
 
 
-## The toast sink every other part of the mod uses. It lasts four seconds unless the caller passes
-## its own duration, and it needs no HUD to be harmless.
+## The one toast sink; harmless when no HUD exists.
 static func toast(text: String, seconds := 4.0) -> void:
 	if text.is_empty() or not is_instance_valid(instance):
 		return
@@ -295,9 +292,8 @@ static func button_icon(icon_name: String, edge: float) -> TextureRect:
 	return icon
 
 
-## One "icon + words" unit at the game's prompt-row scale, for the row under the crosshair.
-## The action carries the mod's pink accent so the offer reads first. A `cap` draws a key cap when
-## the game has no icon for the key.
+## One icon-plus-words unit for the prompt row under the crosshair.
+## The pink accent makes the offer read first; `cap` draws a key cap without an icon.
 static func prompt_row(icon_name: String, text: String, cap := "") -> HBoxContainer:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
@@ -468,9 +464,8 @@ func set_state(_kind: String) -> void:
 		return
 
 
-## Move the game's bottom dialogue caption to the top only during an act and only when the player
-## chose the explicit bottom-caption mode. "Over the pony's head" and "auto" are left untouched,
-## and afterglow returns the caption to the bottom.
+## True only for an act and the explicit bottom-caption mode.
+## "Over the head" and "auto" are left alone; afterglow returns to the bottom.
 func _caption_top_enabled() -> bool:
 	if not _captions_on_top:
 		return false
@@ -516,7 +511,7 @@ func _on_game_setting_changed(key: String) -> void:
 		_apply_caption_top()
 
 
-## The act key's key cap label, from the captured keycode.
+## The act key's cap text.
 func _act_key_label() -> String:
 	return ACT_KEYS.label(int(SETTINGS.act_key.get_num()))
 
@@ -539,8 +534,8 @@ func _auto_shape_label(value: String) -> String:
 	return value
 
 
-## Refresh the card from the typed act view the runtime owns. The view carries every value the
-## card draws, so this reads fields and never probes the runtime for a method.
+## Refresh the card from the typed act view.
+## The view carries every value, so nothing is probed on the runtime.
 func update_from(view: RefCounted) -> void:
 	if _hint == null or view == null:
 		return

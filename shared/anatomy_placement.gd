@@ -1,17 +1,6 @@
 extends RefCounted
-## Anatomy placement data and resolution.
-##
-## Placement lives in `settings.json` under one block:
-##
-##   anatomy.placement.default.*        the global default for every mare, including modded mares
-##   anatomy.placement.anon.*           the player part
-##   anatomy.placement.<mare id>.*      a per-mare override
-##
-## `default` and `anon` are reserved; every other key is a pony id. A per-mare block stores only
-## the keys that differ from the resolved default, so the file stays small and the shipped
-## defaults stay the single source of truth. The shipped per-mare rows live in
-## `settings/catalogs.json` under `anatomy.placement`; this file owns only the schema and the
-## merge/sanitize/diff helpers.
+## Anatomy placement data and resolution: one block's schema, and its merge, sanitize and diff
+## helpers. `default` and `anon` are reserved keys; every other key is a stable pony id.
 
 const KEYS := ["offset_x", "offset_y", "offset_z", "pitch_deg", "scale",
 	"tail_y", "tail_z", "dock_y", "dock_scale", "tail_tilt_deg"]

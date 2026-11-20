@@ -1,11 +1,8 @@
 extends RefCounted
-## One body change: the source that started it, its origin, the old and new presented bodies, the
-## target form and the prepared form, the lifecycle state and the start time. A read model only;
-## the body-change service owns the transition.
+## One body change: the source, origin, presented bodies, target and prepared form, lifecycle state
+## and start time. A read model only; the body-change service owns the transition.
 ##
-## The source is a typed `Node`: the provider base (`body_change/source.gd`) preloads this file, so
-## this shared read model cannot preload the base back without a cycle and a shared -> provider
-## import.
+## The source is a typed `Node`, so this file cannot preload the provider base back.
 
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 

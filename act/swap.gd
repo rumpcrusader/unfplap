@@ -1,8 +1,7 @@
 extends RefCounted
-## The act's body-swap seams: the one watcher dispatch, the ordered release and resume steps the
-## handover calls, and the adoption/revised-form rebinds. The handover decides when; this module
-## is the typed bridge from its host callbacks to the live systems, so the runtime node keeps only
-## the reparent, `adopt_body`, `_swapping_parent` and its world-close `_exit_tree`.
+## The act's body-swap seams: the watcher dispatch, the handover's ordered release and resume, and
+## the form rebinds. The handover decides when; this is the typed bridge to the live systems, and
+## the node keeps only the reparent.
 
 const ACT_HOST := preload("res://mods/unfplap/act/host.gd")
 const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")
@@ -50,8 +49,8 @@ func suspend(change: BODY_CHANGE) -> void:
 	context.handover.release(change)
 
 
-## The one resume. The handover owns the rebuild; a no-body failure ends the act through the one
-## exit. The flag is read before the handover clears it.
+## The one resume; the handover owns the rebuild and a no-body failure leaves by the exit route.
+## The suspended flag is read before the handover clears it.
 func resume() -> void:
 	var was_suspended := context.handover.suspended
 	if context.handover.resume():
@@ -117,8 +116,8 @@ func reset_pelvis() -> void:
 	context.placement.reset_pelvis_act()
 
 
-## The new body must still pass the act's adult-mare gate. A missing service reads as allowed, so
-## a suite can drive the handover without the world's eligibility graph.
+## A new body must still be an adult mare for the act to go on. A missing service reads as allowed,
+## so a suite can drive the handover without the world's eligibility graph.
 func new_body_is_adult() -> bool:
 	bind_placement()
 	return context.placement.new_body_is_adult_act()
@@ -212,8 +211,8 @@ func set_act_pose_config() -> void:
 	context.pose.set_pose_config(SETTINGS.pose(session.pony_id, session.start_group()))
 
 
-## Rebuild the live pose on the new skeleton at the pose the act was in. The start ramp is skipped
-## because the act is continuing, not entering.
+## Rebuild the live pose against the new skeleton, keeping the pose the act was already in; the
+## start ramp is skipped because the act is continuing, not entering.
 func rebuild_act_pose() -> void:
 	context.pose.snapshot_bones()
 	var camera: Camera3D = WORLD.camera()

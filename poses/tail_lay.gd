@@ -1,11 +1,8 @@
 extends SkeletonModifier3D
-## Missionary: lay the visible tail flat on the mattress and straighten it. The tail is not part of
-## the authored body pose because every pony's tail rig differs; this runs on the hair skeleton
-## after the game's own tail motion, or on the body skeleton for a fitted tail, and uses whichever
-## chain exists. Contract: `docs/poses.md`.
-##
-## The root is left where the rig put it; only the chain is turned onto the bed plane. The target
-## follows the authored bed frame, so the tail lies toward her rump on any bed orientation.
+## Missionary: lay the visible tail flat on the mattress and straighten it, on whichever chain the
+## skeleton owns. The tail stays out of the authored pose because tail rigs differ. The chain turns
+## onto the bed plane and its root is never moved.
+## Contract: `docs/poses.md`.
 
 const TAIL_CHAIN := preload("res://mods/unfplap/poses/tail_chain.gd")
 const FADE_SECONDS := 0.5
@@ -20,7 +17,7 @@ var target_amount := 1.0
 var _bones: Array[int] = []
 var _saved: Dictionary = {}
 var _cached := false
-## A visible tail that is not on the game skeleton: its own root is turned and restored instead.
+## A tail living off the game skeletons: its own root is turned and restored instead.
 var _root: Node3D
 var _root_saved := Transform3D.IDENTITY
 var _root_direction := Vector3.BACK
@@ -71,8 +68,7 @@ func _cache() -> void:
 			_saved[bone] = sk.get_bone_pose(bone)
 
 
-## Put the tail chain back where the game left it before the act; the game's own tail motion
-## resumes on top of it next frame.
+## Hand the tail chain back as the game left it before the act; its own motion resumes next frame.
 func restore_tail() -> void:
 	var sk := get_skeleton()
 	if sk != null:

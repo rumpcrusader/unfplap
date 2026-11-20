@@ -1,11 +1,6 @@
 extends SkeletonModifier3D
-## Carries the pelvis region on the act's depth stroke. The offset is graded down the spine so the
-## crotch and lower belly move as one soft mass, the chest bends a little, and everything from the
-## upper chest up plus both planted legs stay exactly where BodyIK put them.
-##
-## Grade table: Hips 1.0, Spine 0.55, Chest 0.25, UpperLeg 0.35, UpperChest and everything below
-## the thighs 0. No per-vertex weights are needed because a bone's global pose moves all of its
-## weighted vertices, and pinning a child after a parent keeps the knee where it was.
+## Carries the pelvis region on the act's depth stroke, graded down the spine so the crotch and
+## lower belly move as one soft mass while the chest above and both planted legs stay put.
 
 var offset_world := Vector3.ZERO
 

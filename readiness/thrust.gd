@@ -1,13 +1,7 @@
 extends RefCounted
 ## Pure depth/stroke tracker for the mouse thrust. No scene access.
 ##
-## Depth is 0..1 and clamped. A stroke is continuous movement in one direction; it closes on a
-## real direction reversal or after `STROKE_TIMEOUT_S` without movement. A thrust is an inward
-## stroke (shallow -> deep) that reaches `THRUST_MIN_TRAVEL`.
-##
-## `move()` returns events for strokes it closed and for the moment the inward stroke reaches its
-## bottom. `tick()` returns those too when an idle stroke holds or times out. The caller drives
-## the presentation from the `impact` event and the score from the `stroke` event.
+## `tick()` is only needed for a held bottom and a timed-out stroke; `move()` covers the rest.
 
 const STROKE_TIMEOUT_S := 0.18
 ## A thrust must travel this far inward. `REVERSAL_HYSTERESIS` (0.06) is subtracted from every
@@ -18,33 +12,24 @@ const MIN_THRUST_DURATION := 0.04
 ## the stroke's peak before the stroke closes.
 const REVERSAL_HYSTERESIS := 0.06
 ## The impact fires at the bottom of the inward stroke, not when it closes, so the plap and the
-## body react with the motion. The stall clock follows the peak, so a pixel of jitter at the
-## bottom cannot postpone it, and 40 ms covers a deliberate pause without the old 180 ms wait.
+## body react with the motion. The stall clock follows the peak, so bottom jitter cannot postpone it.
 const IMPACT_STALL_S := 0.04
 const IMPACT_STALL_MIN_TRAVEL := 0.001
 const MIN_MOVE := 0.0000001
 const MAX_SAMPLES := 240
-## Physical thrust strength: travel matters most, average stroke speed scales it. The 8.0
-## reference makes a normal full stroke firm, a deliberately slow one soft, and a fast one
-## rough. The value is calibrated against real stroke logs (normal full strokes land around
-## 3.5–5.0 units/s). Peak speed is still logged and capped, but does not saturate scoring.
+## Physical thrust strength: travel matters most, average stroke speed scales it, so the same
+## travel is soft when slow and rough when fast. Peak speed never saturates it.
 const STRENGTH_SPEED_REF := 8.0
 const STRENGTH_SPEED_MIN := 0.15
 const STRENGTH_SPEED_MAX := 1.5
 const PEAK_SPEED_CAP := 2.0
-## Rump/tail wobble: a closed full stroke moves the flank the same at any speed. The soft band
-## fades the gentlest strokes almost out instead of letting the 0.3 stock floor keep them alive.
+## Wobble follows travel, so speed never changes the flank's swing; strength only fades soft strokes.
 const JIGGLE_TRAVEL_REF := 0.9
 const JIGGLE_SOFT_FLOOR := 0.04
 const JIGGLE_SOFT_LOW := 0.18
 const JIGGLE_SOFT_HIGH := 0.42
-## His skin meets her coat in the last few centimetres of the reachable stroke. The gap is a
-## distance, so the contact point follows the shaft length, the `Pelvis gap` and the pose's reach
-## instead of being a fixed depth fraction. The runtime supplies the contact epsilon
-## passes: a stroke inside it plaps, one outside it does not.
-## Body-slap tier: the average inward speed over the deepest `PLAP_SPEED_WINDOW` of the stroke's
-## travel. Depth units per second, the same scale as `STRENGTH_SPEED_REF`. Below firm the stroke is
-## a slow press and stays silent; the lab pass sets the final values.
+## Tier speeds are depth per second, the same scale as the strength reference, so a retuned
+## strength reference must move these too.
 const PLAP_FIRM_SPEED := 2.5
 const PLAP_ROUGH_SPEED := 5.5
 const PLAP_SPEED_WINDOW := 0.10
@@ -59,8 +44,8 @@ var _start_depth := 0.0
 var _peak_depth := 0.0
 var _start_time := 0.0
 var _last_move := 0.0
-## The depth at the last meaningful inward progress and when it happened. The impact stall clock
-## measures from here, not from `_last_move`, so jitter that does not deepen the stroke is ignored.
+## The depth and time of the last meaningful inward progress. The impact stall clock measures
+## from here, not from any movement, so jitter that does not deepen the stroke is ignored.
 var _progress_depth := 0.0
 var _progress_time := 0.0
 ## True once this stroke's impact has fired (or when it is an outward stroke that needs none).
@@ -223,9 +208,8 @@ func tick(now: float) -> Array[Dictionary]:
 	return events
 
 
-## The bottom of the stroke, as a presentation event. Strength and travel come from the peak
-## itself (`_progress_time`), so a dwell before the reversal does not dilute the speed. A stroke
-## that never reached a real thrust leaves `_impact_fired` false and simply gets none.
+## The bottom of the stroke, as a presentation event. Speed comes from the peak's own time, so a
+## dwell before the reversal does not dilute it; a stroke too short to be a thrust gets none.
 func _impact_event() -> Dictionary:
 	var travel := absf(_peak_depth - _start_depth)
 	if travel < THRUST_MIN_TRAVEL:
@@ -250,10 +234,8 @@ func _impact_event() -> Dictionary:
 	}
 
 
-## Average inward speed over the deepest `PLAP_SPEED_WINDOW` of the stroke's travel. Only
-## intervals that actually deepened count, so a pause or pixel jitter at the bottom cannot dilute
-## the impact. Falls back to the whole-stroke average when the window holds no measurable movement
-## (a stroke that arrived in one event).
+## Average inward speed over the deepest `PLAP_SPEED_WINDOW` of the travel, counting only intervals
+## that deepened. A stroke that arrived in one event falls back to its whole-stroke average.
 func _bottom_speed(travel: float, duration: float) -> float:
 	var average := travel / maxf(MIN_THRUST_DURATION, duration)
 	if travel <= 0.0 or _samples.size() < 2:

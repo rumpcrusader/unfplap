@@ -6,24 +6,19 @@ extends RefCounted
 ## posed positions belong to one patch.
 
 const CACHE_LIMIT := 12
-## The local window keeps at most this many faces. A dense source body (the changelings pack's
-## body is more than twice the hybrid mare's) would otherwise pay for every face in the window
-## on each closest query and skin.
+## The local window keeps at most this many faces; a dense source body would otherwise pay
+## for every face it contains on each closest query and skin.
 const LOCAL_FACE_BUDGET := 384
 const BODY_COAT := preload("res://mods/unfplap/shared/body_coat.gd")
 ## The patch is skinned at most once per update_ms, and the blur walks blur_depth rings. The
 ## caress quality setting lowers both; the default keeps the exact miss fallback.
 const BLUR_RING_RADIUS_M := 0.03
-## `features.caress_local`: the region source stays stable, but each hand skins and raycasts only
-## a rest-space window around its intended point. The window re-centres when the point leaves its
-## core, so the contact never sees the window boundary. The cell size equals the window radius, so
-## one 3x3x3 cell block always covers the whole window.
+## `features.caress_local`: each hand skins and raycasts a rest-space window around its point.
+## The cell size equals the window radius, so one 3x3x3 block covers the whole window.
 const LOCAL_RADIUS_M := 0.12
 const LOCAL_CORE_SCALE := 0.5
-## A refresh is skipped while every bound bone is within these of the last skinned pose. The
-## patch is skinned at most once per `update_ms` anyway, so this only stops a still body from
-## paying for a skin, a soup write and a BVH rebuild: at `update_ms` = 33 ms the existing cadence
-## already allows 33 ms of contact lag, and 0.8 mm is what a slow thrust covers in that time.
+## A still body keeps its last skin: any bound bone beyond these tolerances forces the refresh.
+## `update_ms` already allows that lag; 0.8 mm is what a slow thrust covers in that time.
 const POSE_EPS_M := 0.0008
 ## 0.15 degrees, as the sine of the basis-axis difference.
 const POSE_EPS_SIN := 0.002618
@@ -31,8 +26,7 @@ var update_ms := 33
 var blur_depth := 2
 var accurate_miss := true
 var local_enabled := false
-## The debug fallback for a point beyond the source. Off keeps the last local window and
-## skips that point; on restores the old full-patch skin and query.
+## Debug: a point beyond the source uses the full patch instead of being skipped.
 var full_fallback := false
 
 static var _source_cache: Dictionary = {}
@@ -62,8 +56,8 @@ var _skeleton_id := 0
 var _update_tick := -1
 var _bindings: Array = []
 var _transforms: Array[Transform3D] = []
-## The candidate transforms of the current refresh; swapped with `_transforms` on a commit so a
-## skipped refresh allocates nothing.
+## The candidate bone transforms of one refresh, swapped with the committed set on a commit
+## so a skipped refresh allocates nothing.
 var _scratch: Array[Transform3D] = []
 var _rest_positions := PackedVector3Array()
 var _rest_normals := PackedVector3Array()
@@ -79,9 +73,8 @@ var _pose_serial := 0
 var _last_update := -1
 var _cache_order: Array = []
 
-## The local window. `_cells` buckets the stable rest-space faces; `_local_faces`/`_local_verts`
-## are the active window, `_mask` marks the skinned vertices for the normal blur, and
-## `_soup_dirty` forces the next update to rebuild the soup for a new window.
+## The active local window: the bucketed rest-space faces, its vertex set and the vertex mask,
+## plus the soup-dirty flag that forces a rebuild when the window moves.
 var _cells: Dictionary = {}
 var _all_verts := PackedInt32Array()
 var _local_verts := PackedInt32Array()
@@ -93,10 +86,6 @@ var _local_valid := false
 var _soup_dirty := true
 
 
-## Build a stable patch for a body region. The full patch is anchored to the rig's rest pose, not
-## to the caller's query; `features.caress_local` then picks a window of that patch around the
-## intended point instead of skinning all of it. `region` is "torso", "neck", "head" or "body".
-## Returns false when the pony/rig/region is unavailable.
 func _init(facts_context: Variant = null) -> void:
 	facts = facts_context
 
@@ -131,12 +120,8 @@ func set_full_fallback(on: bool) -> void:
 	full_fallback = on
 
 
-## Pick the local window for one world query. Returns false when the point is beyond the
-## source and the full-patch fallback is off; the caller then skips this point instead of
-## skinning the whole body. The previous window is kept, so a nearby point stays local.
-## Cheap when the point is still inside the current window; a new window is skinned by the next
-## `update_pose()`. Called before the pose update so the first hand of the frame never skins
-## the old window.
+## Pick the local window for one world query; false means the caller skips this point.
+## Called before the pose update, so the frame's first hand never skins the old window.
 func select(point: Vector3) -> bool:
 	if not local_enabled:
 		if _local_valid:
@@ -158,8 +143,7 @@ func select(point: Vector3) -> bool:
 	var started := Time.get_ticks_usec()
 	var collected := _collect_faces(local_point)
 	if collected.is_empty():
-		# A point beyond the source keeps the previous window; the full patch is only the
-		# debug fallback, because a dense source body would skin its whole coat every tick.
+		# Off-source: spending the whole coat here would cost a dense body its full skin every tick.
 		_perf_note("caress_select", Time.get_ticks_usec() - started)
 		if full_fallback:
 			if _local_valid:
@@ -172,6 +156,8 @@ func select(point: Vector3) -> bool:
 	return true
 
 
+## Build a stable patch for a body region, anchored to the rig's rest pose rather than the query.
+## Returns false when the pony, rig or region is unavailable.
 func ensure(pony: Variant, region: String, radius := 0.0) -> bool:
 	var started := Time.get_ticks_usec()
 	if not is_instance_valid(pony):
@@ -426,9 +412,8 @@ func nearest(point: Vector3, outward: Vector3) -> Dictionary:
 	}
 
 
-## Distance-weighted average of the posed vertex normals around `point`, ignoring vertices whose
-## normal faces away from `hint`. This smooths the normal across mesh creases; 0 radius or a
-## cancelled sum returns Vector3.ZERO and the caller keeps the exact hit normal.
+## Distance-weighted average of the posed normals around `point`, ignoring those facing away.
+## Zero radius or a cancelled sum returns ZERO, so the caller keeps the exact hit normal.
 func normal_blur(point: Vector3, radius: float, hint: Vector3, seed := -1) -> Vector3:
 	if radius <= 0.0 or _positions.is_empty():
 		return Vector3.ZERO
@@ -462,9 +447,8 @@ func normal_blur(point: Vector3, radius: float, hint: Vector3, seed := -1) -> Ve
 	return sum.normalized()
 
 
-## Cast an arbitrary world segment against the posed patch. Returns the ray hit dictionary
-## (`position`, `normal`, `face_index`) or {}. The authored-anchor build maps `face_index` back
-## to a source vertex, so this always uses the full patch, never a local window.
+## Cast an arbitrary world segment against the posed patch; {} on a miss.
+## The anchor build reads `face_index` back to a source vertex, so this always uses the full patch.
 func ray(from: Vector3, to: Vector3) -> Dictionary:
 	if _local_valid or _soup_dirty:
 		_local_valid = false
@@ -581,8 +565,8 @@ func _build_cells() -> void:
 		(list as Array).append(f / 3)
 
 
-## The window's face ids: the 3x3x3 rest-space cells around the point, filtered by the exact
-## centroid distance. Face ids index `_indices` in triples.
+## The window's face ids: the 3x3x3 rest-space cells around the point, filtered by centroid
+## distance. Face ids are triples into the source index list.
 func _collect_faces(local_point: Vector3) -> PackedInt32Array:
 	var out := PackedInt32Array()
 	if _indices.is_empty():
@@ -646,8 +630,7 @@ func _build_local(face_ids: PackedInt32Array, center: Vector3) -> void:
 	_soup_dirty = true
 
 
-## Source vertex of one corner of a soup face. The soup face index is window-relative in local
-## mode, so map it back through `_local_faces` first.
+## Source vertex of one soup-face corner; a window-relative face id is mapped back first.
 func _face_vertex(face: int, corner: int) -> int:
 	if face < 0:
 		return -1
@@ -685,9 +668,8 @@ func _link_ring(a: int, b: int) -> void:
 		rb.append(a)
 
 
-## The hit face's neighbours out to `blur_depth` rings. A seed outside the ring set or a radius
-## wider than the ring's proven reach returns an empty array so the caller keeps the full-patch
-## average (the window's vertices in local mode), which is what a debug radius expects.
+## The hit face's neighbours out to `blur_depth` rings.
+## A seed outside the ring set or a wider radius returns empty, so the caller keeps the patch average.
 func _blur_candidates(seed: int, radius: float) -> PackedInt32Array:
 	if seed < 0 or seed >= _rings.size() or radius > BLUR_RING_RADIUS_M or _rings.is_empty():
 		return PackedInt32Array()

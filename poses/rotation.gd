@@ -3,9 +3,8 @@ extends RefCounted
 ## unit-tested without spawning a pony.
 
 
-## Angle needed to level a left/right line against the body plane, wrapped into ±90°.
-## A left/right line has no direction: ±180° describe the same line. Always choose the branch
-## nearest level or a correction can roll the body from belly-up to belly-down.
+## Level a left/right line against the body plane, wrapped into ±90°.
+## Such a line has no direction, so take the branch nearest level: the far one rolls her belly-up.
 static func line_roll(forward: Vector3, up: Vector3, left: Vector3, right: Vector3) -> float:
 	var fwd := forward.normalized()
 	var lateral := right - left

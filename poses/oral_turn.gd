@@ -1,9 +1,5 @@
 extends RefCounted
-## The standing oral actor/frame turn: the captured root and facing, the eased half-turn about UP,
-## the opening/mouth contact anchor, the style motion that drives the oral delta and the soft-kiss
-## idle timer. `poses/service.gd` owns one and drives it from the edge weight; the host supplies
-## the mouth and opening points and the runtime callbacks. It preloads nothing: the points and the
-## kiss are host callables, so the frame turn never reaches into the anatomy or the runtime.
+## The standing oral turn: root/facing mirror, opening/mouth anchor, style motion, kiss idle.
 ## Contract: `docs/poses.md`.
 
 const ORAL_ANCHOR_RATE := 0.8
@@ -60,9 +56,8 @@ func bind(pony_node: Node3D, mouth: Callable, opening: Callable, kiss: Callable)
 	oral_kiss = kiss
 
 
-## Start the forward or reverse turn. The forward capture is the only place the root, the facing,
-## the opening and the mirrored target are read; a reverse edge reuses them. Returns false only
-## when there is no pony to drive.
+## Start the forward or reverse turn. The forward capture is the only read of the root, the facing,
+## the opening and the mirrored target; a reverse edge reuses it.
 func begin(is_forward: bool, view: Variant) -> bool:
 	if not is_instance_valid(pony):
 		return false
@@ -102,10 +97,8 @@ func _capture() -> void:
 	_captured = true
 
 
-## Advance the turn. `weight` is the edge's base weight: the forward edge eases 0 -> 1, the reverse
-## edge eases the same clock back from the turned frame to the captured one. The view receives the
-## live facing and contact target; the style motion writes the three keys into the live config and
-## the target snapshot, so the delta's to side sees them too.
+## Advance the turn from the edge weight: forward eases 0 -> 1, reverse walks the same clock back.
+## The style motion writes the oral keys into both config sides.
 func tick(delta: float, view: Variant, weight: float) -> void:
 	if not active or not _captured or not is_instance_valid(pony):
 		return
@@ -135,8 +128,8 @@ func tick(delta: float, view: Variant, weight: float) -> void:
 	_write_keys(view)
 
 
-## The afterglow releases the mouth contact but keeps the turned frame and the neck pose: stop the
-## kiss timer and point the contact back at the opening, without restoring the capture.
+## Drop the mouth contact but keep the turned frame and neck pose. Stop the kiss timer and aim
+## the contact back at the opening, without restoring the capture.
 func release_contact(view: Variant) -> void:
 	_kiss_left = 0.0
 	_anchor = _opening
@@ -144,8 +137,8 @@ func release_contact(view: Variant) -> void:
 		view.contact_target = _opening
 
 
-## Put the captured root and facing back and erase the oral keys once. The reverse edge's
-## completion, a release and the one act exit all call it; a second call is a no-op.
+## Put the captured root and facing back and erase the oral keys once. All three exit routes
+## call it, and a repeat call changes nothing.
 func restore(view: Variant) -> void:
 	if _captured and is_instance_valid(pony):
 		pony.global_position = _from
@@ -195,16 +188,15 @@ func reset() -> void:
 	contact_target = Vector3.INF
 
 
-## Re-apply the live keys after the target snapshot was refreshed. A live settings edit replaces
-## the target config's contents, which drops the keys until the next tick; this keeps a mid-edge
-## edit from dropping one frame of the delta.
+## Re-apply the live keys after the target snapshot refreshed. A live settings edit replaces that
+## config, so an edge would otherwise lose one frame of the delta.
 func write_config(view: Variant) -> void:
 	if active and view != null:
 		_write_keys(view)
 
 
-## The mouth anchor after one tick: the opening holds while she turns or the contact is released,
-## and the live mouth is followed once the turn is settled under `rate`.
+## The mouth anchor after one tick: the opening holds while she turns or the contact is released;
+## the live mouth is followed once the turn settles.
 static func _anchor_step(anchor: Vector3, mouth: Vector3, opening: Vector3, mix: float,
 		active_now: bool, rate: float, delta: float) -> Vector3:
 	if not opening.is_finite():

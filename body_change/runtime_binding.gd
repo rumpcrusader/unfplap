@@ -1,13 +1,9 @@
 extends "res://mods/unfplap/shared/body_binding.gd"
 ## The runtime body binding: one world binding owns the per-pony runtime's body-bound systems.
-## It looks the runtime up through `ponies` and hands it the form; the runtime decides whether it
-## is idle, live or suspended and never creates a second runtime.
-##
-## Scope: world. `body_change.wire()` builds one instance with the rest of the chain from the
-## facades the entry hands it. This file never preloads `main.gd` or `runtime.gd`, and an unbind
-## never runs the act exit.
-##
-## See `docs/runtime.md` (`## Body swap`) and `docs/body_change.md`.
+## Scope: world; `body_change.wire()` builds one instance with the rest of the chain.
+## The runtime decides whether it is idle, live or suspended and never creates a second one.
+## An unbind never runs the act exit.
+## See `docs/runtime.md` (`### Suspend, adopt and resume`) and `docs/body_change.md`.
 
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 

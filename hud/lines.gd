@@ -1,7 +1,6 @@
 extends RefCounted
-## Pure act HUD text: the cue/hearts line, the readiness/preference line, the auto readout and the
-## `End` tint. `hud/service.gd` renders the card; the runtime gathers the live values and calls these.
-## Contract: `docs/hud.md`.
+## Pure act HUD text: cue, readiness, auto readout and `End` tint.
+## Contract: `docs/hud.md`
 
 ## The act-key hint's `End` shade: one step per climax, capped below full so only the earned afterglow
 ## caress turns it fully pink.
@@ -34,8 +33,7 @@ static func cue_line(state: int, pony_climaxes: int, max_climaxes: int, cue_text
 	return " | ".join(parts)
 
 
-## Separate readiness/preference line under the cue. In the afterglow it carries the act summary
-## when the cue already shows the standing close prompt.
+## The second readout line; afterglow moves the summary here.
 static func readiness_line(state: int, readouts: bool, last_intensity: String,
 		last_pattern: String, want_intensity: String, want_pattern: String, heat: bool,
 		close_text: String, summary_hud: String) -> String:

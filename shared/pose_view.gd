@@ -47,8 +47,7 @@ var views: Array[String] = []
 var public_pose := false
 var offerable := false
 
-# The only values that change per tick. `contact_kind` is `opening`, `mouth`, `face` or `none`;
-# `contact_target` and `facing` are the live anatomy reads, absent until one exists.
+# The only values that change per tick: the contact kind, its target and the facing basis.
 var contact_kind := "none"
 var contact_target := Vector3.INF
 var facing := Basis.IDENTITY

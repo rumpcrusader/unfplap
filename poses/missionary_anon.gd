@@ -1,11 +1,7 @@
 extends Node
 ## The act's Anon body: the game's own desktop `AnonBody`, placed in bed space and posed from the
-## asset's `anon` block. He is a puppet for the act: his body IK, desktop pose driver and his own
-## `_process` are turned off and his bones are written at render time, exactly like the pony's, so
-## nothing else on his rig wins. The act never moves his player node: only this body is placed on
-## the bed.
-##
-## The asset carries every bone of his rig, so the file is the whole pose (see `poses/pose_lab.gd`).
+## asset's `anon` block. The act parks his drivers and writes his bones at render time so nothing
+## else on his rig wins; the asset carries every bone, and only this body is placed, not his node.
 
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
@@ -17,9 +13,8 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const REACH_PLAN := preload("res://mods/unfplap/shared/hands_reach_plan.gd")
 const PALM_SCALE := preload("res://mods/unfplap/shared/hands_scale.gd")
 
-## The lean hinges his whole upper body at this joint: chest, neck, head, shoulders, arms and hands
-## follow as one, while the hips, thighs and legs keep the authored pose and the stroke, so the
-## lower body still thrusts. The camera is his head, so this is also what moves the act view.
+## The lean joint: everything above it follows as one, while the hips, thighs and legs keep the
+## authored pose and the stroke. The camera is his head, so the lean also moves the act view.
 const LEAN_HINGE := "Spine"
 ## Share of the stroke offset lifted straight up, so the pelvis rides up her body instead of only
 ## driving along the mattress.
@@ -39,8 +34,7 @@ var avatar: Node3D
 var skeleton: Skeleton3D
 ## True once a body was found and is being driven by this controller.
 var active := false
-## The `anon` channel retarget state. A3.5 accepts `hold`/`blend`/`switch`; the authored Anon pose
-## switch is A5's first real moving edge, so the weight and profile are cached without moving him.
+## The `anon` retarget state: the weight and profile are cached without moving him.
 var anon_profile := ""
 var anon_weight := 1.0
 ## The authored asset pair the service bound. Outside an edge both point at the live asset; during
@@ -58,21 +52,16 @@ var _avatar_visible := true
 var _avatar_process := Node.PROCESS_MODE_INHERIT
 var _avatar_processing := true
 var _avatar_transform := Transform3D.IDENTITY
-## Every bone's local transform before the act. The authored pose deliberately keeps its stretched
-## bone positions; the game re-poses rotations after the act but not every bone position, so the
-## whole snapshot is put back instead of leaving the act's lengths in his limbs.
+## Every bone's local transform before the act, put back whole: the authored pose keeps its stretched
+## positions and the game re-poses rotations after the act but not every bone position.
 var _saved_bones: Array[Transform3D] = []
 var _scale := Vector3.ONE
-## The game's own eye offset from the head bone. `anon_body.gd` puts the camera at the head joint
-## offset by `head_offset` (less `desktop_body_forward`) and turns it by `REST_FACING`, and
-## `valve_body_ik.gd` turns the head bone to `target * rest`, so the bone-to-camera rotation is
-## `rest⁻¹ * REST_FACING`. Built from those values rather than read off the live camera: the live
-## camera is still the reclined bed view when the act installs.
+## The eye relative to the head bone, built from the body's own exports rather than read off the
+## live camera, which is still the reclined bed view when the act installs.
 var _eye_rel := Transform3D.IDENTITY
 var _eye_saved := false
-## The eye this frame, cached right after the authored write and the lean. `HeadHide` collapses
-## the head bone later in the frame, and the head mesh (which also holds the hands) is never hidden,
-## so the camera has to read the pose we wrote rather than the collapsed bone.
+## The eye this frame, cached right after the authored write and the lean: `HeadHide` collapses the
+## head bone later, so the camera must read the pose we wrote, not the collapsed bone.
 var _eye_world := Transform3D.IDENTITY
 var _eye_cached := false
 var _lean_logged := false
@@ -143,10 +132,9 @@ func install(context: Variant) -> bool:
 		_body_ik = ik as SkeletonModifier3D
 		_body_ik_was_active = _body_ik.active
 		_body_ik.active = false
-	# His own `_process` drives the IK targets, the height feedback, the finger curl and `LegHide`.
-	# The act writes all of that itself; left running, the mattress-height camera reads as a crouch
-	# (`seated`) and the game collapses his legs, and `_update_fists` rewrites the authored fingers
-	# every frame. Only that node's process stops: the skeleton and its modifiers keep updating.
+	# His own `_process` drives the IK targets, height feedback, finger curl and `LegHide`; the act
+	# writes all of that itself, so the mattress-height camera would read as a crouch, the legs
+	# would collapse and the fists would overwrite the authored fingers. The skeleton keeps updating.
 	avatar.set_process(false)
 	# The legs are part of the authored pose: never let the last seated state collapse them. The
 	# modifier stays active, just at zero.
@@ -171,9 +159,9 @@ func install(context: Variant) -> bool:
 	_eye_rel = Transform3D(facing, -(facing * head_offset * model_scale))
 	_eye_saved = true
 	_eye_cached = false
-	# The head mesh is never hidden: `head_smd` holds the head **and the hands**, so hiding it is
-	# what removes the palms. The game's `HeadHide` collapses only the head bone, which hides the
-	# head vertices and leaves the hands; the eye is cached before that collapse each frame.
+	# Nothing here hides the head mesh: `head_smd` also holds the hands, so hiding it removes the
+	# palms. The game collapses only the head bone, dropping the head vertices and leaving the
+	# hands; the eye is cached before that happens each frame.
 	avatar.visible = true
 	active = true
 	return true
@@ -245,9 +233,8 @@ func set_weight(weight: float) -> void:
 	anon_weight = next_weight
 
 
-## The authored asset pair and its blend weight, bound by the pose service. The service calls this
-## every fan-out, so the unchanged pair is a no-op; it never touches the avatar, the eye cache or
-## the hand holds.
+## The authored asset pair and its blend weight, bound by the pose service every fan-out, so an
+## unchanged pair is a no-op and never touches the avatar, the eye cache or the hand holds.
 func set_pose_assets(from_value: Variant, to_value: Variant, weight: float) -> void:
 	var next_weight := clampf(weight, 0.0, 1.0)
 	if is_same(from_value, from_asset) and is_same(to_value, to_asset) \
@@ -258,10 +245,8 @@ func set_pose_assets(from_value: Variant, to_value: Variant, weight: float) -> v
 	asset_weight = next_weight
 
 
-## Place and pose him from the asset pair, once per displayed frame. The authored bones are
-## written first, then the lean on top of them, or the asset would wipe it. Outside an edge both
-## sides are the live asset and this is the single path; during a blend each authored block and
-## placement is evaluated and the two are mixed at the edge weight.
+## Place and pose him from the asset pair once per displayed frame: the authored bones first, then
+## the lean on top, or the asset would wipe it. A blend evaluates and mixes both sides.
 func apply(bed_frame: Transform3D, body_scale: float) -> void:
 	if not active or not is_instance_valid(avatar) or not is_instance_valid(skeleton):
 		return
@@ -298,8 +283,8 @@ func apply(bed_frame: Transform3D, body_scale: float) -> void:
 		else:
 			placement.origin *= body_scale
 			placed = bed_frame * placement
-	# He is a human, so only his placement follows her size: his body keeps its own scale. The debug
-	# `Anon size match` blends his body toward hers: 0 human, 1 a uniform scale with her.
+	# Being human, his body keeps its own scale and only his placement follows her size. The debug
+	# `Anon size match` blends that body toward hers: 0 human, 1 uniform with her.
 	var body := _scale
 	var match_factor := clampf(SETTINGS.anon_size_match.get_num(), 0.0, 1.0)
 	if match_factor > 0.0:
@@ -388,9 +373,8 @@ static func blend_placement(from: Transform3D, to: Transform3D, weight: float) -
 		from.origin.lerp(to.origin, blend))
 
 
-## Blend the two v7 local-rest bone blocks at the edge weight. A bone present on only one side uses
-## that side; a missing bone is left alone and a non-finite result is skipped rather than written.
-## `indices` is the adapter's per-skeleton union cache; empty resolves each name on the fly.
+## Blend the two v7 local-rest bone blocks at the edge weight; a bone on only one side uses that
+## side, and a missing bone or a non-finite pair is skipped rather than written.
 static func blend_anon_bones(sk: Skeleton3D, from_bones: Dictionary, to_bones: Dictionary,
 		weight: float, indices: Dictionary = {}) -> void:
 	if sk == null:
@@ -450,8 +434,7 @@ static func _anon_local(sk: Skeleton3D, bone: int, entry: Dictionary) -> Transfo
 
 
 ## Carry the pelvis on the stroke: the hips take the whole offset, the waist a graded share, and the
-## neck, head and both planted legs are restored so the knees and the view stay put (`anon_hip_thrust`
-## grades). Moving his whole body instead swung the eye on every thrust.
+## neck, head and planted legs are restored. Moving his whole body swung the eye on every thrust.
 func _apply_hip_motion(offset_world: Vector3) -> void:
 	if offset_world.length_squared() < 0.0000001 or not is_instance_valid(skeleton):
 		return
@@ -483,16 +466,15 @@ func _apply_hip_motion(offset_world: Vector3) -> void:
 			RIG.set_global(skeleton, skeleton.find_bone(name), pinned[name])
 
 
-## Tilt the whole upper body about the Spine joint: the base debug lean plus the act's W/S/Q/E
-## lean, leaving his hips and legs on the authored pose so the lower body still thrusts. The view
-## is his head, so this is what moves the camera.
+## Tilt the upper body about the Spine joint by the debug lean plus the act's W/S/Q/E lean, leaving
+## his hips and legs on the authored pose so the lower body still thrusts under the tilt.
 func _apply_lean(placed: Transform3D) -> void:
 	if facts == null or not is_instance_valid(skeleton):
 		return
 	var lean_forward: float = facts.shot_lean_forward
 	var lean_side: float = facts.lean_view_side
 	var lean_scale: float = facts.lean_size_scale
-	# W tips the hinge forward/down toward her; S back/up.
+	# Positive lean pitches his chest down onto her; negative lifts it.
 	var pitch := deg_to_rad(MOTION.LEAN_PITCH_DEG * 3.0) * lean_forward * lean_scale
 	var yaw := -deg_to_rad(MOTION.LEAN_SIDE_YAW_DEG * 4.0) * lean_side * lean_scale
 	if absf(pitch) < 0.00001 and absf(yaw) < 0.00001:
@@ -509,9 +491,9 @@ func _apply_lean(placed: Transform3D) -> void:
 	var bone := skeleton.find_bone(LEAN_HINGE)
 	if bone < 0:
 		return
-	# Rotating the *global* pose about the skeleton-space axis hinges everything above the joint.
-	# Pre-multiplying the bone's local pose instead applies the axis in the parent's frame, and his
-	# hips are rotated ~90° here, so W/S yawed the view sideways instead of nodding it.
+	# Rotate the *global* pose about the skeleton-space axis, so everything above the joint hinges
+	# together. Pre-multiplying the bone's local pose applies that axis in its parent's frame, and
+	# here his hips lie rotated ~90°, so a nod came out as a sideways yaw of the view.
 	var pose: Transform3D = skeleton.get_bone_global_pose(bone)
 	pose.basis = Basis(nod, pitch) * Basis(turn, yaw) * pose.basis
 	RIG.set_global(skeleton, bone, pose)
@@ -547,9 +529,8 @@ func clear_hold_target(side: String) -> void:
 	_hold_started.erase(side)
 
 
-## The hand's current palm frame; the caress target and the release both use this space. The
-## game's regular arm solve sets the hand bone to `target * rest`, so undo both the hand offset
-## and the hand's rest basis here.
+## The hand's current palm frame, which the caress target and the release share: undo both the hand
+## offset and the hand's rest basis, because the arm solve sets the bone to `target * rest`.
 func hand_frame(side := "right") -> Transform3D:
 	if not active or not is_instance_valid(skeleton):
 		return Transform3D.IDENTITY
@@ -608,10 +589,8 @@ func caress_reach(hand_side: String) -> Dictionary:
 	}
 
 
-## Keep his palms planted while the body thrusts and leans, unless the caress holds one on her.
-## A held hand follows the world frame the caress computed; a released one eases back to the
-## authored mattress frame. Every path ends in the same two-bone solve, so the elbow plane and
-## the authored hand scale are preserved.
+## Keep the palms planted while the body thrusts and leans, unless a caress holds one on her; every
+## path ends in the same two-bone solve, which preserves the elbow plane and the authored hand scale.
 func refresh_palm() -> void:
 	_install_palm_scale()
 
@@ -697,9 +676,8 @@ func _place_hands(plants: Dictionary, placed: Transform3D) -> void:
 		_solve_hand(name, plant_target, authored.basis)
 
 
-## Two-bone arm solve to a skeleton-space wrist target. The hand keeps the supplied basis so the
-## palm stays flat on the bed or on her coat. A held caress passes `natural`, which uses the game's
-## regular elbow pole instead of carrying the authored plant's elbow plane.
+## Two-bone arm solve to a skeleton-space wrist target; the hand keeps the supplied basis so the
+## palm stays flat. A held caress passes `natural` to use the game's regular elbow pole instead.
 func _solve_hand(name: String, target: Vector3, hand_basis: Basis, natural := false,
 		body_basis := Basis.IDENTITY, pole_key := "",
 		pole_target_basis := Basis.IDENTITY) -> void:
@@ -783,10 +761,8 @@ func _solve_hand(name: String, target: Vector3, hand_basis: Basis, natural := fa
 		facts.perf("caress_arm", Time.get_ticks_usec() - arm_started)
 
 
-## The game's regular desktop arm pole (`valve_body_ik.gd`): the elbow bends below the
-## shoulder-to-wrist line with a little room beside the ribs. Carrying the previous plane keeps a
-## nearly straight arm from flipping when the caress point moves. Used only while a caress holds
-## the hand; the release and planted paths return to the authored pose.
+## The game's regular desktop arm pole: the elbow bends below the shoulder-to-wrist line with room
+## beside the ribs. Carrying the previous plane stops a nearly straight arm from flipping.
 func _arm_pole(key: String, shoulder: Vector3, target: Vector3, body_basis: Basis,
 		outward_sign: float, delta: float, target_basis: Basis) -> Vector3:
 	var axis := target - shoulder
@@ -822,9 +798,8 @@ func _arm_pole(key: String, shoulder: Vector3, target: Vector3, body_basis: Basi
 	return desired
 
 
-## Ease a wrist from one palm frame to another. The basis slerps so the palm plane turns with the
-## coat instead of snapping. The world bases arrive with Anon's scale on them, and `Basis.slerp`
-## requires orthonormal sides.
+## Ease a wrist from one palm frame to another, slerping the basis so the palm plane turns with the
+## coat instead of snapping. World bases carry Anon's scale, so both sides are orthonormalized.
 static func _blend_frame(from: Transform3D, to: Transform3D, t: float) -> Transform3D:
 	if not from.is_finite():
 		return to

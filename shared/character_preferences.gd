@@ -1,14 +1,7 @@
 extends RefCounted
-## Every spawnable adult mare in the base game 0.3.0: display name, settings order and a
-## private preference profile. The profiles live in `settings/catalogs.json` under
-## `character_templates`; this file owns the roster (`ORDER`, `NAMES`) and reads them once.
-## `settings/service.gd` merges them as the character defaults; a player's settings file overrides
-## them per pony. An id outside this roster falls back to the global default profile and placement.
-## A catalog is provider-overridable content, so it is never written to the player's settings file.
-##
-## The first sixteen keep their original tuned profiles and selector order; the rest follow by
-## display name. `twist` is written as a schoolfilly and `fiddly_twang` as a stallion in their
-## game profiles, so neither is listed here.
+## Every spawnable adult mare in the base game: display name, settings order and a private
+## preference profile. It owns the roster and reads the profiles once, and an id outside the roster
+## falls back to the global default.
 
 const DEFAULTS_DATA := preload("res://mods/unfplap/shared/defaults_data.gd")
 

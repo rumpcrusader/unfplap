@@ -1,8 +1,6 @@
 extends RefCounted
-## Standing oral procedural delta: the movable neck swing that keeps her muzzle along the shaft
-## while the standing base holds the stance and the frame. The `standing_oral` row names this file
-## as its `delta`; the evaluator runs it after the standing base and before the overlay. The
-## values come from the pose turn's style motion on the live config. Contract: `docs/poses.md`.
+## Standing oral procedural delta: the neck swing that keeps her muzzle along the shaft.
+## Contract: `docs/poses.md`.
 
 ## The head counters the neck's pitch and yaw so the muzzle does not follow the whole swing.
 const ORAL_HEAD_COUNTER := 0.75
@@ -10,9 +8,8 @@ const ORAL_HEAD_COUNTER := 0.75
 var _config: Dictionary = {}
 
 
-## The delta entry point: two neck bones share the pitch and yaw, and the head counters them and
-## takes the roll. A zero key set leaves the normal standing pose untouched. `weight` is the edge
-## or base weight; the style values are already eased by the pose turn.
+## The delta entry point: two neck bones share the pitch and yaw, the head counters them and takes
+## the roll. A zero key set leaves the pose untouched.
 func apply_delta(rig, sk: Skeleton3D, weight: float, state: Dictionary) -> void:
 	_config = state.get("config", {})
 	if rig.neck.size() < 3:

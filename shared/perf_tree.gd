@@ -13,10 +13,8 @@ const BRANCH := "├─ "
 const LAST := "└─ "
 
 
-## Lay `rows` out as a tree. `rows` maps a chunk key to `[total_ms, calls]`; `parents` maps a child
-## key to its parent key. A chunk whose parent is absent from this window is a root, so a chunk
-## that printed without its parent still shows. Returns dictionaries in display order with `key`,
-## `depth`, `prefix`, `self`, `total`, `calls` and `parent` (empty unless the row is a residual).
+## Lay `rows` out as a tree. A row whose parent is missing from the window becomes a root, so a
+## chunk that printed alone still shows.
 static func layout(rows: Dictionary, parents: Dictionary) -> Array:
 	var children: Dictionary = {}
 	var roots: Array = []

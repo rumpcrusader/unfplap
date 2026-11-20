@@ -3,10 +3,7 @@ extends RefCounted
 ## Contract: docs/debug.md
 ## Scope: process
 ## Import: debug/service.gd only
-##
-## The Debug block's action buttons and the debug action wheel's pages. An action is one entry in
-## `ACTIONS`; `method` is called on `target`, the `debug/actions.gd` node the entry adds. Actions
-## are not settings: they run a one-off debug operation.
+## An action is one table entry that runs a one-off operation, never a setting.
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
@@ -15,21 +12,11 @@ const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const AIM_RANGE_M := 8.0
 const AIM_TUBE_M := 1.5
 
-## The node that runs the actions. `debug/actions.gd` sets it when it enters the tree, so every
-## dispatch, label and gate below resolves it without a caller passing it in.
+## The node that runs the actions; it publishes itself here on entry, so no caller passes it.
 static var target: Node = null
 
-## Debug actions. `method` is called on `target`. `tab` places the button in that tab's
-## Debug block (`general` by default, or `anatomy`/`world`/`integrations`); a missing tab means
-## General. `panel: false` keeps an action off every settings block but leaves it available to
-## the wheel;
-## every action on a wheel page sets it, so settings draw only the settings-only actions.
-## Add an action here; it becomes a button in the matching Debug block automatically. Actions that
-## share a `row` are drawn compactly on one line, captioned with `short`; consecutive entries with
-## the same row must stay adjacent. A `phase` entry also carries `match_label`/`match_short`, used
-## by `action_label`/`action_short` when the target is already in that phase.
-## The mod claims no global debug hotkeys: the game's F4/F9/F10/F11 dev tools stay usable, and a
-## Debug block button or the action wheel is the only trigger.
+## Debug actions; `method` runs on `target`. The registry claims no global hotkeys, so only a
+## settings button or a wheel slot fires one; entries sharing a `row` must stay adjacent.
 const ACTIONS := {
 	"reload_pose": {
 		"label": "Reload posed base",
@@ -281,8 +268,7 @@ const ACTIONS := {
 		"row": "Placement file", "short": "Show"},
 }
 
-## The wheel's two context pages, clockwise from the top. `wheel_root` chooses the page; there are
-## no subpages, so every action is at most one click from the open wheel.
+## The wheel's two context pages, clockwise from the top; the live act chooses one.
 const WHEEL_PAGES := {
 	"mare": {
 		"title": "Mare",
@@ -365,8 +351,7 @@ static func _action_text(name: String, node: Node, key: String, match_key: Strin
 	return str(action.get(match_key, text))
 
 
-## The action bound to a physical key code, or "" when none is. No action declares one today; the
-## route stays for a future action that must fire while the world is unpaused.
+## The action bound to a physical key code, or "" when none is; no entry declares one today.
 static func hotkey_action(keycode: int) -> String:
 	for name: String in ACTIONS:
 		if int(ACTIONS[name].get("hotkey", 0)) == keycode:

@@ -1,16 +1,12 @@
 extends RefCounted
-## The legacy metadata mirror for one presented body: the body-fit key, the source body's mesh-hide
-## marker and tail root, and the live body scale. The typed body form is the only authority; this
-## module writes the keys the systems that have not migrated yet still read, and never reads a
-## partial form back out of them.
-##
+## The legacy metadata mirror for one presented body: body-fit key, mesh-hide marker, tail root
+## and live body scale. The mirror is write-only; nothing reads a form back out of these keys.
 ## See `docs/body_change.md` (`## Internal API`).
 
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 
 
-## Mirror `form` onto `pony`. An empty marker or a missing tail root clears the old source value,
-## so a return to the pony's own form cannot leave a borrowed body's marker behind.
+## Mirror `form` onto `pony`.
 static func apply(pony: Node3D, form: BODY_FORM.BodyForm) -> void:
 	if not is_instance_valid(pony) or form == null:
 		return

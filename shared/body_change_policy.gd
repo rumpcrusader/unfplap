@@ -1,8 +1,6 @@
 extends RefCounted
-## The typed base for a provider's offer/reveal policy. The provider decides the timing and the
-## contents; the base runtime reads `should_offer()`/`offer_prompt()`, dispatches the generic act
-## milestones through `on_act_event()`, and executes the effects of a completed offer or reveal from
-## `BodyChangeEffects`. No `class_name`: a provider extends this file by path.
+## Provider-facing offer/reveal policy base: the provider decides timing and contents, while the
+## runtime reads the offer calls, dispatches act milestones and executes the resulting effects.
 
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")

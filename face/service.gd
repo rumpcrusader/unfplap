@@ -1,8 +1,8 @@
 extends RefCounted
-## The act's single face owner: the beat table driven by the pure `shared/act_face.gd`, the line-face
-## ownership rule, the stare release, and the held post-act mood face node. The runtime owns the
-## scene values (act state, summary, readiness counters, settings flags) and passes them in; this
-## facade owns the face state and never reads the runtime node. Contract: `docs/face.md`.
+## The act's single face owner: the beat table, the line-face rule and the held post-act face.
+## Scene values arrive from the runtime; this facade never reads its node.
+##
+## Contract: `docs/face.md`.
 
 const ACT_FACE := preload("res://mods/unfplap/shared/act_face.gd")
 const MOOD_FACE := preload("res://mods/unfplap/face/mood_face.gd")
@@ -67,7 +67,7 @@ var warm_note := false
 ## Mirrors `features.face_debug` for the facade's own logs.
 var debug_enabled := false
 var pony: Variant = null
-## The runtime node that parents the mood face and the hold timer.
+## The node the mood face and its hold timer are parented under.
 var host: Node = null
 
 ## Host boundary. Missing callbacks are no-ops.
@@ -128,9 +128,7 @@ func eyes_for(state_value: int, close_rewarded: bool, eyes_active: bool) -> void
 		"eyes_active": eyes_active})
 
 
-## The act owns the lids outside a kiss. The runtime sets them at every transition and calls this
-## late in the tick so a climax return or fluster peek cannot leave her wide-eyed while leaning.
-## Context: `state`, `close_rewarded`, `eyes_active`.
+## Outside a kiss the act owns the lids, reasserted on every tick.
 func eyes_tick(context: Dictionary) -> void:
 	if not is_instance_valid(pony):
 		return
@@ -279,8 +277,7 @@ func _timer() -> Timer:
 	return face_timer
 
 
-## Apply the beat table for one moment. The context is gathered by the runtime:
-## `first_time`, `tolerance`, and `climax_mode`/`quality` or `summary`.
+## One act moment; the runtime gathers its context.
 func beat(moment: String, context: Dictionary) -> void:
 	if not is_instance_valid(pony):
 		return
@@ -327,7 +324,7 @@ func beat(moment: String, context: Dictionary) -> void:
 				moment, face, float(plan.get("hold_s", 0.0))])
 
 
-## Set one face unless a spoken line owns the expression. Returns whether it applied.
+## Set one face, or refuse when a line owns the expression; returns whether it applied.
 func set_act_face(face: String, hold_s: float) -> bool:
 	if not is_instance_valid(pony) or not ACT_FACE.valid_face(face):
 		return false
@@ -349,7 +346,7 @@ func set_act_face(face: String, hold_s: float) -> bool:
 	return true
 
 
-## Clear only the face this owner set; a spoken line face is never cleared here.
+## Drop the act's own face and leave any line face alone.
 func end_face() -> void:
 	stare_release_until = 0.0
 	if act_face.is_empty():
@@ -365,7 +362,7 @@ func end_face() -> void:
 	act_face = ""
 
 
-## The face a director line currently owns, or empty.
+## The face the director's line holds right now, or empty.
 func dialogue_face() -> String:
 	if not is_instance_valid(pony):
 		return ""
@@ -378,7 +375,7 @@ func dialogue_face() -> String:
 	return ""
 
 
-## The live debug flag. Act faces always play; the post-act mood face stays independent.
+## Apply the live debug flag; act faces play either way, and the post-act face is independent.
 func sync_settings(debug: bool) -> void:
 	debug_enabled = debug
 
@@ -416,9 +413,7 @@ func rows(context: Dictionary) -> Array[String]:
 	return result
 
 
-## The post-act face. A positive or non-early neutral act keeps a light, relaxed face and the warm
-## prompt note; a bad act shows its summary mood instead. Context: `stopped`, `summary`,
-## `satisfied`, `aftercare_min`.
+## The post-act face and its warm note. A bad act shows the summary mood instead of a warm face.
 func start_post_act(context: Dictionary) -> void:
 	warm_note = false
 	if bool(context.get("stopped", false)) or not is_instance_valid(pony) or not _host_ok():
@@ -493,7 +488,7 @@ func end_satisfied() -> void:
 	end_mood_face()
 
 
-## Free the held face and clear the act face when the runtime leaves the tree.
+## Teardown: drop the held face and the act's own face.
 func shutdown() -> void:
 	end_face()
 	if is_instance_valid(mood_face):

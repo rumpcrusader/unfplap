@@ -215,9 +215,8 @@ static func _same_rig_and_fit(a: BODY_FORM.BodyForm, b: BODY_FORM.BodyForm) -> b
 		and is_equal_approx(a_rig.rear_z, b_rig.rear_z)
 
 
-## Create the per-act controller. The controller owns it until `end_act()`; its behaviour
-## follows the live pose view, so the runtime needs no start pose id here. The facade is told
-## before the pose starts, so a world integration can undress the pony before the first frame.
+## Create the per-act controller, owned here until `end_act()`.
+## The facade hears about it before the pose starts.
 func begin_act() -> Node:
 	end_act()
 	_act = ACT.new()
@@ -467,14 +466,12 @@ func body_coat_targets() -> Array:
 	return coat.targets() if coat != null else []
 
 
-## Public coat refresh for the runtime's jiggle fallback. The private `_apply_body_coat` stays
-## the implementation; the runtime no longer calls a private method.
+## Public coat refresh for the runtime's jiggle fallback.
 func body_coat_refresh() -> void:
 	_apply_body_coat()
 
 
-## integration: the ponut and vulva are on the pony body, not the genitals overlay. The rig
-## coat and the merged near body are patched; which one is visible depends on the near mesh.
+## Patch the drawn coat: rig or merged near, whichever is visible.
 func _apply_body_coat() -> void:
 	coat.apply()
 
@@ -525,11 +522,8 @@ func detach() -> void:
 
 # --------------------------------------------------------------------------- garment hull
 
-## The worn-garment depth field for this pony's refined anatomy mesh. It is built once per
-## source mesh, width, height, smoothing and rest ponut scale and shared by every mare; the field
-## is the rest appearance (closed lips, rest ponut; no act shapes). The integration only needs the
-## texture and the per-mare transform. Null when the anatomy is detached. The settings are read
-## in `apply_live()`/`setup()`, not on this every-frame read.
+## The worn-garment depth field for the refined anatomy mesh; null when detached.
+## No per-frame settings read: width, height and smoothing are read on setup/apply_live.
 func garment_hull() -> GARMENT_HULL.Hull:
 	if not is_attached() or not is_instance_valid(attach.mesh):
 		return null
@@ -563,10 +557,8 @@ func _read_hull_settings() -> void:
 	_garment_hull = null
 
 
-## Map an anatomy-local point into the garment's model space (the body's rest space). The
-## anatomy mesh is skinned to `pony_hips`; the body model is the space the worn garment's
-## vertices are skinned in. The per-act trims are part of the live mesh transform. The body is
-## cached; this runs every frame.
+## Map an anatomy-local point into the garment's model space, the body's rest space.
+## The body is cached, so this stays cheap on the every-frame path.
 func garment_transform() -> Transform3D:
 	if not is_attached() or not is_instance_valid(attach.mesh):
 		return Transform3D.IDENTITY
@@ -579,14 +571,12 @@ func garment_transform() -> Transform3D:
 	return garment_transform_for(_garment_body, attach.mesh)
 
 
-## True when the anatomy is attached and the visibility poll has the mesh shown. A far mesh or
-## the act-only hiding makes the cloth skip the hull.
+## True only while the poll shows the mesh; a hidden mesh leaves the cloth alone.
 func garment_visible() -> bool:
 	return is_attached() and is_instance_valid(attach.mesh) and attach.visible()
 
 
-## The anatomy mesh whose local space the hull field is built in. The debug heatmap copies its
-## live transform rather than parenting to it, so a hidden mesh does not hide the heatmap.
+## The mesh the hull field is built in.
 func garment_parent() -> Node3D:
 	return attach.mesh if is_attached() and is_instance_valid(attach.mesh) else null
 
@@ -598,8 +588,7 @@ static func garment_transform_for(body: Node3D, mesh: Node3D) -> Transform3D:
 	return body.global_transform.affine_inverse() * mesh.global_transform
 
 
-## A margin in millimetres as anatomy-local units. The shader converts the local push back by
-## the basis' Z scale, so this keeps the slider in world millimetres on every body size.
+## A millimetre margin in anatomy-local units; the basis' Z scale converts the push back.
 static func garment_margin_local(transform: Transform3D, millimetres: float) -> float:
 	var scale := (transform.basis * Vector3(0.0, 0.0, 1.0)).length()
 	return (millimetres / 1000.0) / maxf(scale, 0.0001)
@@ -614,8 +603,7 @@ func fluid() -> Node3D:
 	return attach.fluid() if attach != null else null
 
 
-## Idle heat discharge: one or more droplets are shot out of the vulva opening on each wink
-## burst. The persistent fluid node keeps their motion and pools them on the ground under her.
+## Idle heat discharge: drops leave the vulva on a wink burst.
 func idle_discharge(count: int) -> void:
 	if attach != null:
 		attach.idle_discharge(count)

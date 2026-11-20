@@ -1,12 +1,8 @@
 extends Node
-## Debug: keep every loaded pony's tail collapsed while `debug_hide_tails` is on.
-##
-## Hiding only the rig tail mesh is not enough: the near and far LOD meshes merge the tail into a
-## larger skinned mesh. Collapsing the hair tail bones hides all of it, and the native tail bones
-## cover the far bake's skeleton.
-##
-## The anatomy facade pushes the switch through `set_enabled()`, so this node processes only while
-## the toggle is on and never reads Settings per frame.
+## Debug: collapse every loaded pony's tail bones while `debug_hide_tails` is on.
+## Hiding the rig tail mesh alone is not enough, because the near and far LOD meshes merge it
+## into a larger skinned mesh.
+## The facade pushes the switch, so this node processes only while the toggle is on.
 
 const TAIL_HIDE := preload("res://mods/unfplap/anatomy/tail/hide.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")

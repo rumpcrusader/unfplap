@@ -1,11 +1,7 @@
 extends RefCounted
-## Pure Base clearance for act negotiation: the three hard rows that decide whether a mare may
-## form an offer or take a hotkey attempt. The caller gathers the plain values; this file never
-## reads a service, scene, setting, clock or file. Contract: `docs/eligibility.md`
-## (`## Base clearance`).
-##
-## Willingness, history, cycle, aftercare, diestrus, privacy and general consent are Context, not
-## clearance (`shared/context.gd`). The tolerance stop's `stop_until` is a separate gate.
+## Pure Base clearance for act negotiation: the gates that run once per route, at offer formation
+## and at hotkey attempt. The caller gathers the plain values; this file reads no service, scene,
+## setting, clock or file. Contract: `docs/eligibility.md` (`## Base clearance`).
 
 const REASON_ELIGIBLE := "eligibility"
 const REASON_RELATIONSHIP := "relationship"
@@ -48,8 +44,7 @@ static func evaluate(eligible: bool, relationship_ok: bool, available: bool) -> 
 	return out
 
 
-## The relationship row: a live relationship exists, romance eligibility passes and her love
-## level meets the Promiscuity floor. The eligibility service owns the fact reads; this is the
+## The relationship row of the clearance. The eligibility service owns the fact reads; this is the
 ## pure predicate both routes share.
 static func relationship_ok(has_relationship: bool, romance_eligible: bool,
 		love_level_meets_floor: bool) -> bool:

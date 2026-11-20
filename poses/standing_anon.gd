@@ -24,8 +24,8 @@ var _chest_back: SkeletonModifier3D
 var _lower_left := Transform3D.IDENTITY
 var _lower_right := Transform3D.IDENTITY
 var _lower_captured := false
-## The AnonBody that owns `_left_foot`/`_right_foot`. The HipsTarget sits under the skeleton,
-## so walking up from the hip target must skip the skeleton and find the body node.
+## The AnonBody that owns the foot targets. The hip target sits under the skeleton, so the walk up
+## must skip it and find the body node.
 var _lower_body: Node
 
 ## The view family check: `standing` covers the public pose and the internal standing_test.
@@ -76,9 +76,8 @@ func apply_anon_thrust(_hip: Node3D, facing: Basis) -> void:
 	_hip_thrust.set("offset_world", forward * hip_offset(_hip_phase, scale, travel))
 
 
-## Phase-2 Anon body lean: the camera/head moves forward, sideways or down, so the torso hinges
-## over her. The game's stepping feet keep moving unless a lean is active; then both foot targets
-## are pinned so the legs keep their pose while the pelvis travels.
+## Phase-2 Anon body lean: the view goes forward, sideways or down, so his torso folds over her.
+## A live lean pins both foot targets; otherwise the stepping feet keep moving.
 func apply_anon_lean(hip: Node3D, facing: Basis) -> void:
 	var kiss: Variant = facts.kiss_controller()
 	if not _standing_family() or not bool(facts.free_camera_active) or not is_instance_valid(hip):
@@ -139,9 +138,8 @@ func _sway_offset() -> Vector3:
 	return Vector3.ZERO
 
 
-## The AnonBody above the hip target that owns both foot targets. `HipsTarget` is parented to the
-## skeleton, not the body, so `hip.get_parent()` never sees `_left_foot`/`_right_foot`; walk up
-## until the body node is found and cache it for the act.
+## The AnonBody above the hip target that owns both foot targets. The hip target is parented to
+## the skeleton, so walk up to the body node and cache it for the act.
 func _lower_body_of(hip: Node3D) -> Node:
 	if is_instance_valid(_lower_body) and _lower_body.get("_left_foot") != null:
 		return _lower_body

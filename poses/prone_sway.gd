@@ -63,9 +63,8 @@ func _process_modification_with_delta(delta: float) -> void:
 		perf.call("pose_prone", Time.get_ticks_usec() - started)
 
 
-## The session's render-time replay: `skeleton_pose.apply_render()` rewrites the 30 body bones
-## after the modifier pass, so the current slide and nod are written once more after it. The
-## springs only advance in the modifier pass.
+## The session's render-time replay: the body bones are rewritten after the modifier pass, so
+## write the current slide and nod once more. The springs advance only in the modifier pass.
 func apply_render(sk: Skeleton3D) -> void:
 	if not is_instance_valid(mare) or facts == null:
 		return

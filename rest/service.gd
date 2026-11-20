@@ -1,8 +1,6 @@
 extends RefCounted
-## The bed/couch rest and cuddle rejoin: the bed anchor, the safe placement on the mattress, the
-## return to the stock cuddle, the floor beside the bed and the restore posture. The runtime owns
-## the act state and the one teardown ledger; this facade owns the scene work.
-## Contract: `docs/rest.md`.
+## Scene work for the bed/couch rest and the cuddle rejoin; the runtime owns the act state.
+## Contract: `docs/rest.md`
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const MATTRESS := preload("res://world/life/couch/mattress.gd")
@@ -128,11 +126,8 @@ func shared_bed_rest(bed_node: Node3D) -> Variant:
 	return null
 
 
-## A normal bed missionary end returns to the cuddle: Anon lies back on the same bed and she is
-## invited into its guest seat, where the stock `CuddleSession` picks her up. The act released the
-## bed rest and stood both of them, so this is a fresh stock recline and a fresh guest invite. The
-## stock closeness rule still decides (she must welcome hugs and be at least a friend), and a bad
-## act or an upset mare stays standing. Every failure is logged and leaves her standing.
+## Rejoin the stock cuddle after a normal bed end.
+## Only once the act is fully IDLE, and a bad act leaves her standing.
 func rejoin_bed_cuddle(bed_node: Node3D, act_serial: int) -> void:
 	if not is_instance_valid(pony) or not is_instance_valid(bed_node):
 		return
@@ -169,8 +164,7 @@ func rejoin_bed_cuddle(bed_node: Node3D, act_serial: int) -> void:
 		if not bool(player.call("toggle_couch_sleep")):
 			write_log("cuddle rejoin failed reason=recline")
 			return
-	# The act restores her still standing on the mattress, and the bed's own front probe rejects a
-	# floor half a metre below her feet. Put her on the clear floor beside the bed first.
+	# The front probe won't accept the mattress floor, so move her first.
 	stand_beside_bed(rest, guest_seat)
 	await tree.create_timer(CUDDLE_REJOIN_SETTLE_S).timeout
 	var deadline := Time.get_ticks_msec() + int(CUDDLE_REJOIN_WINDOW_S * 1000.0)
@@ -213,8 +207,7 @@ func bed_rest_for(bed_node: Node3D) -> Variant:
 	return null
 
 
-## Stand her on the nearest clear floor beside the bed. The act's restore leaves her on the
-## mattress, and `shared_bed._front_for()` drops a floor more than half a metre below her feet.
+## Stand her on clear floor beside the bed; the restore leaves her on the mattress.
 func stand_beside_bed(rest: Node, seat: Node3D) -> void:
 	if not is_instance_valid(pony) or not is_instance_valid(seat):
 		return

@@ -1,7 +1,7 @@
 extends RefCounted
-## Thrust and climax presentation: the rump jiggle and its body-coat target, the act smack
-## reaction, the standing rump blush and the climax heart bursts. The runtime owns the act state
-## and the stroke events; this facade owns the scene reactions and the per-act tuning it needs.
+## Thrust and climax presentation: the rump jiggle, its coat target, the smack, the rump blush
+## and the heart bursts.
+##
 ## Contract: `docs/reactions.md`.
 
 const FLANK_TOUCH := preload("res://world/characters/hybrid_mare/pony_flank_touch.gd")
@@ -49,8 +49,7 @@ var _heart_counts: Array[int] = []
 var log := Callable()
 
 
-## Bind the scene nodes the facade reacts on. The flank is discovered lazily from the pony when
-## `flank_ctl` is null; a test may inject its fake.
+## Bind the act's pony and anatomy; a test may inject its fake flank.
 func bind_scene(pony_node: Variant, anatomy_ctl: Variant, flank_ctl: Variant = null) -> void:
 	pony = pony_node
 	anatomy = anatomy_ctl
@@ -58,7 +57,7 @@ func bind_scene(pony_node: Variant, anatomy_ctl: Variant, flank_ctl: Variant = n
 		flank = flank_ctl
 
 
-## The standing tail modifier changes with the pose; the runtime binds it after `_build_pose()`.
+## The standing tail modifier changes with the pose, so the pose builder binds it.
 func bind_tail(tail_ctl: Variant) -> void:
 	tail = tail_ctl
 
@@ -86,7 +85,7 @@ func begin_act() -> void:
 	_heart_counts.clear()
 
 
-## The act ended: free the blush decal, drop the tail handle and restore the stock shader radius.
+## Teardown: free the decal, drop the tail and put the stock radius back.
 func end_act() -> void:
 	if is_instance_valid(_rump_decal):
 		_rump_decal.queue_free()
@@ -100,11 +99,8 @@ func end_act() -> void:
 	restore_radius()
 
 
-## The runtime-patched rig coat and merged-near materials are no longer the exact game Shaders, so
-## FlankTouch's JIGGLE_SHADERS check skips them. Put the anatomy's whole coat target list back into
-## the active list. `_start_jiggle()` rebuilds the list on every slap, so this runs for each thrust
-## and act smack. It is also the anatomy's stock-smack hook, so the setting is read here rather
-## than snapshotted: a regular smack outside an act must still reach the patched coat.
+## The runtime's patched coat no longer matches the game's shader check, so re-add the targets on
+## every thrust; the setting is read live so a smack outside an act still reaches them.
 func body_coat_target() -> void:
 	if not SETTINGS.body_coat_deform.get_bool():
 		return
@@ -161,8 +157,8 @@ func _add_coat_target(targets: Array, material: ShaderMaterial, body: MeshInstan
 	targets.append([material, body])
 
 
-## The thrust's rump wobble. One shader center on the rump midline so both flanks wobble
-## together; the stock FlankTouch supports only one jiggle at a time.
+## The thrust's rump wobble. `FlankTouch` holds one jiggle at a time, so both flanks share the
+## one center.
 func thrust(weight: float) -> void:
 	if not is_instance_valid(pony):
 		return
@@ -175,7 +171,6 @@ func thrust(weight: float) -> void:
 	var marks: Variant = flank.get("marks")
 	if not marks is Array or (marks as Array).size() < 2:
 		return
-	# One shader center on the rump midline so both flanks wobble together.
 	var mark: Variant = (marks as Array)[0]
 	if not mark is Decal:
 		return
@@ -211,8 +206,8 @@ func thrust(weight: float) -> void:
 	if amount != null:
 		flank.set("_jiggle_amount", float(amount) * wobble * JIGGLE_RUMP_SCALE
 			* size_scale * jiggle_intensity)
-		# `_start_jiggle()` already ran one frame at the stock full amount; refresh it now so
-		# the first frame of a soft thrust does not pop.
+		# The stock jiggle already ran a frame at the full amount; refresh it so a soft thrust does
+		# not pop.
 		if flank.has_method("_process"):
 			flank.call("_process", 0.0)
 	apply_radius()
@@ -275,9 +270,8 @@ func restore_radius() -> void:
 	_radius_materials.clear()
 
 
-## The base game leaves a redness mark for 18 s after a regular smack. The act has its own
-## rump blush and act-smack mark, so clear the stock marks when the act starts. Regular smacks
-## outside the act keep their native marks.
+## The act has its own rump blush and smack mark, so the stock redness mark is cleared at act
+## start; a smack outside the act keeps it.
 func clear_stock_marks() -> void:
 	if not is_instance_valid(pony):
 		return

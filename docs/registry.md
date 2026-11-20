@@ -19,8 +19,8 @@ removing the provider leaves the player's choices intact.
 
 ## Ownership
 
-`registry/service.gd` is a static process-wide store. It owns the provider layers in memory and
-nothing on disk. `settings/service.gd` owns the player's persisted `characters.<id>` overrides.
+`registry/service.gd` is a static process-wide, main-thread-only store. It owns the provider layers
+in memory and nothing on disk. `settings/service.gd` owns the player's persisted `characters.<id>` overrides.
 `api.gd` owns the cross-mod registration surface; its contract is `docs/api.md`.
 
 The registry is empty until a provider registers, so a run without other mods behaves exactly as

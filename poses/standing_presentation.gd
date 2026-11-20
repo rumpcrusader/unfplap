@@ -18,8 +18,7 @@ const PRESENT_TURN_TIMEOUT_S := 4.0
 const PRESENT_TURN_STALL_S := 1.5
 ## The navigator's face_point target, the same 4 m the base-game idle fidget uses.
 const PRESENT_TURN_POINT_M := 4.0
-## "Away enough": the stepping turn settles within this of directly away, rather than demanding
-## an exact 180-degree turn. She ends about 120 degrees from Anon, leaving the head room for an
+## "Away enough": the turn settles within this of directly away, leaving room for the
 ## over-the-shoulder glance.
 const PRESENT_AWAY_RAD := deg_to_rad(60.0)
 ## One stronger look-back right after the pose settles, then the softer over-the-shoulder hold.
@@ -172,9 +171,8 @@ func _attach_present_pose() -> void:
 
 
 
-## Put the game's own stepping turn in charge of her body. The navigator's `face_point` walks
-## her legs round exactly as it does for the base-game conversation circle and idle fidget; a
-## direct `face_direction` call loses to the navigator's own facing every tick.
+## Put the game's own stepping turn in charge of her body, through the navigator's `face_point`.
+## A direct `face_direction` loses to the navigator's own facing every tick.
 func _begin_present_turn() -> void:
 	_present_turning = true
 	_present_turn_nav = null
@@ -368,9 +366,8 @@ func _presentation_physics(delta: float) -> void:
 	facts.pause_face(true)
 
 
-## Turn her with the game's supported stepping turn, which steps the hooves. The navigator's
-## face_point owns the turn exactly as it does for the base-game conversation circle; the pose
-## attaches only after she is away enough, so nothing rotates under planted feet.
+## Turn her with the game's stepping turn, which steps the hooves. The pose attaches only once she
+## is away enough, so nothing rotates under planted feet.
 
 func _presentation_turn_physics(delta: float) -> void:
 	if not _presentation_turn_valid():
@@ -427,9 +424,8 @@ func _presentation_turn_valid() -> bool:
 	return true
 
 
-## The presentation's own action hold. `affection_active` is the game's existing "physical
-## affection owns her" flag; it blocks AI approach/follow actions while she turns and presents.
-## The negotiation hold sets the same flag; the presentation only clears the one it set.
+## The presentation's own action hold, on the game's "physical affection owns her" flag, which
+## blocks AI approach/follow. The presentation only clears the flag it set.
 func _set_presentation_hold(on: bool) -> void:
 	_sync()
 	if not is_instance_valid(pony):
@@ -457,9 +453,8 @@ func _end_presentation_hold() -> void:
 	_set_presentation_hold(false)
 
 
-## Hold the approved affectionate face after the turn. A spoken line's own face wins while it
-## owns the expression; the held face returns once the line clears.
-## The held pose keeps the nose blush at full; the face's own blush is the display layer.
+## Hold the approved affectionate face after the turn. A spoken line's own face wins until it
+## clears; the nose blush stays at full.
 func _sustain_present_blush() -> void:
 	if not is_instance_valid(pony):
 		return

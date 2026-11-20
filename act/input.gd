@@ -84,7 +84,7 @@ func vr_y_held() -> bool:
 	return context.anatomy.vr_y_held()
 
 
-## The act-key hold with a climax behind it enters the afterglow instead of cancelling.
+## The act-key hold takes her to afterglow once she has climaxed, and cancels at zero.
 func request_afterglow() -> void:
 	session.begin_afterglow()
 
@@ -164,7 +164,7 @@ func request_pose(target_id: String, trigger := "", request: Dictionary = {}) ->
 	return context.pose.request_pose(target_id, trigger, values)
 
 
-## One command check: the pose's control profile and the live edge lock. `end` is reserved.
+## One command check against the pose's control set and the live edge lock; `end` is reserved.
 func request_command(command_id: String) -> bool:
 	return context.pose.request_command(command_id)
 

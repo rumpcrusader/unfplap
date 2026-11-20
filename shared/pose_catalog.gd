@@ -1,8 +1,8 @@
 extends RefCounted
 ## Pose catalog: stable ids and the per-pose settings schema.
 ## New poses add an entry here and a controller/recipe; shared runtime should not branch on
-## numeric pose indexes. The shipped default values live under `default.poses.<id>` in
-## `settings/defaults.json`; `POSE_KEYS` is the schema, not a default.
+## numeric pose indexes. `POSE_KEYS` only describes the schema; the default values ship in the
+## defaults document.
 
 const DEFAULTS_DATA := preload("res://mods/unfplap/shared/defaults_data.gd")
 

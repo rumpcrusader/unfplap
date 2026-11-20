@@ -1,12 +1,9 @@
 extends RefCounted
 ## The supported mod integrations: metadata, feature flags and the binding paths the integrations
-## service resolves. Pure data with no scene access, shared by `integrations/service.gd` and the
-## Integrations settings tab.
+## service resolves. Pure data with no scene access, shared by the service and the settings tab.
 ##
-## A binding path starts at the act pony. Each step is `{"property": "..."}` for a property or
-## `{"child": "..."}` for a direct child node; `"optional": true` on any step marks the whole binding
-## optional. The service keeps optional bindings under watch so a node that appears mid-act is
-## bound then.
+## A binding step is `{"property": "..."}`, `{"child": "..."}` or `{"optional": true}`. The service
+## keeps optional bindings under watch so a node that appears mid-act is bound then.
 
 const ORDER := ["kissing", "pantyhose"]
 
@@ -25,9 +22,8 @@ const PROVIDERS := {
 			"fidgets": [{"property": "skeleton"}, {"child": "KissingFidgets", "optional": true}],
 		},
 	},
-	## The Pantyhose & Panties adapter is a world integration: it has no per-act provider or
-	## bindings and runs its own every-frame pass. Its feature flags drive the garment shader, the
-	## cloth jiggle and the act-start undress; see `docs/integrations.md` (`## Pantyhose & Panties`).
+	## The Pantyhose & Panties adapter is a world integration: no per-act provider, no bindings, its
+	## own every-frame pass. See `docs/integrations.md` (`## Pantyhose & Panties`).
 	"pantyhose": {
 		"mod_id": "pantyhose",
 		"mod_name": "Pantyhose & Panties",

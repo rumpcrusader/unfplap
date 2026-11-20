@@ -1,10 +1,7 @@
 extends RefCounted
-## Pure admission policy for unprompted act lines. No scene access, no director access.
-##
-## One instance per act. The runtime owns the director call, the prompt text and the memory
-## lookup; this module only decides whether a cue may become a line and which line owns the
-## single slot. Reaction lines take the same slot, bypassing the pacing gates but keeping the
-## 18 s shared gap and the release hold.
+## One instance per act: which cue may become a line, and which line owns the slot.
+## Reaction lines take the same slot but skip the pacing gates.
+## No scene or director access; the runtime does the talking.
 
 const UTTERANCE := preload("res://mods/unfplap/dialogue/utterance.gd")
 
@@ -14,8 +11,8 @@ const CUE_GAP_MIN_S := 8.0
 const CUE_GAP_MAX_S := 30.0
 
 var cue_gap: float
-## Debug-overridable pacing. runtime.gd pushes the `cues.*` settings into these fields at act
-## start and on a live settings edit.
+## Pacing fields the debug settings override; the runtime pushes them when an act opens and on
+## a live edit.
 var base_stable_s: float
 var override_stable_s: float
 var utterance_gap_s: float
@@ -194,7 +191,6 @@ func pending_override() -> bool:
 	return _pending_override
 
 
-## The director reports the final sentence delivered. Keep the slot until speech actually stops.
 ## The delivered row is observed every frame, so only the first report sets the finish clock; a
 ## later repeat must not restart the release hold.
 func note_finished(now: float, key: String) -> void:

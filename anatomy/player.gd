@@ -1,6 +1,5 @@
 extends Node
-## integration: the player part. Shows the part on the human player's Hips during encounters.
-## The mesh and textures ship with the mod.
+## The player part: the human player's mesh on his Hips, its placement, shaping and throb.
 
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const OUTLINE_EXCLUSION := preload("res://world/post_outline_exclusion.gd")
@@ -234,8 +233,7 @@ func _apply_place() -> void:
 	_mesh.transform = _placed()
 
 
-## The part is a child of the player's Hips, so a closing world takes it out of the tree before
-## `world_closed` reaches the facade. A world transform only reads while it is inside.
+## True while the part is inside the tree; a closing world removes it first.
 func _in_tree() -> bool:
 	return is_instance_valid(_mesh) and _mesh.is_inside_tree()
 
@@ -266,9 +264,8 @@ func _apply_throb() -> void:
 	material.set_shader_parameter("throb_up", _throb_up())
 
 
-## World up expressed in the mesh's own frame. The bed placement turns the shaft flat onto the
-## mattress, so a fixed local axis would lift it sideways there. With no world placement there is
-## no axis to lift along; a unit value keeps the uniform finite.
+## World up in the mesh's frame: the bed placement lays the shaft flat, so a fixed local axis
+## would lift it sideways. A unit value keeps the uniform finite with no world placement.
 func _throb_up() -> Vector3:
 	if not _in_tree():
 		return Vector3.UP
@@ -302,9 +299,8 @@ func shaft_length_m() -> float:
 	return _part_length() * _world_scale()
 
 
-## The applied penetration, eased: in the standing pose the first frame pulls his pelvis in from
-## wherever the stance left it, so it blends through `POSING_IN` instead of snapping; the other
-## placements start where the depth already is. A live size change stays smooth in every path.
+## The applied penetration, eased so the act-start pull-in and live size edits glide.
+## In standing the first frame blends in through `POSING_IN` instead of snapping.
 func _smooth_penetration(penetration_m: float, delta: float, target: Vector3,
 		seed: bool) -> float:
 	if not _p_started:
@@ -325,9 +321,8 @@ func apply_live() -> void:
 		_apply_girth()
 
 
-## integration: standing: the part stays fixed to his hips. Bed: it rides her hips instead.
-## `penetration_m` is how far the tip has passed her lips, measured in metres; negative is the
-## `Back-out gap` standoff, so the placement never needs a separate depth fraction.
+## Place the part for this frame; the attached pose keeps it on his hips, the bed pose on hers.
+## `penetration_m` is metres past her lips, negative for the back-out standoff.
 func track(target: Vector3, rear: Vector3, up: Vector3, bed: bool, penetration_m: float,
 		delta: float, mare_anchor: Node3D, attached := true) -> void:
 	if not _in_tree() or not _mesh.visible or placing:
@@ -370,9 +365,8 @@ func track(target: Vector3, rear: Vector3, up: Vector3, bed: bool, penetration_m
 		material.set_shader_parameter("compress", _squash)
 
 
-## A slight heartbeat that rises with depth. The waveform has two lobes so it reads as a pulse
-## rather than a clean sine. `part_throb` is an intensity counter; zero stops it. While the shaft
-## is out of her the beat also lifts it, fading to nothing as the thrust reaches full depth.
+## A slight heartbeat that rises with depth, two lobes so it reads as a pulse.
+## While the shaft is out the beat lifts it too, fading to nothing at full depth.
 func _throb_tick(delta: float, depth: float) -> void:
 	if delta <= 0.0:
 		return
@@ -390,9 +384,8 @@ func _throb_tick(delta: float, depth: float) -> void:
 	_apply_throb()
 
 
-## Aim the visible part at the entrance. In the standing act the part stays a rigid child of the
-## hips and the controller moves the pelvis instead (`hip_offset_wanted`), so his crotch and the
-## part travel together; the other poses keep the aim-and-slide placement.
+## Aim the part at the entrance; standing keeps it a rigid child of the hips.
+## There the controller moves the pelvis instead, so crotch and part travel together.
 func _aim_part(target: Vector3, penetration_m: float, attached: bool) -> void:
 	if not is_instance_valid(_mesh) or not target.is_finite():
 		return
@@ -473,9 +466,8 @@ func hip_offset_wanted() -> Vector3:
 	return _hip_offset_wanted
 
 
-## Drop the pelvis handshake and the smoothed penetration between two bodies. The old body's
-## `hip_offset_applied` belongs to another Hips pose; keeping it would make the next aim subtract a
-## displacement from the wrong pivot. The act state, the mesh and the throb are untouched.
+## Drop the pelvis handshake and the smoothed penetration when the body changes.
+## The old offset belongs to another Hips pose and would aim from the wrong pivot.
 func reset_pelvis() -> void:
 	hip_offset_applied = Vector3.ZERO
 	_hip_offset_wanted = Vector3.ZERO
@@ -586,9 +578,8 @@ func root_now() -> Vector3:
 	return _mesh.global_transform * PIVOT
 
 
-## The pivot with the last applied Hips offset taken out: where the part sits when the pose's
-## pelvis handshake is zero. A standing start measures its contact distance from this, so a stale
-## offset from the previous body cannot warp the fit.
+## The pivot with the last applied Hips offset taken out: where the part sits with no handshake.
+## A standing start measures its contact distance from this, so a stale offset cannot warp it.
 func root_natural() -> Vector3:
 	var root := root_now()
 	if not root.is_finite():
@@ -596,7 +587,7 @@ func root_natural() -> Vector3:
 	return root - hip_offset_applied
 
 
-## Build the hidden part mesh so a gate can measure its natural root before an encounter.
+## Build the mesh hidden so its root can be measured before an encounter; also the rebuild path.
 func prepare() -> bool:
 	return _ensure()
 
@@ -681,9 +672,8 @@ func reset_state() -> void:
 	if not is_instance_valid(_mesh):
 		return
 	if not _in_tree():
-		# A closing world has already taken the player body, and the part with it, out of the
-		# tree. Reparenting and world transforms would error, and the mesh is gone anyway, so only
-		# the bed holder needs collecting.
+		# Outside the tree: reparenting and world transforms would error, so only the bed holder is
+		# collected.
 		if is_instance_valid(_bed_holder):
 			_bed_holder.queue_free()
 			_bed_holder = null

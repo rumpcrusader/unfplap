@@ -1,10 +1,7 @@
 extends RefCounted
 ## The idle debug perf aggregator: timed chunks from every idle runtime report microseconds here
 ## and one block prints per window, so the mod's out-of-act cost can be attributed to a chunk and
-## its worst pony.
-##
-## The host supplies the gate, the counts and the log, so this module has no scene access. The act
-## probe is the separate `shared/perf.gd`. See `docs/perf.md` and `docs/settings.md`.
+## its worst pony. The host supplies the gate, the counts and the log, so there is no scene access.
 
 const TREE := preload("res://mods/unfplap/shared/perf_tree.gd")
 const WINDOW_S := 1.0
@@ -36,7 +33,7 @@ var _frames := 0
 var _physics_mark := -1
 
 ## Host boundary. A missing callable keeps the probe off, so tests can build one without an entry
-## node. Enabled only while both debug switches are on and no act is running.
+## node.
 var enabled := Callable()
 ## Header counts for the block: `{runtimes, mares}`.
 var counts := Callable()

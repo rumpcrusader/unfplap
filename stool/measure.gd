@@ -1,5 +1,5 @@
 extends RefCounted
-## Pure reach-gap arithmetic for the footstool rule. See docs/stool.md.
+## Footstool reach maths: gap, threshold test and stack count. See docs/stool.md.
 
 ## The vertical gap between her opening and his part, with each body measured from its own floor.
 ## On level ground this is simply her bits above her hooves minus his bits above his feet.
@@ -16,8 +16,7 @@ static func required(gap_m: float, threshold_m: float) -> bool:
 	return is_finite(gap_m) and is_finite(threshold_m) and gap_m > threshold_m
 
 
-## How many steps are needed so the remaining gap is below `threshold_m`. The first step is
-## required once the gap passes the threshold; each later step covers one `step_m` of it.
+## How many steps close the gap. The remainder after the last step stays under the threshold.
 static func count(gap_m: float, threshold_m: float, step_m: float) -> int:
 	if not is_finite(gap_m) or not is_finite(threshold_m) or not is_finite(step_m):
 		return 0

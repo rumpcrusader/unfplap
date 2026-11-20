@@ -103,9 +103,8 @@ static func body_local_direction(bind: Transform3D, mesh_transform: Transform3D,
 	return (bind.basis.inverse() * (mesh_transform.basis * direction)).normalized()
 
 
-## Body-local radius of the visible anal cup's still zone. The cup's own outer ring sets the
-## size; the 1.3 margin reaches the coat around it and the floor keeps a small cup usable. The
-## extreme key extrapolates the visible mound, so the zone follows it.
+## Body-local radius of the visible anal cup's still zone: the cup's outer ring × 1.3 reaches
+## the coat, floored so a small cup stays usable. The extreme key extrapolates the mound.
 static func anal_still_radius_for(lip: float, outer_factor: float, scale: float,
 		multiplier: float, extreme: float) -> float:
 	return maxf(lip * outer_factor * 1.3, 0.045 / scale) * multiplier * (1.0 + extreme)
@@ -159,9 +158,8 @@ static func rotation_between(from: Vector3, to: Vector3) -> Basis:
 	return Basis(a.cross(b).normalized(), acos(dot))
 
 
-## Fill one frame per line sample: the shortest-arc rotation from the rest tangent to the live
-## tangent, scaled along the rest tangent by the segment stretch. Slots past the sample count copy
-## the last frame. `basis_x/y/z` and `origin` are the shader's per-sample columns and offsets.
+## One frame per sample from the rest/live tangents and the segment stretch; extra slots copy
+## the last frame so a padded shader buffer is still filled.
 static func fill_line_frames(rest: PackedVector3Array, live: PackedVector3Array,
 		basis_x: PackedVector3Array, basis_y: PackedVector3Array,
 		basis_z: PackedVector3Array, origin: PackedVector3Array) -> void:
@@ -246,9 +244,7 @@ static func line_direction_at(local: Vector3, rest: PackedVector3Array,
 		else local.normalized()
 
 
-## The five additive V2 anal keys for a local penetration radius. The first four start where the
-## previous one ends; the ponut key is a 2x ponut-only scale that fades under the extreme key. No
-## upper clamp: an oversized shaft extrapolates the extreme key.
+## The additive anal key weights for a local penetration radius.
 static func anal_ring_weights(local: float, anal_scale: float) -> Dictionary:
 	var open := clampf(local / ANAL_OPEN_R, 0.0, 1.0)
 	var stretch := clampf((local - ANAL_OPEN_R) / (ANAL_STRETCH_R - ANAL_OPEN_R), 0.0, 1.0)

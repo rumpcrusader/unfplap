@@ -1,11 +1,6 @@
 extends RefCounted
-## Standing skeleton recipe and the baked-base delta. Contract: `docs/poses.md`.
-##
-## The v7 standing asset carries the body rig's rest pose with this recipe applied at
-## `reference_config()`. In the act the asset is the base; the recipe applies only the live-setting
-## difference from the reference, so the default stance is exactly the baked pose and a changed
-## setting adds only its delta. `apply_reference()` stays the full recipe for the bake and the
-## parity baseline and is never called by the shipped runtime.
+## Standing skeleton recipe and the baked-base delta.
+## Contract: `docs/poses.md`.
 
 const STANDING_BOW := 2.4
 const STANDING_FORELEG := 2.0
@@ -17,9 +12,8 @@ const STANDING_NECK_DOWN_DEG := 30.0
 var _config: Dictionary = {}
 
 
-## The effective reference config the standing base is baked at: the act defaults, not the
-## `default.poses.standing` block (the presentation overrides its neck values). The bake writes
-## this into the asset and the bake test pins it.
+## The effective reference config the standing base is baked at: the act defaults, not
+## `default.poses.standing`. The bake writes it into the asset and the bake test pins it.
 static func reference_config() -> Dictionary:
 	return {
 		"bow": STANDING_BOW,
@@ -44,9 +38,8 @@ func apply(rig, sk: Skeleton3D, weight: float, state: Dictionary) -> void:
 	apply_overlay(rig, sk, weight, state)
 
 
-## The baked base: the v7 asset plus the live-setting difference from its reference. False when the
-## asset or the ground frame is unavailable; the shipped act never falls back to the procedural
-## stance.
+## The baked base: the v7 asset plus the live-setting difference from its reference. False when
+## the asset or the ground frame is unavailable; there is no procedural fallback.
 func apply_base(rig, sk: Skeleton3D, weight: float, state: Dictionary) -> bool:
 	_config = state.get("config", {})
 	var authored: Variant = state.get("authored")
@@ -60,9 +53,8 @@ func apply_base(rig, sk: Skeleton3D, weight: float, state: Dictionary) -> bool:
 	return true
 
 
-## The live settings as deltas from the reference. At defaults every delta is zero and the baked
-## pose is untouched. The one exception is the **head** chin: the asset carries the 30 body bones,
-## not `pony_head`, so the base applies the absolute chin value and only the neck is a difference.
+## The live settings as deltas from the reference. The head is not in the asset, so it gets the
+## absolute chin and only the neck is a difference.
 func _apply_difference(rig, sk: Skeleton3D, weight: float) -> void:
 	var reference := reference_config()
 	_bow_body(rig, sk, weight, _value("bow") - float(reference["bow"]))
@@ -77,9 +69,8 @@ func _apply_difference(rig, sk: Skeleton3D, weight: float) -> void:
 	_spread_fore(rig, sk, weight, _value("foreleg_spread"))
 
 
-## The moveable neck overlay: the head-back lift. The oral neck swing is the oral row's procedural
-## delta (`poses/standing_oral_recipe.gd`), not part of this base pose. The two-base form crossfades
-## this overlay after the blended base.
+## The moveable neck overlay: the head-back lift. The oral swing is the oral row's own delta, so
+## it is not part of this base pose.
 func apply_overlay(rig, sk: Skeleton3D, weight: float, state: Dictionary) -> void:
 	_config = state.get("config", {})
 	var head_back := float(state.get("head_back", 0.0))
@@ -143,11 +134,8 @@ func _bend_forelegs(rig, sk: Skeleton3D, weight: float, scale: float) -> void:
 		rig.rotate(sk, int(leg.lower), axis, 0.10 * weight * scale)
 
 
-## `target` is the absolute outward half-angle from the body centreline. Measuring the current hoof
-## line first keeps the baked placement unchanged while still allowing wider/narrower stance
-## values: the reference value adds zero, a changed value adds only the difference. The tip must be
-## a bone the asset owns (`pony_finger_<side>`; its `_end` leaf is outside the 30-bone asset), so
-## the bake and the live `_apply_difference` measure the same line.
+## `target` is measured from the centreline, not from the current pose; adding the hoof-line
+## delta keeps the baked placement unchanged.
 func _spread_fore(rig, sk: Skeleton3D, weight: float, target: float) -> void:
 	if rig.fore.size() < 2:
 		return

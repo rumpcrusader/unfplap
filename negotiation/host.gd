@@ -1,10 +1,7 @@
 extends RefCounted
 ## Service: negotiation, private. Contract: `docs/negotiation.md` (`## Bridge`).
 ##
-## The Act Negotiation's bridge to the live world: the typed `Host` callbacks the service runs
-## on, the facts both reasoning stages read, the global Anon-offer watch and the mare it belongs
-## to. `negotiation/service.gd` owns one instance and builds its `Host` from these callbacks, so
-## nothing outside this service names them.
+## Builds the typed `Host` the service runs on from the live world, and owns the Anon-offer watch.
 
 const PROMPTS := preload("res://mods/unfplap/negotiation/prompts.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
@@ -34,10 +31,10 @@ func _state_of(runtime: Node) -> int:
 
 ## The negotiation service: the lock read, the Anon answer and the Agreement cancel.
 var service: Node = null
-## The one director bridge and model host, built by the service that owns it.
+## The adapter node the service builds; this bridge only calls into it.
 var adapter: Node = null
-## The services the bridge reads. `eligibility` is rebuilt on every world enter, so the entry
-## rebinds it there.
+## The services this bridge reads. `eligibility` alone is handed over again on each world enter,
+## because the entry constructs a fresh one.
 var eligibility: ELIGIBILITY = null
 var memory: MEMORY = null
 var privacy: PRIVACY = null
@@ -179,8 +176,8 @@ func _relation_note(id: String) -> String:
 
 # ------------------------------------------------------------------------- watch
 
-## The global Anon-offer watch is armed only while no negotiation and no act is live, so a line
-## answering a Mare offer is never seen twice.
+## The global Anon-offer watch runs only while nothing is negotiating or acting, so a line that
+## answers a Mare offer is never read as a new one.
 func tick_watch() -> void:
 	if not is_instance_valid(adapter) or not is_instance_valid(service):
 		return
@@ -198,7 +195,7 @@ func tick_watch() -> void:
 			"act" if PONIES.act_running() else "locked"])
 
 
-## The adapter's global watch belongs to the world that is gone.
+## Drop the adapter's global watch, which still holds the world that is gone.
 func disarm() -> void:
 	if not _watching:
 		return
@@ -241,7 +238,7 @@ func on_anon_line(text: String) -> void:
 	LOG.debug("anon_line negotiation started=%s" % str(started))
 
 
-## The classifier is the Proactive service's; a missing one is no answer at all.
+## A missing classifier means no answer; the Proactive service owns that node.
 func _classifier_ready() -> bool:
 	return is_instance_valid(initiation) and initiation.has_method("classifier_available") \
 		and bool(initiation.call("classifier_available"))

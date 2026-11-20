@@ -1,8 +1,6 @@
 extends "res://mods/unfplap/shared/body_binding.gd"
-## The LOD body binding: drops a presented body's near/far caches and re-arms its near mesh when
-## the body form is applied or revised, so the visible body is the form the descriptor names.
+## The LOD body binding: re-arms a presented body's near mesh when its form is applied.
 ## The world read is `WORLD.refresh_body_lod()`; this file never preloads the game.
-##
 ## See `docs/body_change.md` (`## Bindings`).
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")

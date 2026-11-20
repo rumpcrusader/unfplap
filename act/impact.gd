@@ -92,9 +92,8 @@ func _dispatch_stroke_event(event: THRUST_STATE.StrokeEvent) -> void:
 		context.readiness.stroke(event)
 
 
-## The stroke's bottom: the plap, the wobble, the wings, her blush and the ear twitch all land
-## here, with the motion. The oral segment keeps the slide, vocal, wings, blush and ear twitch but
-## drops the plap and the rump/tail jiggle.
+## The stroke's bottom, with the motion: the plap, the wobble, the wings, blush and ear twitch land
+## here; the oral segment drops the plap and the rump/tail jiggle and keeps the rest.
 func impact(event: THRUST_STATE.StrokeEvent) -> void:
 	if session.state not in [State.ACTIVE, State.CLIMAX]:
 		return

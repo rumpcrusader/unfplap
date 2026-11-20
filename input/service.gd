@@ -14,9 +14,8 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
-## Keys the act samples every frame: the lean (Q/E/W/S), the auto layer (Q A W S E D Z, X), the
-## caress (A/D, Z/C), the kiss (F) and the act-key hold. They are consumed but their pressed
-## state is kept, or the act's own controls would die.
+## Keys the act samples every frame: the lean, the auto layer, the caress, the kiss and the act
+## key. They are consumed but keep their pressed state, or the act's own controls would die.
 const RAW_KEYS := [KEY_Q, KEY_W, KEY_E, KEY_A, KEY_S, KEY_D, KEY_Z, KEY_X, KEY_C, KEY_F]
 ## Same hold length the game uses for bridal-carry initiation (interactor KEY_HOLD_SECONDS).
 const HOLD_ACT_SECONDS := 0.35
@@ -59,15 +58,13 @@ func _exit_tree() -> void:
 		InputMap.erase_action(ACT_KEYS.ACTION)
 
 
-## Set by the entry: the idle offer the act key hands its press to.
+## Set once by the entry; the act key hands an idle press here.
 func bind(offer_node: OFFER) -> void:
 	offer = offer_node
 
 
 ## Rebuild the mod-owned act action from the captured `act_key` keycode and cache the input
-## shield flag. The game's typing guard stashes every non-`ui_` InputMap action while a text
-## field has focus, so a real action keeps the act key out of chat without a second focus check
-## in the runtime.
+## shield flag. Making it a real action is what lets the game's typing guard hide it in chat.
 func apply_settings() -> void:
 	_shield = SETTINGS.act_input_shield.get_bool()
 	if InputMap.has_action(ACT_KEYS.ACTION):
@@ -142,9 +139,8 @@ func _hold_act_tick(delta: float, runtime: Node) -> void:
 		_act_for(runtime).cancel()
 
 
-## Hold X for the auto settings layer. The policy, the rows and the shape write live in
-## `readiness/service.gd`; the input service samples the physical keys and the runtime applies
-## them through its protocol.
+## Hold X for the auto settings layer: this samples the physical keys; the policy and the rows
+## live in readiness and the runtime applies them.
 func _auto_layer_tick(delta: float, runtime: Node) -> void:
 	var keys: Array[bool] = [
 		Input.is_physical_key_pressed(KEY_Q), Input.is_physical_key_pressed(KEY_A),
@@ -183,9 +179,8 @@ func _forget_hold() -> void:
 	_reset_hold()
 
 
-## Recapture the cursor during an act unless a menu panel still owns it. The base game's own
-## click-to-recapture is skipped while controls_locked owns the act. menu_panel_open() leaves a
-## paused tree or an open panel in charge, so this only fires when the cursor is loose.
+## Recapture the cursor during an act unless a menu panel owns it, since the game's own
+## click-to-recapture is skipped while the act holds control.
 func _keep_mouse_captured() -> bool:
 	if DisplayServer.get_name() == "headless":
 		return false
@@ -314,7 +309,6 @@ func _input(event: InputEvent) -> void:
 	var key := event as InputEventKey
 	if not key.pressed or key.echo:
 		return
-	# integration: typed chat text is never an act key.
 	var focus := get_viewport().gui_get_focus_owner()
 	if focus is LineEdit or focus is TextEdit:
 		return
@@ -328,9 +322,8 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 
 
-## Mouse motion while an act is live. Debug free look drives the act camera; otherwise the
-## vertical travel is thrust. Auto thrust owns the stroke, so the mouse does nothing while it
-## runs. Pause and the menu are already gated above.
+## Mouse motion while an act is live: free look drives the camera, otherwise the vertical travel
+## is thrust. Auto thrust owns the stroke, so the mouse does nothing while it runs.
 func _act_motion(runtime: Node, motion: InputEventMouseMotion) -> void:
 	var state := _state_for(runtime)
 	if state == ACT_STATE.State.IDLE:
@@ -353,8 +346,8 @@ func _act_motion(runtime: Node, motion: InputEventMouseMotion) -> void:
 ## Route one key press while an act is live. The act's own keys act here; with the shield on,
 ## every other key is taken from the game and from other mods (`docs/input.md`).
 func _act_key(runtime: Node, key: InputEventKey, state: int) -> void:
-	# integration: optional anatomy actions, only when their act is live. The runtime checks the
-	# pose's control profile and the live edge lock; the key is consumed whether or not it allows.
+	# integration: anatomy actions for a live act only; the runtime's command gate decides and the
+	# key is consumed either way.
 	if key.physical_keycode == KEY_V and bool(_act_for(runtime).anatomy_hole_ready()):
 		_act_for(runtime).command(ACT_COMMANDS.HOLE)
 		_consume(key)
@@ -435,10 +428,7 @@ func _consume(key: InputEventKey) -> void:
 	_suppress_raw(key)
 
 
-## HACK: feed Input a matching release so a mod that samples the raw key state in
-## `_physics_process` (Pegasus Ride, the bundled Dance Mod) reads the key as up. `set_input_as_handled`
-## cannot reach those pollers. The flush drains this release before the next physics step, and the
-## player's own release restores the real state.
+## HACK: a mod polling raw key state never sees the handled flag, so feed Input a matching release.
 func _suppress_raw(key: InputEventKey) -> void:
 	var release := key.duplicate() as InputEventKey
 	release.pressed = false

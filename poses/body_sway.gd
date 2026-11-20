@@ -31,9 +31,8 @@ func _process_modification_with_delta(delta: float) -> void:
 		facts.perf("body_sway", Time.get_ticks_usec() - started)
 
 
-## The session's render-time replay: `skeleton_pose.apply_render()` rewrites the 30 body bones
-## after the modifier pass, so the current offset is written once more after it. The spring only
-## advances in the modifier pass.
+## The session's render-time replay: the body bones are rewritten after the modifier pass, so
+## write the current offset once more. The spring advances only in the modifier pass.
 func apply_render(sk: Skeleton3D) -> void:
 	_write(sk)
 
@@ -76,9 +75,8 @@ func _tick(delta: float) -> void:
 	if not is_instance_valid(mare) or facts == null:
 		return
 	var depth_value: Variant = facts.depth
-	# Inverted from the first pass: the body now rocks back on the inward stroke and forward on
-	# the outward stroke. The spring gives it inertia instead of following mouse depth directly;
-	# keep the exaggerated amplitude for this review.
+	# The body rocks back on the inward stroke and forward on the outward one. The spring gives it
+	# inertia instead of following the mouse depth directly.
 	var target := -clampf(float(depth_value), 0.0, 1.0) * BODY_SWAY_MAX_M
 	# The oral segment keeps her body still: the spring rests at its base and publishes a zero
 	# offset, so Anon's pinned hip does not inherit a stale rock.

@@ -46,7 +46,7 @@ func setup(pony_node: Node3D, host_node: Node) -> void:
 	host = host_node
 
 
-## Read the shape tuning once. `apply_live()` refreshes it; a live edit applies at that refresh.
+## Read the shape tuning once; a live edit applies on the next refresh.
 func read_settings() -> void:
 	_vulva_hug_mm = SETTINGS.vulva_hug_mm.get_num()
 	_vulva_hug_mm_missionary = SETTINGS.vulva_hug_mm_for(SETTINGS.pony_size_name())
@@ -180,10 +180,8 @@ func set_closed(value: float) -> void:
 	_apply_winking_shape()
 
 
-## Idle heat crossfade: 0 is resting closed, 1 is the authored open shape. The `closed` shape
-## carries the lips; the V2 `wink` shape adds the clitoral accent. The depth cut stays out of the
-## idle rest: it pulls the pink interior toward the camera, and the clitoris sits in that mask, so
-## a partial cut drags it out through the lips.
+## Idle heat crossfade: 0 is resting closed, 1 the authored open shape.
+## The cut stays off here: it pulls the pink interior, clitoris included, through the lips.
 func set_idle_wink(amount: float) -> void:
 	_wink_amount = clampf(amount, 0.0, 1.0)
 	_idle_wink = true
@@ -230,9 +228,8 @@ func wink(count := 1, seconds := 0.45) -> void:
 		from = _rest
 
 
-## Idle heat wink. Each beat gets its own depth and timing, so a double or triple never reads as
-## one repeated motion. `on_peak` runs at the first beat's peak, when the clitoris has finished
-## travelling outward, instead of at the start of the opening.
+## Idle heat wink: each beat gets its own depth and timing, so a double or triple reads as
+## separate beats. `on_peak` fires at the first beat's peak, not at the start of the opening.
 func wink_burst(count: int, discharge_count: int, rest_open: float,
 		on_peak: Callable) -> void:
 	if not is_instance_valid(mesh) or not is_instance_valid(host):
@@ -266,10 +263,8 @@ func wink_burst(count: int, discharge_count: int, rest_open: float,
 		from = rest_open
 
 
-## Open the lips to the shaft's actual radius. `shaft_radius` is world metres; the mesh works in
-## local units, so it is converted with the mesh scale and solved against the measured lip radius:
-## the lip band is remapped from the rim out to `lip_outer`, so the opening reaches exactly that
-## radius while the outer silhouette keeps its shape.
+## Open the lips to the shaft's actual radius: world metres in, solved against the measured lip
+## radius so the opening reaches it while the outer silhouette keeps its shape.
 func set_grip(shaft_radius: float, missionary: bool) -> void:
 	_wide = maxf(shaft_radius, 0.0)
 	if not is_instance_valid(mesh):
@@ -291,8 +286,7 @@ func set_grip(shaft_radius: float, missionary: bool) -> void:
 	material.set_shader_parameter("hole_target", local)
 
 
-## Publish Anon's shaft so the shader can project any vertex that ends up inside it back onto the
-## surface. `radii` are world metres, sampled evenly from base to tip.
+## Publish Anon's shaft; `radii` are world metres from base to tip.
 func set_shaft(pivot: Vector3, axis: Vector3, length: float, radii: PackedFloat32Array) -> void:
 	_shaft_pivot = pivot
 	_shaft_axis = axis
@@ -354,9 +348,7 @@ func set_anal_grip(shaft_radius: float) -> void:
 	_apply_anal_shape(_anal_local)
 
 
-## Set the four anal keys and the independent ponut scale key. The ponut key is a 2x
-## ponut-only scale with a boundary falloff, so the ring, vulva and opening stay put. The
-## extreme key carries its own whole-patch 2x scale and fades the ponut key out.
+## Set the anal keys and the independent ponut scale, which fades as the extreme key takes over.
 func _apply_anal_shape(local: float) -> void:
 	if not is_instance_valid(mesh):
 		return

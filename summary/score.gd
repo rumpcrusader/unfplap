@@ -1,18 +1,11 @@
 extends RefCounted
 ## Pure per-act outcome scoring. No scene access.
-##
-## The score is the weighted fraction of the actions that apply to one act and went right:
-## a climax, talk for a talk-seeker, touch, matching motion, and not ending early. Scored
-## disliked touch/talk, repeated disliked handling and silence subtract. A good act is at
-## least 0.80; a bad act is at most 0.20. The middle is neutral and changes no history.
-##
-## `evaluate` is pure. `rules` reads the live settings, and the caller may override them.
+## `evaluate` is pure; `rules` reads the live settings, which the caller may override.
 
 const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 
-## Short private beats for afterglow. The HUD and the impression keep the full summary; these
-## only give the model a mood, never a review or a request list. 40% of rolls return nothing.
+## Afterglow mood beats for the model, often silent: never a review or a request list.
 const AFTERGLOW_BEATS := {
 	"great": ["You are warm and quiet.", "You feel close to him.",
 		"You are sleepy and comfortable.", "You are a little pleased with yourself."],
@@ -50,10 +43,7 @@ static func rules() -> Dictionary:
 	return out
 
 
-## Score one act. The snapshot keys are produced by runtime._summary_snapshot():
-##   preferences, seconds, thrusts, pony_climaxes, talk_liked, talk_dislikes,
-##   touches_liked, touch_dislikes, player_lines, intensity_total, intensity_right,
-##   pattern_total, pattern_right, ended_early, forced.
+## Score one act from the runtime's summary snapshot; the keys are its collected counters.
 static func evaluate(snapshot: Dictionary, rule_set: Dictionary) -> Dictionary:
 	var rules: Dictionary = rule_set
 	if bool(snapshot.get("forced", false)):
@@ -353,8 +343,6 @@ static func _thought(grade: String, ended_early: bool, _reasons: Array[String]) 
 	return thought.left(240)
 
 
-## The stored need is an emotional phrase, never a direct instruction or a stroke mechanic. It is
-## kept for the summary and debug; no prompt sends it to the model.
 static func _wants(reasons: Array[String]) -> String:
 	var wants: PackedStringArray = []
 	for reason: String in reasons:

@@ -199,6 +199,7 @@ Rules:
 | Check | Command / suite |
 |---|---|
 | Architecture gate (graph, docs, source and test-file rules) | `scripts/architecture.py --check` |
+| Comment shape and rename-safety | `scripts/comments.py --check` |
 | Parse all scripts | `scripts/check.sh --all` |
 | Touched suites | `scripts/test.sh <suite>...` |
 | Full headless gate | `scripts/test_all.sh` |

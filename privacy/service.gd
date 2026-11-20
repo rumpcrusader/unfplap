@@ -3,11 +3,7 @@ extends RefCounted
 ## Contract: docs/privacy.md
 ## Scope: world
 ## Import: privacy/service.gd only
-##
-## The one adapter for the live offer and cuddle privacy rules. It gathers the scene facts
-## (Anon, the house, the other mares, the radius and the target exclusion) and applies the pure
-## `shared/privacy_rules.gd` predicates. Visibility is derived from this state; there is no public
-## override, no hotkey flag and no third-pony answer rule here.
+## Scene facts in, pure privacy predicates out.
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const HOUSE := preload("res://world/buildings/house_interior.gd")
@@ -17,8 +13,7 @@ const PRIVACY_RULES := preload("res://mods/unfplap/shared/privacy_rules.gd")
 ## The other-mare radius outdoors. Indoors the house itself is the bound.
 const RADIUS_M := 30.0
 
-## The live privacy facts for one target. `private` is the resolved offer rule; the cuddle rule
-## is `cuddle_private`, because indoors it is stricter.
+## Resolved privacy state for one target.
 class State:
 	var player: Node3D = null
 	var house: Node3D = null
@@ -30,8 +25,7 @@ class State:
 	var in_house: Array[String] = []
 	var nearby: Array[String] = []
 
-	## The predicate for an offer kind: the offer rule for a bed/standing offer, the cuddle rule
-	## for a cuddle-sourced offer.
+	## Pick the offer or the cuddle predicate.
 	func private_for(cuddle: bool) -> bool:
 		return cuddle_private if cuddle else offer_private
 

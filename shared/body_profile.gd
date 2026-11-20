@@ -1,17 +1,11 @@
 extends RefCounted
 ## The shared body profile: the winking bodies' scale and placement anchor, the body-fit key that
 ## names the body a pony is wearing, and the entrance offset the standing act measures from. Pure:
-## it reads only the identity and the pony metadata it is given.
-##
-## `RigProfile` is the typed rig a body form carries; the array accessors are the compatibility
-## readers for the placement editor and the no-form fallback. The anatomy fit, the teats and the
-## act camera read the presented `BodyForm`'s rig and fit, so a body-swapped pony is measured from
-## the body that is actually rendered. See `docs/body_change.md`, `docs/anatomy.md`
+## it reads only the identity and the pony metadata it is given. See `docs/anatomy.md`
 ## (`## Attachment and identity`) and `docs/camera.md` (`## Standing camera`).
 
 ## The princess body scale and placement anchor for a known character: `[anchor y, anchor z, size]`.
-## A modded copy can set `character_id` to the canon pony whose body it uses; otherwise the identity
-## id is the key.
+## A copied body sets `character_id`; otherwise the identity id is the key.
 const WINKING_BODIES := {
 	"celestia": [0.853, 0.3329, 1.67],
 	"luna": [0.596, 0.2265, 1.095],
@@ -45,15 +39,14 @@ class RigProfile extends RefCounted:
 		return id == ORDINARY_RIG
 
 
-## The profile for an identity, or an empty array for an ordinary body. A modded copy is matched by
-## `character_id` first, then by its own identity id.
+## The profile for an identity, or an empty array for an ordinary body. A copied body resolves by
+## `character_id` before its own identity id.
 static func body_profile(identity: Variant) -> Array:
 	return _profile(_identity_key(identity))
 
 
-## The body-fit key a placement row resolves against. An integration sets `body_fit_id` on the pony
-## when the visible body is not the identity's usual one; otherwise the identity's `character_id`
-## names the copied body and the identity id is the last fallback.
+## The body-fit key a placement row resolves against: an integration sets `body_fit_id` when the
+## visible body is not the identity's usual one, and the identity id is the last fallback.
 static func body_fit_id(pony: Variant) -> String:
 	if not is_instance_valid(pony):
 		return ""
@@ -90,7 +83,7 @@ static func rig_for_pony(pony: Variant) -> RigProfile:
 	return rig_for_key(body_fit_id(pony))
 
 
-## The shared mare body's rig: the anchor every standing gap and every princess profile uses.
+## The shared mare body's rig.
 static func ordinary_rig() -> RigProfile:
 	return RigProfile.new(ORDINARY_RIG, WINKING_REAR_Y, WINKING_REAR_Z, 1.0)
 

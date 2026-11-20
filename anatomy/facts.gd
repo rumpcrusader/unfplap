@@ -1,14 +1,11 @@
 extends RefCounted
-## The typed anatomy context. The runtime owns one per pony and rewrites it as the state
-## changes; the persistent controller and the per-act handle read only this object, never the
-## runtime node. Callbacks are the host boundary for logging, the perf probe and the body-coat
-## smack hook.
-##
+## The typed anatomy context: one per pony, rewritten as the state changes.
+## The controller and the act read only this object, never the runtime node.
+## Host callbacks are the boundary for logging, the perf probe and the body-coat hook.
 ## See `docs/anatomy.md` (`## Architecture`).
 
 var state := 0
-## The runtime's pose read model for this act, or null outside one. The controller reads the pose
-## family from it instead of a copied id.
+## The runtime's pose read model; null outside an act.
 var pose_view: Variant = null
 var depth := 0.0
 var penetration_m := 0.0
@@ -17,13 +14,12 @@ var size_scale := 1.0
 var auto_pace := 1.0
 var fluid_ground_y := 0.0
 var penetration_reach := 0.2
-## The act's bed frame, or null outside a missionary act.
+## Null outside a missionary act.
 var bed_frame: Variant = null
 var cycle_phase := "normal"
-## Host callbacks. A missing callback is a no-op, so tests can build a context without a runtime.
+## Host callbacks; a missing one is a no-op.
 var perf_note := Callable()
-## True while both debug perf switches are on; the persistent controller takes no idle clock when
-## it is false.
+## No idle perf clock while this is false.
 var perf_on := false
 var log := Callable()
 var body_coat_smack := Callable()
@@ -64,8 +60,8 @@ func face_contact() -> bool:
 	return contact_kind() == "face"
 
 
-## The act's part inset reads the frame; the missionary trims read the family. They are separate
-## because a pose can share a frame without sharing the bed placement.
+## The frame drives the part inset and the family drives the trims, so a pose may share one
+## without the other.
 func bed_pose() -> bool:
 	return frame() == "bed"
 

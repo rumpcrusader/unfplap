@@ -1,7 +1,5 @@
 extends RefCounted
-## Debug-only stock bed cuddle. Finds the bed Anon is on or in his current house, sits and lies
-## him back, brings a far mare to the bed approach and asks the game's own `SharedBed` to accept
-## her. The wheel's Bed cuddle action and Show data's BED section both come through here.
+## Debug-only: the bed helper behind the wheel action and Show data's rows.
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const BED_REST := preload("res://world/relationships/shared_bed.gd")
@@ -70,8 +68,7 @@ static func rows(host: Node, target: Node) -> Array[String]:
 	return out
 
 
-## The wheel action: prepare the bed, recline Anon, move a far mare and call the stock accept path.
-## The detailed result goes to the debug log; the one-line result is the wheel toast.
+## The wheel action: set the bed up and hand the mare to the stock accept path.
 static func invite(host: Node, target: Node) -> String:
 	if not is_instance_valid(host) or not is_instance_valid(target) or not target is Node3D:
 		return "No mare under the crosshair."
@@ -144,8 +141,8 @@ static func _player_lying(host: Node) -> bool:
 	return is_instance_valid(body) and bool((body as Node).get_meta("couch_sleeping", false))
 
 
-## Sit Anon on the bed's player seat and lie him back. The stock sit path still enforces its 3 m
-## reach, so a failed sit says to step closer instead of teleporting the rig.
+## Seat Anon and lie him back; the stock sit path still enforces its 3 m reach, so a failed sit
+## says to step closer instead of teleporting the rig.
 static func _ensure_player_lying(host: Node, rest: Node3D) -> String:
 	if _player_lying(host):
 		return "already lying"

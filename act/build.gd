@@ -309,6 +309,7 @@ static func _bind_facts(node: Node, b: Bundle) -> void:
 	b.facts.anatomy_normal = Callable(b.act, "anatomy_normal")
 	b.facts.anatomy_opening = Callable(b.act, "anatomy_opening")
 	b.facts.missionary_face_point = Callable(b.camera, "missionary_face_point")
+	b.facts.authored_pose_asset = Callable(b.pose, "authored_asset")
 	b.facts.gaze_point = Callable(b.anatomy_bridge, "gaze_point")
 	b.facts.free_look_rotation = Callable(b.camera, "free_look_rotation")
 	b.facts.desktop_pose_driver = Callable(b.standing_anon, "driver")

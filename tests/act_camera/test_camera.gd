@@ -13,6 +13,7 @@ const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
 const CAMERA_VIEW := preload("res://mods/unfplap/camera/view.gd")
+const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 
 const STATE_IDLE := 0
 const STATE_ACTIVE := 2
@@ -56,6 +57,18 @@ class FakeActBody extends RefCounted:
 
 	func eye_transform() -> Transform3D:
 		return eye
+
+
+## The authored look-path inputs: the live pose asset, the bed frame and the lean weights.
+class LookFacts extends RefCounted:
+	var authored_pose_asset := Callable()
+	var bed_frame: Variant = null
+	var shot_lean_forward := 0.0
+	var lean_view_side := 0.0
+	var missionary_face_point := Callable()
+
+	func call_value(callback: Callable, fallback: Variant = null) -> Variant:
+		return callback.call() if callback.is_valid() else fallback
 
 
 class FakePlayer extends Node3D:
@@ -239,6 +252,7 @@ func run() -> void:
 	_check_session()
 	_check_shot()
 	_check_missionary_eye()
+	_check_missionary_look_path()
 	_check_head_clearance()
 	_check_lean()
 	_check_oral_lean()
@@ -347,19 +361,18 @@ func _check_missionary_eye() -> void:
 		"the act view is mounted once on her")
 	check(camera.has_method("head_look_point_at") and camera.has_method("bed_surface_top"),
 		"the view keeps the gaze and fluid-ground reads")
-	check(not camera.has_method("_tick_authored") and not camera.has_method("_shot_transform"),
-		"the authored shot path is gone")
-	check(not camera.has_method("_blend_shots") and not camera.has_method("_shot_position"),
-		"no shot transform is built")
 	var module: Script = CAMERA_VIEW
-	check(not module.get_script_constant_map().has("SHOT_IDS"),
-		"the shot ids are gone from the view module")
+	check(camera.has_method("_shot_basis") and module.get_script_constant_map().has("SHOT_IDS"),
+		"the view reads the authored look path")
+	check(not camera.has_method("_tick_authored") and not camera.has_method("_shot_transform")
+		and not camera.has_method("_blend_shots") and not camera.has_method("_shot_position"),
+		"no shot position or separate authored camera path")
 	body.eye = Transform3D(Basis(Vector3.UP, 0.4), Vector3(1.0, 2.0, 3.0))
 	camera.call("write_eye")
 	check(view.global_position.is_equal_approx(body.eye.origin),
 		"the view sits at the act body's eye")
 	check(view.global_basis.is_equal_approx(body.eye.basis.orthonormalized()),
-		"the view keeps the act body's eye basis")
+		"a missing look path keeps the eye basis")
 	# Free look turns the eye where it stands, and nothing else does.
 	made["facts"].free_look_active = true
 	made["facts"].free_look_rotation = func() -> Vector3: return Vector3(0.2, 0.3, 0.0)
@@ -374,6 +387,49 @@ func _check_missionary_eye() -> void:
 
 
 ## His head is pushed out of her skull sphere and muzzle capsule by the frame's clearance.
+## The missionary view keeps Anon's eye position and takes its orientation from the authored look
+## path: rest, forward, back and both sides select the saved shot bases.
+func _check_missionary_look_path() -> void:
+	var asset: Variant = AUTHORED.shared()
+	check(asset != null and bool(asset.get("has_shots")),
+		"the authored missionary asset still carries its look path")
+	if asset == null:
+		return
+	var frame := Transform3D(Basis(Vector3.UP, 0.3), Vector3(1.0, 2.0, 3.0))
+	var facts := LookFacts.new()
+	facts.authored_pose_asset = func() -> Variant: return asset
+	facts.bed_frame = frame
+	facts.missionary_face_point = func() -> Vector3: return Vector3(0.0, 1.0, 0.0)
+	var view: RefCounted = CAMERA_VIEW.new(facts)
+	var shots: Dictionary = asset.get("shots")
+	var at := Vector3.ZERO
+	var rest: Basis = view.call("_shot_basis", at, Basis.IDENTITY)
+	check(rest.is_equal_approx(_shot_world(frame, shots, "start")),
+		"the rest view uses the authored start look")
+	facts.shot_lean_forward = 1.0
+	var front: Basis = view.call("_shot_basis", at, Basis.IDENTITY)
+	check(front.is_equal_approx(_shot_world(frame, shots, "front")),
+		"a forward lean uses the front look")
+	facts.shot_lean_forward = -1.0
+	var back: Basis = view.call("_shot_basis", at, Basis.IDENTITY)
+	check(back.is_equal_approx(_shot_world(frame, shots, "back")),
+		"a backward lean uses the back look")
+	facts.shot_lean_forward = 0.0
+	facts.lean_view_side = 1.0
+	var left: Basis = view.call("_shot_basis", at, Basis.IDENTITY)
+	check(left.is_equal_approx(_shot_world(frame, shots, "left")),
+		"a side lean uses the left look")
+	facts.lean_view_side = -1.0
+	var right: Basis = view.call("_shot_basis", at, Basis.IDENTITY)
+	check(right.is_equal_approx(_shot_world(frame, shots, "right")),
+		"the other side uses the right look")
+
+
+static func _shot_world(frame: Transform3D, shots: Dictionary, id: String) -> Basis:
+	var shot: Transform3D = shots[id]
+	return (frame.basis * shot.basis).orthonormalized()
+
+
 func _check_head_clearance() -> void:
 	var made := _eye_fixture()
 	var camera: RefCounted = made["camera"]

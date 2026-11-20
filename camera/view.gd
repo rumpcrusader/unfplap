@@ -17,6 +17,8 @@ const CAM_SPEED_SMOOTH_S := 0.06
 ## The closest an Anon-eyes kiss lean-in may put the eye to her face point: her muzzle extends past
 ## it, and the view does not move for a kiss.
 const KISS_CLEARANCE_M := 0.45
+## The authored look path's five ends, in the order the blend weights index them.
+const SHOT_IDS := ["start", "back", "front", "left", "right"]
 
 const STATE_IDLE := ACT_STATE.State.IDLE
 const STATE_RESTORE := ACT_STATE.State.RESTORE
@@ -60,6 +62,11 @@ var _missionary_source_near := 0.05
 var _missionary_source_far := 4000.0
 var _missionary_source_cull := 0xFFFFFFFF
 var _free_look_log_at := 0
+## The authored shot bases are bed-local; cache them per asset and multiply by the live bed basis.
+var _shot_asset_id := 0
+var _shot_local: Array[Basis] = []
+var _shot_present := PackedByteArray()
+var _shot_weights := PackedFloat32Array()
 
 
 func _init(facts_context: Variant = null) -> void:
@@ -539,8 +546,10 @@ func _tick_eye(kiss: Variant, look: Vector3) -> void:
 	var eye: Variant = body.call("eye_transform")
 	if not (eye is Transform3D) or not (eye as Transform3D).origin.is_finite():
 		return
-	var basis := (eye as Transform3D).basis.orthonormalized()
+	var eye_basis := (eye as Transform3D).basis.orthonormalized()
 	var at: Vector3 = (eye as Transform3D).origin
+	# The position follows his eye; the orientation is the authored look path, not his head.
+	var basis := _shot_basis(at, eye_basis)
 	if absf(look.x) > 0.00001 or absf(look.y) > 0.00001:
 		basis = Basis(Vector3.UP, look.y) * basis * Basis(Vector3.RIGHT, look.x)
 	# The same speed-driven surge/bob the standing camera uses; at rest both settle to zero.
@@ -562,6 +571,98 @@ func _tick_eye(kiss: Variant, look: Vector3) -> void:
 			and Time.get_ticks_msec() >= _free_look_log_at:
 		_free_look_log_at = Time.get_ticks_msec() + 2000
 		LOG.debug("free look eye=%s rotation=%s", [str(at), str(look)])
+
+
+## The authored look path at the live lean: the five shot bases blended by the same weights the
+## old camera used. The position stays at his eye; a missing asset keeps the eye's own basis.
+func _shot_basis(at: Vector3, fallback: Basis) -> Basis:
+	if facts == null:
+		return fallback
+	var asset: Variant = facts.call_value(facts.authored_pose_asset)
+	var frame: Variant = facts.bed_frame
+	if asset == null or not frame is Transform3D:
+		return fallback
+	_refresh_shots(asset)
+	var forward := clampf(float(facts.shot_lean_forward), -1.0, 1.0)
+	var side := clampf(float(facts.lean_view_side), -1.0, 1.0)
+	var tf := absf(forward)
+	var ts := absf(side)
+	var total := maxf(1.0, tf + ts)
+	for i in _shot_weights.size():
+		_shot_weights[i] = 0.0
+	_shot_weights[0] = maxf(0.0, 1.0 - tf - ts) / total
+	if tf > 0.0001:
+		_shot_weights[2 if forward > 0.0 else 1] = tf / total
+	if ts > 0.0001:
+		# Q/E read opposite the asset's side names because the lab names them from her side.
+		_shot_weights[4 if side < 0.0 else 3] = ts / total
+	var frame_basis: Basis = (frame as Transform3D).basis
+	var aim: Vector3 = facts.call_value(facts.missionary_face_point, Vector3.INF)
+	var reference := Quaternion.IDENTITY
+	var have_reference := false
+	var qsum := Quaternion(0.0, 0.0, 0.0, 0.0)
+	var weight_sum := 0.0
+	for i in SHOT_IDS.size():
+		var weight := _shot_weights[i]
+		if weight <= 0.0001:
+			continue
+		var basis: Basis
+		if _shot_present[i] > 0:
+			basis = (frame_basis * _shot_local[i]).orthonormalized()
+		else:
+			basis = _aimed_basis(at, aim, frame_basis, fallback)
+		var q := basis.get_rotation_quaternion()
+		if not have_reference:
+			reference = q
+			have_reference = true
+		if q.dot(reference) < 0.0:
+			q = Quaternion(-q.x, -q.y, -q.z, -q.w)
+		qsum = Quaternion(qsum.x + q.x * weight, qsum.y + q.y * weight,
+			qsum.z + q.z * weight, qsum.w + q.w * weight)
+		weight_sum += weight
+	if weight_sum <= 0.0001 or qsum.length_squared() < 0.000001:
+		return fallback
+	return Basis(qsum.normalized())
+
+
+## The authored shot bases are bed-local; cache them per asset and scale only the live frame.
+func _refresh_shots(asset: Variant) -> void:
+	var id: int = asset.get_instance_id() if asset != null else 0
+	if id == _shot_asset_id and _shot_local.size() == SHOT_IDS.size():
+		return
+	_shot_asset_id = id
+	_shot_local.resize(SHOT_IDS.size())
+	_shot_present.resize(SHOT_IDS.size())
+	_shot_present.fill(0)
+	_shot_weights.resize(SHOT_IDS.size())
+	var shots: Variant = asset.get("shots") if asset != null else null
+	if not shots is Dictionary:
+		return
+	for i in SHOT_IDS.size():
+		var shot: Variant = (shots as Dictionary).get(SHOT_IDS[i])
+		if shot is Transform3D:
+			_shot_local[i] = ((shot as Transform3D).basis).orthonormalized()
+			_shot_present[i] = 1
+
+
+## A missing shot's basis: look at her face from the eye, with the bed's head line as the pole when
+## the view steepens. A non-finite aim keeps the eye's own basis.
+static func _aimed_basis(at: Vector3, aim: Vector3, frame_basis: Basis, fallback: Basis) -> Basis:
+	if not aim.is_finite():
+		return fallback
+	var direction := aim - at
+	if not direction.is_finite() or direction.length_squared() < 0.000001:
+		return fallback
+	var dir := direction.normalized()
+	var steep := smoothstep(0.55, 0.95, absf(dir.dot(Vector3.UP)))
+	var head := frame_basis.z
+	head.y = 0.0
+	var pole := Vector3.UP
+	if head.length_squared() > 0.0001:
+		pole = Vector3.UP.lerp(head.normalized(), steep)
+	if pole.length_squared() < 0.0001:
+		pole = Vector3.UP
+	return Basis.looking_at(dir, pole.normalized())
 
 
 func _missionary_body_scale() -> float:

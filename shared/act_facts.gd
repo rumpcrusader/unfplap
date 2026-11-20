@@ -136,6 +136,8 @@ var missionary_anon := Callable()
 var anatomy_normal := Callable()
 var anatomy_opening := Callable()
 var missionary_face_point := Callable()
+## The live authored pose asset, read only for the missionary look path.
+var authored_pose_asset := Callable()
 ## The missionary gaze target (the authored Anon's face), owned by the anatomy bridge.
 var gaze_point := Callable()
 var free_look_rotation := Callable()

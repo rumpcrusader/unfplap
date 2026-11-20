@@ -6,6 +6,7 @@ extends Node
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
@@ -692,13 +693,13 @@ func action_reset_act_prompts() -> String:
 func action_give_stool() -> String:
 	if not is_instance_valid(WORLD.game):
 		return "Act system not ready."
-	var inventory: Variant = WORLD.game.get("inventory")
+	var inventory := GAME.inventory(WORLD.game)
 	if not is_instance_valid(inventory):
 		return "No briefcase."
-	var store: Variant = inventory.get("inventory")
+	var store := GAME.case_store(inventory)
 	if store == null:
 		return "No briefcase."
-	var slot := int(store.call("grant", STOOL.ID, 1))
+	var slot := GAME.case_grant(store, STOOL.ID, 1)
 	if slot < 0:
 		return "No room in the briefcase."
 	LOG.debug("stool granted slot=%d", [slot])

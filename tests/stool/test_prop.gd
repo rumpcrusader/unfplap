@@ -31,11 +31,11 @@ func run() -> void:
 	pony.add_child(pony_shape)
 	root.add_child(pony)
 	var built := PROP.build(host, Vector3(0.0, 0.0, 0.0), 0.0, 2, 0.20, pony)
-	var node: Variant = built.get("node")
+	var node: Node3D = built.node
 	check(node is Node3D and is_instance_valid(node), "the footstool stack is built")
-	var height := float(built.get("height", 0.0))
+	var height := built.height
 	check(is_equal_approx(height, 0.40), "two 20 cm stools are 40 cm high")
-	check(int(built.get("count", 0)) == 2, "the stack reports two stools")
+	check(built.count == 2, "the stack reports two stools")
 	var body := node as StaticBody3D
 	var holder: CollisionShape3D = null
 	if body != null:
@@ -47,7 +47,7 @@ func run() -> void:
 	check(body != null and body.get_collision_exceptions().has(pony),
 		"the stack ignores the pony")
 	check(pony.get_collision_exceptions().has(body), "the pony ignores the stack")
-	PROP.remove(node)
+	PROP.remove(built)
 	check(node is Node and (node as Node).get_parent() == null,
 		"the prop leaves the physics space immediately")
 	check(not pony.get_collision_exceptions().has(body),

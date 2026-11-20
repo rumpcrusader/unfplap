@@ -21,7 +21,7 @@ class FakeController extends "res://mods/unfplap/anatomy/controller.gd":
 		return Vector3(0.0, opening_y, 0.0)
 
 
-class FakeService extends Node:
+class FakeService extends "res://mods/unfplap/anatomy/service.gd":
 	var root_y := 0.9
 	var prepare_calls := 0
 

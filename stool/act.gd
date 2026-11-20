@@ -3,19 +3,23 @@ extends RefCounted
 ## Contract: `docs/stool.md`
 
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
+const ANATOMY := preload("res://mods/unfplap/anatomy/service.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
+const SERVICE := preload("res://mods/unfplap/stool/service.gd")
+const PROP := preload("res://mods/unfplap/stool/prop.gd")
 
 ## The global stool facade (`STOOL.instance`). It holds the settings reads and the pure/item
 ## calls.
-var facade: Variant = null
-var pony: Variant = null
-var player: Variant = null
+var facade: SERVICE = null
+var pony: Node3D = null
+var player: Node3D = null
 ## The per-act anatomy controller; the player part comes from the anatomy service.
-var anatomy_ctl: Variant = null
+var anatomy_ctl: ANATOMY.CONTROLLER = null
 
 ## Live act state.
 var active := false
@@ -24,6 +28,8 @@ var failed := false
 var count := 0
 var height_m := 0.0
 var floor_y := 0.0
+## The placed stack record and its body, kept for the release.
+var prop: PROP.Stack = null
 var node: Node3D = null
 var tokens: Array[String] = []
 var slots: Array[int] = []
@@ -37,8 +43,8 @@ var _hotkey_stool_have := 0
 
 ## Bind the scene nodes for this act. The runtime refreshes them on every access, so a suite can
 ## build a runtime without entering the tree.
-func bind(facade_node: Variant, pony_node: Variant, player_node: Variant,
-		anatomy_node: Variant) -> void:
+func bind(facade_node: SERVICE, pony_node: Node3D, player_node: Node3D,
+		anatomy_node: ANATOMY.CONTROLLER) -> void:
 	facade = facade_node
 	pony = pony_node
 	player = player_node
@@ -54,16 +60,16 @@ func applies() -> bool:
 		return false
 	if not SETTINGS.anatomy_on():
 		return false
-	if not is_instance_valid(WORLD.game) or not is_instance_valid(pony) or not pony is Node3D:
+	if not is_instance_valid(WORLD.game) or not is_instance_valid(pony):
 		return false
-	if not is_instance_valid(player) or not player is Node3D:
+	if not is_instance_valid(player):
 		return false
 	var tree: SceneTree = pony.get_tree()
 	if PLAYER_FORM.is_pony(PLAYER_FORM.active(tree)):
 		return false
-	if headset_view():
+	if GAME.headset_view(WORLD.game):
 		return false
-	if not is_instance_valid(anatomy_ctl) or not anatomy_ctl.has_method("hole_point"):
+	if not is_instance_valid(anatomy_ctl):
 		return false
 	return true
 
@@ -73,27 +79,23 @@ func applies() -> bool:
 func gap_m() -> float:
 	if not applies():
 		return NAN
-	var service: Node = PONIES.anatomy
-	if service == null or not service.has_method("player_prepare") \
-			or not service.has_method("player_root_now"):
+	var service := _anatomy()
+	if service == null:
 		return NAN
-	if not bool(service.call("player_prepare")):
+	if not service.player_prepare():
 		return NAN
-	var opening: Variant = anatomy_ctl.call("hole_point", 0.0)
-	var part: Variant = service.call("player_root_now")
-	if not opening is Vector3 or not (opening as Vector3).is_finite():
+	var opening := anatomy_ctl.hole_point(0.0)
+	var part := service.player_root_now()
+	if not opening.is_finite() or not part.is_finite():
 		return NAN
-	if not part is Vector3 or not (part as Vector3).is_finite():
-		return NAN
-	return float(facade.call("gap", (opening as Vector3).y, pony.global_position.y,
-		(part as Vector3).y, player.global_position.y))
+	return facade.gap(opening.y, pony.global_position.y, part.y, player.global_position.y)
 
 
 func needed_count() -> int:
 	var gap := gap_m()
 	if not is_finite(gap) or facade == null:
 		return 0
-	return maxi(0, int(facade.call("needed_count", gap)))
+	return maxi(0, facade.needed_count(gap))
 
 
 func required() -> bool:
@@ -107,21 +109,21 @@ func has_failed() -> bool:
 
 ## The first writable case slot that holds a footstool, or -1.
 func case_slot() -> int:
-	var store: Variant = inventory_store()
+	var store := inventory_store()
 	if facade == null or store == null:
 		return -1
-	if not bool(facade.call("writable", store)):
+	if not facade.writable(store):
 		return -1
-	return int(facade.call("case_slot", store))
+	return facade.case_slot(store)
 
 
 func case_count() -> int:
-	var store: Variant = inventory_store()
+	var store := inventory_store()
 	if facade == null or store == null:
 		return 0
-	if not bool(facade.call("writable", store)):
+	if not facade.writable(store):
 		return 0
-	return maxi(0, int(facade.call("case_count", store)))
+	return maxi(0, facade.case_count(store))
 
 
 ## The footstool pair for this call. A non-stool pose returns `(-1, -1)`, which tells the gate to
@@ -157,42 +159,37 @@ func blocks_start(reasons: PackedStringArray) -> bool:
 
 
 func state_text() -> String:
-	var store: Variant = inventory_store()
-	var anatomy_ok: bool = is_instance_valid(anatomy_ctl) and anatomy_ctl.has_method("hole_point")
+	var store := inventory_store()
+	var anatomy_ok := is_instance_valid(anatomy_ctl)
 	var opening := Vector3.ZERO
 	if anatomy_ok:
-		var value: Variant = anatomy_ctl.call("hole_point", 0.0)
-		if value is Vector3:
-			opening = value
-	var service: Node = PONIES.anatomy
+		opening = anatomy_ctl.hole_point(0.0)
+	var service := _anatomy()
 	var part := Vector3.ZERO
 	var part_ok := false
-	if service != null and service.has_method("player_prepare") \
-			and service.has_method("player_root_now"):
-		if bool(service.call("player_prepare")):
-			var value: Variant = service.call("player_root_now")
-			if value is Vector3 and (value as Vector3).is_finite():
-				part = value
-				part_ok = true
-	var hoof_y: float = pony.global_position.y if is_instance_valid(pony) and pony is Node3D else 0.0
-	var foot_y: float = player.global_position.y \
-		if is_instance_valid(player) and player is Node3D else 0.0
+	if service != null and service.player_prepare():
+		var value := service.player_root_now()
+		if value.is_finite():
+			part = value
+			part_ok = true
+	var hoof_y: float = pony.global_position.y if is_instance_valid(pony) else 0.0
+	var foot_y: float = player.global_position.y if is_instance_valid(player) else 0.0
 	var gap := NAN
 	if anatomy_ok and part_ok and facade != null \
 			and is_instance_valid(pony) and is_instance_valid(player):
-		gap = float(facade.call("gap", opening.y, hoof_y, part.y, foot_y))
+		gap = facade.gap(opening.y, hoof_y, part.y, foot_y)
 	var threshold := 0.20
 	var height := 0.20
 	if facade != null:
-		threshold = float(facade.call("threshold_m"))
-		height = float(facade.call("height_m"))
+		threshold = facade.threshold_m()
+		height = facade.height_m()
 	var need := needed_count()
 	var gap_text := "n/a" if not is_finite(gap) else "%.3f" % gap
 	var owned := 0
 	var free := 0
 	if facade != null and store != null:
-		owned = int(facade.call("owned_count", store))
-		free = int(facade.call("free_slots", store))
+		owned = facade.owned_count(store)
+		free = facade.free_slots(store)
 	return "pony=%s applies=%s anatomy=%s part=%s her_opening=%.3f her_hoof=%.3f her_bits=%.3f his_root=%.3f his_feet=%.3f his_bits=%.3f floor_delta=%.3f gap=%s threshold=%.3f height=%.3f required=%s need=%d active=%s count=%d case=%d owned=%d free=%d" % [
 		str(pony.name) if is_instance_valid(pony) else "?",
 		str(applies()), str(anatomy_ok), str(part_ok),
@@ -207,15 +204,15 @@ func take_items(need: int) -> bool:
 	var take := maxi(1, need)
 	tokens.clear()
 	slots.clear()
-	var store: Variant = inventory_store()
-	if facade == null or store == null or not bool(facade.call("writable", store)):
+	var store := inventory_store()
+	if facade == null or store == null or not facade.writable(store):
 		return false
 	for _i: int in take:
-		var slot := int(facade.call("case_slot", store))
+		var slot := facade.case_slot(store)
 		if slot < 0:
 			release()
 			return false
-		var token := str(store.call("take", slot))
+		var token := GAME.case_take(store, slot)
 		if token.is_empty():
 			release()
 			return false
@@ -233,18 +230,16 @@ func take_items(need: int) -> bool:
 func place(target: Vector3, yaw: float, floor: float) -> Vector3:
 	if not active or facade == null:
 		return target
-	var step := float(facade.call("height_m"))
+	var step := facade.height_m()
 	var ignore: PhysicsBody3D = null
 	if pony is PhysicsBody3D:
 		ignore = pony as PhysicsBody3D
-	var built: Dictionary = {}
-	if facade.has_method("build_prop"):
-		built = facade.call("build_prop", facade, Vector3(target.x, floor, target.z), yaw,
-			count, step, ignore)
-	var built_node: Variant = built.get("node")
-	if built_node is Node3D and is_instance_valid(built_node):
-		node = built_node
-		height_m = float(built.get("height", 0.0))
+	var built := facade.build_prop(facade, Vector3(target.x, floor, target.z), yaw,
+		count, step, ignore)
+	if built != null and is_instance_valid(built.node):
+		prop = built
+		node = built.node
+		height_m = built.height
 		floor_y = floor
 		lifted = true
 		LOG.debug("stool placed count=%d height=%.3f floor=%.3f at=%s", [
@@ -258,13 +253,13 @@ func place(target: Vector3, yaw: float, floor: float) -> Vector3:
 ## Remove the act prop and put every case item back. Every exit path calls this.
 func release() -> void:
 	var was_active := active or not tokens.is_empty()
-	if is_instance_valid(node):
-		if facade != null and facade.has_method("free_prop"):
-			facade.call("free_prop", node)
-		else:
-			node.queue_free()
+	if prop != null and facade != null:
+		facade.free_prop(prop)
+	elif is_instance_valid(node):
+		node.queue_free()
+	prop = null
 	node = null
-	if lifted and is_instance_valid(player) and player is Node3D:
+	if lifted and is_instance_valid(player):
 		var at: Vector3 = player.global_position
 		var floor := floor_y
 		var candidate := floor_y_at(Vector3(at.x, at.y + 0.2, at.z), player)
@@ -272,19 +267,19 @@ func release() -> void:
 			floor = candidate
 		player.global_position = Vector3(at.x, floor + 0.002, at.z)
 		if player.get("velocity") != null:
-			player.set("velocity", Vector3.ZERO)
+			GAME.set_velocity(player, Vector3.ZERO)
 		player.reset_physics_interpolation()
 		LOG.debug("stool lowered player floor=%.3f", [floor])
 	if not tokens.is_empty():
-		var store: Variant = inventory_store()
+		var store := inventory_store()
 		for i: int in tokens.size():
 			var token := tokens[i]
 			var slot := slots[i] if i < slots.size() else -1
 			var returned := false
 			if store != null:
-				returned = bool(store.call("put", token, slot))
+				returned = GAME.case_put(store, token, slot)
 				if not returned:
-					returned = bool(store.call("put", token, -1))
+					returned = GAME.case_put(store, token, -1)
 			if returned:
 				LOG.debug("stool returned count=%d/%d slot=%d", [i + 1, tokens.size(), slot])
 			else:
@@ -311,29 +306,23 @@ func reset() -> void:
 	tokens.clear()
 	slots.clear()
 	count = 0
+	prop = null
 	node = null
 	height_m = 0.0
 	floor_y = 0.0
 
 
 ## The floor under a standing spot. The player is excluded so his own capsule cannot answer.
-func floor_y_at(at: Vector3, body: Variant) -> float:
-	if facade != null and facade.has_method("floor_y_at"):
-		return float(facade.call("floor_y_at", at, body))
+func floor_y_at(at: Vector3, body: Node3D) -> float:
+	if facade != null:
+		return facade.floor_y_at(at, body)
 	return NAN
 
 
-func inventory_store() -> Variant:
-	if not is_instance_valid(WORLD.game):
-		return null
-	var inventory: Variant = WORLD.game.get("inventory")
-	if not is_instance_valid(inventory):
-		return null
-	return inventory.get("inventory")
+func inventory_store() -> Object:
+	return GAME.case_store(GAME.inventory(WORLD.game))
 
 
-func headset_view() -> bool:
-	return is_instance_valid(WORLD.game) \
-		and bool(WORLD.game.get("headset_view"))
-
-
+## The anatomy facade as its typed self; null when the host has none.
+func _anatomy() -> ANATOMY:
+	return PONIES.anatomy as ANATOMY

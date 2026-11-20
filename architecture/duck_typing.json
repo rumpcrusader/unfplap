@@ -17,11 +17,7 @@
     },
     {
       "file": "act/frame.gd",
-      "count": 17
-    },
-    {
-      "file": "act/gate.gd",
-      "count": 4
+      "count": 13
     },
     {
       "file": "act/host.gd",
@@ -89,7 +85,7 @@
     },
     {
       "file": "debug/actions.gd",
-      "count": 17
+      "count": 16
     },
     {
       "file": "debug/bed.gd",
@@ -294,22 +290,6 @@
     {
       "file": "shared/act_history.gd",
       "count": 2
-    },
-    {
-      "file": "stool/act.gd",
-      "count": 27
-    },
-    {
-      "file": "stool/item.gd",
-      "count": 2
-    },
-    {
-      "file": "stool/service.gd",
-      "count": 4
-    },
-    {
-      "file": "stool/supply.gd",
-      "count": 9
     },
     {
       "file": "vr/service.gd",

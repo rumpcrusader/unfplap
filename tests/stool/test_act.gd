@@ -6,6 +6,7 @@ const WORLD := preload("res://mods/unfplap/world/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const ACT := preload("res://mods/unfplap/stool/act.gd")
 const ITEM := preload("res://mods/unfplap/stool/item.gd")
+const PROP := preload("res://mods/unfplap/stool/prop.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const STORE := preload("res://world/inventory/inventory_store.gd")
 
@@ -13,7 +14,7 @@ var failures := 0
 var checks := 0
 
 
-class FakeFacade extends RefCounted:
+class FakeFacade extends "res://mods/unfplap/stool/service.gd":
 	var gap_value := 0.40
 	var need := 2
 	var threshold := 0.20
@@ -33,45 +34,46 @@ class FakeFacade extends RefCounted:
 	func height_m() -> float:
 		return height
 
-	func writable(_store: Variant) -> bool:
+	func writable(_store: Object) -> bool:
 		return true
 
-	func case_slot(store: Variant) -> int:
+	func case_slot(store: Object) -> int:
 		return ITEM.case_slot(store)
 
-	func case_count(store: Variant) -> int:
+	func case_count(store: Object) -> int:
 		return ITEM.case_count(store)
 
-	func owned_count(_store: Variant) -> int:
+	func owned_count(_store: Object) -> int:
 		return 2
 
-	func free_slots(_store: Variant) -> int:
+	func free_slots(_store: Object) -> int:
 		return 1
 
-	func build_prop(_host: Variant, at: Vector3, _yaw: float, _count: int, _step: float,
-			_ignore: PhysicsBody3D = null) -> Dictionary:
+	func build_prop(_host: Node, at: Vector3, _yaw: float, _count: int = 1, _step: float = 0.20,
+			_ignore: PhysicsBody3D = null) -> PROP.Stack:
 		var node := Node3D.new()
 		node.name = "FakeStool"
 		built.append(node)
-		return {"node": node, "height": 0.4, "count": 2, "step": 0.2, "at": at}
+		return PROP.Stack.new(node, 0.4, 2, 0.2)
 
-	func free_prop(node: Variant) -> void:
+	func free_prop(prop: PROP.Stack) -> void:
+		var node: Node3D = prop.node if prop != null else null
 		freed.append(node)
 		if node is Node:
 			(node as Node).queue_free()
 
-	func floor_y_at(_at: Vector3, _body: Variant) -> float:
+	func floor_y_at(_at: Vector3, _body: Node3D) -> float:
 		return 0.0
 
 
-class FakeController extends Node:
+class FakeController extends "res://mods/unfplap/anatomy/controller.gd":
 	var opening_y := 1.30
 
 	func hole_point(_mix := 0.0) -> Vector3:
 		return Vector3(0.0, opening_y, 0.0)
 
 
-class FakeService extends Node:
+class FakeService extends "res://mods/unfplap/anatomy/service.gd":
 	func player_prepare() -> bool:
 		return true
 

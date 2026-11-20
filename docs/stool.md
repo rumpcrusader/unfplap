@@ -217,14 +217,16 @@ idle hint and the act start.
 ## Dependencies
 
 ### Uses
-| service | world | `world/service.gd` | the world root and the headset |
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
+| service | anatomy | `anatomy/service.gd` | the player part and its height |
+| service | ponies | `ponies/service.gd` | the live act gate |
 | service | settings | `settings/service.gd` | settings declarations and live values |
+| service | world | `world/service.gd` | the world root and the headset |
+| service | world | `world/game.gd` | the briefcase case, the house interiors and the shop scene |
 | shared | log | `shared/log.gd` | log sink |
 | shared | pose_specs | `shared/pose_specs.gd` | the stool scene row for the hotkey pair |
-| service | ponies | `ponies/service.gd` | the live act gate |
 
 ## Tests and limits
 

@@ -181,41 +181,6 @@
       "signature": "static func template_for(id: String) -> Dictionary:"
     },
     {
-      "service": "stool",
-      "func": "build_prop",
-      "signature": "func build_prop(host: Node, at: Vector3, yaw: float, count := 1, step_height := 0.20, ignore: PhysicsBody3D = null) -> Dictionary:"
-    },
-    {
-      "service": "stool",
-      "func": "case_count",
-      "signature": "func case_count(store: Variant) -> int:"
-    },
-    {
-      "service": "stool",
-      "func": "case_slot",
-      "signature": "func case_slot(store: Variant) -> int:"
-    },
-    {
-      "service": "stool",
-      "func": "free_prop",
-      "signature": "func free_prop(prop: Variant) -> void:"
-    },
-    {
-      "service": "stool",
-      "func": "free_slots",
-      "signature": "func free_slots(store: Variant) -> int:"
-    },
-    {
-      "service": "stool",
-      "func": "owned_count",
-      "signature": "func owned_count(store: Variant) -> int:"
-    },
-    {
-      "service": "stool",
-      "func": "writable",
-      "signature": "func writable(store: Variant) -> bool:"
-    },
-    {
       "service": "summary",
       "func": "commit_summary",
       "signature": "func commit_summary(real_act: bool, context: Dictionary) -> void:"

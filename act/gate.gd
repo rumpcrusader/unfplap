@@ -10,6 +10,7 @@ const ACT_AGREEMENT := preload("res://mods/unfplap/act/agreement.gd")
 const ACT_SESSION := preload("res://mods/unfplap/act/session.gd")
 const REACTIONS := preload("res://mods/unfplap/reactions/service.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
+const STOOL := preload("res://mods/unfplap/stool/service.gd")
 
 var scene: SCENE_GATE = null
 var agreement: ACT_AGREEMENT = null
@@ -92,23 +93,23 @@ func rump_anchor() -> Vector3:
 
 
 func stool_gap_m() -> float:
-	var stool: Variant = session.stool()
-	return float(stool.call("gap_m")) if stool != null else NAN
+	var stool := session.stool() as STOOL.ACT
+	return stool.gap_m() if stool != null else NAN
 
 
 func stool_needed_count() -> int:
-	var stool: Variant = session.stool()
-	return int(stool.call("needed_count")) if stool != null else 0
+	var stool := session.stool() as STOOL.ACT
+	return stool.needed_count() if stool != null else 0
 
 
 func stool_case_count() -> int:
-	var stool: Variant = session.stool()
-	return int(stool.call("case_count")) if stool != null else 0
+	var stool := session.stool() as STOOL.ACT
+	return stool.case_count() if stool != null else 0
 
 
 func stool_state_text() -> String:
-	var stool: Variant = session.stool()
-	return str(stool.call("state_text")) if stool != null else "stool unavailable"
+	var stool := session.stool() as STOOL.ACT
+	return stool.state_text() if stool != null else "stool unavailable"
 
 
 ## The scene hold and the standing presentation are the offer's placement reads.

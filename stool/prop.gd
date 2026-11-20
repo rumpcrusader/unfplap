@@ -1,7 +1,7 @@
 extends RefCounted
 ## Scene adapter for the standing act's footstool stack. See docs/stool.md.
 
-const SHOP_ITEMS := preload("res://world/shop/shop_items.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
 const ITEM := preload("res://mods/unfplap/stool/item.gd")
 
 ## The base-game visual's natural height is about 0.39 m. These are fallback values only.
@@ -12,12 +12,27 @@ const MIN_TOP_Z := 0.40
 const MIN_STEP_M := 0.01
 
 
+## One placed stack: the body the act places and later frees, with its size.
+class Stack extends RefCounted:
+	var node: Node3D = null
+	var height := 0.0
+	var count := 0
+	var step := 0.0
+
+	func _init(node_in: Node3D = null, height_in := 0.0, count_in := 0,
+			step_in := 0.0) -> void:
+		node = node_in
+		height = height_in
+		count = count_in
+		step = step_in
+
+
 ## Static stool stack at `at`, its base on that floor point.
 ## `ignore` is the partner pony, which the stack must not push.
-static func build(host: Node, at: Vector3, yaw: float, count := 1,
-		step_height := 0.20, ignore: PhysicsBody3D = null) -> Dictionary:
+static func build(host: Node, at: Vector3, yaw: float, count: int = 1,
+		step_height: float = 0.20, ignore: PhysicsBody3D = null) -> Stack:
 	if not is_instance_valid(host) or not at.is_finite() or not is_finite(yaw):
-		return {}
+		return null
 	var steps := maxi(1, count)
 	var step := maxf(step_height, MIN_STEP_M)
 	var total := float(steps) * step
@@ -65,15 +80,15 @@ static func build(host: Node, at: Vector3, yaw: float, count := 1,
 		body.add_collision_exception_with(ignore)
 		ignore.add_collision_exception_with(body)
 		body.set_meta("stool_ignore", ignore)
-	return {"node": body, "height": total, "count": steps, "step": step}
+	return Stack.new(body, total, steps, step)
 
 
 ## Remove the prop from the physics space before the player is lowered through it. Both sides of
 ## the pony exception are cleared first so a freed stack cannot leave a stale collision pair.
-static func remove(prop: Variant) -> void:
-	if not prop is Node:
+static func remove(prop: Stack) -> void:
+	if prop == null:
 		return
-	var node := prop as Node
+	var node := prop.node
 	if not is_instance_valid(node):
 		return
 	var ignore: Variant = node.get_meta("stool_ignore", null)
@@ -87,7 +102,7 @@ static func remove(prop: Variant) -> void:
 
 
 static func _shop_visual() -> Node3D:
-	var scene: PackedScene = SHOP_ITEMS.scene(ITEM.ID)
+	var scene := GAME.shop_item_scene(ITEM.ID)
 	if scene == null:
 		return null
 	var value: Variant = scene.instantiate()

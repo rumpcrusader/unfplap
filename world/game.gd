@@ -6,6 +6,8 @@ extends RefCounted
 const MATTRESS := preload("res://world/life/couch/mattress.gd")
 const HYBRID_NEAR_MESH := preload("res://world/characters/hybrid_mare/hybrid_near_mesh.gd")
 const HYBRID_FAR_MESH := preload("res://world/characters/hybrid_mare/hybrid_far_mesh.gd")
+const SHOP_ITEMS := preload("res://world/shop/shop_items.gd")
+const HOUSE := preload("res://world/buildings/house_interior.gd")
 
 
 ## The eye is in a headset; absent reads as false.
@@ -162,6 +164,101 @@ static func inspector_active(inventory: Node) -> bool:
 	if not inspector is Node or not is_instance_valid(inspector):
 		return false
 	return inspector.get("active") == true
+
+
+## The briefcase store the inventory node owns; null when it has none.
+static func case_store(inventory: Node) -> Object:
+	if not is_instance_valid(inventory):
+		return null
+	var store: Variant = inventory.get("inventory")
+	if store is Object and is_instance_valid(store):
+		return store as Object
+	return null
+
+
+## The store's slot rows as a typed copy, one row per slot; empty without a store.
+static func case_slots(store: Object) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	if not is_instance_valid(store):
+		return out
+	var rows: Variant = store.get("slots")
+	if not rows is Array:
+		return out
+	for row: Variant in rows:
+		# A non-dictionary row keeps its index but reads as an item the case does not know.
+		out.append(row if row is Dictionary else {"id": ""})
+	return out
+
+
+## The store's checked-out loans as a typed copy; empty without one.
+static func case_loans(store: Object) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	if not is_instance_valid(store):
+		return out
+	var loans: Variant = store.get("loans")
+	if not loans is Dictionary:
+		return out
+	for loan: Variant in (loans as Dictionary).values():
+		if loan is Dictionary:
+			out.append(loan)
+	return out
+
+
+## Whether the store accepts writes; an absent flag reads false.
+static func case_writable(store: Object) -> bool:
+	if not is_instance_valid(store):
+		return false
+	return store.get("writable") == true
+
+
+## How many units of a slot can be taken now; -1 when the store has no availability op.
+static func case_available(store: Object, slot: int) -> int:
+	if not is_instance_valid(store) or not store.has_method("available"):
+		return -1
+	return int(store.call("available", slot))
+
+
+## Take one unit from a slot; the token it returns, empty when it refuses.
+static func case_take(store: Object, slot: int) -> String:
+	if not is_instance_valid(store) or not store.has_method("take"):
+		return ""
+	return str(store.call("take", slot))
+
+
+## Put a checked-out token back, at `slot` when it fits; false when it refuses.
+static func case_put(store: Object, token: String, slot: int) -> bool:
+	if not is_instance_valid(store) or not store.has_method("put"):
+		return false
+	return bool(store.call("put", token, slot))
+
+
+## Add `count` units of an item to the case; the slot used, -1 when it does not fit.
+static func case_grant(store: Object, id: String, count: int) -> int:
+	if not is_instance_valid(store) or not store.has_method("grant"):
+		return -1
+	return int(store.call("grant", id, count))
+
+
+## The shop's packed item scene; null when the shop has none.
+static func shop_item_scene(id: String) -> PackedScene:
+	return SHOP_ITEMS.scene(id) as PackedScene
+
+
+## A house interior the way the game groups it; null for any other node.
+static func house_of(node: Node) -> HOUSE:
+	if not is_instance_valid(node):
+		return null
+	return node as HOUSE
+
+
+## Spawn an owned world drop through the inventory; null when it refuses.
+static func spawn_owned_drop(inventory: Node, id: String, pose: Transform3D) -> Node:
+	if not is_instance_valid(inventory) or not inventory.has_method("spawn_owned_drop"):
+		return null
+	var item: Variant = inventory.call("spawn_owned_drop", id, pose)
+	if item is Node and is_instance_valid(item):
+		return item
+	return null
 
 
 ## The world's chat box; null when the scene has none.

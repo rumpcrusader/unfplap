@@ -289,6 +289,7 @@ the skeleton overlay; `_ready()` joins that list and `_exit_tree()` leaves it.
 | service | settings | `settings/service.gd` | action-button rows, the skeleton flag and the placement target pill |
 | service | stool | `stool/service.gd` | the footstool the Give footstool action grants |
 | service | world | `world/service.gd` | the scene target, camera and beds |
+| service | world | `world/game.gd` | the briefcase case the Give footstool action writes |
 | shared | act_face | `shared/act_face.gd` | the face cycle |
 | shared | body_change | `shared/body_change.gd` | the provider origin of an idle form change |
 | shared | cycle | `shared/cycle.gd` | the estrus phase names |

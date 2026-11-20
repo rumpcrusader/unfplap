@@ -13,7 +13,7 @@ const ID := ITEM.ID
 
 ## The one footstool facade the entry built.
 static var instance: Node = null
-var _supply: Node
+var _supply: SUPPLY = null
 
 
 func setup() -> void:
@@ -21,24 +21,24 @@ func setup() -> void:
 		return
 	_supply = SUPPLY.new()
 	_supply.name = "UnfplapStoolSupply"
-	_supply.call("setup", self)
+	_supply.setup(self)
 	add_child(_supply)
 
 
 func on_world(host: Node) -> void:
 	if is_instance_valid(_supply):
-		_supply.call("world_changed", host)
+		_supply.world_changed(host)
 
 
 func on_world_closed() -> void:
 	if is_instance_valid(_supply):
-		_supply.call("reset")
+		_supply.reset()
 
 
 func shutdown() -> void:
 	if is_instance_valid(_supply):
 		_supply.set_process(false)
-		_supply.call("reset")
+		_supply.reset()
 		_supply.queue_free()
 		_supply = null
 
@@ -68,38 +68,38 @@ func needed_count(gap_m: float) -> int:
 	return MEASURE.count(gap_m, threshold_m(), height_m())
 
 
-func case_slot(store: Variant) -> int:
+func case_slot(store: Object) -> int:
 	return ITEM.case_slot(store)
 
 
-func case_count(store: Variant) -> int:
+func case_count(store: Object) -> int:
 	return ITEM.case_count(store)
 
 
-func owned_count(store: Variant) -> int:
+func owned_count(store: Object) -> int:
 	return ITEM.owned_count(store)
 
 
-func free_slots(store: Variant) -> int:
+func free_slots(store: Object) -> int:
 	return ITEM.free_slots(store)
 
 
-func writable(store: Variant) -> bool:
+func writable(store: Object) -> bool:
 	return ITEM.writable(store)
 
 
-func build_prop(host: Node, at: Vector3, yaw: float, count := 1,
-		step_height := 0.20, ignore: PhysicsBody3D = null) -> Dictionary:
+func build_prop(host: Node, at: Vector3, yaw: float, count: int = 1,
+		step_height: float = 0.20, ignore: PhysicsBody3D = null) -> PROP.Stack:
 	return PROP.build(host, at, yaw, count, step_height, ignore)
 
 
-func free_prop(prop: Variant) -> void:
+func free_prop(prop: PROP.Stack) -> void:
 	PROP.remove(prop)
 
 
 ## One act's handle; the runtime keeps it and resets it per act.
-func new_act() -> RefCounted:
-	var act: RefCounted = ACT.new()
+func new_act() -> ACT:
+	var act := ACT.new()
 	act.facade = self
 	return act
 

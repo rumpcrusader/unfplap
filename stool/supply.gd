@@ -2,15 +2,17 @@ extends Node
 ## Finds pickable footstools in the world when the player owns none. See docs/stool.md.
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const ITEM := preload("res://mods/unfplap/stool/item.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
+const SERVICE := preload("res://mods/unfplap/stool/service.gd")
 const SPAWN_COUNT := 3
 const RANGE_M := 80.0
 const RETRY_S := 2.0
 const STOOL_PROBE := Vector3(0.62, 0.46, 0.5)
 
-var system: Node
+var system: SERVICE = null
 var _clock := 0.0
 var _started := false
 var _spawned := 0
@@ -19,7 +21,7 @@ var _wait_logged := false
 var _full_logged := false
 
 
-func setup(system_node: Node) -> void:
+func setup(system_node: SERVICE) -> void:
 	system = system_node
 	set_process(true)
 
@@ -38,7 +40,7 @@ func world_changed(_host: Node) -> void:
 
 
 func _process(delta: float) -> void:
-	if not is_instance_valid(system) or not bool(system.call("enabled")):
+	if not is_instance_valid(system) or not system.enabled():
 		return
 	_clock += delta
 	if _clock < RETRY_S:
@@ -48,7 +50,7 @@ func _process(delta: float) -> void:
 
 
 func _tick() -> void:
-	var game: Variant = WORLD.game
+	var game: Node = WORLD.game
 	if not is_instance_valid(game):
 		return
 	var tree := get_tree()
@@ -56,29 +58,29 @@ func _tick() -> void:
 		return
 	if PONIES.act_running():
 		return
-	var player: Variant = game.get("player")
+	var player := GAME.game_player(game)
 	if not is_instance_valid(player):
 		return
-	var inventory: Variant = game.get("inventory")
+	var inventory := GAME.inventory(game)
 	if not is_instance_valid(inventory):
 		return
-	var store: Variant = inventory.get("inventory")
+	var store := GAME.case_store(inventory)
 	if store == null:
 		return
 	if not _started:
-		if int(system.call("owned_count", store)) > 0:
+		if system.owned_count(store) > 0:
 			_spawned = SPAWN_COUNT
 			return
 	if _spawned >= SPAWN_COUNT:
 		return
-	var houses: Array[Node3D] = []
+	var houses: Array[GAME.HOUSE] = []
 	for node: Variant in tree.get_nodes_in_group("house_interiors"):
-		if not node is Node3D or not is_instance_valid(node):
+		if not node is Node3D:
 			continue
-		var house := node as Node3D
-		if not house.has_method("place_id") or not house.has_method("inside"):
+		var house := GAME.house_of(node as Node)
+		if house == null:
 			continue
-		var place := str(house.call("place_id"))
+		var place := house.place_id()
 		if place.is_empty() or _used.has(place):
 			continue
 		if house.global_position.distance_to(player.global_position) > RANGE_M:
@@ -90,26 +92,25 @@ func _tick() -> void:
 			LOG.debug("stool supply waiting for a loaded house")
 		return
 	houses.shuffle()
-	for house: Node3D in houses:
+	for house: GAME.HOUSE in houses:
 		if _spawned >= SPAWN_COUNT:
 			break
-		if _place_in(house, store, inventory):
+		if _place_in(house, inventory):
 			_spawned += 1
 			_started = true
 	if _spawned >= SPAWN_COUNT:
 		LOG.debug("stool supply spawned=%d", [_spawned])
 
 
-func _place_in(house: Node3D, _store: Variant, inventory: Node) -> bool:
+func _place_in(house: GAME.HOUSE, inventory: Node) -> bool:
 	for point: Vector3 in _spots(house):
-		var pose: Variant = _drop_pose(house, point)
-		if not pose is Transform3D:
+		var pose := _drop_pose(house, point)
+		if not pose.origin.is_finite():
 			continue
-		var item: Variant = inventory.call("spawn_owned_drop", ITEM.ID, pose)
+		var item := GAME.spawn_owned_drop(inventory, ITEM.ID, pose)
 		if is_instance_valid(item):
-			_used[str(house.call("place_id"))] = true
-			LOG.debug("stool supply house=%s at=%s", [
-				str(house.call("place_id")), str((pose as Transform3D).origin)])
+			_used[house.place_id()] = true
+			LOG.debug("stool supply house=%s at=%s", [house.place_id(), str(pose.origin)])
 			return true
 		if not _full_logged:
 			_full_logged = true
@@ -118,12 +119,9 @@ func _place_in(house: Node3D, _store: Variant, inventory: Node) -> bool:
 	return false
 
 
-func _spots(house: Node3D) -> Array[Vector3]:
-	var inside: Variant = house.call("inside")
-	var center: Variant = house.call("center") if house.has_method("center") \
-		else house.global_position
-	var at_inside: Vector3 = inside if inside is Vector3 else house.global_position
-	var at_center: Vector3 = center if center is Vector3 else at_inside
+func _spots(house: GAME.HOUSE) -> Array[Vector3]:
+	var at_inside := house.inside()
+	var at_center := house.center()
 	var toward := Vector3(at_center.x - at_inside.x, 0.0, at_center.z - at_inside.z)
 	if toward.length_squared() < 0.0001:
 		toward = -house.global_basis.z
@@ -136,28 +134,26 @@ func _spots(house: Node3D) -> Array[Vector3]:
 	return out
 
 
-func _drop_pose(house: Node3D, point: Vector3) -> Variant:
+func _drop_pose(house: GAME.HOUSE, point: Vector3) -> Transform3D:
 	if not point.is_finite():
-		return null
+		return Transform3D(Basis.IDENTITY, Vector3.INF)
 	var world := house.get_world_3d()
 	if world == null:
-		return null
+		return Transform3D(Basis.IDENTITY, Vector3.INF)
 	var from := Vector3(point.x, point.y + 1.0, point.z)
 	var query := PhysicsRayQueryParameters3D.create(from, from + Vector3.DOWN * 2.0, 1)
 	var hit: Dictionary = world.direct_space_state.intersect_ray(query)
 	if hit.is_empty():
-		return null
+		return Transform3D(Basis.IDENTITY, Vector3.INF)
 	var floor: Vector3 = hit.get("position", Vector3.ZERO)
 	if not floor.is_finite():
-		return null
+		return Transform3D(Basis.IDENTITY, Vector3.INF)
 	# The ray starts above the house roof on some plots; only use a floor inside this home.
-	if house.has_method("contains") and not bool(house.call("contains", floor)):
-		return null
-	if house.get("floor_y") != null:
-		var house_floor: float = (house.to_global(Vector3(0.0, float(house.get("floor_y")),
-			0.0))).y
-		if absf(floor.y - house_floor) > 0.2:
-			return null
+	if not house.contains(floor):
+		return Transform3D(Basis.IDENTITY, Vector3.INF)
+	var house_floor: float = (house.to_global(Vector3(0.0, house.floor_y, 0.0))).y
+	if absf(floor.y - house_floor) > 0.2:
+		return Transform3D(Basis.IDENTITY, Vector3.INF)
 	var probe := PhysicsShapeQueryParameters3D.new()
 	var box := BoxShape3D.new()
 	box.size = STOOL_PROBE
@@ -165,7 +161,5 @@ func _drop_pose(house: Node3D, point: Vector3) -> Variant:
 	probe.transform = Transform3D(Basis.IDENTITY, floor + Vector3.UP * 0.26)
 	probe.collision_mask = 1
 	if not world.direct_space_state.intersect_shape(probe, 1).is_empty():
-		return null
+		return Transform3D(Basis.IDENTITY, Vector3.INF)
 	return Transform3D(Basis(Vector3.UP, randf() * TAU), floor + Vector3.UP * 0.03)
-
-

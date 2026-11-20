@@ -15,6 +15,7 @@ const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
+const STOOL := preload("res://mods/unfplap/stool/service.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 ## Her neck line in the authored standing stance: the closed rule the aim uses when no live bone is
@@ -60,7 +61,7 @@ class Rig:
 	var pony: Node3D = null
 	var player: Node3D = null
 	var bed: Node3D = null
-	var stool: Variant = null
+	var stool: STOOL.ACT = null
 	var form: Variant = null
 	var player_pony := false
 	var headset_view := false
@@ -259,7 +260,7 @@ func scene_rig(_pose_input: PoseInput, form: Variant = null) -> Rig:
 	rig.pony = host.pony if is_instance_valid(host.pony) else null
 	rig.player = WORLD.player if is_instance_valid(WORLD.player) else null
 	rig.bed = session.bed
-	rig.stool = context.stool
+	rig.stool = context.stool as STOOL.ACT
 	rig.form = form if form != null else context.handover.form()
 	rig.player_pony = session.player_pony
 	rig.headset_view = WORLD.headset_view()
@@ -405,12 +406,10 @@ func _apply_standing(plan: PlayerPlan, rig: Rig) -> void:
 		floor_y = body.global_position.y
 	target.y = body.global_position.y
 	if _stool_active(rig):
-		var raised: Variant = rig.stool.call("place", target, plan.yaw, floor_y)
-		if raised is Vector3:
-			target = raised
+		target = rig.stool.place(target, plan.yaw, floor_y)
 	body.global_position = target
-	if rig.stool != null and bool(rig.stool.get("lifted")) and body.get("velocity") != null:
-		body.set("velocity", Vector3.ZERO)
+	if rig.stool != null and rig.stool.lifted and body.get("velocity") != null:
+		GAME.set_velocity(body, Vector3.ZERO)
 	plan.root_transform.origin = target
 	_reset_pelvis()
 	body.reset_physics_interpolation()
@@ -428,7 +427,7 @@ func _apply_standing(plan: PlayerPlan, rig: Rig) -> void:
 func _place_pony_front(rig: Rig) -> Variant:
 	if not is_instance_valid(rig.pony):
 		if _stool_active(rig):
-			rig.stool.set("failed", true)
+			rig.stool.failed = true
 		return null
 	var forward := Vector3.FORWARD
 	var view := WORLD.camera()
@@ -697,17 +696,17 @@ func restore_scene() -> void:
 
 
 func _check_stool(plan: PlayerPlan, rig: Rig) -> void:
-	if rig.stool != null and bool(rig.stool.get("failed")):
+	if rig.stool != null and rig.stool.failed:
 		plan.valid = false
 
 
 static func _stool_active(rig: Rig) -> bool:
-	return rig.stool != null and bool(rig.stool.get("active"))
+	return rig.stool != null and rig.stool.active
 
 
 static func _floor_y_at(rig: Rig, at: Vector3, body: Node3D) -> float:
-	if rig.stool != null and rig.stool.has_method("floor_y_at"):
-		return float(rig.stool.call("floor_y_at", at, body))
+	if rig.stool != null:
+		return rig.stool.floor_y_at(at, body)
 	return NAN
 
 

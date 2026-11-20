@@ -1,8 +1,8 @@
 extends SceneTree
-## The idle offer service: the one-second scan cadence, the standing cone target, the standing
-## gate's reuse window, the footstool block and its one toast, the hint row in the game's prompt
-## row and the HUD fallback, the live Agreement offer, the pure `offer_target()` read and the offer
-## cleared while an act is live.
+## The idle offer service: the fan sensor's transitions, the scene fingerprint, the standing
+## target, the footstool block and its one toast, the hint row in the game's prompt row and the
+## HUD fallback, the live Agreement offer, the pure `offer_target()` read and the offer cleared
+## while an act is live.
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/offer/test_offer.gd
 
@@ -39,9 +39,22 @@ class FakePlayer extends Node3D:
 
 class FakeMare extends Node3D:
 	var requested := "stand"
+	var settled := true
+	var sleeping := false
+	var speed := 0.0
+	var held := false
 
 	func posture_status() -> Dictionary:
-		return {"requested": requested}
+		return {"requested": requested, "settled": settled}
+
+	func is_held() -> bool:
+		return held
+
+	func grounded() -> bool:
+		return true
+
+	func action_interruption_reason() -> String:
+		return ""
 
 
 class FakeRuntime extends Node:
@@ -51,13 +64,29 @@ class FakeRuntime extends Node:
 	var gap: Variant = 0.0
 	var case_count := 0
 	var gate: Variant = null
+	var mare: FakeMare = null
 
 	func _init() -> void:
 		gate = self
 
+	func available() -> bool:
+		hotkey_calls += 1
+		return gate_ready and (mare == null or not mare.sleeping)
+
+	func pose_supported(_pose: String, _source: String) -> bool:
+		return true
+
+	func player_ready(_pose: String, _source: String, _bed: Variant) -> bool:
+		return true
+
+	func navigator_allows(_pose: String, _source: String) -> bool:
+		return true
+
+	func posture_allows(_pose: String) -> bool:
+		return true
+
 	func hotkey_ready(_pose: String, _source: String, _bed: Variant,
 			_pair := Vector2i(-1, -1)) -> bool:
-		hotkey_calls += 1
 		return gate_ready
 
 	func stool_pair(_pose: String) -> Vector2i:
@@ -130,8 +159,8 @@ func check(ok: bool, text: String) -> void:
 
 func run() -> void:
 	SETTINGS.load_settings()
-	_check_cadence_and_cone()
-	await _check_gate_reuse()
+	_check_sensor_transition()
+	_check_fingerprint()
 	_check_blocked_stool()
 	_check_blocked_need_two()
 	_check_hint_row()
@@ -144,39 +173,63 @@ func run() -> void:
 	quit(0 if failures == 0 else 1)
 
 
-## Two standing mares inside the cone, with a stallion nearer inside it and a mare outside it: the
-## nearest act target wins, and the scan waits for the one-second cadence.
-func _check_cadence_and_cone() -> void:
+## Two standing mares inside the fan, with a stallion nearer inside it and a mare outside it: the
+## nearest act target wins, a fan transition re-evaluates on the same frame and no timed scan runs.
+func _check_sensor_transition() -> void:
 	var made := _fixture()
 	var service: OFFER = made["service"]
 	var near: FakeMare = made["near"]
+	var far: FakeMare = made["far"]
 	var stallion: FakeMare = made["stallion"]
 	var runtime: FakeRuntime = made["near_runtime"]
 	near.requested = "lie_down"
+	far.requested = "lie_down"
 	service.tick(0.5)
-	check(service.current() == null, "no offer before the cadence")
-	check(runtime.hotkey_calls == 0, "no gate read before the cadence")
+	check(service.current() == null, "a lodged mare offers nothing")
+	check(runtime.hotkey_calls == 0, "no scene check runs without a fan candidate")
 	near.requested = "stand"
+	far.requested = "stand"
 	service.tick(0.6)
-	check(service.current() != null, "the scan runs at the one-second cadence")
-	check(service.current().pony == near, "the nearest act target in the cone wins")
+	check(service.current() != null, "the fan transition re-evaluates the same frame")
+	check(service.current().pony == near, "the nearest act target in the fan wins")
 	check(service.current().pose == CATALOG.STANDING, "the standing pose is offered")
 	check(stallion.global_position.z > near.global_position.z,
 		"the stallion stands nearer than the winner")
 	check(service.offer_target() == near, "offer_target names the offered pony")
-	service.tick(1.0)
+	var player: FakePlayer = made["player"]
+	player.global_position = Vector3(0.0, 0.0, 20.0)
+	service.tick(0.2)
+	check(service.current() == null and service.offer_target() == null,
+		"walking out of the fan drops the offer")
+	player.global_position = Vector3(0.0, 0.0, 3.0)
+	service.tick(0.2)
+	check(service.current() != null and service.current().pony == near,
+		"walking back restores the offer without a timer")
 	_free(made)
 
 
-## Every scan runs the target's scene checks again; the old verdict reuse window is gone.
-func _check_gate_reuse() -> void:
+## The scene fingerprint: a no-op frame runs no checks, and a candidate's own state change
+## re-evaluates without moving the player.
+func _check_fingerprint() -> void:
 	var made := _fixture()
 	var service: OFFER = made["service"]
 	var runtime: FakeRuntime = made["near_runtime"]
-	service.scan()
-	check(runtime.hotkey_calls == 1, "the first scan runs the gate")
-	service.scan()
-	check(runtime.hotkey_calls == 2, "the next scan runs the gate again")
+	var near: FakeMare = made["near"]
+	var far: FakeMare = made["far"]
+	far.requested = "lie_down"
+	service.tick(0.2)
+	var calls := runtime.hotkey_calls
+	service.tick(0.016)
+	check(runtime.hotkey_calls == calls, "a no-op frame runs no scene check")
+	service.tick(0.2)
+	check(runtime.hotkey_calls == calls, "a poll with an unchanged scene runs no check")
+	near.sleeping = true
+	service.tick(0.2)
+	check(runtime.hotkey_calls == calls + 1, "a sleeping mare's change runs the check again")
+	check(service.current() == null, "a sleeping target drops the offer")
+	near.sleeping = false
+	service.tick(0.2)
+	check(service.current() != null and service.current().pony == near, "waking restores the offer")
 	_free(made)
 
 
@@ -188,18 +241,17 @@ func _check_blocked_stool() -> void:
 	var hud: FakeHud = made["hud"]
 	var runtime: FakeRuntime = made["near_runtime"]
 	var row: HBoxContainer = made["row"]
-	runtime.gate_ready = false
 	runtime.stool = {"need": 1, "have": 0}
 	runtime.gap = 0.12
 	runtime.case_count = 0
-	service.tick(OFFER.OFFER_SCAN_S)
+	service.tick(0.2)
 	check(service.current() == null, "a blocked gate offers nothing")
 	check(service.blocked() != null, "a blocked gate records the block")
 	check(service.blocked().blocked_hint() == OFFER.NEEDS_STOOL_HINT,
 		"the blocked hint names one footstool")
 	check(int(service.blocked().blocked.get("need", 0)) == 1, "the block carries the need")
 	check(hud.toasts == ["Find a footstool in a house."], "the block toasts once")
-	service.tick(OFFER.OFFER_SCAN_S)
+	service.tick(0.2)
 	check(hud.toasts.size() == 1, "the same block does not toast twice")
 	check(_unit_text(row.get_child(0)) == OFFER.NEEDS_STOOL_HINT,
 		"the blocked hint reaches the prompt row")
@@ -214,17 +266,16 @@ func _check_blocked_need_two() -> void:
 	var service: OFFER = made["service"]
 	var hud: FakeHud = made["hud"]
 	var runtime: FakeRuntime = made["near_runtime"]
-	runtime.gate_ready = false
 	runtime.stool = {"need": 2, "have": 1}
 	runtime.case_count = 1
 	runtime.gap = INF
-	service.tick(OFFER.OFFER_SCAN_S)
+	service.tick(0.2)
 	check(service.blocked() != null, "two footstools still block the offer")
 	check(service.blocked().blocked_hint() == "Needs 2 footstools",
 		"the hint counts two footstools")
 	check(hud.toasts == ["Find 2 footstools in a house."], "the toast counts two footstools")
 	service.on_world_closed()
-	service.tick(OFFER.OFFER_SCAN_S)
+	service.tick(0.2)
 	check(hud.toasts.size() == 2, "a world reset re-arms the one-shot toast")
 	_free(made)
 
@@ -237,7 +288,7 @@ func _check_hint_row() -> void:
 	var row: HBoxContainer = made["row"]
 	var holder: Control = made["holder"]
 	var hud: FakeHud = made["hud"]
-	service.tick(OFFER.OFFER_SCAN_S)
+	service.tick(0.2)
 	check(row.get_child_count() == 1, "the hint is one more unit in the prompt row")
 	check(holder.visible, "the prompt row holder is shown with the hint")
 	check(hud.prompts.is_empty() and hud.hides > 0,
@@ -247,8 +298,8 @@ func _check_hint_row() -> void:
 	check(unit.get_child(0) is PanelContainer, "the offer hint carries the act key cap")
 	service.apply_settings()
 	check(row.get_child_count() == 0, "a settings edit drops the row for a rebuild")
-	service.tick(OFFER.OFFER_SCAN_S)
-	check(row.get_child_count() == 1, "the next scan rebuilds the row")
+	service.tick(0.2)
+	check(row.get_child_count() == 1, "the next idle frame rebuilds the row")
 	_free(made)
 
 
@@ -258,15 +309,14 @@ func _check_hud_fallback() -> void:
 	var made := _fixture(false)
 	var service: OFFER = made["service"]
 	var hud: FakeHud = made["hud"]
-	var runtime: FakeRuntime = made["near_runtime"]
-	service.tick(OFFER.OFFER_SCAN_S)
+	service.tick(0.2)
 	check(hud.prompts == [OFFER.OFFER_HINT], "the HUD prompt is the fallback hint")
 	var hides := hud.hides
 	var near: FakeMare = made["near"]
 	var far: FakeMare = made["far"]
 	near.requested = "lie_down"
 	far.requested = "lie_down"
-	service.tick(OFFER.OFFER_SCAN_S)
+	service.tick(0.2)
 	check(hud.prompts.size() == 1 and hud.hides > hides, "no offer hides the fallback prompt")
 	_free(made)
 
@@ -287,15 +337,17 @@ func _check_agreement_first() -> void:
 	option.pose = CATALOG.MISSIONARY
 	option.source = "bed_side"
 	handle.option = option
+	service.tick(0.2)
+	negotiation.ready_calls = 0
 	negotiation.live = handle
-	service.scan()
+	service.reconsider()
 	check(service.current() != null and service.current().pony == near,
 		"the live Agreement is offered")
 	check(negotiation.ready_calls == 1, "the Agreement path asks the live readiness")
 	check(service.current().trigger == "agreement", "the Agreement trigger is carried")
-	check(runtime.hotkey_calls == 0, "the Agreement skips the scene gate")
+	check(runtime.hotkey_calls == 1, "the Agreement skips the scene gate")
 	negotiation.is_ready = false
-	service.scan()
+	service.reconsider()
 	check(service.current() != null and service.current().trigger.is_empty(),
 		"an Agreement that is not ready falls back to the scene scan")
 	negotiation.live = null
@@ -310,7 +362,7 @@ func _check_hide_while_act_live() -> void:
 	var near: FakeMare = made["near"]
 	var row: HBoxContainer = made["row"]
 	var holder: Control = made["holder"]
-	service.tick(OFFER.OFFER_SCAN_S)
+	service.tick(0.2)
 	runtime.hotkey_calls = 0
 	check(service.offer_target() == near, "offer_target reads the current scan result")
 	check(runtime.hotkey_calls == 0, "offer_target never rescans")
@@ -318,13 +370,13 @@ func _check_hide_while_act_live() -> void:
 	near.requested = "lie_down"
 	var far: FakeMare = made["far"]
 	far.requested = "lie_down"
-	service.tick(OFFER.OFFER_SCAN_S)
-	check(service.offer_target() == null, "a scan without an offer clears the target")
-	check(service.current() == null, "the scan dropped the offer")
+	service.tick(0.2)
+	check(service.offer_target() == null, "a transition without an offer clears the target")
+	check(service.current() == null, "the transition dropped the offer")
 	near.requested = "stand"
 	far.requested = "stand"
-	service.tick(OFFER.OFFER_SCAN_S)
-	check(service.current() != null, "the offer returns on the next scan")
+	service.tick(0.2)
+	check(service.current() != null, "the offer returns on the next transition")
 	service.clear_current()
 	check(service.current() == null, "clear_current drops the offer")
 	service.hide_hint()
@@ -362,6 +414,7 @@ func _fixture(with_row := true) -> Dictionary:
 	for mare: FakeMare in [near, far, stallion, outside]:
 		var runtime := FakeRuntime.new()
 		runtime.name = "UnfplapRuntime"
+		runtime.mare = mare
 		mare.add_child(runtime)
 		runtime_nodes.append(runtime)
 		if mare == near:

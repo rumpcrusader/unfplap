@@ -1,0 +1,291 @@
+extends RefCounted
+## Contract: docs/offer.md
+## The idle fan sensor: the standing fan and the lying candidate as transitions the offer
+## reconsiders on. It reads the scene once per idle frame and owns no offer.
+
+const WORLD := preload("res://mods/unfplap/world/service.gd")
+const PONIES := preload("res://mods/unfplap/ponies/service.gd")
+const RUMP_CONE := preload("res://mods/unfplap/shared/rump_cone.gd")
+
+## The scene fingerprint's cadence while the fan holds a candidate.
+const SENSOR_POLL_S := 0.1
+## The eye-to-body margin over the standing reach before the rump math runs.
+const NEAR_MARGIN_M := 0.5
+const NEAR_SQ := (RUMP_CONE.REACH_M + NEAR_MARGIN_M) * (RUMP_CONE.REACH_M + NEAR_MARGIN_M)
+## The AnonPony lying candidate: reach from the eye and the facing floor.
+const LYING_REACH_M := 3.2
+const LYING_REACH_SQ := LYING_REACH_M * LYING_REACH_M
+const LYING_NEAR_SQ := (LYING_REACH_M + NEAR_MARGIN_M) * (LYING_REACH_M + NEAR_MARGIN_M)
+const LYING_DOT := 0.78
+## The standing pose's moving threshold, as the scene gate reads it.
+const STILL_SPEED := 0.06
+
+
+## One mare's last scene fingerprint.
+class MareSense extends RefCounted:
+	var pony: Node3D = null
+	var fingerprint := 0
+
+
+## Per-mare state, keyed by instance id.
+var _senses: Dictionary = {}
+## The standing fan candidates, nearest first; rebuilt in place each frame.
+var _candidates: Array[Node3D] = []
+var _distances := PackedFloat64Array()
+var _previous: Array[Node3D] = []
+## The best lying candidate for AnonPony's bed poses, or null.
+var _lying: Node3D = null
+var _previous_lying: Node3D = null
+## The pony the offer last offered, so its state is polled even outside the fan.
+var _focus: Node3D = null
+var _clock := 0.0
+var _pony_form := false
+## A world enter or a settings edit: the next update reports a transition.
+var _pending := true
+
+
+## One idle frame. True when the fan or one candidate's scene state changed, so the offer must
+## reconsider. The sensor stays inert while an act owns the frame.
+func update(delta: float, eye: Vector3, forward: Vector3, pony_form: bool) -> bool:
+	_clock += delta
+	if PONIES.act_running() or not is_instance_valid(WORLD.game) or not eye.is_finite():
+		return _clear()
+	_previous.clear()
+	_previous.assign(_candidates)
+	_previous_lying = _lying
+	_candidates.clear()
+	_distances.clear()
+	_lying = null
+	var near_sq := LYING_NEAR_SQ if pony_form else NEAR_SQ
+	var lying_dot := LYING_DOT
+	var mares: Variant = WORLD.game.get("mares")
+	if mares is Array:
+		for node: Variant in mares as Array:
+			if not node is Node3D or not is_instance_valid(node):
+				continue
+			var actor := node as Node3D
+			if not actor.has_method("posture_status"):
+				continue
+			var dx := actor.global_position.x - eye.x
+			var dz := actor.global_position.z - eye.z
+			if dx * dx + dz * dz > near_sq:
+				continue
+			var status: Dictionary = actor.posture_status()
+			var posture := str(status.get("requested", ""))
+			if posture == "stand":
+				var rump := RUMP_CONE.approx_point(actor)
+				var rx := eye.x - rump.x
+				var rz := eye.z - rump.z
+				var distance := rx * rx + rz * rz
+				if distance > RUMP_CONE.REACH_SQ:
+					continue
+				if not RUMP_CONE.contains(actor.global_basis.z, rump, eye):
+					continue
+				_insert(actor, distance)
+			elif pony_form and posture == "lie_down":
+				var at := actor.global_position + Vector3.UP * 0.5
+				var to := at - eye
+				var reach := to.length_squared()
+				if reach > LYING_REACH_SQ or reach < 0.000001:
+					continue
+				var dot := forward.dot(to * (1.0 / sqrt(reach)))
+				if dot > lying_dot:
+					lying_dot = dot
+					_lying = actor
+	var list_changed := not _same_candidates()
+	var changed := _pending or list_changed or _lying != _previous_lying \
+		or pony_form != _pony_form
+	_pending = false
+	_pony_form = pony_form
+	var poll := false
+	if _clock >= SENSOR_POLL_S:
+		_clock = 0.0
+		poll = true
+	if poll or list_changed:
+		var player_value := _player_hash()
+		for pony: Node3D in _candidates:
+			if _changed(pony, _scene_hash(pony, player_value), poll):
+				changed = true
+		if is_instance_valid(_lying) \
+				and _changed(_lying, _scene_hash(_lying, player_value), poll):
+			changed = true
+		if is_instance_valid(_focus) \
+				and _changed(_focus, _scene_hash(_focus, player_value), poll):
+			changed = true
+	return changed
+
+
+## The standing fan candidates, nearest first. Live until the next update.
+func candidates() -> Array[Node3D]:
+	return _candidates
+
+
+## The best lying candidate for AnonPony's bed poses, or null.
+func lying() -> Node3D:
+	return _lying
+
+
+## The pony whose scene state the next polls follow: the offer's current target, or null.
+func focus(pony: Node) -> void:
+	_focus = pony as Node3D
+	if is_instance_valid(_focus):
+		_changed(_focus, _scene_hash(_focus, _player_hash()), false)
+
+
+## A world enter, a world close or a settings edit: forget every sense and report a transition.
+func reset() -> void:
+	_senses.clear()
+	_candidates.clear()
+	_distances.clear()
+	_previous.clear()
+	_lying = null
+	_previous_lying = null
+	_focus = null
+	_clock = 0.0
+	_pony_form = false
+	_pending = true
+
+
+## No world and no fan: drop the candidates without asking the offer to reconsider.
+func _clear() -> bool:
+	_candidates.clear()
+	_distances.clear()
+	_previous.clear()
+	_lying = null
+	_previous_lying = null
+	_focus = null
+	_pending = false
+	_pony_form = false
+	return false
+
+
+## Insert one candidate in distance order. The fan is small, so a shift beats a sort.
+func _insert(pony: Node3D, distance: float) -> void:
+	var at := _candidates.size()
+	_candidates.append(pony)
+	_distances.append(distance)
+	while at > 0 and _distances[at - 1] > distance:
+		_candidates[at] = _candidates[at - 1]
+		_distances[at] = _distances[at - 1]
+		at -= 1
+	_candidates[at] = pony
+	_distances[at] = distance
+
+
+func _same_candidates() -> bool:
+	if _candidates.size() != _previous.size():
+		return false
+	for index in _candidates.size():
+		if _candidates[index] != _previous[index]:
+			return false
+	return true
+
+
+## Store one pony's fingerprint and answer whether it changed. A first read is only a baseline.
+func _changed(pony: Node3D, value: int, compare: bool) -> bool:
+	var key := int(pony.get_instance_id())
+	var sense: Variant = _senses.get(key)
+	if not sense is MareSense:
+		sense = MareSense.new()
+		sense.pony = pony
+		(sense as MareSense).fingerprint = value
+		_senses[key] = sense
+		return false
+	var known := sense as MareSense
+	var changed := compare and known.fingerprint != value
+	known.pony = pony
+	known.fingerprint = value
+	return changed
+
+
+## One mare's scene state as an integer mix: everything the offer's checks read that can change
+## without moving her. The player's half is read once and passed in.
+func _scene_hash(pony: Node3D, player_value: int) -> int:
+	var value := _mix(int(pony.get_instance_id()), player_value)
+	var status: Dictionary = pony.posture_status()
+	value = _mix(value, hash(str(status.get("requested", ""))))
+	value = _mix(value, 1 if status.get("settled") == true else 0)
+	value = _mix(value, 1 if pony.get("sleeping") == true else 0)
+	value = _mix(value, 1 if pony.get_meta("sex_active", false) == true else 0)
+	value = _mix(value, 1 if pony.has_meta("sex_aftercare") else 0)
+	value = _mix(value, 1 if pony.has_meta("seated") else 0)
+	value = _mix(value, 1 if pony.get("motion_paused") == true else 0)
+	value = _mix(value, 1 if pony.has_method("is_held") and pony.is_held() else 0)
+	value = _mix(value, 1 if pony.has_method("grounded") and not pony.grounded() else 0)
+	var speed: Variant = pony.get("actual_speed")
+	value = _mix(value, 1 if speed != null and float(speed) > STILL_SPEED else 0)
+	var interruption := ""
+	if pony.has_method("action_interruption_reason"):
+		interruption = str(pony.action_interruption_reason())
+	value = _mix(value, 1 if not interruption.is_empty() else 0)
+	var target: Variant = pony.get("conversation_target")
+	value = _mix(value, int(target.get_instance_id()) \
+		if target is Object and is_instance_valid(target) else 0)
+	var hoof: Variant = pony.get("hoof_hold")
+	value = _mix(value, 1 if hoof is Object and is_instance_valid(hoof) \
+		and hoof.get("active") == true else 0)
+	var affection: Node = pony.get_node_or_null("Affection")
+	value = _mix(value, hash(str(affection.get("kind"))) if affection != null else 0)
+	value = _mix(value, 1 if _cuddle_active(pony) else 0)
+	var nav: Node = pony.get_node_or_null("Navigator")
+	if nav != null:
+		value = _mix(value, hash(str(nav.get("reserved_by"))))
+		value = _mix(value, hash(str(nav.get("command_owner"))))
+		value = _mix(value, 1 if nav.get("_has_target") == true else 0)
+	var runtime: Node = PONIES.runtime_for(pony)
+	var act: Variant = runtime.get("act") if is_instance_valid(runtime) else null
+	value = _mix(value, int(act.get("state")) if act != null else 0)
+	return value
+
+
+## The player's half of the fingerprint: everything the press guards read.
+func _player_hash() -> int:
+	var body: Node3D = WORLD.player
+	if not is_instance_valid(body):
+		return 0
+	var value := 0
+	value = _mix(value, 1 if body.get("controls_locked") == true else 0)
+	value = _mix(value, 1 if body.get("flying") == true else 0)
+	var wing: Variant = body.get("wing_flight")
+	value = _mix(value, 1 if wing is Object and is_instance_valid(wing) \
+		and wing.get("active") == true else 0)
+	value = _mix(value, 1 if body.get_meta("knocked_down", false) == true else 0)
+	var swimming: Variant = body.get("swimming")
+	value = _mix(value, 1 if swimming is Object and is_instance_valid(swimming) \
+		and swimming.get("active") == true else 0)
+	var seat: Variant = body.get("seat")
+	value = _mix(value, int(seat.get_instance_id()) \
+		if seat is Object and is_instance_valid(seat) else 0)
+	var rest: Variant = body.get("_couch_rest")
+	if rest is Object and is_instance_valid(rest):
+		var amount: Variant = rest.get("amount")
+		value = _mix(value, 1 if amount != null and float(amount) < 0.99 else 0)
+	if is_instance_valid(WORLD.game):
+		var inventory: Variant = WORLD.game.get("inventory")
+		if inventory is Object and is_instance_valid(inventory):
+			var held: Variant = inventory.get("held")
+			value = _mix(value, (held as Dictionary).size() if held is Dictionary else 0)
+			value = _mix(value, hash(str(inventory.get("holding_case"))))
+	value = _mix(value, 1 if WORLD.player_is_pony() else 0)
+	value = _mix(value, 1 if WORLD.headset_view() else 0)
+	value = _mix(value, int(Input.mouse_mode))
+	return value
+
+
+## The cuddle rule the scene gate reads: a marker, or an enabled or blending session.
+func _cuddle_active(pony: Node3D) -> bool:
+	if pony.has_meta("cuddle_active"):
+		return true
+	if not pony.has_meta("cuddle_session"):
+		return false
+	var session: Variant = pony.get_meta("cuddle_session")
+	if session == null or not is_instance_valid(session):
+		return false
+	if session.get("enabled") == true:
+		return true
+	var blend: Variant = session.get("blend")
+	return blend != null and float(blend) > 0.01
+
+
+static func _mix(value: int, extra: int) -> int:
+	return (value * 31 + extra) & 0x7FFFFFFF

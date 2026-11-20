@@ -22,12 +22,11 @@ const POSE_OFFER := preload("res://mods/unfplap/shared/pose_offer.gd")
 const POSE_OPTIONS := preload("res://mods/unfplap/shared/pose_options.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
+const FAN_SENSOR := preload("res://mods/unfplap/offer/fan_sensor.gd")
 
 ## The act-key hint in the prompt row. A press taps it like a base prompt, so it never reads as a
 ## hold.
 const OFFER_HINT := "Make love"
-## The idle offer hint's scan cadence.
-const OFFER_SCAN_S := 1.0
 ## The standing-act note when her reach needs a footstool and Anon has none in the case.
 const NEEDS_STOOL_HINT := "Needs a footstool"
 ## The Agreement auto-start's readiness cadence.
@@ -49,11 +48,14 @@ var privacy: PRIVACY = null
 ## Set by the entry's `bind()`: the HUD, once the player rig arrives.
 var hud: Node = null
 
-## The idle scan's playable offer and its blocked variant. Both are typed `PoseOffer` handles;
+## The idle offer's playable offer and its blocked variant. Both are typed `PoseOffer` handles;
 ## null means none.
 var _offer: POSE_OFFER = null
 var _offer_blocked: POSE_OFFER = null
-var _offer_clock := 0.0
+## The scene transitions the offer reconsiders on.
+var _sensor := FAN_SENSOR.new()
+## The player's seat the last idle frame saw: a change is the bed branch's trigger.
+var _seat: Variant = null
 var _last_offer_key := ""
 var _last_blocked_key := ""
 var _stool_hint_toast_shown := false
@@ -82,19 +84,37 @@ func bind(negotiation_node: NEGOTIATION, privacy_node: PRIVACY, hud_node: Node) 
 	hud = hud_node
 
 
-## One idle frame: the scan cadence, the hint that follows it and the Agreement auto-start clock.
-## The act key's immediate rescan is `scan()`.
+## One idle frame: the fan sensor, the hint that follows it and the Agreement auto-start clock.
+## The act key's immediate read is `reconsider()` after a forced sense.
 func tick(delta: float) -> void:
-	_offer_clock += delta
-	if _offer_clock >= OFFER_SCAN_S:
-		_offer_clock = 0.0
-		PERF.begin("offer_scan")
-		scan()
-		PERF.end("offer_scan")
+	PERF.begin("offer_sensor")
+	var changed := _sense(delta)
+	PERF.end("offer_sensor")
+	if changed:
+		reconsider()
 	PERF.begin("entry_hint")
 	_sync_native_hint(_hint_text())
 	PERF.end("entry_hint")
 	_tick_agreement_auto_start(delta)
+
+
+## Read the fan once. True when the fan, a candidate's scene state or the player's seat changed.
+## The press forces the read so it never starts a stale offer.
+func _sense(delta: float, force := false) -> bool:
+	if not is_instance_valid(WORLD.player) or not is_instance_valid(WORLD.game):
+		return false
+	if not WORLD.scan_allowed():
+		return false
+	var view: Camera3D = WORLD.camera()
+	if view == null:
+		return false
+	var changed := _sensor.update(delta, view.global_position, -view.global_basis.z,
+		WORLD.player_is_pony())
+	var seat: Variant = WORLD.player.get("seat")
+	if seat != _seat:
+		_seat = seat
+		changed = true
+	return changed or force
 
 
 ## The current offer's pony, for the Proactive service's cuddle check; a pure read that never
@@ -134,7 +154,11 @@ func hide_hint() -> void:
 func try_start() -> bool:
 	if PONIES.act_running():
 		return false
-	scan()
+	# A paused tree or a loose cursor owns the input: the idle offer is not evaluated.
+	if not WORLD.scan_allowed():
+		return false
+	_sense(0.0, true)
+	reconsider()
 	if _offer == null:
 		if _offer_blocked != null:
 			return start_pose_offer(_offer_blocked)
@@ -286,13 +310,15 @@ func _toast(text: String) -> void:
 	HUD.toast(text, 4.0)
 
 
-## A settings edit: the key cap in the hint row is rebuilt on the next frame.
+## A settings edit: drop the hint row, forget the sensor's senses and let the next idle frame
+## re-evaluate the offer with the new values.
 func apply_settings() -> void:
 	_clear_native_hint()
+	_sensor.reset()
 
 
-## The world entered: drop the old scan and parse the two offerable pose assets while the world is
-## still under its loading cover, so the first hint never loads them inside its scan.
+## The world entered: drop the old sensor and parse the two offerable pose assets while the world
+## is still under its loading cover, so the first hint never loads them inside its scan.
 func on_world(_host: Node) -> void:
 	on_world_closed()
 	for pose: String in [POSE_SPECS.MISSIONARY, POSE_SPECS.STANDING]:
@@ -300,34 +326,51 @@ func on_world(_host: Node) -> void:
 		POSES.warm_asset(asset_path)
 
 
-## A world enter or a world close: drop the offer, the one-shot flags and the hint row of the
-## world that is gone.
+## A world enter or a world close: drop the offer, the one-shot flags, the sensor and the hint row
+## of the world that is gone.
 func on_world_closed() -> void:
 	_offer = null
 	_offer_blocked = null
-	_offer_clock = 0.0
+	_sensor.reset()
+	_seat = null
 	_last_offer_key = ""
 	_last_blocked_key = ""
 	_stool_hint_toast_shown = false
 	_clear_native_hint()
 
 
-## One idle scan: the Agreement, the two bed candidates, then the standing cone. Each business
-## check is one call, and no row list is built on this path.
-func scan() -> void:
-	_offer = null
-	_offer_blocked = null
+## Re-evaluate the offer from the sensor's current candidates. The idle tick calls it on a
+## transition; the press calls it after forcing a fresh sensor read.
+func reconsider() -> void:
+	PERF.begin("offer_reconsider")
+	_reconsider()
+	PERF.end("offer_reconsider")
+
+
+## One full evaluation: the Agreement, the two bed candidates, then the standing fan. Each
+## business check is one call, and no row list is built on this path.
+func _reconsider() -> void:
 	if not is_instance_valid(WORLD.player) or not is_instance_valid(WORLD.game):
+		_offer = null
+		_offer_blocked = null
+		_sensor.focus(null)
 		return
+	# A menu, a paused tree or a loose cursor holds the last offer: the menu hides the hint and
+	# the next sensor transition re-evaluates it.
 	if not WORLD.scan_allowed():
 		return
-	var view: Camera3D = WORLD.camera()
-	if view == null:
+	if WORLD.camera() == null:
+		_offer = null
+		_offer_blocked = null
+		_sensor.focus(null)
 		return
+	_offer = null
+	_offer_blocked = null
+	_sensor.focus(null)
 	var pony_form: bool = WORLD.player_is_pony()
 
 	# A live Agreement owns the hint while it is ready: it is already a yes. While its rows wait
-	# or the presentation turns, the context scan below still finds a hotkey attempt, so a press
+	# or the presentation turns, the scene scan below still finds a hotkey attempt, so a press
 	# can start the exact match immediately or interrupt a different one.
 	if is_instance_valid(negotiation):
 		PERF.begin("offer_agreement")
@@ -337,70 +380,100 @@ func scan() -> void:
 		PERF.end("offer_agreement")
 		if live != null:
 			_offer = live
+			_sensor.focus(live.pony)
 			_log_offer()
 			return
 
 	# Missionary now requires Anon to be seated/lying on the bed with a pony lying there. A
 	# standing or cradling Anon has no valid missionary camera, so that entry is not offered.
-	if not pony_form and WORLD.player.get("seat") != null:
-		var lying: Node = _bedside_pony(view)
-		if is_instance_valid(lying) and PONIES.relationship_ok(lying):
-			var runtime: Node = PONIES.runtime_for(lying)
-			if is_instance_valid(runtime):
-				var bed: Node3D = _gate(runtime).find_bed_under()
-				if bed != null:
-					PERF.begin("offer_checks")
-					var ready := bool(_gate(runtime).hotkey_ready(CATALOG.MISSIONARY,
-						"bed_side", bed))
-					PERF.end("offer_checks")
-					if ready:
-						_offer = _new_offer(runtime, lying, CATALOG.MISSIONARY, "bed_side", bed)
-						_log_offer()
-						return
-
+	if not pony_form and _offer_bed_side(pony_form):
+		return
 	# Missionary, AnonPony: an awake pony already lying on a bed.
-	if pony_form:
-		var lying: Node = _nearest_lying(view)
-		if is_instance_valid(lying) and PONIES.relationship_ok(lying):
-			var runtime: Node = PONIES.runtime_for(lying)
-			if is_instance_valid(runtime):
-				var bed: Node3D = _gate(runtime).find_bed_under()
-				if bed != null:
-					PERF.begin("offer_checks")
-					var ready := bool(_gate(runtime).hotkey_ready(CATALOG.MISSIONARY,
-						"already_lying", bed))
-					PERF.end("offer_checks")
-					if ready:
-						_offer = _new_offer(runtime, lying, CATALOG.MISSIONARY, "already_lying",
-							bed)
-						_log_offer()
-						return
+	if _offer_lying(pony_form):
+		return
+	_offer_standing()
 
-	# Standing: Anon in the cone behind her rump, no crosshair aim. Only clearance and the small
-	# scene checks make her ready.
-	PERF.begin("offer_cone")
-	var standing: Node3D = PONIES.cone_target(view.global_position)
-	PERF.end("offer_cone")
-	if not is_instance_valid(standing) or not PONIES.relationship_ok(standing):
-		return
-	var runtime: Node = PONIES.runtime_for(standing)
+
+## Missionary while a seated or lying Anon has a pony lying beside him on the bed.
+func _offer_bed_side(pony_form: bool) -> bool:
+	if pony_form or WORLD.player.get("seat") == null:
+		return false
+	var lying: Node = _bedside_pony()
+	if not is_instance_valid(lying) or not PONIES.relationship_ok(lying):
+		return false
+	var runtime: Node = PONIES.runtime_for(lying)
 	if not is_instance_valid(runtime):
-		return
-	PERF.begin("offer_stool")
-	var pair: Vector2i = _gate(runtime).stool_pair(CATALOG.STANDING)
-	PERF.end("offer_stool")
-	PERF.begin("offer_checks")
-	var ready := bool(_gate(runtime).hotkey_ready(CATALOG.STANDING, "", null, pair))
-	PERF.end("offer_checks")
-	if ready:
-		_offer = _new_offer(runtime, standing, CATALOG.STANDING, "", null)
+		return false
+	var bed: Node3D = _gate(runtime).find_bed_under()
+	if bed == null or not _candidate_ready(runtime, CATALOG.MISSIONARY, "bed_side", bed):
+		return false
+	_offer = _new_offer(runtime, lying, CATALOG.MISSIONARY, "bed_side", bed)
+	_sensor.focus(lying)
+	_log_offer()
+	return true
+
+
+## Missionary, AnonPony: the best pony already lying in front of the eye and on a bed.
+func _offer_lying(pony_form: bool) -> bool:
+	if not pony_form:
+		return false
+	var lying: Node3D = _sensor.lying()
+	if not is_instance_valid(lying):
+		return false
+	var runtime: Node = PONIES.runtime_for(lying)
+	if not is_instance_valid(runtime):
+		return false
+	var bed: Node3D = _gate(runtime).find_bed_under()
+	if bed == null or not _candidate_ready(runtime, CATALOG.MISSIONARY, "already_lying", bed):
+		return false
+	if not PONIES.relationship_ok(lying):
+		return false
+	_offer = _new_offer(runtime, lying, CATALOG.MISSIONARY, "already_lying", bed)
+	_sensor.focus(lying)
+	_log_offer()
+	return true
+
+
+## Standing: Anon in the fan behind her rump, no crosshair aim, nearest act target first. Only
+## clearance and the small scene checks make her ready.
+func _offer_standing() -> void:
+	for candidate: Node3D in _sensor.candidates():
+		if not PONIES.act_target(candidate):
+			continue
+		var runtime: Node = PONIES.runtime_for(candidate)
+		if not is_instance_valid(runtime):
+			continue
+		if not _candidate_ready(runtime, CATALOG.STANDING, "", null):
+			continue
+		if not PONIES.relationship_ok(candidate):
+			continue
+		PERF.begin("offer_stool")
+		var pair: Vector2i = _gate(runtime).stool_pair(CATALOG.STANDING)
+		PERF.end("offer_stool")
+		if pair.x > 0 and pair.y < pair.x:
+			var blocked_offer := _new_offer(runtime, candidate, CATALOG.STANDING, "", null)
+			blocked_offer.blocked = _blocked_record(pair.x, _stool_hint_for(pair.x))
+			_offer_blocked = blocked_offer
+			_log_blocked_offer(runtime, candidate, pair.x)
+			return
+		_offer = _new_offer(runtime, candidate, CATALOG.STANDING, "", null)
+		_sensor.focus(candidate)
 		_log_offer()
 		return
-	if pair.x > 0 and pair.y < pair.x:
-		var blocked_offer := _new_offer(runtime, standing, CATALOG.STANDING, "", null)
-		blocked_offer.blocked = _blocked_record(pair.x, _stool_hint_for(pair.x))
-		_offer_blocked = blocked_offer
-		_log_blocked_offer(runtime, standing, pair.x)
+
+
+## The scene checks the hint and the press share, without the composite's duplicate reads.
+func _candidate_ready(runtime: Node, pose: String, source: String, bed: Variant) -> bool:
+	var gate: Variant = _gate(runtime)
+	if not gate.available():
+		return false
+	if not gate.pose_supported(pose, source):
+		return false
+	if not gate.player_ready(pose, source, bed):
+		return false
+	if not gate.navigator_allows(pose, source):
+		return false
+	return gate.posture_allows(pose)
 
 
 ## The prompt-row hint: the offer, else the blocked note, else nothing. With neither, both logged
@@ -584,7 +657,7 @@ func _log_offer() -> void:
 		_offer.pose, _offer.source, str(_offer.bed), str(_offer.pending)])
 
 
-func _bedside_pony(_view: Camera3D) -> Node:
+func _bedside_pony() -> Node:
 	# The player's bed/couch seat knows exactly who lies beside Anon.
 	if is_instance_valid(WORLD.player):
 		var seat := GAME.seat_of(WORLD.player)
@@ -596,31 +669,3 @@ func _bedside_pony(_view: Camera3D) -> Node:
 			if partner != null and PONIES.act_target(partner):
 				return partner
 	return null
-
-
-func _nearest_lying(view: Camera3D) -> Node:
-	if view == null:
-		return null
-	var best: Node
-	var best_dot := 0.78
-	var forward := -view.global_basis.z
-	for node: Variant in WORLD.mares():
-		if not is_instance_valid(node):
-			continue
-		var actor: Node3D = node as Node3D
-		if actor == null or not actor.has_method("posture_status"):
-			continue
-		if not PONIES.act_target(actor):
-			continue
-		var status: Dictionary = actor.posture_status()
-		if str(status.get("requested", "")) != "lie_down":
-			continue
-		var at := actor.global_position + Vector3.UP * 0.5
-		var delta := at - view.global_position
-		if delta.length() > 3.2:
-			continue
-		var dot := forward.dot(delta.normalized())
-		if dot > best_dot:
-			best_dot = dot
-			best = actor
-	return best

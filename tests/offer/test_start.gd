@@ -49,6 +49,21 @@ class FakeRuntime extends Node:
 	func _init() -> void:
 		gate = self
 
+	func available() -> bool:
+		return gate_ready
+
+	func pose_supported(_pose: String, _source: String) -> bool:
+		return true
+
+	func player_ready(_pose: String, _source: String, _bed: Variant) -> bool:
+		return true
+
+	func navigator_allows(_pose: String, _source: String) -> bool:
+		return true
+
+	func posture_allows(_pose: String) -> bool:
+		return true
+
 	func hotkey_ready(_pose: String, _source: String, _bed: Variant,
 			_pair := Vector2i(-1, -1)) -> bool:
 		return gate_ready
@@ -231,16 +246,15 @@ func check_act_key() -> void:
 	_free(empty)
 
 
-## A standing gate that wants a footstool blocks the press: the hint names the need, the scan
-## toasts once and the press shows the recorded toast again, and nothing starts.
+## A standing gate that wants a footstool blocks the press: the hint names the need, the idle
+## frame toasts once and the press shows the recorded toast again, and nothing starts.
 func check_blocked() -> void:
 	var made := _fixture()
 	var service: OFFER = made["service"]
 	var runtime: FakeRuntime = made["runtime"]
 	var hud: FakeHud = made["hud"]
-	runtime.gate_ready = false
 	runtime.stool = {"need": 1, "have": 0}
-	service.scan()
+	service.tick(0.2)
 	check(service.current() == null, "a blocked gate offers nothing to start")
 	check(service.blocked() != null, "the blocked gate records an offer")
 	check(hud.toasts == ["Find a footstool in a house."], "the block toasts once")

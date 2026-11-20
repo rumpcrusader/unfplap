@@ -1,0 +1,195 @@
+extends SceneTree
+## The offer fan sensor: the standing fan boundary, the candidate distance order, the lying
+## candidate, the scene fingerprint transitions, the far-mare silence and the act-inert state.
+##   godot --headless --xr-mode off --path <project> \
+##     --script res://mods/unfplap/tests/offer/test_fan_sensor.gd
+
+const SENSOR := preload("res://mods/unfplap/offer/fan_sensor.gd")
+const PONIES := preload("res://mods/unfplap/ponies/service.gd")
+const WORLD := preload("res://mods/unfplap/world/service.gd")
+
+var failures := 0
+var checks := 0
+
+
+class FakeMare extends Node3D:
+	var requested := "stand"
+	var settled := true
+	var sleeping := false
+	var held := false
+	var speed := 0.0
+
+	func posture_status() -> Dictionary:
+		return {"requested": requested, "settled": settled}
+
+	func is_held() -> bool:
+		return held
+
+	func grounded() -> bool:
+		return true
+
+	func action_interruption_reason() -> String:
+		return ""
+
+
+class FakeGame extends Node:
+	var mares: Array = []
+	var headset_view := false
+
+
+func _initialize() -> void:
+	run.call_deferred()
+
+
+func check(ok: bool, text: String) -> void:
+	checks += 1
+	if not ok:
+		failures += 1
+		print("FAIL ", text)
+
+
+func run() -> void:
+	_check_fan_boundary()
+	_check_order_and_focus()
+	_check_lying()
+	_check_fingerprint_and_far_mare()
+	_check_reset_and_act()
+	print("FAN_SENSOR_RESULT checks=%d failures=%d" % [checks, failures])
+	if failures == 0:
+		print("FAN_SENSOR_PASS")
+	quit(0 if failures == 0 else 1)
+
+
+## The fan is the rump's reach and half-plane; a held mare is still a candidate until the poll.
+func _check_fan_boundary() -> void:
+	var made := _fixture()
+	var sensor := SENSOR.new()
+	var mare: FakeMare = made["mare"]
+	var eye := Vector3(0.0, 1.6, 2.10)
+	check(sensor.update(0.2, eye, Vector3(0.0, 0.0, -1.0), false),
+		"the first read reports a transition")
+	check(sensor.candidates().size() == 1 and sensor.candidates()[0] == mare,
+		"a point at the fan's reach is inside")
+	check(not sensor.update(0.2, eye, Vector3(0.0, 0.0, -1.0), false),
+		"a stationary fan reports nothing")
+	eye = Vector3(0.0, 1.6, 2.20)
+	sensor.update(0.2, eye, Vector3(0.0, 0.0, -1.0), false)
+	check(sensor.candidates().is_empty(), "a point past the reach is outside")
+	mare.basis = Basis(Vector3.UP, PI)
+	eye = Vector3(0.0, 1.6, 0.5)
+	sensor.update(0.2, eye, Vector3(0.0, 0.0, -1.0), false)
+	check(sensor.candidates().is_empty(), "a point in front of her is outside the fan")
+	_free(made, sensor)
+
+
+## The candidates arrive nearest first, and the focus follows the offer.
+func _check_order_and_focus() -> void:
+	var made := _fixture()
+	var sensor := SENSOR.new()
+	var far: FakeMare = made["mare"]
+	var near := _mare(Vector3(0.0, 0.0, 1.2), "near")
+	(made["game"] as FakeGame).mares.append(near)
+	var eye := Vector3(0.0, 1.6, 2.10)
+	sensor.update(0.2, eye, Vector3(0.0, 0.0, -1.0), false)
+	check(sensor.candidates().size() == 2, "both fan points are candidates")
+	check(sensor.candidates()[0] == near, "the nearer candidate is first")
+	sensor.focus(near)
+	check(sensor.update(0.2, eye, Vector3(0.0, 0.0, -1.0), false) == false,
+		"a focus baseline alone reports nothing")
+	far.requested = "lie_down"
+	check(sensor.update(0.2, eye, Vector3(0.0, 0.0, -1.0), false),
+		"a candidate leaving the fan reports a transition")
+	_free(made, sensor)
+
+
+## AnonPony's lying candidate is the best-facing mare in front, within the lying reach.
+func _check_lying() -> void:
+	var made := _fixture()
+	var sensor := SENSOR.new()
+	var mare: FakeMare = made["mare"]
+	mare.requested = "lie_down"
+	var eye := Vector3(0.0, 1.6, 2.0)
+	var forward := Vector3(0.0, 0.0, -1.0)
+	sensor.update(0.2, eye, forward, true)
+	check(sensor.lying() == mare, "a lying mare in front is the lying candidate")
+	sensor.reset()
+	sensor.update(0.2, eye, forward, false)
+	check(sensor.lying() == null, "human Anon has no lying candidate")
+	mare.requested = "stand"
+	sensor.reset()
+	sensor.update(0.2, eye, forward, false)
+	check(sensor.candidates().size() == 1, "a standing mare is a fan candidate")
+	_free(made, sensor)
+
+
+## The scene fingerprint polls the candidates only: a state change inside the fan reports a
+## transition, a change of a mare outside it does not.
+func _check_fingerprint_and_far_mare() -> void:
+	var made := _fixture()
+	var sensor := SENSOR.new()
+	var mare: FakeMare = made["mare"]
+	var far := _mare(Vector3(0.0, 0.0, -8.0), "far")
+	(made["game"] as FakeGame).mares.append(far)
+	var eye := Vector3(0.0, 1.6, 2.10)
+	var forward := Vector3(0.0, 0.0, -1.0)
+	sensor.update(0.2, eye, forward, false)
+	check(not sensor.update(0.016, eye, forward, false), "a no-op frame is silent")
+	check(not sensor.update(0.2, eye, forward, false), "a quiet poll is silent")
+	mare.held = true
+	check(sensor.update(0.2, eye, forward, false), "a held candidate reports a transition")
+	far.held = true
+	check(not sensor.update(0.2, eye, forward, false), "a far mare's change is silent")
+	_free(made, sensor)
+
+
+## A reset reports the next read, and a live act clears the fan without a transition.
+func _check_reset_and_act() -> void:
+	var made := _fixture()
+	var sensor := SENSOR.new()
+	var eye := Vector3(0.0, 1.6, 2.10)
+	var forward := Vector3(0.0, 0.0, -1.0)
+	sensor.update(0.2, eye, forward, false)
+	sensor.reset()
+	check(sensor.update(0.2, eye, forward, false), "a reset reports the next read")
+	var holder := Node.new()
+	PONIES.set_active(holder)
+	check(not sensor.update(0.2, eye, forward, false), "a live act reports nothing")
+	check(sensor.candidates().is_empty(), "a live act clears the fan")
+	PONIES.clear_active(holder)
+	check(sensor.update(0.2, eye, forward, false), "the idle fan returns after the act")
+	holder.free()
+	_free(made, sensor)
+
+
+func _fixture() -> Dictionary:
+	var game := FakeGame.new()
+	game.name = "FakeGame"
+	root.add_child(game)
+	var mare := _mare(Vector3.ZERO, "near")
+	game.mares = [mare]
+	PONIES.offer = null
+	PONIES.stock_smack = null
+	PONIES.eligibility = null
+	WORLD.bind_world(game)
+	return {"game": game, "mare": mare}
+
+
+func _mare(at: Vector3, mare_name: String) -> FakeMare:
+	var mare := FakeMare.new()
+	mare.name = mare_name
+	root.add_child(mare)
+	mare.global_position = at
+	return mare
+
+
+func _free(made: Dictionary, sensor: Variant) -> void:
+	sensor.reset()
+	WORLD.unbind()
+	for mare: Node in (made["game"] as FakeGame).mares:
+		if is_instance_valid(mare) and mare.get_parent() != null:
+			mare.get_parent().remove_child(mare)
+			mare.free()
+	var game: Node = made["game"]
+	if is_instance_valid(game) and game.get_parent() != null:
+		game.get_parent().remove_child(game)
+		game.free()

@@ -8,12 +8,12 @@ Readiness is `docs/readiness.md`; the afterglow phase is `docs/afterglow.md`; th
 
 ## Ownership
 
-`summary/service.gd` is the system facade. It owns the summary trigger and commit, the summary input and
-context shape the pure scorer reads (`summary_inputs()`, `summary_context()`) and the peak-memory
-record. The stored ledger is read from `shared/act_history.gd` directly, by this facade and by every
-other consumer. `act/session.gd` keeps the act state machine; `act/view.gd` gathers the action
-counters and the scene values into the typed input the scorer reads; `act/exit.gd` owns the stop
-ledger, and the face and line presentation belong to `docs/face.md` and `docs/dialogue.md`.
+`summary/service.gd` is the system facade. It owns the summary trigger and commit, the typed
+`Inputs`/`Context` records the pure scorer reads (`summary_inputs()`, `summary_context()`) and the
+peak-memory record. The stored ledger is read from `shared/act_history.gd` directly, by this facade
+and by every other consumer. `act/session.gd` keeps the act state machine; `act/view.gd` gathers the
+action counters and the scene values into the typed input the scorer reads; `act/exit.gd` owns the
+stop ledger, and the face and line presentation belong to `docs/face.md` and `docs/dialogue.md`.
 `summary/score.gd` and
 `shared/act_history.gd` remain the pure scoring and stored-row modules behind the facade. The
 neglect-tolerance meter is readiness and the idle history scan is dialogue; see

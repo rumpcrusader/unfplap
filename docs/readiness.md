@@ -13,7 +13,9 @@ keeps the state machine and the face beats, and `act/consent.gd` presents a tole
 `begin_climax()` owns the climax count, mood and cue; `end_climax()` owns the post-climax reset;
 `clear_cues()` drops the live cue for the held afterglow and the close reward. The runtime calls `readiness.stroke()`, `touch()`, `talk()` and `tick()`;
 readiness owns the counters the summary reads and the one-second impact window. It
-also owns the auto-thrust generator, the hold-X panel policy and their defaults.
+also owns the auto-thrust generator, the hold-X panel policy and their defaults. The act hands it
+the per-mare profile as the facade's typed `Profile` record; the profile math and defaults stay in
+`shared/preferences.gd`.
 
 `readiness/thrust.gd`, `readiness/auto_thrust.gd`, `readiness/auto_panel.gd` and
 `readiness/tolerance.gd` are pure modules behind the facade. `input/service.gd` reads the input
@@ -189,8 +191,9 @@ a settings edit reaches warnings, relief, decay and both stop cooldowns on the n
 | Normal | at `tolerance.normal_warning_1`, then `normal_warning_2` | at `tolerance.normal_stop` |
 | Strict | at `tolerance.strict_warning` | at `tolerance.strict_stop` |
 
-Readiness queues at most one decision per frame (`take_tolerance_decision()`);
-`act/consent.gd:tick()` returns `NONE`, `WARN` or `STOP`. A warning presents itself as a HUD cue
+Readiness queues at most one decision per frame (`take_tolerance_decision()`); the decision is a
+typed record (`warning`, `stop`, `distress`, `kind`), and `act/consent.gd:tick()` returns `NONE`,
+`WARN` or `STOP`. A warning presents itself as a HUD cue
 and one short spoken line; a stop is the one verb the runtime applies through `_stop_with_her()`.
 Warnings and the stop line always speak. The stop's summary, memory note, cooldown and mood are in
 `docs/summary.md`; its buck/push is `docs/scene_gate.md`.

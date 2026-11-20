@@ -50,7 +50,7 @@ tree.
 
 | Method | Contract |
 |---|---|
-| `configure(pacing)` | push the seven pacing values once per settings snapshot |
+| `configure(pacing)` | push the seven pacing values once per settings snapshot (a typed `Pacing` record) |
 | `reset(now, gap)` | start a fresh act: clear the slot, serial, recent angles, memories and bystander state; keep the pacing |
 | `admit_cue(now)` | observe the cue, apply the gates in order, log a change, queue one cue prompt; returns the key or `""` |
 | `tick()` | release a delivered line, drop an absent row and expire a queued/generating row at its max age |
@@ -65,7 +65,7 @@ tree.
 | `history_note(pony_id)` / `relationship_note(pony_id, event_id)` | the stored-history and private relationship notes |
 | `climax_line(mouth_busy, cue, act_id, count, max_age)` | the one generated climax line and its validity window |
 | `stop_oral_turn(pony_id)` | interrupt the shared director only when it drives this mare |
-| `prompt_note(values)` | the pure note assembly's facade entry |
+| `prompt_note(values)` | the pure note assembly's facade entry, from a typed `PromptValues` record |
 | `scheduler()` | the pure scheduler, for the facade's own calls and the facade suite |
 
 ## Admission
@@ -116,6 +116,8 @@ both from the body-change service's stored form.
 
 A reaction is `memory.reaction_line`: a `LineRequest` with `LineKind.REACTION`. It never waits for
 a quiet channel, but `note_reaction()` resets the shared gap so a cue cannot follow immediately.
+Every reaction carries a `Validity` record; its `test` callable is the rule the memory channel
+re-asks when the line is delivered, so a stale line is dropped and a speaking one may finish.
 The act's reactions are climax, intentional early end, history refusal, the tolerance
 warning/stop and the body-change offer (`form_offer`). The offer uses the provider policy's prompt
 as the fallback when the mare has no `event_form_offer` setting, and it is queued once per act from
@@ -123,7 +125,7 @@ the body-change handover's offer tick.
 
 The bystander pass is always on. It uses `memory.observers()` and the modern witness perception.
 It starts after 12 s, repeats every 20 s, has a 70 % roll and caps at three lines. Its validity
-closure checks the observer, the act event id and `ACTIVE`/`CLIMAX`. Indoors/outdoors wording comes from
+rule checks the observer, the act event id and `ACTIVE`/`CLIMAX`. Indoors/outdoors wording comes from
 `house_interior.gd`.
 
 ## Idle history scan

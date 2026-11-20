@@ -128,6 +128,10 @@ behaviour exactly, and a game update that renames one is a change here rather th
 | `GAME.posture_requested(pony)` | `posture_status().requested` | `String` | empty |
 | `GAME.posture_settled(pony)` | `posture_status().settled` | `bool` | `false` |
 | `GAME.interruption_reason(pony)` | `action_interruption_reason` | `String` | empty |
+| `GAME.interrupt_director(director)` | `interrupt` | — | no call |
+| `GAME.director_speaking(director)` | the director's `state` | `bool` | `false` |
+| `GAME.pony_speaking(pony)` | `is_speaking` | `bool` | `false` |
+| `GAME.prepare_vocal(director, pony_id)` | the director's `vocal.prepare` | — | no call |
 | `GAME.affection_buck(affection, body)` | `Affection.buck` | `bool` | `false` |
 | `GAME.kisser_of(game)` | the scene's `kisser` | `Node` | `null` |
 | `GAME.begin_from_pony(kisser, pony)` | `pony_kisser.begin_from_pony` | `bool` | `false` |

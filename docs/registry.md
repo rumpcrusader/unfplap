@@ -28,21 +28,30 @@ the base game.
 
 ## Internal API
 
-`registry/service.gd` extends `RefCounted` and exposes static methods:
+`registry/service.gd` extends `RefCounted` and exposes static methods. Each payload is a typed
+record; a provider's dictionary is read only at the edge:
 
 ```gdscript
-static func register(owner_id: int, descriptor: Dictionary) -> Dictionary
-static func set_profile(owner_id: int, source: String, id: String, profile: Dictionary) -> Dictionary
+static func register(owner_id: int, descriptor: Descriptor) -> Result
+static func set_profile(owner_id: int, source: String, id: String, identity: Identity) -> Result
 static func unregister(owner_id: int, id: String) -> bool
 static func unregister_owner(owner_id: int) -> int
-static func template_for(id: String) -> Dictionary
-static func placement(id: String) -> Dictionary
+static func template_for(id: String) -> Profile
+static func placement(id: String) -> Placement
 static func name_for(id: String) -> String
 static func has(id: String) -> bool
 static func ids() -> Array[String]
 static func sources(id: String) -> Array[String]
 static func reset() -> void
 ```
+
+`Descriptor` carries whatever document a provider sent, and `register` checks each recognised key,
+so a bad type is reported rather than silently converted. `Result` is the API's return shape
+(`ok`, `id`, `source`, `replaced`, `warnings`, `errors`) and `to_dict()` hands it to another mod.
+`Profile` is the merged template, `Placement` the ten placement fields a provider actually wrote
+(an empty record means no provider placement), and `Identity` the identity half of a layer. An
+identity field a provider left out is not applied, so the rest of its template survives a
+re-registration.
 
 `revision` bumps on every layer change, so a derived cache (the resolved identity facts) can
 rebuild when a provider registers, updates or leaves.

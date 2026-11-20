@@ -131,6 +131,18 @@ behaviour exactly, and a game update that renames one is a change here rather th
 | `GAME.interrupt_director(director)` | `interrupt` | — | no call |
 | `GAME.director_speaking(director)` | the director's `state` | `bool` | `false` |
 | `GAME.pony_speaking(pony)` | `is_speaking` | `bool` | `false` |
+| `GAME.relationship_runtime(game)` | `relationship_runtime` | `Node` | `null` |
+| `GAME.relationship_bonds(runtime)` | the runtime's `bonds` | `Object` | `null` |
+| `GAME.relationship_ladder(runtime, id)` | `ladder` | `LADDER`, a typed view | absent view |
+| `GAME.story_of(context)` | the world context's `story` | `Object` | `null` |
+| `GAME.story_store(story)` | the journal's `store` | `Object` | `null` |
+| `GAME.story_open(story)` | `is_open` | `bool` | `false` |
+| `GAME.story_last_line_id(store)` | `last_line_id` | `int` | `-1` |
+| `GAME.story_search(store, pony, words, before, limit)` | `search` | `Array[StoryRow]`, a copy | empty |
+| `GAME.story_witnessed(store, pony, limit, before, kinds)` | `witnessed` | `Array[StoryRow]`, a copy | empty |
+| `GAME.story_line_text(story, row, pony, with_day)` | `line_text` | `String` | empty |
+| `GAME.world_record(context, kind, text, witnesses, subjects, event_id, place)` | `record` | — | no write |
+| `GAME.impression_commit(impressions, id, mood, romance, thought, event_id)` | `commit` | `bool` | `false` |
 | `GAME.director_now(director)` | the director's `_now` (private) | `float` | `NAN` |
 | `GAME.subsystem_active(node)` | an approach or group's `active` | `bool` | `false` |
 | `GAME.director_lines(director)` | the director's `begin_player_greeting`, `queue_generated_intent`, `cancel_authored_line` | `DirectorLines` | no call |

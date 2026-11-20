@@ -13,6 +13,8 @@ const PLACEMENT := preload("res://mods/unfplap/shared/anatomy_placement.gd")
 const ACT_KEYS := preload("res://mods/unfplap/shared/act_keys.gd")
 const DEFAULTS := preload("res://mods/unfplap/shared/defaults_data.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
+const ROWS := preload("res://mods/unfplap/settings/rows.gd")
+const PROFILE := preload("res://mods/unfplap/settings/profile.gd")
 const ID := "unfplap"
 const FILE := "settings.json"
 ## The shipped settings document: one value per declared setting and the global `default` profile.
@@ -1978,43 +1980,36 @@ static func _path() -> String:
 
 
 static func act_prompt(id: String, key: String) -> String:
-	var prompts: Variant = template_for(id).get("act_prompts", {})
-	if prompts is Dictionary:
-		return str((prompts as Dictionary).get(key, ""))
-	return ""
+	var prompts: Dictionary = template_for(id).rows("act_prompts").raw()
+	return str(prompts.get(key, ""))
 
 
 static func event_prompt(id: String, event: String) -> String:
-	var prompts: Variant = template_for(id).get("event_prompts", {})
-	if prompts is Dictionary:
-		return str((prompts as Dictionary).get(event, ""))
-	return ""
+	var prompts: Dictionary = template_for(id).rows("event_prompts").raw()
+	return str(prompts.get(event, ""))
 
 
-static func preferences(id: String) -> Dictionary:
+static func preferences(id: String) -> ROWS.Rows:
 	var template := template_for(id)
-	var value: Variant = template.get("preferences", {})
-	if value is Dictionary:
-		return PREFERENCES.resolve(value)
-	return PREFERENCES.defaults()
+	return ROWS.Rows.of(PREFERENCES.resolve(template.rows("preferences").raw()))
 
 
 ## The preference profile a character returns to when her saved override is removed: her built-in
 ## template plus any provider layer for a known or registered mare, the global default otherwise.
-static func default_preferences_for(base: Dictionary, id: String) -> Dictionary:
-	var template := profile_for(base, {}, id)
-	return PREFERENCES.resolve(template.get("preferences", {}))
+static func default_preferences_for(base: ROWS.Rows, id: String) -> ROWS.Rows:
+	var template := _profile_merge(base.raw(), {}, id)
+	return ROWS.Rows.of(PREFERENCES.resolve(template.get("preferences", {})))
 
 
-static func default_preferences(id: String) -> Dictionary:
+static func default_preferences(id: String) -> ROWS.Rows:
 	var data := _read()
-	return default_preferences_for(_profile_base(data), id)
+	return default_preferences_for(ROWS.Rows.of(_profile_base(data)), id)
 
 
 ## Compare two preference profiles. Arrays are sets, so a reordered saved list still matches.
-static func preferences_match(a: Dictionary, b: Dictionary) -> bool:
-	var left := PREFERENCES.resolve(a)
-	var right := PREFERENCES.resolve(b)
+static func preferences_match(a: ROWS.Rows, b: ROWS.Rows) -> bool:
+	var left := PREFERENCES.resolve(a.raw())
+	var right := PREFERENCES.resolve(b.raw())
 	for key: String in ["intensity", "pattern", "warmth", "tolerance", "notes", "teat_size"]:
 		if str(left.get(key, "")) != str(right.get(key, "")):
 			return false
@@ -2090,7 +2085,7 @@ static func _dict_diff(value: Variant, reference: Variant) -> Variant:
 
 ## integration: her consent for the optional anatomy actions. A per-character override wins, else
 ## the id's deterministic defaults. Memoized on the settings generation and provider revision.
-static func consent(id: String) -> Dictionary:
+static func consent(id: String) -> ROWS.Rows:
 	# A pending `reload_file()` must bump the generation before the cache check, not after.
 	_read()
 	if _consent_generation != generation or _consent_revision != MARE_REGISTRY.revision:
@@ -2099,16 +2094,16 @@ static func consent(id: String) -> Dictionary:
 		_consent_cache.clear()
 	var cached: Variant = _consent_cache.get(id)
 	if cached is Dictionary:
-		return (cached as Dictionary).duplicate(true)
+		return ROWS.Rows.of((cached as Dictionary).duplicate(true))
 	var template := template_for(id)
-	var resolved := CONSENT.resolve(id, template.get("consent", {}))
+	var resolved := CONSENT.resolve(id, template.rows("consent").raw())
 	_consent_cache[id] = resolved
-	return resolved.duplicate(true)
+	return ROWS.Rows.of(resolved.duplicate(true))
 
 
 ## integration: save only the consent block. Preferences, prompts and poses are preserved. Like
 ## preferences, only differences from her resolved consent defaults are stored.
-static func save_consent(id: String, values: Dictionary) -> void:
+static func save_consent(id: String, values: ROWS.Rows) -> void:
 	var data := _draft()
 	var characters: Variant = data.get("characters", {})
 	if not characters is Dictionary:
@@ -2120,7 +2115,7 @@ static func save_consent(id: String, values: Dictionary) -> void:
 	var character: Dictionary = entry
 	var base := _profile_base(data)
 	var defaults := _profile_consent(base, id)
-	var cleaned := CONSENT.clean(values)
+	var cleaned := CONSENT.clean(values.raw())
 	var diff: Dictionary = {}
 	for key: String in CONSENT.KEYS:
 		if cleaned.has(key) and bool(cleaned[key]) != bool(defaults.get(key, false)):
@@ -2143,14 +2138,14 @@ static func save_consent(id: String, values: Dictionary) -> void:
 ## The consent a character gets from her built-in template plus provider layers, before the
 ## player's saved differences.
 static func _profile_consent(base: Dictionary, id: String) -> Dictionary:
-	var template := profile_for(base, {}, id)
+	var template := _profile_merge(base, {}, id)
 	return CONSENT.resolve(id, template.get("consent", {}))
 
 
 ## The participation block a character gets from her built-in template plus provider layers; the
 ## provider's `eligible` assertion lives outside it.
 static func _profile_participation(base: Dictionary, id: String) -> Dictionary:
-	var template := profile_for(base, {}, id)
+	var template := _profile_merge(base, {}, id)
 	return PARTICIPATION.resolve(_profile_participation_raw(template))
 
 
@@ -2163,7 +2158,7 @@ static func _profile_participation_raw(template: Dictionary) -> Variant:
 
 ## The identity half of a mare's resolved profile: the provider-only `eligible` assertion and the
 ## participation block. Memoized on the settings generation and provider revision.
-static func profile_identity(id: String) -> Dictionary:
+static func profile_identity(id: String) -> ROWS.Rows:
 	var data := _read()
 	if _identity_generation != generation or _identity_revision != MARE_REGISTRY.revision:
 		_identity_generation = generation
@@ -2171,27 +2166,32 @@ static func profile_identity(id: String) -> Dictionary:
 		_identity_cache.clear()
 	var cached: Variant = _identity_cache.get(id)
 	if cached is Dictionary:
-		return (cached as Dictionary).duplicate(true)
-	var template := profile_for(_profile_base(data), data.get("characters", {}), id)
+		return ROWS.Rows.of((cached as Dictionary).duplicate(true))
+	var template := _profile_merge(_profile_base(data), _profile_characters(data), id)
+	var resolved: Dictionary = {}
 	var raw: Variant = template.get("eligible", null)
-	var resolved := {
-		"eligible": raw if raw is bool else null,
-		"participation": PARTICIPATION.resolve(_profile_participation_raw(template)),
-	}
+	if raw is bool:
+		resolved["eligible"] = bool(raw)
+	resolved["participation"] = PARTICIPATION.resolve(_profile_participation_raw(template))
 	_identity_cache[id] = resolved
-	return resolved.duplicate(true)
+	return ROWS.Rows.of(resolved.duplicate(true))
 
 
 ## The resolved participation block for a mare: built-in default, provider layer, then her saved
 ## differences. It is a subtractive layer, so `true` means "does not veto".
-static func profile_participation(id: String) -> Dictionary:
-	return profile_identity(id).get("participation", {})
+static func profile_participation(id: String) -> ROWS.Rows:
+	return profile_identity(id).rows("participation")
+
+
+## Whether a provider asserted an eligibility value for the mare; without one the game decides.
+static func profile_has_assertion(id: String) -> bool:
+	return profile_identity(id).has("eligible")
 
 
 ## The resolved provider-only `eligible` assertion. `true`/`false` is a provider's assertion;
-## `null` means the pony's identity decides. The player's saved block never carries it.
-static func profile_eligible(id: String) -> Variant:
-	return profile_identity(id).get("eligible", null)
+## `profile_has_assertion()` distinguishes an absent one. The player's saved block never carries it.
+static func profile_eligible(id: String) -> bool:
+	return profile_identity(id).bool_value("eligible", false)
 
 
 ## Provider mod ids that registered a layer for one mare, in resolution order.
@@ -2201,18 +2201,18 @@ static func provider_sources(id: String) -> Array[String]:
 
 ## The participation block a character returns to when her saved override is removed: her
 ## built-in template plus any provider layer, the global default otherwise.
-static func default_participation_for(base: Dictionary, id: String) -> Dictionary:
-	return _profile_participation(base, id)
+static func default_participation_for(base: ROWS.Rows, id: String) -> ROWS.Rows:
+	return ROWS.Rows.of(_profile_participation(base.raw(), id))
 
 
-static func default_participation(id: String) -> Dictionary:
+static func default_participation(id: String) -> ROWS.Rows:
 	var data := _read()
-	return default_participation_for(_profile_base(data), id)
+	return default_participation_for(ROWS.Rows.of(_profile_base(data)), id)
 
 
 ## Save only the participation block; preferences, consent, prompts and poses are preserved, and
 ## only keys that differ from her resolved default are stored.
-static func save_participation(id: String, values: Dictionary) -> void:
+static func save_participation(id: String, values: ROWS.Rows) -> void:
 	var data := _draft()
 	var characters: Variant = data.get("characters", {})
 	if not characters is Dictionary:
@@ -2224,7 +2224,7 @@ static func save_participation(id: String, values: Dictionary) -> void:
 	var character: Dictionary = entry
 	var base := _profile_base(data)
 	var defaults := _profile_participation(base, id)
-	var cleaned := PARTICIPATION.clean(values)
+	var cleaned := PARTICIPATION.clean(values.raw())
 	var diff: Dictionary = {}
 	for key: String in PARTICIPATION.KEYS:
 		if cleaned.has(key) and bool(cleaned[key]) != bool(defaults.get(key, true)):
@@ -2291,7 +2291,7 @@ static func character_name(id: String) -> String:
 
 ## Save only the preference block; prompts and poses are preserved. Only keys that differ from her
 ## resolved default are stored, so a provider update still reaches the rest.
-static func save_preferences(id: String, preferences: Dictionary) -> void:
+static func save_preferences(id: String, preferences: ROWS.Rows) -> void:
 	var data := _draft()
 	var characters: Variant = data.get("characters", {})
 	if not characters is Dictionary:
@@ -2302,10 +2302,10 @@ static func save_preferences(id: String, preferences: Dictionary) -> void:
 		entry = {}
 	var character: Dictionary = entry
 	var base := _profile_base(data)
-	var defaults := default_preferences_for(base, id)
+	var defaults := default_preferences_for(ROWS.Rows.of(base), id)
 	# A partial input changes only the keys it names; missing keys keep the resolved default.
-	var intended := PREFERENCES.resolve(_merge(defaults, preferences))
-	var diff := _preferences_diff(intended, defaults)
+	var intended := PREFERENCES.resolve(_merge(defaults.raw(), preferences.raw()))
+	var diff := _preferences_diff(intended, defaults.raw())
 	if diff.is_empty():
 		character.erase("preferences")
 	else:
@@ -2691,7 +2691,7 @@ static func data() -> Dictionary:
 
 
 static func aftercare_min(id: String) -> int:
-	return clampi(int(template_for(id).get("aftercare_min", 10)), 0, 100)
+	return clampi(int(template_for(id).raw().get("aftercare_min", 10)), 0, 100)
 
 
 ## A cue line cannot repeat faster than this per mare. Values outside the band are clamped so
@@ -2701,22 +2701,35 @@ static func cue_gap_value(value: float) -> float:
 
 
 static func cue_gap(id: String) -> float:
-	return cue_gap_value(float(template_for(id).get("cue_gap", 12.0)))
+	return cue_gap_value(float(template_for(id).raw().get("cue_gap", 12.0)))
 
 
 ## The merged default + per-character template actually used at runtime, with pose and preference
 ## blocks filled from their catalogs.
-static func template_for(id: String) -> Dictionary:
+static func template_for(id: String) -> ROWS.Rows:
 	var data := _read()
-	return profile_for(
-		_profile_base(data),
-		data.get("characters", {}),
-		id)
+	return ROWS.Rows.of(
+		_profile_merge(_profile_base(data), _profile_characters(data), id))
+
+
+## The four resolved views of the same merge, for a caller that reads a named block only.
+static func profile_for(base: ROWS.Rows, characters: ROWS.Rows, id: String) -> PROFILE.Profile:
+	var template := _profile_merge(base.raw(), characters.raw(), id)
+	var identity: Dictionary = {}
+	var raw: Variant = template.get("eligible", null)
+	if raw is bool:
+		identity["eligible"] = bool(raw)
+	identity["participation"] = PARTICIPATION.resolve(_profile_participation_raw(template))
+	return PROFILE.Profile.of(
+		ROWS.Rows.of(CONSENT.resolve(id, template.get("consent", {}))),
+		ROWS.Rows.of(template.get("preferences", {})),
+		ROWS.Rows.of(PARTICIPATION.resolve(_profile_participation_raw(template))),
+		ROWS.Rows.of(identity))
 
 
 ## Merge for tests and `template_for`: built-in template, then provider layers, then the saved
 ## player differences. Provider layers are process state, so tests that register one reset it.
-static func profile_for(base: Dictionary, characters: Variant, id: String) -> Dictionary:
+static func _profile_merge(base: Dictionary, characters: Dictionary, id: String) -> Dictionary:
 	var selected: Dictionary = base.duplicate(true)
 	# A known mare's whole template is the base for provider and player layers, so removing a
 	# saved override returns to her shipped template instead of the global default.
@@ -2726,8 +2739,8 @@ static func profile_for(base: Dictionary, characters: Variant, id: String) -> Di
 	var provided := MARE_REGISTRY.template_for(id)
 	if not provided.is_empty():
 		selected = _merge(selected, provided)
-	if characters is Dictionary and (characters as Dictionary).has(id):
-		var over: Variant = (characters as Dictionary)[id]
+	if characters.has(id):
+		var over: Variant = characters[id]
 		if over is Dictionary:
 			selected = _merge(selected, over)
 	selected["preferences"] = PREFERENCES.resolve(selected.get("preferences", {}))
@@ -2736,9 +2749,9 @@ static func profile_for(base: Dictionary, characters: Variant, id: String) -> Di
 
 
 static func pose(id: String, pose_id: String) -> Dictionary:
-	var poses: Variant = template_for(id).get("poses", {})
-	if poses is Dictionary and (poses as Dictionary).has(pose_id):
-		var value: Variant = (poses as Dictionary)[pose_id]
+	var poses: Dictionary = template_for(id).rows("poses").raw()
+	if poses.has(pose_id):
+		var value: Variant = poses[pose_id]
 		if value is Dictionary:
 			return (value as Dictionary).duplicate(true)
 	return CATALOG.defaults(pose_id)
@@ -3040,6 +3053,12 @@ static func _filled_default() -> Dictionary:
 static func _profile_base(data: Dictionary) -> Dictionary:
 	var value: Variant = data.get("default")
 	return value if value is Dictionary else _filled_default()
+
+
+## The saved per-mare overrides block; a malformed block reads as none.
+static func _profile_characters(data: Dictionary) -> Dictionary:
+	var value: Variant = data.get("characters")
+	return value if value is Dictionary else {}
 
 
 ## Retired settings, then the version-gated structural steps. The retired entries always run, so a

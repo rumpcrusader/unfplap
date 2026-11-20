@@ -207,7 +207,7 @@ func run() -> void:
 	check(installed.size() == 1 and str(installed[0]) == "chrysalis",
 		"the installed list names her while the pack is on")
 	check(SETTINGS.character_name("chrysalis") == "Queen Chrysalis", "the provider name")
-	var preferences := SETTINGS.preferences("chrysalis")
+	var preferences := SETTINGS.preferences("chrysalis").raw()
 	check(str(preferences.get("intensity", "")) == "firm", "approved intensity")
 	check(str(preferences.get("pattern", "")) == "teasing", "approved pattern")
 	check((preferences.get("touch", []) as Array) == ["caress", "kiss"], "approved touch")

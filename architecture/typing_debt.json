@@ -422,33 +422,8 @@
     },
     {
       "service": "settings",
-      "func": "consent",
-      "signature": "static func consent(id: String) -> Dictionary:"
-    },
-    {
-      "service": "settings",
       "func": "data",
       "signature": "static func data() -> Dictionary:"
-    },
-    {
-      "service": "settings",
-      "func": "default_participation",
-      "signature": "static func default_participation(id: String) -> Dictionary:"
-    },
-    {
-      "service": "settings",
-      "func": "default_participation_for",
-      "signature": "static func default_participation_for(base: Dictionary, id: String) -> Dictionary:"
-    },
-    {
-      "service": "settings",
-      "func": "default_preferences",
-      "signature": "static func default_preferences(id: String) -> Dictionary:"
-    },
-    {
-      "service": "settings",
-      "func": "default_preferences_for",
-      "signature": "static func default_preferences_for(base: Dictionary, id: String) -> Dictionary:"
     },
     {
       "service": "settings",
@@ -467,36 +442,6 @@
     },
     {
       "service": "settings",
-      "func": "preferences",
-      "signature": "static func preferences(id: String) -> Dictionary:"
-    },
-    {
-      "service": "settings",
-      "func": "preferences_match",
-      "signature": "static func preferences_match(a: Dictionary, b: Dictionary) -> bool:"
-    },
-    {
-      "service": "settings",
-      "func": "profile_eligible",
-      "signature": "static func profile_eligible(id: String) -> Variant:"
-    },
-    {
-      "service": "settings",
-      "func": "profile_for",
-      "signature": "static func profile_for(base: Dictionary, characters: Variant, id: String) -> Dictionary:"
-    },
-    {
-      "service": "settings",
-      "func": "profile_identity",
-      "signature": "static func profile_identity(id: String) -> Dictionary:"
-    },
-    {
-      "service": "settings",
-      "func": "profile_participation",
-      "signature": "static func profile_participation(id: String) -> Dictionary:"
-    },
-    {
-      "service": "settings",
       "func": "save_anatomy_placement",
       "signature": "static func save_anatomy_placement(id: String, values: Dictionary, fit_id: String = \"\") -> void:"
     },
@@ -507,28 +452,8 @@
     },
     {
       "service": "settings",
-      "func": "save_consent",
-      "signature": "static func save_consent(id: String, values: Dictionary) -> void:"
-    },
-    {
-      "service": "settings",
-      "func": "save_participation",
-      "signature": "static func save_participation(id: String, values: Dictionary) -> void:"
-    },
-    {
-      "service": "settings",
-      "func": "save_preferences",
-      "signature": "static func save_preferences(id: String, preferences: Dictionary) -> void:"
-    },
-    {
-      "service": "settings",
       "func": "set_anatomy_placement_draft",
       "signature": "static func set_anatomy_placement_draft(values: Dictionary) -> void:"
-    },
-    {
-      "service": "settings",
-      "func": "template_for",
-      "signature": "static func template_for(id: String) -> Dictionary:"
     },
     {
       "service": "stool",

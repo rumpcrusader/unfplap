@@ -6,6 +6,7 @@ extends SceneTree
 const API := preload("res://mods/unfplap/api.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const ROWS := preload("res://mods/unfplap/settings/rows.gd")
 const REGISTRY := preload("res://mods/unfplap/registry/service.gd")
 const PLACEMENT := preload("res://mods/unfplap/shared/anatomy_placement.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
@@ -259,11 +260,11 @@ func _check_custom_mare() -> void:
 		"replacement does not duplicate the source")
 
 	# The player's saved difference still wins over the provider template.
-	SETTINGS.save_preferences("test_mare", {"intensity": "firm"})
+	SETTINGS.save_preferences("test_mare", ROWS.Rows.of({"intensity": "firm"}))
 	var overridden: Dictionary = api.describe_mare("test_mare")
 	check(str((overridden.get("preferences", {}) as Dictionary).get("intensity", "")) == "firm",
 		"player preference wins over the provider")
-	check(str(SETTINGS.default_preferences("test_mare").get("intensity", "")) == "rough",
+	check(SETTINGS.default_preferences("test_mare").str_value("intensity", "") == "rough",
 		"the provider remains the reset default")
 	SETTINGS.reset_preferences("test_mare")
 	check(str((api.describe_mare("test_mare").get("preferences", {}) as Dictionary)
@@ -295,7 +296,7 @@ func _check_custom_mare() -> void:
 func _check_base_provider() -> void:
 	# A player difference saved before the provider exists must not pin the provider's other
 	# fields; only the edited key is stored.
-	SETTINGS.save_preferences("fluttershy", {"intensity": "rough"})
+	SETTINGS.save_preferences("fluttershy", ROWS.Rows.of({"intensity": "rough"}))
 	var result: Dictionary = api.register_mare(owner, {
 		"id": "fluttershy",
 		"source": "base_pack",

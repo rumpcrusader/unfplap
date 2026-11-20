@@ -88,7 +88,7 @@ func apply_act_live_pre() -> void:
 
 ## The live preference refresh for a live id, or an empty dictionary when there is none.
 func live_preferences(pony_id: String) -> Dictionary:
-	return SETTINGS.preferences(pony_id) if not pony_id.is_empty() else {}
+	return SETTINGS.preferences(pony_id).raw() if not pony_id.is_empty() else {}
 
 
 ## The live edit's post-view half: the integrations, the pose family's config, the modifiers,

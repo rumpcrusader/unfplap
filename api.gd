@@ -89,7 +89,7 @@ func unregister_mare(owner: Node, id: String) -> Dictionary:
 ## state. Always complete; an unknown id gets global defaults with `known: false`.
 func describe_mare(id: String) -> Dictionary:
 	var mare_id := id.strip_edges()
-	var template: Dictionary = SETTINGS.template_for(mare_id)
+	var template: Dictionary = SETTINGS.template_for(mare_id).raw()
 	var event_prompts: Dictionary = {}
 	var raw_events: Variant = template.get("event_prompts", {})
 	for key: String in REGISTRY.EVENT_PROMPT_KEYS:
@@ -123,7 +123,7 @@ func describe_mare(id: String) -> Dictionary:
 			or SETTINGS.CHARACTER_TEMPLATES.has(mare_id) or REGISTRY.has(mare_id),
 		"registered": REGISTRY.has(mare_id),
 		"sources": REGISTRY.sources(mare_id),
-		"preferences": SETTINGS.preferences(mare_id),
+		"preferences": SETTINGS.preferences(mare_id).raw(),
 		"consent": consent,
 		"eligible": eligible,
 		"profile": {"participation": participation},

@@ -445,7 +445,7 @@ func _fixture() -> Dictionary:
 	runtime.act.max_pony_climaxes = 3
 	runtime.act.event_id = "intimacy_test_mare_1"
 	runtime.act.serial = 1
-	runtime.act.preferences = SETTINGS.preferences("test_mare")
+	runtime.act.preferences = SETTINGS.preferences("test_mare").raw()
 	runtime.act.features = {}
 	runtime._bundle.handover.set_form_hint_debug(true)
 	WORLD.bind_world(host)

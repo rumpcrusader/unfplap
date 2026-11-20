@@ -76,7 +76,7 @@ func run() -> void:
 	check(unresolved.is_empty(), "resolve keeps every note: " + ", ".join(unresolved))
 
 	var base: Dictionary = SETTINGS.data().get("default", {})
-	var merged: Dictionary = SETTINGS.profile_for(base, {}, "aloe")
+	var merged: Dictionary = SETTINGS._profile_merge(base, {}, "aloe")
 	var merged_preference: Dictionary = merged.get("preferences", {})
 	check(str(merged_preference.get("notes", "")).begins_with("You ")
 		and not (merged_preference.get("touch", []) as Array).is_empty(),

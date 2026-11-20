@@ -232,7 +232,7 @@ func eligible_id(id: String, target: Target = Target.CHARACTER) -> bool:
 	var identity := _shape_identity(mare_id)
 	if identity == null:
 		return false
-	var profile := SETTINGS.profile_identity(mare_id)
+	var profile: Dictionary = SETTINGS.profile_identity(mare_id).raw()
 	var facts := FACTS.empty()
 	facts["id"] = mare_id
 	facts["has_identity"] = true
@@ -333,9 +333,9 @@ func get_profile(id: String) -> Profile:
 	var mare_id := id.strip_edges()
 	var resolved := SETTINGS.profile_identity(mare_id)
 	var out := Profile.new()
-	out.eligible = _eligible_from_value(resolved.get("eligible", null))
-	out.participation = _typed_participation(resolved.get("participation", {}))
-	out.consent = _typed_consent(SETTINGS.consent(mare_id))
+	out.eligible = _eligible_from_value(resolved.raw().get("eligible", null))
+	out.participation = _typed_participation(resolved.rows("participation").raw())
+	out.consent = _typed_consent(SETTINGS.consent(mare_id).raw())
 	return out
 
 
@@ -368,16 +368,15 @@ func _facts_data(pony: Node) -> Dictionary:
 	_read_cycle(pony, out)
 	_read_history(id, out)
 	if not id.is_empty():
-		out["consent"] = SETTINGS.consent(id)
+		out["consent"] = SETTINGS.consent(id).raw()
 	return out
 
 
 ## The provider's tri-state assertion wins for unfplap's own registration fact; without one,
 ## the base game's adult table decides. Base-game willingness and romance still read the game.
 func _registered_adult(id: String, adults: Variant) -> bool:
-	var asserted: Variant = SETTINGS.profile_eligible(id)
-	if asserted is bool:
-		return asserted
+	if SETTINGS.profile_has_assertion(id):
+		return SETTINGS.profile_eligible(id)
 	return adults is Dictionary and bool((adults as Dictionary).get(id, false))
 
 
@@ -468,7 +467,7 @@ func _read_history(id: String, out: Dictionary) -> void:
 func _identity_facts(pony: Node) -> Dictionary:
 	var identity: Variant = pony.get("identity")
 	var id := _pony_id(pony)
-	var profile := SETTINGS.profile_identity(id)
+	var profile: Dictionary = SETTINGS.profile_identity(id).raw()
 	return {
 		"id": id,
 		"eligible": profile.get("eligible", null),

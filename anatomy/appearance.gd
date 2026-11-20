@@ -315,7 +315,7 @@ func _teat_size() -> float:
 	var identity: Variant = pony.get("identity")
 	# Her Characters-tab preset (Teat size) wins over the automatic size.
 	var id := PONY_ID.from(str(pony.get_meta("relationship_id", "")), identity)
-	var chosen := str(SETTINGS.preferences(id).get("teat_size", "auto")) \
+	var chosen := SETTINGS.preferences(id).str_value("teat_size", "auto") \
 		if not id.is_empty() else "auto"
 	if PREFERENCES.TEAT_SIZE_VALUES.has(chosen):
 		return float(PREFERENCES.TEAT_SIZE_VALUES[chosen])

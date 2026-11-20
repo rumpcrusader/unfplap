@@ -4,6 +4,7 @@ extends RefCounted
 ## and a participation lookup.
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const ROWS := preload("res://mods/unfplap/settings/rows.gd")
 const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
 const PARTICIPATION := preload("res://mods/unfplap/shared/participation.gd")
 const CONSENT := preload("res://mods/unfplap/shared/consent.gd")
@@ -315,48 +316,48 @@ static func _refresh_preference_form(refs: Dictionary) -> void:
 		return
 	refs["refreshing"] = true
 	var preferences := SETTINGS.preferences(id)
-	_select_preference_value(refs.get("intensity"), str(preferences.get("intensity", "firm")))
-	_select_preference_value(refs.get("pattern"), str(preferences.get("pattern", "steady")))
-	_select_preference_value(refs.get("warmth"), str(preferences.get("warmth", "normal")))
-	_select_preference_value(refs.get("tolerance"), str(preferences.get("tolerance", "normal")))
-	_select_preference_value(refs.get("teat_size"), str(preferences.get("teat_size", "auto")))
-	_set_preference_actions(refs.get("touch"), preferences.get("touch", []), PREFERENCES.TOUCHES,
-		preferences.get("dislikes", []))
-	_set_preference_actions(refs.get("talk"), preferences.get("talk", []), PREFERENCES.TALKS,
-		preferences.get("dislikes", []))
+	_select_preference_value(refs.get("intensity"), preferences.str_value("intensity", "firm"))
+	_select_preference_value(refs.get("pattern"), preferences.str_value("pattern", "steady"))
+	_select_preference_value(refs.get("warmth"), preferences.str_value("warmth", "normal"))
+	_select_preference_value(refs.get("tolerance"), preferences.str_value("tolerance", "normal"))
+	_select_preference_value(refs.get("teat_size"), preferences.str_value("teat_size", "auto"))
+	var raw := preferences.raw()
+	_set_preference_actions(refs.get("touch"), raw.get("touch", []), PREFERENCES.TOUCHES,
+		raw.get("dislikes", []))
+	_set_preference_actions(refs.get("talk"), raw.get("talk", []), PREFERENCES.TALKS,
+		raw.get("dislikes", []))
 	var notes: Variant = refs.get("notes")
 	if notes is TextEdit:
-		(notes as TextEdit).text = str(preferences.get("notes", ""))
+		(notes as TextEdit).text = preferences.str_value("notes", "")
 	var consent := SETTINGS.consent(id)
 	for key: String in CONSENT.KEYS:
 		var button: Variant = refs.get("consent_" + key)
 		if button is CheckButton:
-			(button as CheckButton).set_pressed_no_signal(bool(consent.get(key, false)))
-	var resolved: Dictionary = {}
+			(button as CheckButton).set_pressed_no_signal(consent.bool_value(key, false))
+	var resolved := ROWS.Rows.of({})
 	var participation := refs["participation"] as Callable
 	if participation.is_valid():
 		var value: Variant = participation.call(id)
-		if value is Dictionary:
+		if value is ROWS.Rows:
 			resolved = value
 	for key: String in PARTICIPATION.KEYS:
 		var button: Variant = refs.get("participation_" + key)
 		if button is CheckButton:
-			(button as CheckButton).set_pressed_no_signal(bool(resolved.get(key, true)))
+			(button as CheckButton).set_pressed_no_signal(resolved.bool_value(key, true))
 	var sources := SETTINGS.provider_sources(id)
 	var participation_hint: Variant = refs.get("participation_hint")
 	if participation_hint is Label:
 		(participation_hint as Label).visible = not sources.is_empty()
 		if not sources.is_empty():
 			(participation_hint as Label).text = "Overridden by %s" % ", ".join(sources)
-	var assertion: Variant = SETTINGS.profile_eligible(id)
+	var show_assertion := SETTINGS.profile_has_assertion(id)
 	var assertion_label: Variant = refs.get("assertion_label")
 	var assertion_hint: Variant = refs.get("assertion_hint")
-	var show_assertion := assertion is bool
 	if assertion_label is Label:
 		(assertion_label as Label).visible = show_assertion
 		if show_assertion:
 			(assertion_label as Label).text = "Provider assertion: %s" % (
-				"eligible" if assertion else "not eligible")
+				"eligible" if SETTINGS.profile_eligible(id) else "not eligible")
 	if assertion_hint is Label:
 		(assertion_hint as Label).visible = show_assertion
 		if show_assertion:
@@ -449,14 +450,14 @@ static func _preference_participation_values(refs: Dictionary) -> Dictionary:
 
 
 static func _participation_matches(id: String, participation: Callable) -> bool:
-	var resolved := {}
+	var resolved := ROWS.Rows.of({})
 	if participation.is_valid():
 		var value: Variant = participation.call(id)
-		if value is Dictionary:
+		if value is ROWS.Rows:
 			resolved = value
 	var defaults := SETTINGS.default_participation(id)
 	for key: String in PARTICIPATION.KEYS:
-		if bool(resolved.get(key, true)) != bool(defaults.get(key, true)):
+		if resolved.bool_value(key, true) != defaults.bool_value(key, true):
 			return false
 	return true
 
@@ -467,14 +468,14 @@ static func _save_preference_form(refs: Dictionary) -> void:
 	var id := _selected_preference_id(refs)
 	if id.is_empty():
 		return
-	var preferences := _preference_form_values(refs)
+	var preferences := ROWS.Rows.of(_preference_form_values(refs))
 	# A preset identical to her own character default needs no saved override.
 	if SETTINGS.preferences_match(preferences, SETTINGS.default_preferences(id)):
 		SETTINGS.reset_preferences(id)
 	else:
 		SETTINGS.save_preferences(id, preferences)
-	SETTINGS.save_consent(id, _preference_consent_values(refs))
-	SETTINGS.save_participation(id, _preference_participation_values(refs))
+	SETTINGS.save_consent(id, ROWS.Rows.of(_preference_consent_values(refs)))
+	SETTINGS.save_participation(id, ROWS.Rows.of(_preference_participation_values(refs)))
 	var changed := refs["changed"] as Callable
 	if changed.is_valid():
 		changed.call()

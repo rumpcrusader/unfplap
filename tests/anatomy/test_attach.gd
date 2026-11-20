@@ -18,6 +18,7 @@ const FACTS := preload("res://mods/unfplap/anatomy/facts.gd")
 const MARE_REGISTRY := preload("res://mods/unfplap/registry/service.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const ROWS := preload("res://mods/unfplap/settings/rows.gd")
 
 var failures := 0
 var checks := 0
@@ -142,7 +143,7 @@ func run() -> void:
 	var consent_call: Callable = consent_controller.get("consent")
 	check(consent_call.get_argument_count() == 1,
 		"the act's consent callback takes the key alone")
-	check(bool(consent_call.call("anal")) == bool(SETTINGS.consent("fluttershy").get("anal", false)),
+	check(bool(consent_call.call("anal")) == SETTINGS.consent("fluttershy").bool_value("anal", false),
 		"the act's consent callback answers for its own pony")
 	check(not bool(consent_call.call("nope")), "an unknown consent key is refused")
 	consent_service.call("detach_controller", consent_pony)
@@ -235,18 +236,21 @@ func run() -> void:
 		"the Characters selector lists live off-roster mares")
 
 	# A profile keeps its custom prompts and poses when consent is merged.
-	var base: Dictionary = SETTINGS._filled_default()
+	var base := ROWS.Rows.of(SETTINGS._filled_default())
 	var characters := {"twilight_sparkle": {
 		"consent": {"anal": true},
 		"event_prompts": {"climax": "custom"},
 		"poses": {"missionary": {"rump_drop_deg": 12.0}},
 	}}
-	var profile: Dictionary = SETTINGS.profile_for(base, characters, "twilight_sparkle")
+	var profile: Dictionary = SETTINGS._profile_merge(base.raw(), characters, "twilight_sparkle")
 	check(profile.has("consent"), "profile carries consent")
 	check(str((profile.get("event_prompts", {}) as Dictionary).get("climax", "")) == "custom",
 		"consent merge preserves event prompts")
 	check(absf(float(((profile.get("poses", {}) as Dictionary).get("missionary", {}) as Dictionary)
 		.get("rump_drop_deg", 0.0)) - 12.0) < 0.001, "consent merge preserves pose overrides")
+	var typed := SETTINGS.profile_for(base, ROWS.Rows.of(characters), "twilight_sparkle")
+	check(typed.consent.bool_value("anal", false), "the typed profile carries the consent")
+	check(typed.preferences.has("intensity"), "the typed profile carries the preferences")
 
 	# No act controller means all anatomy action gates are closed.
 	var runtime: Node = RUNTIME.new()

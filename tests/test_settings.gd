@@ -8,6 +8,7 @@ extends SceneTree
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_settings.gd
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const ROWS := preload("res://mods/unfplap/settings/rows.gd")
 const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 const SETTINGS_UI := preload("res://mods/unfplap/settings/ui.gd")
 const CHARACTERS_UI := preload("res://mods/unfplap/settings/characters_ui.gd")
@@ -56,6 +57,7 @@ func run() -> void:
 	_check_tail_seat()
 	_check_write_round_trip()
 	_check_read_view()
+	_check_typed_rows()
 	_check_coercion()
 	_check_sections()
 	_check_groups()
@@ -73,6 +75,7 @@ func run() -> void:
 	_check_api_names()
 	_check_change_notification()
 	_check_profiles()
+	_check_profile_identity()
 	_check_characters_form()
 	_check_provider_precedence()
 	_check_character_overrides()
@@ -707,11 +710,36 @@ func _check_read_view() -> void:
 	check(bool(SETTINGS._read().get("debug_mode", false)) == live_flag,
 		"the merged view is detached from the live cache")
 	var block: Variant = view.get("default")
-	var before := int(SETTINGS.template_for("fluttershy").get("aftercare_min", 0))
+	var before := SETTINGS.aftercare_min("fluttershy")
 	if block is Dictionary:
 		(block as Dictionary)["aftercare_min"] = before + 999
-	check(int(SETTINGS.template_for("fluttershy").get("aftercare_min", 0)) == before,
+	check(SETTINGS.aftercare_min("fluttershy") == before,
 		"nested blocks in the merged view are detached")
+
+
+## The typed wrapper is the JSON edge: a round trip keeps the values and the nested block.
+func _check_typed_rows() -> void:
+	var document := {"intensity": "soft", "count": 2, "ratio": 0.5, "on": true,
+		"nested": {"acts": false, "label": "x"}, "list": [1, 2]}
+	var parsed: Variant = JSON.parse_string(JSON.stringify(document))
+	check(parsed is Dictionary, "the settings document round-trips through JSON")
+	var data: Dictionary = parsed if parsed is Dictionary else {}
+	var rows := ROWS.Rows.of(data)
+	check(rows.str_value("intensity") == "soft", "the wrapper reads a string")
+	check(rows.num("count") == 2.0 and near(rows.num("ratio"), 0.5),
+		"the wrapper reads a number")
+	check(rows.bool_value("on") and not rows.bool_value("missing"),
+		"the wrapper reads a bool")
+	check(rows.str_value("missing", "fallback") == "fallback",
+		"a missing value takes the fallback")
+	check(rows.has("nested") and not rows.has("absent"), "the wrapper answers presence")
+	check(not rows.rows("nested").bool_value("acts", true),
+		"the wrapper reads a nested document")
+	check(rows.rows("absent").raw().is_empty(), "an absent nested document reads as empty")
+	var keys := rows.keys()
+	check(keys.size() == document.size() and "nested" in keys,
+		"the wrapper lists the document keys")
+	check(rows.raw() == parsed, "the wrapper hands back the same document")
 
 
 ## Bounds, choices and lists are enforced at the setter, and debug numbers are not clamped.
@@ -1310,31 +1338,37 @@ func _check_characters_form() -> void:
 
 ## Per-mare profiles share the file and the merge; a few representative checks.
 func _check_profiles() -> void:
-	var base: Dictionary = SETTINGS._filled_default()
+	var base := ROWS.Rows.of(SETTINGS._filled_default())
 	check(SETTINGS.CHARACTER_ORDER.size() == SETTINGS.CHARACTER_NAMES.size(),
 		"every pony has a display name")
 	check(SETTINGS.CHARACTER_ORDER.size() == SETTINGS.CHARACTER_TEMPLATES.size(),
 		"every editable pony has a preference template")
-	var modded: Dictionary = SETTINGS.profile_for(base, {}, "a_modded_mare")
+	var modded: Dictionary = SETTINGS._profile_merge(base.raw(), {}, "a_modded_mare")
 	check((modded["preferences"] as Dictionary)
-		== SETTINGS.default_preferences_for(base, "a_modded_mare"),
+		== SETTINGS.default_preferences_for(base, "a_modded_mare").raw(),
 		"an off-roster mare uses the global preference profile")
-	check(not str(modded.get("act_prompts", {}).get("cue", "")).is_empty(),
+	check(not str((modded.get("act_prompts", {}) as Dictionary).get("cue", "")).is_empty(),
 		"an off-roster mare gets the built-in prompts")
 	check(not (modded.get("poses", {}) as Dictionary).is_empty(),
 		"an off-roster mare gets the pose defaults")
-	var modded_override: Dictionary = SETTINGS.profile_for(base,
-		{"a_modded_mare": {"preferences": {"intensity": "soft"}}}, "a_modded_mare")
-	check(str(modded_override["preferences"].get("intensity", "")) == "soft",
+	var modded_override := SETTINGS.profile_for(base,
+		ROWS.Rows.of({"a_modded_mare": {"preferences": {"intensity": "soft"}}}),
+		"a_modded_mare")
+	check(modded_override.preferences.str_value("intensity", "") == "soft",
 		"an off-roster mare keeps a saved preference override")
+	check(modded_override.participation.bool_value("acts", true),
+		"the typed profile carries her participation")
+	check(modded_override.consent.has("public"),
+		"the typed profile carries her consent")
+	check(not modded_override.identity.has("eligible"),
+		"an off-roster mare has no provider assertion")
 	check(SETTINGS.anatomy_placement_default("a_modded_mare")
 		== SETTINGS.anatomy_placement_default(""),
 		"an off-roster mare uses the global anatomy placement")
-	var override: Dictionary = SETTINGS.profile_for(base, {"fluttershy": {"cue_gap": 15.0}},
-		"fluttershy")
+	var override: Dictionary = SETTINGS._profile_merge(base.raw(),
+		{"fluttershy": {"cue_gap": 15.0}}, "fluttershy")
 	check(near(float(override.get("cue_gap", 0.0)), 15.0), "a character override wins")
-	var live: Dictionary = SETTINGS.template_for("fluttershy")
-	check(not live.is_empty(), "live template")
+	check(not SETTINGS.template_for("fluttershy").raw().is_empty(), "live template")
 	check(not SETTINGS.act_prompt("fluttershy", "utterance").is_empty(), "live utterance prompt")
 	check(not SETTINGS.act_prompt("fluttershy", "cue").is_empty(), "live cue prompt")
 	check(str(SETTINGS.DEFAULT_ACT_PROMPTS.get("cue", "")).contains("private, not a list to say"),
@@ -1349,12 +1383,46 @@ func _check_profiles() -> void:
 		"a custom cue prompt survives")
 
 
+## The identity document is tri-state: a provider assertion is present, absence leaves the game the
+## decision, and the typed profile shares the same participation block.
+func _check_profile_identity() -> void:
+	var id := "typed_identity_mare"
+	SETTINGS.MARE_REGISTRY.reset()
+	check(not SETTINGS.profile_has_assertion(id), "without a provider the identity has no assertion")
+	var identity := SETTINGS.profile_identity(id)
+	check(identity.rows("participation").bool_value("acts", false),
+		"the identity carries participation")
+	check(not identity.has("eligible"), "an absent assertion is not stored")
+	var base := ROWS.Rows.of(SETTINGS._filled_default())
+	var profile := SETTINGS.profile_for(base, ROWS.Rows.of({}), id)
+	check(profile.identity.rows("participation").raw() == profile.participation.raw(),
+		"the profile facets share the participation block")
+	check(profile.consent.keys().size() == CONSENT.KEYS.size(),
+		"the profile carries the consent keys")
+	SETTINGS.MARE_REGISTRY.register(1, {
+		"id": id,
+		"source": "identity_test",
+		"eligible": true,
+		"profile": {"participation": {"acts": false}},
+	})
+	check(SETTINGS.profile_has_assertion(id) and SETTINGS.profile_eligible(id),
+		"a provider assertion is readable")
+	var asserted := SETTINGS.profile_for(base, ROWS.Rows.of({}), id)
+	check(asserted.identity.bool_value("eligible", false),
+		"the typed identity carries the assertion")
+	check(not asserted.participation.bool_value("acts", true),
+		"the provider participation reaches the typed profile")
+	SETTINGS.MARE_REGISTRY.reset()
+	check(not SETTINGS.profile_has_assertion(id),
+		"the assertion clears when the provider leaves")
+
+
 ## A cross-mod provider layer wins over the catalog and the global default, and the player's sparse
 ## override wins per field. Unregistering restores the catalog/global values.
 func _check_provider_precedence() -> void:
 	var id := "provider_precedence_mare"
 	SETTINGS.MARE_REGISTRY.reset()
-	var base: Dictionary = SETTINGS._filled_default()
+	var base := ROWS.Rows.of(SETTINGS._filled_default())
 	var registered: Dictionary = SETTINGS.MARE_REGISTRY.register(1, {
 		"id": id,
 		"source": "precedence_test",
@@ -1365,25 +1433,27 @@ func _check_provider_precedence() -> void:
 	})
 	check(bool(registered.get("ok", false)), "the precedence provider registers")
 
-	var profile := SETTINGS.profile_for(base, {}, id)
-	check(str((profile["preferences"] as Dictionary).get("intensity", "")) == "rough",
+	var profile := SETTINGS.profile_for(base, ROWS.Rows.of({}), id)
+	check(profile.preferences.str_value("intensity", "") == "rough",
 		"the provider preference beats the global default")
-	check(str((profile["act_prompts"] as Dictionary).get("cue", "")) == "Provider cue.",
+	check(SETTINGS.template_for(id).rows("act_prompts").str_value("cue", "") == "Provider cue.",
 		"the provider act prompt beats the catalog prompt")
-	var standing: Dictionary = (profile["poses"] as Dictionary).get("standing", {})
+	var standing: Dictionary = SETTINGS.template_for(id).rows("poses").raw().get("standing", {})
 	check(near(float(standing.get("bow", 0.0)), 9.0),
 		"the provider pose beats the catalog pose")
 	check(near(float(SETTINGS.anatomy_placement(id).get("tail_y", 0.0)), 0.09),
 		"the provider placement beats the global default")
 
 	# The player's edit wins for the field it changed, and only that field.
-	SETTINGS.save_preferences(id, {"intensity": "soft", "warmth": "slow"})
-	var player := SETTINGS.profile_for(base, SETTINGS.data().get("characters", {}), id)
-	check(str((player["preferences"] as Dictionary).get("intensity", "")) == "soft",
+	SETTINGS.save_preferences(id, ROWS.Rows.of({"intensity": "soft", "warmth": "slow"}))
+	var live_characters: Dictionary = SETTINGS.data().get("characters", {})
+	var characters := ROWS.Rows.of(live_characters)
+	var player := SETTINGS.profile_for(base, characters, id)
+	check(player.preferences.str_value("intensity", "") == "soft",
 		"a player preference beats the provider")
-	check(str((player["preferences"] as Dictionary).get("notes", "")) == "Provider note.",
+	check(player.preferences.str_value("notes", "") == "Provider note.",
 		"the provider preference survives the player's edit")
-	check(str((player["act_prompts"] as Dictionary).get("cue", "")) == "Provider cue.",
+	check(SETTINGS.template_for(id).rows("act_prompts").str_value("cue", "") == "Provider cue.",
 		"the provider prompt still wins without a player override")
 
 	var placed := SETTINGS.anatomy_placement(id)
@@ -1398,17 +1468,18 @@ func _check_provider_precedence() -> void:
 	SETTINGS.save_anatomy_placement(id, SETTINGS.anatomy_placement_default(id, false))
 	check(not SETTINGS.anatomy_placement_has_override(id),
 		"removing the player placement returns to the global default")
-	var restored := SETTINGS.profile_for(base, SETTINGS.data().get("characters", {}), id)
-	check(str((restored["preferences"] as Dictionary).get("intensity", "")) == "soft",
+	var restored := SETTINGS.profile_for(base, characters, id)
+	check(restored.preferences.str_value("intensity", "") == "soft",
 		"the player preference survives the provider leaving")
-	check(str((restored["preferences"] as Dictionary).get("notes", ""))
-		== str((base["preferences"] as Dictionary).get("notes", "")),
+	check(restored.preferences.str_value("notes", "")
+		== base.rows("preferences").str_value("notes", ""),
 		"the provider note falls back to the global default")
-	check(str((restored["act_prompts"] as Dictionary).get("cue", ""))
-		== str(SETTINGS.DEFAULT_ACT_PROMPTS.get("cue", "")),
+	check(SETTINGS.template_for(id).rows("act_prompts").str_value("cue", "")
+		== SETTINGS.DEFAULT_ACT_PROMPTS.get("cue", ""),
 		"the provider prompt falls back to the catalog")
-	var restored_standing: Dictionary = (restored["poses"] as Dictionary).get("standing", {})
-	var base_standing: Dictionary = (base["poses"] as Dictionary).get("standing", {})
+	var restored_standing: Dictionary = SETTINGS.template_for(id).rows("poses").raw().get(
+		"standing", {})
+	var base_standing: Dictionary = base.rows("poses").raw().get("standing", {})
 	check(near(float(restored_standing.get("bow", 0.0)), float(base_standing.get("bow", 0.0))),
 		"the provider pose falls back to the catalog")
 
@@ -1465,7 +1536,7 @@ func _check_character_overrides() -> void:
 	check(not custom_consent_migrated.has("characters"),
 		"a custom mare's unchanged consent also normalizes away")
 
-	var edited := SETTINGS.default_preferences("fluttershy")
+	var edited := SETTINGS.default_preferences("fluttershy").raw()
 	edited["intensity"] = "soft"
 	var edited_data := {"characters": {"fluttershy": {"preferences": edited}}}
 	var edited_norm := SETTINGS._normalize_character_overrides(edited_data)
@@ -1480,14 +1551,14 @@ func _check_character_overrides() -> void:
 	check((custom_norm["characters"] as Dictionary).has("a_modded_mare"),
 		"a custom mare block is untouched")
 
-	var base: Dictionary = SETTINGS._filled_default()
-	var fluttershy: Dictionary = SETTINGS.profile_for(base, {}, "fluttershy")
+	var base := ROWS.Rows.of(SETTINGS._filled_default())
+	var fluttershy: Dictionary = SETTINGS._profile_merge(base.raw(), {}, "fluttershy")
 	check(str((fluttershy.get("event_prompts", {}) as Dictionary).get("climax", "")).is_empty(),
 		"built-in mares use the generic climax fallback")
 	check(not (fluttershy.get("poses", {}) as Dictionary).is_empty(),
 		"built-in poses seed without a saved block")
 
-	SETTINGS.save_preferences("fluttershy", {"intensity": "soft"})
+	SETTINGS.save_preferences("fluttershy", ROWS.Rows.of({"intensity": "soft"}))
 	var saved: Dictionary = SETTINGS.data().get("characters", {})
 	var entry: Dictionary = (saved as Dictionary).get("fluttershy", {})
 	var stored: Dictionary = entry.get("preferences", {})
@@ -1497,39 +1568,40 @@ func _check_character_overrides() -> void:
 
 	# The teat size is a per-mare field: it saves as its own difference, merges over the template
 	# and resets with the rest of the profile.
-	SETTINGS.save_preferences("fluttershy", {"teat_size": "large"})
+	SETTINGS.save_preferences("fluttershy", ROWS.Rows.of({"teat_size": "large"}))
 	saved = SETTINGS.data().get("characters", {})
 	entry = (saved as Dictionary).get("fluttershy", {})
 	stored = entry.get("preferences", {})
 	check(str(stored.get("teat_size", "")) == "large" and not stored.has("notes"),
 		"a saved teat size stores only its own difference")
-	check(str(SETTINGS.preferences("fluttershy").get("teat_size", "")) == "large",
+	check(SETTINGS.preferences("fluttershy").str_value("teat_size", "") == "large",
 		"the saved teat size merges over the template")
 	check(not SETTINGS.preferences_match(SETTINGS.preferences("fluttershy"),
 		SETTINGS.default_preferences("fluttershy")),
 		"a changed teat size is a real preset difference")
 	SETTINGS.reset_preferences("fluttershy")
-	check(str(SETTINGS.preferences("fluttershy").get("teat_size", "")) == "auto",
+	check(SETTINGS.preferences("fluttershy").str_value("teat_size", "") == "auto",
 		"a reset restores the automatic teat size")
 
 	var consent := SETTINGS.consent("fluttershy")
-	var mutated := consent.duplicate(true)
-	mutated["anal"] = not bool(consent.get("anal", false))
-	check(SETTINGS.consent("fluttershy") == consent,
+	var mutated := consent.raw().duplicate(true)
+	mutated["anal"] = not consent.bool_value("anal", false)
+	check(SETTINGS.consent("fluttershy").raw() == consent.raw(),
 		"a consent caller cannot mutate the memoized block")
 	SETTINGS.save_consent("fluttershy", consent)
 	saved = SETTINGS.data().get("characters", {})
 	entry = (saved as Dictionary).get("fluttershy", {})
 	check(not entry.has("consent"), "saving the resolved consent stores nothing")
-	var changed := consent.duplicate(true)
-	changed["public"] = not bool(consent.get("public", false))
-	SETTINGS.save_consent("fluttershy", changed)
+	var changed := consent.raw().duplicate(true)
+	changed["public"] = not consent.bool_value("public", false)
+	SETTINGS.save_consent("fluttershy", ROWS.Rows.of(changed))
 	saved = SETTINGS.data().get("characters", {})
 	entry = (saved as Dictionary).get("fluttershy", {})
 	var consent_diff: Dictionary = entry.get("consent", {})
 	check(consent_diff.has("public") and not consent_diff.has("anal"),
 		"a consent save stores only the changed key")
-	check(SETTINGS.consent("fluttershy").get("public") == changed.get("public"),
+	check(SETTINGS.consent("fluttershy").bool_value("public")
+		== bool(changed.get("public", false)),
 		"a consent save invalidates the memoized block")
 	SETTINGS.save_consent("fluttershy", consent)
 
@@ -1550,11 +1622,12 @@ func _check_participation() -> void:
 	check(not participation.has("tail"), "an unchanged participation is not stored")
 
 	var resolved := SETTINGS.profile_participation("fluttershy")
-	check(bool(resolved.get("acts", false)), "the base participation is all allowed")
-	check(bool(resolved.get("anatomy", false)), "the base participation is all allowed")
-	check(bool(resolved.get("tail", false)), "the base participation is all allowed")
+	check(resolved.bool_value("acts", false), "the base participation is all allowed")
+	check(resolved.bool_value("anatomy", false), "the base participation is all allowed")
+	check(resolved.bool_value("tail", false), "the base participation is all allowed")
 
-	SETTINGS.save_participation("fluttershy", {"acts": false, "anatomy": true, "tail": true})
+	SETTINGS.save_participation("fluttershy",
+		ROWS.Rows.of({"acts": false, "anatomy": true, "tail": true}))
 	var saved: Variant = SETTINGS.data().get("characters", {})
 	var saved_entry: Dictionary = (saved as Dictionary).get("fluttershy", {})
 	var saved_profile: Dictionary = (saved_entry.get("profile", {}) as Dictionary).get("participation", {})
@@ -1562,12 +1635,12 @@ func _check_participation() -> void:
 	check(not saved_profile.has("anatomy"), "an unchanged participation is not stored")
 	check(not saved_profile.has("tail"), "an unchanged participation is not stored")
 	var opted_out := SETTINGS.profile_participation("fluttershy")
-	check(not bool(opted_out.get("acts", true)), "the memoized profile invalidates on a save")
+	check(not opted_out.bool_value("acts", true), "the memoized profile invalidates on a save")
 	SETTINGS.reset_participation("fluttershy")
 	var after: Variant = SETTINGS.data().get("characters", {})
 	check(not (after as Dictionary).has("fluttershy"), "reset removes the participation block")
 	var restored := SETTINGS.profile_participation("fluttershy")
-	check(bool(restored.get("acts", false)), "the memoized profile invalidates on a reset")
+	check(restored.bool_value("acts", false), "the memoized profile invalidates on a reset")
 
 
 ## An unreadable, malformed or newer player file is preserved, logged and replaced by a fresh

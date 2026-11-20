@@ -657,6 +657,29 @@ their level, and a parent's unmeasured remainder prints as a `self` row. The pro
 allocation-free when either switch is off. It is a debug tool, not a setting: no declaration, no
 persisted value. The block's rows and panel are `docs/debug.md`'s.
 
+## Internal API
+
+The per-mare profile functions return typed views rather than raw dictionaries, so a caller reads a
+block through a named accessor. `settings/rows.gd` wraps one settings document: `of()`/`raw()` are
+the JSON edge, and `has()`, `bool_value()`, `num()`, `str_value()`, `rows()` and `keys()` read it. A
+caller that needs the plain document — a cross-mod payload, a test comparison — calls `raw()` at
+that boundary. `settings/profile.gd` carries the four facets of one resolved profile.
+
+| Function | Returns | Meaning |
+|---|---|---|
+| `preferences(id)` | `Rows` | her resolved preference profile |
+| `default_preferences(id)`, `default_preferences_for(base, id)` | `Rows` | the profile a preset reset returns to |
+| `preferences_match(a, b)` | `bool` | both profiles name the same preset |
+| `consent(id)` | `Rows` | her resolved consent block, a detached copy |
+| `save_preferences(id, values)`, `save_consent(id, values)`, `save_participation(id, values)` | `void` | store only the differences from her resolved default |
+| `default_participation(id)`, `default_participation_for(base, id)` | `Rows` | the participation a reset returns to |
+| `profile_identity(id)` | `Rows` | the provider `eligible` assertion and the participation block |
+| `profile_participation(id)` | `Rows` | the resolved participation block |
+| `profile_has_assertion(id)` | `bool` | a provider asserted an eligibility value |
+| `profile_eligible(id)` | `bool` | the asserted value; read it only after `profile_has_assertion()` |
+| `template_for(id)` | `Rows` | the merged default and per-mare template |
+| `profile_for(base, characters, id)` | `Profile` | the four typed facets of that merge; both documents are views |
+
 ## Dependencies
 
 ### Uses

@@ -10,6 +10,7 @@ const FACTS := preload("res://mods/unfplap/eligibility/facts.gd")
 const PARTICIPATION := preload("res://mods/unfplap/shared/participation.gd")
 const CONSENT := preload("res://mods/unfplap/shared/consent.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const ROWS := preload("res://mods/unfplap/settings/rows.gd")
 
 var failures := 0
 var checks := 0
@@ -207,7 +208,7 @@ func run() -> void:
 		"the act, anatomy and tail targets accept an adult mare")
 	check(main.eligibility.eligible(pony, ELIGIBILITY.Target.CHARACTER),
 		"the character target accepts an adult mare")
-	SETTINGS.save_participation("rarity", {"acts": false})
+	SETTINGS.save_participation("rarity", ROWS.Rows.of({"acts": false}))
 	check(not main.eligibility.eligible(pony, ELIGIBILITY.Target.ACT),
 		"a participation opt-out closes the act target")
 	check(main.eligibility.eligible(pony, ELIGIBILITY.Target.CHARACTER),
@@ -215,7 +216,7 @@ func run() -> void:
 	SETTINGS.reset_participation("rarity")
 
 	# Consent is read through the typed profile, not a raw settings dictionary.
-	var consent: Dictionary = SETTINGS.consent("rarity")
+	var consent: Dictionary = SETTINGS.consent("rarity").raw()
 	var profile: ELIGIBILITY.Profile = main.eligibility.get_profile("rarity")
 	check(profile.consent.public == bool(consent.get("public", false))
 		and profile.consent.anal == bool(consent.get("anal", false))

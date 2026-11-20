@@ -1588,16 +1588,14 @@ def check_runtime_shape(failure: Failure) -> None:
 # carries any more is stale. The momentary control lock in the base-game accessor and the standing
 # kiss is a base-game hold with his controls released, not the act's frame lock.
 ACT_STATE_WRITES = {
-    'set("_stand_eye"': {"act/frame.gd": "the frame owns Anon's eye line"},
-    'set("_eye_height"': {"act/frame.gd": "the frame owns Anon's eye line"},
+    'set("_stand_eye"': {"world/game.gd": "the eye-line accessor writes the frame's stance"},
+    'set("_eye_height"': {"world/game.gd": "the eye-line accessor writes the frame's stance"},
     'call("_set_eye_y"': {"world/game.gd": "the eye-line accessor writes through the rig's setter"},
     'set("controls_locked"': {
-        "act/frame.gd": "the act's one controls lock",
         "world/game.gd": "a base-game call with his controls released",
         "kiss/service.gd": "the standing kiss call, restored at once",
     },
     'set("_pitch"': {
-        "act/frame.gd": "the base aim",
         "world/game.gd": "the pitch accessor writes his own look",
     },
     'body.global_position = ': {"act/frame.gd": "the frame places him"},

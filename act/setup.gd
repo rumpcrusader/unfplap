@@ -10,6 +10,7 @@ const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")
 const ACT_SESSION := preload("res://mods/unfplap/act/session.gd")
 const ACT_VIEW := preload("res://mods/unfplap/act/view.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
 const REST := preload("res://mods/unfplap/rest/control.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
@@ -48,9 +49,7 @@ func bed_stand_up() -> bool:
 	if session.bed == null:
 		return false
 	if not session.player_pony:
-		var body: Variant = WORLD.player
-		if body != null and body.has_method("force_stand_up"):
-			body.call("force_stand_up")
+		GAME.force_stand_up(WORLD.player)
 	if session.source == "cradle":
 		context.rest.bind(host.pony, session.bed)
 		context.rest.place_on_start()

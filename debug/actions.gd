@@ -19,6 +19,7 @@ const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const POSES := preload("res://mods/unfplap/poses/service.gd")
 const INITIATION := preload("res://mods/unfplap/initiation/service.gd")
 const NEGOTIATION := preload("res://mods/unfplap/negotiation/service.gd")
+const ANATOMY := preload("res://mods/unfplap/anatomy/service.gd")
 const STOOL := preload("res://mods/unfplap/stool/service.gd")
 const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/service.gd")
 const DEBUG_BED := preload("res://mods/unfplap/debug/bed.gd")
@@ -65,11 +66,13 @@ var initiation: INITIATION = null
 var negotiation: NEGOTIATION = null
 ## Plain handles, set by the entry. The anatomy facade stays untyped because the placement editor
 ## reads its aim rule from `debug/service.gd`; a typed import here would close a service cycle.
-var anatomy: Node = null
+var anatomy: ANATOMY = null
 var pantyhose: Node = null
+## The pack's one hull rebuild, bound once so this node never imports a pack file.
+var _pantyhose_rebuild: Callable = Callable()
 
-var _debug_skeleton: Node3D
-var _debug_wheel: CanvasLayer
+var _debug_skeleton: DEBUG_SKELETON
+var _debug_wheel: DEBUG_WHEEL
 ## The installed Idle Life entry node, for the deep-stretch action.
 var _idle_life: Node
 var _debug_face_index := -1
@@ -86,12 +89,14 @@ func _ready() -> void:
 ## Set by the entry: the services the buttons act through. The anatomy facade stays a plain handle
 ## because the placement rule would create a service cycle.
 func bind(body_change_service: BODY_CHANGE_SERVICE, initiation_service: INITIATION,
-		negotiation_service: NEGOTIATION, anatomy_service: Node, pantyhose_service: Node) -> void:
+		negotiation_service: NEGOTIATION, anatomy_service: ANATOMY,
+		pantyhose_service: Node) -> void:
 	body_change = body_change_service
 	initiation = initiation_service
 	negotiation = negotiation_service
 	anatomy = anatomy_service
 	pantyhose = pantyhose_service
+	_pantyhose_rebuild = Callable(pantyhose_service, "rebuild_hull")
 
 
 func _exit_tree() -> void:
@@ -274,7 +279,7 @@ func action_form_idle() -> String:
 	var source: Variant = _form_source()
 	if source == null:
 		return "No shape-changing mare."
-	if not source.has_method("request_appear") or not bool(source.call("request_appear")):
+	if not source.has_method("request_appear") or not bool(source.request_appear()):
 		return "She cannot come out now."
 	return "She is out or coming."
 
@@ -371,8 +376,6 @@ func action_reload_pose() -> String:
 	if not error.is_empty():
 		LOG.debug("pose reload failed: %s", [error])
 		return "Pose reload failed: %s" % error
-	if is_instance_valid(act) and act.has_method("_sync_missionary_pose_config"):
-		act.call("_sync_missionary_pose_config")
 	LOG.debug("pose reloaded")
 	return "Reloaded the active posed base."
 
@@ -516,8 +519,8 @@ func _debug_gate_rows(target: Node, runtime: Variant) -> Array[String]:
 	var pose := CATALOG.STANDING
 	var source := ""
 	var bed: Variant = null
-	var status: Dictionary = target.call("posture_status") if target.has_method("posture_status") else {}
-	if str(status.get("requested", "")) == "lie_down":
+	var requested := GAME.posture_requested(target)
+	if requested == "lie_down":
 		pose = CATALOG.MISSIONARY
 		source = "already_lying"
 		bed = _gate(runtime).find_bed_under()
@@ -670,18 +673,17 @@ func _debug_prompt_rows(target: Node) -> Array[String]:
 	var history_row := ACT_HISTORY.effective_row(ACT_HISTORY.section(), id, ACT_HISTORY.day_now())
 	var history_note := ACT_HISTORY.prompt_note(history_row)
 	rows.append("history_note: " + (history_note if not history_note.is_empty() else "none"))
-	var ctx: Variant = WORLD.game.get("world_context") if is_instance_valid(WORLD.game) else null
-	if ctx != null and is_instance_valid(ctx):
-		var events: Array = ctx.call("events_for", id, 10) if ctx.has_method("events_for") else []
+	var ctx := GAME.world_context(WORLD.game)
+	if ctx != null:
+		var events := GAME.world_events(ctx, id, 10)
 		rows.append("recent events:")
 		for event: Variant in events:
 			if event is Dictionary:
 				var item: Dictionary = event
 				rows.append("  %s: %s" % [str(item.get("kind", "")), str(item.get("text", ""))])
-		var impressions: Variant = ctx.get("impressions")
-		if impressions != null and is_instance_valid(impressions) \
-				and impressions.has_method("standing_line"):
-			rows.append("standing_line: " + str(impressions.call("standing_line", id)))
+		var impressions := GAME.impressions_of(ctx)
+		if impressions != null and impressions.has_method("standing_line"):
+			rows.append("standing_line: " + GAME.impression_standing_line(impressions, id))
 	return rows
 
 
@@ -709,9 +711,9 @@ func action_give_stool() -> String:
 ## Rebuild the worn-garment depth field after a precision edit. The integration owns the cache
 ## and the scan; the actions node only forwards the button.
 func action_pantyhose_rebuild() -> String:
-	if not is_instance_valid(pantyhose):
+	if not _pantyhose_rebuild.is_valid():
 		return "Pantyhose integration is not running."
-	return str(pantyhose.call("rebuild_hull"))
+	return str(_pantyhose_rebuild.call())
 
 
 func _debug_pony_id(target: Node) -> String:
@@ -740,8 +742,8 @@ func _debug_force_tolerance(kind: String) -> String:
 
 ## integration: the anatomy service owns the placement editor.
 func _placement_debug(op: String, value := 0.0) -> String:
-	if is_instance_valid(anatomy):
-		return str(anatomy.call("placement_debug", op, value))
+	if anatomy != null:
+		return anatomy.placement_debug(op, value)
 	return "Anatomy service unavailable."
 
 
@@ -826,8 +828,8 @@ func action_placement_reset() -> String:
 
 
 func action_placement_show() -> String:
-	if is_instance_valid(anatomy):
-		return str(anatomy.call("placement_show"))
+	if anatomy != null:
+		return anatomy.placement_show()
 	return "Anatomy service unavailable."
 
 
@@ -844,11 +846,11 @@ func sync_skeleton_overlay() -> void:
 		if not is_instance_valid(_debug_skeleton):
 			_debug_skeleton = DEBUG_SKELETON.new()
 			_debug_skeleton.name = "UnfplapSkeleton"
-			_debug_skeleton.set("actions", self)
+			_debug_skeleton.actions = self
 			add_child(_debug_skeleton)
-		_debug_skeleton.set("enabled", true)
+		_debug_skeleton.enabled = true
 	elif is_instance_valid(_debug_skeleton):
-		_debug_skeleton.set("enabled", false)
+		_debug_skeleton.enabled = false
 
 
 ## The debug wheel is created lazily on the first middle press. The gate here keeps a pack with
@@ -864,13 +866,13 @@ func debug_wheel_input(event: InputEvent) -> bool:
 			return false
 		_debug_wheel = DEBUG_WHEEL.new()
 		_debug_wheel.name = "UnfplapDebugWheel"
-		_debug_wheel.set("actions", self)
+		_debug_wheel.actions = self
 		add_child(_debug_wheel)
-	return bool(_debug_wheel.call("handle_input", event))
+	return _debug_wheel.handle_input(event)
 
 
 func debug_wheel_open() -> bool:
-	return is_instance_valid(_debug_wheel) and bool(_debug_wheel.call("is_open"))
+	return is_instance_valid(_debug_wheel) and _debug_wheel.is_open()
 
 
 ## A world enter or a world close: a wheel opened on a world that is gone closes with it.
@@ -884,7 +886,7 @@ func on_world_closed() -> void:
 
 func close_debug_wheel() -> void:
 	if is_instance_valid(_debug_wheel):
-		_debug_wheel.call("close")
+		_debug_wheel.close()
 
 
 func debug_wheel_act_live() -> bool:
@@ -936,9 +938,9 @@ func debug_wheel_action(name: String) -> String:
 
 
 func skeleton_click() -> bool:
-	if not is_instance_valid(_debug_skeleton) or not bool(_debug_skeleton.get("enabled")):
+	if not is_instance_valid(_debug_skeleton) or not _debug_skeleton.enabled:
 		return false
-	return bool(_debug_skeleton.call("handle_click"))
+	return _debug_skeleton.handle_click()
 
 
 ## The aimed mare: the closest mare to the camera's aim ray, else nothing.

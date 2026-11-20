@@ -13,9 +13,11 @@ static func stretch(entry: Node, pony: Node3D) -> String:
 		return "No pony to stretch."
 	if not is_instance_valid(entry) or not entry.has_method("play"):
 		return "Idle Life isn't running."
-	var rows: Variant = entry.get("_rows")
-	if rows is Dictionary and (rows as Dictionary).has(pony) and entry.has_method("_finish"):
-		entry.call("_finish", pony)
-	if bool(entry.call("play", pony, IDLE, 0.0, true)):
+	# The installed mod's own entry script; it is not in this pack, so the handle stays untyped.
+	var idle_life: Variant = entry
+	var rows: Variant = idle_life.get("_rows")
+	if rows is Dictionary and (rows as Dictionary).has(pony) and idle_life.has_method("_finish"):
+		idle_life._finish(pony)
+	if bool(idle_life.play(pony, IDLE, 0.0, true)):
 		return "Deep stretch for %s." % str(pony.name)
 	return "%s can't play the deep stretch." % str(pony.name)

@@ -23,7 +23,7 @@ class PhaseNode extends Node:
 
 
 ## A stand-in for the actions node: the gate, the context and the slot dispatch.
-class WheelActions extends Node:
+class WheelActions extends "res://mods/unfplap/debug/actions.gd":
 	var last_action := ""
 
 	func debug_wheel_allowed() -> bool:

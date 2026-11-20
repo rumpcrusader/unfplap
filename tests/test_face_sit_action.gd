@@ -19,9 +19,8 @@ var failures := 0
 var checks := 0
 
 
-class FakeBridge extends RefCounted:
-	var missionary_anon: Variant = null
-
+## The real bridge's shape, with the lifecycle calls stubbed so a bare Node handle is enough.
+class FakeBridge extends "res://mods/unfplap/anatomy/act_bridge.gd":
 	func bind(_host: Variant) -> void:
 		pass
 
@@ -33,9 +32,6 @@ class FakeBridge extends RefCounted:
 
 	func detach() -> void:
 		pass
-
-	func missionary_anon_body() -> Variant:
-		return missionary_anon
 
 
 ## The act input protocol the debug action reaches through the runtime's session handle.

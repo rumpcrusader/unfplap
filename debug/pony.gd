@@ -6,6 +6,7 @@ extends RefCounted
 ## record the sex-ready path writes; see `docs/debug.md`.
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
@@ -30,33 +31,23 @@ static func context(pony: Node, id: String, act: Dictionary) -> Dictionary:
 			if identity.get("display_name") != null else pony_id
 	var relations: Variant = _relations(pony)
 	var love_name := "?"
-	if is_instance_valid(pony) and pony.has_meta("relationship_runtime"):
-		var rel: Variant = pony.get_meta("relationship_runtime")
-		if rel != null and is_instance_valid(rel) and rel.has_method("ladder"):
-			var ladder: Variant = rel.call("ladder", pony_id)
-			if ladder is Dictionary:
-				var love: Variant = (ladder as Dictionary).get("love", {})
-				if love is Dictionary:
-					love_name = str((love as Dictionary).get("name", "?"))
+	if is_instance_valid(pony):
+		love_name = GAME.relationship_love_name(pony, pony_id)
 	var mood := "?"
 	if is_instance_valid(WORLD.game):
-		var ctx: Variant = WORLD.game.get("world_context")
-		if ctx != null and is_instance_valid(ctx):
-			var impressions: Variant = ctx.get("impressions")
-			if impressions != null and is_instance_valid(impressions) \
-					and impressions.has_method("profile"):
-				var prof: Dictionary = impressions.call("profile", pony_id)
-				mood = str(prof.get("mood", "?"))
-	var status: Dictionary = pony.posture_status() \
-		if is_instance_valid(pony) and pony.has_method("posture_status") else {}
-	var nav: Node = pony.get_node_or_null("Navigator") if is_instance_valid(pony) else null
+		var ctx := GAME.world_context(WORLD.game)
+		var impressions := GAME.impressions_of(ctx)
+		if impressions != null and impressions.has_method("profile"):
+			mood = GAME.impression_mood(impressions, pony_id, "?")
+	var posture := GAME.posture_requested(pony)
+	var nav := GAME.navigator_of(pony)
 	var owner := ""
 	var target := false
 	var reserved := ""
 	if nav != null:
-		owner = str(nav.get("command_owner"))
-		target = bool(nav.get("_has_target"))
-		reserved = str(nav.get("reserved_by"))
+		owner = GAME.navigator_owner(nav)
+		target = GAME.navigator_has_target(nav)
+		reserved = GAME.navigator_reserved(nav)
 	var body: Variant = WORLD.player if is_instance_valid(WORLD.game) else null
 	var out := act.duplicate()
 	out.merge({
@@ -65,13 +56,13 @@ static func context(pony: Node, id: String, act: Dictionary) -> Dictionary:
 		"welcomes": relations.willing,
 		"mood": mood,
 		"sleeping": bool(pony.get("sleeping")) if is_instance_valid(pony) else false,
-		"held": bool(pony.is_held()) if is_instance_valid(pony) else false,
-		"grounded": bool(pony.grounded()) if is_instance_valid(pony) else false,
+		"held": GAME.is_held(pony),
+		"grounded": GAME.grounded(pony),
 		"seated": pony.has_meta("seated") if is_instance_valid(pony) else false,
 		"motion": bool(pony.get("motion_paused")) if is_instance_valid(pony) else false,
 		"speed": float(pony.get("actual_speed")) if is_instance_valid(pony) else 0.0,
-		"posture": str(status.get("requested", "")),
-		"interrupt": str(pony.action_interruption_reason()) if is_instance_valid(pony) else "",
+		"posture": posture,
+		"interrupt": GAME.interruption_reason(pony),
 		"owner": owner, "target": target, "reserved": reserved,
 		"body_controls_locked": str(body.get("controls_locked")) if body != null else "?",
 		"body_flying": str(body.get("flying")) if body != null else "?",
@@ -94,29 +85,28 @@ static func upright(pony: Node3D) -> void:
 	transform.basis = Basis(Vector3.UP, euler.y) * Basis.from_scale(scale)
 	pony.global_transform = transform
 	if pony.get("velocity") != null:
-		pony.set("velocity", Vector3.ZERO)
+		GAME.set_velocity(pony, Vector3.ZERO)
 	pony.reset_physics_interpolation()
 
 
 static func idle(pony: Node3D) -> String:
 	var notes := PackedStringArray()
-	var nav: Node = pony.get_node_or_null("Navigator")
+	var nav := GAME.navigator_of(pony)
 	if nav != null:
-		nav.call("stay")
-		if str(nav.get("command_owner")) != "":
-			notes.append("owner " + str(nav.get("command_owner")))
-			nav.set("command_owner", "")
-		nav.set("wander_enabled", false)
-		if str(nav.get("reserved_by")) != "":
-			notes.append("reserved " + str(nav.get("reserved_by")))
-			nav.set("reserved_by", "")
+		GAME.navigator_stay(nav)
+		if not GAME.navigator_owner(nav).is_empty():
+			notes.append("owner " + GAME.navigator_owner(nav))
+			GAME.set_navigator_owner(nav, "")
+		GAME.set_navigator_wander(nav, false)
+		if not GAME.navigator_reserved(nav).is_empty():
+			notes.append("reserved " + GAME.navigator_reserved(nav))
+			GAME.set_navigator_reserved(nav, "")
 	if pony.has_meta("active_follow"):
 		pony.remove_meta("active_follow")
 	if pony.get("motion_paused") == true:
-		pony.set("motion_paused", false)
-	var status: Dictionary = pony.call("posture_status") if pony.has_method("posture_status") else {}
-	if str(status.get("requested", "")) != "stand" and pony.has_method("request_posture"):
-		pony.call("request_posture", "stand")
+		GAME.set_motion_paused(pony, false)
+	if GAME.posture_requested(pony) != "stand" and pony.has_method("request_posture"):
+		GAME.request_posture(pony, "stand")
 		notes.append("stand requested")
 	upright(pony)
 	return "none" if notes.is_empty() else ", ".join(notes)
@@ -129,7 +119,7 @@ static func clear_busy(pony: Node3D) -> String:
 	if session != null and session.get("blend") != null:
 		blend = float(session.get("blend"))
 	if session != null and (bool(session.get("enabled")) or blend > 0.0):
-		session.call("end", true)
+		GAME.cuddle_end(session)
 		notes.append("cuddle ended")
 	for meta: String in ["couch_cuddle", "cuddle_active", "sex_aftercare"]:
 		if pony.has_meta(meta):
@@ -182,21 +172,15 @@ static func _record_refusal(pony: Node3D) -> String:
 
 ## The pony's relationship runtime's bonds store, or null when she has none.
 static func _bonds(pony: Node3D) -> Object:
-	if not pony.has_meta("relationship_runtime"):
-		return null
-	var rel: Variant = pony.get_meta("relationship_runtime")
-	if not is_instance_valid(rel):
-		return null
-	var bonds: Variant = rel.get("bonds")
-	return bonds as Object if is_instance_valid(bonds) else null
+	return GAME.bonds_of(pony)
 
 
 ## Raise the stage to dating unless she is already dating, engaged or married.
-static func _raise_stage(row: Dictionary) -> String:
-	var before := str(row.get("stage", "acquaintance"))
+static func _raise_stage(record: GAME.BondRecord) -> String:
+	var before := record.stage
 	if before in KEPT_STAGES:
 		return "stage %s (kept)" % before
-	row["stage"] = "dating"
+	record.stage = "dating"
 	return "stage %s -> dating" % before
 
 
@@ -217,21 +201,18 @@ static func _write_record(host: Node, pony: Node3D, id: String) -> Array[String]
 	if not bonds.has_method("_save"):
 		out.append("refused: no _save")
 		return out
-	var row: Dictionary = bonds.call("record_for", id)
-	out.append("record=" + _raise_stage(row))
-	row["familiarity"] = maxf(float(row.get("familiarity", 0.0)), FAMILIARITY_FLOOR)
-	row["trust"] = maxf(float(row.get("trust", 0.0)), TRUST_FLOOR)
-	row["together_s"] = maxf(float(row.get("together_s", 0.0)), TOGETHER_FLOOR_S)
-	row["plan"] = {}
-	row["offer"] = {}
-	var stored: Variant = row.get("cooldowns", {})
-	var cooldowns: Dictionary = stored if stored is Dictionary else {}
-	cooldowns.erase("boundary")
-	cooldowns.erase("dating")
-	row["cooldowns"] = cooldowns
-	bonds.call("_save", id, row)
+	var record := GAME.bond_record_for(bonds, id)
+	out.append("record=" + _raise_stage(record))
+	record.familiarity = maxf(record.familiarity, FAMILIARITY_FLOOR)
+	record.trust = maxf(record.trust, TRUST_FLOOR)
+	record.together_s = maxf(record.together_s, TOGETHER_FLOOR_S)
+	record.plan = {}
+	record.offer = {}
+	record.cooldowns.erase("boundary")
+	record.cooldowns.erase("dating")
+	record.save(bonds, id)
 	if bonds.has_method("mark_met"):
-		bonds.call("mark_met", id)
+		GAME.bond_mark_met(bonds, id)
 	return out
 
 
@@ -244,23 +225,21 @@ static func _neutral_mood(host: Node, pony: Node3D, id: String) -> String:
 	var game: Variant = WORLD.game
 	if not is_instance_valid(game):
 		return "no game"
-	var context: Variant = game.get("world_context")
-	if not is_instance_valid(context):
+	var context := GAME.world_context(game)
+	if context == null:
 		return "no world context"
-	var impressions: Variant = context.get("impressions")
-	if not is_instance_valid(impressions) or not impressions.has_method("profile") \
+	var impressions := GAME.impressions_of(context)
+	if impressions == null or not impressions.has_method("profile") \
 			or not impressions.has_method("commit"):
 		return "no impressions"
-	var before := "neutral"
-	var before_profile: Variant = impressions.call("profile", id)
-	if before_profile is Dictionary:
-		before = str((before_profile as Dictionary).get("mood", "neutral"))
-	impressions.call("commit", id, {"mood": "neutral"},
+	var before := GAME.impression_mood(impressions, id)
+	if before.is_empty():
+		before = "neutral"
+	GAME.impression_set_mood(impressions, id, "neutral",
 		"unfplap-debug-mood:%s:%d" % [id, Time.get_ticks_usec()])
-	var after := "neutral"
-	var after_profile: Variant = impressions.call("profile", id)
-	if after_profile is Dictionary:
-		after = str((after_profile as Dictionary).get("mood", "neutral"))
+	var after := GAME.impression_mood(impressions, id)
+	if after.is_empty():
+		after = "neutral"
 	return "%s -> %s" % [before, after]
 
 

@@ -11,6 +11,8 @@ const ACT_SESSION := preload("res://mods/unfplap/act/session.gd")
 const ACT_START := preload("res://mods/unfplap/act/start.gd")
 const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const SCENE_GATE := preload("res://mods/unfplap/scene_gate/service.gd")
+const NEGOTIATION_HANDLE := preload("res://mods/unfplap/negotiation/agreement.gd")
+const POSE_OPTIONS := preload("res://mods/unfplap/shared/pose_options.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 ## The Agreement start's answer: a transient row or an unsettled presentation keeps waiting; a
@@ -35,10 +37,10 @@ func bind(host_in: ACT_HOST, context_in: ACT_CONTEXT, session_in: ACT_SESSION,
 
 ## The scene-only Agreement start. Negotiation froze the policy and the pose capability; only the
 ## world rows run. `WAIT` keeps the Agreement live; `STARTED` and `FAILED` are reported by the offer.
-func start_agreement(handle: Variant, skip_presentation := false) -> int:
-	if handle == null or not bool(handle.call("valid")):
+func start_agreement(handle: NEGOTIATION_HANDLE.Handle, skip_presentation := false) -> int:
+	if handle == null or not handle.valid():
 		return AGREEMENT_FAILED
-	var option: Variant = handle.get("option")
+	var option: POSE_OPTIONS.Option = handle.option
 	if option == null:
 		return AGREEMENT_FAILED
 	session.refresh_identity()
@@ -68,10 +70,10 @@ func start_agreement(handle: Variant, skip_presentation := false) -> int:
 
 
 ## True when the scene-only rows pass and, for a standing option, the presentation is settled.
-func agreement_offer_ready(handle: Variant, skip_presentation := false) -> bool:
-	if handle == null or not bool(handle.call("valid")):
+func agreement_offer_ready(handle: NEGOTIATION_HANDLE.Handle, skip_presentation := false) -> bool:
+	if handle == null or not handle.valid():
 		return false
-	var option: Variant = handle.option
+	var option: POSE_OPTIONS.Option = handle.option
 	if option == null:
 		return false
 	session.refresh_identity()
@@ -90,10 +92,10 @@ func agreement_offer_ready(handle: Variant, skip_presentation := false) -> bool:
 ## The act key's readiness check; unlike a policy start it never bucks.
 func hotkey_ready(pose: String, act_source: String, bed_in: Variant = null) -> bool:
 	session.refresh_identity()
-	var stool_act: Variant = session.stool()
+	var stool_act := session.stool()
 	var pair := Vector2i(-1, -1)
 	if stool_act != null:
-		pair = stool_act.call("hotkey_pair", pose)
+		pair = stool_act.hotkey_pair(pose)
 	PERF.begin("offer_rows")
 	var allowed: bool = context.gate.hotkey_ready(pose, act_source, bed_in, pair)
 	PERF.end("offer_rows")
@@ -103,10 +105,10 @@ func hotkey_ready(pose: String, act_source: String, bed_in: Variant = null) -> b
 ## The footstool pair this call's gate used, so the blocked standing note does not repeat the
 ## reach and case reads.
 func hint_stool() -> Dictionary:
-	var stool_act: Variant = session.stool()
+	var stool_act := session.stool()
 	if stool_act == null:
 		return {"need": 0, "have": 0}
-	return stool_act.call("hint_pair")
+	return stool_act.hint_pair()
 
 
 ## The act key's immediate attempt, with no Agreement and no presentation wait.

@@ -14,6 +14,7 @@ const DIALOGUE := preload("res://mods/unfplap/dialogue/service.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const REST := preload("res://mods/unfplap/rest/control.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 const State := ACT_STATE.State
@@ -168,15 +169,8 @@ func stop_with_her(reason: String) -> void:
 ## Strict only: withdraw the bond's standing invitation. A body without the relationship runtime
 ## is a quiet no-op.
 func request_space() -> void:
-	if not is_instance_valid(host.pony):
-		return
-	var rel: Variant = host.pony.get_meta("relationship_runtime") \
-		if host.pony.has_meta("relationship_runtime") else null
-	if rel == null or not is_instance_valid(rel):
-		return
-	var bonds: Variant = rel.get("bonds")
-	if bonds != null and is_instance_valid(bonds) and bonds.has_method("request_space"):
-		bonds.call("request_space", session.pony_id)
+	if is_instance_valid(host.pony):
+		GAME.request_space(host.pony, session.pony_id)
 
 
 ## One post-act line, presented once the act is IDLE. The summary already says why she stopped.

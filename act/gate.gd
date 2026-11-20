@@ -10,6 +10,7 @@ const ACT_AGREEMENT := preload("res://mods/unfplap/act/agreement.gd")
 const ACT_SESSION := preload("res://mods/unfplap/act/session.gd")
 const REACTIONS := preload("res://mods/unfplap/reactions/service.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
+const NEGOTIATION_HANDLE := preload("res://mods/unfplap/negotiation/agreement.gd")
 const STOOL := preload("res://mods/unfplap/stool/service.gd")
 
 var scene: SCENE_GATE = null
@@ -51,7 +52,7 @@ func hint_stool() -> Dictionary:
 	return agreement.hint_stool()
 
 
-func agreement_offer_ready(handle: Variant, skip_presentation := false) -> bool:
+func agreement_offer_ready(handle: NEGOTIATION_HANDLE.Handle, skip_presentation := false) -> bool:
 	return agreement.agreement_offer_ready(handle, skip_presentation)
 
 
@@ -60,7 +61,7 @@ func start_hotkey(pose: String, bed_in: Variant, act_source: String,
 	return agreement.start_hotkey(pose, bed_in, act_source, skip_presentation)
 
 
-func start_agreement(handle: Variant, skip_presentation := false) -> int:
+func start_agreement(handle: NEGOTIATION_HANDLE.Handle, skip_presentation := false) -> int:
 	return agreement.start_agreement(handle, skip_presentation)
 
 

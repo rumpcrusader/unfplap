@@ -12,6 +12,7 @@ const AFTERGLOW := preload("res://mods/unfplap/afterglow/service.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
+const ANATOMY := preload("res://mods/unfplap/anatomy/service.gd")
 const REST := preload("res://mods/unfplap/rest/service.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const HUD := preload("res://mods/unfplap/hud/service.gd")
@@ -68,13 +69,13 @@ func run(rejoin_cuddle: bool) -> void:
 	session.refresh_view()
 	context.camera.finish_act()
 	if context.stool != null:
-		context.stool.call("release")
+		context.stool.release()
 	if is_instance_valid(host.pony):
 		host.pony.remove_meta("sex_active")
 	# integration: hide the player part when the act ends.
-	var anatomy_service: Variant = PONIES.anatomy
-	if anatomy_service != null and anatomy_service.has_method("player_encounter"):
-		anatomy_service.call("player_encounter", false)
+	var anatomy_service := PONIES.anatomy as ANATOMY
+	if anatomy_service != null:
+		anatomy_service.player_encounter(false)
 	context.hold.release_nav()
 	if session.posture_owned:
 		restore_posture(_start_frame(), rejoin_cuddle)

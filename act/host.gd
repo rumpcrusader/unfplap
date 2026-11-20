@@ -5,12 +5,15 @@ extends RefCounted
 ##
 ## See `docs/runtime.md`.
 
-const TAIL_TUCK: GDScript = preload("res://mods/unfplap/poses/tail_tuck.gd")
+const TAIL_TUCK := preload("res://mods/unfplap/poses/tail_tuck.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
 
 var node: Node
 ## The presented body. The runtime's pony setter keeps it in step.
 var pony: Node
+## The runtime's public attach hook, bound once so the host never preloads `runtime.gd`.
+var _attach: Callable = Callable()
 ## The tail-tuck node the exit starts and the runtime clears. It needs the runtime node to host
 ## the pose-scope node, so it stays a typed host op rather than a service call.
 var _tail_tuck: Node = null
@@ -18,6 +21,7 @@ var _tail_tuck: Node = null
 
 func bind(node_in: Node) -> void:
 	node = node_in
+	_attach = Callable(node_in, "attach_to_body")
 
 
 func tree() -> SceneTree:
@@ -49,8 +53,8 @@ func tween() -> Tween:
 ## Move the runtime node under the world before a freed body is dropped. The runtime owns the
 ## reparent and its swap flag; the host only names the world.
 func attach_to_world() -> void:
-	if is_instance_valid(node) and is_instance_valid(WORLD.game):
-		node.call("attach_to_body", WORLD.game)
+	if _attach.is_valid() and is_instance_valid(WORLD.game):
+		_attach.call(WORLD.game)
 
 
 ## The presented body as a value, for a host callback that needs it rather than a field read.
@@ -74,10 +78,7 @@ func director() -> Node:
 func mod_enabled(id: String) -> bool:
 	if id.is_empty() or not is_instance_valid(node) or not node.is_inside_tree():
 		return false
-	var mods: Node = node.get_node_or_null("/root/Mods")
-	if mods == null or not mods.has_method("is_active"):
-		return false
-	return bool(mods.call("is_active", id))
+	return GAME.mod_active(node.get_node_or_null("/root/Mods"), id)
 
 
 ## The VR scene handles the anatomy bridge wires into the VR act: the player, the avatar and the
@@ -117,10 +118,10 @@ func start_tail_tuck() -> void:
 	end_tail_tuck()
 	if not is_instance_valid(node) or not is_instance_valid(pony):
 		return
-	var tuck: Node = TAIL_TUCK.new()
+	var tuck: TAIL_TUCK = TAIL_TUCK.new()
 	tuck.name = "UnfplapTailTuck"
-	tuck.set("pony", pony)
-	tuck.set("runtime", node)
+	tuck.pony = pony as Node3D
+	tuck.runtime = node
 	add_child(tuck)
 	_tail_tuck = tuck
 

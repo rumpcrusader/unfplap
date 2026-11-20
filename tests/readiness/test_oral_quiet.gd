@@ -28,7 +28,7 @@ var failures := 0
 var checks := 0
 
 
-class FakeBridge extends RefCounted:
+class FakeBridge extends "res://mods/unfplap/anatomy/act_bridge.gd":
 	var holds := 0
 	var visemes: Array[String] = []
 	var mouth := Vector3(0.2, 1.3, 0.5)
@@ -38,6 +38,12 @@ class FakeBridge extends RefCounted:
 		pass
 
 	func refresh() -> void:
+		pass
+
+	func end() -> void:
+		pass
+
+	func detach() -> void:
 		pass
 
 	func hold_oral_mouth() -> void:
@@ -51,12 +57,6 @@ class FakeBridge extends RefCounted:
 
 	func opening() -> Vector3:
 		return point
-
-	func end() -> void:
-		pass
-
-	func detach() -> void:
-		pass
 
 
 class FakeCamera extends ACT_CAMERA:

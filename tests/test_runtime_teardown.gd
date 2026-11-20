@@ -10,6 +10,7 @@ const MISSIONARY_ANON := preload("res://mods/unfplap/poses/missionary_anon.gd")
 const FRAME := preload("res://mods/unfplap/act/frame.gd")
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const ACT_AGREEMENT := preload("res://mods/unfplap/act/agreement.gd")
+const AGREEMENT := preload("res://mods/unfplap/negotiation/agreement.gd")
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
@@ -215,12 +216,11 @@ func _fixture() -> Dictionary:
 	return {"runtime": runtime, "pony": pony, "player": player, "main": main, "hud": hud}
 
 
-class FakeHandle extends RefCounted:
-	var option: Variant = null
-	var pony: Variant = null
-
-	func valid() -> bool:
-		return true
+class FakeHandle extends AGREEMENT.Handle:
+	func _init() -> void:
+		id = 1
+		generation = 1
+		cancel = func(_reason: String) -> bool: return true
 
 
 func run() -> void:

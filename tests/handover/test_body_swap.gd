@@ -14,6 +14,7 @@ const HYBRID_NEAR_MESH := preload("res://world/characters/hybrid_mare/hybrid_nea
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const ACT_SESSION := preload("res://mods/unfplap/act/session.gd")
+const CONTROLLER := preload("res://mods/unfplap/anatomy/controller.gd")
 const SUMMARY := preload("res://mods/unfplap/summary/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
@@ -373,17 +374,17 @@ class FakeHost extends Node:
 
 ## A service with only the player handshake: the body swap must clear the old body's offset even
 ## when no anatomy controller is available.
-class FakePlayerAnatomy extends Node:
+class FakePlayerAnatomy extends "res://mods/unfplap/anatomy/service.gd":
 	var reset_calls := 0
 
 	## The registry's two bind calls: a body takes a runtime and its tail is seated.
-	func bind(_pony: Node, _runtime: Node) -> Node:
+	func bind(_pony: Node, _runtime: Node) -> CONTROLLER:
 		return null
 
 	func tail_ready(_pony: Node) -> void:
 		pass
 
-	func controller_for(_pony: Node, _runtime: Node) -> Node:
+	func controller_for(_pony: Node, _runtime: Node) -> CONTROLLER:
 		return null
 
 	func player_reset_pelvis() -> void:

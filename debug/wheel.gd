@@ -4,10 +4,11 @@ extends CanvasLayer
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/service.gd")
+const ACTIONS_NODE := preload("res://mods/unfplap/debug/actions.gd")
 const SOUNDS := preload("res://world/audio/interaction_sounds.gd")
 
 ## The `debug/actions.gd` node that owns the gate, the context and the slots.
-var actions: Node
+var actions: ACTIONS_NODE
 
 var _open := false
 var _page := "mare"
@@ -22,11 +23,11 @@ var _canvas: WheelCanvas
 
 
 class WheelCanvas extends Control:
-	var wheel: Variant
+	var draw_wheel := Callable()
 
 	func _draw() -> void:
-		if wheel != null:
-			wheel.call("_draw_wheel", self)
+		if draw_wheel.is_valid():
+			draw_wheel.call(self)
 
 
 func _ready() -> void:
@@ -39,7 +40,7 @@ func _ready() -> void:
 	add_child(_root)
 	_canvas = WheelCanvas.new()
 	_canvas.name = "WheelCanvas"
-	_canvas.wheel = self
+	_canvas.draw_wheel = Callable(self, "_draw_wheel")
 	_canvas.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_canvas.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_canvas.modulate = Color(1.0, 1.0, 1.0, 0.75)
@@ -57,8 +58,7 @@ func is_open() -> bool:
 func open() -> bool:
 	if not _can_open():
 		return false
-	var context: Variant = actions.call("debug_wheel_context")
-	_context = context if context is Dictionary else {}
+	_context = actions.debug_wheel_context()
 	var pony: Variant = _context.get("pony")
 	_target = pony as Node if is_instance_valid(pony) else null
 	_had_target = is_instance_valid(_target)
@@ -136,7 +136,7 @@ func _process(_delta: float) -> void:
 
 
 func _can_open() -> bool:
-	return is_instance_valid(actions) and bool(actions.call("debug_wheel_allowed"))
+	return is_instance_valid(actions) and actions.debug_wheel_allowed()
 
 
 func _can_stay() -> bool:
@@ -144,7 +144,7 @@ func _can_stay() -> bool:
 		return false
 	if _had_target and not is_instance_valid(_target):
 		return false
-	return bool(actions.call("debug_wheel_act_live")) == (_page == "act")
+	return actions.debug_wheel_act_live() == (_page == "act")
 
 
 func _activate() -> void:
@@ -152,7 +152,7 @@ func _activate() -> void:
 	close()
 	if hovered < 0 or hovered >= _slots.size() or not is_instance_valid(actions):
 		return
-	actions.call("debug_wheel_action", _slots[hovered])
+	actions.debug_wheel_action(_slots[hovered])
 
 
 func _clamp_aim() -> void:

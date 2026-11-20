@@ -194,24 +194,26 @@ func refresh_view() -> void:
 func sync_hud() -> void:
 	view.sync_hud(context.facts, self, max_pony_climaxes, cycle_heat, pose_family())
 
-func stool() -> Variant:
+func stool() -> STOOL.ACT:
 	if not is_instance_valid(WORLD.game) or not is_instance_valid(host.pony):
 		return null
-	var service: Variant = STOOL.instance
-	if service == null or not service.has_method("new_act"):
+	var service := STOOL.instance as STOOL
+	if service == null:
 		return null
 	if context.stool == null:
-		context.stool = service.call("new_act")
-	context.stool.call("bind", service, host.pony, WORLD.player, context.anatomy.controller)
+		context.stool = service.new_act()
+	context.stool.bind(service, host.pony as Node3D, WORLD.player, context.anatomy.controller)
 	return context.stool
 
 func release_stool() -> void:
-	if stool() != null:
-		context.stool.call("release")
+	var handle := stool()
+	if handle != null:
+		handle.release()
 
 func reset_stool_state() -> void:
-	if stool() != null:
-		context.stool.call("reset")
+	var handle := stool()
+	if handle != null:
+		handle.reset()
 
 func clear_aftercare() -> void:
 	context.afterglow.clear_post_act(host.pony if is_instance_valid(host.pony) else null)

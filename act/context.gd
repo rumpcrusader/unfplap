@@ -26,6 +26,9 @@ const INTEGRATIONS := preload("res://mods/unfplap/integrations/service.gd")
 const CAMERA_VIEW := preload("res://mods/unfplap/camera/view.gd")
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 const ACT_FRAME := preload("res://mods/unfplap/act/frame.gd")
+const ANATOMY_ACT := preload("res://mods/unfplap/anatomy/act_bridge.gd")
+const ANATOMY_HOST := preload("res://mods/unfplap/anatomy/act_host.gd")
+const STOOL := preload("res://mods/unfplap/stool/service.gd")
 
 
 var pose: POSE_SESSION = null
@@ -38,14 +41,14 @@ var face: FACE = null
 var reactions: REACTIONS = null
 var dialogue: ACT_DIALOGUE = null
 ## The anatomy act bridge, built by the anatomy facade, and the typed host it binds.
-var anatomy: RefCounted = null
-var anatomy_host: RefCounted = null
+var anatomy: ANATOMY_ACT = null
+var anatomy_host: ANATOMY_HOST = null
 var handover: BODY_CHANGE_ACT = null
 var gate: SCENE_GATE = null
 ## The act's scene ownership: navigator, player lock and face turn.
 var hold: SCENE_HOLD = null
 ## The per-act footstool handle, bound by the start ledger and released by the exit.
-var stool: RefCounted = null
+var stool: STOOL.ACT = null
 ## The act's consent response: the tolerance warning, its line and the stop presentation.
 var consent: RefCounted = null
 ## The act's stroke presentation and its one post-move path.

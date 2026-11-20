@@ -13,6 +13,7 @@ const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
+const ANATOMY := preload("res://mods/unfplap/anatomy/service.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
 const STOOL := preload("res://mods/unfplap/stool/service.gd")
@@ -461,10 +462,10 @@ func reset_pelvis() -> void:
 func new_body_is_adult() -> bool:
 	if not is_instance_valid(WORLD.game):
 		return true
-	var service: Variant = PONIES.eligibility
-	if service == null or not service.has_method("eligible"):
+	var service: ELIGIBILITY = PONIES.eligibility
+	if service == null:
 		return true
-	return bool(service.call("eligible", host.pony, ELIGIBILITY.Target.ACT))
+	return service.eligible(host.pony, ELIGIBILITY.Target.ACT)
 
 
 ## The missionary act body's placement for this frame: the pose service owns the body and applies
@@ -510,10 +511,10 @@ func _write_stance(rig: Rig, eye: float, yaw: float, pitch: float) -> void:
 	_capture(rig)
 	body.rotation.y = yaw
 	if body.get("_pitch") != null:
-		body.set("_pitch", pitch)
+		GAME.set_pitch(body, pitch)
 	if eye > 0.0:
-		body.set("_stand_eye", eye)
-		body.set("_eye_height", eye)
+		GAME.set_stand_eye(body, eye)
+		GAME.set_eye_height(body, eye)
 		GAME.set_eye_y(body, eye)
 	var view := WORLD.camera()
 	if body.get("form_driver") == null and is_instance_valid(view):
@@ -558,17 +559,14 @@ func _capture(rig: Rig, owns_eye := true) -> void:
 func _restore_player() -> void:
 	if _owns_eye and is_instance_valid(_player):
 		_owns_eye = false
-		if _player.get("_stand_eye") != null:
-			_player.set("_stand_eye", _saved_stand_eye)
-		if _player.get("_eye_height") != null:
-			_player.set("_eye_height", _saved_eye_height)
+		GAME.set_stand_eye(_player, _saved_stand_eye)
+		GAME.set_eye_height(_player, _saved_eye_height)
 		GAME.set_eye_y(_player, _saved_stand_eye)
 	if context != null and context.camera != null:
 		context.camera.reset_lean_state()
 	if _pose != null and _pose.family != "standing" and is_instance_valid(_player):
 		_player.rotation.y = _saved_yaw
-		if _player.get("_pitch") != null:
-			_player.set("_pitch", _saved_pitch)
+		GAME.set_pitch(_player, _saved_pitch)
 		var view := WORLD.camera()
 		if _player.get("form_driver") == null and is_instance_valid(view):
 			view.rotation.x = _saved_pitch
@@ -585,7 +583,7 @@ func _lock_player(rig: Rig) -> void:
 		var held: Variant = body.get("controls_locked")
 		_controls_saved = bool(held) if held != null else false
 		_controls_by_frame = true
-	body.set("controls_locked", true)
+	GAME.set_controls_locked(body, true)
 
 
 func _unlock_player() -> void:
@@ -594,7 +592,7 @@ func _unlock_player() -> void:
 	_controls_by_frame = false
 	var body: Node3D = WORLD.player
 	if is_instance_valid(body):
-		body.set("controls_locked", _controls_saved)
+		GAME.set_controls_locked(body, _controls_saved)
 
 
 ## Park the game's desktop presentation for a bed act: it would otherwise show and drive his body
@@ -604,7 +602,7 @@ func _park_avatar() -> void:
 		return
 	if is_instance_valid(_presentation):
 		if _presentation_enabled and bool(_presentation.get("_enabled")) == true:
-			_presentation.call("set_enabled", false)
+			GAME.set_presentation_enabled(_presentation, false)
 		return
 	var presentation: Variant = WORLD.game.get("desktop_presentation")
 	if not is_instance_valid(presentation):
@@ -613,7 +611,7 @@ func _park_avatar() -> void:
 	var enabled: Variant = presentation.get("_enabled")
 	_presentation_enabled = bool(enabled) if enabled != null else true
 	if _presentation_enabled:
-		presentation.call("set_enabled", false)
+		GAME.set_presentation_enabled(_presentation, false)
 	# `set_enabled(false)` only hides his body; `advance()` keeps running and re-hides it every
 	# frame. Park the presentation's process too, so the act owns the avatar wholly.
 	_presentation_processing = presentation.is_processing()
@@ -624,7 +622,7 @@ func _release_avatar() -> void:
 	if is_instance_valid(_presentation):
 		_presentation.set_process(_presentation_processing)
 		if _presentation_enabled:
-			_presentation.call("set_enabled", true)
+			GAME.set_presentation_enabled(_presentation, true)
 	_presentation = null
 	_presentation_enabled = true
 	_presentation_processing = true
@@ -711,6 +709,6 @@ static func _floor_y_at(rig: Rig, at: Vector3, body: Node3D) -> float:
 
 
 func _reset_pelvis() -> void:
-	var service: Variant = PONIES.anatomy
-	if service != null and service.has_method("player_reset_pelvis"):
-		service.call("player_reset_pelvis")
+	var service := PONIES.anatomy as ANATOMY
+	if service != null:
+		service.player_reset_pelvis()

@@ -4,50 +4,6 @@
   ],
   "baseline": [
     {
-      "file": "act/agreement.gd",
-      "count": 4
-    },
-    {
-      "file": "act/consent.gd",
-      "count": 1
-    },
-    {
-      "file": "act/exit.gd",
-      "count": 2
-    },
-    {
-      "file": "act/frame.gd",
-      "count": 13
-    },
-    {
-      "file": "act/host.gd",
-      "count": 4
-    },
-    {
-      "file": "act/phases.gd",
-      "count": 4
-    },
-    {
-      "file": "act/session.gd",
-      "count": 4
-    },
-    {
-      "file": "act/setup.gd",
-      "count": 1
-    },
-    {
-      "file": "act/start.gd",
-      "count": 4
-    },
-    {
-      "file": "act/swap.gd",
-      "count": 1
-    },
-    {
-      "file": "act/tick.gd",
-      "count": 1
-    },
-    {
       "file": "api.gd",
       "count": 1
     },
@@ -78,30 +34,6 @@
     {
       "file": "body_change/wire.gd",
       "count": 2
-    },
-    {
-      "file": "debug/actions.gd",
-      "count": 16
-    },
-    {
-      "file": "debug/bed.gd",
-      "count": 18
-    },
-    {
-      "file": "debug/idle_stretch.gd",
-      "count": 2
-    },
-    {
-      "file": "debug/pony.gd",
-      "count": 17
-    },
-    {
-      "file": "debug/service.gd",
-      "count": 5
-    },
-    {
-      "file": "debug/wheel.gd",
-      "count": 5
     },
     {
       "file": "eligibility/service.gd",

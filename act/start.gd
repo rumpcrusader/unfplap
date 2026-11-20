@@ -15,6 +15,7 @@ const ACT_SETUP := preload("res://mods/unfplap/act/setup.gd")
 const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
+const ANATOMY := preload("res://mods/unfplap/anatomy/service.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
@@ -54,12 +55,11 @@ func run(pose: String, bed_in: Variant, act_source: String, skip_presentation :=
 	session.reset_stool_state()
 	_anatomy_refresh()
 	if bool(POSE_SPECS.scene(pose).get("stool", false)):
-		var stool_need := int(session.stool().call("needed_count")) \
-			if session.stool() != null else 0
+		var stool_act := session.stool()
+		var stool_need := stool_act.needed_count() if stool_act != null else 0
 		if stool_need > 0:
-			var stool_act: Variant = session.stool()
-			if stool_act == null or int(stool_act.call("case_count")) < stool_need \
-					or not bool(stool_act.call("take_items", stool_need)):
+			if stool_act == null or stool_act.case_count() < stool_need \
+					or not stool_act.take_items(stool_need):
 				LOG.debug("start blocked stool pose=%s pony=%s need=%d", [
 					pose, host.pony_name(), stool_need])
 				return false
@@ -171,9 +171,9 @@ func run(pose: String, bed_in: Variant, act_source: String, skip_presentation :=
 	if is_instance_valid(HUD.instance):
 		HUD.instance.set_inventory_hidden(true)
 	# integration: show the player part for the encounter.
-	var service: Variant = PONIES.anatomy
-	if service != null and service.has_method("player_encounter"):
-		service.call("player_encounter", true)
+	var service := PONIES.anatomy as ANATOMY
+	if service != null:
+		service.player_encounter(true)
 	session.begin_pose_in()
 	view.refresh(context.facts, session)
 	# The pose session installs the act body and reconciles the modifiers for the start view,

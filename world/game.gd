@@ -110,6 +110,18 @@ static func set_controls_locked(player: Node3D, locked: bool) -> void:
 		player.set("controls_locked", locked)
 
 
+## The desktop presentation's own show switch; a node without the op is left alone.
+static func set_presentation_enabled(presentation: Node, on: bool) -> void:
+	if is_instance_valid(presentation) and presentation.has_method("set_enabled"):
+		presentation.call("set_enabled", on)
+
+
+## Make a reclined Anon stand up; nothing happens without the body's own op.
+static func force_stand_up(player: Node) -> void:
+	if is_instance_valid(player) and player.has_method("force_stand_up"):
+		player.call("force_stand_up")
+
+
 ## One game setting by its dotted key; empty when the settings node has no reader.
 static func setting_string(settings: Node, key: String) -> String:
 	if not is_instance_valid(settings) or not settings.has_method("get_value"):
@@ -133,6 +145,13 @@ static func mods_state(mods: Node, id: String) -> ModState:
 	if state is Dictionary:
 		out.rows = state
 	return out
+
+
+## Whether the mod registry reports one mod active; false without the reader.
+static func mod_active(mods: Node, id: String) -> bool:
+	if not is_instance_valid(mods) or id.is_empty() or not mods.has_method("is_active"):
+		return false
+	return bool(mods.call("is_active", id))
 
 
 ## Ask the mod registry to persist its state; nothing happens without the writer.
@@ -324,6 +343,54 @@ static func identity_of(pony: Node) -> Resource:
 	if identity is Resource:
 		return identity
 	return null
+
+
+## One pony's relationship love stage name, or `?` without a live ladder.
+static func relationship_love_name(pony: Node, id: String) -> String:
+	if not is_instance_valid(pony) or not pony.has_meta("relationship_runtime"):
+		return "?"
+	var rel: Variant = pony.get_meta("relationship_runtime")
+	if not is_instance_valid(rel) or not rel.has_method("ladder"):
+		return "?"
+	var ladder: Variant = rel.call("ladder", id)
+	if not ladder is Dictionary:
+		return "?"
+	var love: Variant = (ladder as Dictionary).get("love", {})
+	return str((love as Dictionary).get("name", "?")) if love is Dictionary else "?"
+
+
+## The pony's bond store; null without a relationship runtime or a bonds store.
+static func bonds_of(pony: Node) -> Object:
+	if not is_instance_valid(pony) or not pony.has_meta("relationship_runtime"):
+		return null
+	var rel: Variant = pony.get_meta("relationship_runtime")
+	if not is_instance_valid(rel):
+		return null
+	var bonds: Variant = rel.get("bonds")
+	return bonds as Object if is_instance_valid(bonds) else null
+
+
+## One bond record through the store's own reader, as a typed view.
+static func bond_record_for(bonds: Object, id: String) -> BondRecord:
+	if not is_instance_valid(bonds) or not bonds.has_method("record_for"):
+		return BondRecord.new()
+	var row: Variant = bonds.call("record_for", id)
+	return BondRecord.from_dict(row if row is Dictionary else {})
+
+
+## Mark one pony as met through the store's own writer; false without the op.
+static func bond_mark_met(bonds: Object, id: String) -> bool:
+	if not is_instance_valid(bonds) or not bonds.has_method("mark_met"):
+		return false
+	bonds.call("mark_met", id)
+	return true
+
+
+## Withdraw a bond's standing invitation; nothing happens without the store's op.
+static func request_space(pony: Node, id: String) -> void:
+	var bonds := bonds_of(pony)
+	if bonds != null and bonds.has_method("request_space"):
+		bonds.call("request_space", id)
 
 
 ## The pony's body scale; an absent member answers the ordinary 1.0.
@@ -619,6 +686,20 @@ static func world_context(game: Node) -> Node:
 	return null
 
 
+## The world context's recent events for one pony, as typed rows; empty without the reader.
+static func world_events(context: Node, id: String, limit: int) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	if not is_instance_valid(context) or not context.has_method("events_for"):
+		return out
+	var events: Variant = context.call("events_for", id, limit)
+	if not events is Array:
+		return out
+	for event: Variant in events:
+		if event is Dictionary:
+			out.append(event)
+	return out
+
+
 ## The world context's impressions store; null when it has none.
 static func impressions_of(context: Node) -> Node:
 	if not is_instance_valid(context):
@@ -637,6 +718,22 @@ static func impression_mood(impressions: Node, id: String, absent: String = "neu
 	if not profile is Dictionary:
 		return ""
 	return str((profile as Dictionary).get("mood", absent))
+
+
+## Write one mood change; false without a store or a commit op.
+static func impression_set_mood(impressions: Node, id: String, mood: String,
+		key: String) -> bool:
+	if not is_instance_valid(impressions) or not impressions.has_method("commit"):
+		return false
+	impressions.call("commit", id, {"mood": mood}, key)
+	return true
+
+
+## The store's one-line standing note; empty without the op.
+static func impression_standing_line(impressions: Node, id: String) -> String:
+	if not is_instance_valid(impressions) or not impressions.has_method("standing_line"):
+		return ""
+	return str(impressions.call("standing_line", id))
 
 
 ## The rig's private look pitch; NAN when the rig has no such member.
@@ -728,6 +825,18 @@ static func navigator_stay(nav: Node) -> void:
 static func set_navigator_owner(nav: Node, owner: String) -> void:
 	if is_instance_valid(nav):
 		nav.set("command_owner", owner)
+
+
+## Write the navigator's reservation lease.
+static func set_navigator_reserved(nav: Node, value: String) -> void:
+	if is_instance_valid(nav):
+		nav.set("reserved_by", value)
+
+
+## Clear a travel lease's carried body; nothing happens without the node's op.
+static func travel_clear(travel: Node, pony: Node3D) -> void:
+	if is_instance_valid(travel) and travel.has_method("clear"):
+		travel.call("clear", pony)
 
 
 ## Write the navigator's wander switch.
@@ -1170,6 +1279,54 @@ static func set_velocity(body: Node3D, velocity: Vector3) -> void:
 		body.set("velocity", velocity)
 
 
+## Pause or resume a pony's motion; a body without the member is left alone.
+static func set_motion_paused(pony: Node, paused: bool) -> void:
+	if is_instance_valid(pony) and pony.get("motion_paused") != null:
+		pony.set("motion_paused", paused)
+
+
+## Whether a rest seat is free for this pony; false without the seat's op.
+static func seat_free_for(seat: Node, pony: Node3D) -> bool:
+	if not is_instance_valid(seat) or not seat.has_method("free_for"):
+		return false
+	return bool(seat.call("free_for", pony))
+
+
+## A house's guest or unnamed bed through its own builder; null when it cannot answer.
+static func ensure_bed(house: Node3D, kind: String) -> Node3D:
+	if not is_instance_valid(house) or not house.has_method("ensure_bed"):
+		return null
+	var bed: Variant = house.call("ensure_bed", kind)
+	return bed as Node3D if bed is Node3D and is_instance_valid(bed) else null
+
+
+## Whether the bed rest accepts this pony through its own gate; false without the op.
+static func bed_rest_accept(rest: Node, pony: Node3D) -> bool:
+	if not is_instance_valid(rest) or not rest.has_method("accept"):
+		return false
+	return bool(rest.call("accept", pony))
+
+
+## Whether the bed rest judged this pony willing; false without the op.
+static func bed_rest_willing(rest: Node, pony: Node3D) -> bool:
+	if not is_instance_valid(rest) or not rest.has_method("_willing"):
+		return false
+	return bool(rest.call("_willing", pony))
+
+
+## Whether the bed rest judges this pony eligible; false without the op.
+static func bed_rest_eligible(rest: Node, pony: Node3D) -> bool:
+	if not is_instance_valid(rest) or not rest.has_method("eligible"):
+		return false
+	return bool(rest.call("eligible", pony))
+
+
+## End a pony's own speech loop; a body without the op keeps speaking.
+static func stop_speaking(pony: Node) -> void:
+	if is_instance_valid(pony) and pony.has_method("stop_speaking"):
+		pony.call("stop_speaking")
+
+
 ## Hold the seated player's Q action; a rig without the member is left alone.
 static func set_q_held(body: Node3D, held: bool) -> void:
 	if is_instance_valid(body):
@@ -1294,6 +1451,18 @@ static func set_eye_y(body: Node3D, y: float) -> void:
 	if not is_instance_valid(body) or not body.has_method("_set_eye_y"):
 		return
 	body.call("_set_eye_y", y)
+
+
+## Write the rig's standing eye line; a rig without the member is left alone.
+static func set_stand_eye(body: Node3D, y: float) -> void:
+	if is_instance_valid(body) and body.get("_stand_eye") != null:
+		body.set("_stand_eye", y)
+
+
+## Write the rig's own eye height; a rig without the member is left alone.
+static func set_eye_height(body: Node3D, y: float) -> void:
+	if is_instance_valid(body) and body.get("_eye_height") != null:
+		body.set("_eye_height", y)
 
 
 ## Drop the merged LOD caches for a body whose shape changed and re-arm its near mesh, so the
@@ -1453,6 +1622,52 @@ static func hand_frame(driver: Node, side: String) -> Transform3D:
 	if frame is Transform3D:
 		return frame
 	return Transform3D(Basis.IDENTITY, Vector3.INF)
+
+
+## One pony's bond record, read once and written back through the store's own save.
+class BondRecord:
+	var stage := "acquaintance"
+	var familiarity := 0.0
+	var trust := 0.0
+	var together_s := 0.0
+	var plan: Dictionary = {}
+	var offer: Dictionary = {}
+	var cooldowns: Dictionary = {}
+	## The untouched rows, so a key this view does not model survives the save.
+	var rows: Dictionary = {}
+
+	static func from_dict(row: Dictionary) -> BondRecord:
+		var out := BondRecord.new()
+		out.rows = row.duplicate(true)
+		out.stage = str(row.get("stage", "acquaintance"))
+		out.familiarity = float(row.get("familiarity", 0.0))
+		out.trust = float(row.get("trust", 0.0))
+		out.together_s = float(row.get("together_s", 0.0))
+		var stored_plan: Variant = row.get("plan", {})
+		out.plan = stored_plan if stored_plan is Dictionary else {}
+		var stored_offer: Variant = row.get("offer", {})
+		out.offer = stored_offer if stored_offer is Dictionary else {}
+		var stored_cooldowns: Variant = row.get("cooldowns", {})
+		out.cooldowns = stored_cooldowns if stored_cooldowns is Dictionary else {}
+		return out
+
+	func to_row() -> Dictionary:
+		var row := rows
+		row["stage"] = stage
+		row["familiarity"] = familiarity
+		row["trust"] = trust
+		row["together_s"] = together_s
+		row["plan"] = plan
+		row["offer"] = offer
+		row["cooldowns"] = cooldowns
+		return row
+
+	## Write the view back through the store's own save; false without the op.
+	func save(bonds: Object, id: String) -> bool:
+		if not is_instance_valid(bonds) or not bonds.has_method("_save"):
+			return false
+		bonds.call("_save", id, to_row())
+		return true
 
 
 ## One mod's live state section: the Dictionary the registry keeps, read and written in place.

@@ -72,10 +72,11 @@ func rebind_body() -> void:
 	context.anatomy.bind(context.anatomy_host)
 	context.anatomy.refresh()
 	context.reactions.bind_scene(host.pony as Node3D, context.anatomy.controller)
-	var view: Variant = context.pose.view()
-	for owner: Variant in [context.hands, context.kiss, context.audio]:
-		if owner != null and owner.has_method("pose_changed"):
-			owner.call("pose_changed", view)
+	var view := context.pose.view()
+	context.hands.pose_changed(view)
+	context.kiss.pose_changed(view)
+	if context.audio != null and context.audio.has_method("pose_changed"):
+		context.audio.pose_changed(view)
 
 
 ## The host's revised-form visual pass: the live shot state and the player frame.

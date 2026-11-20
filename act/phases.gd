@@ -10,6 +10,7 @@ const ACT_SESSION := preload("res://mods/unfplap/act/session.gd")
 const PERF := preload("res://mods/unfplap/shared/perf.gd")
 const ACT_FACE := preload("res://mods/unfplap/shared/act_face.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
+const ANATOMY := preload("res://mods/unfplap/anatomy/service.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
 
 var host: ACT_HOST = null
@@ -78,25 +79,20 @@ func set_camera_basis_ready() -> void:
 ## The fluid ground the anatomy bridge reads: the missionary bed top, else the pony's ground.
 func fluid_ground_y() -> float:
 	var ground: float = host.pony.global_position.y if is_instance_valid(host.pony) else 0.0
-	if session.pose_family() != "bed":
+	if session.pose_family() != "bed" or context.view == null:
 		return ground
-	var camera: Variant = context.view
-	if camera != null and camera.has_method("bed_surface_top"):
-		var top: Variant = camera.call("bed_surface_top")
-		if top is float and is_finite(top):
-			return top
-	return ground
+	var top := context.view.bed_surface_top()
+	return top if is_finite(top) else ground
 
 
 ## The anatomy service's visible shaft length, or zero when the part is not showing. The readiness
 ## stroke state turns zero into the nominal length, so the mouse feel is the same with it off.
 func shaft_length_m() -> float:
-	var service: Variant = PONIES.anatomy
-	if service != null and service.has_method("player_shaft_length_m"):
-		var length: Variant = service.call("player_shaft_length_m")
-		if length is float and (length as float) > 0.001:
-			return length as float
-	return 0.0
+	var service := PONIES.anatomy as ANATOMY
+	if service == null:
+		return 0.0
+	var length := service.player_shaft_length_m()
+	return length if length > 0.001 else 0.0
 
 
 ## The readiness meter's cue write-back into the view, then the dialogue owner's one admission.
@@ -120,7 +116,6 @@ func oral_speech_stop() -> void:
 func stop_speech() -> void:
 	if not is_instance_valid(host.pony):
 		return
-	if host.pony.has_method("is_speaking") and bool(host.pony.call("is_speaking")):
-		if host.pony.has_method("stop_speaking"):
-			host.pony.call("stop_speaking")
+	if GAME.pony_speaking(host.pony):
+		GAME.stop_speaking(host.pony)
 		context.anatomy.hold_oral_mouth()

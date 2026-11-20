@@ -11,6 +11,9 @@ const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")
 const ACT_SESSION := preload("res://mods/unfplap/act/session.gd")
 const ACT_IDLE := preload("res://mods/unfplap/act/idle.gd")
 const ACT_CONSENT := preload("res://mods/unfplap/act/consent.gd")
+const ACT_EXIT := preload("res://mods/unfplap/act/exit.gd")
+const ACT_SWAP := preload("res://mods/unfplap/act/swap.gd")
+const ACT_PHASES := preload("res://mods/unfplap/act/phases.gd")
 const CYCLE := preload("res://mods/unfplap/shared/cycle.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
@@ -23,11 +26,11 @@ var context: ACT_CONTEXT = null
 var session: ACT_SESSION = null
 var idle: ACT_IDLE = null
 ## The swap module's one action tick; a suspended act runs no act work until its one resume.
-var swap: Variant = null
+var swap: ACT_SWAP = null
 ## The one exit: a lost body, a failed swap and the restore timer end through its routes.
-var exit: Variant = null
+var exit: ACT_EXIT = null
 ## The frame-level presentation and its write-backs.
-var phases: Variant = null
+var phases: ACT_PHASES = null
 
 
 func bind(host_in: ACT_HOST, context_in: ACT_CONTEXT, session_in: ACT_SESSION,
@@ -174,19 +177,16 @@ func _director() -> Node:
 ## The pose-change fan-out has a fixed order: the pose service reconciles its modifiers and the
 ## act body, then the camera, hands, kiss, anatomy and audio retarget. Every hook is idempotent.
 func _fanout() -> void:
-	var view: Variant = context.pose.view()
+	var view := context.pose.view()
 	context.pose.pose_changed(view)
-	_changed(context.camera, view)
-	_changed(context.hands, view)
-	_changed(context.kiss, view)
+	context.camera.pose_changed(view)
+	context.hands.pose_changed(view)
+	context.kiss.pose_changed(view)
 	context.anatomy.bind(context.anatomy_host)
-	_changed(context.anatomy, view)
-	_changed(context.audio, view)
-
-
-static func _changed(owner: Variant, view: Variant) -> void:
-	if owner != null and owner.has_method("pose_changed"):
-		owner.call("pose_changed", view)
+	context.anatomy.pose_changed(view)
+	# The act audio has no pose hook today; the row stays the fan-out's last seam.
+	if context.audio != null and context.audio.has_method("pose_changed"):
+		context.audio.pose_changed(view)
 
 
 ## One render frame: the pose write, the look target, the shot and the breath. Idle keeps only the

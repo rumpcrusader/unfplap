@@ -2,6 +2,7 @@ extends RefCounted
 ## Debug-only: the bed helper behind the wheel action and Show data's rows.
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
 const BED_REST := preload("res://world/relationships/shared_bed.gd")
 const HOUSE := preload("res://world/buildings/house_interior.gd")
 const PONY := preload("res://mods/unfplap/debug/pony.gd")
@@ -27,11 +28,11 @@ static func find_bed(host: Node) -> Node3D:
 			return from_seat
 	var home: Node3D = HOUSE.at(host.get_tree(), (body as Node3D).global_position)
 	if is_instance_valid(home):
-		var bed: Variant = home.call("ensure_bed", "guest")
-		if not bed is Node3D or not is_instance_valid(bed):
-			bed = home.call("ensure_bed", "")
-		if bed is Node3D and is_instance_valid(bed):
-			return bed as Node3D
+		var bed := GAME.ensure_bed(home, "guest")
+		if bed == null:
+			bed = GAME.ensure_bed(home, "")
+		if bed != null:
+			return bed
 	var under: Variant = WORLD.bed_under((body as Node3D).global_position)
 	return under as Node3D if under is Node3D and is_instance_valid(under) else null
 
@@ -55,8 +56,7 @@ static func rows(host: Node, target: Node) -> Array[String]:
 	if not is_instance_valid(rest):
 		out.append("stock rest=not installed")
 		return out
-	var partner: Variant = rest.call("partner", seat) \
-		if seat is Node3D and rest.has_method("partner") else null
+	var partner: Node = GAME.couch_partner(rest, seat) if seat is Node3D else null
 	out.append("partner=%s" % _node_name(partner))
 	if is_instance_valid(target) and target is Node3D:
 		var pony := target as Node3D
@@ -79,7 +79,7 @@ static func invite(host: Node, target: Node) -> String:
 	var rest: Node3D = BED_REST.for_bed(bed)
 	if not is_instance_valid(rest):
 		return "The bed has no stock rest."
-	rest.call("refresh")
+	GAME.bed_rest_refresh(rest)
 	var notes: Array[String] = []
 	notes.append("idle=" + PONY.idle(pony))
 	if _needs_transport(pony, bed):
@@ -102,7 +102,7 @@ static func invite(host: Node, target: Node) -> String:
 	if not _player_lying(host):
 		notes.append("Anon must be lying on the bed to cuddle")
 		return _report(host, pony, false, notes)
-	var accepted := bool(rest.call("accept", pony))
+	var accepted := GAME.bed_rest_accept(rest, pony)
 	notes.append("invite=" + str(accepted))
 	return _report(host, pony, accepted, notes)
 
@@ -158,11 +158,11 @@ static func _ensure_player_lying(host: Node, rest: Node3D) -> String:
 	if body.get("seat") != seat:
 		if not body.has_method("sit_on"):
 			return "player cannot sit"
-		if not bool(body.call("sit_on", seat)):
+		if not GAME.player_sit_on(body as Node3D, seat as Node3D):
 			return "sit failed: move within 3 m of the bed"
 	if not body.has_method("toggle_couch_sleep"):
 		return "player cannot lie down"
-	if not bool(body.call("toggle_couch_sleep")):
+	if not GAME.player_toggle_couch_sleep(body as Node3D):
 		return "lie-down failed"
 	return "Anon sat and lay down"
 
@@ -176,10 +176,7 @@ static func _needs_transport(pony: Node3D, bed: Node3D) -> bool:
 ## Move her to the bed approach and clear her navigator command, matching the lab's old Mouse4
 ## transport. Her capsule still owns the floor ray; this is a debug teleport, not a game path.
 static func _bring_to_bed(pony: Node3D, rest: Node3D) -> String:
-	var front_value: Variant = rest.call("_front_for", pony)
-	var front := Vector3.INF
-	if front_value is Vector3:
-		front = front_value
+	var front := GAME.bed_rest_front(rest, pony)
 	if not front.is_finite():
 		var exit_at: Variant = rest.get("_exit")
 		if exit_at is Vector3:
@@ -188,19 +185,19 @@ static func _bring_to_bed(pony: Node3D, rest: Node3D) -> String:
 		return "no floor beside the bed"
 	pony.global_position = front
 	if pony.get("velocity") != null:
-		pony.set("velocity", Vector3.ZERO)
+		GAME.set_velocity(pony, Vector3.ZERO)
 	if pony.get("motion_paused") != null:
-		pony.set("motion_paused", false)
+		GAME.set_motion_paused(pony, false)
 	PONY.upright(pony)
 	pony.reset_physics_interpolation()
-	var nav: Node = pony.get_node_or_null("Navigator")
+	var nav := GAME.navigator_of(pony)
 	if nav != null:
 		var travel: Variant = nav.get("house_travel")
 		if travel != null and is_instance_valid(travel):
-			travel.call("clear", pony)
-		nav.call("stay")
-		nav.set("command_owner", "")
-		nav.set("wander_enabled", false)
+			GAME.travel_clear(travel, pony)
+		GAME.navigator_stay(nav)
+		GAME.set_navigator_owner(nav, "")
+		GAME.set_navigator_wander(nav, false)
 	return str(front)
 
 
@@ -209,14 +206,14 @@ static func _bring_to_bed(pony: Node3D, rest: Node3D) -> String:
 static func state_text(host: Node, pony: Node3D, rest: Node3D) -> String:
 	var id := PONY_ID.from(str(pony.get_meta("relationship_id", "")), pony.get("identity"))
 	var bed: Variant = rest.get("_bed") if rest != null else null
-	var nav: Node = pony.get_node_or_null("Navigator")
+	var nav := GAME.navigator_of(pony)
 	var guest: Variant = rest.get("_guest") if rest != null else null
 	var sleeper: Variant = rest.get("_sleeper") if rest != null else null
 	var seats: Variant = rest.get("seats") if rest != null else null
 	var seat_free := false
 	if seats is Array and (seats as Array).size() > 1:
 		var seat: Variant = (seats as Array)[1]
-		seat_free = is_instance_valid(seat) and bool(seat.call("free_for", pony))
+		seat_free = GAME.seat_free_for(seat, pony)
 	var dist := -1.0
 	if is_instance_valid(bed):
 		dist = pony.global_position.distance_to((bed as Node3D).global_position)
@@ -241,8 +238,7 @@ static func state_text(host: Node, pony: Node3D, rest: Node3D) -> String:
 			reasons.append("meta:" + meta)
 	if pony.get_meta("affection_active", false):
 		reasons.append("affection")
-	if pony.has_method("action_interruption_reason") \
-			and not str(pony.call("action_interruption_reason")).is_empty():
+	if not GAME.interruption_reason(pony).is_empty():
 		reasons.append("interrupt")
 	if pony.get("flight") != null and bool(pony.get("flight").active()):
 		reasons.append("flight")
@@ -260,10 +256,10 @@ static func state_text(host: Node, pony: Node3D, rest: Node3D) -> String:
 			reasons.append("nav_target")
 		if not routine:
 			reasons.append("nav_owner=" + owner)
-	var willing := bool(rest.call("_willing", pony)) if rest != null else false
+	var willing := GAME.bed_rest_willing(rest, pony)
 	if not willing:
 		reasons.append("unwilling")
-	if rest == null or not bool(rest.get("_mare_fits")):
+	if not GAME.bed_rest_fits(rest):
 		reasons.append("mare_fits")
 	if is_instance_valid(sleeper):
 		reasons.append("sleeper=" + str((sleeper as Node).name))
@@ -276,7 +272,7 @@ static func state_text(host: Node, pony: Node3D, rest: Node3D) -> String:
 	return ("pony=%s bed=%s dist=%.2f eligible=%s player_lying=%s willing=%s mare_fits=%s "
 		+ "seat_free=%s guest=%s sleeper=%s | nav owner=%s target=%s reserved=%s | reasons=%s") % [
 		id, _node_name(bed), dist,
-		str(rest.call("eligible", pony)) if rest != null else "no_rest",
+		str(GAME.bed_rest_eligible(rest, pony)) if rest != null else "no_rest",
 		str(_player_lying(host)), str(willing),
 		str(rest.get("_mare_fits")) if rest != null else "?",
 		str(seat_free),

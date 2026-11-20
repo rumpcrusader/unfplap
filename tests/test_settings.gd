@@ -11,6 +11,7 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const ROWS := preload("res://mods/unfplap/settings/rows.gd")
 const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 const SETTINGS_UI := preload("res://mods/unfplap/settings/ui.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
 const CHARACTERS_UI := preload("res://mods/unfplap/settings/characters_ui.gd")
 const DEBUG_UI := preload("res://mods/unfplap/debug/ui.gd")
 const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/service.gd")
@@ -28,6 +29,45 @@ class ChangeSpy extends RefCounted:
 
 	func changed() -> void:
 		calls += 1
+
+
+## A settings page stand-in: the three private calls the settings tab makes and its redraw count.
+class FakeSettingsPage extends Node:
+	var redraws := 0
+	var last_callback := Callable()
+
+	func _button(parent: Node, text: String, callback: Callable) -> Button:
+		last_callback = callback
+		var button := Button.new()
+		button.text = text
+		if parent != null:
+			parent.add_child(button)
+		return button
+
+	func _icon_texture(_kind: String) -> Texture2D:
+		var image := Image.create(1, 1, false, Image.FORMAT_RGBA8)
+		image.fill(Color.WHITE)
+		return ImageTexture.create_from_image(image)
+
+	func _redraw() -> void:
+		redraws += 1
+
+
+## A menu icon stand-in with the one field the settings tab writes.
+class FakeIcon extends Control:
+	var kind := ""
+
+
+## A mods host stand-in with the one folder call the settings file path makes.
+class FakeMods extends Node:
+	func data_folder(id: String) -> String:
+		return "user://mods/data/%s" % id
+
+
+## A settings autoload stand-in with the one value the size preset reads.
+class FakeSettings extends Node:
+	func get_value(key: String) -> Variant:
+		return "mounting" if key == "ponies/size" else null
 
 
 func _initialize() -> void:
@@ -79,6 +119,7 @@ func run() -> void:
 	_check_characters_form()
 	_check_provider_precedence()
 	_check_character_overrides()
+	_check_base_game_access()
 	_check_participation()
 	_check_player_file_recovery()
 	print("SETTINGS_RESULT checks=%d failures=%d" % [checks, failures])
@@ -1703,6 +1744,55 @@ func _settings_version(path: String) -> int:
 	if parsed is Dictionary:
 		return int((parsed as Dictionary).get("version", 0))
 	return -1
+
+
+## The base-game accessors answer the settings page and the mods host without a raw call.
+func _check_base_game_access() -> void:
+	var page := FakeSettingsPage.new()
+	var parent := VBoxContainer.new()
+	var callback := func() -> void: pass
+	var button := GAME._settings_page_button(page, parent, "Unfplap", callback)
+	check(button != null and button.text == "Unfplap",
+		"the settings page builds its tab button")
+	check(page.last_callback == callback, "the tab button keeps the page's callback")
+	var icon := GAME.settings_page_icon(page, "heart")
+	check(icon != null, "the settings page answers its icon texture")
+	GAME.settings_page_redraw(page)
+	check(page.redraws == 1, "the settings page redraws once")
+	var menu_icon := FakeIcon.new()
+	GAME.set_menu_icon_kind(menu_icon, "heart")
+	check(menu_icon.kind == "heart", "the menu icon takes its kind")
+	check(GAME._settings_page_button(null, parent, "Unfplap", callback) == null,
+		"an absent settings page has no button")
+	check(GAME.settings_page_icon(null, "heart") == null,
+		"an absent settings page has no icon")
+	GAME.settings_page_redraw(null)
+	var plain := Node.new()
+	check(GAME._settings_page_button(plain, parent, "Unfplap", callback) == null,
+		"a page without the builder has no button")
+	check(GAME.settings_page_icon(plain, "heart") == null,
+		"a page without the texture op has no icon")
+	GAME.settings_page_redraw(plain)
+	GAME.set_menu_icon_kind(null, "heart")
+	var mods := FakeMods.new()
+	check(GAME.mods_data_folder(mods, "unfplap") == "user://mods/data/unfplap",
+		"the mods host answers its data folder")
+	check(GAME.mods_data_folder(null, "unfplap") == "",
+		"an absent mods host has no folder")
+	check(GAME.mods_data_folder(plain, "unfplap") == "",
+		"a host without the folder op has no folder")
+	var settings := FakeSettings.new()
+	var saved := SETTINGS._game_settings
+	SETTINGS._game_settings = settings
+	check(SETTINGS.pony_size_name() == "mounting",
+		"the size preset reads the game setting through the accessor")
+	SETTINGS._game_settings = saved
+	page.free()
+	parent.free()
+	menu_icon.free()
+	plain.free()
+	mods.free()
+	settings.free()
 
 
 func _collect_labels(node: Node, out: Array) -> void:

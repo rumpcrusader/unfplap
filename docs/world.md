@@ -75,6 +75,10 @@ behaviour exactly, and a game update that renames one is a change here rather th
 | `GAME.controls_locked(player)` | the rig's `controls_locked` | `bool` | `false` |
 | `GAME.set_controls_locked(player, locked)` | the rig's `controls_locked` | — | no write |
 | `GAME.menu_panel(game, key)` | `save_menu`, `settings_menu`, `pause_menu` | `Node` | `null` |
+| `GAME._settings_page_button(page, parent, text, callback)` | the page's `_button` (private) | `Button` | `null` |
+| `GAME.settings_page_icon(page, kind)` | the page's `_icon_texture` (private) | `Texture2D` | `null` |
+| `GAME.settings_page_redraw(page)` | the page's `_redraw` (private) | — | no call |
+| `GAME.set_menu_icon_kind(icon, kind)` | a menu icon's `kind` | — | no write |
 | `GAME.inventory(game)` | `inventory` | `Node` | `null` |
 | `GAME.case_store(inventory)` | the inventory's `inventory` briefcase store | `Object` | `null` |
 | `GAME.case_slots(store)` | the store's `slots`, one row per slot | `Array[Dictionary]`, a copy | empty |
@@ -174,6 +178,7 @@ behaviour exactly, and a game update that renames one is a change here rather th
 | `GAME.couch_partner(couch, seat)` | `partner` | `Node` | `null` |
 | `GAME.mods_state(mods, id)` | `Mods.state` | `ModState`, the live section | empty rows |
 | `GAME.mods_save(mods)` | `Mods.save_changed` | — | no save |
+| `GAME.mods_data_folder(mods, id)` | `Mods.data_folder` | `String` | empty |
 | `GAME.prepare_vocal(director, pony_id)` | the director's `vocal.prepare` | — | no call |
 | `GAME.affection_buck(affection, body)` | `Affection.buck` | `bool` | `false` |
 | `GAME.kisser_of(game)` | the scene's `kisser` | `Node` | `null` |

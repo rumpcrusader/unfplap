@@ -16,6 +16,7 @@ const LOG := preload("res://mods/unfplap/shared/log.gd")
 const ROWS := preload("res://mods/unfplap/settings/rows.gd")
 const PROFILE := preload("res://mods/unfplap/settings/profile.gd")
 const DEPRECATION := preload("res://mods/unfplap/settings/deprecation.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
 const ID := "unfplap"
 const FILE := "settings.json"
 ## The shipped settings document: one value per declared setting and the global `default` profile.
@@ -1111,7 +1112,7 @@ static func pony_size_name() -> String:
 		_game_settings = loop.root.get_node_or_null("Settings") if loop != null else null
 	if _game_settings == null:
 		return "canon"
-	return str(_game_settings.call("get_value", "ponies/size"))
+	return GAME.setting_string(_game_settings, "ponies/size")
 
 static func vulva_shift_mm_for(size: String) -> float:
 	match size:
@@ -1932,7 +1933,7 @@ static func _path() -> String:
 	if loop != null and loop.root != null:
 		var mods: Node = loop.root.get_node_or_null("Mods")
 		if mods != null and mods.has_method("data_folder"):
-			return str(mods.call("data_folder", ID)).path_join(FILE)
+			return GAME.mods_data_folder(mods, ID).path_join(FILE)
 	return "user://mods/data/%s/%s" % [ID, FILE]
 
 

@@ -11,6 +11,7 @@ const ACT_KEYS := preload("res://mods/unfplap/shared/act_keys.gd")
 const CHARACTERS_UI := preload("res://mods/unfplap/settings/characters_ui.gd")
 const INTEGRATIONS_CATALOG := preload("res://mods/unfplap/shared/integrations.gd")
 const STYLE := preload("res://world/ui/menu_style.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
 
 ## Choices at most in a pill track, and the longest label one may hold: past either, the row keeps
 ## a dropdown, which cannot overflow the card.
@@ -533,7 +534,7 @@ static func _inject_now(page: Node, actions_builder: Callable, live_character_id
 		font_size = 20
 	# The Unfplap row goes at the foot of the sidebar, under the game's own More group, with no
 	# caption of its own.
-	var button: Button = page.call("_button", side, "Unfplap",
+	var button: Button = GAME._settings_page_button(page, side, "Unfplap",
 		func() -> void: _show_settings_tab(page))
 	button.theme_type_variation = "Tab"
 	button.toggle_mode = true
@@ -542,7 +543,7 @@ static func _inject_now(page: Node, actions_builder: Callable, live_character_id
 	button.add_theme_font_size_override("font_size", font_size - 2)
 	button.expand_icon = false
 	if page.has_method("_icon_texture"):
-		button.icon = page.call("_icon_texture", "heart")
+		button.icon = GAME.settings_page_icon(page, "heart")
 	var ui := VBoxContainer.new()
 	ui.name = "UnfplapSettings"
 	ui.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -681,14 +682,14 @@ static func _show_settings_tab(page: Node) -> void:
 		(title as Label).text = "Unfplap"
 	var icon: Variant = page.get("_tab_icon")
 	if icon is Control:
-		(icon as Control).set("kind", "heart")
+		GAME.set_menu_icon_kind(icon as Control, "heart")
 	var tabs: Variant = page.get("_tabs")
 	if tabs is Array:
 		for tab: Variant in tabs:
 			if tab is Button:
 				(tab as Button).set_pressed_no_signal(false)
 	(button as Button).set_pressed_no_signal(true)
-	page.call("_redraw")
+	GAME.settings_page_redraw(page)
 	_switch_guard = false
 
 
@@ -1045,7 +1046,7 @@ static func _store(setting: SETTINGS.Setting, value: Variant, page: Node,
 ## Canvas hosts (the title screen, the pause menu) draw on demand, so an edit asks for a repaint.
 static func _redraw(page: Node) -> void:
 	if is_instance_valid(page) and page.has_method("_redraw"):
-		page.call("_redraw")
+		GAME.settings_page_redraw(page)
 
 
 static func _debug(callback: Callable, text: String) -> void:

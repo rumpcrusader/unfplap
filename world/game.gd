@@ -160,6 +160,13 @@ static func mods_save(mods: Node) -> void:
 		mods.call("save_changed")
 
 
+## One mod's data folder from the registry; empty when the host has no folder reader.
+static func mods_data_folder(mods: Node, id: String) -> String:
+	if not is_instance_valid(mods) or not mods.has_method("data_folder"):
+		return ""
+	return str(mods.call("data_folder", id))
+
+
 ## One named game panel; the caller decides what an open panel means.
 static func menu_panel(game: Node, key: StringName) -> Node:
 	if not is_instance_valid(game):
@@ -168,6 +175,39 @@ static func menu_panel(game: Node, key: StringName) -> Node:
 	if panel is Node and is_instance_valid(panel):
 		return panel
 	return null
+
+
+## One button from the game's settings page; null when the page has no builder.
+static func _settings_page_button(page: Node, parent: Node, text: String,
+		callback: Callable) -> Button:
+	if not is_instance_valid(page) or not page.has_method("_button"):
+		return null
+	var button: Variant = page.call("_button", parent, text, callback)
+	if button is Button and is_instance_valid(button):
+		return button
+	return null
+
+
+## One icon texture from the game's settings page; null when the page has no texture op.
+static func settings_page_icon(page: Node, kind: String) -> Texture2D:
+	if not is_instance_valid(page) or not page.has_method("_icon_texture"):
+		return null
+	var icon: Variant = page.call("_icon_texture", kind)
+	if icon is Texture2D:
+		return icon
+	return null
+
+
+## Ask the game's settings page to repaint; nothing happens without its own redraw.
+static func settings_page_redraw(page: Node) -> void:
+	if is_instance_valid(page) and page.has_method("_redraw"):
+		page.call("_redraw")
+
+
+## Set the picture on one of the game's menu icons; a control without the field is left alone.
+static func set_menu_icon_kind(icon: Control, kind: String) -> void:
+	if is_instance_valid(icon):
+		icon.set("kind", kind)
 
 
 ## The game's inventory node; null when the scene has none.

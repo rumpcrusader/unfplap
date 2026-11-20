@@ -154,6 +154,14 @@ behaviour exactly, and a game update that renames one is a change here rather th
 | `GAME.seating_release_entry(seating, id)` | the seating system's `_release` (private) | — | no call |
 | `GAME.couch_finish_guest(node)` | a couch's `_finish_guest` (private) | — | no call |
 | `GAME.couch_release_pony(node, id)` | a couch's `_release_pony` (private) | — | no call |
+| `GAME.touch_sync(body, rig)` | `PonyTouchBody._unprofiled_sync(rig, true)` (private) | — | no call |
+| `GAME._touch_nearest(body, point)` | `PonyTouchBody.nearest` | `Dictionary` | empty |
+| `GAME.flank_surface_update(surface, skeleton, frame)` | `FlankSurface.update_pose` | — | no call |
+| `GAME._flank_surface_contact(surface, point, palm, reach)` | `FlankSurface.contact` | `Dictionary` | empty |
+| `GAME.flank_impact(flank, index, at, strength)` | `FlankTouch.impact` | — | no call |
+| `GAME.set_hold_target(driver, side, frame, kind)` | the rig's `set_hold_target` | — | no call |
+| `GAME.clear_hold_target(driver, side)` | the rig's `clear_hold_target` | — | no call |
+| `GAME.hand_frame(driver, side)` | the rig's `hand_frame` | `Transform3D` | infinite origin |
 
 Only `GAME.mares`, `GAME.couch_seats`, `GAME.case_slots`, `GAME.case_loans` and
 `GAME.refresh_body_lod` allocate, and all are scan-cadence calls; the per-frame accessors copy

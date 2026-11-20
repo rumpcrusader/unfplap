@@ -49,6 +49,7 @@ This contract covers:
 | `hands/paths/anchors.gd` | surface-anchored path builder: authored anchors, marked area chains, single area nodes, act-camera anchors, rest fallback |
 | `hands/surface.gd` | stable posed body/head patch, local caress window and coat queries |
 | `hands/palm.gd` | single-point palm frame: basis, placement and normal turn |
+| `shared/hands_caress.gd` | typed caress profile, touch step, flank hit and smack presentation records |
 | `shared/hands_scale.gd` | shared per-preset hand-bone scale |
 | `shared/hands_reach_plan.gd` | pure two-bone reach plan for the missionary hand |
 | `hands/contact.gd` | FlankSurface/PonyTouchBody hull queries and touch-hull sync |
@@ -83,6 +84,13 @@ smack reports through `hand_on_touch()` / `hand_on_smack_impact()` on
 `hands/session.gd`, so `hands/smack.gd` needs no host node. The field and callback contract is
 `docs/act_facts.md`; a hands module that preloads `runtime.gd` or `main.gd` fails
 `scripts/architecture.py --check`.
+
+The caress profile, the touch step and the flank hit are typed records from
+`shared/hands_caress.gd`, and `smack_presentation()` returns its smack record. The coordinator,
+placement engine, paths, surfaces and smack phases hold those types and the path and surface
+handles directly, so a renamed method fails at compile time. Base-game hand, flank and
+`PonyTouchBody` members go through the typed accessors in `world/game.gd`; the mod-owned
+`missionary_anon.caress_reach()` read stays a `Callable` because that body is not a base-game node.
 
 The hands' `pose_changed(view)` hook retargets the contact path: it caches `view.hands.path` and
 `view.contact_kind`; a path change ends the live caress holds but keeps the controller, and a

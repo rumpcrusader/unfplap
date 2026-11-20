@@ -24,32 +24,6 @@ const FILE := "settings.json"
 const CHARACTERS_FILE := "characters.json"
 ## The shipped settings document: one value per declared setting.
 const DEFAULTS_FILE := "res://mods/unfplap/settings/settings.json"
-## One-release migration for settings written before the poses were renamed. These tables are
-## the only place the legacy ids and keys are kept; remove them after the migration window.
-const LEGACY_POSE_ID := "horse"
-const LEGACY_FEATURE_KEYS := {
-	"pose1_body_motion": "missionary_body_motion",
-	"pose2_body_sway": "standing_body_sway",
-}
-const LEGACY_PRESENTATION_KEYS := {
-	"pose1_forward": "forward",
-	"pose1_height": "height",
-	"pose1_side": "side",
-	"pose1_pullback": "pullback",
-	"pose1_pitch_deg": "pitch_deg",
-}
-const LEGACY_DROPPED_KEYS := ["pose1_camera", "pose1_side_lean"]
-## One-release migration for the act key, a choice string before it became a key capture: `o` moves
-## to the new default, an explicit `y` is kept.
-const LEGACY_ACT_KEYS := {"o": KEY_6, "y": KEY_Y, "6": KEY_6, "7": KEY_7}
-## One-release migration for the tolerance tier names and their setting paths.
-const LEGACY_TOLERANCE_KEYS := {
-	"timid_warning": "forgiving_warning",
-	"neutral_warning_1": "normal_warning_1",
-	"neutral_warning_2": "normal_warning_2",
-	"neutral_stop": "normal_stop",
-	"neutral_cooldown_s": "normal_cooldown_s",
-}
 ## One-release migration for the old three-value genital tone. The slider keeps those exact
 ## values as its anchors: Coat at 0, Darker at 0.5 and Dark at 1.
 const LEGACY_SKIN_TONES := {
@@ -341,11 +315,6 @@ static func by_name(n: String) -> Setting:
 ## One pass: every subscriber re-reads what it caches, in registration order.
 static func apply_live() -> void:
 	CHANGE.notify()
-
-
-static func _default_at(path: String) -> Variant:
-	var s := by_path(path)
-	return null if s == null else s.default
 
 
 ## Nested dictionary of every value under a dotted prefix, e.g. `_block("features.")` for the
@@ -2254,86 +2223,6 @@ static func reset_preferences(id: String) -> void:
 	_write(data)
 
 
-## Move a settings block written with the legacy pose id onto the current pose id. The new key
-## wins if a file already has both, so an interrupted migration cannot overwrite a newer value.
-static func _normalize_pose_names(data: Dictionary) -> Dictionary:
-	var blocks: Array = []
-	if data.get("default") is Dictionary:
-		blocks.append(data["default"])
-	if data.get("characters") is Dictionary:
-		for entry: Variant in (data["characters"] as Dictionary).values():
-			if entry is Dictionary:
-				blocks.append(entry)
-	for block: Dictionary in blocks:
-		var poses: Variant = block.get("poses")
-		if poses is Dictionary and (poses as Dictionary).has(LEGACY_POSE_ID):
-			if not (poses as Dictionary).has(CATALOG.STANDING):
-				(poses as Dictionary)[CATALOG.STANDING] = (poses as Dictionary)[LEGACY_POSE_ID]
-			(poses as Dictionary).erase(LEGACY_POSE_ID)
-	var presentation: Variant = data.get("presentation")
-	if presentation is Dictionary and (presentation as Dictionary).has(LEGACY_POSE_ID):
-		if not (presentation as Dictionary).has(CATALOG.STANDING):
-			(presentation as Dictionary)[CATALOG.STANDING] = (presentation as Dictionary)[LEGACY_POSE_ID]
-		(presentation as Dictionary).erase(LEGACY_POSE_ID)
-	return data
-
-
-## Move a feature block written with the legacy pose keys onto the current keys.
-static func _normalize_feature_names(data: Dictionary) -> Dictionary:
-	var features: Variant = data.get("features")
-	if not features is Dictionary:
-		return data
-	for old_key: String in LEGACY_FEATURE_KEYS:
-		var new_key: String = LEGACY_FEATURE_KEYS[old_key]
-		if (features as Dictionary).has(old_key):
-			if not (features as Dictionary).has(new_key):
-				(features as Dictionary)[new_key] = (features as Dictionary)[old_key]
-			(features as Dictionary).erase(old_key)
-	return data
-
-
-## Split the old line-variety flag. Its speech-feel choice is preserved; the angle half follows the
-## new default. The old key is erased so it cannot linger in settings.json.
-static func _normalize_line_variety(data: Dictionary) -> Dictionary:
-	var features: Variant = data.get("features")
-	if not features is Dictionary:
-		return data
-	var block: Dictionary = features
-	if not block.has("act_line_variety"):
-		return data
-	var old_value := bool(block["act_line_variety"])
-	if not block.has("act_speech_feel"):
-		block["act_speech_feel"] = old_value
-	block.erase("act_line_variety")
-	return data
-
-
-## Move the old `taste` block onto `preferences` for the default template and every character.
-static func _normalize_character_preferences(data: Dictionary) -> Dictionary:
-	var blocks: Array = []
-	if data.get("default") is Dictionary:
-		blocks.append(data["default"])
-	if data.get("characters") is Dictionary:
-		for entry: Variant in (data["characters"] as Dictionary).values():
-			if entry is Dictionary:
-				blocks.append(entry)
-	for block: Dictionary in blocks:
-		if block.has("taste"):
-			if not block.has("preferences"):
-				block["preferences"] = block["taste"]
-			block.erase("taste")
-	# The global default profile carries a generic private note. A settings file written before
-	# the note existed has an empty string, so fill only that empty default note. A saved
-	# character note is never touched, because a player may intentionally clear one.
-	if data.get("default") is Dictionary:
-		var default_block: Dictionary = data["default"]
-		var preferences: Variant = default_block.get("preferences")
-		if preferences is Dictionary \
-				and str((preferences as Dictionary).get("notes", "")).strip_edges().is_empty():
-			(preferences as Dictionary)["notes"] = str(PREFERENCES.defaults().get("notes", ""))
-	return data
-
-
 ## Strip a saved character block down to the player's genuine changes against her template. A value
 ## that disagrees with today's template is kept, because it may be a real edit. Idempotent.
 static func _normalize_character_overrides(data: Dictionary) -> Dictionary:
@@ -2425,81 +2314,6 @@ static func _clean_profile(profile: Dictionary, base: Dictionary, id: String) ->
 	if diff.is_empty():
 		return {}
 	return {"participation": diff}
-
-
-## Move the tolerance block's old tier keys onto the renamed paths.
-static func _normalize_tolerance(data: Dictionary) -> Dictionary:
-	var raw: Variant = data.get("tolerance")
-	if not raw is Dictionary:
-		return data
-	var block: Dictionary = raw
-	for old_key: String in LEGACY_TOLERANCE_KEYS:
-		var new_key: String = LEGACY_TOLERANCE_KEYS[old_key]
-		if block.has(old_key):
-			if not block.has(new_key):
-				block[new_key] = block[old_key]
-			block.erase(old_key)
-	data["tolerance"] = block
-	return data
-
-
-## Migrate only the shipped old caress reach, which pulled the upper arm off the chest; a tuned
-## value is left alone.
-static func _normalize_caress_reach(data: Dictionary) -> Dictionary:
-	var path := "features.caress_reach_shoulder_m"
-	var value: Variant = _read_path(data, path, null)
-	if value is float or value is int:
-		if is_equal_approx(float(value), 0.12):
-			_write_path(data, path, 0.02)
-	return data
-
-
-## The act key was a choice string before it became a key capture: the old default `"o"` moves to
-## the new default, an explicit `"y"` (and the short-lived `"6"`/`"7"`) becomes a keycode.
-static func _normalize_act_key(data: Dictionary) -> Dictionary:
-	var value: Variant = _read_path(data, "controls.act_key", null)
-	if value is String:
-		var code := int(LEGACY_ACT_KEYS.get(str(value).to_lower(), ACT_KEYS.DEFAULT_CODE))
-		_write_path(data, "controls.act_key", float(code))
-	return data
-
-
-## `balanced` folded into `precise`: the caress always snaps to the coat now, so the middle
-## refresh had no meaning left. A stored `fast` keeps its cheaper refresh.
-static func _normalize_caress_quality(data: Dictionary) -> Dictionary:
-	var path := "caress.quality"
-	var value: Variant = _read_path(data, path, null)
-	if value is String and str(value) == "balanced":
-		_write_path(data, path, "precise")
-	return data
-
-
-static func _normalize_presentation(data: Dictionary) -> Dictionary:
-	var raw: Variant = data.get("presentation")
-	if not raw is Dictionary:
-		return data
-	var block: Dictionary = raw
-	if block.has("missionary") or block.has("standing"):
-		for key: String in LEGACY_PRESENTATION_KEYS:
-			block.erase(key)
-		for key: String in LEGACY_DROPPED_KEYS:
-			block.erase(key)
-		data["presentation"] = block
-		return data
-	var out: Dictionary = _default_block("presentation.")
-	var missionary: Dictionary = out["missionary"]
-	var standing: Dictionary = out["standing"]
-	for old_key: String in LEGACY_PRESENTATION_KEYS:
-		var new_key: String = LEGACY_PRESENTATION_KEYS[old_key]
-		missionary[new_key] = float(block.get(old_key, missionary[new_key]))
-	standing["glance_back_speed"] = float(block.get(
-		"glance_back_speed", standing["glance_back_speed"]))
-	standing["torso_angle_deg"] = float(block.get(
-		"torso_angle_deg", standing["torso_angle_deg"]))
-	out["missionary"] = missionary
-	out["standing"] = standing
-	data["presentation"] = out
-	return data
 
 
 ## One parse per process. Reads are cheap copies of this merged view; the file is written only
@@ -3200,55 +3014,6 @@ static func _legacy_placement_default(data: Dictionary, path: String) -> Diction
 	return base
 
 
-## Reduce a saved full `default` block to the player's real differences from the shipped profile.
-## A materialised shipped value would pin a release update and hide a provider layer. Idempotent.
-static func _normalize_default_profile(data: Dictionary) -> Dictionary:
-	var raw: Variant = data.get("default")
-	if not raw is Dictionary:
-		return data
-	var diff := _default_profile_diff(raw, DEFAULTS.characters_block("default"))
-	if diff.is_empty():
-		data.erase("default")
-	else:
-		data["default"] = diff
-	return data
-
-
-## Drop the per-mare placement rows an older build materialised. A row that matches the resolved
-## default is dropped; a real override is kept as its difference.
-static func _strip_materialized_placement_rows(data: Dictionary) -> Dictionary:
-	var anatomy: Variant = data.get("anatomy")
-	if not anatomy is Dictionary:
-		return data
-	var placement: Variant = (anatomy as Dictionary).get("placement")
-	if not placement is Dictionary:
-		return data
-	var rows: Dictionary = placement
-	var global := _legacy_placement_default(data, "anatomy.placement.default")
-	var cleaned: Dictionary = {}
-	for key: Variant in rows.keys():
-		var id := str(key)
-		var raw: Variant = rows[key]
-		if id == "default" or id == "anon":
-			cleaned[id] = raw
-			continue
-		if not raw is Dictionary:
-			continue
-		var expected := PLACEMENT.merge(global,
-			DEFAULTS.characters_block("anatomy.placement." + id))
-		var provided := MARE_REGISTRY.placement(id)
-		if not provided.is_empty():
-			expected = PLACEMENT.merge(expected, provided.to_dict())
-		var over := PLACEMENT.diff(PLACEMENT.merge(expected, raw), expected)
-		if not over.is_empty():
-			cleaned[id] = over
-	if cleaned.is_empty():
-		(anatomy as Dictionary).erase("placement")
-	else:
-		(anatomy as Dictionary)["placement"] = cleaned
-	return data
-
-
 static func _finish_legacy_placement_import() -> void:
 	if _legacy_mare_placement_pending:
 		_archive_legacy_placement(_legacy_mare_placement_path)
@@ -3272,55 +3037,6 @@ static func _archive_legacy_placement(path: String) -> void:
 		LOG.warning("settings: could not archive %s", [path])
 		return
 	LOG.warning("settings: archived legacy placement file %s", [path])
-
-
-## The anatomy used to be a master switch plus an "only during acts" switch; both fold into the
-## one `anatomy.anatomy_mode` pill. Runs once, before the defaults merge.
-static func _normalize_anatomy_visibility(data: Dictionary) -> Dictionary:
-	var features: Variant = data.get("features")
-	var was_on := false
-	if features is Dictionary and (features as Dictionary).has("anatomy"):
-		was_on = bool((features as Dictionary)["anatomy"])
-		(features as Dictionary).erase("anatomy")
-	var anatomy: Variant = data.get("anatomy")
-	if not anatomy is Dictionary:
-		return data
-	var block := anatomy as Dictionary
-	if block.has("act_only"):
-		var act_only := bool(block["act_only"])
-		if not block.has("anatomy_mode"):
-			block["anatomy_mode"] = "never" if not was_on else ("act" if act_only else "always")
-		block.erase("act_only")
-	data["anatomy"] = block
-	return data
-
-
-## One-off migrations for anatomy keys: the vertical placement was first a downward drop, and a
-## batch of controls was later removed. Unknown keys are inert, but keep the file clean.
-static func _normalize_anatomy(data: Dictionary) -> Dictionary:
-	var anatomy: Variant = data.get("anatomy", {})
-	if not anatomy is Dictionary:
-		return data
-	var block := anatomy as Dictionary
-	# Retired mesh choices: the file keeps only the one mesh the mod ships.
-	block.erase("winking_model")
-	block.erase("mare_bits")
-	var tone: Variant = block.get("skin_tone")
-	if tone is String:
-		block["skin_tone"] = float(LEGACY_SKIN_TONES.get(str(tone),
-			_default_at("anatomy.skin_tone")))
-	# The strip used to follow the teats switch. Keep an existing teats-off file fully off once;
-	# from then on the two switches are independent.
-	if block.has("teats") and not bool(block["teats"]) and not block.has("skin_strip"):
-		block["skin_strip"] = false
-	for key: String in ["anal_swell", "anal_depth", "anal_height_mm", "anal_ring",
-			"anal_pitch_deg", "anal_side_mm",
-			"anal_tilt_deg", "cover_depth_m", "max_back_m", "player_pitch_deg",
-			"player_yaw_deg", "player_roll_deg", "hole_depth", "anal_hug", "hug",
-			"vulva_hug", "pair_limit", "genital_yaw_deg", "max_depth_m"]:
-		block.erase(key)
-	data["anatomy"] = block
-	return data
 
 
 ## Keys the mod no longer reads. Erased once on a schema upgrade: the load writes the merged cache

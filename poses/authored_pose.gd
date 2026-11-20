@@ -102,7 +102,7 @@ static func shared(path := PATH) -> Variant:
 	var resolved := resolve(path)
 	if not _shared.has(resolved):
 		var made: Variant = load("res://mods/unfplap/poses/authored_pose.gd").new()
-		made.call("load_file", resolved)
+		made.load_file(resolved)
 		_shared[resolved] = made
 	return _shared[resolved]
 
@@ -114,7 +114,8 @@ static func reload_file(path := PATH) -> String:
 	if not _shared.has(resolved):
 		var made: Variant = shared(resolved)
 		return "" if bool(made.get("available")) else str(made.get("error"))
-	return str(_shared[resolved].call("load_file", resolved))
+	var made: Variant = _shared[resolved]
+	return str(made.load_file(resolved))
 
 
 ## Resolves a spec row's `poses/...` asset path against the mod root; a `res://` or `user://` path

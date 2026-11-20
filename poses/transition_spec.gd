@@ -41,7 +41,7 @@ static func from_dict(edge_id: String, document: Dictionary, specs: Dictionary =
 	if not found.is_empty():
 		return null
 	var edge: Variant = load(PATH).new()
-	edge.call("_fill", edge_id, document)
+	edge._fill(edge_id, document)
 	return edge
 
 

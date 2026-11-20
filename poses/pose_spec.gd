@@ -63,7 +63,7 @@ static func from_dict(spec_id: String, data: Dictionary, table: Dictionary = {})
 	if not found.is_empty():
 		return null
 	var spec: Variant = load(PATH).new()
-	spec.call("_fill", spec_id, data)
+	spec._fill(spec_id, data)
 	return spec
 
 

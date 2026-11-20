@@ -10,7 +10,7 @@ var failures := 0
 var checks := 0
 
 
-class FakeAnatomy extends Node:
+class FakeAnatomy extends "res://mods/unfplap/anatomy/controller.gd":
 	var opening := Vector3(0.4, 0.0, 1.2)
 
 	func hole_point(_mix := 0.0) -> Vector3:
@@ -76,6 +76,7 @@ func run() -> void:
 	pony.boop_node = boop
 	pony.head = head
 	var anatomy := FakeAnatomy.new()
+	anatomy.set_process(false)
 	root.add_child(pony)
 	root.add_child(anatomy)
 

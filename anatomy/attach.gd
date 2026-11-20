@@ -7,11 +7,12 @@ extends RefCounted
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const CLIMAX_FLUID := preload("res://mods/unfplap/anatomy/fluid.gd")
+const CONTROLLER := preload("res://mods/unfplap/anatomy/controller.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
 
 const ANATOMY_NAME := "UnfplapAnatomy"
 const ANCHOR_NAME := "UnfplapAnatomyAnchor"
 const FLUID_NAME := "UnfplapAnatomyFluid"
-const DOCK_NAME := "OpenPonyDock"
 const VISIBILITY_POLL_S := 0.2
 const IDLE_FLUID_COLOR := Color(0.9, 0.93, 1.0, 0.72)
 ## Idle heat discharge: drops leave the vulva along the ground under the fluid node's gravity.
@@ -22,7 +23,7 @@ const IDLE_FLUID_SPEED := 0.9
 const IDLE_FLUID_CLEAR_S := 0.2
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
-var controller: Node
+var controller: CONTROLLER
 var pony: Node3D
 var facts: RefCounted
 
@@ -33,7 +34,7 @@ var attached := false
 ## The game's dock, cached so detach restores its original visibility.
 var dock: MeshInstance3D
 var dock_was_visible := true
-var fluid_node: Node3D
+var fluid_node: CLIMAX_FLUID
 var last_error := ""
 
 var _visibility_init := false
@@ -45,7 +46,7 @@ var _dock_style := ""
 var _owned_marked := false
 
 
-func setup(controller_node: Node, pony_node: Node3D, facts_node: RefCounted) -> void:
+func setup(controller_node: CONTROLLER, pony_node: Node3D, facts_node: RefCounted) -> void:
 	controller = controller_node
 	pony = pony_node
 	facts = facts_node
@@ -60,11 +61,11 @@ func attach(mesh_path: String) -> bool:
 	if not is_instance_valid(pony):
 		last_error = "no pony"
 		return false
-	var skeleton_value: Variant = pony.get("skeleton")
-	if not skeleton_value is Skeleton3D:
+	var skeleton_value := GAME.skeleton_of(pony)
+	if skeleton_value == null:
 		last_error = "no skeleton"
 		return false
-	skeleton = skeleton_value as Skeleton3D
+	skeleton = skeleton_value
 	var bone := skeleton.find_bone("pony_hips")
 	if bone < 0:
 		last_error = "no pony_hips bone"
@@ -97,8 +98,7 @@ func attach(mesh_path: String) -> bool:
 	anchor.add_child(found)
 	mesh = found
 	bone_inverse = skeleton.get_bone_global_rest(bone).affine_inverse()
-	var dock_value: Variant = pony.find_child(DOCK_NAME, true, false)
-	dock = dock_value as MeshInstance3D
+	dock = GAME.dock_of(pony)
 	if is_instance_valid(dock):
 		dock_was_visible = dock.visible
 	attached = true
@@ -166,7 +166,7 @@ func apply_visibility(act_visible: bool) -> void:
 		return
 	if not _owned_marked:
 		mark_owned()
-	var far := bool(pony.get("_far_mesh_shown")) if pony.get("_far_mesh_shown") != null else false
+	var far := GAME.far_mesh_shown(pony)
 	var teats_on := SETTINGS.teats.get_bool()
 	var strip_on := SETTINGS.skin_strip.get_bool()
 	var show := not far and act_visible
@@ -185,21 +185,20 @@ func apply_visibility(act_visible: bool) -> void:
 	if is_instance_valid(mesh):
 		mesh.visible = show
 	_apply_dock(show)
-	if is_instance_valid(controller) and controller.has_method("apply_part_visibility"):
-		controller.call("apply_part_visibility", show, teats_on, strip_on)
+	if is_instance_valid(controller):
+		controller.apply_part_visibility(show, teats_on, strip_on)
 
 
 ## One persistent fluid node per pony, reused by every act and the idle heat discharge.
-func fluid() -> Node3D:
+func fluid() -> CLIMAX_FLUID:
 	if not attached or not is_instance_valid(pony):
 		return null
 	if not is_instance_valid(fluid_node):
 		fluid_node = CLIMAX_FLUID.new()
 		fluid_node.name = FLUID_NAME
 		pony.add_child(fluid_node)
-	fluid_node.set("skeleton", pony.get("skeleton"))
-	fluid_node.set("body_scale",
-		float(pony.get("body_scale")) if pony.get("body_scale") != null else 1.0)
+	fluid_node.skeleton = GAME.skeleton_of(pony)
+	fluid_node.body_scale = GAME.body_scale_of(pony)
 	return fluid_node
 
 
@@ -214,9 +213,9 @@ func idle_discharge(count: int) -> void:
 	var node := fluid()
 	if not is_instance_valid(node):
 		return
-	node.set("ground_y", pony.global_position.y)
+	node.ground_y = pony.global_position.y
 	var shots := maxi(1, int(round(float(count) * amount)))
-	node.call("spray", _hole_point(), _discharge_direction(), shots,
+	node.spray(_hole_point(), _discharge_direction(), shots,
 		IDLE_FLUID_SPEED * amount, maxf(SETTINGS.fluid_size.get_num(), 0.0001),
 		IDLE_FLUID_COLOR, IDLE_FLUID_CLEAR_S, SETTINGS.fluid_y_speed.get_num())
 
@@ -238,18 +237,14 @@ func _apply_dock(anatomy_shown: bool) -> void:
 
 
 func _hole_point() -> Vector3:
-	if is_instance_valid(controller) and controller.has_method("hole_point"):
-		var value: Variant = controller.call("hole_point", 0.0)
-		if value is Vector3:
-			return value
+	if is_instance_valid(controller):
+		return controller.hole_point(0.0)
 	return Vector3.ZERO
 
 
 func _hole_rear() -> Vector3:
-	if is_instance_valid(controller) and controller.has_method("hole_rear"):
-		var value: Variant = controller.call("hole_rear")
-		if value is Vector3:
-			return value
+	if is_instance_valid(controller):
+		return controller.hole_rear(0.0)
 	return Vector3.BACK
 
 

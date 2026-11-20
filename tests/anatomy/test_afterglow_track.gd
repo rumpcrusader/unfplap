@@ -7,6 +7,7 @@ extends SceneTree
 
 const ACT := preload("res://mods/unfplap/anatomy/act.gd")
 const FACTS := preload("res://mods/unfplap/anatomy/facts.gd")
+const PLAYER_PART := preload("res://mods/unfplap/anatomy/player.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
@@ -15,12 +16,8 @@ var failures := 0
 var checks := 0
 
 
-class FakePart extends Node:
+class FakePart extends "res://mods/unfplap/anatomy/player.gd":
 	var showing_value := true
-	var aim_normal := Vector3.ZERO
-	var aim_opening := Vector3.ZERO
-	var aim_pitch_deg := 0.0
-	var bed_inset_m := 0.0
 
 	func showing() -> bool:
 		return showing_value
@@ -34,14 +31,14 @@ class FakePart extends Node:
 		bed_inset_m = metres
 
 
-class FakeAnatomy extends Node:
+class FakeAnatomy extends "res://mods/unfplap/anatomy/controller.gd":
 	var mesh: MeshInstance3D
 	var opening := Vector3(0.0, 0.5, 1.0)
 	var rear := Vector3(0.0, 0.0, 1.0)
-	var part_node: Node
+	var part_node: PLAYER_PART
 	var tracks: Array = []
 
-	func part() -> Node:
+	func part() -> PLAYER_PART:
 		return part_node
 
 	func player_track(target: Vector3, rear_axis: Vector3, up: Vector3, bed: bool,
@@ -65,7 +62,6 @@ class FakeAnatomy extends Node:
 
 	func hole_rear(_mix := 0.0) -> Vector3:
 		return rear
-
 	func animate(_value: float, _seconds: float) -> void:
 		pass
 
@@ -99,6 +95,7 @@ func _afterglow_tick(pose_id: String) -> Array:
 	holder.add_child(mesh)
 	var part := FakePart.new()
 	root.add_child(pony)
+	anatomy.set_process(false)
 	root.add_child(anatomy)
 	root.add_child(part)
 	anatomy.mesh = mesh

@@ -111,6 +111,8 @@ class FakeBody extends Node3D:
 	var near_mesh_enabled := true
 	var near_calls: Array = []
 	var boop_node: Variant = null
+	var body_scale: Variant = null
+	var head: Variant = null
 	var eye_y := 0.0
 	var skeleton: Skeleton3D
 	var hair_skeleton: Skeleton3D
@@ -143,9 +145,32 @@ class FakePlainBody extends Node3D:
 
 class FakeBoop extends Node:
 	var amount := -1.0
+	var head_skeleton: Skeleton3D
 
 	func sustain_blush(value: float) -> void:
 		amount = value
+
+
+class FakeMouth extends Node:
+	var visemes: Array[String] = []
+	var clears := 0
+
+	func set_viseme(letter: String, _blend := -1.0) -> void:
+		visemes.append(letter)
+
+	func clear() -> void:
+		clears += 1
+
+
+class FakeHead extends Node:
+	var mouth: Variant = null
+
+
+class FakeFlank extends Node:
+	var calls := 0
+
+	func _own_body_materials() -> void:
+		calls += 1
 
 
 class FakeForm extends RefCounted:
@@ -341,6 +366,30 @@ func _check_accessors() -> void:
 	check(boop.amount == 0.5, "the sustainer takes the amount")
 	GAME.sustain_blush(plain, 0.7)
 	check(boop.amount == 0.5, "a node without the method stays silent")
+	var head_skeleton := Skeleton3D.new()
+	boop.add_child(head_skeleton)
+	boop.head_skeleton = head_skeleton
+	check(GAME.head_skeleton_of(boop) == head_skeleton, "the sustainer's head skeleton is read")
+	check(GAME.head_skeleton_of(plain) == null, "a plain node has no head skeleton")
+	var head := FakeHead.new()
+	root.add_child(head)
+	var mouth := FakeMouth.new()
+	head.add_child(mouth)
+	head.mouth = mouth
+	pony.head = head
+	check(GAME.head_of(pony) == head, "the head node is read")
+	check(GAME.head_of(plain) == null, "a plain node has no head")
+	check(GAME.mouth_of(head) == mouth, "the head's mouth rig is read")
+	check(GAME.mouth_of(plain) == null, "a plain head has no mouth")
+	GAME.set_viseme(mouth, "D")
+	check(mouth.visemes == ["D"], "the viseme is written to the mouth rig")
+	GAME.set_viseme(plain, "D")
+	check(mouth.visemes == ["D"], "a node without the viseme method stays silent")
+	GAME.clear_viseme(mouth)
+	check(mouth.clears == 1, "the viseme clear reaches the mouth rig")
+	GAME.clear_viseme(plain)
+	check(mouth.clears == 1, "a node without the clear method stays silent")
+	head.queue_free()
 
 	# The body members the anatomy reads: skeleton, hair, model, dock link, LOD and the eye rig.
 	var rig := FakeBody.new()
@@ -366,12 +415,27 @@ func _check_accessors() -> void:
 	var eye := SkeletonModifier3D.new()
 	rig.add_child(eye)
 	rig.eye_motion = eye
+	rig.body_scale = 1.25
+	var dock := MeshInstance3D.new()
+	dock.name = "OpenPonyDock"
+	rig.add_child(dock)
 	check(GAME.skeleton_of(rig) == body_skeleton, "the body skeleton is read")
 	check(GAME.skeleton_of(plain) == null, "a plain node has no body skeleton")
 	check(GAME.hair_skeleton_of(rig) == hair_skeleton, "the hair skeleton is read")
 	check(GAME.hair_skeleton_of(plain) == null, "a plain node has no hair skeleton")
 	check(GAME.hair_of(rig) == hair, "the hair node is read")
 	check(GAME.hair_of(plain) == null, "a plain node has no hair")
+	check(GAME.dock_of(rig) == dock, "the game dock is found under the pony")
+	check(GAME.dock_of(plain) == null, "a plain node has no dock")
+	check(is_equal_approx(GAME.body_scale_of(rig), 1.25), "the body scale is read")
+	check(is_equal_approx(GAME.body_scale_of(plain), 1.0), "an absent body scale answers 1.0")
+	var flank := FakeFlank.new()
+	flank.name = "FlankTouch"
+	rig.add_child(flank)
+	GAME.own_body_materials(rig)
+	check(flank.calls == 1, "the per-pony body materials are copied")
+	GAME.own_body_materials(plain)
+	check(flank.calls == 1, "a pony without FlankTouch stays silent")
 	check(GAME.model_of(rig) == model, "the model root is read")
 	check(GAME.model_of(plain) == null, "a plain node has no model")
 	check(GAME.body_of(rig) == drawn_body, "the drawn MareBody is found under the model")
@@ -405,6 +469,8 @@ func _check_accessors() -> void:
 	check(GAME.anon_body_of(plain) == null, "a rig without Anon's body answers null")
 	anon.queue_free()
 	eye.queue_free()
+	flank.queue_free()
+	dock.queue_free()
 	link.queue_free()
 	drawn_body.queue_free()
 	model.queue_free()

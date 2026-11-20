@@ -10,6 +10,7 @@ const GEOMETRY := preload("res://mods/unfplap/anatomy/geometry.gd")
 const BODY_COAT_PATCH := preload("res://mods/unfplap/anatomy/body_coat_patch.gd")
 const BODY_COAT := preload("res://mods/unfplap/shared/body_coat.gd")
 const STILL_ZONE_DEBUG := preload("res://mods/unfplap/anatomy/still_zone_debug.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
 
 const BODY_ANAL_REACH := 0.09
 const VULVA_RELIEF_M := 0.002
@@ -33,7 +34,7 @@ var _body_patched := false
 ## The two debug toggles, read on the visibility poll so the per-frame ring check is a field read.
 var _body_coat_deform := false
 var _draw_still_zones := false
-var _zone_debug: Node3D
+var _zone_debug: STILL_ZONE_DEBUG
 var _zone_vulva_centre := Vector3.ZERO
 var _zone_anal_centre := Vector3.ZERO
 var _zone_axes := Basis.IDENTITY
@@ -114,9 +115,7 @@ func apply() -> void:
 		restore()
 		# The body material is shared across an identity, so the per-pony copy lives on FlankTouch
 		# along with the outline.
-		var flank := pony.get_node_or_null("FlankTouch")
-		if flank != null and flank.has_method("_own_body_materials"):
-			flank.call("_own_body_materials")
+		GAME.own_body_materials(pony)
 		var source := body.get_active_material(surface) as ShaderMaterial
 		if source == null:
 			var active := body.get_active_material(surface)
@@ -213,7 +212,7 @@ func tick_debug() -> void:
 		return
 	# The zones are anatomy-local; the anatomy node carries the pose, the placement and the
 	# missionary trims, so the rings land on the same opening the shader tests.
-	_zone_debug.call("update", mesh.global_transform, _zone_vulva_centre, _zone_axes,
+	_zone_debug.update(mesh.global_transform, _zone_vulva_centre, _zone_axes,
 		_zone_vulva_radius, _zone_anal_centre, _zone_anal_radius, _zone_oval,
 		_zone_fade, true)
 
@@ -453,7 +452,7 @@ func _ensure_zone_debug() -> void:
 		return
 	_zone_debug = STILL_ZONE_DEBUG.new()
 	pony.add_child(_zone_debug)
-	_zone_debug.call("setup")
+	_zone_debug.setup()
 
 
 ## One patch log line per body/material state, so a form change speaks and a steady frame does

@@ -3,39 +3,41 @@ extends RefCounted
 ## Debug-only: they stay out of the act's normal state.
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const CONTROLLER := preload("res://mods/unfplap/anatomy/controller.gd")
+const PLAYER := preload("res://mods/unfplap/anatomy/player.gd")
 
 var parent: Node
-var anatomy: Node
+var anatomy: CONTROLLER
 
 var _vulva: MeshInstance3D
 var _anus: MeshInstance3D
 var _tip: MeshInstance3D
 
 
-func setup(parent_node: Node, anatomy_node: Node) -> void:
+func setup(parent_node: Node, anatomy_node: CONTROLLER) -> void:
 	parent = parent_node
 	anatomy = anatomy_node
 	_build()
 
 
-func tick(part: Variant) -> void:
+func tick(part: PLAYER) -> void:
 	if not SETTINGS.debug_aim_points.get_bool():
 		if is_instance_valid(_vulva):
 			clear()
 		return
 	if not is_instance_valid(_vulva):
 		_build()
-	var shown := is_instance_valid(anatomy) and is_instance_valid(anatomy.call("winking_mesh"))
+	var shown := is_instance_valid(anatomy) and is_instance_valid(anatomy.winking_mesh())
 	for point: MeshInstance3D in [_vulva, _anus]:
 		point.visible = shown
 	if shown:
-		_vulva.global_position = anatomy.call("hole_point", 0.0)
-		_anus.global_position = anatomy.call("hole_point", 1.0)
-	var tip_shown: bool = is_instance_valid(part) and bool(part.call("showing"))
+		_vulva.global_position = anatomy.hole_point(0.0)
+		_anus.global_position = anatomy.hole_point(1.0)
+	var tip_shown := is_instance_valid(part) and part.showing()
 	if is_instance_valid(_tip):
 		_tip.visible = tip_shown
 		if tip_shown:
-			_tip.global_position = part.call("tip_world")
+			_tip.global_position = part.tip_world()
 
 
 func clear() -> void:

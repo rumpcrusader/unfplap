@@ -294,7 +294,7 @@ func run() -> void:
 	owner_skeleton.add_child(owner_body)
 	owner_pony.add_child(owner_skeleton)
 	get_root().add_child(owner_pony)
-	owner_attach.setup(owner_pony, owner_pony, FACTS.new())
+	owner_attach.setup(null, owner_pony, FACTS.new())
 	owner_attach.attached = true
 	owner_attach.skeleton = owner_skeleton
 	owner_pony.set_meta("anatomy_owned_meta", "chrysalis_own")

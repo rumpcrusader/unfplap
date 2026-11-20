@@ -197,6 +197,14 @@ static func identity_of(pony: Node) -> Resource:
 	return null
 
 
+## The pony's body scale; an absent member answers the ordinary 1.0.
+static func body_scale_of(pony: Node) -> float:
+	if not is_instance_valid(pony):
+		return 1.0
+	var value: Variant = pony.get("body_scale")
+	return float(value) if value != null else 1.0
+
+
 ## The pony's body skeleton; null when the body has none.
 static func skeleton_of(pony: Node) -> Skeleton3D:
 	if not is_instance_valid(pony):
@@ -246,6 +254,26 @@ static func body_of(pony: Node) -> MeshInstance3D:
 	if body is MeshInstance3D and is_instance_valid(body):
 		return body
 	return null
+
+
+## The game's dock mesh under the pony; null when the body has none.
+static func dock_of(pony: Node) -> MeshInstance3D:
+	if not is_instance_valid(pony):
+		return null
+	var dock: Variant = pony.find_child("OpenPonyDock", true, false)
+	if dock is MeshInstance3D and is_instance_valid(dock):
+		return dock
+	return null
+
+
+## Let the pony's FlankTouch copy its body materials before the anatomy patches them.
+static func own_body_materials(pony: Node) -> void:
+	if not is_instance_valid(pony):
+		return
+	var flank := pony.get_node_or_null("FlankTouch")
+	if flank == null or not flank.has_method("_own_body_materials"):
+		return
+	flank.call("_own_body_materials")
 
 
 ## The pony's hair link; null when the body has none.
@@ -329,6 +357,50 @@ static func boop_of(pony: Node) -> Node:
 	if boop is Node and is_instance_valid(boop):
 		return boop
 	return null
+
+
+## The pony's head node; null when the body has none.
+static func head_of(pony: Node) -> Node:
+	if not is_instance_valid(pony):
+		return null
+	var head: Variant = pony.get("head")
+	if head is Node and is_instance_valid(head):
+		return head
+	return null
+
+
+## The head node's mouth rig; null when the head has none.
+static func mouth_of(head: Node) -> Node:
+	if not is_instance_valid(head):
+		return null
+	var mouth: Variant = head.get("mouth")
+	if mouth is Node and is_instance_valid(mouth):
+		return mouth
+	return null
+
+
+## The head skeleton the blush sustainer holds; null when the body has none.
+static func head_skeleton_of(boop: Node) -> Skeleton3D:
+	if not is_instance_valid(boop):
+		return null
+	var head: Variant = boop.get("head_skeleton")
+	if head is Skeleton3D and is_instance_valid(head):
+		return head
+	return null
+
+
+## Set the mouth rig's viseme; a rig without the method stays silent.
+static func set_viseme(mouth: Node, letter: String) -> void:
+	if not is_instance_valid(mouth) or not mouth.has_method("set_viseme"):
+		return
+	mouth.call("set_viseme", letter)
+
+
+## Clear the mouth rig's viseme; a rig without the method stays silent.
+static func clear_viseme(mouth: Node) -> void:
+	if not is_instance_valid(mouth) or not mouth.has_method("clear"):
+		return
+	mouth.call("clear")
 
 
 ## Feed the blush sustainer; a body without one stays silent.

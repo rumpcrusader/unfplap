@@ -6,15 +6,18 @@ extends RefCounted
 const ORAL_MOUTH := "D"
 const ORAL_BELOW_NOSE_M := 0.03
 
+const CONTROLLER := preload("res://mods/unfplap/anatomy/controller.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
+
 var pony: Node3D = null
-var anatomy: Node = null
+var anatomy: CONTROLLER = null
 ## The player's size scale, written by the act each tick from its typed facts.
 var size_scale := 1.0
 
 var _viseme := ""
 
 
-func setup(pony_node: Node3D, anatomy_node: Node) -> void:
+func setup(pony_node: Node3D, anatomy_node: CONTROLLER) -> void:
 	pony = pony_node
 	anatomy = anatomy_node
 	reset()
@@ -45,18 +48,16 @@ func mouth_point() -> Vector3:
 ## The base vulva opening, independent of the live hole mix. The pose turn captures it as the
 ## opening the turn starts from.
 func opening() -> Vector3:
-	if is_instance_valid(anatomy) and anatomy.has_method("hole_point"):
-		var point: Variant = anatomy.call("hole_point", 0.0)
-		if point is Vector3 and (point as Vector3).is_finite():
+	if is_instance_valid(anatomy):
+		var point := anatomy.hole_point(0.0)
+		if point.is_finite():
 			return point
 	return Vector3.ZERO
 
 
 func set_viseme(letter: String) -> void:
 	_viseme = letter
-	var mouth_rig: Variant = _pony_mouth()
-	if mouth_rig != null and mouth_rig.has_method("set_viseme"):
-		mouth_rig.call("set_viseme", letter)
+	GAME.set_viseme(_pony_mouth(), letter)
 
 
 ## Re-apply the current mouth shape after a speech stop. The base game restores its rest viseme
@@ -64,33 +65,27 @@ func set_viseme(letter: String) -> void:
 func hold_viseme() -> void:
 	if _viseme.is_empty():
 		return
-	var mouth_rig: Variant = _pony_mouth()
-	if mouth_rig != null and mouth_rig.has_method("set_viseme"):
-		mouth_rig.call("set_viseme", _viseme)
+	GAME.set_viseme(_pony_mouth(), _viseme)
 
 
 func clear() -> void:
 	_viseme = ""
-	var mouth_rig: Variant = _pony_mouth()
-	if mouth_rig != null and mouth_rig.has_method("clear"):
-		mouth_rig.call("clear")
+	GAME.clear_viseme(_pony_mouth())
 
 
 func _head_ends() -> Array:
 	if not is_instance_valid(pony):
 		return []
-	var boop: Variant = pony.get("boop_node")
-	var head: Variant = boop.get("head_skeleton") if boop != null else null
-	if not head is Skeleton3D:
+	var boop := GAME.boop_of(pony)
+	var skeleton := GAME.head_skeleton_of(boop)
+	if skeleton == null:
 		return []
-	var skeleton := head as Skeleton3D
 	var bone := skeleton.find_bone("mHead")
 	if bone < 0:
 		return []
 	return [skeleton.global_transform * skeleton.get_bone_global_pose(bone).origin,
-		boop.call("nose_world")]
+		GAME.nose_world(boop)]
 
 
-func _pony_mouth() -> Variant:
-	var head: Variant = pony.get("head") if is_instance_valid(pony) else null
-	return head.get("mouth") if head != null else null
+func _pony_mouth() -> Node:
+	return GAME.mouth_of(GAME.head_of(pony))

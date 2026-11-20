@@ -14,6 +14,7 @@ const BODY_FIT := preload("res://mods/unfplap/anatomy/body_fit.gd")
 const UDDER := preload("res://mods/unfplap/anatomy/udder.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
 
 const ASSET_DIR := "res://mods/unfplap/assets/anatomy/mare/"
 const TEATS_PATH := ASSET_DIR + "teats.scn"
@@ -41,7 +42,7 @@ var _form: BODY_FORM.BodyForm = null
 
 var teats_mesh: MeshInstance3D
 var skin_strip: MeshInstance3D
-var teats_jiggle: Node
+var teats_jiggle: TEAT_JIGGLE
 ## True when the teats are grown from her belly (anatomy/udder.gd) rather than the old asset.
 var generated_teats := false
 var _strip_span := Vector2(0.0, 1.0)
@@ -120,7 +121,7 @@ func apply_material(missionary: bool) -> void:
 	material.set_shader_parameter("lip_vertical",
 		clampf(SETTINGS.lip_vertical.get_num(), 0.0, 1.0))
 	material.set_shader_parameter("vulva_height", SETTINGS.vulva_height.get_num())
-	var identity: Variant = pony.get("identity")
+	var identity := GAME.identity_of(pony)
 	var coat_fill: Variant = identity.get("coat_fill") if identity != null else null
 	var coat_shade: Variant = identity.get("coat_shade") if identity != null else null
 	material.set_shader_parameter("coat_color",
@@ -169,7 +170,7 @@ func apply_teats_material(base: ShaderMaterial) -> void:
 	if not is_instance_valid(teats_mesh) and not is_instance_valid(skin_strip):
 		return
 	var material := base.duplicate() as ShaderMaterial
-	var identity: Variant = pony.get("identity")
+	var identity := GAME.identity_of(pony)
 	var fill: Variant = identity.get("coat_fill") if identity != null else null
 	var shade: Variant = identity.get("coat_shade") if identity != null else null
 	material.set_shader_parameter("coat_color", fill if fill is Color else Color(0.8, 0.8, 0.8))
@@ -185,7 +186,7 @@ func apply_teats_material(base: ShaderMaterial) -> void:
 	if is_instance_valid(teats_mesh):
 		teats_mesh.set_surface_override_material(0, teats_material)
 	if is_instance_valid(teats_jiggle):
-		teats_jiggle.set("material", teats_material)
+		teats_jiggle.material = teats_material
 	if is_instance_valid(skin_strip):
 		var strip := material.duplicate() as ShaderMaterial
 		strip.set_shader_parameter("span_from", _strip_span.x)
@@ -210,7 +211,7 @@ func clear() -> void:
 
 
 func _skin_tones() -> Array:
-	var identity: Variant = pony.get("identity")
+	var identity := GAME.identity_of(pony)
 	var fill: Variant = identity.get("coat_fill") if identity != null else null
 	var shade: Variant = identity.get("coat_shade") if identity != null else null
 	var base: Color = fill if fill is Color else Color(0.8, 0.8, 0.8)
@@ -234,9 +235,7 @@ func _attach_teats() -> void:
 	var who := _fit_id()
 	var size := _teat_size()
 	generated_teats = false
-	var model: Variant = pony.get("_model")
-	var body: MeshInstance3D = (model as Node).find_child("MareBody", true, false) \
-		if model is Node else null
+	var body := GAME.body_of(pony)
 	if is_instance_valid(skeleton) and body != null and body.skin != null:
 		var body_size := float(profile[2]) if profile.size() >= 3 else 1.0
 		var centre := BODY_FIT.base_map(profile, who) * UDDER.MARE_CENTRE
@@ -267,15 +266,15 @@ func _attach_teats() -> void:
 			maxf(shape * 2.0 - 1.0, 0.0))
 	teats_jiggle = TEAT_JIGGLE.new()
 	teats_jiggle.name = "UnfplapAnatomyTeatJiggle"
-	teats_jiggle.set("skeleton", skeleton)
+	teats_jiggle.skeleton = skeleton
 	teats_mesh.add_child(teats_jiggle)
 	# Bigger ones swing further; the sway is in metres, so a bigger body's swing scales with her.
 	# A princess's own look (PRINCESS_TEATS) adds bounce and a slower spring.
 	var look: Dictionary = PRINCESS_TEATS.get(who, {}) if not profile.is_empty() else {}
 	var body_size := float(profile[2]) if profile.size() >= 3 else 1.0
-	teats_jiggle.set("swing", (1.0 + 2.0 * size) * body_size * float(look.get("bounce", 1.0)))
-	teats_jiggle.set("stiffness_scale", float(look.get("stiffness", 1.0)))
-	teats_jiggle.set("damping_scale", float(look.get("damping", 1.0)))
+	teats_jiggle.swing = (1.0 + 2.0 * size) * body_size * float(look.get("bounce", 1.0))
+	teats_jiggle.stiffness_scale = float(look.get("stiffness", 1.0))
+	teats_jiggle.damping_scale = float(look.get("damping", 1.0))
 
 
 func _attach_skin_strip() -> void:
@@ -297,7 +296,7 @@ func _attach_skin_strip() -> void:
 				best = distance
 				along = uvs[i].x
 		return along
-	var dock := pony.find_child("OpenPonyDock", true, false) as MeshInstance3D
+	var dock := GAME.dock_of(pony)
 	if is_instance_valid(dock) and dock.mesh != null:
 		var box := dock.mesh.get_aabb()
 		_strip_span.x = strip_at.call(Vector3(0.0, box.position.y, box.position.z + box.size.z * 0.5))
@@ -312,7 +311,7 @@ func _attach_skin_strip() -> void:
 
 
 func _teat_size() -> float:
-	var identity: Variant = pony.get("identity")
+	var identity := GAME.identity_of(pony)
 	# Her Characters-tab preset (Teat size) wins over the automatic size.
 	var id := PONY_ID.from(str(pony.get_meta("relationship_id", "")), identity)
 	var chosen := SETTINGS.preferences(id).str_value("teat_size", "auto") \
@@ -329,11 +328,10 @@ func _teat_size() -> float:
 
 ## A mesh modelled on the shared mare body and skinned with her own weights.
 func _skinned_part(path: String, part_name: String) -> MeshInstance3D:
-	var model: Variant = pony.get("_model")
-	if not is_instance_valid(skeleton) or not model is Node:
+	var body := GAME.body_of(pony)
+	if not is_instance_valid(skeleton) or body == null:
 		return null
-	var body := (model as Node).find_child("MareBody", true, false) as MeshInstance3D
-	if body == null or body.skin == null:
+	if body.skin == null:
 		return null
 	var scene: PackedScene = load(path)
 	if scene == null:

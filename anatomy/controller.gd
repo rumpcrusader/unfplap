@@ -19,6 +19,7 @@ const FACTS := preload("res://mods/unfplap/anatomy/facts.gd")
 const ATTACH := preload("res://mods/unfplap/anatomy/attach.gd")
 const GARMENT_HULL := preload("res://mods/unfplap/anatomy/garment_hull.gd")
 const PLAYER := preload("res://mods/unfplap/anatomy/player.gd")
+const FLUID := preload("res://mods/unfplap/anatomy/fluid.gd")
 const SERVICE := preload("res://mods/unfplap/anatomy/service.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
 
@@ -593,7 +594,7 @@ func winking_mesh() -> MeshInstance3D:
 
 
 ## integration: one persistent fluid node per pony, reused by every act.
-func fluid() -> Node3D:
+func fluid() -> FLUID:
 	return attach.fluid() if attach != null else null
 
 

@@ -60,30 +60,6 @@
       "count": 2
     },
     {
-      "file": "anatomy/act.gd",
-      "count": 52
-    },
-    {
-      "file": "anatomy/act/debug.gd",
-      "count": 5
-    },
-    {
-      "file": "anatomy/act/oral.gd",
-      "count": 5
-    },
-    {
-      "file": "anatomy/appearance.gd",
-      "count": 5
-    },
-    {
-      "file": "anatomy/attach.gd",
-      "count": 7
-    },
-    {
-      "file": "anatomy/coat.gd",
-      "count": 3
-    },
-    {
       "file": "api.gd",
       "count": 1
     },

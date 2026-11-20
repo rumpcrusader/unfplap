@@ -33,27 +33,24 @@ class FakePony extends Node3D:
 	var _far_mesh_shown := false
 
 
-class FakeAnatomy extends Node:
+class FakeAnatomy extends "res://mods/unfplap/anatomy/controller.gd":
 	var calls: Array[String] = []
 
 	func _clear_part() -> void:
 		calls.append("clear")
 
-	func fluid() -> Node3D:
-		return null
-
 
 ## The face-mode anatomy: records the shape drive and returns a live winking mesh. The opening is
 ## fixed, so the normal opening path's aim and track calls are observable.
-class FakeFaceAnatomy extends Node:
+class FakeFaceAnatomy extends "res://mods/unfplap/anatomy/controller.gd":
 	var calls: Array = []
 	var mesh: MeshInstance3D
 	var opening := Vector3(0.1, 0.2, 0.3)
-	var part_node: Variant = null
+	var part_node: PLAYER_PART = null
 	var tracks: Array = []
 	var form_fit := ""
 
-	func part() -> Variant:
+	func part() -> PLAYER_PART:
 		return part_node
 
 	func form_fit_id() -> String:
@@ -66,7 +63,7 @@ class FakeFaceAnatomy extends Node:
 	func animate(_closed: float, _seconds: float) -> void:
 		calls.append(["animate"])
 
-	func winking_mesh() -> Variant:
+	func winking_mesh() -> MeshInstance3D:
 		return mesh
 
 	func set_fill(value: float) -> void:
@@ -78,7 +75,8 @@ class FakeFaceAnatomy extends Node:
 	func set_anal_grip(value: float) -> void:
 		calls.append(["anal_grip", value])
 
-	func set_shaft(_pivot: Vector3, _axis: Vector3, _length: float, _radii: Array) -> void:
+	func set_shaft(_pivot: Vector3, _axis: Vector3, _length: float,
+			_radii: PackedFloat32Array) -> void:
 		calls.append(["shaft"])
 
 	func clear_shaft() -> void:
@@ -87,14 +85,11 @@ class FakeFaceAnatomy extends Node:
 	func drive(value: float) -> void:
 		calls.append(["drive", value])
 
-	func hole_point(_mix: float) -> Vector3:
+	func hole_point(_mix := 0.0) -> Vector3:
 		return opening
 
-	func hole_rear(_mix: float) -> Vector3:
+	func hole_rear(_mix := 0.0) -> Vector3:
 		return Vector3(0.0, 0.0, 1.0)
-
-	func fluid() -> Node3D:
-		return null
 
 
 ## The player part in the face-mode test: the encounter calls are the park/restore proof, and the
@@ -178,6 +173,7 @@ func _last_call(calls: Array, name: String) -> Array:
 ## the normal shape and aim path; the hole toggle refuses while the face owns the contact.
 func _check_face_contact() -> void:
 	var anatomy := FakeFaceAnatomy.new()
+	anatomy.set_process(false)
 	root.add_child(anatomy)
 	var host := Node3D.new()
 	root.add_child(host)
@@ -275,6 +271,7 @@ func _check_face_contact() -> void:
 func _check_normal_source() -> void:
 	var anatomy := FakeFaceAnatomy.new()
 	anatomy.opening = Vector3(0.0, 0.5, -0.3)
+	anatomy.set_process(false)
 	root.add_child(anatomy)
 	var pony := _pony("twilight_sparkle")
 	root.add_child(pony)
@@ -453,6 +450,13 @@ func run() -> void:
 	facade.call("shutdown")
 	root.remove_child(facade)
 	facade.free()
+
+	# The act's controller handle is the concrete controller script: its part and fluid answers
+	# are typed, and a detached controller answers null rather than an untyped object.
+	var detached := ANATOMY.new()
+	check(detached.part() == null, "a controller with no player part answers null")
+	check(detached.fluid() == null, "a detached controller answers no fluid node")
+	detached.free()
 
 	print("ANATOMY_PART_RESULT checks=%d failures=%d" % [checks, failures])
 	quit(0 if failures == 0 else 1)

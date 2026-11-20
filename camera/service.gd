@@ -973,10 +973,6 @@ func standing_controller() -> RefCounted:
 	return standing_camera
 
 
-func lean_side_value() -> float:
-	return lean_view_side
-
-
 ## Prepare the start pose's camera profile before the look is captured. The bed shot camera reads
 ## the authored asset; the standing camera starts in its placement adapter instead.
 func prepare_start(profile: String) -> void:

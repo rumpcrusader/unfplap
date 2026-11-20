@@ -379,20 +379,6 @@ static func _mods() -> Node:
 	return loop.root.get_node_or_null("Mods")
 
 
-## The live runtime count.
-static func runtime_count() -> int:
-	var runtimes := 0
-	for runtime: Variant in _runtimes.values():
-		if is_instance_valid(runtime):
-			runtimes += 1
-	return runtimes
-
-
-## The live mares.
-static func mare_count() -> int:
-	return WORLD.mares().size()
-
-
 ## The stable act identity of one presented body: the relationship id when it is ready, the
 ## pony-identity fallback otherwise. The act reads id and display name through this one record.
 class Identity extends RefCounted:

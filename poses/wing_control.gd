@@ -242,12 +242,3 @@ func _clear_wing_sweep() -> void:
 	if is_instance_valid(_wing_sweep):
 		_wing_sweep.queue_free()
 	_wing_sweep = null
-
-
-## The two wing flags. The state is this controller's, not the node's.
-func wing_hold() -> bool:
-	return _wing_hold
-
-
-func winged() -> bool:
-	return _winged

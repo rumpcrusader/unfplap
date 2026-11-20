@@ -23,7 +23,7 @@ const WING_FLUTTER_COOLDOWN_S := 1.80
 const WING_SWEEP_DEG := 10.0
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
-## The typed act view: her node and the act clock. The perf/log hooks stay callbacks.
+## The typed act view: her node and the act clock.
 var facts: Variant
 
 var _winged := false
@@ -244,7 +244,7 @@ func _clear_wing_sweep() -> void:
 	_wing_sweep = null
 
 
-## The two flags the perf probe prints. The wing state is this controller's, not the node's.
+## The two wing flags. The state is this controller's, not the node's.
 func wing_hold() -> bool:
 	return _wing_hold
 

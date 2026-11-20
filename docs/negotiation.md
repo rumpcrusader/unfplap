@@ -102,7 +102,7 @@ The host callbacks are, in order:
 | `reason` | `(PROMPTS.Request, scope, done) -> bool` | the Mare Response Reasoning |
 | `await_answer` | `(pony, scope, done) -> bool` | the first new line from the target |
 | `cancel_scope` | `(scope) -> void` | cancels one model scope |
-| `toast` / `log` | `(text) -> void` | player feedback through the HUD toast sink and the debug line |
+| `toast` | `(text) -> void` | player feedback through the HUD toast line |
 | `react` | `(pony, reason) -> void` | the shared interruption line |
 | `on_outcome` | `(Terminal) -> void` | the Proactive pacing |
 | `on_agreement` | `(Handle) -> void` | the Agreement handoff: the standing presentation and the offer clear |
@@ -147,7 +147,7 @@ used to be the entry's assembly:
 
 - the `Host` callbacks that read another service or the scene: `now`, `eligible`,
   `relationship_ok`, `context_facts`, `privacy_private`, `placement_for`, `pose_placed`,
-  `hold_for`, `classify`, `reason`, `await_answer`, `cancel_scope`, `toast` and `log`;
+  `hold_for`, `classify`, `reason`, `await_answer`, `cancel_scope` and `toast`;
 - the Context facts both reasoning stages read: the eligibility snapshot, the act history, the
   world-context mood and the relationship note;
 - the global Anon-offer watch, the runtime state guard and the mare the game's conversation
@@ -356,8 +356,8 @@ No setting is read directly. The bridge's `relationship_ok` reads the Promiscuit
 | service | privacy | `privacy/service.gd` | live offer and cuddle privacy |
 | shared | clearance | `shared/clearance.gd` | Base clearance result |
 | shared | context | `shared/context.gd` | typed Context snapshot |
-| shared | log | `shared/log.gd` | log sink, perf entry and panel |
-| shared | perf | `shared/perf.gd` | perf probe |
+| shared | log | `shared/log.gd` | log sink |
+| shared | perf | `shared/perf.gd` | one profiler |
 | shared | pony_id | `shared/pony_id.gd` | stable mare id |
 | shared | pose_catalog | `shared/pose_catalog.gd` | the standing pose the Agreement presents |
 | shared | pose_options | `shared/pose_options.gd` | the available options and exact match |

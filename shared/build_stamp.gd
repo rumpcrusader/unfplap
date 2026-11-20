@@ -1,8 +1,6 @@
 extends RefCounted
 ## Build stamp: the newest mtime over the mod's source files. A source file has a real mtime while
 ## a pack reports 0, so the entry's log line separates a source run from a packed build.
-##
-## See `docs/log.md`.
 
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 

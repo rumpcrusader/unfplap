@@ -191,7 +191,7 @@ The controls table is `docs/runtime.md`. Debug actions and the wheel are in `doc
 | shared | act_keys | `shared/act_keys.gd` | action name, legacy fallback and cap labels |
 | shared | act_state | `shared/act_state.gd` | act state constants |
 | shared | act_commands | `shared/act_commands.gd` | the ids `V`/`N` emit |
-| shared | log | `shared/log.gd` | log sink, perf entry and panel |
+| shared | log | `shared/log.gd` | log sink |
 | shared | settings_change | `shared/settings_change.gd` | the settings change notification |
 | service | ponies | `ponies/service.gd` | the live act's runtime |
 

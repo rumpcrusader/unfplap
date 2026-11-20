@@ -274,7 +274,7 @@ takes effect when the panel closes.
 ### Uses
 | service | world | `world/service.gd` | the eye's camera |
 
-| shared | perf | `shared/perf.gd` | perf probe |
+| shared | perf | `shared/perf.gd` | one profiler |
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
 | service | settings | `settings/service.gd` | settings declarations and live values |
@@ -282,7 +282,7 @@ takes effect when the panel closes.
 | shared | act_motion | `shared/act_motion.gd` | lean and travel math |
 | shared | body_form | `shared/body_form.gd` | presented body rig and scale for the entrance offset |
 | shared | body_profile | `shared/body_profile.gd` | rig entrance offset math |
-| shared | log | `shared/log.gd` | log sink, perf entry and panel |
+| shared | log | `shared/log.gd` | log sink |
 
 ## Lifecycle
 

@@ -404,8 +404,8 @@ handle from `anatomy.part()` in `setup()`, refreshes an invalid handle in `tick(
 `player.set_aim()` and `player.set_bed_inset()` instead of setting fields by name. The missionary
 `part_inset_m` is read once in `setup()`; a live debug edit applies at the next act.
 
-The bridge also writes `perf_on` from the host's `perf_enabled`, so the persistent controller takes
-no idle perf clock while the debug probe is off. See `docs/perf.md`.
+The bridge writes no perf gate: the persistent controller and the tail seat read
+`shared/perf.gd`'s own switch, which costs nothing while the profiler is off.
 
 ## Act bridge
 
@@ -948,13 +948,13 @@ stay event-time reads.
 - **Force/Clear heat** and **Force/Clear diestrus** are the cycle debug actions; their effect on
   the idle heat display is described in `## Idle heat`. The cycle owner is
   `docs/eligibility.md`.
-- With **Enable debug** and **Print perf logs** on, an act prints the runtime's `perf` block; the
-  anatomy contributes `anatomy_visibility`, `anatomy_tick`, `anatomy_coat_line` and
-  `anatomy_afterglow` timings. Tail
-  seating prints `tail perf attach`/`tail perf refresh` one-shot lines and a once-per-second
+- With **Enable debug** and **Print perf logs** on, the anatomy contributes the
+  `anatomy_process`, `anatomy_visibility`, `anatomy_tick`, `anatomy_coat_line` and
+  `anatomy_afterglow` chunks to the profiler's block, plus `tail_attach` and `tail_refresh` when
+  the tail seat builds. The seat also prints `tail perf refresh` and a once-per-second
   `tail perf seats=… skinned=… builds=…/s` line; steady state is `builds=0/s` because the dock
-  blend runs on the GPU. The seat's own `_process` is enabled only while **Print perf logs** is
-  on, so the probe costs nothing in a normal session.
+  blend runs on the GPU. The seat's own `_process` returns on the profiler's switch, so it costs
+  nothing in a normal session.
 - The mesh and material debug helpers (`body_coat_mesh()`, `body_coat_material()`,
   `body_outline_material()`, `body_coat_targets()`, `is_attached()`) exist so the runtime can
   re-add the patched rig and merged-near materials to the game's jiggle target list.
@@ -973,7 +973,7 @@ stay event-time reads.
 | service | vr | `vr/service.gd` | VR act controls |
 | service | world | `world/service.gd` | the player body and the live scene |
 | shared | act_state | `shared/act_state.gd` | act state constants |
-| shared | perf | `shared/perf.gd` | perf probe |
+| shared | perf | `shared/perf.gd` | one profiler |
 | shared | pose_catalog | `shared/pose_catalog.gd` | the standing oral edge ids |
 | shared | anatomy_placement | `shared/anatomy_placement.gd` | placement defaults |
 | shared | body_binding | `shared/body_binding.gd` | the anatomy body binding base |
@@ -981,7 +981,7 @@ stay event-time reads.
 | shared | body_form | `shared/body_form.gd` | presented body rig, fit and marker |
 | shared | body_profile | `shared/body_profile.gd` | typed rig, profile table and legacy fit key |
 | shared | cycle | `shared/cycle.gd` | estrus cycle |
-| shared | log | `shared/log.gd` | log sink, perf entry and panel |
+| shared | log | `shared/log.gd` | log sink |
 | shared | pony_id | `shared/pony_id.gd` | stable pony id |
 | shared | preferences | `shared/preferences.gd` | teat size preset |
 | shared | settings_change | `shared/settings_change.gd` | the settings change notification |
@@ -1109,7 +1109,8 @@ The anatomy migration is complete:
   `shared/anatomy_placement.gd` stays a shared pure schema.
 - The player part and tail seating are under `anatomy/`; the entry keeps only thin debug/button
   forwards. The status line goes through `HUD.anatomy_status()` (`docs/hud.md`); the player body,
-  the dock refresh, the perf sink and the debug logger are injected into the anatomy modules.
+  the dock refresh and the debug logger are injected into the anatomy modules; the profiler is
+  shared and read directly.
 - The bridge owns the one typed `anatomy/facts.gd` context; the act and the persistent controller
   read it instead of runtime private fields and never allocate a second object. The act reads the
   controller's player-part handle and returns its opening normal and mouth point through its

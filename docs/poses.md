@@ -953,8 +953,8 @@ The aftercare lifetime, positive tail-up rule and the held mood face are in `doc
 | shared | act_motion | `shared/act_motion.gd` | lean and travel math |
 | shared | hands_reach_plan | `shared/hands_reach_plan.gd` | reach planning math |
 | shared | hands_scale | `shared/hands_scale.gd` | palm scale |
-| shared | log | `shared/log.gd` | log sink and perf entry |
-| shared | perf | `shared/perf.gd` | perf probe |
+| shared | log | `shared/log.gd` | log sink |
+| shared | perf | `shared/perf.gd` | one profiler |
 | shared | pose_catalog | `shared/pose_catalog.gd` | pose ids and schema |
 | shared | pose_specs | `shared/pose_specs.gd` | pose capability table |
 | shared | pose_view | `shared/pose_view.gd` | pose read model |

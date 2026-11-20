@@ -1,8 +1,8 @@
 # Debug tooling
 
 The mod's debug surface: the console gate, the Debug block actions, the action wheel, the skeleton
-overlay and the log switches. The lab scripts are in `WORKFLOW.md`; the settings framework is
-`docs/settings.md`; the perf probe is `docs/perf.md`.
+overlay and the log switches. The lab scripts are in `WORKFLOW.md` and the settings framework is
+`docs/settings.md`; the log sink and the profiler describe themselves in their file headers.
 
 ## Scope
 
@@ -10,14 +10,14 @@ overlay and the log switches. The lab scripts are in `WORKFLOW.md`; the settings
 the wheel's open gate and the labels. `debug/actions.gd` is the one node that runs every action,
 collects Show data, gates the wheel, dispatches its slots and syncs the skeleton overlay; it is
 private to this service. `debug/ui.gd` draws the Debug block buttons. `debug/wheel.gd` is the
-hold-middle wheel. `shared/perf_view.gd` draws the perf panel for `shared/log.gd`. `debug/bed.gd`
+hold-middle wheel. `debug/bed.gd`
 is the stock bed cuddle helper behind the wheel's Bed cuddle action and Show data's BED section.
 `debug/pony.gd` is the debug pony-state helper: the bed cuddle and wheel's Sex ready preparation,
 and the scene gate's debug status line gather (the pony, world, relationship and player facts).
 `debug/idle_stretch.gd` is the Idle Life deep-stretch bridge behind the wheel's Force
 deep stretch action. `debug/skeleton.gd` draws the skeleton overlay. `settings/ui.gd` injects the
 Unfplap tab and calls `debug/ui.gd` for each Debug block. The console gate is the game's; the log
-switches and the perf panel are `shared/log.gd`'s.
+switch is `shared/log.gd`'s and the perf panel is `shared/perf.gd`'s.
 
 ## Console
 
@@ -197,8 +197,8 @@ Colors: body green, face amber, hair/tail pink. It updates at 30 Hz and covers 1
 - Every logged line, continuation rows of a multi-line block included, carries the `[unfplap] `
   prefix; `LOG.debug()` (`shared/log.gd`) adds it per line, and every module prints through it.
 - **Print perf logs** is a separate debug toggle. With **Enable debug** and
-  **Print perf logs** on, an act prints one `perf` block a second and, outside an act, one
-  aggregated `perf idle` block a second. Either switch off stops both. See `docs/perf.md`.
+  **Print perf logs** on, `shared/perf.gd` prints one `perf` block a second, in an act and out of
+  one alike. Either switch off stops it.
 - `features.face_debug` prints one line per act face change, the climax score parts and the
   mood-face start/end.
 - The debug log prints one `summary grade=... quality=... checks=... reasons=... tier=... hurt=...
@@ -219,19 +219,19 @@ Colors: body green, face amber, hair/tail pink. It updates at 30 Hz and covers 1
 ## Perf panel
 
 With **Enable debug** and **Print perf logs** on, the top-left corner carries the perf panel: the
-same tree the probes print, one row per chunk, with its average, worst call and call count in
+same tree the block prints, one row per chunk, with its average, worst call and call count in
 right-aligned columns. It is a `CanvasLayer` at layer 20 that ignores the mouse, so it never blocks
 the act view or the wheel, and it stays hidden until the first window arrives. Either switch off
-clears and hides it; a world close clears it, and the next window redraws the same node.
-`shared/log.gd` creates it under the entry on the first printed window; see `docs/log.md`.
+clears and hides it, and the next window redraws the same node.
+`shared/perf.gd` creates it under the entry on the first printed window.
 
 The tree glyphs and indentation are the block's own. Each value runs green → amber → red against
 its target — `100ms/s` for the average, `0.5ms` for the worst call and two calls per rendered frame
 for the count — so a red cell is the row to look at first. A permanent first row, `unfplap total`,
 sums the window's roots and takes the worst single call, so the mod's own cost is one line; it has
-no call count. A `self` row prints `-` for max and calls. The caption names the probe's own header,
-the engine frame numbers and, from the second window, the measured refresh rate in Hz. The rows
-themselves are `docs/perf.md`'s.
+no call count. A `self` row prints `-` for max and calls. The caption names the engine frame numbers and,
+from the second window, the measured refresh rate in Hz. The rows themselves are a chunk's own
+total over the window, its calls and its worst call.
 
 ## Lab keys
 
@@ -292,7 +292,7 @@ the skeleton overlay; `_ready()` joins that list and `_exit_tree()` leaves it.
 | shared | act_face | `shared/act_face.gd` | the face cycle |
 | shared | body_change | `shared/body_change.gd` | the provider origin of an idle form change |
 | shared | cycle | `shared/cycle.gd` | the estrus phase names |
-| shared | log | `shared/log.gd` | log sink, perf entry and panel |
+| shared | log | `shared/log.gd` | log sink |
 | shared | pony_id | `shared/pony_id.gd` | stable pony id in Show data's BED rows |
 | shared | pose_catalog | `shared/pose_catalog.gd` | the pose ids the actions name |
 | shared | settings_change | `shared/settings_change.gd` | the settings change notification |
@@ -330,13 +330,10 @@ skeleton flag, the Debug block labels that remain and the absence of every wheel
 blocks. `tests/test_face_sit_action.gd` runs the face-sit refusal rule through the real pose
 session and the action through `run_action()` on the built actions node. The overlay, the hover
 cue and the lab pass are manual.
-`tests/test_perf_panel.gd` pins the perf panel's row height, colour targets, caption and clear.
 
 ## Related docs
 
 - `docs/settings.md` — the Debug block and the declaration rules.
-- `docs/perf.md` — the two perf probes.
-- `docs/log.md` — the log switches, the line format and the panel's owner.
 - `docs/anatomy.md` — the placement actions and the skeleton flag.
 - `docs/summary.md`, `docs/face.md`, `docs/eligibility.md` — the per-service debug actions.
 - `WORKFLOW.md` — the lab commands.

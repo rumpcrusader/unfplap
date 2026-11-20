@@ -127,7 +127,7 @@ the main handle and the `log` callback from the facade; it never reads the runti
 | service | world | `world/service.gd` | the live world root |
 | shared | act_face | `shared/act_face.gd` | face beat data |
 | shared | act_state | `shared/act_state.gd` | act state constants |
-| shared | log | `shared/log.gd` | log sink and perf entry |
+| shared | log | `shared/log.gd` | log sink |
 | shared | preferences | `shared/preferences.gd` | profile math and defaults |
 
 ## Lifecycle

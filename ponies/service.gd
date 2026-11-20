@@ -379,8 +379,7 @@ static func _mods() -> Node:
 	return loop.root.get_node_or_null("Mods")
 
 
-## The live runtime count, for the idle perf block's header.
-## Read once per window, never per note.
+## The live runtime count.
 static func runtime_count() -> int:
 	var runtimes := 0
 	for runtime: Variant in _runtimes.values():
@@ -389,7 +388,7 @@ static func runtime_count() -> int:
 	return runtimes
 
 
-## The live mares, for the idle perf block's header.
+## The live mares.
 static func mare_count() -> int:
 	return WORLD.mares().size()
 

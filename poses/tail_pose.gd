@@ -36,7 +36,7 @@ const JIGGLE_BASE_NORMAL := 0.8
 const PERF := preload("res://mods/unfplap/shared/perf.gd")
 
 var mare: Node3D
-## The typed act view: the live depth and the perf callback. Absent outside an act.
+## The typed act view: the live depth. Absent outside an act.
 var facts: Variant
 var amount := 0.0
 var target_amount := 0.0

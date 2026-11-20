@@ -265,7 +265,7 @@ func agreement() -> AGREEMENT.Package:
 
 
 ## The entry's idle frame: the TTL and the privacy sample, then the bridge's global watch. The
-## watch keeps its own perf chunk, so a stalled watch stays visible next to the exchange.
+## watch keeps its own chunk, so a stalled watch stays visible next to the exchange.
 func tick(delta: float) -> void:
 	_tick_offer(delta)
 	PERF.begin("entry_watch")

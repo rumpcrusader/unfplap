@@ -646,16 +646,14 @@ usable while the mod is loaded; `input/service.gd` still routes a declared `"hot
 action that must fire while the world is unpaused. The action list, the wheel pages and
 per-service debug actions are in `docs/debug.md`.
 
-## Perf probes
+## Perf probe
 
-**Print perf logs** (with **Enable debug**) turns on both debug probes. During an act, timed chunks
-call `perf_note(chunk, usec)`; `shared/perf.gd` holds the window, the chunk rows and the header
-facts and prints one per-pony `perf` summary a second. Outside an act, `shared/perf_idle.gd` prints
-one aggregated `perf idle` block a second with each chunk's total, average and worst pony. Rows
-nest under their parent chunk and sort largest first inside their level, and a parent's unmeasured
-remainder prints as a `self` row. Both probes are off and allocation-free when either switch is
-off; the act window resets outside an act and the idle window resets when an act starts. They are
-debug tools, not settings: no declaration, no persisted value. See `docs/perf.md`.
+**Print perf logs** (with **Enable debug**) turns on `shared/perf.gd`. Its chunks open and close
+around the work they measure, one window covers an act and the idle time alike, and it prints one
+`perf` block a second. Rows nest under the frame a chunk opened in and sort largest first inside
+their level, and a parent's unmeasured remainder prints as a `self` row. The profiler is off and
+allocation-free when either switch is off. It is a debug tool, not a setting: no declaration, no
+persisted value. The block's rows and panel are `docs/debug.md`'s.
 
 ## Dependencies
 
@@ -669,7 +667,7 @@ debug tools, not settings: no declaration, no persisted value. See `docs/perf.md
 | shared | consent | `shared/consent.gd` | consent defaults |
 | shared | defaults_data | `shared/defaults_data.gd` | shipped settings and catalog documents |
 | shared | integrations | `shared/integrations.gd` | verified mod catalog and tab rows |
-| shared | log | `shared/log.gd` | log sink and perf entry |
+| shared | log | `shared/log.gd` | log sink |
 | shared | participation | `shared/participation.gd` | participation defaults |
 | shared | pose_catalog | `shared/pose_catalog.gd` | pose ids and schema |
 | shared | preferences | `shared/preferences.gd` | profile schema and math |
@@ -698,7 +696,6 @@ debug tools, not settings: no declaration, no persisted value. See `docs/perf.md
 
 - `docs/preferences.md` — the Characters form and the per-mare profiles.
 - `docs/eligibility.md` — consent and participation storage and gates.
-- `docs/debug.md` — the Debug actions and the console.
-- `docs/perf.md` — the perf probe.
+- `docs/debug.md` — the Debug actions, the console and the perf panel.
 - `docs/readiness.md`, `docs/poses.md`, `docs/camera.md`, `docs/hands.md`, `docs/anatomy.md` —
   the behavior behind the rows.

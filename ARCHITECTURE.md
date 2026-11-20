@@ -27,7 +27,7 @@ per-world or per-pony orchestration state, but they do not implement another ser
 
 The entry has four jobs and nothing else:
 
-1. the primitives: the settings load, the log sink's reads and the loader lookup;
+1. the primitives: the settings load, the two debug switch binds and the loader lookup;
 2. the one ordered service list (`_build_services()`), a line or two per service;
 3. the broadcasts and the frame loop, in a visible order;
 4. the one teardown (`_release()` then `_shutdown()`).
@@ -74,8 +74,8 @@ Rules:
 - Only `main`, `runtime` and `api` may call arbitrary service facades.
 - If two services seem to need each other, the boundary is wrong or the orchestrator must mediate
   with plain values. A cycle is not an acceptable design.
-- No per-frame allocation in a facade or read model. Reuse context and event objects. The perf
-  probe must not show added per-frame cost.
+- No per-frame allocation in a facade or read model. Reuse context and event objects. The
+  profiler's block must not show added per-frame cost.
 
 `settings` is infrastructure: it may import shared pure modules and nothing else. The one existing
 upward edge, `settings -> registry/service.gd` (provider defaults and per-mare rows), is recorded in
@@ -188,7 +188,7 @@ give the mod two entry points and hide the real dependency.
 | World | the entry's service list, at boot | the list order on world enter, close and exit | eligibility, memory, negotiation, hud, offer, input, initiation, anatomy, body_change, the world adapters, stool, stock smack, api, debug actions |
 | Per-pony | `ponies` through the entry's one factory | pony despawn or world close | the runtime itself |
 | Per-pony handle | the runtime, once per pony | the runtime ledger or the negotiation hold | pose, camera, hands, kiss, face, history, afterglow, scene hold, rest |
-| Pure / read model | its owner | no teardown | preferences math, act view, perf probe |
+| Pure / read model | its owner | no teardown | preferences math, act view, the log sink and the profiler |
 
 A service doc declares its scope, constructor, begin/end and idempotency. A service that outlives
 one act must reset every act-owned value in its begin/reset path; a service that is created per
@@ -208,7 +208,7 @@ teardown to `free_pose()`. The order is `docs/poses.md`.
 
 `main.gd` is the mod entry and composition root. It owns four things:
 
-- **the primitives**: the settings load, the log sink's reads and the loader lookup;
+- **the primitives**: the settings load, the two debug switch binds and the loader lookup;
 - **the ordered service list**: `_build_services()` constructs every long-running service in one
   literal list, one construction line and one `bind()` per service; the entry never assigns a
   service's fields. The list order is the construction order and the broadcast order, so a consumer
@@ -464,8 +464,8 @@ scripts/test_all.sh
 ```
 
 Manual labs are required for behavior phases: `./lab.sh`, `./lab-stress.sh`, `./lab-vr.sh`. A
-change that touches the tick, pose, camera or per-act service composition also needs the perf
-probe before and after, with **Enable debug** + **Print perf logs**.
+change that touches the tick, pose, camera or per-act service composition also needs one `perf`
+block in an act and one outside it before and after, with **Enable debug** + **Print perf logs**.
 
 ## Adding a service
 

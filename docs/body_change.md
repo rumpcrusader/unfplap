@@ -483,7 +483,7 @@ suspension, adoption, resume and failure phases.
 | shared | body_change | `shared/body_change.gd` | body change type, state and origin |
 | shared | body_change_policy | `shared/body_change_policy.gd` | provider offer/reveal policy base |
 | shared | body_form | `shared/body_form.gd` | typed body form and the default own form |
-| shared | log | `shared/log.gd` | log sink, perf entry and panel |
+| shared | log | `shared/log.gd` | log sink |
 | shared | settings_change | `shared/settings_change.gd` | the settings change notification |
 
 ### Used by

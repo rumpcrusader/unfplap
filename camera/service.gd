@@ -964,8 +964,7 @@ func feature(name: String) -> bool:
 	return bool((block as Dictionary).get(name, false)) if block is Dictionary else false
 
 
-## The typed handles and reads the host-callback bindings use: the two pose cameras and the live
-## lean the perf probe reports.
+## The typed handles and reads the host-callback bindings use: the two pose cameras.
 func missionary_controller() -> RefCounted:
 	return missionary_camera
 

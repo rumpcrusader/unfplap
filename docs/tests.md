@@ -55,6 +55,7 @@ table, not a second owner: each rule has exactly one suite.
 | `tests/readiness/test_auto_panel.gd` | `tests/readiness/test_readiness_auto.gd` |
 | `tests/summary/test_history.gd` | `tests/summary/test_act_flow.gd` |
 | `tests/integrations/test_hold.gd` | `tests/integrations/test_service.gd` |
+| `tests/perf/test_log.gd`, `tests/perf/test_perf_idle.gd`, `tests/perf/test_perf_tree.gd`, `tests/test_perf_panel.gd` | `tests/perf/test_perf.gd` |
 | `tests/test_source_hygiene.gd` | `scripts/architecture.py --check` |
 
 ## Writing a suite

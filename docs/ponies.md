@@ -16,7 +16,7 @@ This contract covers:
 - the serial allocator and the `unfplap.serial` state key;
 - the prompt note the game's `pony_prompt_notes` group reads;
 - the live and installed character lists the Characters selector shows;
-- the per-runtime live-settings pass, the idle perf header counts and the teardown.
+- the per-runtime live-settings pass and the teardown.
 
 It does not cover the act itself (`docs/runtime.md`), the attach-time anatomy and tail work
 (`docs/anatomy.md`), the eligibility rule (`docs/eligibility.md`), the body-change sources
@@ -141,10 +141,8 @@ re-runs `apply_live_settings()` over every runtime and the act a pending body sw
 the registry. `act_target(pony)` is the act-target rule the offer and the debug block read through
 the preloaded `PONIES` facade.
 
-`LOG.act_running`, `LOG.runtime_count` and `LOG.mare_count` are bound to `act_running()`,
-`runtime_count()` and `mare_count()`. A missing service
-reads as "no prepare", "no character list" and "no side effect", so a suite binds only what it
-tests.
+A missing service reads as "no prepare", "no character list" and "no side effect", so a suite
+binds only what it tests.
 
 The service binds no state of its own: the registry, the record, the pointer and the serial are
 rebound by the entry and cleared by `shutdown()`.
@@ -160,8 +158,8 @@ None. The act key belongs to `docs/input.md` and the idle scan to `docs/offer.md
 ## Debug
 
 The Debug block builds its own `Host` from the `PONIES` facade in `debug/actions.gd` and reads
-`active()`, `runtime_for()` and `live_ponies()` through it; the entry binds none of them. The idle
-perf block's header counts come from `runtime_count()` and `mare_count()`. See `docs/debug.md`.
+`active()`, `runtime_for()` and `live_ponies()` through it; the entry binds none of them. See
+`docs/debug.md`.
 
 ## Lifecycle
 
@@ -181,7 +179,7 @@ perf block's header counts come from `runtime_count()` and `mare_count()`. See `
 | service | eligibility | `eligibility/service.gd` | adult and consent gate |
 | service | settings | `settings/service.gd` | settings declarations and live values |
 | service | world | `world/service.gd` | live scene reads |
-| shared | log | `shared/log.gd` | log sink and perf entry |
+| shared | log | `shared/log.gd` | log sink |
 | shared | body_change | `shared/body_change.gd` | typed body swap record |
 | shared | body_form | `shared/body_form.gd` | the presented form's name |
 | shared | pony_id | `shared/pony_id.gd` | stable pony ids |
@@ -207,4 +205,3 @@ The runtime itself is not a dependency: it is built by the entry's factory and c
 - `docs/body_change.md` — the providers that ask for a new body.
 - `docs/eligibility.md` — the adult capability the character target asks.
 - `docs/offer.md` — the idle offer the act start drops.
-- `docs/log.md` — the two installed reads.

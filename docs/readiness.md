@@ -253,7 +253,7 @@ settings.
 |---|---|---|---|
 | service | settings | `settings/service.gd` | settings declarations and live values |
 | shared | act_state | `shared/act_state.gd` | act state constants |
-| shared | log | `shared/log.gd` | log sink and perf entry |
+| shared | log | `shared/log.gd` | log sink |
 | shared | preferences | `shared/preferences.gd` | profile math and defaults |
 
 ## Tests

@@ -89,7 +89,7 @@ The facade never preloads `runtime.gd` or `main.gd` and never reads their privat
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
-| shared | log | `shared/log.gd` | log sink and perf entry |
+| shared | log | `shared/log.gd` | log sink |
 
 | shared | act_state | `shared/act_state.gd` | act state constants |
 ## Lifecycle

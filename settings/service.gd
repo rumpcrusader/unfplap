@@ -820,7 +820,7 @@ static var curve := choice("curve", "auto_thrust.curve",
 
 # -- (ungrouped)  (debug)
 static var debug_perf := flag("debug_perf", "debug_perf", "Print perf logs",
-	"Print the per-second performance block: per-pony rows during an act, one aggregated block while idle. Requires Enable debug.", GENERAL, "") \
+	"Print the per-second performance block: the timed chunks as one tree, in an act and out of one alike. Requires Enable debug.", GENERAL, "") \
 	.as_debug()
 
 # -- Act face  (debug)

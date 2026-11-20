@@ -159,16 +159,16 @@ body and id and the act host's pony. There is no second bind pass and no facade 
 4. `_bind_anatomy_host()` and `_bind_handover_host()`, now that the session and every module exist;
 5. `_bind_pose_hosts()` and `_bind_facts()`: the pose, readiness, face, reactions, gate, rest,
    scene-hold, afterglow and act-view callbacks;
-6. the bridge's host bind, the perf probe, the scene gate's bind and its one configuration.
+6. the bridge's host bind, the scene gate's bind and its one configuration.
 
 Every callback names its owner rather than a runtime method:
 
 - act state and act values are session accessors (`b.act.state_value`, `b.act.act_id`, …);
 - a system value is its own service's method (`b.readiness.depth_value`,
-  `b.camera.missionary_controller`, `b.wings.wing_hold`, `b.pose._bed_frame_value`, …);
+  `b.camera.missionary_controller`, `b.pose._bed_frame_value`, …);
 - node and scene operations are `act/host.gd` (`pony_value`, `runtime`, `director`, `mod_enabled`,
   `vr_scene`, `near_mesh`, `tier`);
-- logging is `shared/log.gd` (`debug`, `perf_on`, `perf_block`);
+- logging is `shared/log.gd` (`debug`, `warning`, `error`, `block`);
 - anatomy reads are `anatomy/act_bridge.gd` (`mouth_point`, `opening`, `face_point`,
   `set_oral_viseme`, `gaze_point`, `set_missionary_anon`, …).
 
@@ -191,9 +191,8 @@ Act physics, in call order (`act/tick.gd:_tick`):
    timed as `pose_tick`.
 3. `session.refresh_view()` → `act/view.gd`, timed as `runtime_facts`.
 4. `act/tick.gd:_fanout()` when the state is not `IDLE`, timed as `pose_fanout`.
-5. `IDLE`: `act/idle.gd:tick(delta, idle_perf)` runs the inventory safety, the standing
-   presentation's physics and the dialogue history scan, then returns. It runs no pose tick or
-   fan-out.
+5. `IDLE`: `act/idle.gd:tick(delta)` runs the inventory safety, the standing presentation's
+   physics and the dialogue history scan, then returns. It runs no pose tick or fan-out.
 6. The act body: the cycle heat signal, the pose-frame sync, waking her, the vocal tick, the
    navigator keep-alive, free look, act attention, the face-turn pause, the lean tick,
    `act/phases.gd:presentation()` (timed `runtime_presentation`), the consent frame, the settled

@@ -141,7 +141,7 @@ Hold the act key:
 | service | reactions | `reactions/service.gd` | the reward's heart burst |
 | service | world | `world/service.gd` | the live world root |
 | store | act_history | `shared/act_history.gd` | the bad-act history repair |
-| shared | log | `shared/log.gd` | log sink and perf entry |
+| shared | log | `shared/log.gd` | log sink |
 
 ## Lifecycle
 

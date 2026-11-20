@@ -10,7 +10,7 @@ const ACT_AUDIO_PATH := "res://mods/unfplap/audio/service.gd"
 ## The live audio node, or null before the first act. Its script is loaded lazily so both audio
 ## flags off never load the pack streams or the catalogue.
 var node: Variant = null
-## The runtime node: the one parent of the audio node and the source of the log sink.
+## The runtime node: the one parent of the audio node.
 var host: Node = null
 ## Named holds on the game's excitement Beat, one per owner that asked for it.
 var _holders: Array[String] = []

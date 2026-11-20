@@ -19,7 +19,7 @@ the runtime orchestrator and the scene adapters.
 - The consumers are `poses/missionary_anon.gd`, `camera/missionary_camera.gd`, `poses/standing_anon.gd`,
   `camera/standing_camera.gd`, `poses/standing_presentation.gd`, `kiss/service.gd`, `hands/service.gd`, the
   hands internals (`hands/placement.gd`, `hands/surface.gd`, `hands/path_base.gd` and its paths)
-  and the pose modifiers (`poses/skeleton_pose.gd` through its `perf`/`log` handles, plus
+  and the pose modifiers (`poses/skeleton_pose.gd`, plus
   `poses/tail_pose.gd`, `poses/tail_lay.gd`, `poses/body_sway.gd`, `poses/prone_sway.gd`, `poses/ear_twitch.gd`).
 - `anatomy/facts.gd` is the same pattern for the anatomy system.
 
@@ -108,8 +108,6 @@ A missing callback is a no-op, so a test can build the object without a runtime.
 
 | Callback | Contract |
 |---|---|
-| `log` | write one debug line |
-| `perf_note` | record one timed chunk for `shared/perf.gd` |
 | `body_coat_smack` | the anatomy's stock-smack hook |
 | `on_touch` | one readiness touch event, by kind |
 | `on_smack` | one smack impact, by strength |
@@ -135,7 +133,7 @@ A missing callback is a no-op, so a test can build the object without a runtime.
 | `hold_excitement`, `release_excitement` | the act-level excitement Beat hold |
 | `mod_enabled` | whether another mod's entry is active this launch, by mod id |
 
-Helper methods: `perf()`, `write_log()`, `smack_body_coat()`, `touch()`, `smack_hit()`,
+Helper methods: `smack_body_coat()`, `touch()`, `smack_hit()`,
 `kiss_controller()`, `neck_midpoint()`, `write_look()`, `write_forced_glance()`,
 `mark_camera_basis_ready()`, `clock()`, `call_value()`, `missionary_body()`, `feature()`,
 `standing_camera_controller()`, `pose_driver()`, `driver_host()`,
@@ -165,4 +163,3 @@ reach-in" part of the rule is review, not a text scan.
 - `docs/camera.md` — the camera values the view carries.
 - `docs/hands.md` — the hand/kiss readers.
 - `docs/poses.md` — the body wrappers that read the view.
-- `docs/perf.md` — the perf callback.

@@ -15,7 +15,7 @@ const TWITCH_GAIN_MAX := 1.15
 const PERF := preload("res://mods/unfplap/shared/perf.gd")
 
 var mare: Node3D
-## The typed act view: the perf callback. Absent outside an act.
+## The typed act view. Absent outside an act.
 var facts: Variant
 
 var _left := -1

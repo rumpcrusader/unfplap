@@ -344,13 +344,13 @@ selection and starts the swing.
 ### Uses
 | service | world | `world/service.gd` | the eye's camera |
 
-| shared | perf | `shared/perf.gd` | perf probe |
+| shared | perf | `shared/perf.gd` | one profiler |
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
 | service | settings | `settings/service.gd` | settings declarations and live values |
 | shared | act_state | `shared/act_state.gd` | act state constants |
 | shared | body_coat | `shared/body_coat.gd` | drawn body coat mesh and surface |
-| shared | log | `shared/log.gd` | log sink and perf entry |
+| shared | log | `shared/log.gd` | log sink |
 
 ## Tests
 
@@ -386,5 +386,5 @@ selection and starts the swing.
   does not roam the whole marked region; the oval remains the local stroke.
 - `hands/service.gd` is the facade and the coordinator in one file. It reads the typed act view
   (`facts.lean_forward`, `facts.size_scale`) and its own copies of the presentation config and the
-  per-mare profile, and calls callbacks the runtime injects (`_on_touch`, `_log`, `perf_note`).
+  per-mare profile, and calls the callbacks the runtime injects (`_on_touch`).
   New hand code uses the coordinator's methods; do not add another host read.

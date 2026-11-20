@@ -35,9 +35,8 @@ restate a contract.
 | `shared/character_preferences.gd`, `shared/preferences.gd` | `docs/preferences.md` |
 | `shared/defaults_data.gd` | `docs/settings.md` |
 | `shared/hands_*.gd` | `docs/hands.md` |
-| `shared/log.gd` | `docs/log.md` |
-| `shared/build_stamp.gd` | `docs/log.md` |
-| `shared/perf.gd`, `shared/perf_idle.gd`, `shared/perf_view.gd` | `docs/perf.md` |
+| `shared/log.gd`, `shared/perf.gd` | no doc: the frozen file header is the contract |
+| `shared/build_stamp.gd` | its file header |
 | `shared/pose_catalog.gd` | `docs/poses.md` |
 | `shared/settings_change.gd` | `docs/settings.md` |
 | `shared/relationship_cue.gd` | `docs/dialogue.md` |
@@ -170,8 +169,19 @@ Read `WORKFLOW.md` before any task. Commit in small, testable units; never push.
 - **Tests move with the code.** A change is not done while its suite reads the old private path,
   unless it is explicitly retargeted to the facade.
 - **A correct boundary beats a line count.** Report `runtime.gd`'s size as information, not a goal.
-- **Performance check.** With **Enable debug** + **Print perf logs**, compare one act and one idle
-  window before and after a change that touches the tick, the pose or the camera; see `docs/perf.md`.
+- **One sink, one profiler.** `shared/log.gd` is the only file that prints, warns, errors or
+  builds the mod prefix, and `shared/perf.gd` the only one that reads a clock, an engine
+  monitor or the rendering info. Every other script calls `LOG` and `PERF`;
+  `scripts/architecture.py --check` fails on a second one.
+- **Both modules are frozen.** `shared/log.gd` and `shared/perf.gd` are edited only with the
+  user's explicit approval; their header is the contract and no `docs/` entry restates it.
+- **A timed chunk is one unconditional pair.** `PERF.begin("chunk")` and `PERF.end("chunk")`
+  wrap a self-contained block and are never separated by an early `return`: an open frame at
+  the frame's end is a bug the profiler reports and drops, not a shape to work around.
+- **Performance check.** With **Enable debug** + **Print perf logs**, read one `perf` block in
+  an act and one outside it before and after a change that touches the tick, the pose, the
+  camera or a service's composition. A chunk that moved into another chunk's row, or a row
+  that grew without a matching change, is the signal; record the rows, never a claim.
 
 ## Documentation
 

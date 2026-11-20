@@ -2,7 +2,7 @@ extends RefCounted
 ## The idle side of the frame schedule; `act/tick.gd` still owns the ordered tick and calls in
 ## after its early return.
 ##
-## See `docs/runtime.md` and `docs/perf.md`.
+## See `docs/runtime.md`.
 
 const HUD := preload("res://mods/unfplap/hud/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")

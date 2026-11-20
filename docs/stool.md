@@ -222,7 +222,7 @@ idle hint and the act start.
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
 | service | settings | `settings/service.gd` | settings declarations and live values |
-| shared | log | `shared/log.gd` | log sink, perf entry and panel |
+| shared | log | `shared/log.gd` | log sink |
 | shared | pose_specs | `shared/pose_specs.gd` | the stool scene row for the hotkey pair |
 | service | ponies | `ponies/service.gd` | the live act gate |
 

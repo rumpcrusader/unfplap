@@ -17,7 +17,7 @@ This contract covers:
 - the act key's entry, the typed start path, the hotkey attempt and its Agreement exact match;
 - the live Agreement start, its wait/start/fail answer and the auto-start clock with its guards;
 - the `OFFER ...`, `OFFER blocked ...`, `hotkey ...` and `agreement ...` log lines and the offer's
-  idle perf chunks.
+  perf chunks.
 
 It does not cover the runtime's start sequence (`docs/runtime.md`), the Proactive request pacing
 (`docs/initiation.md`), the Negotiation exchange and the Agreement package
@@ -166,7 +166,7 @@ The start path adds `hotkey no context pose`, `hotkey exact match id=<id> pose=<
 `agreement auto-start id=<id> pose=<pose>`, `agreement auto-start privacy lost pony=<name>` and
 `agreement auto-start pony=<name> pose=<pose>`.
 **Enable debug** + **Print perf logs** adds the `offer_scan`, `offer_cone`, `offer_gate` and
-`entry_hint` idle chunks; see `docs/perf.md`.
+`entry_hint` chunks to the profiler's block.
 
 ## Host boundary
 
@@ -196,8 +196,8 @@ Agreement does not start on a stale answer.
 | service | settings | `settings/service.gd` | the act key's cap label |
 | service | world | `world/service.gd` | player, camera, mares, headset, menu panel and pause |
 | shared | act_keys | `shared/act_keys.gd` | the act key's key cap label |
-| shared | log | `shared/log.gd` | the offer and start lines and the idle offer chunks |
-| shared | perf | `shared/perf.gd` | perf probe |
+| shared | log | `shared/log.gd` | log sink |
+| shared | perf | `shared/perf.gd` | one profiler |
 | shared | pony_id | `shared/pony_id.gd` | the mare id in the start log lines |
 | shared | pose_catalog | `shared/pose_catalog.gd` | the two offerable pose ids |
 | shared | pose_offer | `shared/pose_offer.gd` | the typed act offer |
@@ -237,5 +237,4 @@ Agreement does not start on a stale answer.
 - `docs/hud.md` — the prompt row style and the HUD fallback.
 - `docs/negotiation.md` — the Agreement package, its close reasons and the start report.
 - `docs/input.md` — the act key and the input shield.
-- `docs/perf.md` — the `offer_*` and `entry_hint` idle chunks.
 - `docs/poses.md` — the authored assets warmed at world ready.

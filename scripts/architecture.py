@@ -1600,7 +1600,6 @@ ACT_STATE_WRITES = {
     'call("_set_eye_y"': {"world/game.gd": "the eye-line accessor writes through the rig's setter"},
     'set("controls_locked"': {
         "world/game.gd": "a base-game call with his controls released",
-        "kiss/service.gd": "the standing kiss call, restored at once",
     },
     'set("_pitch"': {
         "world/game.gd": "the pitch accessor writes his own look",

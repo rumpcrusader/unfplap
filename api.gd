@@ -10,6 +10,7 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const REGISTRY := preload("res://mods/unfplap/registry/service.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 const API_MAJOR := 1
@@ -180,8 +181,7 @@ func _failure(descriptor: Dictionary, error: String) -> Dictionary:
 
 func _mod_version() -> String:
 	var mods := get_node_or_null("/root/Mods")
-	if mods != null and mods.has_method("list"):
-		for mod: Variant in mods.call("list"):
-			if mod is Dictionary and str((mod as Dictionary).get("id", "")) == "unfplap":
-				return str((mod as Dictionary).get("version", ""))
+	for mod: Dictionary in GAME.mods_list(mods):
+		if str(mod.get("id", "")) == "unfplap":
+			return str(mod.get("version", ""))
 	return ""

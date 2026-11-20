@@ -4,10 +4,6 @@
   ],
   "baseline": [
     {
-      "file": "api.gd",
-      "count": 1
-    },
-    {
       "file": "integrations/changelings.gd",
       "count": 8
     },
@@ -18,10 +14,6 @@
     {
       "file": "integrations/service.gd",
       "count": 9
-    },
-    {
-      "file": "kiss/service.gd",
-      "count": 2
     },
     {
       "file": "poses/anon_thrust.gd",

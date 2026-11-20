@@ -160,6 +160,20 @@ static func mods_save(mods: Node) -> void:
 		mods.call("save_changed")
 
 
+## The mods host's installed pack rows; empty without the op.
+static func mods_list(mods: Node) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	if not is_instance_valid(mods) or not mods.has_method("list"):
+		return out
+	var rows: Variant = mods.call("list")
+	if not rows is Array:
+		return out
+	for row: Variant in rows:
+		if row is Dictionary:
+			out.append(row)
+	return out
+
+
 ## One mod's data folder from the registry; empty when the host has no folder reader.
 static func mods_data_folder(mods: Node, id: String) -> String:
 	if not is_instance_valid(mods) or not mods.has_method("data_folder"):

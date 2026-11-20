@@ -712,8 +712,8 @@ carries one retired key, with `into()` moving the stored value and `mapped()` re
 | service | world | `world/game.gd` | the base-game settings page, icon kind and mods folder |
 
 The settings page's private builder, icon texture and redraw, the mods host's data folder and the
-game's size setting are read through `world/game.gd`; the layer edge is recorded in
-`architecture/exceptions.json`.
+game's size setting are read through `world/game.gd`; it is the base-game boundary, not an upward
+service edge.
 
 ## Tests
 

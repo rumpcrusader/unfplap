@@ -75,6 +75,8 @@ behaviour exactly, and a game update that renames one is a change here rather th
 | `GAME.seat_of(player)` | the rig's `seat` | `Node` | `null` |
 | `GAME.controls_locked(player)` | the rig's `controls_locked` | `bool` | `false` |
 | `GAME.set_controls_locked(player, locked)` | the rig's `controls_locked` | — | no write |
+| `GAME.set_presentation_enabled(presentation, on)` | `set_enabled` | — | no call |
+| `GAME.force_stand_up(player)` | `force_stand_up` | — | no call |
 | `GAME.menu_panel(game, key)` | `save_menu`, `settings_menu`, `pause_menu` | `Node` | `null` |
 | `GAME._settings_page_button(page, parent, text, callback)` | the page's `_button` (private) | `Button` | `null` |
 | `GAME.settings_page_icon(page, kind)` | the page's `_icon_texture` (private) | `Texture2D` | `null` |
@@ -91,6 +93,7 @@ behaviour exactly, and a game update that renames one is a change here rather th
 | `GAME.case_grant(store, id, count)` | the store's `grant` | `int` | `-1` |
 | `GAME.shop_item_scene(id)` | `shop_items.scene` | `PackedScene` | `null` |
 | `GAME.house_of(node)` | a `house_interior.gd` node | `HOUSE` | `null` |
+| `GAME.ensure_bed(house, kind)` | `ensure_bed` | `Node3D` | `null` |
 | `GAME.spawn_owned_drop(inventory, id, pose)` | the inventory's `spawn_owned_drop` | `Node` | `null` |
 | `GAME.map_open(inventory)` | `_map_open` (private) | `bool` | `false` |
 | `GAME.case_visible(inventory)` | `case.visible` | `bool` | `false` |
@@ -102,6 +105,23 @@ behaviour exactly, and a game update that renames one is a change here rather th
 | `GAME.boop_of(pony)` | `boop_node` | `Node` | `null` |
 | `GAME.sustain_blush(boop, amount)` | `sustain_blush` | — | no call |
 | `GAME.celebrate(boop)` | `celebrate` | `bool` | `false` |
+| `GAME.head_of(pony)` | `head` | `Node` | `null` |
+| `GAME.mouth_of(head)` | the head's `mouth` | `Node` | `null` |
+| `GAME.head_skeleton_of(boop)` | the boop's `head_skeleton` | `Skeleton3D` | `null` |
+| `GAME.set_viseme(mouth, letter)` | `set_viseme` | — | no call |
+| `GAME.clear_viseme(mouth)` | `clear` | — | no call |
+| `GAME.expressions_of(pony)` | `expressions` | `Object` | `null` |
+| `GAME.touch(expressions, source, smile, lids)` | `touch` | — | no call |
+| `GAME.release_touch(expressions, source)` | `release_touch` | — | no call |
+| `GAME.stare(expressions, on, lids)` | `stare` | — | no call |
+| `GAME.fluster(expressions, seconds, peeks)` | `fluster` | — | no call |
+| `GAME.fluster_amount(expressions)` | `fluster_amount` | `float` | `0.0` |
+| `GAME.dialogue_face(expressions)` | `dialogue_face` | `String` | empty |
+| `GAME.set_dialogue(expressions, face)` | `set_dialogue` | — | no call |
+| `GAME.finish_dialogue(expressions, seconds)` | `finish_dialogue` | — | no call |
+| `GAME.clear_dialogue(expressions)` | `clear_dialogue` | — | no call |
+| `GAME.set_stand_eye(body, y)` | the rig's `_stand_eye` | — | no write |
+| `GAME.set_eye_height(body, y)` | the rig's `_eye_height` | — | no write |
 | `GAME.eye_height(player)` | `eye_height` | `float` | `NAN` |
 | `GAME.set_eye_y(body, y)` | `_set_eye_y` (private) | — | no write |
 | `GAME.pitch(body)` | the rig's `_pitch` | `float` | `NAN` |
@@ -110,6 +130,7 @@ behaviour exactly, and a game update that renames one is a change here rather th
 | `GAME.clamp_view(form)` | `clamp_view` | — | no call |
 | `GAME.clear_facing(pony)` | the navigator's `face_point` and `set_conversation_target`, one lookup | — | no write |
 | `GAME.look_toward(secondary, angles, weight)` | `look_toward` | `bool` | `false` |
+| `GAME.eye_motion_of(pony)` | `eye_motion` | `Node` | `null` |
 | `GAME.aim_eyes(eye_motion, target)` | `target_world`, `target_weight` | — | no write |
 | `GAME.listen_point(pony)` | `listen_point` | `Vector3` | her root plus `UP` |
 | `GAME.eye_transform(body)` | `eye_transform` | `Transform3D` | infinite origin |
@@ -117,6 +138,21 @@ behaviour exactly, and a game update that renames one is a change here rather th
 | `GAME.nose_world(boop)` | `nose_world` | `Vector3` | `Vector3.INF` |
 | `GAME.muzzle_world(boop)` | `muzzle_world` | `Vector3` | `Vector3.INF` |
 | `GAME.refresh_body_lod(pony)` | the hybrid near and far LOD caches, `set_near_mesh` | — | no rebuild |
+| `GAME.far_mesh_shown(pony)` | `_far_mesh_shown` | `bool` | `false` |
+| `GAME.set_near_mesh(pony, on)` | `set_near_mesh` | — | no call |
+| `GAME.anon_body_of(player)` | the rig's `AnonBody` child | `Node3D` | `null` |
+| `GAME.skeleton_of(pony)` | `skeleton` | `Skeleton3D` | `null` |
+| `GAME.hair_skeleton_of(pony)` | `hair_skeleton` | `Skeleton3D` | `null` |
+| `GAME.hair_of(pony)` | `hair` | `Node3D` | `null` |
+| `GAME.model_of(pony)` | `_model` (private) | `Node` | `null` |
+| `GAME.body_of(pony)` | the model's `MareBody` child | `MeshInstance3D` | `null` |
+| `GAME.dock_of(pony)` | the body's `OpenPonyDock` child | `MeshInstance3D` | `null` |
+| `GAME.own_body_materials(pony)` | `FlankTouch._own_body_materials` (private) | — | no call |
+| `GAME.hair_link_of(pony)` | `hair_link` | `Node` | `null` |
+| `GAME.hair_link_ready(pony)` | the hair link's `pelvis_offset` | `bool` | `false` |
+| `GAME.hair_link_pelvis(pony)` | the hair link's `pelvis_offset` | `Transform3D` | `Transform3D.IDENTITY` |
+| `GAME.set_hair_link_pelvis(pony, value)` | the hair link's `pelvis_offset` | — | no write |
+| `GAME.notify_hair_link(pony)` | the hair link's `_body_updated` (private) | — | no call |
 | `GAME.bed_of(collider)` | the mattress `bed_of` lookup | `Node3D` | `null` |
 | `GAME.navigator_of(pony)` | the `Navigator` child | `Node` | `null` |
 | `GAME.navigator_owner(nav)` | the navigator's `command_owner` | `String` | empty |
@@ -125,7 +161,9 @@ behaviour exactly, and a game update that renames one is a change here rather th
 | `GAME.navigator_has_target(nav)` | the navigator's `_has_target` (private) | `bool` | `false` |
 | `GAME.navigator_stay(nav)` | `stay` | — | no call |
 | `GAME.set_navigator_owner(nav, owner)` | the navigator's `command_owner` | — | no write |
+| `GAME.set_navigator_reserved(nav, value)` | the navigator's `reserved_by` | — | no write |
 | `GAME.set_navigator_wander(nav, enabled)` | the navigator's `wander_enabled` | — | no write |
+| `GAME.travel_clear(travel, pony)` | `clear` | — | no call |
 | `GAME.set_conversation_target(pony, target, hold)` | `set_conversation_target` | — | no call |
 | `GAME.face_turn_rate(pony)` | the body's `face_turn_rate` | `float` | `NAN` |
 | `GAME.set_face_turn_rate(pony, value)` | the body's `face_turn_rate` | — | no write |
@@ -137,16 +175,21 @@ behaviour exactly, and a game update that renames one is a change here rather th
 | `GAME.interrupt_director(director)` | `interrupt` | — | no call |
 | `GAME.director_speaking(director)` | the director's `state` | `bool` | `false` |
 | `GAME.pony_speaking(pony)` | `is_speaking` | `bool` | `false` |
+| `GAME.stop_speaking(pony)` | `stop_speaking` | — | no call |
 | `GAME.relationship_runtime(game)` | `relationship_runtime` | `Node` | `null` |
 | `GAME.relationship_bonds(runtime)` | the runtime's `bonds` | `Object` | `null` |
 | `GAME.relationship_ladder(runtime, id)` | `ladder` | `LADDER`, a typed view | absent view |
+| `GAME.relationship_love_name(pony, id)` | the `relationship_runtime` meta's `ladder(id).love.name` | `String` | `?` |
 | `GAME.bonds_of(pony)` | the relationship runtime's `bonds` | `Object` | `null` |
 | `GAME.bond_record_for(bonds, id)` | `record_for` | `BondRecord`, a typed view | absent view |
 | `GAME.bond_eligible_for_romance(bonds, id)` | `eligible_for_romance` | `bool` | `false` |
 | `GAME.bond_welcomes(bonds, id, kind)` | `welcomes` | `bool` | `false` |
 | `GAME.bond_day(bonds)` | `day` | `float` | `NAN` |
+| `GAME.bond_mark_met(bonds, id)` | `mark_met` | `bool` | `false` |
+| `GAME.request_space(pony, id)` | the bond store's `request_space` | — | no call |
 | `GAME.body_scale_of(pony)` | `body_scale` | `float` | `1.0` |
 | `GAME.set_body_scale(pony, scale)` | `set_body_scale`, else `body_scale` | — | no write |
+| `GAME.world_context(game)` | `world_context` | `Node` | `null` |
 | `GAME.story_of(context)` | the world context's `story` | `Object` | `null` |
 | `GAME.story_store(story)` | the journal's `store` | `Object` | `null` |
 | `GAME.story_open(story)` | `is_open` | `bool` | `false` |
@@ -154,14 +197,18 @@ behaviour exactly, and a game update that renames one is a change here rather th
 | `GAME.story_search(store, pony, words, before, limit)` | `search` | `Array[StoryRow]`, a copy | empty |
 | `GAME.story_witnessed(store, pony, limit, before, kinds)` | `witnessed` | `Array[StoryRow]`, a copy | empty |
 | `GAME.story_line_text(story, row, pony, with_day)` | `line_text` | `String` | empty |
+| `GAME.world_events(context, id, limit)` | the context's `events_for` | `Array[Dictionary]`, a copy | empty |
 | `GAME.world_record(context, kind, text, witnesses, subjects, event_id, place)` | `record` | — | no write |
+| `GAME.record_situation(context, text, ids, key)` | the world context's `record` | — | no call |
+| `GAME.impressions_of(context)` | the world context's `impressions` | `Node` | `null` |
+| `GAME.impression_mood(impressions, id, absent)` | the store's `profile(id).mood` | `String` | `absent`, empty without a profile |
+| `GAME.impression_set_mood(impressions, id, mood, key)` | `commit` with the mood row | `bool` | `false` |
 | `GAME.impression_commit(impressions, id, mood, romance, thought, event_id)` | `commit` | `bool` | `false` |
+| `GAME.impression_standing_line(impressions, id)` | `standing_line` | `String` | empty |
 | `GAME.director_now(director)` | the director's `_now` (private) | `float` | `NAN` |
 | `GAME.subsystem_active(node)` | an approach or group's `active` | `bool` | `false` |
 | `GAME.director_lines(director)` | the director's `begin_player_greeting`, `queue_generated_intent`, `cancel_authored_line` | `DirectorLines` | no call |
 | `GAME.llm_config(director)` | the director's `config`, `_llm_section` (private) and `llm.status_path` | `LlmConfig` | `enabled` false |
-| `GAME.record_situation(context, text, ids, key)` | the world context's `record` | — | no call |
-| `GAME.impression_mood(impressions, id, absent)` | the store's `profile(id).mood` | `String` | `absent`, empty without a profile |
 | `GAME.request_posture(pony, posture)` | `request_posture` | — | no call |
 | `GAME.navigator_speed_limit(nav)` | the navigator's `command_speed_limit` | `float` | `NAN` |
 | `GAME.navigator_pace_target(nav)` | the navigator's `command_pace_target` | `float` | `NAN` |
@@ -171,6 +218,9 @@ behaviour exactly, and a game update that renames one is a change here rather th
 | `GAME.navigator_destination(nav, point, gait)` | `command_destination` | `bool` | `false` |
 | `GAME.rest_word(node)` | `rest_word` | `String` | empty |
 | `GAME.rest_bed_of(node)` | a couch's `_bed` (private) or `bed_node` | `Node3D` | `null` |
+| `GAME.bed_rest_accept(rest, pony)` | `accept` | `bool` | `false` |
+| `GAME.bed_rest_willing(rest, pony)` | `_willing` (private) | `bool` | `false` |
+| `GAME.bed_rest_eligible(rest, pony)` | `eligible` | `bool` | `false` |
 | `GAME.bed_rest_refresh(rest)` | `refresh` | — | no call |
 | `GAME.bed_rest_fits(rest)` | `_mare_fits` (private) | `bool` | `false` |
 | `GAME.bed_rest_has_guest(rest)` | `_guest` (private) | `bool` | `false` |
@@ -178,13 +228,18 @@ behaviour exactly, and a game update that renames one is a change here rather th
 | `GAME.bed_rest_front(rest, pony)` | `_front_for` (private) | `Vector3` | `Vector3.INF` |
 | `GAME.couch_partner(couch, seat)` | `partner` | `Node` | `null` |
 | `GAME.mods_state(mods, id)` | `Mods.state` | `ModState`, the live section | empty rows |
+| `GAME.mod_active(mods, id)` | `Mods.is_active` | `bool` | `false` |
 | `GAME.mods_save(mods)` | `Mods.save_changed` | — | no save |
 | `GAME.mods_data_folder(mods, id)` | `Mods.data_folder` | `String` | empty |
 | `GAME.mods_list(mods)` | `Mods.list` | `Array[Dictionary]`, the installed rows | empty |
 | `GAME.prepare_vocal(director, pony_id)` | the director's `vocal.prepare` | — | no call |
+| `GAME.tts_of(director)` | the director's `tts` | `Node` | `null` |
+| `GAME.tts_has_server(tts)` | `has_server` | `bool` | `false` |
+| `GAME.vocal_play(vocal, id, gender, pony, db)` | the vocal node's `play` | `bool` | `false` |
 | `GAME.affection_buck(affection, body)` | `Affection.buck` | `bool` | `false` |
 | `GAME.kisser_of(game)` | the scene's `kisser` | `Node` | `null` |
 | `GAME.begin_from_pony(kisser, pony)` | `pony_kisser.begin_from_pony` | `bool` | `false` |
+| `GAME.play_kiss(boop, db, loop)` | `play_kiss` | `bool` | `false` |
 | `GAME.clear_kisser(kisser)` | the kisser's `_active`, `_her_kiss`, `_used_hold` (private) | — | no write |
 | `GAME.end_affection(affection)` | `Affection.end` | — | no call |
 | `GAME.cancel_afterglow(affection)` | `Affection.cancel_afterglow` | — | no call |
@@ -197,10 +252,12 @@ behaviour exactly, and a game update that renames one is a change here rather th
 | `GAME.set_expression(mouth, name, amount)` | the mouth rig's `set_expression` | — | no call |
 | `GAME.setting_string(settings, key)` | `Settings.get_value` | `String` | empty |
 | `GAME.anon_height(settings)` | `Settings.anon_height_scale` | `float` | `NAN` |
+| `GAME.tts_enabled(settings)` | `Settings.tts_enabled` | `bool` | `false` |
 | `GAME.knockdown_of(body)` | the body's `knockdown` | `Object` | `null` |
 | `GAME.start_knockdown(node, body, direction)` | `knockdown.start` | `bool` | `false` |
 | `GAME.cuddle_end(session)` | the cuddle session's `end(true)` | — | no call |
 | `GAME.hoof_active(hoof)` | the hoof hold's `active` | `bool` | `false` |
+| `GAME.seat_free_for(seat, pony)` | the seat's `free_for` | `bool` | `false` |
 | `GAME.player_sit_on(player, seat)` | the rig's `sit_on` | `bool` | `false` |
 | `GAME.player_toggle_couch_sleep(player)` | the rig's `toggle_couch_sleep` | `bool` | `false` |
 | `GAME.couch_pony_transform(node, seat)` | a couch's `pony_transform` | `Transform3D` | infinite origin |
@@ -216,6 +273,7 @@ behaviour exactly, and a game update that renames one is a change here rather th
 | `GAME.carry_released(actions)` | the desktop actions' `pony_released` | — | no call |
 | `GAME.end_interaction(pony)` | `end_interaction` | — | no call |
 | `GAME.set_velocity(body, velocity)` | the body's `velocity` | — | no write |
+| `GAME.set_motion_paused(pony, paused)` | `motion_paused` | — | no write |
 | `GAME.set_q_held(body, held)` | the rig's `_q_held` | — | no write |
 | `GAME.seating_phase(seating, id)` | the seating system's phase entry | `String` | empty |
 | `GAME.seating_release_entry(seating, id)` | the seating system's `_release` (private) | — | no call |
@@ -270,14 +328,15 @@ behaviour exactly, and a game update that renames one is a change here rather th
 | `GAME.awareness_forward(pony)` | the body's `awareness_forward` | `Vector3` | zero vector |
 | `GAME.joint_constrain(limits, bone, basis)` | the pony's `joint_limits.constrain` | `Basis` | the input basis |
 
-Only `GAME.mares`, `GAME.couch_seats`, `GAME.case_slots`, `GAME.case_loans`,
-`GAME.refresh_body_lod`, `GAME.mods_state`, `GAME.director_lines`, `GAME.llm_config`,
-`GAME._settings_page_button` and `GAME.settings_page_icon` allocate; the first five are scan
-cadence and the rest are a saved-mod read, one authored line, one classifier configuration and the
-settings page's own tab button and icon. The per-frame accessors copy nothing. `GAME` writes the
-rig's control hold, its eye line and its look pitch, the chat lock, her navigator's face point,
-conversation aim, owner, wander, speed, pace and destination, her own locomotion facing, her
-posture request, her face-turn rate, her wing hold, open switch and fold blends, the carry flags,
+Only the accessors that hand back a typed copy or a typed view allocate — the mare, couch-seat,
+case and mods lists, the ladder, the bond record, the story rows, the world events, the mod state,
+the director's line host and the model config — plus `GAME.refresh_body_lod` and the settings page's
+tab button and icon, which rebuild through the game's own code. The per-frame accessors copy
+nothing.
+
+`GAME` writes the rig's control hold, its eye line and its look pitch, the chat lock, her navigator's
+face point, conversation aim, owner, wander, speed, pace and destination, her own locomotion facing,
+her posture request, her face-turn rate, her wing hold, open switch and fold blends, the carry flags,
 the seated Q hold, a body's velocity, her gaze and pupils, the stock kiss's
 latch and side hold, the affection it feeds, the director's authored-line queue, the world-context
 situation record, the mod state section, the settings page's tab icon kind, the briefcase's slot

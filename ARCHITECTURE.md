@@ -18,6 +18,7 @@ that service's purpose, API, state, settings, controls, debug actions, dependenc
 | Shared pure module | Deterministic data or math in `shared/`. No scene, no lifecycle, no service dependency. |
 | Shared store | Persisted shared data in `shared/`. No scene, no lifecycle; may read `settings`, never a domain service. |
 | Scene read facade | `world/service.gd`: the live world root, Anon's body and the reads derived from them, bound by the entry. Answers where and what, never whether. |
+| Base-game accessors | `world/game.gd`: every base-game and presentation member the mod reads or writes, one static typed function per member with the handle as an argument. Read like the scene by services, shared modules and the settings layer. |
 | Read model | A scene-free mutable value object refreshed by its owner, for example the act view. |
 | Cross-mod API | `api.gd` and `docs/api.md`: the only stable contract another mod may call. |
 | Host | A scene or orchestrator object a service receives values and callbacks from. A host is not a service. |
@@ -43,6 +44,7 @@ needs, reads `WORLD` for the scene, or takes a host parameter.
 main.gd / runtime.gd          entry and orchestration
 api.gd                        cross-mod facade
 world/service.gd              scene read facade
+world/game.gd                 base-game accessors
 <service>/service.gd          service facades
 <service>/**                  private service implementation
 shared/**                     pure modules, shared stores, read models
@@ -53,12 +55,16 @@ res://world/..., res://player/...   game and engine
 |---|---|
 | Entry / orchestrator | anything |
 | Cross-mod API | service facades, shared modules |
-| Scene read facade | `res://world/`, `res://player/` and shared modules |
+| Scene read facade | `res://world/`, `res://player/`, shared modules and its own accessor module |
+| Base-game accessors | `res://world/`, `res://player/` only |
 | Infrastructure service (`settings`) | shared pure modules |
 | Domain service | `settings`, shared modules, other service facades |
 | Shared store | `settings`, shared pure |
 | Read model | shared pure |
 | Shared pure | shared pure only |
+
+`world/game.gd` is not a dependency edge: a service, a shared module and the settings layer read it
+like `res://world/` and `res://player/`, and it imports no mod file.
 
 Rules:
 
@@ -66,10 +72,16 @@ Rules:
   `tests/` names the entry at all: no `main.<member>`, no `var main`, no `main.gd` preload and no
   `main` argument.
 - A service never imports another service's private files.
+- `world/game.gd` is the base-game boundary: one public file of static accessors with explicit
+  arguments, no bound state and no mod preload. A service, a shared module and the settings layer
+  read it like the scene, so a base-game member is reached through one typed function, never at the
+  call site.
 - A service never receives another service through a host dictionary. A host passes scene
   handles, plain values and callbacks only. Service-to-service dependencies are visible as a
   preload of the other facade.
-- A shared pure module never reads `SETTINGS`, `Time`, `FileAccess` or a service.
+- A shared pure module never reads `SETTINGS`, `Time`, `FileAccess` or a domain service. The
+  base-game accessors in `world/game.gd` are the game boundary, so a shared module may read them
+  like the scene.
 - A shared store may read `settings`; that is the one infrastructure exception.
 - Only `main`, `runtime` and `api` may call arbitrary service facades.
 - If two services seem to need each other, the boundary is wrong or the orchestrator must mediate
@@ -77,8 +89,9 @@ Rules:
 - No per-frame allocation in a facade or read model. Reuse context and event objects. The
   profiler's block must not show added per-frame cost.
 
-`settings` is infrastructure: it may import shared pure modules and nothing else. The one existing
-upward edge, `settings -> registry/service.gd` (provider defaults and per-mare rows), is recorded in
+`settings` is infrastructure: it may import shared pure modules and the base-game accessors in
+`world/game.gd`, which are the game boundary rather than a service. The one existing upward edge,
+`settings -> registry/service.gd` (provider defaults and per-mare rows), is recorded in
 `architecture/exceptions.json` and must shrink. Do not add a second upward edge, and do not treat
 the recorded row as a pattern.
 
@@ -299,8 +312,9 @@ dependency and is not drawn as one.
 
 The entry is not a locator. Nothing outside `main.gd` and `tests/` names it, so a consumer that
 needs another service preloads that facade, a consumer that needs the live scene reads `WORLD`
-(`world/service.gd`), the one scene read facade the entry binds, and a consumer that needs a write
-takes a named callback. A host passes:
+(`world/service.gd`), the one scene read facade the entry binds, a consumer that needs a base-game
+member reads `GAME` (`world/game.gd`), and a consumer that needs a write takes a named callback. A
+host passes:
 
 - scene handles the service is allowed to touch;
 - plain values and typed read models;
@@ -435,7 +449,10 @@ The architecture gate is `scripts/architecture.py --check`, run from `scripts/te
 - checks that every service doc has the required sections and that no other doc names its private
   files;
 - reads `architecture/exceptions.json` and fails on a new violation or a stale exception;
-- reads `architecture/typing_debt.json` and fails when the weak-signature debt grows.
+- reads `architecture/typing_debt.json` and fails when the weak-signature debt grows;
+- reads `architecture/duck_typing.json` and fails when a shipped file outside the accessor
+  allowlist adds a `.call("name")` or `.set("name")` site. The three `integrations/` rows are a
+  deferred exception — that service talks to other mods, not the base game — and not a pattern.
 
 `scripts/architecture.py --graph` prints the service graph for review; it is not checked in.
 `scripts/architecture.py --write-debt` is the deliberate way to update the debt after a service

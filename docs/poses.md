@@ -850,7 +850,7 @@ is `## Player frame`.
   conversation facing, so `face_point`/conversation target are cleared late each tick and
   `face_turn_rate` is held at `0` for the act; locomotion and emotions keep running.
   Conversation attention is not a stop condition: another character addressing Anon can talk
-  while `_keep_act_attention()` clears her listener each tick.
+  while `scene_hold/service.gd:keep_attention()` clears her listener each tick.
 - Act start keeps her where she stands. `act/frame.gd` owns the placement math
   (`## Player frame`): `act/setup.gd:standing_place()` keeps her where she stands and
   `act/start.gd` calls `context.frame.begin()` next. For desktop human Anon it places him at

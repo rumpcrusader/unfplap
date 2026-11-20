@@ -17,6 +17,7 @@ restate a contract.
 | `runtime.gd` | `docs/runtime.md` |
 | `act/**` | `docs/runtime.md` |
 | `world/service.gd` | `docs/world.md` |
+| `world/game.gd` | `docs/world.md` |
 | `offer/service.gd` | `docs/offer.md` |
 | `api.gd` | `docs/api.md` |
 | `tests/**` | `docs/tests.md` |

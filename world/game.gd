@@ -359,6 +359,32 @@ static func relationship_love_name(pony: Node, id: String) -> String:
 	return str((love as Dictionary).get("name", "?")) if love is Dictionary else "?"
 
 
+## The scene's relationship runtime; null when the scene has none.
+static func relationship_runtime(game: Node) -> Node:
+	if not is_instance_valid(game):
+		return null
+	var runtime: Variant = game.get("relationship_runtime")
+	if runtime is Node and is_instance_valid(runtime):
+		return runtime
+	return null
+
+
+## The runtime's bond store; null when it has none.
+static func relationship_bonds(runtime: Node) -> Object:
+	if not is_instance_valid(runtime):
+		return null
+	var bonds: Variant = runtime.get("bonds")
+	return bonds as Object if is_instance_valid(bonds) else null
+
+
+## One pony's friendship and love ladder as a typed view; empty without the reader.
+static func relationship_ladder(runtime: Node, id: String) -> Ladder:
+	if not is_instance_valid(runtime) or not runtime.has_method("ladder"):
+		return Ladder.new()
+	var row: Variant = runtime.call("ladder", id)
+	return Ladder.from_dict(row if row is Dictionary else {})
+
+
 ## The pony's bond store; null without a relationship runtime or a bonds store.
 static func bonds_of(pony: Node) -> Object:
 	if not is_instance_valid(pony) or not pony.has_meta("relationship_runtime"):
@@ -686,6 +712,76 @@ static func world_context(game: Node) -> Node:
 	return null
 
 
+## The world context's story journal; null when it has none.
+static func story_of(context: Node) -> Object:
+	if not is_instance_valid(context):
+		return null
+	var story: Variant = context.get("story")
+	return story as Object if is_instance_valid(story) else null
+
+
+## The story journal's line store; null when it has none.
+static func story_store(story: Object) -> Object:
+	if not is_instance_valid(story):
+		return null
+	var store: Variant = story.get("store")
+	return store as Object if is_instance_valid(store) else null
+
+
+## True while the game's story journal can answer lines.
+static func story_open(story: Object) -> bool:
+	if not is_instance_valid(story) or not story.has_method("is_open"):
+		return false
+	return bool(story.call("is_open"))
+
+
+## The newest line id the store holds; -1 without the reader.
+static func story_last_line_id(store: Object) -> int:
+	if not is_instance_valid(store) or not store.has_method("last_line_id"):
+		return -1
+	return int(store.call("last_line_id"))
+
+
+## The store's matching lines, newest first; empty without the reader.
+static func story_search(store: Object, pony: String, words: Array[String],
+		before: int, limit: int) -> Array[StoryRow]:
+	var out: Array[StoryRow] = []
+	if not is_instance_valid(store) or not store.has_method("search"):
+		return out
+	var rows: Variant = store.call("search", pony, words, before, limit)
+	if not rows is Array:
+		return out
+	for row: Variant in rows:
+		if row is Dictionary:
+			out.append(StoryRow.from_dict(row))
+	return out
+
+
+## The store's recent witnessed lines; empty without the reader.
+static func story_witnessed(store: Object, pony: String, limit: int, before: int,
+		kinds: Array[String]) -> Array[StoryRow]:
+	var out: Array[StoryRow] = []
+	if not is_instance_valid(store) or not store.has_method("witnessed"):
+		return out
+	var rows: Variant = store.call("witnessed", pony, limit, before, kinds)
+	if not rows is Array:
+		return out
+	for row: Variant in rows:
+		if row is Dictionary:
+			out.append(StoryRow.from_dict(row))
+	return out
+
+
+## One stored line's text through the game's own reader.
+static func story_line_text(story: Object, row: StoryRow, pony: String,
+		with_day: bool) -> String:
+	if not is_instance_valid(story) or not story.has_method("line_text"):
+		return ""
+	if row == null:
+		return ""
+	return str(story.call("line_text", row.raw, pony, with_day))
+
+
 ## The world context's recent events for one pony, as typed rows; empty without the reader.
 static func world_events(context: Node, id: String, limit: int) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
@@ -726,6 +822,22 @@ static func impression_set_mood(impressions: Node, id: String, mood: String,
 	if not is_instance_valid(impressions) or not impressions.has_method("commit"):
 		return false
 	impressions.call("commit", id, {"mood": mood}, key)
+	return true
+
+
+## Commit one impression row through the store's own writer; false without the op.
+static func impression_commit(impressions: Node, id: String, mood: String, romance: int,
+		thought: String, event_id: String) -> bool:
+	if not is_instance_valid(impressions) or not impressions.has_method("commit"):
+		return false
+	var data := {}
+	if not mood.is_empty():
+		data["mood"] = mood
+	if romance != 0:
+		data["romance"] = romance
+	if not thought.is_empty():
+		data["thought"] = thought.left(240)
+	impressions.call("commit", id, data, event_id)
 	return true
 
 
@@ -1015,6 +1127,18 @@ static func llm_config(director: Node) -> LlmConfig:
 	if is_instance_valid(llm):
 		out.status_path = str(llm.get("status_path"))
 	return out
+
+
+## Record one world-context event with its kind and text; nothing without the op.
+static func world_record(context: Node, kind: String, text: String,
+		witnesses: Array[String], subjects: Array[String], event_id: String,
+		place: String = "") -> void:
+	if not is_instance_valid(context) or not context.has_method("record"):
+		return
+	if place.is_empty():
+		context.call("record", kind, text, witnesses, subjects, event_id)
+	else:
+		context.call("record", kind, text, witnesses, subjects, event_id, place)
 
 
 ## Record one world-context event; `ids` is the subject list and `key` the replaceable event key.
@@ -1624,11 +1748,59 @@ static func hand_frame(driver: Node, side: String) -> Transform3D:
 	return Transform3D(Basis.IDENTITY, Vector3.INF)
 
 
+## One stored story line as a typed row; `raw` is the game's own row for its text reader.
+class StoryRow:
+	var id := ""
+	var kind := ""
+	var text := ""
+	var speaker := ""
+	var listener := ""
+	var raw: Dictionary = {}
+
+	static func from_dict(row: Dictionary) -> StoryRow:
+		var out := StoryRow.new()
+		out.raw = row
+		out.id = str(row.get("id", ""))
+		out.kind = str(row.get("kind", ""))
+		out.text = str(row.get("text", ""))
+		out.speaker = str(row.get("speaker", ""))
+		out.listener = str(row.get("listener", ""))
+		return out
+
+
+## One pony's friendship and love ladder as typed names and levels.
+class Ladder:
+	var friendship_name := ""
+	var friendship_level := -1
+	var love_name := ""
+	var love_level := -1
+	## True when the game answered with a row rather than an absent value.
+	var found := false
+	var friendship_found := false
+	var love_found := false
+
+	static func from_dict(row: Dictionary) -> Ladder:
+		var out := Ladder.new()
+		out.found = not row.is_empty()
+		var friend: Variant = row.get("friendship", {})
+		if friend is Dictionary:
+			out.friendship_found = true
+			out.friendship_name = str((friend as Dictionary).get("name", ""))
+			out.friendship_level = int((friend as Dictionary).get("level", -1))
+		var love: Variant = row.get("love", {})
+		if love is Dictionary:
+			out.love_found = true
+			out.love_name = str((love as Dictionary).get("name", ""))
+			out.love_level = int((love as Dictionary).get("level", -1))
+		return out
+
+
 ## One pony's bond record, read once and written back through the store's own save.
 class BondRecord:
 	var stage := "acquaintance"
 	var familiarity := 0.0
 	var trust := 0.0
+	var anger := 0.0
 	var together_s := 0.0
 	var plan: Dictionary = {}
 	var offer: Dictionary = {}
@@ -1642,6 +1814,7 @@ class BondRecord:
 		out.stage = str(row.get("stage", "acquaintance"))
 		out.familiarity = float(row.get("familiarity", 0.0))
 		out.trust = float(row.get("trust", 0.0))
+		out.anger = float(row.get("anger", 0.0))
 		out.together_s = float(row.get("together_s", 0.0))
 		var stored_plan: Variant = row.get("plan", {})
 		out.plan = stored_plan if stored_plan is Dictionary else {}
@@ -1656,6 +1829,7 @@ class BondRecord:
 		row["stage"] = stage
 		row["familiarity"] = familiarity
 		row["trust"] = trust
+		row["anger"] = anger
 		row["together_s"] = together_s
 		row["plan"] = plan
 		row["offer"] = offer
@@ -1692,6 +1866,14 @@ class DirectorLines:
 			return false
 		return bool(director.call("queue_generated_intent", id, purpose, key, valid,
 			Callable(), priority))
+
+	## Queue one authored line that also reports when it finishes; false when it refuses.
+	func queue_finished(id: String, purpose: String, key: String, valid: Callable,
+			finished: Callable, once: bool, firm: bool) -> bool:
+		if not is_instance_valid(director) or not director.has_method("queue_generated_intent"):
+			return false
+		return bool(director.call("queue_generated_intent", id, purpose, key, valid,
+			finished, once, firm))
 
 	## Cancel one authored line the queue still holds; false when it has no op.
 	func cancel(key: String) -> bool:

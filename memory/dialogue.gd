@@ -11,9 +11,8 @@ static func queue(game: Node, id: String, purpose: String, key: String,
 	var director := _queue_director(game)
 	if director == null:
 		return false
-	# The accessor's queue drops the finished callback, which UTTERANCE lines need.
-	var op := Callable(director, "queue_generated_intent")
-	return bool(op.call(id, purpose, key, valid, finished, true, false))
+	return GAME.director_lines(director).queue_finished(id, purpose, key, valid, finished,
+		true, false)
 
 
 static func cancel(game: Node, key: String) -> void:

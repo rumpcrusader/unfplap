@@ -22,18 +22,15 @@ static func record(game: Node, kind: String, text: String, witnesses: Array, sub
 	var ctx := context(game)
 	if ctx == null:
 		return
-	if place.is_empty():
-		ctx.record(kind, text, witnesses, subjects, event_id)
-	else:
-		ctx.record(kind, text, witnesses, subjects, event_id, place)
+	GAME.world_record(ctx, kind, text, _strings(witnesses), _strings(subjects), event_id, place)
 
 
-static func commit_impression(game: Node, id: String, data: Dictionary,
-		event_id: String) -> void:
+static func commit_impression(game: Node, id: String, mood: String, romance: int,
+		thought: String, event_id: String) -> void:
 	var target := impressions(game)
 	if target == null:
 		return
-	target.commit(id, data, event_id)
+	GAME.impression_commit(target, id, mood, romance, thought, event_id)
 
 
 ## Private facts for the cue prompt. No raw scores or counts leave this function.
@@ -41,24 +38,21 @@ static func cue_facts(game: Node, id: String, event_id: String) -> Dictionary:
 	var out: Dictionary = {}
 	if game == null:
 		return out
-	var runtime := _relationship_runtime(game)
+	var runtime := GAME.relationship_runtime(game)
 	if runtime == null:
 		return out
-	var ladder: Variant = runtime.ladder(id) if runtime.has_method("ladder") else {}
-	if ladder is Dictionary:
-		var friend: Variant = (ladder as Dictionary).get("friendship", {})
-		var love: Variant = (ladder as Dictionary).get("love", {})
-		if friend is Dictionary:
-			out["friendship"] = str((friend as Dictionary).get("name", ""))
-			out["friendship_level"] = int((friend as Dictionary).get("level", -1))
-		if love is Dictionary:
-			out["love"] = str((love as Dictionary).get("name", ""))
-			out["love_level"] = int((love as Dictionary).get("level", -1))
-	var bonds := runtime.get("bonds") as Object
-	if is_instance_valid(bonds):
+	var ladder := GAME.relationship_ladder(runtime, id)
+	if ladder.friendship_found:
+		out["friendship"] = ladder.friendship_name
+		out["friendship_level"] = ladder.friendship_level
+	if ladder.love_found:
+		out["love"] = ladder.love_name
+		out["love_level"] = ladder.love_level
+	var bonds := GAME.relationship_bonds(runtime)
+	if bonds != null:
 		var record := GAME.bond_record_for(bonds, id)
 		out["stage"] = record.stage
-		out["anger"] = float(record.rows.get("anger", 0.0))
+		out["anger"] = record.anger
 	var prior := 0
 	var ctx := context(game)
 	if ctx != null:
@@ -100,25 +94,24 @@ static func shared_memory(game: Node, id: String, cue: String, event_id: String,
 
 static func _story_memory(ctx: Node, id: String, cue: String,
 		used_ids: Array[String]) -> MemoryHit:
-	var story := _story(ctx)
-	if story == null or not story.has_method("is_open") or not story.has_method("line_text") \
-			or not bool(story.is_open()):
+	var story := GAME.story_of(ctx)
+	if story == null or not GAME.story_open(story) or not story.has_method("line_text"):
 		return MemoryHit.new()
-	var store := _store(story)
-	if store == null or not store.has_method("last_line_id") \
-			or not store.has_method("search") or not store.has_method("witnessed"):
+	var store := GAME.story_store(story)
+	if store == null:
 		return MemoryHit.new()
-	var before := int(store.last_line_id()) + 1
-	for row: Variant in store.search(id, _memory_words(cue), before, 8):
-		if row is Dictionary and _memory_ok(row, id, used_ids):
-			return _hit("story:" + str((row as Dictionary).get("id", "")),
-				str(story.line_text(row, id, true)))
-	var recent: Array = store.witnessed(id, 24, 0, ["say"])
+	var before := GAME.story_last_line_id(store) + 1
+	if before <= 0:
+		return MemoryHit.new()
+	for row in GAME.story_search(store, id, _memory_words(cue), before, 8):
+		if _memory_ok(row.kind, row.text, row.id, row.speaker, row.listener, id, used_ids):
+			return _hit("story:" + row.id, GAME.story_line_text(story, row, id, true))
+	var kinds: Array[String] = ["say"]
+	var recent := GAME.story_witnessed(store, id, 24, 0, kinds)
 	for index in range(recent.size() - 1, -1, -1):
-		var row: Variant = recent[index]
-		if row is Dictionary and _memory_ok(row, id, used_ids):
-			return _hit("story:" + str((row as Dictionary).get("id", "")),
-				str(story.line_text(row, id, true)))
+		var row = recent[index]
+		if _memory_ok(row.kind, row.text, row.id, row.speaker, row.listener, id, used_ids):
+			return _hit("story:" + row.id, GAME.story_line_text(story, row, id, true))
 	return MemoryHit.new()
 
 
@@ -143,18 +136,16 @@ static func _event_memory(ctx: Node, id: String, event_id: String,
 	return MemoryHit.new()
 
 
-static func _memory_ok(row: Dictionary, id: String, used_ids: Array[String]) -> bool:
-	var kind := str(row.get("kind", ""))
+static func _memory_ok(kind: String, text: String, row_id: String, speaker: String,
+		listener: String, id: String, used_ids: Array[String]) -> bool:
 	if kind in ["intimacy", "brain"]:
 		return false
-	if str(row.get("text", "")).strip_edges().is_empty():
+	if text.strip_edges().is_empty():
 		return false
-	var key := "story:" + str(row.get("id", ""))
+	var key := "story:" + row_id
 	if key in used_ids:
 		return false
 	if kind == "say":
-		var speaker := str(row.get("speaker", ""))
-		var listener := str(row.get("listener", ""))
 		return (speaker == "player" and listener == id) or (speaker == id and listener == "player")
 	return true
 
@@ -179,28 +170,8 @@ static func _hit(id: String, text: String) -> MemoryHit:
 	return out
 
 
-static func _relationship_runtime(game: Node) -> Node:
-	if not is_instance_valid(game):
-		return null
-	var rel: Variant = game.get("relationship_runtime")
-	if rel is Node and is_instance_valid(rel):
-		return rel
-	return null
-
-
-static func _story(ctx: Node) -> Object:
-	if not is_instance_valid(ctx):
-		return null
-	var story: Variant = ctx.get("story")
-	if story is Object and is_instance_valid(story):
-		return story
-	return null
-
-
-static func _store(story: Object) -> Object:
-	if not is_instance_valid(story):
-		return null
-	var store: Variant = story.get("store")
-	if store is Object and is_instance_valid(store):
-		return store
-	return null
+static func _strings(values: Array) -> Array[String]:
+	var out: Array[String] = []
+	for value: Variant in values:
+		out.append(str(value))
+	return out

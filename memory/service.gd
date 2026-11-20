@@ -67,14 +67,7 @@ func commit(impression: Impression) -> void:
 	var text := impression.event_text.strip_edges()
 	if impression.slot == ImpressionSlot.STAY_CLOSE:
 		thought = TEXT.stay_close_thought(romance > 0, mood == "happy")
-	var data: Dictionary = {}
-	if not mood.is_empty():
-		data["mood"] = mood
-	if romance != 0:
-		data["romance"] = romance
-	if not thought.is_empty():
-		data["thought"] = thought.left(240)
-	MEMORY_WORLD.commit_impression(game, impression.id, data,
+	MEMORY_WORLD.commit_impression(game, impression.id, mood, romance, thought,
 		impression.event_id + TEXT.impression_suffix(impression.slot))
 	if not text.is_empty():
 		MEMORY_WORLD.record(game, "relationship", text,

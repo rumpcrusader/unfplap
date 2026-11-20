@@ -92,7 +92,7 @@ func cancel_line(key: String) -> void
 func cancel_act(event_id: String, keep_speaking := true) -> int
 
 func cue_facts(id: String, event_id: String) -> CueFacts
-func shared_memory(id: String, cue: String, event_id: String, used: Array) -> MemoryHit
+func shared_memory(id: String, cue: String, event_id: String, used: Array[String]) -> MemoryHit
 func observers(partner: Node3D) -> Array[Observer]
 func witnesses(partner_id: String, name: String, serial: int,
         partner: Node3D) -> Array[Witness]
@@ -253,7 +253,7 @@ memory is marked used only after the caller queues the line.
 - `tests/memory/test_memory_api.gd`: the facade through a fake game and director — one
   impression and event per slot, the stay-close reward, the reveal impression
   and peak, one event per note, the
-  cue facts and the memory hit.
+  cue facts and the typed memory hit's absent and peak answers.
 
 The pure-core and facade-only import boundary is `scripts/architecture.py --check`.
 

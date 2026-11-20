@@ -87,9 +87,17 @@ func refresh(facts: ACT_FACTS, session: ACT_SESSION) -> void:
 	facts.free_camera_active = cam.free_camera_active
 	facts.free_look_active = cam.free_look_active()
 	facts.camera_owned = cam.camera_owned
-	facts.look_captured = cam.look_captured
-	facts.look_yaw = cam.look_yaw
-	facts.look_pitch = cam.look_pitch
+	# The act frame owns the captured look; the camera only runs its live offsets on top.
+	var frame: Variant = context.frame
+	var frame_plan: Variant = frame.plan() if frame != null else null
+	if frame_plan != null:
+		facts.look_captured = bool(frame.active())
+		facts.look_yaw = float(frame_plan.look_yaw)
+		facts.look_pitch = float(frame_plan.look_pitch)
+	else:
+		facts.look_captured = cam.look_captured
+		facts.look_yaw = cam.look_yaw
+		facts.look_pitch = cam.look_pitch
 	facts.lean_forward = cam.lean_forward
 	facts.lean_side = cam.lean_side
 	facts.lean_action_side = cam.lean_action_side

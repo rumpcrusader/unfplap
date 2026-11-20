@@ -91,7 +91,6 @@ func run(pose: String, bed_in: Variant, act_source: String, skip_presentation :=
 		session.bed = null
 		return false
 	session.player_pony = PLAYER_FORM.is_pony(PLAYER_FORM.active(host.tree()))
-	context.camera.apply_eye_override(session.start_family(), session.player_pony, context.handover.form())
 	context.wings.reset()
 	session.reset_act()
 	context.reactions.begin_act()
@@ -156,6 +155,7 @@ func run(pose: String, bed_in: Variant, act_source: String, skip_presentation :=
 	if frame_plan == null or not bool(frame_plan.valid):
 		abort()
 		return false
+	session.refresh_view()
 	context.reactions.clear_stock_marks()
 	if session.start_group() == "missionary":
 		context.pose.sync_missionary_config()
@@ -163,7 +163,6 @@ func run(pose: String, bed_in: Variant, act_source: String, skip_presentation :=
 	var camera_row: Variant = session.start_row().get("camera", {})
 	if camera_row is Dictionary and str((camera_row as Dictionary).get("profile", "")) == "missionary_shots":
 		context.missionary_camera.prepare()
-	context.camera.capture_look()
 	context.hold.lock_player()
 	context.hold.pause_face_turn(false)
 	if context.camera.begin_act_shot(session.start_family(), session.player_pony, WORLD.headset_view()):
@@ -193,7 +192,8 @@ func run(pose: String, bed_in: Variant, act_source: String, skip_presentation :=
 		HUD.instance.show_act(context.facts)
 		HUD.instance.hide_prompt()
 	LOG.debug("started pose=%s setup=%s source=%s pony=%s eye=%.2f", [
-		pose, setup_name, act_source, host.pony_name(), context.camera.camera_target_eye])
+		pose, setup_name, act_source, host.pony_name(),
+		float(frame_plan.eye) if frame_plan != null else 0.0])
 	return true
 
 

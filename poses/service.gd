@@ -1486,6 +1486,24 @@ func apply_render(skeleton: Skeleton3D) -> void:
 		pose_node.call("apply_render", skeleton)
 
 
+## Apply the live pose at its target amount for one start measurement, then put the entrance amount
+## back. The caller measures the authored stance, never the game's idle pose or the ramp's blend.
+func apply_target_once() -> bool:
+	var skeleton: Variant = pony.get("skeleton") if is_instance_valid(pony) else null
+	if not is_instance_valid(pose_node) or not skeleton is Skeleton3D:
+		return false
+	var amount: float = float(pose_node.get("amount"))
+	pose_node.amount = 1.0
+	apply_render(skeleton as Skeleton3D)
+	pose_node.amount = amount
+	var sk := skeleton as Skeleton3D
+	sk.force_update_all_bone_transforms()
+	var hips := sk.find_bone("pony_hips")
+	if hips >= 0:
+		sk.force_update_bone_child_transform(hips)
+	return true
+
+
 ## The whole render-time step for one frame, in order: park the presentation, place the act's own
 ## Anon body, write her pose, replay the sway, then let the eye-shot camera read his posed head.
 func render_write(context: Dictionary) -> void:

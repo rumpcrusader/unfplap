@@ -98,7 +98,7 @@ POSE_FANOUT_ORDER = (
     "context.audio",
 )
 # The start ledger's recipe, in the order the act depends on: the presentation guard, the stool,
-# the camera session, the borrows, the placement, the pose build, the camera open, the audio,
+# the camera session, the borrows, the pose build, the player frame, the camera open, the audio,
 # POSING_IN and the HUD card. `begin_pose_in()` precedes `show_act()` because the HUD reads the
 # live state it sets.
 START_LEDGER_ORDER = (
@@ -110,7 +110,7 @@ START_LEDGER_ORDER = (
     "session.bed = context.gate.resolve_bed(",
     "var setup_name := POSE_SPECS.start_setup(pose)",
     "_build_pose()",
-    "context.camera.capture_look()",
+    "context.frame.begin(",
     "context.audio.start(",
     "session.begin_pose_in()",
     "HUD.instance.show_act(context.facts)",

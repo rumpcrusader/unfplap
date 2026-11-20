@@ -5,9 +5,27 @@ extends SceneTree
 ##     --script res://mods/unfplap/tests/act_frame/test_frame.gd
 
 const FRAME := preload("res://mods/unfplap/act/frame.gd")
+const WORLD := preload("res://mods/unfplap/world/service.gd")
 
 var failures := 0
 var checks := 0
+
+
+class FakePlayer extends Node3D:
+	var camera: Camera3D = null
+	var form_driver: Variant = null
+	var _pitch := 0.0
+	var _stand_eye := 1.6
+	var _eye_height := 1.6
+	var eye_pushes: Array[float] = []
+
+	func eye_height() -> float:
+		return _stand_eye
+
+	func _set_eye_y(value: float) -> void:
+		eye_pushes.append(value)
+		if camera != null:
+			camera.position.y = value
 
 
 func _initialize() -> void:
@@ -28,6 +46,8 @@ func near(a: float, b: float, epsilon := 0.0001) -> bool:
 func run() -> void:
 	_check_standing()
 	_check_missionary()
+	_check_canonical_start()
+	_check_round_trip()
 	_check_plan_shape()
 	print("ACT_FRAME_RESULT checks=%d failures=%d" % [checks, failures])
 	if failures == 0:
@@ -92,6 +112,108 @@ func _check_missionary() -> void:
 		"the missionary plan places the act body from the asset")
 	check(plan.root_transform.is_equal_approx(Transform3D.IDENTITY),
 		"the missionary plan never moves the player rig")
+
+
+## Two starts from the same pony, pose and stance but from different pre-act positions and looks
+## produce the same plan: the solve reads the canonical stance, never the old view.
+func _check_canonical_start() -> void:
+	var frame := FRAME.new()
+	var pose := FRAME.pose("standing")
+	var first := _stance_rig(Vector3(0.0, 0.0, 0.9), 0.3, 0.2)
+	var second := _stance_rig(Vector3(2.0, 0.0, -1.0), -1.2, -0.5)
+	var plan_a := frame.solve(pose, first)
+	var plan_b := frame.solve(pose, second)
+	check(plan_a.root_transform.is_equal_approx(plan_b.root_transform),
+		"the pre-act position does not move the solved player root")
+	check(near(plan_a.yaw, plan_b.yaw) and near(plan_a.aim_pitch, plan_b.aim_pitch),
+		"the pre-act look does not move the solved aim")
+	check(near(frame.stance_eye(first), 1.7) and near(frame.stance_eye(second), 1.7),
+		"the standing eye line ignores the pre-act look")
+	check(near(plan_a.fit.z, -0.18), "the canonical measurement keeps the fit")
+	first.player.free()
+	second.player.free()
+
+
+## A start places the player and a matching end gives him back: the eye line always, the look only
+## for a bed act.
+func _check_round_trip() -> void:
+	var player := FakePlayer.new()
+	player.camera = Camera3D.new()
+	player.add_child(player.camera)
+	root.add_child(player)
+	WORLD.bind_player(player)
+	player.rotation.y = 0.3
+	player._pitch = 0.2
+	player._stand_eye = 1.7
+	player._eye_height = 1.7
+	var frame := FRAME.new()
+	var rig := FRAME.Rig.new()
+	rig.player = player
+	rig.forward = Vector3(0.0, 0.0, -1.0)
+	rig.pony_position = Vector3.ZERO
+	rig.player_position = player.global_position
+	rig.gap = 0.42
+	rig.eye = 1.6
+	rig.neck_height = 1.4
+	rig.opening = Vector3(0.0, 0.9, 0.0)
+	rig.rear = Vector3(0.0, 0.0, 1.0)
+	rig.part_root = Vector3(0.0, 0.9, 0.32)
+	rig.shaft_length = 0.14
+	var plan := frame.begin(FRAME.pose("standing"), rig)
+	check(near(player.rotation.y, plan.yaw) and near(player._pitch, plan.aim_pitch),
+		"the start writes the plan's stance on the player")
+	check(near(player._stand_eye, 1.6) and near(player.camera.rotation.x, plan.aim_pitch),
+		"the start writes the stance eye and the camera follows")
+	check(player.global_position.is_equal_approx(plan.root_transform.origin),
+		"the start writes the plan's root")
+	frame.end()
+	check(near(player._stand_eye, 1.7) and near(player._eye_height, 1.7),
+		"the end restores the player's own eye line")
+	check(near(player.rotation.y, plan.yaw),
+		"a standing end leaves Anon facing where the act ended")
+	var eye_pushes := player.eye_pushes.size()
+	frame.end()
+	check(player.eye_pushes.size() == eye_pushes, "a second end is a no-op")
+
+	player.rotation.y = 0.4
+	player._pitch = 0.1
+	var bed_rig := FRAME.Rig.new()
+	bed_rig.player = player
+	frame.begin(FRAME.pose("missionary"), bed_rig)
+	player.rotation.y = 1.1
+	player._pitch = -0.3
+	frame.end()
+	check(near(player.rotation.y, 0.4) and near(player._pitch, 0.1),
+		"a bed end restores the player's captured look")
+	root.remove_child(player)
+	player.free()
+
+
+## One canonical standing rig: her forward and gap, the measured fit taken at the base root, and
+## the pre-act player position and look carried only as the old stance.
+func _stance_rig(player_at: Vector3, look_yaw: float, look_pitch: float) -> FRAME.Rig:
+	var rig := FRAME.Rig.new()
+	rig.player = _fake_player(look_yaw, look_pitch)
+	rig.forward = Vector3(0.0, 0.0, -1.0)
+	rig.pony_position = Vector3.ZERO
+	rig.player_position = player_at
+	rig.gap = 0.42
+	rig.eye = 1.6
+	rig.neck_height = 1.4
+	rig.opening = Vector3(0.0, 0.9, 0.0)
+	rig.rear = Vector3(0.0, 0.0, 1.0)
+	rig.part_root = Vector3(0.0, 0.9, 0.32)
+	rig.shaft_length = 0.14
+	return rig
+
+
+func _fake_player(look_yaw: float, look_pitch: float) -> FakePlayer:
+	var player := FakePlayer.new()
+	player.rotation.y = look_yaw
+	player._pitch = look_pitch
+	player._stand_eye = 1.7
+	player._eye_height = 1.7
+	return player
 
 
 ## The plan is player-only: it carries no camera transform, shot or eye-override step.

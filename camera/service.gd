@@ -710,13 +710,14 @@ func tick_free_look() -> void:
 	LOG.debug("free look %s", [("on" if active else "off")])
 
 
-## Recompute the shot for a presented body form. The old eye override is undone before the new
-## target is derived, so a form revision cannot compound the previous offset.
-func reset_for_form(family: String, player_pony: bool,
-		form: BODY_FORM.BodyForm = null) -> void:
+## Recompute the shot for a presented body form. The old override is undone first, so a revision
+## cannot compound it; the player frame re-applies the stance for the new form.
+func reset_for_form(family: String, _player_pony: bool,
+		_form: BODY_FORM.BodyForm = null) -> void:
 	reset_shot()
 	camera_basis_ready = false
 	restore_eye_override()
+	camera_target_eye = 0.0
 	if facts != null:
 		facts.player_eye_height = player_eye_height()
 	if family == "standing":
@@ -728,9 +729,6 @@ func reset_for_form(family: String, player_pony: bool,
 	elif family == "bed":
 		if missionary_camera != null and missionary_camera.has_method("reset_look"):
 			missionary_camera.call("reset_look")
-	apply_eye_override(family, player_pony, form)
-	if facts != null:
-		facts.player_eye_height = player_eye_height()
 
 
 ## Standing eye height follows the body preset, raised to her live rest eye line but never above
@@ -748,27 +746,13 @@ func apply_eye_override(family: String, player_pony: bool,
 	# Re-applying the same form must read the player's true base, not the eye this function
 	# already lowered. A late body scale otherwise compounds the override on every revision.
 	var base := saved_stand_eye if eye_override else player_eye_height()
-	var preset := base * size_scale()
 	var her_eye := pony_eye_height()
-	var target := preset
-	# A princess body has her entrance higher or lower than the mare every preset was tuned on:
-	# move his eye by the same amount, so he crouches only as far as she needs. A raise never goes
-	# above his own eye (or above a preset that already is).
 	var entrance := entrance_offset_for(form)
-	if absf(entrance.x) > 0.0001:
-		var moved := preset + entrance.x
-		target = minf(moved, maxf(base, preset)) if entrance.x > 0.0 else moved
-		LOG.debug("eye line entrance preset=%.2f shift=%+.3f target=%.2f", [
-			preset, entrance.x, target])
-	if is_finite(her_eye):
-		# A fitted body (the princesses, a tall modded mare) can be taller than its size preset.
-		# Her live eye line lifts the target, but never above Anon's own eye: he stays human.
-		var raised := maxf(target, minf(base, her_eye))
-		if raised > target + 0.0001:
-			target = raised
-			LOG.debug("eye line raised preset=%.2f her=%.2f target=%.2f", [
-				preset, her_eye, target])
+	var target := BODY_PROFILE.standing_eye(base, size_scale(), her_eye, entrance)
 	camera_target_eye = target
+	if absf(target - base) > 0.001:
+		LOG.debug("eye line base=%.2f preset=%.2f her=%.2f shift=%+.3f target=%.2f", [
+			base, base * size_scale(), her_eye, entrance.x, target])
 	if absf(target - base) < 0.001:
 		# The new form needs no crouch. Give back any previous override instead of leaving the
 		# old lower eye in place.

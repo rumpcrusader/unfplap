@@ -511,8 +511,8 @@ func _check_lock_and_eye() -> void:
 	check(near(camera.camera_target_eye, first_target),
 		"re-applying the same form does not compound the eye offset")
 	camera.call("reset_for_form", "standing", false, lowered)
-	check(near(camera.camera_target_eye, first_target),
-		"a form reset keeps the same true-base target")
+	check(near(camera.camera_target_eye, 0.0),
+		"a form reset hands the standing stance back to the player frame")
 	var standing: FakeStandingCamera = made["standing"]
 	check(standing.calls.has("restore") and standing.calls.has("reset"),
 		"a standing form reset restores the old camera before resetting it")

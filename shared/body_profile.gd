@@ -97,6 +97,20 @@ static func entrance_offset_for(rig: RigProfile, body_scale: float) -> Vector2:
 	return Vector2(rig.rear_y - WINKING_REAR_Y, rig.rear_z - WINKING_REAR_Z) * scale
 
 
+## The standing eye line for one act: the body preset, moved by a form's entrance offset, raised to
+## her rest eye line but never above Anon's own eye. Pure, so the player frame and the camera agree.
+static func standing_eye(base: float, preset_scale: float, her_eye: float,
+		entrance: Vector2) -> float:
+	var preset := base * preset_scale
+	var target := preset
+	if absf(entrance.x) > 0.0001:
+		var moved := preset + entrance.x
+		target = minf(moved, maxf(base, preset)) if entrance.x > 0.0 else moved
+	if is_finite(her_eye):
+		target = maxf(target, minf(base, her_eye))
+	return target
+
+
 static func _identity_key(identity: Variant) -> String:
 	if identity == null:
 		return ""

@@ -48,6 +48,11 @@ the cache and catalog check for both; all three are private to `poses/`. `shared
 is the scene-free read model for one pose: the identity, the spec profiles, the live config and the
 contact and facing mirrors.
 
+## Player frame
+
+`act/frame.gd` owns Anon's placement, his stance and the one restore. Its `begin()`, `refit()` and
+`end()` are the act's only player-placement calls.
+
 ## Pose assets
 
 A pose row's `asset` names its authored document under `poses/`; an internal row may leave it empty

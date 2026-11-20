@@ -77,11 +77,5 @@ func bed_keep_lying() -> bool:
 ## The standing start: keep her where she stands, place Anon behind her at the act gap, take the
 ## stool items and start the facing lock.
 func standing_place() -> bool:
-	var plan: Variant = context.frame.begin(context.frame.pose_input())
-	var stool_act: Variant = session.stool()
-	if plan == null or not bool(plan.valid) or (stool_act != null and bool(stool_act.call("has_failed"))):
-		return false
 	host.pony.request_posture("stand")
-	view.refresh(context.facts, session)
-	context.standing_camera.begin_facing(plan.root_transform)
 	return true

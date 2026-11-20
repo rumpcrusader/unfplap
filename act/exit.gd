@@ -77,8 +77,6 @@ func run(rejoin_cuddle: bool) -> void:
 	if anatomy_service != null and anatomy_service.has_method("player_encounter"):
 		anatomy_service.call("player_encounter", false)
 	context.hold.release_nav()
-	if context.camera.look_captured:
-		context.camera.restore_look(session.start_family())
 	if session.posture_owned:
 		restore_posture(_start_frame(), rejoin_cuddle)
 	free_pose()

@@ -354,11 +354,20 @@ func _init(facts_context: Variant = null) -> void:
 
 func prepare() -> void:
 	_sync()
-	if is_instance_valid(camera):
-		_standing_base_local = camera.position
-		_standing_base_saved = true
-		_standing_base_look = _standing_neck_point()
-		_apply_standing_base_look()
+	if not is_instance_valid(camera):
+		return
+	_standing_base_local = camera.position
+	_standing_base_saved = true
+	# The act frame owns the base look. A start without it (a suite or a pre-frame caller) still
+	# aims from the live neck line.
+	if facts != null and bool(facts.look_captured):
+		facts.mark_camera_basis_ready()
+		if _pose_family() == "standing" and _has_facing and not _facing_override_on:
+			_facing_basis = Basis(Vector3.UP, float(facts.look_yaw))
+		_apply_standing_lean_look()
+		return
+	_standing_base_look = _standing_neck_point()
+	_apply_standing_base_look()
 
 func begin_facing(transform: Transform3D) -> void:
 	_sync()

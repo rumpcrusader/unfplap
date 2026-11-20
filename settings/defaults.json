@@ -300,7 +300,7 @@
 			"chest_back_m": 0.0,
 			"chin_up_deg": 30.0,
 			"gap_offset_m": 0.15,
-			"glance_back_speed": 2.0,
+			"glance_back_speed": 3.0,
 			"hip_drop_m": 0.0,
 			"kiss": {
 				"camera_yaw_deg": 12.0,
@@ -327,7 +327,7 @@
 				"pitch_deg": 25.0,
 				"yaw_deg": 35.0
 			},
-			"torso_angle_deg": 5.0
+			"torso_angle_deg": 7.0
 		}
 	},
 	"relationship": {

@@ -615,10 +615,13 @@ The settled form also rebuilds the body's near/far LOD through `WORLD.refresh_bo
   hook is optional; without it the deform still applies and only the vulva cut is left out.
 - The patch targets the **drawn** body coat. The game's `MareBody` is used while it is visible; a
   source body that hides it and draws its own (the changelings pack's `ChrysalisBody`) uses its
-  own visible coat surface (`cq_Body`) and outline. A hidden game body is never patched, because
-  its cut would have nothing to show on. A material that is not a `ShaderMaterial`, or a shader
-  with neither coat hook, is left alone and logs one `body coat skipped` warning naming the mesh,
-  surface and shader, so a provider body cannot silently lose the cut.
+  own visible coat surface (`cq_Body`) and outline. The coat surface is the one whose source
+  material is named in the coat list (`MareBody`, `cq_Body`) before the coat include is matched,
+  because a source mesh's other cel surfaces carry the same include: on `ChrysalisBody` the teeth
+  come first in the surface list. A hidden game body is never patched, because its cut would have
+  nothing to show on. A material that is not a `ShaderMaterial`, or a shader with neither coat
+  hook, is left alone and logs one `body coat skipped` warning naming the mesh, surface and
+  shader, so a provider body cannot silently lose the cut.
 - The anatomy shell is pushed slightly into the coat, so without the cut the closed lips show the
   body surface behind them. The patch discards coat fragments inside an ellipse behind the opening:
   the radii are `coat_hole` (lateral) and `coat_hole_height` (vertical) × the measured lip radius,

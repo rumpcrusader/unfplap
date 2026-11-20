@@ -31,8 +31,10 @@ class FakeBonds extends RefCounted:
 	var welcome := true
 	var romance := true
 	var welcomes_calls := 0
+	var romance_calls := 0
 
 	func eligible_for_romance(_id: String) -> bool:
+		romance_calls += 1
 		return romance
 
 	func welcomes(_id: String, _kind: String) -> bool:
@@ -369,6 +371,36 @@ func run() -> void:
 		pony, ELIGIBILITY.Mode.START)
 	check(not bool(available_unwilling.show), "an unwilling mare has no legacy hint")
 	relation.bonds.welcome = true
+
+	# The attach warm reads the identity record and the relationship row once; a second warm for
+	# the same record era is a no-op, and a pony without a relationship runtime warms the record.
+	var warm := ELIGIBILITY.new()
+	warm.on_world(null)
+	check((warm.get("_identity_records") as Dictionary).is_empty(),
+		"a fresh service holds no identity record")
+	var warm_pony := FakePony.new()
+	warm_pony.name = "WarmPony"
+	warm_pony.identity = FakeIdentity.new()
+	warm_pony.set_meta("relationship_id", "rarity")
+	var warm_relation := FakeRelation.new()
+	warm_relation.bonds = FakeBonds.new()
+	warm_pony.set_meta("relationship_runtime", warm_relation)
+	root.add_child(warm_pony)
+	warm.warm(warm_pony)
+	check((warm.get("_identity_records") as Dictionary).size() == 1,
+		"the warm builds the identity record")
+	check(warm_relation.bonds.romance_calls == 1,
+		"the warm reads the relationship row once")
+	warm.warm(warm_pony)
+	check(warm_relation.bonds.romance_calls == 1, "a second warm is a no-op")
+	var warm_bare := FakePony.new()
+	warm_bare.name = "WarmBare"
+	warm_bare.identity = FakeIdentity.new()
+	root.add_child(warm_bare)
+	warm.warm(warm_bare)
+	check((warm.get("_identity_records") as Dictionary).has(int(warm_bare.get_instance_id())),
+		"a pony without a relationship runtime still warms its record")
+	warm.shutdown()
 
 	main.eligibility.shutdown()
 	check(not main.eligibility.eligible(pony), "cleared service rejects every pony")

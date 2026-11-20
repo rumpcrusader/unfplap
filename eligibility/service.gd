@@ -196,6 +196,8 @@ class Verdict extends RefCounted:
 var _live := true
 ## Pony instance -> its typed identity record. Cleared with the world.
 var _identity_records: Dictionary = {}
+## Pony instance -> the record era its attach warm already read. Cleared with the world.
+var _warmed: Dictionary = {}
 ## Shape id -> its scene identity, for the id-only capability. Cleared with the world.
 var _shape_identities: Dictionary = {}
 
@@ -204,17 +206,20 @@ var _shape_identities: Dictionary = {}
 func on_world(_host: Node) -> void:
 	_live = true
 	_identity_records.clear()
+	_warmed.clear()
 
 
 ## The world closed: the records belonged to the bodies that are gone.
 func on_world_closed() -> void:
 	_identity_records.clear()
+	_warmed.clear()
 
 
 ## The process exit: every capability read answers no.
 func shutdown() -> void:
 	_live = false
 	_identity_records.clear()
+	_warmed.clear()
 	_shape_identities.clear()
 
 
@@ -229,6 +234,26 @@ func eligible(pony: Node, target: Target = Target.ACT) -> bool:
 	if record.id.is_empty():
 		return false
 	return POLICY.participates_identity(record, str(TARGET_KEYS[target]))
+
+
+## Warm one attached body at attach: the identity record and the relationship row, once per era.
+## A missing relationship runtime leaves only the record warm.
+func warm(pony: Node) -> void:
+	if not _live or not is_instance_valid(pony):
+		return
+	var record := _identity_record(pony)
+	var key := int(pony.get_instance_id())
+	if int(_warmed.get(key, -1)) == record.era:
+		return
+	if record.id.is_empty():
+		_warmed[key] = record.era
+		return
+	# A relationship runtime assigned after the spawn is warmed by the next prepare, so the record
+	# stays unmarked until that read happens.
+	if not pony.has_meta("relationship_runtime"):
+		return
+	relationship_ok(pony)
+	_warmed[key] = record.era
 
 
 ## The id-only answer for a body that is not live, from a named shape's scene identity.
@@ -492,8 +517,8 @@ func _identity_record(pony: Node) -> IDENTITY_RECORD.IdentityRecord:
 	record.era = era
 	record.has_identity = identity != null
 	record.is_player_pony = _is_player_pony(pony)
-	record.is_filly = identity != null and bool(identity.get("filly"))
-	record.is_stallion = identity != null and bool(identity.get("stallion"))
+	record.is_filly = identity != null and identity.get("filly") == true
+	record.is_stallion = identity != null and identity.get("stallion") == true
 	record.id = PONY_ID.from(str(pony.get_meta("relationship_id", "")), identity)
 	var profile: Dictionary = SETTINGS.profile_identity(record.id).raw()
 	var assertion: Variant = profile.get("eligible", null)

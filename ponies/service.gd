@@ -373,6 +373,8 @@ static func _prepare(pony: Node) -> void:
 		anatomy.tail_ready(pony)
 	if is_instance_valid(stock_smack):
 		stock_smack.pony_ready(pony)
+	if is_instance_valid(eligibility):
+		eligibility.warm(pony)
 
 
 ## Adopt the suspended act onto a newly spawned body. Runs after the adapter fitted it but before

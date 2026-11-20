@@ -172,7 +172,7 @@ The start path adds `hotkey no context pose`, `hotkey exact match id=<id> pose=<
 
 | Callback | Type | Contract |
 |---|---|---|
-| `negotiation` | `Node` | the Negotiation service; only its public `handle()`, `is_locked()`, `hotkey_handle()`, `interrupt_for_hotkey()`, `cancel()` and `report()` reads are used |
+| `negotiation` | `negotiation/service.gd` | the Negotiation service; only its public `handle()`, `is_locked()`, `hotkey_handle()`, `interrupt_for_hotkey()`, `cancel()` and `report()` reads are used |
 | `privacy` | `privacy/service.gd` | the live visibility provider, sampled fresh before a private Agreement auto-starts |
 | `hud` | `Node` | the desktop HUD, bound at construction; `show_prompt`/`hide_prompt` (toasts go through `HUD.toast()`) |
 

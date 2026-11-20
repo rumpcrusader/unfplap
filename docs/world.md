@@ -131,6 +131,29 @@ behaviour exactly, and a game update that renames one is a change here rather th
 | `GAME.interrupt_director(director)` | `interrupt` | — | no call |
 | `GAME.director_speaking(director)` | the director's `state` | `bool` | `false` |
 | `GAME.pony_speaking(pony)` | `is_speaking` | `bool` | `false` |
+| `GAME.director_now(director)` | the director's `_now` (private) | `float` | `NAN` |
+| `GAME.subsystem_active(node)` | an approach or group's `active` | `bool` | `false` |
+| `GAME.director_lines(director)` | the director's `begin_player_greeting`, `queue_generated_intent`, `cancel_authored_line` | `DirectorLines` | no call |
+| `GAME.llm_config(director)` | the director's `config`, `_llm_section` (private) and `llm.status_path` | `LlmConfig` | `enabled` false |
+| `GAME.record_situation(context, text, ids, key)` | the world context's `record` | — | no call |
+| `GAME.impression_mood(impressions, id, absent)` | the store's `profile(id).mood` | `String` | `absent`, empty without a profile |
+| `GAME.request_posture(pony, posture)` | `request_posture` | — | no call |
+| `GAME.navigator_speed_limit(nav)` | the navigator's `command_speed_limit` | `float` | `NAN` |
+| `GAME.navigator_pace_target(nav)` | the navigator's `command_pace_target` | `float` | `NAN` |
+| `GAME.set_navigator_speed_limit(nav, value)` | the navigator's `command_speed_limit` | — | no write |
+| `GAME.set_navigator_pace_target(nav, value)` | the navigator's `command_pace_target` | — | no write |
+| `GAME.navigator_support(nav, point)` | `command_support` | `Vector3` | `Vector3.INF` |
+| `GAME.navigator_destination(nav, point, gait)` | `command_destination` | `bool` | `false` |
+| `GAME.rest_word(node)` | `rest_word` | `String` | empty |
+| `GAME.rest_bed_of(node)` | a couch's `_bed` (private) or `bed_node` | `Node3D` | `null` |
+| `GAME.bed_rest_refresh(rest)` | `refresh` | — | no call |
+| `GAME.bed_rest_fits(rest)` | `_mare_fits` (private) | `bool` | `false` |
+| `GAME.bed_rest_has_guest(rest)` | `_guest` (private) | `bool` | `false` |
+| `GAME.bed_rest_sleeper(rest)` | `_sleeper` (private) | `Node3D` | `null` |
+| `GAME.bed_rest_front(rest, pony)` | `_front_for` (private) | `Vector3` | `Vector3.INF` |
+| `GAME.couch_partner(couch, seat)` | `partner` | `Node` | `null` |
+| `GAME.mods_state(mods, id)` | `Mods.state` | `ModState`, the live section | empty rows |
+| `GAME.mods_save(mods)` | `Mods.save_changed` | — | no save |
 | `GAME.prepare_vocal(director, pony_id)` | the director's `vocal.prepare` | — | no call |
 | `GAME.affection_buck(affection, body)` | `Affection.buck` | `bool` | `false` |
 | `GAME.kisser_of(game)` | the scene's `kisser` | `Node` | `null` |
@@ -180,12 +203,15 @@ behaviour exactly, and a game update that renames one is a change here rather th
 | `GAME.clear_hold_target(driver, side)` | the rig's `clear_hold_target` | — | no call |
 | `GAME.hand_frame(driver, side)` | the rig's `hand_frame` | `Transform3D` | infinite origin |
 
-Only `GAME.mares`, `GAME.couch_seats`, `GAME.case_slots`, `GAME.case_loans` and
-`GAME.refresh_body_lod` allocate, and all are scan-cadence calls; the per-frame accessors copy
-nothing. `GAME` writes the rig's control hold, its eye line and its look pitch, the chat lock, her
-navigator's face point, conversation aim, owner and wander, her face-turn rate, the carry flags,
-the seated Q hold, a body's velocity, her gaze and pupils, the stock kiss's latch and side hold,
-the affection it feeds, and the briefcase's slot writes and world drops.
+Only `GAME.mares`, `GAME.couch_seats`, `GAME.case_slots`, `GAME.case_loans`,
+`GAME.refresh_body_lod`, `GAME.mods_state`, `GAME.director_lines` and `GAME.llm_config` allocate;
+the first five are scan cadence and the rest are a saved-mod read, one authored line and one
+classifier configuration. The per-frame accessors copy nothing. `GAME` writes the rig's control
+hold, its eye line and its look pitch, the chat lock, her navigator's face point, conversation aim,
+owner, wander, speed, pace and destination, her posture request, her face-turn rate, the carry
+flags, the seated Q hold, a body's velocity, her gaze and pupils, the stock kiss's latch and side
+hold, the affection it feeds, the director's authored-line queue, the world-context situation
+record, the mod state section, and the briefcase's slot writes and world drops.
 
 ## Internal API
 

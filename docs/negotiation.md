@@ -60,7 +60,7 @@ bind(eligibility: Eligibility, memory: Memory, privacy: Privacy, initiation: Nod
 setup(host: Host) -> void
 on_world(host: Node) -> void
 on_world_closed() -> void
-adapter() -> Node
+adapter() -> ADAPTER
 context(pony: Node) -> Context
 form_view() -> FormView
 tick(delta: float) -> void
@@ -154,11 +154,11 @@ used to be the entry's assembly:
   target names;
 - the adapter's model calls and the world-context situation record.
 
-It reads only service facades and `WORLD`, and the fields the entry binds once through `bind()`:
-`service` (this facade), `adapter`, `eligibility`, `memory`, `privacy`, `initiation` and `offer`.
-`initiation` and `offer` are plain nodes because each of them preloads this facade; everything
-else is the typed facade. `eligibility` is the one field a world enter rebinds, because the entry
-rebuilds that service.
+It reads only service facades, `WORLD` and the `GAME` accessors, and the fields the entry binds
+once through `bind()`: `service` (this facade), `adapter`, `eligibility`, `memory`, `privacy`,
+`initiation` and `offer`. `initiation` and `offer` are plain nodes because each of them preloads
+this facade; everything else is the typed facade. `eligibility` is the one field a world enter
+rebinds, because the entry rebuilds that service.
 
 The watch is armed by `tick()`, which is the entry's idle frame: the exchange's TTL and privacy
 sample first, then the bridge's watch as its own `entry_watch` perf chunk. The watch is armed only

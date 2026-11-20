@@ -1,6 +1,9 @@
 extends RefCounted
 ## Pure prompt formatting for act lines. Admission and pacing belong to
-## `dialogue/utterance_scheduler.gd`; this file only turns values into prompt text.
+## `dialogue/utterance_scheduler.gd`; this file picks the line's values, `prompt_text` words them.
+
+const DEFAULTS_DATA := preload("res://mods/unfplap/shared/defaults_data.gd")
+const PROMPT_TEXT := preload("res://mods/unfplap/shared/prompt_text.gd")
 
 ## A demand cue asks Anon to change something and gets the longer repeat budget; the trend
 ## fallback stays on the normal cue gap.
@@ -13,91 +16,49 @@ static func is_demand(text: String) -> bool:
 		or text.begins_with("She wants to be teased") or text.begins_with("She needs")
 
 
-static func format(template: String, values: Dictionary) -> String:
-	var regex := RegEx.new()
-	regex.compile("\\{([a-z_]+)\\}")
-	var out := ""
-	var cursor := 0
-	for found: RegExMatch in regex.search_all(template):
-		out += template.substr(cursor, found.get_start() - cursor)
-		out += str(values.get(found.get_string(1), ""))
-		cursor = found.get_end()
-	out += template.substr(cursor)
-	return out
-
-
-## Context that must not depend on the shape of a saved prompt. Append only the blocks the
-## template did not reference; formatted values are already private text.
-static func context_note(template: String, blocks: Dictionary) -> String:
-	var parts: PackedStringArray = []
-	var private_context := false
-	for key: String in ["state", "relationship", "tone", "memory"]:
-		var text := str(blocks.get(key, "")).strip_edges()
-		if key in ["relationship", "tone", "memory"] and not text.is_empty():
-			private_context = true
-		if template.contains("{" + key + "}"):
-			continue
-		if text.is_empty():
-			continue
-		match key:
-			"state":
-				parts.append("Current moment: " + text + ".")
-			"relationship":
-				parts.append("Private relationship note: " + text)
-			"tone":
-				parts.append("Tone: " + text)
-			"memory":
-				parts.append(text)
-	if private_context and not template.contains("Do not mention relationship labels"):
-		parts.append("Do not mention these labels, levels or numbers, or that you are following a note. Do not invent a memory beyond the one given.")
-	return "" if parts.is_empty() else "\n" + "\n".join(parts)
-
-
 ## A private line seed. The HUD cue is shorthand; this says what the moment means to her, in
 ## second person, so the line is not a status report or an order.
 static func line_seed(facts: Dictionary) -> String:
-	var need := ""
+	var key := ""
 	match str(facts.get("mood", "")):
 		"overwhelmed":
-			need = "That was too much; you need a breath before more."
+			key = "overwhelmed"
 		"close":
-			need = "You are close, and it is hard to think about anything else."
-	if need.is_empty():
+			key = "close"
+	if key.is_empty():
 		var intensity := str(facts.get("intensity", ""))
 		var wanted_intensity := str(facts.get("wanted_intensity", "firm"))
 		if not intensity.is_empty() and intensity != wanted_intensity:
 			if _intensity_rank(intensity) > _intensity_rank(wanted_intensity):
-				need = "He is being too rough with you, and it hurts."
+				key = "too_rough"
 			else:
-				need = "He is being too gentle with you, and you barely feel anything."
+				key = "too_gentle"
 		else:
 			var pattern := str(facts.get("pattern", ""))
 			var wanted_pattern := str(facts.get("wanted_pattern", "steady"))
 			if not pattern.is_empty() and pattern != wanted_pattern:
-				if _pattern_rank(pattern) > _pattern_rank(wanted_pattern):
-					need = "He is going too fast for you to enjoy the build; you want him to slow " \
-						+ "down and tease."
-				else:
-					need = "He is taking his time, and you want it faster."
+				key = "too_fast" if _pattern_rank(pattern) > _pattern_rank(wanted_pattern) \
+					else "too_slow"
 			elif not intensity.is_empty() and not pattern.is_empty() \
 					and intensity == wanted_intensity and pattern == wanted_pattern:
-				need = "This is what you wanted; let yourself feel it."
-	if need.is_empty():
+				key = "matched"
+	if key.is_empty():
 		var last_touch := str(facts.get("last_touch", ""))
 		var touch_likes: Array = facts.get("touch_likes", []) if facts.get("touch_likes", []) is Array else []
 		var touch_dislikes: Array = facts.get("touch_dislikes", []) if facts.get("touch_dislikes", []) is Array else []
 		if not last_touch.is_empty() and last_touch in touch_likes:
-			need = "You liked his touch."
+			key = "touch_liked"
 		elif not last_touch.is_empty() and last_touch in touch_dislikes:
-			need = "That did not sit right."
-	if need.is_empty():
+			key = "touch_disliked"
+	if key.is_empty():
 		var last_talk := str(facts.get("last_talk", ""))
 		var talk_likes: Array = facts.get("talk_likes", []) if facts.get("talk_likes", []) is Array else []
 		if not last_talk.is_empty() and last_talk in talk_likes:
-			need = "What he said landed."
-	if need.is_empty():
-		need = "You are here with him; nothing needs fixing."
-	return need + " This is private; let it colour one short line, or let it pass unsaid."
+			key = "talk_liked"
+	if key.is_empty():
+		key = "quiet"
+	var seeds: Dictionary = DEFAULTS_DATA.prompts_block("act.seed")
+	return PROMPT_TEXT.render(str(seeds.get(key, "")), {})
 
 
 ## The two felt intensity lines choose by direction, so there is no middle "firmer" line.
@@ -123,9 +84,10 @@ static func state_line(pose: String, mood: String, intensity: String, pattern: S
 		motion = intensity
 	elif not pattern.is_empty():
 		motion = pattern
-	return "pose=%s, mood=%s, he is %s, last touch=%s, last talk=%s, climaxes=%d" % [
-		pose, mood, motion,
-		last_touch if not last_touch.is_empty() else "none",
-		last_talk if not last_talk.is_empty() else "none",
-		climaxes,
-	]
+	var row: Dictionary = DEFAULTS_DATA.prompts_block("act.state_line")
+	return PROMPT_TEXT.render(row, {
+		"pose": pose, "mood": mood, "motion": motion,
+		"last_touch": last_touch if not last_touch.is_empty() else "none",
+		"last_talk": last_talk if not last_talk.is_empty() else "none",
+		"climaxes": climaxes,
+	})

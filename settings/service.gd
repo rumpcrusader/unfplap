@@ -3332,16 +3332,20 @@ static func _normalize_retired_keys(data: Dictionary) -> Dictionary:
 	return data
 
 
-## Keep only current prompt keys.
+## Keep only explicit prompt overrides: the shipped prompts come from `prompts.json`, so an absent
+## key is no override. A custom value for a current key is preserved.
 static func _fill_prompts(template: Dictionary) -> Dictionary:
 	var out: Dictionary = template.duplicate(true)
-	var prompts: Dictionary = DEFAULT_ACT_PROMPTS.duplicate(true)
 	var raw: Variant = out.get("act_prompts", {})
+	var prompts: Dictionary = {}
 	if raw is Dictionary:
 		for key: String in DEFAULT_ACT_PROMPTS:
 			if (raw as Dictionary).has(key):
 				prompts[key] = str((raw as Dictionary)[key])
-	out["act_prompts"] = prompts
+	if prompts.is_empty():
+		out.erase("act_prompts")
+	else:
+		out["act_prompts"] = prompts
 	return out
 
 

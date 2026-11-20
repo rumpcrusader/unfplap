@@ -14,6 +14,8 @@ const STORE := preload("res://mods/unfplap/memory/store.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const ACT_FACE := preload("res://mods/unfplap/shared/act_face.gd")
+const DEFAULTS_DATA := preload("res://mods/unfplap/shared/defaults_data.gd")
+const PROMPT_TEXT := preload("res://mods/unfplap/shared/prompt_text.gd")
 
 const LineState = FACTS.LineState
 const LineKind = FACTS.LineKind
@@ -130,6 +132,17 @@ func form_reveal_peak(id: String, event_id: String, score: float) -> Peak:
 	return out
 
 
+## The shipped base text for a reaction whose caller supplied none; an `event_prompt` still wins.
+static func _reaction_base(reaction: int) -> String:
+	match reaction:
+		Reaction.CLIMAX:
+			return PROMPT_TEXT.render(DEFAULTS_DATA.prompts_block("act.climax"), {})
+		Reaction.END_EARLY:
+			var row: Dictionary = DEFAULTS_DATA.prompts_block("act.end_early")
+			return PROMPT_TEXT.render(str(row.get("normal", "")), {})
+	return ""
+
+
 ## Queue one mod-owned line and report whether it was accepted.
 func line(request: LineRequest) -> Line:
 	var out := Line.new()
@@ -142,7 +155,10 @@ func line(request: LineRequest) -> Line:
 		LineKind.REACTION:
 			var name := TEXT.reaction_name(request.reaction)
 			var custom := SETTINGS.event_prompt(request.id, name)
-			var purpose := custom if not custom.is_empty() else request.purpose
+			var base := request.purpose
+			if base.strip_edges().is_empty():
+				base = _reaction_base(request.reaction)
+			var purpose := custom if not custom.is_empty() else base
 			if request.reaction == Reaction.CLIMAX:
 				purpose += " Include a private first-person [thought: ...] impression of this moment in your reply."
 			if not purpose.contains("[face"):

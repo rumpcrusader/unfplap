@@ -1,0 +1,115 @@
+{
+	"version": 1,
+	"act": {
+		"cue": {
+			"slots": ["seed", "state", "relationship", "tone", "memory", "face_note", "preferences", "recent"],
+			"template": "{moment} {state_line} {relationship_line} {tone_line} {memory} {face_note} {instruction} {labels} {tone_tags} {format} {privacy} {preferences_line} {recent_line}",
+			"moment": "During sex with Anon, the private moment is: {seed}",
+			"state_line": "Current moment: {state}.",
+			"relationship_line": "Private relationship note: {relationship}.",
+			"tone_line": "Tone: {tone}.",
+			"instruction": "Say ONE short line in your own voice, at most 14 words. React to him and to the moment as the mare you are; you do not have to describe the sensation or narrate the moment; you can ask for something, tease him, say something tender, or say nothing about the mechanics.",
+			"labels": "Let the relationship and the memory colour it without naming labels, levels, numbers, or the note. Do not invent a memory beyond the one given.",
+			"tone_tags": "Begin with [whispering] or [happy], or [calm], [surprised], [sad] or [fearful] if the moment calls for it.",
+			"format": "No narration, no stage directions, no anatomy.",
+			"privacy": "Your preferences are private, not a list to say.",
+			"preferences_line": "Your preferences: {preferences}.",
+			"recent_line": "Do not repeat: {recent}."
+		},
+		"utterance": {
+			"slots": ["seed", "state", "relationship", "tone", "memory", "face_note", "preferences", "recent"],
+			"template": "{moment} {state_line} {relationship_line} {tone_line} {memory} {face_note} {instruction} {tone_tags} {format} {privacy} {preferences_line} {recent_line}",
+			"moment": "You are having sex with Anon right now, not kissing him. The private moment is: {seed}",
+			"state_line": "Current moment: {state}.",
+			"relationship_line": "Private relationship note: {relationship}.",
+			"tone_line": "Tone: {tone}.",
+			"instruction": "Say ONE short line in your own voice, at most 18 words. React to him and to the moment as the mare you are; you do not have to describe the sensation or narrate the moment; you can ask for something, tease him, say something tender, or say nothing about the mechanics.",
+			"tone_tags": "Begin with exactly [whispering] unless the moment calls for [calm], [happy], [annoyed], [surprised], [sad] or [fearful].",
+			"format": "No narration, no stage directions, no anatomy, no questions that need an answer, and do not end the act.",
+			"privacy": "Your preferences are private, not a list to say.",
+			"preferences_line": "Your preferences: {preferences}.",
+			"recent_line": "Do not repeat: {recent}."
+		},
+		"climax": {
+			"slots": [],
+			"template": "You have just climaxed. Say one short sentence, at most 12 words, in your own voice. Begin with [surprised], [happy] or [calm]. Staying quiet is fine."
+		},
+		"end_early": {
+			"severe": "Anon stopped early and you are hurt. Say one short, quiet sentence. Begin with [sad] or [calm]. Do not explain or negotiate. Saying nothing is fine.",
+			"normal": "Anon stopped before the act finished. Say one short sentence about how you feel right now, in your own voice. Begin with [sad] or [calm]. Do not review the act, do not list what you want next time, and do not lecture. One sentence, at most 10 words. Saying nothing is fine."
+		},
+		"bystander": {
+			"slots": ["name", "setting"],
+			"template": "You can see Anon and {name} having sex right in front of you, {setting} Say ONE short line in your own voice, at most 14 words, aloud to them or to yourself. Begin with [happy], [surprised] or [calm]. Ponies have much less shame about this than humans do, so react the way a pony would: amused, teasing, curious, nosy, a little flustered, or mildly put out, but never horrified, panicked or disgusted. Mention where they are doing it if that is what stands out. Do not join in, do not describe anatomy, and do not ask a question that needs an answer."
+		},
+		"bystander_setting": {
+			"outdoors": "out in the open where anypony could walk past.",
+			"indoors": "indoors, in a house you are also in."
+		},
+		"note": {
+			"warm": "- You are still warm and relaxed after making love with Anon. Keep an affectionate tone; do not act stiff or businesslike.",
+			"act": "- You are having sex with Anon right now.",
+			"afterglow": "- The act has ended, but you are still close with Anon in the afterglow.",
+			"body": {
+				"own": "- Your body right now: your own body.",
+				"own_named": {
+					"slots": ["name"],
+					"template": "- Your body right now: your own body, {name}."
+				},
+				"borrowed": {
+					"slots": ["name"],
+					"template": "- Your body right now: {name}'s shape, not your own body."
+				},
+				"borrowed_unnamed": "- Your body right now: a borrowed shape, not your own body."
+			},
+			"caress": {
+				"both_chest": "He is leaning in close against you and caressing your chest and belly.",
+				"both_flank": "He is leaning in close against you and caressing your flank.",
+				"caressing_chest": "He is caressing your chest and belly.",
+				"caressing_flank": "He is caressing your flank.",
+				"leaning": "He is leaning in close, holding you."
+			}
+		},
+		"state_line": {
+			"slots": ["pose", "mood", "motion", "last_touch", "last_talk", "climaxes"],
+			"template": "pose={pose}, mood={mood}, he is {motion}, last touch={last_touch}, last talk={last_talk}, climaxes={climaxes}"
+		},
+		"seed": {
+			"overwhelmed": "That was too much; you need a breath before more. This is private; let it colour one short line, or let it pass unsaid.",
+			"close": "You are close, and it is hard to think about anything else. This is private; let it colour one short line, or let it pass unsaid.",
+			"too_rough": "He is being too rough with you, and it hurts. This is private; let it colour one short line, or let it pass unsaid.",
+			"too_gentle": "He is being too gentle with you, and you barely feel anything. This is private; let it colour one short line, or let it pass unsaid.",
+			"too_fast": "He is going too fast for you to enjoy the build; you want him to slow down and tease. This is private; let it colour one short line, or let it pass unsaid.",
+			"too_slow": "He is taking his time, and you want it faster. This is private; let it colour one short line, or let it pass unsaid.",
+			"matched": "This is what you wanted; let yourself feel it. This is private; let it colour one short line, or let it pass unsaid.",
+			"touch_liked": "You liked his touch. This is private; let it colour one short line, or let it pass unsaid.",
+			"touch_disliked": "That did not sit right. This is private; let it colour one short line, or let it pass unsaid.",
+			"talk_liked": "What he said landed. This is private; let it colour one short line, or let it pass unsaid.",
+			"quiet": "You are here with him; nothing needs fixing. This is private; let it colour one short line, or let it pass unsaid."
+		},
+		"angles": [
+			"This time, say something about a thing you two talked about earlier. Use something from today if it fits.",
+			"This time, tease him. Use something from today if it fits.",
+			"This time, tell him exactly what you want next. Use something from today if it fits.",
+			"This time, say his name, and little else. Use something from today if it fits.",
+			"This time, mention where you are right now. Use something from today if it fits.",
+			"This time, sound surprised at yourself. Use something from today if it fits.",
+			"This time, say something tender, in the middle of all this. Use something from today if it fits.",
+			"This time, let him see how much you trust him. Use something from today if it fits.",
+			"This time, make a joke, in your usual voice. Use something from today if it fits.",
+			"This time, complain playfully about something he is doing. Use something from today if it fits.",
+			"This time, bring up how you feel about him lately. Use something from today if it fits.",
+			"This time, say something only you would say, true to your personality. Use something from today if it fits."
+		],
+		"speech_feel": {
+			"slots": ["intensity", "pattern", "pace", "frequency"],
+			"template": "Right now Anon's strokes are {intensity} and {pattern}, about {pace} a second. Break up your speech with exclamations between words, such as \"Ah!\", \"Hah!\", \"FUCK!\", \"Ah...\", \"Buck...\", \"Nngh...\" and similar ones in your own voice. {frequency} They do not count toward your word limit."
+		},
+		"speech_feel_frequency": {
+			"sparse": "Use only one, quiet and breathy.",
+			"light": "Use one or two.",
+			"steady": "Put one after every few words.",
+			"heavy": "Put one after almost every word or two, so your speech keeps breaking apart."
+		}
+	}
+}

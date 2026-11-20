@@ -173,8 +173,8 @@ func _check_base_description() -> void:
 	check(near(float((data.get("placement", {}) as Dictionary).get("tail_tilt_deg", -1.0)), 0.0),
 		"placement keeps tail_tilt_deg")
 	check((data.get("poses", {}) as Dictionary).has("missionary"), "pose defaults resolve")
-	check(not str((data.get("act_prompts", {}) as Dictionary).get("cue", "")).is_empty(),
-		"act prompt defaults resolve")
+	check(str((data.get("act_prompts", {}) as Dictionary).get("cue", "")).is_empty(),
+		"no built-in mare overrides the cue prompt")
 	check(str((data.get("event_prompts", {}) as Dictionary).get("climax", "")).is_empty(),
 		"no built-in mare overrides the climax prompt")
 	check(near(float(data.get("cue_gap", 0.0)), 12.0), "cue gap resolves")

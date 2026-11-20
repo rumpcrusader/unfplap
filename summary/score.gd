@@ -3,6 +3,8 @@ extends RefCounted
 ## `evaluate` is pure; `rules` reads the live settings, which the caller may override.
 
 const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
+const DEFAULTS_DATA := preload("res://mods/unfplap/shared/defaults_data.gd")
+const PROMPT_TEXT := preload("res://mods/unfplap/shared/prompt_text.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 
 ## Afterglow mood beats for the model, often silent: never a review or a request list.
@@ -232,9 +234,9 @@ static func afterglow_beat(summary: Dictionary, roll: float) -> String:
 
 ## The early-end reaction asks for a moment, not a summary or a next-time list.
 static func early_end_prompt(summary: Dictionary) -> String:
-	if bool(summary.get("severe", false)):
-		return "Anon stopped early and you are hurt. Say one short, quiet sentence. Begin with [sad] or [calm]. Do not explain or negotiate. Saying nothing is fine."
-	return "Anon stopped before the act finished. Say one short sentence about how you feel right now, in your own voice. Begin with [sad] or [calm]. Do not review the act, do not list what you want next time, and do not lecture. One sentence, at most 10 words. Saying nothing is fine."
+	var rows: Dictionary = DEFAULTS_DATA.prompts_block("act.end_early")
+	var key := "severe" if bool(summary.get("severe", false)) else "normal"
+	return PROMPT_TEXT.render(str(rows.get(key, "")), {})
 
 
 static func _skipped(reason: String) -> Dictionary:

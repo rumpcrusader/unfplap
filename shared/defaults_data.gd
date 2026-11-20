@@ -5,6 +5,7 @@ extends RefCounted
 
 const DEFAULTS_FILE := "res://mods/unfplap/settings/defaults.json"
 const CATALOG_FILE := "res://mods/unfplap/settings/catalogs.json"
+const PROMPTS_FILE := "res://mods/unfplap/settings/prompts.json"
 
 static var _document_cache: Dictionary = {}
 static var _document_loaded := false
@@ -12,6 +13,9 @@ static var _document_error := ""
 static var _catalog_cache: Dictionary = {}
 static var _catalog_loaded := false
 static var _catalog_error := ""
+static var _prompts_cache: Dictionary = {}
+static var _prompts_loaded := false
+static var _prompts_error := ""
 
 
 ## The parsed defaults document, or `{}` when the file is missing or malformed. `error()` says why.
@@ -34,6 +38,16 @@ static func catalog() -> Dictionary:
 	return _catalog_cache
 
 
+## The parsed prompts document, or `{}` when the file is missing or malformed.
+static func prompts() -> Dictionary:
+	if not _prompts_loaded:
+		_prompts_loaded = true
+		var loaded := _parse(PROMPTS_FILE)
+		_prompts_cache = loaded["data"]
+		_prompts_error = loaded["error"]
+	return _prompts_cache
+
+
 ## True when the shipped defaults document parsed as a JSON object.
 static func valid() -> bool:
 	document()
@@ -44,6 +58,12 @@ static func valid() -> bool:
 static func catalog_valid() -> bool:
 	catalog()
 	return _catalog_error.is_empty()
+
+
+## True when the shipped prompts document parsed as a JSON object.
+static func prompts_valid() -> bool:
+	prompts()
+	return _prompts_error.is_empty()
 
 
 ## The first problem with the shipped defaults document, or "" when it is valid.
@@ -58,6 +78,12 @@ static func catalog_error() -> String:
 	return _catalog_error
 
 
+## The first problem with the shipped prompts document, or "" when it is valid.
+static func prompts_error() -> String:
+	prompts()
+	return _prompts_error
+
+
 ## A detached nested block of the defaults document under a dotted prefix, or `{}` when the prefix
 ## is absent or not a dictionary.
 static func block(prefix: String) -> Dictionary:
@@ -67,6 +93,11 @@ static func block(prefix: String) -> Dictionary:
 ## A detached nested block of the catalog under a dotted prefix.
 static func catalog_block(prefix: String) -> Dictionary:
 	return _block(catalog(), prefix)
+
+
+## A detached nested block of the prompts document under a dotted prefix.
+static func prompts_block(prefix: String) -> Dictionary:
+	return _block(prompts(), prefix)
 
 
 static func _block(data: Dictionary, prefix: String) -> Dictionary:

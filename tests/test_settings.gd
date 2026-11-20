@@ -1391,8 +1391,8 @@ func _check_profiles() -> void:
 	check((modded["preferences"] as Dictionary)
 		== SETTINGS.default_preferences_for(base, "a_modded_mare").raw(),
 		"an off-roster mare uses the global preference profile")
-	check(not str((modded.get("act_prompts", {}) as Dictionary).get("cue", "")).is_empty(),
-		"an off-roster mare gets the built-in prompts")
+	check(not modded.has("act_prompts"),
+		"an off-roster mare carries no prompt override")
 	check(not (modded.get("poses", {}) as Dictionary).is_empty(),
 		"an off-roster mare gets the pose defaults")
 	var modded_override := SETTINGS.profile_for(base,
@@ -1413,8 +1413,10 @@ func _check_profiles() -> void:
 		{"fluttershy": {"cue_gap": 15.0}}, "fluttershy")
 	check(near(float(override.get("cue_gap", 0.0)), 15.0), "a character override wins")
 	check(not SETTINGS.template_for("fluttershy").raw().is_empty(), "live template")
-	check(not SETTINGS.act_prompt("fluttershy", "utterance").is_empty(), "live utterance prompt")
-	check(not SETTINGS.act_prompt("fluttershy", "cue").is_empty(), "live cue prompt")
+	check(SETTINGS.act_prompt("fluttershy", "utterance").is_empty(),
+		"no shipped utterance prompt rides in the profile")
+	check(SETTINGS.act_prompt("fluttershy", "cue").is_empty(),
+		"no shipped cue prompt rides in the profile")
 	check(str(SETTINGS.DEFAULT_ACT_PROMPTS.get("cue", "")).contains("private, not a list to say"),
 		"the default cue prompt keeps preferences private")
 	var legacy_data := {"default": {"act_prompts": {"cue": SETTINGS.LEGACY_ACT_PROMPTS["cue"][-1]}}}
@@ -1519,9 +1521,8 @@ func _check_provider_precedence() -> void:
 	check(restored.preferences.str_value("notes", "")
 		== base.rows("preferences").str_value("notes", ""),
 		"the provider note falls back to the global default")
-	check(SETTINGS.template_for(id).rows("act_prompts").str_value("cue", "")
-		== SETTINGS.DEFAULT_ACT_PROMPTS.get("cue", ""),
-		"the provider prompt falls back to the catalog")
+	check(SETTINGS.template_for(id).rows("act_prompts").str_value("cue", "").is_empty(),
+		"the provider prompt falls back to no override")
 	var restored_standing: Dictionary = SETTINGS.template_for(id).rows("poses").raw().get(
 		"standing", {})
 	var base_standing: Dictionary = base.rows("poses").raw().get("standing", {})

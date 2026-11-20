@@ -1,5 +1,5 @@
 extends SceneTree
-## Pure prompt-format tests.
+## Pure act-line value tests: the demand classification, the seed branch and the state line.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/dialogue/test_utterance.gd
 
 const UTTER := preload("res://mods/unfplap/dialogue/utterance.gd")
@@ -26,74 +26,51 @@ func run() -> void:
 	check(not UTTER.is_demand("She likes that."), "positive cue is not a demand")
 	check(not UTTER.is_demand("She wants you to keep going."), "trend fallback is not a demand")
 
-	var text := UTTER.format("a {state} b {preferences} c {cue} d {recent} e {missing}", {
-		"state": "S", "preferences": "T", "cue": "C", "recent": "R",
-	})
-	check(text == "a S b T c C d R e ", "format placeholders")
-	var nested := UTTER.format("{a} {b}", {"a": "{b}", "b": "X"})
-	check(nested == "{b} X", "a substituted value is not expanded again")
-
-	var appended := UTTER.context_note("a {state}", {
-		"state": "pose=missionary", "relationship": "You and Anon: friends.",
-		"tone": "Warm: be fond.", "memory": "",
-	})
-	check(appended.contains("Private relationship note: You and Anon: friends."),
-		"context adds a missing relationship note")
-	check(appended.contains("Tone: Warm: be fond."), "context adds a missing tone")
-	check(appended.contains("Do not mention these labels"), "context adds the privacy guard")
-	check(not appended.contains("Current moment:"), "context does not repeat a used state")
-
-	var reuse := UTTER.context_note("{relationship}. Do not mention relationship labels.", {
-		"relationship": "You and Anon: friends.", "tone": "Warm: be fond.",
-	})
-	check(not reuse.contains("Private relationship note:"),
-		"context does not duplicate a used relationship note")
-	check(reuse.contains("Tone: Warm: be fond."), "context still adds an unused tone")
-	check(not reuse.contains("Do not mention these labels"),
-		"context does not repeat an existing privacy guard")
-
-	var memory_only := UTTER.context_note("plain", {"relationship": "R", "memory": ""})
-	check(not memory_only.contains("shared memory"), "empty memory adds nothing")
-
 	var mismatch := UTTER.line_seed({
 		"mood": "wanting", "intensity": "soft", "pattern": "steady",
 		"wanted_intensity": "firm", "wanted_pattern": "steady",
 	})
-	check(mismatch.contains("too gentle"), "a soft stroke is felt as too gentle")
-	check(not mismatch.contains("She wants"), "a seed is second person, not a HUD cue")
-	check(mismatch.contains("let it colour one short line"), "a seed is explicitly private")
 	var too_rough := UTTER.line_seed({
 		"mood": "wanting", "intensity": "rough", "pattern": "steady",
 		"wanted_intensity": "firm", "wanted_pattern": "steady",
 	})
-	check(too_rough.contains("too rough"), "a rough stroke is felt as too rough")
+	check(not mismatch.is_empty(), "a soft mismatch has a seed")
+	check(mismatch != too_rough, "the two intensity directions choose different seeds")
 	var match := UTTER.line_seed({
 		"mood": "wanting", "intensity": "firm", "pattern": "steady",
 		"wanted_intensity": "firm", "wanted_pattern": "steady",
 	})
-	check(match.contains("what you wanted"), "a matching stroke is affirmed")
+	check(match != mismatch, "a matched stroke has its own seed")
 	var rhythm := UTTER.line_seed({
 		"mood": "wanting", "intensity": "firm", "pattern": "steady",
 		"wanted_intensity": "firm", "wanted_pattern": "quick",
 	})
-	check(rhythm.contains("want it faster"), "a slow rhythm is felt as too slow")
 	var too_fast := UTTER.line_seed({
 		"mood": "wanting", "intensity": "firm", "pattern": "quick",
 		"wanted_intensity": "firm", "wanted_pattern": "teasing",
 	})
-	check(too_fast.contains("too fast"), "a quick rhythm is felt as too fast")
+	check(rhythm != too_fast, "the two tempo directions choose different seeds")
+	check(rhythm != match, "a tempo mismatch is not a matched seed")
 	var close := UTTER.line_seed({
 		"mood": "close", "intensity": "soft", "wanted_intensity": "firm",
 	})
-	check(close.contains("You are close"), "closeness outranks a preference mismatch")
+	check(close != mismatch, "closeness outranks a preference mismatch")
 	var overwhelmed := UTTER.line_seed({"mood": "overwhelmed"})
-	check(overwhelmed.contains("need a breath"), "overwhelmed outranks closeness")
+	check(overwhelmed != close, "overwhelmed outranks closeness")
 	var touch := UTTER.line_seed({
 		"mood": "wanting", "last_touch": "caress", "touch_likes": ["caress"],
 	})
-	check(touch.contains("liked his touch"), "a liked touch colors a quiet moment")
 	var quiet := UTTER.line_seed({"mood": "warming"})
-	check(quiet.contains("nothing needs fixing"), "a quiet moment does not invent a demand")
+	check(not quiet.is_empty(), "a quiet moment has a seed")
+	check(touch != quiet, "a liked touch colors a quiet moment")
+	var disliked := UTTER.line_seed({
+		"mood": "wanting", "last_touch": "smack", "touch_dislikes": ["smack"],
+	})
+	check(disliked != touch, "a disliked touch has its own seed")
+	var talk := UTTER.line_seed({
+		"mood": "wanting", "last_talk": "praise", "talk_likes": ["praise"],
+	})
+	check(talk != quiet, "liked talk has its own seed")
 
 	var line := UTTER.state_line("missionary", "wanting", "firm", "teasing", "caress", "praise", 18.0, 2)
 	check(line.contains("pose=missionary"), "state line pose")

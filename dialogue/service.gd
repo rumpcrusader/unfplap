@@ -8,6 +8,8 @@ const WORLD := preload("res://mods/unfplap/world/service.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 const PROMPTS := preload("res://mods/unfplap/dialogue/prompts.gd")
+const DEFAULTS_DATA := preload("res://mods/unfplap/shared/defaults_data.gd")
+const PROMPT_TEXT := preload("res://mods/unfplap/shared/prompt_text.gd")
 const UTTERANCE := preload("res://mods/unfplap/dialogue/utterance.gd")
 const UTTERANCE_SCHEDULER := preload("res://mods/unfplap/dialogue/utterance_scheduler.gd")
 const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
@@ -18,9 +20,6 @@ const HOUSE := preload("res://world/buildings/house_interior.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
 
 const RECENT_LINES := 8
-## The climax reaction's instruction. One short sentence in her own voice; silence is allowed.
-const CLIMAX_PROMPT := "You have just climaxed. Say one short sentence, at most 12 words, in " \
-	+ "your own voice. Begin with [surprised], [happy] or [calm]. Staying quiet is fine."
 
 ## The act values one prompt note carries; the session fills one instance per note.
 class ActValues extends RefCounted:
@@ -84,29 +83,12 @@ class Validity extends RefCounted:
 
 
 const ANGLES_REMEMBERED := 7
-const LINE_ANGLES := [
-	"say something about a thing you two talked about earlier.",
-	"tease him.",
-	"tell him exactly what you want next.",
-	"say his name, and little else.",
-	"mention where you are right now.",
-	"sound surprised at yourself.",
-	"say something tender, in the middle of all this.",
-	"let him see how much you trust him.",
-	"make a joke, in your usual voice.",
-	"complain playfully about something he is doing.",
-	"bring up how you feel about him lately.",
-	"say something only you would say, true to your personality.",
-]
 const SPEECH_ROUGHNESS := {"soft": 0.1, "firm": 0.5, "rough": 1.0}
 const SPEECH_FULL_PACE := 3.0
 const BYSTANDER_FIRST_S := 12.0
 const BYSTANDER_GAP_S := 20.0
 const BYSTANDER_CHANCE := 0.7
 const BYSTANDER_MAX := 3
-const BYSTANDER_PROMPT := "You can see Anon and %s having sex right in front of you, %s Say ONE short line in your own voice, at most 14 words, aloud to them or to yourself. Begin with [happy], [surprised] or [calm]. Ponies have much less shame about this than humans do, so react the way a pony would: amused, teasing, curious, nosy, a little flustered, or mildly put out, but never horrified, panicked or disgusted. Mention where they are doing it if that is what stands out. Do not join in, do not describe anatomy, and do not ask a question that needs an answer."
-const BYSTANDER_OUTDOORS := "out in the open where anypony could walk past."
-const BYSTANDER_INDOORS := "indoors, in a house you are also in."
 
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const STATE_IDLE := ACT_STATE.State.IDLE
@@ -271,8 +253,10 @@ func bystander_tick(delta: float) -> void:
 	var indoors := false
 	if is_instance_valid(facts.pony) and facts.pony.is_inside_tree():
 		indoors = HOUSE.at(facts.pony.get_tree(), facts.pony.global_position) != null
-	var purpose := BYSTANDER_PROMPT % [facts.display_name,
-		BYSTANDER_INDOORS if indoors else BYSTANDER_OUTDOORS]
+	var settings: Dictionary = DEFAULTS_DATA.prompts_block("act.bystander_setting")
+	var setting_key := "indoors" if indoors else "outdoors"
+	var purpose := PROMPT_TEXT.render(DEFAULTS_DATA.prompts_block("act.bystander"), {
+		"name": facts.display_name, "setting": str(settings.get(setting_key, ""))})
 	purpose += ACT_FACE.prompt_note("bystander")
 	if _bystander_line(str(row.id), event_id, purpose, valid):
 		_bystander_spoken.append(str(row.id))
@@ -348,10 +332,8 @@ func _queue_utterance(kind: String, prompt_key: String, key_suffix: String) -> S
 		return ""
 	if _director() == null:
 		return ""
-	var template := str(facts.act_prompts.get(prompt_key, ""))
-	if template.strip_edges().is_empty():
-		template = str(facts.act_prompts.get("utterance", ""))
-	if template.strip_edges().is_empty():
+	var prompt: Variant = _prompt_node(prompt_key)
+	if prompt == null:
 		LOG.debug("utterance missing prompt kind=%s", [kind])
 		return ""
 	var face_note := ""
@@ -394,12 +376,10 @@ func _queue_utterance(kind: String, prompt_key: String, key_suffix: String) -> S
 			facts.pony_id, facts.cue, facts.event_id, _used_memory_ids)
 		values["memory"] = RELATIONSHIP_CUE.memory_line(memory.text)
 		memory_id = memory.id
-	var purpose := UTTERANCE.format(template, values)
+	var purpose := PROMPT_TEXT.render(prompt, values)
 	if kind == "cue":
-		if not face_note.is_empty() and not template.contains("{face_note}") \
-				and not purpose.contains("[face"):
+		if not face_note.is_empty() and not purpose.contains("[face"):
 			purpose += face_note
-		purpose += UTTERANCE.context_note(template, values)
 		# integration: optional speech feel, independent of the always-on line angles.
 		if _feature("act_speech_feel", false):
 			purpose += _speech_feel_note()
@@ -504,7 +484,8 @@ func climax_line(mouth_busy: bool, cue: String, act_id: String, count: int, max_
 		if _now() <= expires:
 			return true
 		return MEMORY.instance.line_state(_climax_key) == MEMORY.LineState.SPEAKING)
-	_climax_key = reaction_line(MEMORY.Reaction.CLIMAX, climax_id, CLIMAX_PROMPT, valid)
+	var prompt := PROMPT_TEXT.render(DEFAULTS_DATA.prompts_block("act.climax"), {})
+	_climax_key = reaction_line(MEMORY.Reaction.CLIMAX, climax_id, prompt, valid)
 	if _climax_key.is_empty():
 		return ""
 	note_reaction(_climax_key, cue, _now() + max_age)
@@ -645,18 +626,35 @@ func _bystander_line(id: String, event_id: String, purpose: String,
 	return MEMORY.instance.line(request).queued
 
 
+## The provider or player override wins; otherwise the shipped prompt node for that id.
+func _prompt_node(key: String) -> Variant:
+	var override := str(facts.act_prompts.get(key, ""))
+	if override.strip_edges().is_empty():
+		override = str(facts.act_prompts.get("utterance", ""))
+	if not override.strip_edges().is_empty():
+		return override
+	var node: Dictionary = DEFAULTS_DATA.prompts_block("act." + key)
+	if node.is_empty():
+		node = DEFAULTS_DATA.prompts_block("act.utterance")
+	return node if not node.is_empty() else null
+
+
 ## integration: without a fresh angle she answers the same prompt the same way.
 func _line_variety() -> String:
-	var open: Array = LINE_ANGLES.filter(func(angle: String) -> bool:
+	var act: Dictionary = DEFAULTS_DATA.prompts_block("act")
+	var angles: Array = act.get("angles", []) if act.get("angles", []) is Array else []
+	if angles.is_empty():
+		return ""
+	var open: Array = angles.filter(func(angle: String) -> bool:
 		return not angle in _used_angles)
 	if open.is_empty():
 		_used_angles.clear()
-		open = LINE_ANGLES.duplicate()
+		open = angles.duplicate()
 	var angle: String = open.pick_random()
 	_used_angles.append(angle)
 	if _used_angles.size() > ANGLES_REMEMBERED:
 		_used_angles.remove_at(0)
-	return " This time, %s Use something from today if it fits." % angle
+	return " " + PROMPT_TEXT.render(angle, {})
 
 
 ## integration: tells the line how the current strokes break up her speech.
@@ -666,16 +664,21 @@ func _speech_feel_note() -> String:
 	var pace := maxf(float(facts.thrust_pace), 0.0)
 	var level := 0.5 * float(SPEECH_ROUGHNESS.get(facts.last_intensity, 0.5)) \
 		+ 0.5 * clampf(pace / SPEECH_FULL_PACE, 0.0, 1.0)
-	var frequency := "Put one after almost every word or two, so your speech keeps breaking apart."
+	var band := "heavy"
 	if level < 0.25:
-		frequency = "Use only one, quiet and breathy."
+		band = "sparse"
 	elif level < 0.5:
-		frequency = "Use one or two."
+		band = "light"
 	elif level < 0.75:
-		frequency = "Put one after every few words."
-	return " Right now Anon's strokes are %s and %s, about %.1f a second. Break up your speech with exclamations between words, such as \"Ah!\", \"Hah!\", \"FUCK!\", \"Ah...\", \"Buck...\", \"Nngh...\" and similar ones in your own voice. %s They do not count toward your word limit." % [
-		facts.last_intensity, facts.last_pattern if not facts.last_pattern.is_empty() else "steady",
-		pace, frequency]
+		band = "steady"
+	var bands: Dictionary = DEFAULTS_DATA.prompts_block("act.speech_feel_frequency")
+	var text := PROMPT_TEXT.render(DEFAULTS_DATA.prompts_block("act.speech_feel"), {
+		"intensity": facts.last_intensity,
+		"pattern": facts.last_pattern if not facts.last_pattern.is_empty() else "steady",
+		"pace": "%.1f" % pace,
+		"frequency": str(bands.get(band, "")),
+	})
+	return "" if text.is_empty() else " " + text
 
 
 ## The debug name for a typed line state. The enum stays the only comparison in the code.

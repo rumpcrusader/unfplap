@@ -321,10 +321,12 @@ ponies are around. The heat line is appended only in heat and is empty otherwise
 | shared | clearance | `shared/clearance.gd` | the Base clearance result |
 | shared | context | `shared/context.gd` | typed Context for the reasoning |
 | shared | cycle | `shared/cycle.gd` | estrus cycle |
+| shared | defaults_data | `shared/defaults_data.gd` | the shipped prompt document |
 | shared | log | `shared/log.gd` | log sink |
 | shared | pony_id | `shared/pony_id.gd` | stable pony id |
 | shared | pose_catalog | `shared/pose_catalog.gd` | pose ids and defaults |
 | shared | pose_options | `shared/pose_options.gd` | the placement and option list |
+| shared | prompt_text | `shared/prompt_text.gd` | the prompt renderer |
 | store | act_history | `shared/act_history.gd` | stored history rows and the offer cooldown |
 | service | ponies | `ponies/service.gd` | the runtime of each scanned mare |
 | service | world | `world/game.gd` | navigators, posture and the bed rest |

@@ -1,83 +1,104 @@
 extends RefCounted
-## Wording for a proactive ask: context, purpose, situation and heat lines.
+## Wording for a proactive ask: the `ask` prompts say the words; this file picks the pose, the
+## privacy branch and the heat line.
 ## Notes arrive as strings, so this file reads no Settings, scene or game state.
 
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
+const DEFAULTS_DATA := preload("res://mods/unfplap/shared/defaults_data.gd")
 const FACTS := preload("res://mods/unfplap/initiation/facts.gd")
 const POLICY := preload("res://mods/unfplap/initiation/policy.gd")
+const PROMPT_TEXT := preload("res://mods/unfplap/shared/prompt_text.gd")
 
 
 ## The observed-situation prompt that opens the ask.
 static func ask_context(request: FACTS.Request) -> String:
-	var text := "[Observed situation, not player speech] "
-	if request.cuddle:
-		text += "You are cuddling with Anon and want more. You have decided to invite him to have sex in the bed. "
-	elif request.pose == CATALOG.MISSIONARY:
-		text += "You want Anon in bed with you. You have decided to invite him to come to bed and have sex. "
-	else:
-		text += "You want Anon to take you from behind. You have decided to ask him to come and have sex with you. "
-	if not request.relation_note.is_empty():
-		text += request.relation_note + " "
-	if not _free(request):
-		text += "Other ponies are around. Ask indirectly, with an in-character euphemism or hint; do not say it plainly. Phrase it as a question to him. "
-	elif request.pose == CATALOG.STANDING:
-		text += "You are alone together. Ask clearly enough that he can answer, in your own voice, and in the way that fits you and this relationship; do not sound like a script or a demand. Phrase it as a direct question ending with a question mark. "
-	elif request.pose == CATALOG.MISSIONARY:
-		text += "You are alone together. Ask him to come to bed with you, in your own voice, clearly enough that he can answer; do not sound like a script or a demand. Phrase it as a direct question ending with a question mark. "
-	else:
-		text += "You are alone together. You may ask directly or hint, whichever fits you and this relationship; make it clear enough that he can answer. Phrase it as a question to him. "
-	text += "Say one or two short sentences in your own voice. Let it sound like you want him, not just the act. Do not describe your body or narrate actions, and do not use action tags."
-	text += heat_line(request.heat)
-	if not request.history_note.is_empty():
-		text += " " + request.history_note
-	return text
+	return _build("ask.context", _context_opening(request), _context_mode(request), request)
 
 
 ## The generated-intent purpose for the ask line.
 static func ask_purpose(request: FACTS.Request) -> String:
-	var text := "You have decided to ask Anon for sex."
-	if request.cuddle:
-		text = "You are cuddling with Anon and have decided to invite him to have sex in the bed."
-	elif request.pose == CATALOG.MISSIONARY:
-		text = "You want Anon in bed with you and have decided to invite him to come to bed for sex."
-	elif request.pose == CATALOG.STANDING:
-		text = "You want Anon to take you from behind and have decided to ask him for sex."
-	if not request.relation_note.is_empty():
-		text += " " + request.relation_note
-	if not _free(request):
-		text += " Other ponies are around, so hint indirectly and do not say it plainly; phrase it as a question."
-	elif request.pose == CATALOG.STANDING:
-		text += " You are alone together. Ask clearly enough that he can answer, in your own voice, in the way that fits you and this relationship; do not sound like a script or a demand. You are asking him a question."
-	elif request.pose == CATALOG.MISSIONARY:
-		text += " You are alone together. Ask him to come to bed with you, clearly enough that he can answer, in your own voice; do not sound like a script or a demand. You are asking him a question."
-	else:
-		text += " You may ask directly or hint, in your own voice, in the way that fits you and this relationship; make it clear enough that he can answer. Phrase it as a question."
-	text += " Say one or two short sentences. Let it sound like you want him, not just the act. Begin with [calm], [happy] or [whispering]. Do not narrate actions. End with a question mark."
-	text += heat_line(request.heat)
-	if not request.history_note.is_empty():
-		text += " " + request.history_note
-	return text
+	return _build("ask.purpose", _purpose_opening(request), _purpose_mode(request), request)
 
 
 ## World-context text: she has decided to ask.
 static func situation_ask(request: FACTS.Request) -> String:
-	var text := "You are with Anon and have decided to ask him for sex."
-	if request.cuddle:
-		text = "You are cuddling with Anon and have decided to invite him to have sex in the bed."
-	elif request.pose == CATALOG.MISSIONARY:
-		text = "You want Anon in bed with you and have decided to invite him to come to bed for sex."
-	elif request.pose == CATALOG.STANDING:
-		text = "You want Anon to take you from behind and have decided to ask him for sex."
-	if not request.private:
-		text += " Other ponies are around, so you can only hint at it."
-	return text
+	return PROMPT_TEXT.render(DEFAULTS_DATA.prompts_block("ask.situation"), {
+		"opening": _situation_opening(request),
+		"crowd": "" if request.private else _variant("ask", "crowd"),
+	})
 
 
 ## The heat sentence appended to both ask forms. Empty outside heat.
 static func heat_line(heat: bool) -> String:
-	if heat:
-		return " You are in heat, and you want him; let the urgency show without turning it into a demand."
-	return ""
+	return _variant("ask", "heat") if heat else ""
+
+
+## One ask composite: the branch opening and mode, with the notes and the heat line.
+static func _build(id: String, opening: String, mode: String,
+		request: FACTS.Request) -> String:
+	return PROMPT_TEXT.render(DEFAULTS_DATA.prompts_block(id), {
+		"opening": opening,
+		"relation": request.relation_note,
+		"mode": mode,
+		"heat": heat_line(request.heat),
+		"history": request.history_note,
+	})
+
+
+static func _context_opening(request: FACTS.Request) -> String:
+	var key := "context_standing"
+	if request.cuddle:
+		key = "context_cuddle"
+	elif request.pose == CATALOG.MISSIONARY:
+		key = "context_bed"
+	return _variant("ask.openings", key)
+
+
+static func _purpose_opening(request: FACTS.Request) -> String:
+	var key := "purpose_default"
+	if request.cuddle:
+		key = "purpose_cuddle"
+	elif request.pose == CATALOG.MISSIONARY:
+		key = "purpose_bed"
+	elif request.pose == CATALOG.STANDING:
+		key = "purpose_standing"
+	return _variant("ask.openings", key)
+
+
+static func _situation_opening(request: FACTS.Request) -> String:
+	var key := "situation_default"
+	if request.cuddle:
+		key = "situation_cuddle"
+	elif request.pose == CATALOG.MISSIONARY:
+		key = "situation_bed"
+	elif request.pose == CATALOG.STANDING:
+		key = "situation_standing"
+	return _variant("ask.openings", key)
+
+
+static func _context_mode(request: FACTS.Request) -> String:
+	if not _free(request):
+		return _variant("ask.modes", "context_public")
+	if request.pose == CATALOG.STANDING:
+		return _variant("ask.modes", "context_free_standing")
+	if request.pose == CATALOG.MISSIONARY:
+		return _variant("ask.modes", "context_free_bed")
+	return _variant("ask.modes", "context_free")
+
+
+static func _purpose_mode(request: FACTS.Request) -> String:
+	if not _free(request):
+		return _variant("ask.modes", "purpose_public")
+	if request.pose == CATALOG.STANDING:
+		return _variant("ask.modes", "purpose_free_standing")
+	if request.pose == CATALOG.MISSIONARY:
+		return _variant("ask.modes", "purpose_free_bed")
+	return _variant("ask.modes", "purpose_free")
+
+
+static func _variant(group: String, key: String) -> String:
+	var rows: Dictionary = DEFAULTS_DATA.prompts_block(group)
+	return PROMPT_TEXT.render(str(rows.get(key, "")), {})
 
 
 ## The single free/indirect decision. Every builder above branches on this once.

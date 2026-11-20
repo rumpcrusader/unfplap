@@ -45,8 +45,8 @@ func run() -> void:
 	check(CYCLE.allows_sex(CYCLE.NORMAL), "normal allows sex")
 	check(not CYCLE.allows_sex(CYCLE.DIESTRUS), "diestrus blocks sex")
 
-	check(CYCLE.prompt_note(CYCLE.HEAT).contains("heat"), "heat has a prompt note")
-	check(CYCLE.prompt_note(CYCLE.DIESTRUS).contains("turned off"),
+	check(not CYCLE.prompt_note(CYCLE.HEAT).is_empty(), "heat has a prompt note")
+	check(not CYCLE.prompt_note(CYCLE.DIESTRUS).is_empty(),
 		"diestrus has a prompt note")
 	check(CYCLE.prompt_note(CYCLE.NORMAL).is_empty(), "normal has no prompt note")
 

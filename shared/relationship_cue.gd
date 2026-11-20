@@ -2,6 +2,10 @@ extends RefCounted
 ## Pure relationship/tone formatting for the cue prompt. The runtime gathers the live facts;
 ## this module only turns them into private, non-numeric guidance and owns the peak-memory gate.
 
+const DEFAULTS_DATA := preload("res://mods/unfplap/shared/defaults_data.gd")
+const PROMPT_TEXT := preload("res://mods/unfplap/shared/prompt_text.gd")
+
+
 static func note(facts: Dictionary) -> String:
 	if facts.is_empty():
 		return ""
@@ -31,20 +35,8 @@ static func note(facts: Dictionary) -> String:
 
 ## A human stage phrase. The raw bond id is never sent to the model.
 static func _stage_phrase(stage: String) -> String:
-	match stage:
-		"acquaintance":
-			return "you barely know each other"
-		"friend":
-			return "you are friends"
-		"close_friend":
-			return "you are close friends"
-		"dating":
-			return "you are dating"
-		"engaged":
-			return "you are engaged"
-		"married":
-			return "you are married"
-	return ""
+	var rows: Dictionary = DEFAULTS_DATA.prompts_block("relationship.stages")
+	return PROMPT_TEXT.render(str(rows.get(stage, "")), {})
 
 
 ## Relationship depth chooses how openly warm the line can be. A strained moment overrides
@@ -74,23 +66,8 @@ static func tone(facts: Dictionary) -> String:
 
 
 static func tone_line(tone_name: String) -> String:
-	match tone_name:
-		"guarded":
-			return "Guarded: you do not know him well; keep some distance."
-		"friendly":
-			return "Friendly: you are friends, not lovers; keep the affection easy."
-		"tender":
-			return "Tender: this is new or uncertain; be careful with the warmth."
-		"warm":
-			return "Warm: you are together; let the fondness show."
-		"ardent":
-			return "Ardent: you are deeply in love; let your want show."
-		"open":
-			return "Open: you are settled and bonded; speak with easy intimacy."
-		"careful":
-			return "Careful: there is a little hurt; keep the warmth tentative."
-		_:
-			return "Warm: let the fondness show."
+	var rows: Dictionary = DEFAULTS_DATA.prompts_block("relationship.tones")
+	return PROMPT_TEXT.render(str(rows.get(tone_name, rows.get("default", ""))), {})
 
 
 static func memory_line(text: String) -> String:
@@ -99,7 +76,8 @@ static func memory_line(text: String) -> String:
 		return ""
 	if cleaned.length() > 180:
 		cleaned = cleaned.left(177).strip_edges() + "..."
-	return "A shared memory you may let colour the line: " + cleaned
+	return PROMPT_TEXT.render(DEFAULTS_DATA.prompts_block("relationship.memory"),
+		{"text": cleaned})
 
 
 ## A peak act is clean and either very high or technically excellent. The player's climax alone

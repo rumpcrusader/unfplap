@@ -471,9 +471,11 @@ overlay reads them.
 | shared | act_state | `shared/act_state.gd` | act state constants |
 | shared | body_change_policy | `shared/body_change_policy.gd` | provider offer/reveal policy base |
 | shared | body_profile | `shared/body_profile.gd` | rig profiles for the borrowed forms |
+| shared | defaults_data | `shared/defaults_data.gd` | the shipped prompt document |
 | shared | integrations | `shared/integrations.gd` | verified mod catalog |
 | shared | log | `shared/log.gd` | log sink |
 | shared | perf | `shared/perf.gd` | one profiler |
+| shared | prompt_text | `shared/prompt_text.gd` | the prompt renderer |
 | shared | settings_change | `shared/settings_change.gd` | the settings change notification |
 | service | ponies | `ponies/service.gd` | the live character list and the late prepare |
 

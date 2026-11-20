@@ -1,6 +1,8 @@
 extends RefCounted
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
+const DEFAULTS_DATA := preload("res://mods/unfplap/shared/defaults_data.gd")
+const PROMPT_TEXT := preload("res://mods/unfplap/shared/prompt_text.gd")
 ## Durable per-mare act history. Pure policy plus one `Mods.state("unfplap").act_history`
 ## dictionary; no scene access.
 
@@ -338,66 +340,42 @@ static func private_text(row: Dictionary) -> String:
 
 static func prompt_note(row: Dictionary) -> String:
 	if Time.get_unix_time_from_system() < float(row.get("stop_until", 0.0)):
-		return "- You stopped Anon and need a little space. You are not ready to try again yet."
+		return _note("tiers", "stop", "")
 	var tier := tier_index(row)
 	if tier <= 0:
 		return ""
 	var text := private_text(row)
 	if tier >= 3:
-		var note := "- You love Anon, but you are very reluctant to try again."
-		if not text.is_empty():
-			note += " Privately, you remember: " + text
-			note += " Do not recite it or list what he did."
-		return note + " If he asks, refuse gently and let the feeling show without explaining it all."
+		return _note("tiers", "withdrawn", text)
 	if tier == 2:
-		var note := "- You are still hurt about the last time."
-		if not text.is_empty():
-			note += " Privately, you remember: " + text
-			note += " Do not recite it or list what he did."
-		return note + " You do not want to ask him again; if he starts, let the hurt show in your " \
-			+ "tone and give him only a small piece of it, not a review."
+		return _note("tiers", "hurt", text)
 	if not tier_one_hint(row):
 		return ""
-	return "- Something about last time is still sitting with you. You are not ready to spell it out."
+	return _note("tiers", "hint", "")
 
 
 static func ask_note(row: Dictionary) -> String:
 	if tier_index(row) <= 0:
 		return ""
-	var text := private_text(row)
-	var note := "You still feel a little hurt from last time."
-	if not text.is_empty():
-		note += " Privately, you remember: " + text
-		note += " Do not recite it."
-	return note + " If you ask, keep it soft and indirect; do not turn it into a list of what he " \
-		+ "did wrong."
+	return _note("lines", "ask", private_text(row))
 
 
 static func line_purpose(row: Dictionary, kind: String) -> String:
 	if kind != "complaint":
-		return "Anon is close. Something about last time is still sitting with you. Say one " \
-			+ "short, in-character line that hints at it; do not summarize the act or list " \
-			+ "requests. One short sentence, at most 14 words. Do not narrate actions."
-	var text := private_text(row)
-	var note := "You are still hurt about the last time with Anon."
-	if not text.is_empty():
-		note += " Privately, you remember: " + text
-	return note + " Say one short line in your own voice that hints at the hurt without naming " \
-		+ "what he did or listing what you need. At most 14 words. Do not narrate actions."
+		return _note("lines", "reminder", "")
+	return _note("lines", "complaint", private_text(row))
 
 
 static func refusal_purpose(row: Dictionary) -> String:
 	if Time.get_unix_time_from_system() < float(row.get("stop_until", 0.0)):
-		return "Anon wants to try again. You stopped him and are not ready to try again yet. " \
-			+ "Refuse gently in your own voice, one short sentence, at most 14 words. " \
-			+ "Do not narrate actions."
-	var text := private_text(row)
-	var note := "Anon wants to try again. You love him, but you are very reluctant."
-	if not text.is_empty():
-		note += " Privately, you remember: " + text
-		note += " Do not recite it or list what he did."
-	return note + " Refuse gently in your own voice. One short sentence, at most 14 words. " \
-		+ "Do not narrate actions."
+		return _note("lines", "refusal_stop", "")
+	return _note("lines", "refusal", private_text(row))
+
+
+## One history prompt, with the private remembered text as its only value.
+static func _note(group: String, key: String, text: String) -> String:
+	var rows: Dictionary = DEFAULTS_DATA.prompts_block("history." + group)
+	return PROMPT_TEXT.render(rows.get(key, ""), {"text": text})
 
 
 static func mark_announced(section: Dictionary, id: String, kind: String) -> bool:

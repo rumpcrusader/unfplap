@@ -111,5 +111,122 @@
 			"steady": "Put one after every few words.",
 			"heavy": "Put one after almost every word or two, so your speech keeps breaking apart."
 		}
+	},
+	"ask": {
+		"context": {
+			"slots": ["opening", "relation", "mode", "heat", "history"],
+			"template": "{opening} {relation} {mode} {closing} {heat} {history}",
+			"closing": "Say one or two short sentences in your own voice. Let it sound like you want him, not just the act. Do not describe your body or narrate actions, and do not use action tags."
+		},
+		"purpose": {
+			"slots": ["opening", "relation", "mode", "heat", "history"],
+			"template": "{opening} {relation} {mode} {closing} {heat} {history}",
+			"closing": "Say one or two short sentences. Let it sound like you want him, not just the act. Begin with [calm], [happy] or [whispering]. Do not narrate actions. End with a question mark."
+		},
+		"situation": {
+			"slots": ["opening", "crowd"],
+			"template": "{opening} {crowd}"
+		},
+		"openings": {
+			"context_cuddle": "You are cuddling with Anon and want more. You have decided to invite him to have sex in the bed.",
+			"context_bed": "You want Anon in bed with you. You have decided to invite him to come to bed and have sex.",
+			"context_standing": "You want Anon to take you from behind. You have decided to ask him to come and have sex with you.",
+			"purpose_default": "You have decided to ask Anon for sex.",
+			"purpose_cuddle": "You are cuddling with Anon and have decided to invite him to have sex in the bed.",
+			"purpose_bed": "You want Anon in bed with you and have decided to invite him to come to bed for sex.",
+			"purpose_standing": "You want Anon to take you from behind and have decided to ask him for sex.",
+			"situation_default": "You are with Anon and have decided to ask him for sex.",
+			"situation_cuddle": "You are cuddling with Anon and have decided to invite him to have sex in the bed.",
+			"situation_bed": "You want Anon in bed with you and have decided to invite him to come to bed for sex.",
+			"situation_standing": "You want Anon to take you from behind and have decided to ask him for sex."
+		},
+		"modes": {
+			"context_public": "Other ponies are around. Ask indirectly, with an in-character euphemism or hint; do not say it plainly. Phrase it as a question to him.",
+			"context_free": "You are alone together. You may ask directly or hint, whichever fits you and this relationship; make it clear enough that he can answer. Phrase it as a question to him.",
+			"context_free_bed": "You are alone together. Ask him to come to bed with you, in your own voice, clearly enough that he can answer; do not sound like a script or a demand. Phrase it as a direct question ending with a question mark.",
+			"context_free_standing": "You are alone together. Ask clearly enough that he can answer, in your own voice, and in the way that fits you and this relationship; do not sound like a script or a demand. Phrase it as a direct question ending with a question mark.",
+			"purpose_public": "Other ponies are around, so hint indirectly and do not say it plainly; phrase it as a question.",
+			"purpose_free": "You may ask directly or hint, in your own voice, in the way that fits you and this relationship; make it clear enough that he can answer. Phrase it as a question.",
+			"purpose_free_bed": "You are alone together. Ask him to come to bed with you, clearly enough that he can answer, in your own voice; do not sound like a script or a demand. You are asking him a question.",
+			"purpose_free_standing": "You are alone together. Ask clearly enough that he can answer, in your own voice, in the way that fits you and this relationship; do not sound like a script or a demand. You are asking him a question."
+		},
+		"heat": "You are in heat, and you want him; let the urgency show without turning it into a demand.",
+		"crowd": "Other ponies are around, so you can only hint at it."
+	},
+	"history": {
+		"tiers": {
+			"stop": "- You stopped Anon and need a little space. You are not ready to try again yet.",
+			"withdrawn": {
+				"slots": ["text"],
+				"template": "- You love Anon, but you are very reluctant to try again. {remember} If he asks, refuse gently and let the feeling show without explaining it all.",
+				"remember": "Privately, you remember: {text} Do not recite it or list what he did."
+			},
+			"hurt": {
+				"slots": ["text"],
+				"template": "- You are still hurt about the last time. {remember} You do not want to ask him again; if he starts, let the hurt show in your tone and give him only a small piece of it, not a review.",
+				"remember": "Privately, you remember: {text} Do not recite it or list what he did."
+			},
+			"hint": "- Something about last time is still sitting with you. You are not ready to spell it out."
+		},
+		"lines": {
+			"reminder": "Anon is close. Something about last time is still sitting with you. Say one short, in-character line that hints at it; do not summarize the act or list requests. One short sentence, at most 14 words. Do not narrate actions.",
+			"complaint": {
+				"slots": ["text"],
+				"template": "You are still hurt about the last time with Anon. {remember} Say one short line in your own voice that hints at the hurt without naming what he did or listing what you need. At most 14 words. Do not narrate actions.",
+				"remember": "Privately, you remember: {text}"
+			},
+			"ask": {
+				"slots": ["text"],
+				"template": "You still feel a little hurt from last time. {remember} If you ask, keep it soft and indirect; do not turn it into a list of what he did wrong.",
+				"remember": "Privately, you remember: {text} Do not recite it."
+			},
+			"refusal_stop": "Anon wants to try again. You stopped him and are not ready to try again yet. Refuse gently in your own voice, one short sentence, at most 14 words. Do not narrate actions.",
+			"refusal": {
+				"slots": ["text"],
+				"template": "Anon wants to try again. You love him, but you are very reluctant. {remember} Refuse gently in your own voice. One short sentence, at most 14 words. Do not narrate actions.",
+				"remember": "Privately, you remember: {text} Do not recite it or list what he did."
+			}
+		}
+	},
+	"relationship": {
+		"stages": {
+			"acquaintance": "you barely know each other",
+			"friend": "you are friends",
+			"close_friend": "you are close friends",
+			"dating": "you are dating",
+			"engaged": "you are engaged",
+			"married": "you are married"
+		},
+		"tones": {
+			"guarded": "Guarded: you do not know him well; keep some distance.",
+			"friendly": "Friendly: you are friends, not lovers; keep the affection easy.",
+			"tender": "Tender: this is new or uncertain; be careful with the warmth.",
+			"warm": "Warm: you are together; let the fondness show.",
+			"ardent": "Ardent: you are deeply in love; let your want show.",
+			"open": "Open: you are settled and bonded; speak with easy intimacy.",
+			"careful": "Careful: there is a little hurt; keep the warmth tentative.",
+			"default": "Warm: let the fondness show."
+		},
+		"memory": {
+			"slots": ["text"],
+			"template": "A shared memory you may let colour the line: {text}"
+		}
+	},
+	"cycle": {
+		"heat": "- You are in heat this week. You are restless and warm, it is hard to think about much else, and you want Anon more than usual. Let it colour how you behave around him.",
+		"diestrus": "- Your heat has just ended and you are completely turned off for a couple of days. You feel irritable and touchy, and you turn down anything sexual, though you are still fond of Anon."
+	},
+	"beats": {
+		"great": ["You are warm and quiet.", "You feel close to him.",
+			"You are sleepy and comfortable.", "You are a little pleased with yourself."],
+		"good": ["You are warm and quiet.", "You feel close to him.",
+			"You are sleepy and comfortable.", "You are a little pleased with yourself."],
+		"neutral": ["You are still catching your breath.", "You are quiet, not sure what to say.",
+			"You are comfortable but thoughtful."],
+		"bad": ["You are quiet and a little raw.", "You need a moment before you talk.",
+			"You are hurt but not ready to explain."]
+	},
+	"body_change": {
+		"offer": "Offer him a gift: for the rest of this, you will wear any adult mare's shape he names. Say it in one short line, at most 24 words, in your own voice, as a proud indulgence rather than a plea. Do not explain how it works and do not list names."
 	}
 }

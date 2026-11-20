@@ -7,18 +7,6 @@ const DEFAULTS_DATA := preload("res://mods/unfplap/shared/defaults_data.gd")
 const PROMPT_TEXT := preload("res://mods/unfplap/shared/prompt_text.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 
-## Afterglow mood beats for the model, often silent: never a review or a request list.
-const AFTERGLOW_BEATS := {
-	"great": ["You are warm and quiet.", "You feel close to him.",
-		"You are sleepy and comfortable.", "You are a little pleased with yourself."],
-	"good": ["You are warm and quiet.", "You feel close to him.",
-		"You are sleepy and comfortable.", "You are a little pleased with yourself."],
-	"neutral": ["You are still catching your breath.", "You are quiet, not sure what to say.",
-		"You are comfortable but thoughtful."],
-	"bad": ["You are quiet and a little raw.", "You need a moment before you talk.",
-		"You are hurt but not ready to explain."],
-}
-
 ## The live setting behind each rule key, declared once so `rules()` needs no path strings.
 static var _RULES := {
 	"bad_max": SETTINGS.bad_max,
@@ -224,7 +212,8 @@ static func afterglow_beat(summary: Dictionary, roll: float) -> String:
 	if summary.is_empty() or roll < 0.4:
 		return ""
 	var grade := str(summary.get("grade", "neutral"))
-	var pool: Variant = AFTERGLOW_BEATS.get(grade, AFTERGLOW_BEATS["neutral"])
+	var pools: Dictionary = DEFAULTS_DATA.prompts_block("beats")
+	var pool: Variant = pools.get(grade, pools.get("neutral", []))
 	if not pool is Array or (pool as Array).is_empty():
 		return ""
 	var beats: Array = pool

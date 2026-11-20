@@ -3,9 +3,9 @@ extends "res://mods/unfplap/shared/body_change_policy.gd"
 ## timing, so the generic milestone hook stays a no-op.
 
 const POLICY := preload("res://mods/unfplap/shared/body_change_policy.gd")
+const DEFAULTS_DATA := preload("res://mods/unfplap/shared/defaults_data.gd")
+const PROMPT_TEXT := preload("res://mods/unfplap/shared/prompt_text.gd")
 
-## The one offer prompt, in her own voice. It names no mechanism and no shape.
-const OFFER_PROMPT := "Offer him a gift: for the rest of this, you will wear any adult mare's shape he names. Say it in one short line, at most 24 words, in your own voice, as a proud indulgence rather than a plea. Do not explain how it works and do not list names."
 ## The player-requested reveal's one exceptional beat: a readiness spike, a peak, a cue and the
 ## memory mark. The summary's own `form_reveal` input carries the comfort. A named shape is neutral.
 const REVEAL_HEAT := 30.0
@@ -23,8 +23,10 @@ func should_offer(context: POLICY.BodyChangeActContext) -> bool:
 		and not context.offer_pending and not context.reveal_used
 
 
+## The one offer prompt, in her own voice. It names no mechanism and no shape.
 func offer_prompt() -> String:
-	return OFFER_PROMPT
+	var rows: Dictionary = DEFAULTS_DATA.prompts_block("body_change")
+	return PROMPT_TEXT.render(rows.get("offer", ""), {})
 
 
 ## Naming a shape applies nothing.

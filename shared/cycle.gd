@@ -3,6 +3,9 @@ extends RefCounted
 ## a week of heat, then two days turned off. Her id sets where she is in it, so ponies are not all
 ## in step and each keeps the same dates. The phase is derived, never saved.
 
+const DEFAULTS_DATA := preload("res://mods/unfplap/shared/defaults_data.gd")
+const PROMPT_TEXT := preload("res://mods/unfplap/shared/prompt_text.gd")
+
 const HEAT := "heat"
 const DIESTRUS := "diestrus"
 const NORMAL := "normal"
@@ -63,12 +66,10 @@ static func wink_burst_count(roll: float) -> int:
 
 ## Private note for the normal dialogue prompt. Empty in normal.
 static func prompt_note(phase_name: String) -> String:
-	match phase_name:
-		HEAT:
-			return "- You are in heat this week. You are restless and warm, it is hard to think about much else, and you want Anon more than usual. Let it colour how you behave around him."
-		DIESTRUS:
-			return "- Your heat has just ended and you are completely turned off for a couple of days. You feel irritable and touchy, and you turn down anything sexual, though you are still fond of Anon."
-	return ""
+	if phase_name != HEAT and phase_name != DIESTRUS:
+		return ""
+	var rows: Dictionary = DEFAULTS_DATA.prompts_block("cycle")
+	return PROMPT_TEXT.render(str(rows.get(phase_name, "")), {})
 
 
 ## The debug override in force for one pony, or "" when the automatic cycle owns the phase.

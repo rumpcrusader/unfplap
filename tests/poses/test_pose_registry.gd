@@ -95,7 +95,7 @@ func _check_catalog() -> void:
 		"CATALOG.every() carries the three internal poses")
 	var public_ids: Array = CATALOG.all().duplicate()
 	public_ids.sort()
-	var blocks: Array = DEFAULTS.block("default.poses").keys()
+	var blocks: Array = DEFAULTS.characters_block("default.poses").keys()
 	blocks.sort()
 	check(blocks == public_ids, "every default.poses block is a public spec")
 	var keys: Array = CATALOG.POSE_KEYS.keys()

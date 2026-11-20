@@ -17,7 +17,7 @@ const TOLERANCES := ["forgiving", "normal", "strict"]
 ## Her teat size: `auto` keeps whatever size her own body or name gave her.
 const TEAT_SIZES := ["auto", "small", "medium", "large", "huge"]
 const TEAT_SIZE_VALUES := {"small": 0.0, "medium": 0.5, "large": 1.0, "huge": 1.4}
-## The profile fields, in display order. The shipped values live in the defaults document.
+## The profile fields, in display order. The shipped values live in the characters document.
 ## `teat_size` has no row there and resolves to `auto`.
 const KEYS := ["intensity", "pattern", "touch", "dislikes", "talk", "warmth", "tolerance", "notes",
 	"teat_size"]
@@ -38,7 +38,7 @@ const QUICK_DURATION := 0.30
 
 
 static func defaults() -> Dictionary:
-	return DEFAULTS_DATA.block("default.preferences")
+	return DEFAULTS_DATA.characters_block("default.preferences")
 
 
 ## Merge an arbitrary preferences block with the defaults and validate it. Unknown values fall back

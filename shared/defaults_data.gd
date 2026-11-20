@@ -1,41 +1,41 @@
 extends RefCounted
-## The shipped settings data, read once per process: `defaults.json` holds the declared settings and
-## the global profile, `catalogs.json` holds provider-overridable content that never reaches the
-## player file. Preloading nothing keeps the pure modules free of an import cycle.
+## The shipped data, read once per process: `settings.json` holds the declared settings, the
+## characters document holds the global profile, the per-mare templates and the placement rows, and
+## neither reaches the player file. Preloading nothing keeps the pure modules free of a cycle.
 
-const DEFAULTS_FILE := "res://mods/unfplap/settings/defaults.json"
-const CATALOG_FILE := "res://mods/unfplap/settings/catalogs.json"
+const SETTINGS_FILE := "res://mods/unfplap/settings/settings.json"
+const CHARACTERS_FILE := "res://mods/unfplap/settings/characters.json"
 const PROMPTS_FILE := "res://mods/unfplap/settings/prompts.json"
 
 static var _document_cache: Dictionary = {}
 static var _document_loaded := false
 static var _document_error := ""
-static var _catalog_cache: Dictionary = {}
-static var _catalog_loaded := false
-static var _catalog_error := ""
+static var _characters_cache: Dictionary = {}
+static var _characters_loaded := false
+static var _characters_error := ""
 static var _prompts_cache: Dictionary = {}
 static var _prompts_loaded := false
 static var _prompts_error := ""
 
 
-## The parsed defaults document, or `{}` when the file is missing or malformed. `error()` says why.
+## The parsed settings document, or `{}` when the file is missing or malformed. `error()` says why.
 static func document() -> Dictionary:
 	if not _document_loaded:
 		_document_loaded = true
-		var loaded := _parse(DEFAULTS_FILE)
+		var loaded := _parse(SETTINGS_FILE)
 		_document_cache = loaded["data"]
 		_document_error = loaded["error"]
 	return _document_cache
 
 
-## The parsed catalog document, or `{}` when the file is missing or malformed.
-static func catalog() -> Dictionary:
-	if not _catalog_loaded:
-		_catalog_loaded = true
-		var loaded := _parse(CATALOG_FILE)
-		_catalog_cache = loaded["data"]
-		_catalog_error = loaded["error"]
-	return _catalog_cache
+## The parsed characters document, or `{}` when the file is missing or malformed.
+static func characters() -> Dictionary:
+	if not _characters_loaded:
+		_characters_loaded = true
+		var loaded := _parse(CHARACTERS_FILE)
+		_characters_cache = loaded["data"]
+		_characters_error = loaded["error"]
+	return _characters_cache
 
 
 ## The parsed prompts document, or `{}` when the file is missing or malformed.
@@ -48,16 +48,16 @@ static func prompts() -> Dictionary:
 	return _prompts_cache
 
 
-## True when the shipped defaults document parsed as a JSON object.
+## True when the shipped settings document parsed as a JSON object.
 static func valid() -> bool:
 	document()
 	return _document_error.is_empty()
 
 
-## True when the shipped catalog document parsed as a JSON object.
-static func catalog_valid() -> bool:
-	catalog()
-	return _catalog_error.is_empty()
+## True when the shipped characters document parsed as a JSON object.
+static func characters_valid() -> bool:
+	characters()
+	return _characters_error.is_empty()
 
 
 ## True when the shipped prompts document parsed as a JSON object.
@@ -66,16 +66,16 @@ static func prompts_valid() -> bool:
 	return _prompts_error.is_empty()
 
 
-## The first problem with the shipped defaults document, or "" when it is valid.
+## The first problem with the shipped settings document, or "" when it is valid.
 static func error() -> String:
 	document()
 	return _document_error
 
 
-## The first problem with the shipped catalog document, or "" when it is valid.
-static func catalog_error() -> String:
-	catalog()
-	return _catalog_error
+## The first problem with the shipped characters document, or "" when it is valid.
+static func characters_error() -> String:
+	characters()
+	return _characters_error
 
 
 ## The first problem with the shipped prompts document, or "" when it is valid.
@@ -84,15 +84,15 @@ static func prompts_error() -> String:
 	return _prompts_error
 
 
-## A detached nested block of the defaults document under a dotted prefix, or `{}` when the prefix
+## A detached nested block of the settings document under a dotted prefix, or `{}` when the prefix
 ## is absent or not a dictionary.
-static func block(prefix: String) -> Dictionary:
+static func settings_block(prefix: String) -> Dictionary:
 	return _block(document(), prefix)
 
 
-## A detached nested block of the catalog under a dotted prefix.
-static func catalog_block(prefix: String) -> Dictionary:
-	return _block(catalog(), prefix)
+## A detached nested block of the characters document under a dotted prefix.
+static func characters_block(prefix: String) -> Dictionary:
+	return _block(characters(), prefix)
 
 
 ## A detached nested block of the prompts document under a dotted prefix.

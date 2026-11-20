@@ -2,7 +2,7 @@ extends RefCounted
 ## Pose catalog: stable ids and the per-pose settings schema.
 ## New poses add an entry here and a controller/recipe; shared runtime should not branch on
 ## numeric pose indexes. `POSE_KEYS` only describes the schema; the default values ship in the
-## defaults document.
+## characters document.
 
 const DEFAULTS_DATA := preload("res://mods/unfplap/shared/defaults_data.gd")
 
@@ -38,4 +38,4 @@ static func every() -> Array:
 
 ## The shipped defaults for one pose, or `{}` when the pose has none.
 static func defaults(id: String) -> Dictionary:
-	return DEFAULTS_DATA.block("default.poses." + id)
+	return DEFAULTS_DATA.characters_block("default.poses." + id)

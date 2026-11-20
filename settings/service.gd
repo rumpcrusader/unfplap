@@ -19,8 +19,8 @@ const DEPRECATION := preload("res://mods/unfplap/settings/deprecation.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
 const ID := "unfplap"
 const FILE := "settings.json"
-## The shipped settings document: one value per declared setting and the global `default` profile.
-const DEFAULTS_FILE := "res://mods/unfplap/settings/defaults.json"
+## The shipped settings document: one value per declared setting.
+const DEFAULTS_FILE := "res://mods/unfplap/settings/settings.json"
 ## One-release migration for settings written before the poses were renamed. These tables are
 ## the only place the legacy ids and keys are kept; remove them after the migration window.
 const LEGACY_POSE_ID := "horse"
@@ -459,7 +459,7 @@ static func _declared_placement_defaults() -> Dictionary:
 static func anatomy_placement_default(id: String, fit_id: String = "") -> ROWS.Rows:
 	var key := fit_id if not fit_id.is_empty() else id
 	var base := _persisted_placement_default_values()
-	var shipped: Variant = DEFAULTS.catalog_block("anatomy.placement." + key)
+	var shipped: Variant = DEFAULTS.characters_block("anatomy.placement." + key)
 	var placed := PLACEMENT.merge(base, shipped)
 	var provided := MARE_REGISTRY.placement(key)
 	if provided.is_empty():
@@ -1705,9 +1705,9 @@ static var pantyhose_hull_show := flag("pantyhose_hull_show", "debug.pantyhose_h
 	"Show hull", "Draw the depth field over the anatomy as a heatmap.",
 	INTEGRATIONS, "Pantyhose").as_debug()
 
-## Every spawnable adult mare's preference template lives in the same catalog. A provider layer is
-## applied when the profile is read, never written here.
-static var CHARACTER_TEMPLATES: Dictionary = DEFAULTS.catalog_block("character_templates")
+## Every spawnable adult mare's preference template lives in the characters document. A provider
+## layer is applied when the profile is read, never written here.
+static var CHARACTER_TEMPLATES: Dictionary = DEFAULTS.characters_block("characters")
 
 ## The settings file's schema version. Bump it when a one-time migration step is added, so an old
 ## file runs that step exactly once.
@@ -2782,8 +2782,8 @@ static func _short_leaf(data: Dictionary, path: String) -> String:
 	return text if text.length() <= 80 else text.substr(0, 79) + "…"
 
 
-## The shipped defaults document plus the code-owned section state. Detached, and empty when the
-## shipped document is invalid.
+## The shipped settings document, the global profile and the code-owned section state. Detached,
+## and empty when a shipped document is invalid.
 static func defaults() -> ROWS.Rows:
 	var base := _defaults()
 	if base.is_empty():
@@ -2813,12 +2813,12 @@ static func _shipped_value(path: String) -> Variant:
 	return node
 
 
-## The shipped catalog document, parsed once by the defaults data module: act prompts, character
-## templates and placement rows. It never reaches the player file.
-static func _catalog() -> Dictionary:
-	var document := DEFAULTS.catalog()
-	if not DEFAULTS.catalog_valid():
-		_shipped_fail(DEFAULTS.catalog_error())
+## The shipped characters document, parsed once by the defaults data module: the global profile,
+## the character templates and the placement rows. It never reaches the player file.
+static func _characters() -> Dictionary:
+	var document := DEFAULTS.characters()
+	if not DEFAULTS.characters_valid():
+		_shipped_fail(DEFAULTS.characters_error())
 	return document
 
 
@@ -2870,17 +2870,18 @@ static func _code_defaults() -> Dictionary:
 
 static func _defaults() -> Dictionary:
 	var shipped := _shipped()
-	# The catalog is content, not settings, but the mod cannot resolve a mare without it.
-	_catalog()
+	# The characters document is content, not settings, but the mod cannot resolve a mare without
+	# it; its global profile joins the merged view so a fresh profile reads one document.
+	_characters()
 	if not _shipped_valid:
 		return {}
-	return _merge(_code_defaults(), shipped)
+	return _merge(_merge(_code_defaults(), shipped), {"default": _filled_default()})
 
 
 ## The shipped global `default` profile, detached. Declared settings live at the document root;
-## the profile template, preferences and poses live under `default`.
+## the profile template, preferences and poses live under `default` in the characters document.
 static func _filled_default() -> Dictionary:
-	return DEFAULTS.block("default")
+	return DEFAULTS.characters_block("default")
 
 
 ## The saved `default` template, or the built-in one when the file has none. The built-in fill is
@@ -3046,7 +3047,7 @@ static func _normalize_anatomy_placement(data: Dictionary) -> Dictionary:
 				if not row is Dictionary:
 					continue
 				var expected := PLACEMENT.merge(base,
-					DEFAULTS.catalog_block("anatomy.placement." + name))
+					DEFAULTS.characters_block("anatomy.placement." + name))
 				var values := PLACEMENT.row_to_placement(row)
 				var over := PLACEMENT.diff(PLACEMENT.sanitize(values, expected), expected)
 				if over.is_empty():
@@ -3091,7 +3092,7 @@ static func _normalize_default_profile(data: Dictionary) -> Dictionary:
 	var raw: Variant = data.get("default")
 	if not raw is Dictionary:
 		return data
-	var diff := _default_profile_diff(raw, DEFAULTS.block("default"))
+	var diff := _default_profile_diff(raw, DEFAULTS.characters_block("default"))
 	if diff.is_empty():
 		data.erase("default")
 	else:
@@ -3120,7 +3121,7 @@ static func _strip_materialized_placement_rows(data: Dictionary) -> Dictionary:
 		if not raw is Dictionary:
 			continue
 		var expected := PLACEMENT.merge(global,
-			DEFAULTS.catalog_block("anatomy.placement." + id))
+			DEFAULTS.characters_block("anatomy.placement." + id))
 		var provided := MARE_REGISTRY.placement(id)
 		if not provided.is_empty():
 			expected = PLACEMENT.merge(expected, provided.to_dict())
@@ -3294,7 +3295,7 @@ static func _player_document(data: Dictionary) -> Dictionary:
 	var resolved: Variant = out.get("default")
 	var diff: Dictionary = {}
 	if resolved is Dictionary:
-		diff = _default_profile_diff(resolved, DEFAULTS.block("default"))
+		diff = _default_profile_diff(resolved, DEFAULTS.characters_block("default"))
 	if diff.is_empty():
 		out.erase("default")
 	else:

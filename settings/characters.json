@@ -1,8 +1,4 @@
 {
-	"act_prompts": {
-		"cue": "During sex with Anon, the private moment is: {seed} Current moment: {state}. Private relationship note: {relationship}. Tone: {tone}. {memory}{face_note} Say ONE short line in your own voice, at most 14 words. React to him and to the moment as the mare you are; you do not have to describe the sensation or narrate the moment; you can ask for something, tease him, say something tender, or say nothing about the mechanics. Let the relationship and the memory colour it without naming labels, levels, numbers, or the note. Do not invent a memory beyond the one given. Begin with [whispering] or [happy], or [calm], [surprised], [sad] or [fearful] if the moment calls for it. No narration, no stage directions, no anatomy. Your preferences are private, not a list to say. Your preferences: {preferences}. Do not repeat: {recent}.",
-		"utterance": "You are having sex with Anon right now, not kissing him. The private moment is: {seed} Current moment: {state}. Private relationship note: {relationship}. Tone: {tone}. {memory}{face_note} Say ONE short line in your own voice, at most 18 words. React to him and to the moment as the mare you are; you do not have to describe the sensation or narrate the moment; you can ask for something, tease him, say something tender, or say nothing about the mechanics. Begin with exactly [whispering] unless the moment calls for [calm], [happy], [annoyed], [surprised], [sad] or [fearful]. No narration, no stage directions, no anatomy, no questions that need an answer, and do not end the act. Your preferences are private, not a list to say. Your preferences: {preferences}. Do not repeat: {recent}."
-	},
 	"anatomy": {
 		"placement": {
 			"amethyst_star": {
@@ -259,7 +255,7 @@
 			}
 		}
 	},
-	"character_templates": {
+	"characters": {
 		"aloe": {
 			"preferences": {
 				"dislikes": [
@@ -1911,5 +1907,47 @@
 				"warmth": "slow"
 			}
 		}
+	},
+	"default": {
+		"aftercare_min": 10,
+		"cue_gap": 12.0,
+		"poses": {
+			"missionary": {
+				"nuzzle_duration": 2.4,
+				"nuzzle_period": 7.0,
+				"nuzzle_scale": 0.45
+			},
+			"standing": {
+				"bow": 2.4,
+				"chin_up_deg": 30.0,
+				"foreleg": 2.0,
+				"foreleg_spread": 0.172,
+				"gaps": {
+					"canon": 0.25,
+					"hoers": 0.55,
+					"mounting": 0.45,
+					"same height": 0.55
+				},
+				"glance_back_chance": 0.5,
+				"glance_back_pitch": 1.2,
+				"glance_hold": 1.8,
+				"glance_max": 9.0,
+				"glance_min": 5.0,
+				"glance_yaw": 3.0,
+				"hind_spread": 0.32,
+				"neck_down_deg": 15.0
+			}
+		},
+		"preferences": {
+			"dislikes": [],
+			"intensity": "firm",
+			"notes": "Open to affection.",
+			"pattern": "steady",
+			"talk": [],
+			"tolerance": "normal",
+			"touch": [],
+			"warmth": "normal"
+		},
+		"smack_zone_radius": 0.035
 	}
 }

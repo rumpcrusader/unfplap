@@ -217,6 +217,6 @@ const NAMES := {
 	"windy_whistles": "Windy Whistles",
 }
 
-## The shipped per-mare templates, read once from `settings/catalogs.json`. Read-only: callers copy
-## a template before merging. A provider layer is applied by `settings/service.gd`, never here.
-static var TEMPLATES: Dictionary = DEFAULTS_DATA.catalog_block("character_templates")
+## The shipped per-mare templates, read once from `settings/characters.json`. Read-only: callers
+## copy a template before merging. A provider layer is applied by `settings/service.gd`, never here.
+static var TEMPLATES: Dictionary = DEFAULTS_DATA.characters_block("characters")

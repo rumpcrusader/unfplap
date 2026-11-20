@@ -126,53 +126,6 @@
 	"debug_hide_tails": false,
 	"debug_mode": false,
 	"debug_perf": false,
-	"default": {
-		"act_prompts": {},
-		"aftercare_min": 10,
-		"cue_gap": 12.0,
-		"event_prompts": {
-			"climax": "",
-			"end_early": ""
-		},
-		"poses": {
-			"missionary": {
-				"nuzzle_duration": 2.4,
-				"nuzzle_period": 7.0,
-				"nuzzle_scale": 0.45
-			},
-			"standing": {
-				"bow": 2.4,
-				"chin_up_deg": 30.0,
-				"foreleg": 2.0,
-				"foreleg_spread": 0.172,
-				"gaps": {
-					"canon": 0.25,
-					"hoers": 0.55,
-					"mounting": 0.45,
-					"same height": 0.55
-				},
-				"glance_back_chance": 0.5,
-				"glance_back_pitch": 1.2,
-				"glance_hold": 1.8,
-				"glance_max": 9.0,
-				"glance_min": 5.0,
-				"glance_yaw": 3.0,
-				"hind_spread": 0.32,
-				"neck_down_deg": 15.0
-			}
-		},
-		"preferences": {
-			"dislikes": [],
-			"intensity": "firm",
-			"notes": "Open to affection.",
-			"pattern": "steady",
-			"talk": [],
-			"tolerance": "normal",
-			"touch": [],
-			"warmth": "normal"
-		},
-		"smack_zone_radius": 0.035
-	},
 	"features": {
 		"act_controls": true,
 		"act_input_shield": true,

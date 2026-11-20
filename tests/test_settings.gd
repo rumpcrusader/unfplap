@@ -89,7 +89,7 @@ func run() -> void:
 	_check_load()
 	_check_registry()
 	_check_shipped_defaults()
-	_check_catalog()
+	_check_characters()
 	_check_player_document()
 	_check_act_key()
 	_check_snapshot()
@@ -224,39 +224,38 @@ func _find_capture(node: Node) -> Button:
 	return null
 
 
-## The shipped defaults document is the schema contract: exactly one value per declared setting,
+## The shipped settings document is the schema contract: exactly one value per declared setting,
 ## of the declared kind, inside the declared bounds. The test never names a value, so changing a
 ## shipped default does not touch this file.
 func _check_shipped_defaults() -> void:
 	var text := FileAccess.get_file_as_string(SETTINGS.DEFAULTS_FILE)
-	check(not text.is_empty(), "the shipped defaults document exists")
+	check(not text.is_empty(), "the shipped settings document exists")
 	var parsed: Variant = JSON.parse_string(text)
-	check(parsed is Dictionary, "the shipped defaults document is a JSON object")
+	check(parsed is Dictionary, "the shipped settings document is a JSON object")
 	var document: Dictionary = parsed if parsed is Dictionary else {}
+	check(not document.has("default"),
+		"the shipped settings document holds no profile block")
+	check(not document.has("characters"),
+		"the shipped settings document holds no character block")
 	var leaves := _flatten_paths(document)
 	var declared := {}
 	for setting: Variant in SETTINGS.all_settings():
 		declared[str(setting.path)] = setting
-	# The global profile is a block, not a declared setting; the schema test checks it separately.
-	var setting_leaves := {}
-	for path: String in leaves:
-		if path != "default" and not path.begins_with("default."):
-			setting_leaves[path] = leaves[path]
 	var missing: Array = []
 	var dead: Array = []
 	for path: String in declared:
-		if not setting_leaves.has(path):
+		if not leaves.has(path):
 			missing.append(path)
-	for path: String in setting_leaves:
+	for path: String in leaves:
 		if not declared.has(path):
 			dead.append(path)
 	check(missing.is_empty(), "every declared setting has a shipped default: %s" % str(missing))
-	check(dead.is_empty(), "the shipped defaults hold no undeclared path: %s" % str(dead))
+	check(dead.is_empty(), "the shipped settings hold no undeclared path: %s" % str(dead))
 	for path: String in declared:
-		if not setting_leaves.has(path):
+		if not leaves.has(path):
 			continue
 		var setting: Variant = declared[path]
-		var value: Variant = setting_leaves[path]
+		var value: Variant = leaves[path]
 		if setting is SETTINGS.FlagSetting:
 			check(value is bool, "%s is a flag" % path)
 		elif setting is SETTINGS.NumSetting:
@@ -280,9 +279,8 @@ func _check_shipped_defaults() -> void:
 			check(value is String and _is_hex_color(str(value)), "%s is a hex colour" % path)
 		else:
 			check(false, "%s has a known setting kind" % path)
-	_check_default_profile(document.get("default"))
 	check(_flatten_paths(SETTINGS._shipped()) == leaves,
-		"the settings loader reads the shipped defaults document")
+		"the settings loader reads the shipped settings document")
 	var copy := SETTINGS.defaults().raw()
 	check(not copy.is_empty(), "defaults() returns the shipped document")
 	if copy is Dictionary:
@@ -295,7 +293,7 @@ func _check_shipped_defaults() -> void:
 ## The global `default` profile: three timing numbers, the preference schema and the pose schema.
 ## It never asserts a value.
 func _check_default_profile(profile: Variant) -> void:
-	check(profile is Dictionary, "the shipped document has a global default profile")
+	check(profile is Dictionary, "the characters document has a global default profile")
 	if not profile is Dictionary:
 		return
 	var block: Dictionary = profile
@@ -365,27 +363,33 @@ func _check_default_profile(profile: Variant) -> void:
 						"the standing gaps hold exactly the four sizes")
 
 
-## The catalog holds provider-overridable content. It is validated here and must never appear in
-## the defaults document, the merged view or the player file.
-func _check_catalog() -> void:
-	var catalog := SETTINGS.DEFAULTS.catalog()
-	check(not catalog.is_empty(), "the shipped catalog document exists")
-	check(SETTINGS.DEFAULTS.catalog_valid(), "the shipped catalog parses")
-	var defaults := SETTINGS.defaults().raw()
-	check(not defaults.has("act_prompts"), "the defaults document has no prompt catalog")
-	check(not defaults.has("character_templates"),
-		"the defaults document has no template catalog")
-	check(not SETTINGS.data().raw().has("character_templates"),
-		"the merged view has no template catalog")
+## The characters document holds the global profile, the per-mare templates and the placement
+## rows. It is validated here and must never appear in the settings document or the player file.
+func _check_characters() -> void:
+	var characters := SETTINGS.DEFAULTS.characters()
+	check(not characters.is_empty(), "the shipped characters document exists")
+	check(SETTINGS.DEFAULTS.characters_valid(), "the shipped characters document parses")
+	check(not characters.has("act_prompts"), "the characters document has no prompt catalog")
+	check(not characters.has("event_prompts"), "the characters document has no event prompts")
+	check(not characters.has("character_templates"),
+		"the characters document has no template catalog")
+	var settings_document := SETTINGS.DEFAULTS.document()
+	check(not settings_document.has("act_prompts"),
+		"the settings document has no prompt catalog")
+	check(not settings_document.has("characters"),
+		"the settings document has no character block")
+	check(not SETTINGS._player_document(SETTINGS.data().raw()).has("characters"),
+		"the player document has no character block")
+	_check_default_profile(characters.get("default"))
 
-	var templates: Variant = catalog.get("character_templates")
-	check(templates is Dictionary, "the catalog has a character_templates block")
+	var templates: Variant = characters.get("characters")
+	check(templates is Dictionary, "the characters document has a characters block")
 	if templates is Dictionary:
 		var ids: Array = (templates as Dictionary).keys()
 		ids.sort()
 		var expected_ids: Array = SETTINGS.CHARACTER_ORDER.duplicate()
 		expected_ids.sort()
-		check(ids == expected_ids, "character_templates covers the whole roster")
+		check(ids == expected_ids, "the characters block covers the whole roster")
 		var bad_blocks: Array = []
 		var bad_fields: Array = []
 		var bad_preferences: Array = []
@@ -428,10 +432,10 @@ func _check_catalog() -> void:
 		check(bad_pose_ids.is_empty(), "every template pose is a catalog pose: %s"
 			% str(bad_pose_ids))
 
-	var anatomy: Variant = catalog.get("anatomy", {})
+	var anatomy: Variant = characters.get("anatomy", {})
 	var placement: Variant = (anatomy as Dictionary).get("placement") \
 		if anatomy is Dictionary else null
-	check(placement is Dictionary, "the catalog has a placement block")
+	check(placement is Dictionary, "the characters document has a placement block")
 	if placement is Dictionary:
 		var reserved_ids: Array = []
 		var bad_blocks: Array = []
@@ -468,7 +472,7 @@ func _check_player_document() -> void:
 	check(int(untouched.get("version", 0)) == SETTINGS.SCHEMA_VERSION,
 		"the player document carries the current schema")
 	check(untouched.has("debug_mode"), "declared settings stay materialised")
-	check(not untouched.has("character_templates"), "the player document has no template catalog")
+	check(not untouched.has("characters"), "the player document has no character block")
 
 	var changed := shipped.duplicate(true)
 	var profile: Dictionary = changed["default"]
@@ -658,7 +662,7 @@ func _check_placement_migration() -> void:
 ## Schema 10 removes the per-mare placement rows an older build materialised, keeping real
 ## overrides as differences so a provider layer can still win.
 func _check_placement_strip() -> void:
-	var shipped_row: Dictionary = SETTINGS.DEFAULTS.catalog_block(
+	var shipped_row: Dictionary = SETTINGS.DEFAULTS.characters_block(
 		"anatomy.placement.fluttershy")
 	var base := SETTINGS._legacy_placement_default({}, "anatomy.placement.default")
 	var pitch := float(base["pitch_deg"]) + 4.0

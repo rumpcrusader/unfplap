@@ -5,6 +5,7 @@ extends SceneTree
 ##     --script res://mods/unfplap/tests/act_camera/test_camera.gd
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
 const CAMERA := preload("res://mods/unfplap/camera/service.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 const BODY_PROFILE := preload("res://mods/unfplap/shared/body_profile.gd")
@@ -36,7 +37,7 @@ class FakeGame extends Node:
 
 
 ## Her head surfaces, in world space: the skull sphere and the muzzle capsule.
-class FakeBoop extends RefCounted:
+class FakeBoop extends Node:
 	var skull := Vector3.ZERO
 	var nose := Vector3.ZERO
 	var muzzle := Vector3.ZERO
@@ -52,23 +53,11 @@ class FakeBoop extends RefCounted:
 
 
 ## The posed Anon body's eye: the transform `missionary_anon.gd` caches for the frame.
-class FakeActBody extends RefCounted:
-	var eye := Transform3D.IDENTITY
+class FakeActBody extends Node:
+	var eye: Variant = Transform3D.IDENTITY
 
-	func eye_transform() -> Transform3D:
+	func eye_transform() -> Variant:
 		return eye
-
-
-## The authored look-path inputs: the live pose asset, the bed frame and the lean weights.
-class LookFacts extends RefCounted:
-	var authored_pose_asset := Callable()
-	var bed_frame: Variant = null
-	var shot_lean_forward := 0.0
-	var lean_view_side := 0.0
-	var missionary_face_point := Callable()
-
-	func call_value(callback: Callable, fallback: Variant = null) -> Variant:
-		return callback.call() if callback.is_valid() else fallback
 
 
 class FakePlayer extends Node3D:
@@ -79,6 +68,7 @@ class FakePlayer extends Node3D:
 	var controls_locked := false
 	var mouse_sensitivity := 0.0022
 	var invert_y := false
+	var headset_view := false
 	var seat: Variant = null
 	var form_driver: Variant = null
 
@@ -184,12 +174,51 @@ class FakePony extends Node3D:
 	var secondary: Variant = null
 	var identity: Variant = null
 	var boop_node: Variant = null
+	var eye_motion: Variant = null
 	var body_scale := 1.0
 
 
-class FakeSecondary extends RefCounted:
-	func look_toward(_angles: Vector3, _seconds: float) -> void:
-		pass
+class FakeSecondary extends Node:
+	var looks: Array[Vector3] = []
+	var weight := 0.0
+
+	func look_toward(angles: Vector3, seconds: float) -> void:
+		looks.append(angles)
+		weight = seconds
+
+
+## Her navigator: the stale face point and the conversation aim the facing lock clears.
+class FakeNavigator extends Node:
+	var face_point: Vector3 = Vector3.ZERO
+	var conversation_clears := 0
+
+	func set_conversation_target(_target: Variant, _turn: bool) -> void:
+		conversation_clears += 1
+
+
+## The native eye modifier: the pupil target the glance writes.
+class FakeEyes extends Node:
+	var target_world := Vector3.ZERO
+	var target_weight := 0.0
+
+
+## A form driver with its own view limit.
+class FakeForm extends Node:
+	var clamps := 0
+
+	func clamp_view() -> void:
+		clamps += 1
+
+
+## The act pose node: the standing head throw-back the glance writes.
+class FakePose extends Node:
+	var head_back := 0.0
+
+
+## A body with its own ear point.
+class FakeListener extends Node3D:
+	func listen_point() -> Vector3:
+		return Vector3(0.5, 1.5, 0.5)
 
 
 func _initialize() -> void:
@@ -254,9 +283,11 @@ func run() -> void:
 	_check_missionary_eye()
 	_check_missionary_look_path()
 	_check_head_clearance()
+	_check_accessors()
 	_check_lean()
 	_check_oral_lean()
 	_check_standing_shot_offsets()
+	_check_view_writes()
 	_check_retarget()
 	_check_eye_line()
 	_check_entrance()
@@ -396,7 +427,7 @@ func _check_missionary_look_path() -> void:
 	if asset == null:
 		return
 	var frame := Transform3D(Basis(Vector3.UP, 0.3), Vector3(1.0, 2.0, 3.0))
-	var facts := LookFacts.new()
+	var facts := FACTS.new()
 	facts.authored_pose_asset = func() -> Variant: return asset
 	facts.bed_frame = frame
 	facts.missionary_face_point = func() -> Vector3: return Vector3(0.0, 1.0, 0.0)
@@ -468,6 +499,7 @@ func _check_head_clearance() -> void:
 	camera.call("write_eye")
 	var to_axis := view.global_position.distance_to(Vector3(0.0, 0.0, 0.2))
 	check(near(to_axis, 0.04 + 0.05), "her muzzle pushes the eye off the capsule axis")
+	boop.free()
 	_free_eye_fixture(made)
 
 
@@ -512,6 +544,7 @@ func _free_eye_fixture(made: Dictionary) -> void:
 	var player: FakePlayer = made["player"]
 	var pony: FakePony = made["pony"]
 	var game: FakeGame = made["game"]
+	var body: FakeActBody = made["body"]
 	WORLD.unbind()
 	root.remove_child(pony)
 	pony.free()
@@ -522,6 +555,7 @@ func _free_eye_fixture(made: Dictionary) -> void:
 	player.free()
 	(main.view as Camera3D).free()
 	main.free()
+	body.free()
 
 
 func _check_lean() -> void:
@@ -913,7 +947,8 @@ func _check_standing_cache() -> void:
 	var early_kiss := FakeKiss.new()
 	early_facts.kiss = func() -> Variant: return early_kiss
 	var early_pony := FakePony.new()
-	early_pony.secondary = FakeSecondary.new()
+	var early_secondary := FakeSecondary.new()
+	early_pony.secondary = early_secondary
 	root.add_child(early_pony)
 	early_facts.pony = early_pony
 	early_facts.lean_forward = 1.0
@@ -927,6 +962,7 @@ func _check_standing_cache() -> void:
 	check(float(early_camera._glance_wait) < 0.0,
 		"the first wait stays armed until the pose config exists")
 	early_pony.free()
+	early_secondary.free()
 
 
 func _check_neck() -> void:
@@ -955,3 +991,244 @@ func _check_neck() -> void:
 	main.free()
 	root.remove_child(pony)
 	pony.free()
+
+
+## Every accessor the view reads: the live answer, and the typed zero when the member is gone.
+func _check_accessors() -> void:
+	var body := FakePlayer.new()
+	root.add_child(body)
+	check(near(GAME.pitch(body), 0.0), "the rig's pitch reads")
+	GAME.set_pitch(body, 0.4)
+	check(near(GAME.pitch(body), 0.4), "the pitch write lands")
+	body._pitch = null
+	check(not is_finite(GAME.pitch(body)), "a rig without a pitch answers NAN")
+	GAME.set_pitch(body, 1.0)
+	check(body._pitch == null, "a rig without a pitch takes no write")
+	check(not is_finite(GAME.pitch(null)), "no rig has no pitch")
+
+	var form := FakeForm.new()
+	root.add_child(form)
+	check(GAME.form_of(null) == null, "no rig has no form")
+	check(GAME.form_of(body) == null, "a plain rig has no form driver")
+	body.form_driver = form
+	check(GAME.form_of(body) == form, "the rig's form driver reads")
+	GAME.clamp_view(form)
+	check(form.clamps == 1, "the form applies its own view limit")
+	GAME.clamp_view(null)
+
+	var pony := FakePony.new()
+	root.add_child(pony)
+	var nav := FakeNavigator.new()
+	nav.name = "Navigator"
+	pony.add_child(nav)
+	GAME.clear_face_point(pony)
+	var face: Vector3 = nav.face_point
+	check(not face.is_finite(), "the facing clear drops her stale face point")
+	GAME.clear_conversation_target(pony)
+	check(nav.conversation_clears == 1, "the facing clear drops her conversation aim")
+
+	var bare := FakePony.new()
+	root.add_child(bare)
+	var bare_nav := Node.new()
+	bare_nav.name = "Navigator"
+	bare.add_child(bare_nav)
+	GAME.clear_face_point(bare)
+	GAME.clear_conversation_target(bare)
+	check(bare_nav.get("face_point") == null, "a navigator without the member takes no write")
+	var no_nav := FakePony.new()
+	root.add_child(no_nav)
+	GAME.clear_face_point(no_nav)
+	GAME.clear_conversation_target(no_nav)
+	check(no_nav.get_child_count() == 0, "a body without a navigator takes both clears")
+
+	var secondary := FakeSecondary.new()
+	root.add_child(secondary)
+	check(not GAME.look_toward(null, Vector3.ZERO, 0.4), "no gaze controller answers false")
+	check(not GAME.look_toward(bare, Vector3.ZERO, 0.4), "a body without a gaze answers false")
+	check(GAME.look_toward(secondary, Vector3(0.1, 0.2, 0.0), 0.4),
+		"a gaze controller takes the turn")
+	check(secondary.looks.size() == 1 and near(secondary.weight, 0.4),
+		"the glance carries its angles and weight")
+
+	var eyes := FakeEyes.new()
+	root.add_child(eyes)
+	GAME.aim_eyes(eyes, Vector3(1.0, 2.0, 3.0))
+	check(eyes.target_world.is_equal_approx(Vector3(1.0, 2.0, 3.0))
+		and near(eyes.target_weight, 1.0),
+		"the eye aim writes the world target at full weight")
+	GAME.aim_eyes(null, Vector3.ZERO)
+
+	pony.global_position = Vector3(1.0, 2.0, 3.0)
+	check(GAME.listen_point(pony).is_equal_approx(Vector3(1.0, 3.0, 3.0)),
+		"a body without a listen point answers above its root")
+	check(not GAME.listen_point(null).is_finite(), "no body has no listen point")
+	var listener := FakeListener.new()
+	root.add_child(listener)
+	check(GAME.listen_point(listener).is_equal_approx(Vector3(0.5, 1.5, 0.5)),
+		"a body with an ear point answers it")
+
+	var posed := FakeActBody.new()
+	root.add_child(posed)
+	var eye := Transform3D(Basis(Vector3.UP, 0.2), Vector3(1.0, 2.0, 3.0))
+	posed.eye = eye
+	check(GAME.eye_transform(posed).is_equal_approx(eye), "the act body's eye reads")
+	posed.eye = null
+	check(not GAME.eye_transform(posed).is_finite(), "an unposed act body answers a non-finite eye")
+	check(not GAME.eye_transform(bare).is_finite(), "a body without an eye answers a non-finite eye")
+
+	var boop := FakeBoop.new()
+	root.add_child(boop)
+	boop.skull = Vector3(1.0, 2.0, 3.0)
+	boop.nose = Vector3(1.0, 2.0, 4.0)
+	check(GAME.skull_world(boop).is_equal_approx(Vector3(1.0, 2.0, 3.0)), "her skull reads")
+	check(GAME.nose_world(boop).is_equal_approx(Vector3(1.0, 2.0, 4.0)), "her nose reads")
+	check(not GAME.nose_world(bare).is_finite(), "a body without head surfaces answers INF")
+	check(not GAME.muzzle_world(null).is_finite(), "no body has no muzzle")
+
+	var pose := FakePose.new()
+	root.add_child(pose)
+	GAME.set_head_back(pose, 0.75)
+	check(near(pose.head_back, 0.75), "the glance writes the pose's head throw-back")
+	GAME.set_head_back(bare, 1.0)
+	check(bare.get("head_back") == null, "a pose without the member takes no write")
+
+	for node: Node in [body, form, pony, bare, no_nav, secondary, eyes, listener, posed, boop, pose]:
+		node.free()
+
+
+## The standing view's writes: the pitch clamp, the facing clear, the glance weights and the camera
+## aim all reach the game through the accessors.
+func _check_view_writes() -> void:
+	var main := FakeMain.new()
+	var player := FakePlayer.new()
+	main.add_child(player)
+	main.player = player
+	WORLD.bind_player(main.player)
+	main.view = Camera3D.new()
+	main.add_child(main.view)
+	main.view.position = Vector3(0.0, 1.6, -0.4)
+	player.camera = main.view
+	root.add_child(main)
+	var game := FakeGame.new()
+	root.add_child(game)
+	WORLD.bind_world(game)
+	var pony := FakePony.new()
+	root.add_child(pony)
+	var nav := FakeNavigator.new()
+	nav.name = "Navigator"
+	pony.add_child(nav)
+	var eyes := FakeEyes.new()
+	pony.eye_motion = eyes
+	var secondary := FakeSecondary.new()
+	pony.secondary = secondary
+	var form := FakeForm.new()
+	root.add_child(form)
+	var pose := FakePose.new()
+	root.add_child(pose)
+
+	var facts := FACTS.new()
+	facts.state = STATE_ACTIVE
+	facts.pony = pony
+	facts.free_camera_active = true
+	facts.look_yaw = 0.0
+	facts.look_pitch = 0.1
+	facts.player_eye_height = 1.7
+	facts.presentation_config = {"camera_pitch_deg": 0.0, "glance_back_speed": 1.0}
+	facts.kiss = func() -> Variant: return FakeKiss.new()
+	facts.pose = pose
+	var pose_view: RefCounted = VIEW.new()
+	pose_view.id = CATALOG.STANDING
+	pose_view.family = "standing"
+	pose_view.settings_group = "standing"
+	var config: Dictionary = _standing_config()
+	pose_view.from_config = config
+	pose_view.pose_config = config
+	facts.pose_view = pose_view
+	var view: RefCounted = CAMERA_VIEW.new(facts)
+	view.call("_sync")
+
+	# The free-look clamp holds the base look plus 45 degrees.
+	player._pitch = 1.2
+	view.call("clamp_look")
+	check(near(float(player._pitch), float(facts.look_pitch) + CAMERA_VIEW.LOOK_PITCH_LIMIT),
+		"the look pitch clamps at the cone edge")
+	player.headset_view = true
+	player._pitch = 1.2
+	view.call("clamp_look")
+	check(near(float(player._pitch), 1.2), "a headset keeps the look pitch")
+	player.headset_view = false
+	player._pitch = null
+	view.call("clamp_look")
+	check(player._pitch == null, "a rig without a pitch takes no look clamp")
+	player._pitch = 0.0
+	player.form_driver = form
+	view.call("clamp_look")
+	check(form.clamps == 1, "the view asks the form for its own view limit")
+	player.form_driver = null
+
+	# The facing lock clears her navigator and holds the act's basis.
+	view.call("begin_facing", Transform3D(Basis(Vector3.UP, 0.5), Vector3.ZERO))
+	nav.face_point = Vector3.ZERO
+	view.call("lock_facing")
+	var face: Vector3 = nav.face_point
+	check(not face.is_finite(), "the facing lock clears her face point")
+	check(nav.conversation_clears == 1, "the facing lock clears her conversation aim")
+	check(pony.global_basis.is_equal_approx(Basis(Vector3.UP, 0.5)),
+		"the facing lock holds the act's facing")
+
+	# The glance: the forced look and the lean-up look carry their own weights, and the pupils
+	# follow Anon's camera.
+	facts.forced_glance = "L"
+	view.call("drive_glance", 0.1)
+	check(secondary.looks.size() == 1 and near(secondary.weight, 0.4),
+		"the forced glance turns her gaze at 0.4")
+	check(eyes.target_weight > 0.0
+		and eyes.target_world.is_equal_approx(main.view.global_position),
+		"the glance aims her pupils at Anon's camera")
+	check(pose.head_back > 0.0, "the glance eases the head throw-back")
+	facts.forced_glance = ""
+	facts.lean_forward = 1.0
+	facts.lean_side = 0.0
+	view.call("drive_glance", 0.1)
+	check(secondary.looks.size() == 2 and near(secondary.weight, 0.3),
+		"a full forward lean turns her gaze at 0.3")
+	pony.eye_motion = null
+	facts.forced_glance = "R"
+	view.call("drive_glance", 0.1)
+	check(secondary.looks.size() == 3, "the glance turns without an eye controller")
+
+	# The standing lean look: the rig pitch and, for a plain rig, the player camera.
+	facts.forced_glance = ""
+	facts.lean_forward = 0.0
+	facts.look_pitch = 0.1
+	player._pitch = 0.0
+	player.rotation.y = 0.0
+	main.view.rotation.x = 0.0
+	view.call("apply_lean_look")
+	check(near(player.rotation.y, 0.0) and near(float(player._pitch), 0.1),
+		"the standing lean writes the rig pitch")
+	check(near(main.view.rotation.x, 0.1), "a plain rig aims the player camera")
+	player.form_driver = form
+	main.view.rotation.x = 0.0
+	view.call("apply_lean_look")
+	check(near(main.view.rotation.x, 0.0), "her form driver keeps the camera pitch")
+	player.form_driver = null
+
+	root.remove_child(pony)
+	pony.free()
+	root.remove_child(eyes)
+	eyes.free()
+	root.remove_child(secondary)
+	secondary.free()
+	root.remove_child(form)
+	form.free()
+	root.remove_child(pose)
+	pose.free()
+	WORLD.unbind()
+	main.remove_child(player)
+	main.remove_child(main.view)
+	player.free()
+	(main.view as Camera3D).free()
+	main.free()
+	root.remove_child(game)
+	game.free()

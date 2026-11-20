@@ -4,9 +4,11 @@ extends RefCounted
 ## Contract: `docs/camera.md`, `docs/act_facts.md`.
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
 const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
 const MATTRESS := preload("res://world/life/couch/mattress.gd")
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
+const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 const CANON_STANDING_CAMERA_DROP_M := 0.10
@@ -23,9 +25,9 @@ const SHOT_IDS := ["start", "back", "front", "left", "right"]
 const STATE_IDLE := ACT_STATE.State.IDLE
 const STATE_RESTORE := ACT_STATE.State.RESTORE
 
-var facts: Variant
-var pony: Variant
-var bed: Variant
+var facts: ACT_FACTS = null
+var pony: Node3D = null
+var bed: Node3D = null
 var camera: Camera3D
 var _presentation_cfg: Dictionary = {}
 var _pose_cfg: Dictionary = {}
@@ -286,7 +288,7 @@ func _apply_standing_lean_look() -> void:
 		return
 	if not is_instance_valid(WORLD.game) or not is_instance_valid(WORLD.player) or kiss == null:
 		return
-	var body: Node = WORLD.player
+	var body: Node3D = WORLD.player
 	var lean_scale := float(facts.standing_lean_scale)
 	var yaw := float(facts.look_yaw) + deg_to_rad(MOTION.LEAN_SIDE_YAW_DEG) \
 		* float(facts.lean_view_side) * lean_scale
@@ -298,9 +300,8 @@ func _apply_standing_lean_look() -> void:
 		+ deg_to_rad(float(_presentation_cfg["camera_pitch_deg"])),
 		-1.5, 1.5)
 	body.rotation.y = yaw
-	if body.get("_pitch") != null:
-		body.set("_pitch", pitch)
-	if body.get("form_driver") == null:
+	GAME.set_pitch(body, pitch)
+	if GAME.form_of(body) == null:
 		var view: Camera3D = WORLD.camera()
 		if is_instance_valid(view):
 			view.rotation.x = pitch
@@ -309,7 +310,7 @@ func _apply_standing_lean_look() -> void:
 func _set_camera_offsets(vertical: float, forward: float, side: float = 0.0) -> void:
 	if not is_instance_valid(camera):
 		return
-	var seated := is_instance_valid(WORLD.player) and WORLD.player.get("seat") != null
+	var seated := GAME.seat_of(WORLD.player) != null
 	var eye_height := _standing_eye_height()
 	if _standing_base_saved and not camera.top_level and not seated:
 		camera.position = Vector3(
@@ -359,14 +360,10 @@ func _lock_body_facing() -> void:
 	var scale := t.basis.get_scale()
 	t.basis = (_facing_override if _facing_override_on else _facing_basis).scaled(scale)
 	pony.global_transform = t
-	var nav: Node = pony.get_node_or_null("Navigator")
-	if nav != null:
-		# stay() clears the route, but conversation facing still writes face_point and can make
-		# her take a turn step. Clear both late in the tick so the act owns the body facing.
-		if "face_point" in nav:
-			nav.set("face_point", Vector3.INF)
-		if nav.has_method("set_conversation_target"):
-			nav.call("set_conversation_target", null, false)
+	# stay() clears the route, but conversation facing still writes face_point and can make
+	# her take a turn step. Clear both late in the tick so the act owns the body facing.
+	GAME.clear_face_point(pony)
+	GAME.clear_conversation_target(pony)
 
 
 func _glance_back_fade() -> float:
@@ -386,7 +383,7 @@ func _drive_glance(delta: float) -> void:
 	if kiss.standing_active() or kiss.base_active():
 		if is_instance_valid(facts.pose):
 			_glance_head_back = move_toward(_glance_head_back, 0.0, delta / _glance_back_fade())
-			facts.pose.set("head_back", _glance_head_back)
+			GAME.set_head_back(facts.pose, _glance_head_back)
 		facts.write_forced_glance("")
 		_glance_left = 0.0
 		_glance_back = false
@@ -399,36 +396,34 @@ func _drive_glance(delta: float) -> void:
 		var back_target := 1.0 if (not str(facts.forced_glance).is_empty() or lean_up \
 			or (_glance_left > 0.0 and _glance_back)) else 0.0
 		_glance_head_back = move_toward(_glance_head_back, back_target, delta / _glance_back_fade())
-		facts.pose.set("head_back", _glance_head_back)
+		GAME.set_head_back(facts.pose, _glance_head_back)
 	# The forced, lean-up and random glances all read the pose config. The standing placement can
 	# begin before the pose session builds, so wait for the config instead of indexing an empty one.
 	if _pose_cfg.is_empty():
 		return
-	var secondary: Variant = pony.get("secondary")
+	var secondary: Node = pony.get("secondary")
 	if not str(facts.forced_glance).is_empty():
 		_glance_sign_set = true
 		_glance_sign = 1.0 if str(facts.forced_glance) == "L" else -1.0
 		_glance_back = true
-		if secondary != null and is_instance_valid(secondary) and secondary.has_method("look_toward"):
-			secondary.call("look_toward", _glance_angles(), 0.4)
-		_aim_eyes_at_player()
+		if GAME.look_toward(secondary, _glance_angles(), 0.4):
+			_aim_eyes_at_player()
 		return
 	if lean_up:
 		if not _glance_sign_set:
 			_glance_sign = 1.0
 			_glance_sign_set = true
 		_glance_back = true
-		if secondary != null and is_instance_valid(secondary) and secondary.has_method("look_toward"):
-			secondary.call("look_toward", _glance_angles(), 0.3)
+		if GAME.look_toward(secondary, _glance_angles(), 0.3):
 			_aim_eyes_at_player()
 		return
-	if secondary == null or not is_instance_valid(secondary) or not secondary.has_method("look_toward"):
+	if not is_instance_valid(secondary) or not secondary.has_method("look_toward"):
 		return
 	if _glance_wait < 0.0:
 		_glance_wait = randf_range(float(_pose_cfg["glance_min"]), float(_pose_cfg["glance_max"]))
 	if _glance_left > 0.0:
 		_glance_left -= delta
-		secondary.call("look_toward", _glance_angles(), 0.4)
+		GAME.look_toward(secondary, _glance_angles(), 0.4)
 		_aim_eyes_at_player()
 		if _glance_left <= 0.0:
 			_glance_wait = randf_range(float(_pose_cfg["glance_min"]), float(_pose_cfg["glance_max"]))
@@ -438,7 +433,7 @@ func _drive_glance(delta: float) -> void:
 		_glance_left = float(_pose_cfg["glance_hold"])
 		_glance_back = randf() < float(_pose_cfg["glance_back_chance"])
 		_glance_sign_set = false
-	secondary.call("look_toward", Vector3.ZERO, 0.4)
+	GAME.look_toward(secondary, Vector3.ZERO, 0.4)
 
 
 ## Pupils/eyes follow Anon during a glance. The native eye modifier exposes `target_world` and
@@ -451,14 +446,11 @@ func _aim_eyes_at_player() -> void:
 		return
 	var view: Camera3D = WORLD.camera()
 	var target: Vector3 = view.global_position if is_instance_valid(view) else pony.global_position
-	eye_motion.set("target_world", target)
-	eye_motion.set("target_weight", 1.0)
+	GAME.aim_eyes(eye_motion, target)
 
 
 func _glance_angles() -> Vector3:
-	var head: Vector3 = pony.global_position + Vector3.UP
-	if pony.has_method("listen_point"):
-		head = pony.call("listen_point")
+	var head := GAME.listen_point(pony)
 	var target: Vector3 = head
 	if is_instance_valid(WORLD.player):
 		var view: Camera3D = WORLD.camera()
@@ -488,23 +480,21 @@ func _clamp_look() -> void:
 		return
 	if not is_instance_valid(WORLD.game) or not is_instance_valid(WORLD.player):
 		return
-	var body: Node = WORLD.player
-	var form: Variant = body.get("form_driver")
+	var body: Node3D = WORLD.player
+	var form := GAME.form_of(body)
 	# AnonPony lying/sitting has her own body-yaw limit; never widen it.
-	if form != null and form is Node and (form as Node).has_method("clamp_view"):
-		form.call("clamp_view")
+	GAME.clamp_view(form)
 	var yaw_delta := angle_difference(float(facts.look_yaw), float(body.rotation.y))
 	if absf(yaw_delta) > LOOK_YAW_LIMIT:
 		body.rotation.y = float(facts.look_yaw) + clampf(yaw_delta, -LOOK_YAW_LIMIT, LOOK_YAW_LIMIT)
-	var headset: Variant = body.get("headset_view")
-	if headset is bool and headset:
+	if GAME.headset_view(body):
 		return
-	var pitch_value: Variant = body.get("_pitch")
-	if pitch_value == null:
+	var pitch_now := GAME.pitch(body)
+	if not is_finite(pitch_now):
 		return
-	var want := float(facts.look_pitch) + clampf(float(pitch_value) - float(facts.look_pitch), -LOOK_PITCH_LIMIT, LOOK_PITCH_LIMIT)
-	if absf(float(pitch_value) - want) > 0.00001:
-		body.set("_pitch", want)
+	var want := float(facts.look_pitch) + clampf(pitch_now - float(facts.look_pitch), -LOOK_PITCH_LIMIT, LOOK_PITCH_LIMIT)
+	if absf(pitch_now - want) > 0.00001:
+		GAME.set_pitch(body, want)
 	var view: Camera3D = WORLD.camera()
 	if form == null and is_instance_valid(view):
 		view.rotation.x = want
@@ -541,14 +531,14 @@ func _tick_eye(kiss: Variant, look: Vector3) -> void:
 		_make_missionary_view()
 	if not is_instance_valid(_missionary_view):
 		return
-	var body: Variant = facts.missionary_body() if facts != null else null
+	var body: Node = facts.missionary_body() if facts != null else null
 	if body == null:
 		return
-	var eye: Variant = body.call("eye_transform")
-	if not (eye is Transform3D) or not (eye as Transform3D).origin.is_finite():
+	var eye := GAME.eye_transform(body)
+	if not eye.origin.is_finite():
 		return
-	var eye_basis := (eye as Transform3D).basis.orthonormalized()
-	var at: Vector3 = (eye as Transform3D).origin
+	var eye_basis := eye.basis.orthonormalized()
+	var at: Vector3 = eye.origin
 	# The position follows his eye; the orientation is the authored look path, not his head.
 	var basis := _shot_basis(at, eye_basis)
 	if absf(look.x) > 0.00001 or absf(look.y) > 0.00001:
@@ -690,19 +680,18 @@ func _clear_live_head(at: Vector3) -> Vector3:
 	var clearance := float(facts.head_clearance) if facts != null else 0.0
 	if clearance <= 0.0001 or not is_instance_valid(pony):
 		return at
-	var boop: Variant = pony.get("boop_node")
-	if boop == null or not is_instance_valid(boop):
+	var boop := GAME.boop_of(pony)
+	if boop == null:
 		return at
-	var skull: Variant = boop.call("skull_world")
-	var nose: Variant = boop.call("nose_world")
-	if not (skull is Vector3) or not (nose is Vector3):
+	var skull := GAME.skull_world(boop)
+	var nose := GAME.nose_world(boop)
+	if not skull.is_finite() or not nose.is_finite():
 		return at
 	var scale := _missionary_body_scale()
 	var point := _push_sphere(at, skull, 0.09 * scale + clearance)
-	if boop.has_method("muzzle_world"):
-		var muzzle: Variant = boop.call("muzzle_world")
-		if muzzle is Vector3:
-			point = _push_capsule(point, muzzle, nose, 0.04 * scale + clearance)
+	var muzzle := GAME.muzzle_world(boop)
+	if muzzle.is_finite():
+		point = _push_capsule(point, muzzle, nose, 0.04 * scale + clearance)
 	return point
 
 

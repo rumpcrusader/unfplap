@@ -252,6 +252,8 @@ effect when the panel closes.
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
 | service | world | `world/service.gd` | the eye's camera |
+| service | world | `world/game.gd` | the base-game members the view reads and writes |
+| read model | act_facts | `shared/act_facts.gd` | the typed act context the view reads |
 | service | settings | `settings/service.gd` | settings declarations and live values |
 | shared | act_state | `shared/act_state.gd` | act state constants |
 | shared | act_motion | `shared/act_motion.gd` | lean and travel math |

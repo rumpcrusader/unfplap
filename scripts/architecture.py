@@ -1598,7 +1598,7 @@ ACT_STATE_WRITES = {
     },
     'set("_pitch"': {
         "act/frame.gd": "the base aim",
-        "camera/view.gd": "the live lean pitches his own look",
+        "world/game.gd": "the pitch accessor writes his own look",
     },
     'body.global_position = ': {"act/frame.gd": "the frame places him"},
     'body.rotation.y = ': {

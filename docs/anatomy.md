@@ -126,6 +126,14 @@ shown). `body_profile()` takes the identity `Resource` and answers `Array[float]
 `off_roster_ids()` takes two `Array[String]` lists. The missionary Anon body stays an opaque `Node`
 handle because the pose service owns its script.
 
+The act's own handles are typed the same way: its controller handle is `anatomy/controller.gd`,
+its cached player-part handle `anatomy/player.gd`, the oral provider `anatomy/act/oral.gd` and the
+aim markers `anatomy/act/debug.gd`. The act calls each one directly; a freed or absent handle is
+still an `is_instance_valid()` guard, not a missing method. Inside the modules,
+`anatomy/attach.gd` keeps the controller handle and the `anatomy/fluid.gd` node,
+`anatomy/appearance.gd` the teat spring, and `anatomy/coat.gd` the `anatomy/still_zone_debug.gd`
+overlay.
+
 `PONIES.anatomy.controller(pony)` (per-pony handle):
 
 ```gdscript

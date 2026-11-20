@@ -38,7 +38,7 @@ same answer, so a service never names the entry to ask whether the scene is live
 | `desktop()` | the desktop interactions node in the world |
 | `player_body()` | the rig body the game shows for Anon |
 | `game_player()` | the game's own player property, read defensively; null when absent or not a `Node3D` |
-| `mares()` | the world's live mare list, unchanged |
+| `mares()` | a typed copy of the world's live mare list |
 | `bed_under(point, exclude)` | the bed a downward probe finds under a point |
 | `real_bed(node)` | the bed behind a mattress or temporary support hit |
 | `bed_for_cradle(pony)` | the bed a cradle looks at, under the pony then ahead of the eye |
@@ -52,13 +52,53 @@ same answer, so a service never names the entry to ask whether the scene is live
 
 ## Base-game access
 
-`world/game.gd` is the base-game accessor module. Every base-game object and property read the mod
-makes is named there, and `world/service.gd` delegates its raw reads to it.
+`world/game.gd` is the base-game accessor module: static functions with explicit arguments, no
+bound state and no service preload. `world/service.gd` delegates its raw reads to it, and the act
+calls it directly for the eye line and the blush sustainer. Every accessor answers with a typed
+zero when the member is absent or renamed — `null` for a handle, `false` for a flag, `NAN` for a
+measurement. An argument that is not a live node is answered the same way, so a caller that holds a
+freed handle gets the absent answer instead of a crash.
+
+The private game members below are quirks of this game version: the accessor mirrors their
+behaviour exactly, and a game update that renames one is a change here rather than in a caller.
+
+| Accessor | Game member | Returns | Absent answer |
+|---|---|---|---|
+| `GAME.headset_view(game)` | `headset_view` | `bool` | `false` |
+| `GAME.game_player(game)` | `player` | `Node3D` | `null` |
+| `GAME.mares(game)` | `mares` | `Array[Node3D]`, a copy | empty |
+| `GAME.player_camera(player)` | the rig's `camera` | `Camera3D` | `null` |
+| `GAME.find_camera(game, player)` | `_find_camera` (private) | `Camera3D` | `null` |
+| `GAME.player_avatar(player)` | the rig's `form_driver.avatar` | `Node3D` | `null` |
+| `GAME.player_body_node(player)` | the rig's `Body` child | `Node3D` | `null` |
+| `GAME.seat_of(player)` | the rig's `seat` | `Node` | `null` |
+| `GAME.controls_locked(player)` | the rig's `controls_locked` | `bool` | `false` |
+| `GAME.set_controls_locked(player, locked)` | the rig's `controls_locked` | — | no write |
+| `GAME.menu_panel(game, key)` | `save_menu`, `settings_menu`, `pause_menu` | `Node` | `null` |
+| `GAME.inventory(game)` | `inventory` | `Node` | `null` |
+| `GAME.map_open(inventory)` | `_map_open` (private) | `bool` | `false` |
+| `GAME.case_visible(inventory)` | `case.visible` | `bool` | `false` |
+| `GAME.customizer_opened(inventory)` | `customizer.opened` | `bool` | `false` |
+| `GAME.inspector_active(inventory)` | `inspector.active` | `bool` | `false` |
+| `GAME.chat_box(game)` | the `ChatBox` child | `Node` | `null` |
+| `GAME.open_chat(game, player)` | `_open`, `_lock_owned` (private), and the rig's `controls_locked` | `bool` | `false` |
+| `GAME.identity_of(pony)` | `identity` | `Resource` | `null` |
+| `GAME.boop_of(pony)` | `boop_node` | `Node` | `null` |
+| `GAME.sustain_blush(boop, amount)` | `sustain_blush` | — | no call |
+| `GAME.eye_height(player)` | `eye_height` | `float` | `NAN` |
+| `GAME.set_eye_y(body, y)` | `_set_eye_y` (private) | — | no write |
+| `GAME.refresh_body_lod(pony)` | the hybrid near and far LOD caches, `set_near_mesh` | — | no rebuild |
+| `GAME.bed_of(collider)` | the mattress `bed_of` lookup | `Node3D` | `null` |
+
+Only `GAME.mares` and `GAME.refresh_body_lod` allocate or mutate; both are scan-cadence calls, and
+no accessor belongs on the frame path. `GAME` reads properties the game exposes and writes only the
+three members the facade already owned: the rig's control hold, its eye line and the chat lock.
 
 ## Internal API
 
 ```gdscript
 const WORLD := preload("res://mods/unfplap/world/service.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
 
 static var game: Node
 static var player: Node3D
@@ -71,7 +111,7 @@ static func interactor() -> Node
 static func desktop() -> Node
 static func player_body() -> Node3D
 static func game_player() -> Node3D
-static func mares() -> Array
+static func mares() -> Array[Node3D]
 static func bed_under(point: Vector3, exclude: RID = RID()) -> Node3D
 static func real_bed(node: Node) -> Node3D
 static func bed_for_cradle(pony: Node3D) -> Node3D
@@ -84,11 +124,16 @@ static func refresh_body_lod(pony: Node) -> void
 static func open_act_chat() -> bool
 ```
 
+`WORLD.mares()` answers a typed copy of the game's live list, so a caller may keep it across a
+scan but never expects the game's own array. `GAME` is the raw layer: every function takes the
+scene handle it needs and answers the typed zero, so a consumer that already holds `game` or
+`player` calls it directly instead of reaching through the facade.
+
 `Bind` runs in this order from the entry: `bind_world()` on world ready (it clears the resolved
 handles), `bind_player()` when the player rig arrives, `unbind()` on world close. An unbound
 facade answers `null` and `false`; that is the "no world yet" answer, not a rule. `game_player()`
-reads the game's own `player` property through `get("player")`, so a renamed or missing property
-is null instead of a crash.
+reads the game's own `player` property through `GAME`, so a renamed or missing property is null
+instead of a crash.
 
 ## Data ownership
 
@@ -128,7 +173,8 @@ facade never calls back into the entry.
 
 - `tests/world/test_world.gd`: the camera cache and its fallback, the bed resolution and the
   real-bed walk, bed occupancy and Anon's seat, the menu/paused/headset gates, the player body and
-  mare reads, the LOD rebuild and the act chat, and the unbound answers.
+  mare reads, the LOD rebuild and the act chat, the unbound and freed-handle answers, and every
+  `GAME` accessor's live and absent answer, including the chat hold's save and restore.
 
 ## Related docs
 

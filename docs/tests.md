@@ -51,6 +51,8 @@ table, not a second owner: each rule has exactly one suite.
 | `tests/stool/test_stool_api.gd` | `tests/stool/test_gate.gd` |
 | `tests/memory/test_facts.gd` | `tests/memory/test_text.gd` |
 | `tests/dialogue/test_history_scan.gd` | `tests/dialogue/test_act_dialogue.gd` |
+| `tests/dialogue/test_prompt_notes.gd` | `tests/dialogue/test_act_dialogue.gd` |
+| `tests/initiation/test_prompts.gd` | `tests/initiation/test_initiation_api.gd` |
 | `tests/face/test_mood_face.gd` | `tests/face/test_act_face.gd` |
 | `tests/readiness/test_auto_panel.gd` | `tests/readiness/test_readiness_auto.gd` |
 | `tests/summary/test_history.gd` | `tests/summary/test_act_flow.gd` |
@@ -105,7 +107,7 @@ func run() -> void:
 ## Isolation
 
 - Each suite gets its own `XDG_DATA_HOME` under the runner's temporary directory, so the player's
-  `user://` settings, saves and logs can never change a behaviour assertion or the shipped-defaults
+  `user://` settings, saves and logs can never change a behaviour assertion or the shipped-document
   schema check.
 - Never write a fixed path under `user://` and never depend on another suite having run first.
 - A suite must pass on a fresh checkout, with no settings file and no save.
@@ -199,11 +201,11 @@ sync in `act/tick.gd` is a static rule in `scripts/architecture.py --check`.
 ## What not to assert
 
 - **Test the API once.** One suite owns the contract for a facade; a feature suite calls the facade
-  and does not restate its contract. The settings schema, the character catalog and the pose table
-  each have one owner.
+  and does not restate its contract. The settings schema, the characters document, the prompt graph
+  and the pose table each have one owner.
 - **Never assert a shipped default.** A suite names a setting and its behaviour and reads the live
   value as input. It never copies the default into an expectation or compares a
-  `Setting.default` to a numeric literal. The shipped `settings/defaults.json` is the only source
+  `Setting.default` to a numeric literal. The shipped `settings/settings.json` is the only source
   of the value; `scripts/architecture.py --check` rejects a default-vs-literal comparison, with
   one allow-listed fallback-to-default call in `tests/poses/test_session.gd`.
 - **Never grep source text.** A suite does not read production source or docs to assert their text.
@@ -226,7 +228,9 @@ sync in `act/tick.gd` is a static rule in `scripts/architecture.py --check`.
 - every discovered `tests/**/test_*.gd` defines a `check(` helper and prints a line containing
   `_RESULT checks=`;
 - no suite calls `check(true, …)`;
-- only `tests/test_settings.gd` reads `settings/defaults.json` (or names `DEFAULTS_FILE`);
+- only `tests/test_settings.gd` and `tests/test_prompts.gd` name a shipped data document
+  (`settings.json`, `characters.json`, `prompts.json`, or a loader's path constant); every other
+  suite reaches a shipped value through a module's public API;
 - no `check(` call places a declaration `.default` next to a numeric literal, except the
   allow-listed `tests/poses/test_session.gd` fallback for `SETTINGS.chin_up_deg.default`;
 - `FileAccess.get_file_as_string` is limited to the allow-list below, so no suite scans production
@@ -238,7 +242,7 @@ The file-read allow-list, and the document each read is for:
 
 | Suite | Reads |
 |---|---|
-| `tests/test_settings.gd` | the shipped defaults document and its backups |
+| `tests/test_settings.gd` | the shipped settings and characters documents and their backups |
 | `tests/test_api.gd` | `docs/api.md` |
 | `tests/poses/test_pose_bake.gd` | the shipped standing asset bytes |
 | `tests/poses/test_pose_edge.gd` | the pose edge JSON fixtures |

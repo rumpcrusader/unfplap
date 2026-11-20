@@ -17,6 +17,7 @@ for the service's purpose, API, state, settings, controls, debug actions, depend
 | `../assets/README.md` | the resource pack layout and the asset-change workflow |
 | `../CREDITS.md` | external credits: anatomy and act audio |
 | `api.md` | the stable cross-mod API |
+| `prompts.md` | the shipped prompt document, its part/slot graph and the one renderer |
 | `tests.md` | the suite layout, conventions and the runner |
 | `quality.md` | the static gates: formatting policy, gdlint, complexity and shell-script rules |
 
@@ -88,6 +89,7 @@ only stable external surface is `docs/api.md`.
 | Settings change notification | `shared/settings_change.gd` | `docs/settings.md` | `tests/test_settings_change.gd` |
 | Preferences | `shared/preferences.gd` | `docs/preferences.md` | `tests/readiness/`, `tests/test_character_preferences.gd` |
 | Character templates | `shared/character_preferences.gd` | `docs/preferences.md` | `tests/test_character_preferences.gd` |
+| Prompt text | `shared/prompt_text.gd` | `docs/prompts.md` | `tests/test_prompts.gd` |
 | Cycle | `shared/cycle.gd` | `docs/eligibility.md` | `tests/test_cycle.gd` |
 | Participation | `shared/participation.gd` | `docs/eligibility.md` | `tests/test_participation.gd` |
 | Consent defaults | `shared/consent.gd` | `docs/eligibility.md` | `tests/eligibility/` |
@@ -183,7 +185,7 @@ Rules:
 
 - the doc is the single source of truth for the service;
 - no other doc restates its API, state, settings, controls, tests or debug actions;
-- settings are named and described here, but defaults stay in `settings/defaults.json` and bounds
+- settings are named and described here, but defaults stay in `settings/settings.json` and bounds
   in the owning declaration;
 - tests are listed by path; do not copy pass counts;
 - lab checks are described as steps, not as historical results;

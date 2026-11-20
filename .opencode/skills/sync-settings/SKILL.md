@@ -8,15 +8,20 @@ metadata:
 # Unfplap sync settings
 
 Run from the mod repository root (`mods/unfplap`). This is a development tool for the local
-profile, not a player feature. The player's `settings.json` and the anatomy placement are outside
-the repository and are never committed.
+profile, not a player feature. The player's `settings.json` and `characters.json` are outside the
+repository and are never committed.
 
-Two shipped documents, two promotion targets:
+Three shipped documents, two promotion targets:
 
-- `settings/defaults.json` — the declared settings and the global `default` profile. This is the
-  player-settings document.
-- `settings/catalogs.json` — provider-overridable content: the built-in act prompts, the per-mare
-  character templates and the per-mare placement rows. It is never written to the player file.
+- `settings/settings.json` — the declared settings. This is the player-settings document.
+- `settings/characters.json` — the global `default` profile, the shipped per-mare profiles and the
+  shipped per-mare placement rows. It is never written to a player file.
+- `settings/prompts.json` — every prompt sent to a model. It is read-only here: the tool has no
+  mode for it, and a prompt edit is a hand edit of the shipped file.
+
+The player's data splits the same way: `settings.json` holds the declared settings and
+`characters.json` beside it holds the profile differences, the per-mare overrides and the
+per-mare placement rows. That second file is absent while the player has no character data.
 
 The tool only compares and then either promotes a value into the matching document or keeps the
 local value.
@@ -35,26 +40,28 @@ local value.
 
 ## 1. Diff
 
-The game materialises the merged defaults into the player's file when it loads, so launch it once
-and close it before diffing; the tool does not run the migration itself.
+The game materialises the declared defaults into the player's `settings.json` when it loads, so
+launch it once and close it before diffing; the tool does not run the migration itself.
 
 ```bash
 tmp=$(mktemp -d /tmp/opencode/unfplap-sync.XXXXXX)
 python3 scripts/settings_sync.py diff --project-root ../.. --json "$tmp/plan.json"
-python3 scripts/settings_sync.py diff --catalog --project-root ../.. --json "$tmp/catalog.json"
+python3 scripts/settings_sync.py diff --characters --project-root ../.. --json "$tmp/characters.json"
 ```
 
 The settings report names the profile and the shipped document, then lists:
 
-- `differences`: a shipped path where the player's value differs, including `default.*`;
+- `differences`: a shipped settings path where the player's value differs;
 - `missing`: a shipped path the player's file does not have (the merge fills it; not a difference);
-- `catalog overrides`: player leaves under `characters.*`, a per-mare placement row, or
-  `default.act_prompts.*`. They are promotable only with `--catalog`;
-- `unknown player leaves`: keys with no declaration and no catalog target. Report them; do not
+- `character overrides`: player leaves under `default.*`, `characters.*` or a per-mare
+  `anatomy.placement.<id>` row. They are promotable only with `--characters`;
+- `unknown player leaves`: keys with no declaration and no character target. Report them; do not
   promote them.
 
-The catalog report lists `catalog differences` (a catalog path where the player's override
-differs) and `missing from the catalog` (a promotable override the catalog does not have yet).
+The character report lists `character differences` (a character path where the player's value
+differs from `settings/characters.json`) and `missing from the character file` (a promotable
+override the shipped file does not have yet). A player without a `characters.json` reports no
+differences.
 
 ## 2. Show the comparison
 
@@ -63,9 +70,9 @@ and use the full value only in the question when needed.
 
 ## 3. Ask one question per difference
 
-Use the OpenCode `question` API. One question object per settings `diffs` entry and per catalog
-`diffs` entry. Do not ask about missing paths, catalog overrides the user does not want to promote,
-unknown leaves or never-sync paths.
+Use the OpenCode `question` API. One question object per settings `diffs` entry and per character
+`diffs` entry. Do not ask about missing paths, character overrides the user does not want to
+promote, unknown leaves or never-sync paths.
 
 - Header: at most 30 characters, e.g. the path's last segment.
 - Question: the full path, the player value and the shipped value.
@@ -80,20 +87,21 @@ still belongs to one path.
 
 ```bash
 python3 scripts/settings_sync.py promote <path> [<path> ...] --project-root ../..
-python3 scripts/settings_sync.py promote --catalog <path> [<path> ...] --project-root ../..
+python3 scripts/settings_sync.py promote --characters <path> [<path> ...] --project-root ../..
 ```
 
-- Settings paths go to `settings/defaults.json`; catalog paths go to `settings/catalogs.json`.
-- A catalog path is `character_templates.<id>.*`, `anatomy.placement.<id>.*` or `act_prompts.*`.
-  The tool reads the player value from `characters.<id>.*`, the same placement path or
-  `default.act_prompts.*`. It creates a missing catalog block or key.
+- Settings paths go to `settings/settings.json`; character paths go to `settings/characters.json`.
+- A character path is `default.*`, `characters.<id>.*` or `anatomy.placement.<id>.*`. The tool
+  reads the player value from the player's `characters.json` at the same path. It creates a missing
+  block or key.
+- `settings/prompts.json` is never a promotion target; the tool has no mode for it.
 - The tool preserves the document's order and tab indentation.
 - It never edits the player's profile: the player already has the value, and the merge keeps it.
 - It refuses a never-sync path, a settings path the shipped document does not declare, a block
   path and a path the player does not have.
 - A promoted default applies to fresh profiles and to keys the player does not have. A player who
   already has the old value keeps it; changing a materialised declared default is a migration, not
-  a retroactive edit. A promoted catalog value reaches every player who did not override it.
+  a retroactive edit. A promoted character value reaches every player who did not override it.
 
 Add `--dry-run` to print the intended writes without touching the file.
 
@@ -101,13 +109,13 @@ Add `--dry-run` to print the intended writes without touching the file.
 
 ```bash
 python3 scripts/settings_sync.py diff --project-root ../..
-python3 scripts/settings_sync.py diff --catalog --project-root ../..
+python3 scripts/settings_sync.py diff --characters --project-root ../..
 scripts/check.sh --all
 scripts/test.sh test_settings
 scripts/test_all.sh
 ```
 
-The second diff must show only kept differences, missing paths, catalog overrides and never-sync
+The second diff must show only kept differences, missing paths, character overrides and never-sync
 names. Unknown player leaves must be gone or reported. If the schema test fails, the shipped
 document and the declarations disagree; fix the document, never the test's expectation.
 
@@ -117,17 +125,18 @@ Stage only the shipped document the run changed. Player profile files are outsid
 Use one commit per area touched:
 
 - `settings: promote local defaults`
-- `settings: promote local catalog values`
+- `settings: promote local character values`
 
 Do not stage the doc yet.
 
 ## 7. Docs
 
 After the data commit, update the owning doc when the promotion changes a contract:
-`docs/settings.md` for a declared setting, `docs/preferences.md` for a character template,
-`docs/poses.md` for a pose default, `docs/anatomy.md` for a placement row and `docs/api.md` for a
-prompt. Docs name the setting and its bounds, never the shipped value; a default lives only in the
-shipped document.
+`docs/settings.md` for a declared setting, `docs/preferences.md` for a character profile,
+`docs/poses.md` for a pose default and `docs/anatomy.md` for a placement row. A prompt value has
+no promotion path: `settings/prompts.json` is edited by hand, and `docs/prompts.md` owns it. Docs
+name the setting and its bounds, never the shipped value; a default lives only in the shipped
+document.
 
 Run `scripts/check.sh --all`, `python3 scripts/architecture.py --check` and, when `docs/api.md`
 changed, `scripts/test.sh test_api`. Commit the doc in its own `docs:` commit:

@@ -35,6 +35,7 @@ restate a contract.
 | `shared/body_form.gd`, `shared/body_change.gd`, `shared/body_binding.gd`, `shared/body_change_policy.gd`, `shared/body_profile.gd` | `docs/body_change.md` (`shared/body_profile.gd` also `docs/anatomy.md`, `docs/camera.md`) |
 | `shared/character_preferences.gd`, `shared/preferences.gd` | `docs/preferences.md` |
 | `shared/defaults_data.gd` | `docs/settings.md` |
+| `shared/prompt_text.gd` | `docs/prompts.md` |
 | `shared/hands_*.gd` | `docs/hands.md` |
 | `shared/log.gd`, `shared/perf.gd` | no doc: the frozen file header is the contract |
 | `shared/build_stamp.gd` | its file header |
@@ -68,6 +69,7 @@ restate a contract.
 | `scene_gate/**` | `docs/scene_gate.md` |
 | `scene_hold/**` | `docs/scene_hold.md` |
 | `settings/**` | `docs/settings.md` |
+| `settings/prompts.json` | `docs/prompts.md` |
 | `stool/**` | `docs/stool.md` |
 | `summary/**` | `docs/summary.md` |
 | `vr/**` | `docs/vr.md` |
@@ -163,7 +165,7 @@ Read `WORKFLOW.md` before any task. Commit in small, testable units; never push.
   `on_player(body)` and `shutdown()`, and one line in the entry's service list.
 - **Settings snapshot.** Values arrive once per act and again on `apply_live_settings()`; no
   per-frame `Settings` reads. One declaration in `settings/service.gd`, one shipped value in
-  `settings/defaults.json`, one typed read; the framework is `docs/settings.md`.
+  `settings/settings.json`, one typed read; the framework is `docs/settings.md`.
 - **No game-file edits and no JSON merges.** Everything lives under `res://mods/unfplap/`.
 - **No global debug hotkeys.** `debug/service.gd` declares none; a debug action is a button in its
   Debug block and the game's dev keys stay the game's.
@@ -205,7 +207,7 @@ Read `WORKFLOW.md` before any task. Commit in small, testable units; never push.
   numeric value the code owns; a rename must never force a comment edit. `scripts/comments.py
   --check` enforces the shape in `scripts/lint.sh`.
 - A doc names settings and behaviour, not copied numeric defaults; the shipped
-  `settings/defaults.json` is the source for the default and the declaration in
+  `settings/settings.json` is the source for the default and the declaration in
   `settings/service.gd` for the bounds.
 - `docs/api.md` is the only cross-mod API contract. `README.md` is human-owned: do not edit it;
   report the needed change with exact replacement text.

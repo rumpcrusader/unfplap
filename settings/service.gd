@@ -1,5 +1,5 @@
 extends RefCounted
-## The one settings module: every global setting, the settings file, and the per-mare profiles.
+## The one settings module: every global setting, the player data files, and the per-mare profiles.
 ##
 ## A setting is declared here once, with its JSON path; its default lives in the shipped document
 ## and call sites use the typed accessor. See docs/settings.md.
@@ -19,8 +19,7 @@ const DEPRECATION := preload("res://mods/unfplap/settings/deprecation.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
 const ID := "unfplap"
 const FILE := "settings.json"
-## The second player document: the profile differences, the per-mare overrides and their
-## placement rows.
+## The player's character file: the profile difference and the per-mare rows.
 const CHARACTERS_FILE := "characters.json"
 ## The shipped settings document: one value per declared setting.
 const DEFAULTS_FILE := "res://mods/unfplap/settings/settings.json"
@@ -1681,7 +1680,7 @@ static var pantyhose_hull_show := flag("pantyhose_hull_show", "debug.pantyhose_h
 ## layer is applied when the profile is read, never written here.
 static var CHARACTER_TEMPLATES: Dictionary = DEFAULTS.characters_block("characters")
 
-## The settings file's schema version. Bump it when a one-time migration step is added, so an old
+## The player data schema version. Bump it when a one-time migration step is added, so an old
 ## file runs that step exactly once.
 const SCHEMA_VERSION := 11
 
@@ -1980,7 +1979,7 @@ static func consent(id: String) -> ROWS.Rows:
 	return ROWS.Rows.of(resolved.duplicate(true))
 
 
-## integration: save only the consent block. Preferences, prompts and poses are preserved. Like
+## integration: save only the consent block. Preferences and poses are preserved. Like
 ## preferences, only differences from her resolved consent defaults are stored.
 static func save_consent(id: String, values: ROWS.Rows) -> void:
 	var data := _draft()
@@ -2089,7 +2088,7 @@ static func default_participation(id: String) -> ROWS.Rows:
 	return default_participation_for(ROWS.Rows.of(_profile_base(data)), id)
 
 
-## Save only the participation block; preferences, consent, prompts and poses are preserved, and
+## Save only the participation block; preferences, consent and poses are preserved, and
 ## only keys that differ from her resolved default are stored.
 static func save_participation(id: String, values: ROWS.Rows) -> void:
 	var data := _draft()
@@ -2127,8 +2126,8 @@ static func save_participation(id: String, values: ROWS.Rows) -> void:
 	_write(data)
 
 
-## Remove only the participation override; the provider's default returns. Preferences, consent,
-## prompts and poses stay.
+## Remove only the participation override; the provider's default returns. Preferences, consent
+## and poses stay.
 static func reset_participation(id: String) -> void:
 	var data := _draft()
 	var characters: Variant = data.get("characters", {})
@@ -2168,7 +2167,7 @@ static func character_name(id: String) -> String:
 	return id.replace("_", " ").capitalize()
 
 
-## Save only the preference block; prompts and poses are preserved. Only keys that differ from her
+## Save only the preference block; poses are preserved. Only keys that differ from her
 ## resolved default are stored, so a provider update still reaches the rest.
 static func save_preferences(id: String, preferences: ROWS.Rows) -> void:
 	var data := _draft()
@@ -2200,7 +2199,7 @@ static func save_preferences(id: String, preferences: ROWS.Rows) -> void:
 	_write(data)
 
 
-## Remove only the preference override; the generated/default preference returns. Prompts and poses stay.
+## Remove only the preference override; the generated/default preference returns. Poses stay.
 static func reset_preferences(id: String) -> void:
 	var data := _draft()
 	var characters: Variant = data.get("characters", {})
@@ -2338,7 +2337,7 @@ static var generation := 0
 static var placement_revision := 0
 
 
-## Mark the placement view dirty without writing the settings file. The cross-mod API calls this
+## Mark the placement view dirty without writing a player file. The cross-mod API calls this
 ## when a provider registers or leaves.
 static func bump_placement_revision() -> void:
 	placement_revision += 1
@@ -2370,7 +2369,7 @@ static func aftercare_min(id: String) -> int:
 
 
 ## A cue line cannot repeat faster than this per mare. Values outside the band are clamped so
-## a hand-edited settings file cannot make her speak over every touch.
+## a hand-edited character file cannot make her speak over every touch.
 static func cue_gap_value(value: float) -> float:
 	return clampf(value, 8.0, 30.0)
 
@@ -2379,8 +2378,8 @@ static func cue_gap(id: String) -> float:
 	return cue_gap_value(float(template_for(id).raw().get("cue_gap", 12.0)))
 
 
-## The merged default + per-character template actually used at runtime, with pose and preference
-## blocks filled from their catalogs.
+## The merged default + per-character template actually used at runtime, with pose defaults
+## filled and preferences resolved.
 static func template_for(id: String) -> ROWS.Rows:
 	var data := _read()
 	return ROWS.Rows.of(
@@ -2523,8 +2522,7 @@ static func _read_player_file(path: String) -> Dictionary:
 	return out
 
 
-## Split a schema-10 document into the settings and character documents. The character blocks and
-## the per-mare placement rows move; a present `characters.json` always wins over the old copies.
+## Move a schema-10 profile and its rows into the character file; a present file wins.
 static func _import_player(data: Dictionary, characters: Dictionary,
 		characters_present: bool) -> Dictionary:
 	var split := false
@@ -3118,8 +3116,7 @@ static func _write(data: Dictionary) -> void:
 		LOG.error("settings: the new value is live in memory but was not saved")
 
 
-## Write both player files. The pair is not atomic; the next write rebuilds both from the one
-## in-memory view, and the character file is absent while the player has no character data.
+## Write both player files; the pair is not atomic. An empty character document removes its file.
 static func _write_files(data: Dictionary) -> bool:
 	var ok := _write_file(_path(), _settings_document(data))
 	var characters := _characters_document(data)
@@ -3157,8 +3154,7 @@ static func _settings_document(data: Dictionary) -> Dictionary:
 	return out
 
 
-## The player's character document: the global profile difference, the per-mare overrides and the
-## per-mare placement rows. Empty when the player has none, so no file is written.
+## The player's character document. Empty when there is nothing to save, so no file is written.
 static func _characters_document(data: Dictionary) -> Dictionary:
 	var out: Dictionary = {}
 	var resolved: Variant = data.get("default")

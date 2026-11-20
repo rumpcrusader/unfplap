@@ -97,8 +97,7 @@ provider mod off removes every layer it registered. Re-registering the same owne
 that layer in place, so it can refresh its data without changing precedence.
 
 Registration is normally done at startup. Made during an act, it updates resolved reads,
-preferences and anatomy immediately; act prompts, cue gap and aftercare are snapshotted at act
-start.
+preferences and anatomy immediately; cue gap and aftercare are snapshotted at act start.
 
 ```gdscript
 var result: Dictionary = api.register_mare(self, {
@@ -110,8 +109,6 @@ var result: Dictionary = api.register_mare(self, {
 	"consent": {"public": false, "anal": true, "oral": true},
 	"placement": {"tail_tilt_deg": 4.0, "dock_scale": 0.96},
 	"poses": {"missionary": {"nuzzle_scale": 0.5}},
-	"act_prompts": {"cue": "Custom cue prompt..."},
-	"event_prompts": {"climax": "Custom climax prompt..."},
 	"cue_gap": 12.0,
 	"aftercare_min": 10,
 	"smack_zone_radius": 0.035,
@@ -149,13 +146,16 @@ values, a reserved id, a missing `id` or `source`, and non-positive placement sc
 | `profile` | no | `participation` with `acts`, `anatomy` and `tail` booleans. Missing keys default to `true`. It is subtractive: `true` means "does not veto", never "grants". |
 | `placement` | no | Any subset of `offset_x`, `offset_y`, `offset_z`, `pitch_deg`, `scale`, `tail_y`, `tail_z`, `dock_y`, `dock_scale`, `tail_tilt_deg`. |
 | `poses` | no | Partial per-pose blocks, merged over `shared/pose_catalog.gd` defaults. |
-| `act_prompts` | no | `cue` and `utterance` prompt overrides. |
-| `event_prompts` | no | `climax` and `end_early` prompt overrides. |
 | `cue_gap` | no | Seconds; the existing 8–30 s clamp applies when read. |
 | `aftercare_min` | no | Readiness threshold; the existing 0–100 clamp applies when read. |
 | `smack_zone_radius` | no | Smack target radius in metres. |
 
-Provider data is never written to `settings.json`. It is an in-memory layer. The player's saved
+`act_prompts` and `event_prompts` were retired in 1.2: prompt text is one shipped document with no
+per-mare or provider layer (`docs/prompts.md`). A descriptor that still sends either key registers
+with `ok: true` and one `unknown key` warning per key; the value is never copied into the layer and
+changes no resolved value. `describe_mare()` no longer returns them.
+
+Provider data is never written to a player file. It is an in-memory layer. The player's saved
 character block and placement override always win.
 
 Registration is metadata only. It does not spawn a pony, grant a relationship or start an act; the
@@ -194,16 +194,16 @@ genuine edit or an old template, and preserving it is safer.
 
 | Data | Resolution order |
 |---|---|
-| Preferences, consent, poses, prompts, timing | player differences → provider layers (registration order) → catalog/built-in template → global default |
+| Preferences, consent, poses, timing | player differences → provider layers (registration order) → shipped profile → global default |
 | `eligible` | provider layers only (never a player value) |
-| `profile.participation` | player differences → provider layers (registration order) → built-in default |
-| Placement | player `anatomy.placement.<id>` → provider placement → `settings/catalogs.json` `anatomy.placement.<id>` → global default |
+| `profile.participation` | player differences → provider layers (registration order) → shipped default |
+| Placement | player `anatomy.placement.<id>` → provider placement → `settings/characters.json` `anatomy.placement.<id>` → global default |
 | Display name | built-in name → provider name → humanized id |
 
-The built-in template, the act prompts and the per-mare placement rows live in
-`settings/catalogs.json`. That file is provider-overridable content: it is read at run time and is
-never written into the player's `settings.json`. The player file holds only the differences the
-player made, so a catalog or provider update reaches every field the player did not edit.
+The shipped profile and the per-mare placement rows live in `settings/characters.json`, the
+prompt text in `settings/prompts.json`. Both are read at run time and neither is ever written into
+a player file. The player file holds only the differences the player made, so a shipped or
+provider update reaches every field the player did not edit.
 
 Provider layers stack in registration order: a later provider wins per field. Removing a layer
 reveals the one beneath it. Unregistering the last layer restores the built-in/global values.
@@ -228,8 +228,6 @@ dictionary, including for an unknown id.
 	"profile": {"participation": {"acts": true, "anatomy": true, "tail": true}},
 	"placement": { ... },   # all ten keys, player override applied
 	"poses": {"missionary": { ... }, "standing": { ... }},
-	"act_prompts": { ... }, # resolved built-ins plus overrides
-	"event_prompts": { ... },
 	"cue_gap": 12.0,        # effective value, existing clamp applied
 	"aftercare_min": 10,    # effective value
 	"smack_zone_radius": 0.035,
@@ -237,8 +235,8 @@ dictionary, including for an unknown id.
 ```
 
 It excludes live state: satisfaction, act history, relationship, estrus phase, the
-current act and anatomy attachment. Use it on demand, not every frame; it resolves prompts and
-pose settings.
+current act and anatomy attachment. Use it on demand, not every frame; it resolves pose settings
+and the profile chain.
 
 Every returned dictionary and array is a deep copy. Mutating it cannot change unfplap's state.
 
@@ -246,12 +244,13 @@ Every returned dictionary and array is a deep copy. Mutating it cannot change un
 
 Provider layers are defaults. The player's saved data remains authoritative:
 
-- `characters.<id>` stores only the preference, consent and participation keys that differ from
-  the resolved default;
+- in the player's `characters.json`, `characters.<id>` stores only the preference, consent and
+  participation keys that differ from the resolved default;
 - `eligible` is provider-only and never appears in the player's block; a player cannot age a
   character up;
-- `anatomy.placement.<id>` stores only placement keys that differ from the resolved default;
-- **Reset to default** in the Characters form returns to the built-in template plus the provider
+- `anatomy.placement.<id>` stores only placement keys that differ from the resolved default, in
+  the same character file;
+- **Reset to default** in the Characters form returns to the shipped profile plus the provider
   layer; it clears the player's participation to the provider's default and leaves the provider's
   `eligible` assertion alone;
 - removing the provider leaves the player's saved differences in place and simply drops the
@@ -259,15 +258,17 @@ Provider layers are defaults. The player's saved data remains authoritative:
 
 ## Stability and deprecation
 
-- Within API major 1, public methods, return shapes, capability names and descriptor fields are
-  never removed or given a new meaning. Additions are allowed.
+- Within API major 1, public methods and capability names are never removed or given a new
+  meaning. Additions are allowed.
 - A breaking change ships as a new major facade in `unfplap_api_v2`, while `unfplap_api_v1` keeps
   working. The old major stays supported for at least two minor releases of the new major or 180
   days, whichever is longer.
 - A deprecated method still works for the life of its major. It warns once and is listed in
   `contract().deprecations` as `{name, since, replacement, remove_in}`.
-- A descriptor key is accepted and remapped for the life of the major; it is removed only in the
-  next major.
+- A descriptor key keeps its meaning for the life of the major. It is removed only in the next
+  major, except for the 1.2 retirement recorded below: a retired descriptor key never breaks a
+  registration, because an unknown top-level key is a warning and the layer still forms. A removal
+  is never silent — the sender gets one warning per key, and the version history names it.
 - A public surface change updates `tests/test_api.gd` and the public names it reads from
   `docs/api.md` in the code commit; the rest of the contract prose follows in the `docs:` commit.
   The test compares the reflected method list against an explicit manifest.
@@ -278,3 +279,4 @@ Provider layers are defaults. The player's saved data remains authoritative:
 |---|---|---|
 | 1.0 | 0.4.0 (next) | `contract`, `supports`, `register_mare`, `unregister_mare`, `describe_mare`; custom and base-game provider templates. |
 | 1.1 | 0.4.0 (next) | `eligible` and `profile.participation` in the descriptor and `describe_mare`; `profile.mare` capability. |
+| 1.2 | 0.4.0 (next) | Prompt text becomes one shipped document with no per-mare or provider layer (`docs/prompts.md`): `act_prompts` and `event_prompts` leave the descriptor and `describe_mare`, and a descriptor that still sends them registers with one unknown-key warning each and no effect. |

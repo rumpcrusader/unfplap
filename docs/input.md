@@ -80,7 +80,7 @@ members through `world/game.gd`. It does not store runtime state.
 ## Settings
 
 - `act_key` (General, top row, no section heading): the physical key that starts and ends the act.
-  The shipped default lives in `settings/defaults.json`. The declaration is a hidden numeric
+  The shipped default lives in `settings/settings.json`. The declaration is a hidden numeric
   setting; `settings/ui.gd` draws its hand-built **Act Key** capture row because a key capture is
   not one of the declaration widgets.
   Press the row, then press any key; `Esc` cancels. The captured keycode is stored in

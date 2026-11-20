@@ -1,7 +1,6 @@
 extends RefCounted
-## The shipped data, read once per process: `settings.json` holds the declared settings, the
-## characters document holds the global profile, the per-mare templates and the placement rows, and
-## neither reaches the player file. Preloading nothing keeps the pure modules free of a cycle.
+## The three shipped documents, parsed once per process and returned detached.
+## Preloading nothing keeps the pure modules out of a cycle.
 
 const SETTINGS_FILE := "res://mods/unfplap/settings/settings.json"
 const CHARACTERS_FILE := "res://mods/unfplap/settings/characters.json"

@@ -5,7 +5,7 @@ one stable id and a character-template-shaped descriptor; this service validates
 the built-in template, and lets the settings, eligibility, anatomy, placement and API services
 resolve the same data they already resolve for a base-game mare.
 
-Provider data is never written to `settings.json`. The player's saved block always wins, and
+Provider data is never written to a player file. The player's saved block always wins, and
 removing the provider leaves the player's choices intact.
 
 ## Scope
@@ -65,7 +65,7 @@ world teardown.
 |---|---|---|
 | Provider descriptor layers | memory only | `registry/service.gd` |
 | Resolved template | derived per call | `registry/service.gd` |
-| Player's character overrides | `settings.json` -> `characters.<id>` | `settings/service.gd` |
+| Player's character overrides | `characters.json` -> `characters.<id>` | `settings/service.gd` |
 | Cross-mod registration call | memory only | `api.gd` |
 
 No provider value is saved. Removing a provider leaves the player's saved differences in place.
@@ -81,8 +81,10 @@ No provider value is saved. Removing a provider leaves the player's saved differ
 ## Settings
 
 No global settings. Provider `preferences`, `consent`, `eligible`, `profile.participation`,
-`placement`, `poses`, `act_prompts` and `event_prompts` are layers; the player's
-`characters.<id>` block is the sparse override. The settings framework is `docs/settings.md`.
+`placement` and `poses` are layers; the player's `characters.<id>` block in `characters.json` is
+the sparse override. The per-mare prompt overrides are gone in API 1.2: a descriptor that still
+sends `act_prompts` or `event_prompts` warns as an unknown key and the value is ignored
+(`docs/api.md`). The settings framework is `docs/settings.md`.
 
 ## Controls and debug
 

@@ -7,7 +7,7 @@ extends RefCounted
 
 const ACTION := &"unfplap_act"
 ## Legacy and invalid-code fallback. Not the shipped default; that is `controls.act_key` in
-## `settings/defaults.json`.
+## `settings/settings.json`.
 const DEFAULT_CODE := KEY_6
 ## Same upper bound the game's own key loader accepts.
 const MAX_CODE := 0x2000000

@@ -61,9 +61,10 @@ rebuild her bond facts. The full facts snapshot belongs to `get_verdict()`.
 
 | Data | Stored where | Owner |
 |---|---|---|
-| Preference profile (intensity, pattern, warmth, tolerance, touch, talk, dislikes, notes) | `settings.json` -> `default.preferences` and `characters.<id>.preferences` (differences only) | `settings/service.gd`, `shared/character_preferences.gd`, `shared/preferences.gd` |
-| Per-mare consent (public, anal, oral) | `settings.json` -> `characters.<id>.consent` (differences only) | `settings/service.gd` plus the `shared/consent.gd` resolver |
-| Per-mare participation (`acts`, `anatomy`, `tail`) | `characters.<id>.profile.participation` (differences only); a provider's `eligible` is a provider layer | `settings/service.gd` plus the `shared/participation.gd` resolver || Poses, prompts, `cue_gap`, `aftercare_min`, `smack_zone_radius` | `characters.<id>.*` | settings/profile modules |
+| Preference profile (intensity, pattern, warmth, tolerance, touch, talk, dislikes, notes) | `characters.json` -> `characters.<id>.preferences` (differences only; the shipped profile is in `settings/characters.json`) | `settings/service.gd`, `shared/character_preferences.gd`, `shared/preferences.gd` |
+| Per-mare consent (public, anal, oral) | `characters.json` -> `characters.<id>.consent` (differences only) | `settings/service.gd` plus the `shared/consent.gd` resolver |
+| Per-mare participation (`acts`, `anatomy`, `tail`) | `characters.json` -> `characters.<id>.profile.participation` (differences only); a provider's `eligible` is a provider layer | `settings/service.gd` plus the `shared/participation.gd` resolver |
+| Poses, `cue_gap`, `aftercare_min`, `smack_zone_radius` | `characters.json` -> `characters.<id>.*` | settings/profile modules |
 | Act history | `Mods.state("unfplap").act_history` | `shared/act_history.gd` |
 | Request cooldown | `Mods.state("unfplap").request_times` | `initiation/cooldowns.gd` (contract: `docs/initiation.md`) |
 | Relationship stage, love, friendship, willingness | game save (`player_bonds`, impressions) | base game |

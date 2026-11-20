@@ -285,7 +285,9 @@ attempt when a new Anon offer or hotkey interrupts her walk.
 
 ## Prompts
 
-`initiation/prompts.gd` builds every line from a `FACTS.Request`. The facade supplies
+`initiation/prompts.gd` builds every line from a `FACTS.Request`, and the words are the `ask` nodes
+in `settings/prompts.json` (`docs/prompts.md`). This file chooses the branch: the pose opening, the
+privacy mode and the heat line. The facade supplies
 `relation_note` and `history_note` from `negotiation.context()`, the Negotiation's one Context
 snapshot of the eligibility facts, act history and the memory cue (`docs/memory.md`); the
 reasoning payload carries the same Context. Wording mode is decided once per builder by
@@ -344,8 +346,6 @@ ponies are around. The heat line is appended only in heat and is empty otherwise
 - `tests/initiation/test_policy.gd`: the pacing lock, cooldown, heat, retry, approach and the phase
   names.
 - `tests/initiation/test_facts.gd`: the typed request defaults and independence.
-- `tests/initiation/test_prompts.gd`: the private/public ask, heat, the notes and the situation
-  text.
 - `tests/initiation/test_reasoning.gd`: the payload shape and the reply parser.
 - `tests/initiation/test_cooldowns.gd`: the stored clock, the history wait, the heat shortening
   and the set/clear round trip.

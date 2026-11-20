@@ -363,14 +363,13 @@ fade. The hull block is in the copied compatibility shaders under
   `tail_y`, `tail_z`, `dock_y`, `dock_scale` and `tail_tilt_deg`. The player block uses the first
   five only.
 - `shared/anatomy_placement.gd` owns the schema and the merge/sanitize/diff helpers. The shipped
-  per-mare rows live in `settings/catalogs.json` under `anatomy.placement`; resolution is the
-  player override (keyed by the stable pony id), then a provider layer, then the catalog row, then
-  the global default. The provider and catalog layers resolve by the presented form's fit
+  per-mare rows live in `settings/characters.json` under `anatomy.placement`; resolution is the
+  player override (keyed by the stable pony id), then a provider layer, then the shipped row, then
+  the global default. The provider and shipped layers resolve by the presented form's fit
   (`## Attachment and identity`), so a disguise borrows the copied pony's row where the player has
   not saved an override on the mare's stable id. Only keys
   that differ from the resolved default are stored; saving a row equal to the default removes the
-  block. Schema 10 strips the rows an older build materialised for every mare, keeping only real
-  overrides, so a provider's placement wins wherever the player did not edit.
+  block. A provider's placement therefore wins wherever the player did not edit.
 - The anatomy mesh is placed at the saved offset plus the calibrated `0.03 m` lift, pitched and
   scaled, then mapped through the `pony_hips` bind. A princess profile scales the origin and basis
   about the body. `Dock style` is visibility/colour only and never moves the mesh.
@@ -801,7 +800,7 @@ sample of the body coat.
   `tail_seat_trims.json` row and marks her with the `tail_seated` meta. The pony build runs
   before `Mods.on_node`, so the mod's `attach()` measures the **already seated** tail: its delta
   is `anatomy.placement` minus the game trim, and the placement therefore replaces the game's
-  trim rather than stacking on it. The catalog row (`settings/catalogs.json` →
+  trim rather than stacking on it. The shipped row (`settings/characters.json` →
   `anatomy.placement.<id>`) is the mod's tuned seat and may differ from the stock
   `tail_seat_trims.json` table; `tail_tilt_deg` is mod-only. Turning `reseat_tails` off restores
   the game-seated tail, which is the stock result.
@@ -894,7 +893,7 @@ rule.
 ## Settings
 
 The declarations are in `settings/service.gd` and their values in
-`settings/defaults.json`; this section is the anatomy-specific contract. The settings page is
+`settings/settings.json`; this section is the anatomy-specific contract. The settings page is
 built from the declarations, so the label, help and bounds are not restated here.
 
 The frame-path values are snapshotted: the coat-line and draw toggles, the anatomy mode, the
@@ -1038,8 +1037,8 @@ Current suites:
 - `tests/anatomy/test_afterglow_track.gd`: the afterglow keeps the attached part alignment and the
   live opening aim, follows the pose view's mouth anchor while the contact holds, returns to the
   opening once it is released, and clears the missionary inset outside the bed pose.
-- `tests/anatomy/test_placement.gd`: the placement resolution (player override → provider → catalog
-  → default), the body-fit key, the stable id, the default/override save, the legacy migration,
+- `tests/anatomy/test_placement.gd`: the placement resolution (player override → provider → shipped
+  row → default), the body-fit key, the stable id, the default/override save, the legacy migration,
   the placement editor delegation, the tail-seat row integration, the form fit row refresh and the
   debug tail collapse.
 - `tests/anatomy/test_part.gd`: the player part's prepare/encounter, the tip and root, the bed

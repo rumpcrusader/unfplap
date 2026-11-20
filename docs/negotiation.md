@@ -37,9 +37,10 @@ presentation, the act start, the scene rows or the pose placement gate. Those be
 - the Agreement handoff: the standing presentation, the one react line and the offer clear.
 
 `negotiation/agreement.gd` is the pure package and handle. The service is its only writer.
-`negotiation/prompts.gd` is the pure model request layer: the three instructions, the payload
-builders and the reply parsers. `negotiation/host.gd` is the service's private bridge to the live
-world (see `## Bridge`). The bounded classifier belongs to the Proactive service; this service
+`negotiation/prompts.gd` is the pure model request layer: the request kinds, the payload builders
+and the reply parsers (the instruction text is the prompt document's). `negotiation/host.gd` is the
+service's private bridge to the live world (see `## Bridge`). The bounded classifier belongs to the
+Proactive service; this service
 asks its facade for the node the model calls run on. The Act service gets only the handle.
 
 ## Internal API
@@ -217,13 +218,14 @@ negotiation with `Interrupted(hotkey)`.
 
 | Request | Instruction | Payload | Parse |
 |---|---|---|---|
-| Anon offer | `ANON_OFFER_INSTRUCTION` | the player line, the indexed options, Context | `{"offer","option"}`; a clear offer returns the raw index and an `out_of_range` marker when it is outside the captured list |
-| Anon decision | `ANON_DECISION_INSTRUCTION` | the Mare offer line, the player reply | `{"answer"}`; `unclear` is a refusal, malformed is a failure |
-| Mare response | `MARE_RESPONSE_INSTRUCTION` | the player offer, the option, Context | `{"answer"}`; `unclear` or malformed is a failure |
+| Anon offer | `classify.anon_offer` | the player line, the indexed options, Context | `{"offer","option"}`; a clear offer returns the raw index and an `out_of_range` marker when it is outside the captured list |
+| Anon decision | `classify.anon_decision` | the Mare offer line, the player reply | `{"answer"}`; `unclear` is a refusal, malformed is a failure |
+| Mare response | `classify.mare_response` | the player offer, the option, Context | `{"answer"}`; `unclear` or malformed is a failure |
 
-`negotiation/prompts.gd` owns the strings and the parsers; the host adapter owns the LLM call and
-the cancel scope. A parsed failure maps to `NoOffer` for the classifier and `Refused` for the
-answer, with no cooldown. A clear offer with an out-of-list index maps to
+`negotiation/prompts.gd` owns the request, the payload and the parser; the instruction prose is the
+`classify` group in `settings/prompts.json` (`docs/prompts.md`), and the host adapter owns the LLM
+call and the cancel scope. A parsed failure maps to `NoOffer` for the classifier and `Refused` for
+the answer, with no cooldown. A clear offer with an out-of-list index maps to
 `NoOffer(no_context_pose)`; the service validates the index against the list it captured at
 request time.
 

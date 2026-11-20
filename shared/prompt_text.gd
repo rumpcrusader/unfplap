@@ -18,8 +18,7 @@ static func validate(document: Dictionary) -> Array[String]:
 	return out
 
 
-## The fully rendered `prompt`; a plain string is a raw template whose names are all slots.
-## A non-DAG or a malformed composite renders as "".
+## The rendered prompt, or "" for a malformed graph. A string is raw text.
 static func render(prompt: Variant, values: Dictionary) -> String:
 	if prompt is String:
 		return _collapse(_expand_raw(prompt, values))

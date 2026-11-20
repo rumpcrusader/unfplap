@@ -304,6 +304,11 @@ same stored rows, and making it history-private would create
 `eligibility -> history -> memory -> eligibility`. A shared store is the deliberate cycle break.
 It owns its `Mods.state` key and its pure policy; it does not own scene behavior.
 
+`shared/prompt_text.gd` is the one prompt implementation: it builds and validates the part/slot
+graph and renders every prompt from `settings/prompts.json` (`docs/prompts.md`). A service that
+sends a prompt names a shipped node and passes the slot values; a second placeholder parser or
+prompt formatter is a review failure.
+
 ## Host boundary
 
 A host is the object that gives a service its live values: a runtime for its act services, and the
@@ -332,17 +337,19 @@ callback is a no-op only where the service doc says so.
 The settings service owns the catalog and the framework:
 
 - every declaration and its typed `Setting` handle in `settings/service.gd`;
-- the shipped `settings/defaults.json` (declared settings and the global `default` profile) and
-  `settings/catalogs.json` (provider-overridable prompts, character templates and placement
-  rows), the player `settings.json`, the merge, clamping, section state, migration and save;
+- the three shipped documents — `settings/settings.json` (the declared settings),
+  `settings/characters.json` (the global `default` profile, the per-mare profiles and the
+  placement rows) and `settings/prompts.json` (the prompt text) — the two player files
+  (`settings.json` and `characters.json`), the merge, clamping, section state, migration and save;
 - the declaration-drawn settings panel and the tab injection in `settings/ui.gd`.
 
-The default value of every declared setting lives in `settings/defaults.json`; the declaration
-supplies the kind, path, label, help, bounds and options. The global `default` profile and the
-per-mare placement rows resolve at read time, so the player file stores only the differences the
-player made. `settings/catalogs.json` is provider-overridable content: it is never written to the
-player file, and a cross-mod provider layer applies above it and below the player's differences
-(`docs/api.md`).
+The default value of every declared setting lives in `settings/settings.json`; the declaration
+supplies the kind, path, label, help, bounds and options. The `default` profile, the per-mare
+profiles and the per-mare placement rows live in `settings/characters.json`; they resolve at read
+time, so the player files store only the differences the player made. The shipped documents are
+read-only content: a cross-mod provider layer applies above the shipped profile and placement and
+below the player's differences (`docs/api.md`), and `scripts/settings_sync.py` is the only path
+that copies a local value back into the shipped data.
 
 The catalog is the settings service's **internal public API**. A service that needs a setting:
 
@@ -356,9 +363,9 @@ another service's contributed handle because the catalog is public inside the mo
 of the cross-mod API: other mods still only see `api.gd`.
 
 Panel order is declaration order. A per-act service receives its settings values once per act and
-receives them again on `apply_live_settings()`. There is one writer to `settings.json`: the
-settings service. Per-character profiles remain in the settings file until a characters service
-owns them.
+receives them again on `apply_live_settings()`. There is one writer to the player files: the
+settings service. The per-mare profiles live in the player's `characters.json`, split out of the
+settings document by that writer, until a characters service owns them.
 
 The debug service owns the console, the panel, the action registry (`debug/service.gd`), the
 action behavior (`debug/actions.gd`, the one node the entry adds), the action wheel
@@ -384,6 +391,7 @@ lab keys.
 | `WORKFLOW.md` | commands, labs and release flow |
 | `README.md` | the player-facing summary; human-owned, do not edit |
 | `docs/api.md` | the stable cross-mod API |
+| `docs/prompts.md` | the prompt document, its graph and the one renderer |
 | `assets/README.md`, `CREDITS.md` | asset-pack and external credits |
 
 Rules:

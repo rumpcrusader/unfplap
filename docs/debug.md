@@ -58,7 +58,6 @@ block button or the action wheel is the only trigger. `input/service.gd` still r
 | Make sex-ready | — | Mare |
 | Force deep stretch | — | Mare and Act |
 | Give footstool | General | — |
-| Reset act prompts | General | — |
 | Pantyhose: rebuild hull | Integrations | — |
 | Force/Clear heat | — | Mare |
 | Force/Clear diestrus | — | Mare |
@@ -134,7 +133,6 @@ block button or the action wheel is the only trigger. `input/service.gd` still r
   code. It refuses with a reason when no act is active, the view is not missionary or face-sit, the
   act is not `ACTIVE`, the pose is changing, a kiss is running or the anatomy act body is
   unavailable. It never ends the act. See `docs/poses.md`.
-- **Reset act prompts** clears the per-mare prompt overrides; see `docs/settings.md`.
 - **Pantyhose: rebuild hull** clears the shared garment depth field and rebuilds it from the
   anatomy mesh after a precision edit; the build time is logged with debug logs on. It is inert
   when the pack is absent. See `docs/integrations.md` (`## Pantyhose & Panties`).

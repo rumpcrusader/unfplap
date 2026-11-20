@@ -131,7 +131,7 @@ func form_reveal_peak(id: String, event_id: String, score: float) -> Peak:
 	return out
 
 
-## The shipped base text for a reaction whose caller supplied none; an `event_prompt` still wins.
+## Fallback text for the climax and early-end reactions.
 static func _reaction_base(reaction: int) -> String:
 	match reaction:
 		Reaction.CLIMAX:

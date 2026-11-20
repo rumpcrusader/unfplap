@@ -626,7 +626,7 @@ func _bystander_line(id: String, event_id: String, purpose: String,
 	return MEMORY.instance.line(request).queued
 
 
-## The provider or player override wins; otherwise the shipped prompt node for that id.
+## The shipped prompt node for that line kind, or the utterance node when the id is absent.
 func _prompt_node(key: String) -> Variant:
 	var node: Dictionary = DEFAULTS_DATA.prompts_block("act." + key)
 	if node.is_empty():

@@ -117,7 +117,7 @@ Breath timing: `0.9 s` base while active, `0.85 s` during climax, `1.4 s` in aft
 - frame handles: `ticker` (the ordered schedule), `input` (the input protocol), `start`, `view`,
   `exit` and `swap`. `tick(delta)` and `render(delta)` are the two one-line forwards to `ticker`.
 - values: `pose_id`, `source`, `bed`, `pony_id`, `display_name`, `event_id`, `serial`,
-  `preferences`, `act_prompts`, `profile`, `player_pony`, `forced_glance`.
+  `preferences`, `profile`, `player_pony`, `forced_glance`.
 - act bookkeeping: `aftercare_min`, `cue_gap`, `first_time`, `stopped_by_her`, `act_spoken_at`,
   `ended_early`, `cycle_heat`, `preserve_auto_shape`, `posture_owned` and `finalized`.
 - typed reads the host bindings use instead of reading a field: `state_value()`, `act_live()`,

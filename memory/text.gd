@@ -77,7 +77,7 @@ static func form_reveal_peak_text() -> String:
 	return "Anon asked to see the real me, and I let him."
 
 
-## The `act_prompts.event_*` setting key for one reaction.
+## The line-key and face-note name for one reaction.
 static func reaction_name(reaction: int) -> String:
 	match reaction:
 		FACTS.Reaction.END_EARLY:

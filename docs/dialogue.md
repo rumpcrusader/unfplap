@@ -32,13 +32,13 @@ face beats (`docs/face.md`).
 | File | Role |
 |---|---|
 | `dialogue/service.gd` | facade: scheduler state, cue admission, prompt assembly, reactions, the idle history scan, bystander and recent-line reads |
-| `shared/act_facts.gd` | the runtime's typed act view: state, ids, mood/cue, stroke and touch/talk values, preferences, prompts, features and the director clock |
+| `shared/act_facts.gd` | the runtime's typed act view: state, ids, mood/cue, stroke and touch/talk values, preferences, features and the director clock |
 | `dialogue/utterance_scheduler.gd` | pure admission policy: stability, gaps, demand budget, the one pending slot |
-| `dialogue/utterance.gd` | pure prompt formatting and the private line seed |
+| `dialogue/utterance.gd` | pure line values (the seed choice and the state line) and the private line seed |
 | `dialogue/prompts.gd` | pure normal-dialogue note assembly: warm, mid-act, afterglow, caress/lean, presented body |
 | `memory/service.gd` | the mod's line channel: queue, key, state, cancel and cancel-by-act |
 | `docs/dialogue.md` | this contract |
-| `tests/dialogue/` | the pure scheduler/formatting suites and the facade suite |
+| `tests/dialogue/` | the pure scheduler and line-value suites and the facade suite |
 
 The facade reads no runtime field and preloads neither `runtime.gd` nor the entry. It reads the
 mod's line channel through `MEMORY.instance` and every act value through
@@ -79,9 +79,9 @@ tree.
 
 A cue is queued only when the pose view's `contact_kind` is not `mouth` and the act is `ACTIVE`.
 The bed face-sit's `face` contact is not a mouth contact: it queues and speaks normally.
-The prompt is formatted, then the face note, the code-owned context note, the optional
-speech-feel note and the line-angle note are appended in that order. The shared-memory id is
-marked used only after the line was accepted.
+The prompt is rendered from `settings/prompts.json`, then a cue appends the face hint (when the
+rendered text carries none), the optional speech-feel note and the line-angle note, in that order.
+The shared-memory id is marked used only after the line was accepted.
 
 Entering oral ends the act's own lines with `keep_speaking = false`: a queued or already speaking
 act line is cancelled, `act/session.gd:oral_speech_stop()` stops her base-game voice and re-asserts
@@ -93,7 +93,8 @@ sets them on `act_facts` immediately before calling the facade.
 
 ## Prompt notes
 
-`dialogue/prompts.gd` is pure and owns the normal dialogue prompt, outside and during an act:
+`dialogue/prompts.gd` is pure and owns the normal dialogue prompt's precedence, outside and during
+an act; the words are the `act.note` nodes in `settings/prompts.json` (`docs/prompts.md`):
 
 - outside the act states, the warm after-sex note (with the relationship line appended) or the
   history note;
@@ -119,9 +120,8 @@ a quiet channel, but `note_reaction()` resets the shared gap so a cue cannot fol
 Every reaction carries a `Validity` record; its `test` callable is the rule the memory channel
 re-asks when the line is delivered, so a stale line is dropped and a speaking one may finish.
 The act's reactions are climax, intentional early end, history refusal, the tolerance
-warning/stop and the body-change offer (`form_offer`). The offer uses the provider policy's prompt
-as the fallback when the mare has no `event_form_offer` setting, and it is queued once per act from
-the body-change handover's offer tick.
+warning/stop and the body-change offer (`form_offer`). The offer uses the provider policy's offer
+line, and it is queued once per act from the body-change handover's offer tick.
 
 The bystander pass is always on. It uses `memory.observers()` and the modern witness perception.
 It starts after 12 s, repeats every 20 s, has a 70 % roll and caps at three lines. Its validity
@@ -185,13 +185,16 @@ first time with romance or a crush/new couple is `tender`; a marefriend is `warm
 uses durable act history plus the world context. The functional cue text is unchanged, and the
 model is not told to repeat specific names.
 
-`UTTERANCE.context_note()` owns the mandatory context. If a saved prompt omits `{state}`,
-`{relationship}`, `{tone}` or `{memory}`, the facade appends that block and the privacy guard after
-formatting. A legacy template cannot drop the relationship note.
+The `act.cue` composite's template carries the mandatory context: the moment, the state line, the
+relationship note, the tone, the memory, the face hint and the preference and recent-line blocks.
+Its `slots` list declares every runtime value and the graph test fails a composite that leaves one
+unreferenced, so no shipped template can silently drop the relationship note or the state line. A
+part whose slot is empty is dropped whole; a direct slot renders as empty and the rest of the line
+stays.
 
-`{face_note}` is the base-game expression hint. The default `cue`/`utterance` prompts carry it;
-the facade fills it from `act_face.prompt_note("cue", mood)` and appends the same hint to a saved
-prompt that does not use the placeholder. It suggests one valid `[face:...]` tag at the start of
+`{face_note}` is the base-game expression hint, a declared slot of `act.cue`. The facade fills it
+from `act_face.prompt_note("cue", mood)` and appends the same hint to a rendered cue line that
+carries no face tag. It suggests one valid `[face:...]` tag at the start of
 the line. If the moment genuinely changes how she feels, the same hint allows the game's feeling
 tag after the spoken words, such as `[mood: annoyed]`; the act summary may still overwrite the
 stored mood at act end. Voice emotions stay in the prompt text: `[whispering]` is the act default,
@@ -211,7 +214,7 @@ whole name or carries an imperative shape request, so ordinary talk such as “y
 
 Unprompted cue and reaction lines are always on. The line-angle note adds one fresh angle and the
 “use something from today if it fits” hint to a cue line, and the recent-line anti-repeat window
-is eight; the template's `Do not repeat: {recent}` is the only copy of those lines. The optional
+is eight; the `recent_line` part is the only copy of those lines. The optional
 `features.act_speech_feel` (**Enable speech interjections**) adds the thrust-paced interjection
 instruction; the two are independent.
 
@@ -233,7 +236,7 @@ too-slow.
 | shared | act_state | `shared/act_state.gd` | act state constants |
 | shared | act_face | `shared/act_face.gd` | face beat data |
 | read model | act_facts | `shared/act_facts.gd` | the typed act values and clock the note reads |
-| shared | defaults_data | `shared/defaults_data.gd` | shipped settings and catalog documents |
+| shared | defaults_data | `shared/defaults_data.gd` | the shipped prompt document |
 | shared | log | `shared/log.gd` | log sink |
 | shared | preferences | `shared/preferences.gd` | profile math and defaults |
 | shared | prompt_text | `shared/prompt_text.gd` | prompt graph and rendering |
@@ -251,13 +254,11 @@ too-slow.
 
 ## Tests
 
-- `tests/dialogue/test_utterance.gd`: pure formatting and the line seed.
+- `tests/dialogue/test_utterance.gd`: the line values and the line seed.
 - `tests/dialogue/test_utterance_scheduler.gd`: stability, gaps, demand budget and the slot.
 - `tests/dialogue/test_act_dialogue.gd`: pacing configuration, cue admission, prompt assembly,
   the memory channel, reactions, the recent-line reads, busy state, act-end cancellation, the
   idle apology repair and the pending reminder line.
-- `tests/dialogue/test_prompt_notes.gd`: the warm, mid-act and afterglow notes, the caress/lean
-  reads and the presented body's own/borrowed line.
 
 Run:
 

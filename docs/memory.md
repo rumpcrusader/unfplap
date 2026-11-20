@@ -187,7 +187,7 @@ runs the same test and writes one row per observer:
 
 | Kind | Purpose source | Key |
 |---|---|---|
-| `REACTION` | the `act_prompts.event_<name>` override, or the caller's fallback; the climax adds a first-person thought instruction and the face note | `unfplap:<event_id>:reply:<name>` |
+| `REACTION` | the caller's fallback; if that is empty, the shipped `act.climax` or `act.end_early` line for a climax or an early end; the climax adds a first-person thought instruction and the face note | `unfplap:<event_id>:reply:<name>` |
 | `UTTERANCE` | the ready cue prompt | `unfplap:<event_id>:line:<suffix>` |
 | `BYSTANDER` | the ready bystander prompt | `unfplap:<event_id>:bystander:<id>` |
 
@@ -228,7 +228,7 @@ memory is marked used only after the caller queues the line.
 | service | ponies | `ponies/service.gd` | the eligibility handle |
 | service | world | `world/game.gd` | the base-game events, bonds, story and mod-state reads |
 | shared | act_face | `shared/act_face.gd` | face beat data |
-| shared | defaults_data | `shared/defaults_data.gd` | shipped settings and catalog documents |
+| shared | defaults_data | `shared/defaults_data.gd` | the shipped prompt document |
 | shared | pony_id | `shared/pony_id.gd` | stable pony id |
 | shared | prompt_text | `shared/prompt_text.gd` | prompt graph and rendering |
 | store | act_history | `shared/act_history.gd` | stored history rows |

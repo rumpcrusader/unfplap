@@ -188,7 +188,9 @@ own reveal and a named form add nothing.
 | Withdrawn | hurt 6+ |
 
 The tier names are presentation. Their effect on the pure policy table, proactive offers and the
-tolerance stop is in `docs/eligibility.md`.
+tolerance stop is in `docs/eligibility.md`. The wording a tier, an idle-scan line or an afterglow
+beat carries is the `history` and `beats` groups in `settings/prompts.json` (`docs/prompts.md`);
+the tier itself is chosen here.
 
 There is **no break-up path**. The highest tier's act gate is in `docs/eligibility.md`; it never
 calls `player_bonds.break_up()`.
@@ -282,7 +284,7 @@ block. They are debug numbers, so stored values are never clamped. See `docs/set
 | service | settings | `settings/service.gd` | settings declarations and live values |
 | shared | log | `shared/log.gd` | log sink |
 | shared | preferences | `shared/preferences.gd` | profile math and defaults |
-| shared | defaults_data | `shared/defaults_data.gd` | shipped settings and catalog documents |
+| shared | defaults_data | `shared/defaults_data.gd` | the shipped prompt document |
 | shared | prompt_text | `shared/prompt_text.gd` | prompt graph and rendering |
 | shared | relationship_cue | `shared/relationship_cue.gd` | relationship prompt note |
 | store | act_history | `shared/act_history.gd` | stored history rows |

@@ -40,7 +40,7 @@ Line and prompt:
 event_id, pony_id, display_name, act_seconds
 last_intensity, last_pattern, last_touch, last_talk
 thrust_pace, cue_override
-preferences, act_prompts, features
+preferences, features
 caress_quality (the act's precise or fast caress surface level)
 ```
 

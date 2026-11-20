@@ -1,7 +1,7 @@
 # Per-mare preferences
 
 This is the contract for the per-mare preference profile: the schema, the two scoring axes, the
-touch/talk classification, the character templates and the Characters editor. Readiness and
+touch/talk classification, the per-mare profiles and the Characters editor. Readiness and
 scoring are `docs/readiness.md`; consent and participation are `docs/eligibility.md`; the settings
 framework is `docs/settings.md`.
 
@@ -9,17 +9,17 @@ framework is `docs/settings.md`.
 
 `shared/preferences.gd` is the pure profile module: validation, merge, intensity/rhythm and the
 talk keyword map. The global profile default lives under `default.preferences` in
-`settings/defaults.json`; the per-mare templates live under `character_templates` in
-`settings/catalogs.json`. `shared/character_preferences.gd` holds the display names and the
-selector order and reads those templates once. `settings/service.gd` stores the per-mare overrides
-under `characters.<id>` and resolves the provider layer. `settings/characters_ui.gd` builds the
-Characters form (interim home until a characters service owns it); `settings/ui.gd` owns the
-declaration rows for the global settings. The entry supplies the live-mares list and the resolved
-participation block through host callbacks.
+`settings/characters.json`; the per-mare shipped profiles live under `characters` in the same
+document. `shared/character_preferences.gd` holds the display names and the selector order and
+reads those profiles once. `settings/service.gd` stores the per-mare overrides under
+`characters.<id>` in the player's `characters.json` and resolves the provider layer.
+`settings/characters_ui.gd` builds the Characters form (interim home until a characters service
+owns it); `settings/ui.gd` owns the declaration rows for the global settings. The entry supplies
+the live-mares list and the resolved participation block through host callbacks.
 
-A known mare's base is her catalog template, then any mod provider layer (`docs/api.md`), then the
+A known mare's profile resolves player override → provider layer → her shipped profile → the
 global `default`. Removing her saved override restores that chain rather than the global default.
-The file stores only the player's differences, so a catalog or provider update reaches every field
+The player file stores only the differences, so a shipped or provider update reaches every field
 the player did not edit.
 
 ## Profile schema
@@ -121,25 +121,25 @@ The form holds:
 - a provider's `eligible` assertion, shown only when a provider layer sets one.
 
 Preset changes are staged in the form and written only by **Save preset**, then applied live during
-an act. If the form matches the character's own preference template, Save preset removes the saved
+an act. If the form matches the character's own preference profile, Save preset removes the saved
 preference override instead of writing a redundant one. **Reset to default** restores the
-character's own preference template, including a registered provider layer, and preserves custom
-`event_prompts` and pose settings; it does not clear consent overrides. The Reset button is
-disabled while the saved preset already matches the character template. Consent defaults are
-deterministic from her id, can be supplied by a registered provider layer, and can be overridden
-per pony.
+character's own preference profile, including a registered provider layer, and leaves her pose and
+consent overrides in place. The Reset button is disabled while the saved preset already matches the
+character profile. Consent defaults are deterministic from her id, can be supplied by a registered
+provider layer, and can be overridden per pony.
 
-`characters.<id>.profile` is a sparse per-mare participation layer. `profile.participation` holds
-`acts`, `anatomy` and `tail`; only differences from the resolved default are stored. A provider's
-`eligible` assertion is top-level and never a player value. The `characters` block is the same per-mare
-block as the preference, consent, prompt and pose overrides.
+`characters.<id>.profile` is a sparse per-mare participation layer in the player's
+`characters.json`. `profile.participation` holds `acts`, `anatomy` and `tail`; only differences from
+the resolved default are stored. A provider's `eligible` assertion is top-level and never a player
+value. The `characters` block is the same per-mare block as the preference, consent and pose
+overrides.
 
 ## Character examples
 
-Every spawnable mare in the base game has an explicit profile in `settings/catalogs.json`
-(`character_templates`), read by `shared/character_preferences.gd`:
+Every spawnable mare in the base game has an explicit profile in `settings/characters.json`
+(`characters`), read by `shared/character_preferences.gd`:
 103 mares, the original sixteen first in the selector and the rest alphabetical. This table is the
-main cast sample; the catalog carries the full roster. `twist` (written as a schoolfilly) and
+main cast sample; the shipped profiles carry the full roster. `twist` (written as a schoolfilly) and
 `fiddly_twang` (written as a stallion) are left out because their identity flags do not match their
 character profiles.
 
@@ -173,8 +173,8 @@ Rarity, Octavia, Maud and Zecora, and the wider roster follows the same rule.
   history note and recent events in its PROMPT section.
 - `tests/readiness/test_preferences.gd` covers profile merge, likes/dislikes and classification,
   and the teat size's display order, case handling and `auto` fallback.
-- `tests/test_character_preferences.gd` covers the roster, display names and the shipped catalog
-  templates.
+- `tests/test_character_preferences.gd` covers the roster, display names and the shipped
+  profiles.
 - `tests/test_settings.gd` covers the per-mare merge, provider precedence and the Characters form
   contract, including the teat size row's place and the saved difference.
 

@@ -38,7 +38,7 @@ contact driver. `poses/pose_driver.gd` is the typed driver protocol every recipe
 whole-pose `apply()`, the base/overlay split a delta needs and the delta entry point.
 `shared/pose_catalog.gd` owns the pose ids
 and the `POSE_KEYS` schema; the shipped per-pose values live under `default.poses` in
-`settings/defaults.json`.
+`settings/characters.json`.
 `poses/service.gd` owns the live pose. `shared/act_motion.gd` is pure lean-travel and pose-action
 math; `camera/service.gd` owns the lean state and `camera/view.gd` the act view.
 

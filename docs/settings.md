@@ -2,18 +2,26 @@
 
 Every global setting in the mod is declared **once**, in `settings/service.gd`, and read through a
 typed accessor on that setting. The declaration owns the JSON path, label, help, tab, group,
-bounds and options; the **default value lives in `settings/defaults.json`**, never in the
+bounds and options; the **default value lives in `settings/settings.json`**, never in the
 declaration or in a second constant. There is no path-keyed read outside the settings service.
 
-Two documents share one shape:
+Three shipped documents and two player documents divide the data by kind:
 
 | Document | Path | Writer | Contents |
 |---|---|---|---|
-| Shipped defaults | `res://mods/unfplap/settings/defaults.json` | git, read-only | the default settings document |
-| Player settings | `user://mods/data/unfplap/settings.json` | the mod | the same document plus `version`, `ui.sections` and the player's edits |
+| Shipped settings | `res://mods/unfplap/settings/settings.json` | git, read-only | the default value of every declared setting |
+| Shipped characters | `res://mods/unfplap/settings/characters.json` | git, read-only | the global `default` profile, the per-mare profiles and the per-mare placement rows |
+| Shipped prompts | `res://mods/unfplap/settings/prompts.json` | git, read-only | every prompt sent to a model; `docs/prompts.md` |
+| Player settings | `user://mods/data/unfplap/settings.json` | the mod | the same declared settings plus `version` and `ui.sections` |
+| Player characters | `user://mods/data/unfplap/characters.json` | the mod | the profile differences, the per-mare overrides and the placement rows; absent while the player has no character data |
 
-The shipped document is a valid settings document; the player document is that document with
-edits. Nothing else supplies a default.
+The shipped settings document is a valid settings document; the player settings document is that
+document with edits. Nothing else supplies the default of a declared setting. The characters
+document is content rather than settings: its `default` block is the profile a mare starts from,
+its `characters` block holds the shipped per-mare profiles, and its `anatomy.placement` block holds
+the shipped placement rows. The prompts document is read by the modules listed in
+`docs/prompts.md` and is never part of a player file.
+
 
 The General, Anatomy, Poses and World panels are drawn from the declarations by `settings/ui.gd` in
 the settings page's own menu style: row cards, `Faint` help, switch plus state, Segment pills for a
@@ -26,11 +34,12 @@ in `settings/characters_ui.gd`; the consent and participation semantics are in
 
 > If you are about to write a `SpinBox`, `CheckButton`, `OptionButton`, a default constant, a
 > restore/normalise function or a save function for a setting, stop. Declare the setting and add
-> its one value to `settings/defaults.json` instead.
+> its one value to `settings/settings.json` instead.
 
-Per-character profiles (`default`/`characters` templates, preferences, prompts, consent) and the
-pose catalog overrides (`poses.*`) are not global settings: they live in the same file but are read
-through `SETTINGS.preferences(id)`, `SETTINGS.pose(id, pose_id)` and the other profile functions.
+Per-character profiles (`default`/`characters` profiles, preferences, consent) and the pose
+catalog overrides (`poses.*`) are not global settings: they live in `settings/characters.json` and
+the player's `characters.json`, and are read through `SETTINGS.preferences(id)`,
+`SETTINGS.pose(id, pose_id)` and the other profile functions.
 The identity facts discovery scans read (`SETTINGS.profile_identity(id)`) are memoized per settings
 generation and provider registry revision, so a scan does not rebuild the whole template per mare.
 The resolved consent block (`SETTINGS.consent(id)`) is memoized on the same two keys and returns a
@@ -38,11 +47,12 @@ detached copy, so an act gate pays a lookup instead of a template build.
 
 ## Ownership
 
-`settings/service.gd` owns the declaration catalog, the shipped-defaults loader, the player file,
-the merge, the typed accessors and the per-mare profiles. `settings/defaults.json` is shipped data,
-not code: it is tracked, packed, read-only in a build and parsed once per process. The catalog is
-the settings service's internal public API: a service contributes a setting with a literal
-declaration there, one value in the shipped document, and then reads the typed handle.
+`settings/service.gd` owns the declaration catalog, the shipped-data loaders, both player files,
+the merge, the typed accessors and the per-mare profiles. `settings/settings.json`,
+`settings/characters.json` and `settings/prompts.json` are shipped data, not code: they are tracked,
+packed, read-only in a build and parsed once per process. The catalog is the settings service's
+internal public API: a service contributes a setting with a literal declaration there, one value in
+the shipped settings document, and then reads the typed handle.
 
 `settings/ui.gd` is the only file that draws the declaration rows; it also owns the settings-page
 injection and the Debug block visibility. `settings/characters_ui.gd` is the interim home of the
@@ -56,7 +66,7 @@ through the entry. The act session takes the settings service's typed `ActSnapsh
 
 1. Add the declaration in `settings/service.gd`, in the tab and group where the player should see
    it. The declaration owns the path, label, help, bounds, options and debug flag — not the value.
-2. Add the same dotted path to `settings/defaults.json` with its default value. The schema test
+2. Add the same dotted path to `settings/settings.json` with its default value. The schema test
    fails when a declaration and the shipped document disagree.
 3. Document the behavior in the owning service's `## Settings` section.
 4. Depend on `settings/service.gd` and use the typed handle.
@@ -119,7 +129,7 @@ snapshot scalar.
    ```
 
 2. **One value in the shipped document.** Add `raise_m` under `presentation.standing.smack` in
-   `settings/defaults.json`. The nesting mirrors the dotted path; the value's JSON type must match
+   `settings/settings.json`. The nesting mirrors the dotted path; the value's JSON type must match
    the declaration kind. Do not add a second copy anywhere.
 
 3. **One typed read at the use site.**
@@ -248,84 +258,105 @@ the log sink joins the same list.
 
 ## Persistence, defaults and migration
 
-- `settings/defaults.json` is the only source of a declared setting's default. It is tracked,
+- `settings/settings.json` is the only source of a declared setting's default. It is tracked,
   packed and read-only in a build. `_bind()` reads one value per declaration at static
-  initialisation, so the shipped document is process-static: `SETTINGS.reload_file()` reloads only
-  the player file.
-- `settings/catalogs.json` holds the provider-overridable content: the built-in act prompts, the
-  per-mare character templates and the per-mare placement rows. It is tracked and read-only too,
-  and it is never part of `defaults()`, `data()` or the player file. A release or provider update
-  therefore reaches every field the player did not override.
-- `shared/defaults_data.gd` is the one parser for both files. It preloads nothing, so the pure
-  modules (`preferences`, `pose_catalog`, `character_preferences`) and `settings/service.gd` read
-  it without a cycle; each call returns a detached block.
-- `SETTINGS.defaults()` returns the shipped document plus the one block that still lives in code
-  (`ui.sections`), detached and with no player values. `SETTINGS.data()` returns that base with the
-  player's values merged on top, detached. These are the only two loaders; `_shipped()` and
-  `_catalog()` are internal.
-- On mod load, the entry's `_ready()` calls `SETTINGS.load_settings()` before any getter: the player file
-  is parsed, migrated, merged over the defaults (the player wins, and an absent player key is
-  filled from the default) and written back once. Declared settings are therefore materialised in
-  the player file on first run. **A changed shipped declared default is a migration event for an
-  existing player**: their materialised value keeps winning. Promote a player value into the
-  shipped document with `scripts/settings_sync.py`; see `.opencode/skills/sync-settings/SKILL.md`.
-- `scripts/settings_sync.py diff` compares the player file with `settings/defaults.json`
-  (including `default.*`); `diff --catalog` compares the player's per-mare overrides with
-  `settings/catalogs.json`. `promote` and `promote --catalog` write into the matching document and
-  never touch the player file.
-- The global `default` profile (`default.*` in `settings/defaults.json`: the template core, the
-  preference profile and the pose defaults) is resolved at read time. The player file stores only
-  the differences the player made, so a changed shipped template or a cross-mod provider layer
-  reaches every player who did not override it. The per-mare `anatomy.placement` rows work the
-  same way: a row equal to the resolved default is never written.
+  initialisation, so the shipped settings document is process-static: `SETTINGS.reload_file()`
+  reloads only the two player files.
+- `settings/characters.json` holds the content the profile resolution reads: the global `default`
+  block (the profile, its preferences and the pose defaults), the shipped `characters.<id>`
+  profiles and the shipped per-mare `anatomy.placement.<id>` rows. It is tracked and read-only too.
+  `settings/prompts.json` holds every prompt and is owned by `docs/prompts.md`.
+- `shared/defaults_data.gd` is the one parser for all three documents: `document()`,
+  `characters()` and `prompts()`, each parsed once per process, plus `settings_block()`,
+  `characters_block()` and `prompts_block()` for a detached block. It preloads nothing, so the pure
+  modules (`preferences`, `pose_catalog`, `character_preferences`, `prompt_text` consumers) and
+  `settings/service.gd` read it without a cycle.
+- `SETTINGS.defaults()` returns the base a fresh profile starts from: the shipped declared
+  settings, the one block that still lives in code (`ui.sections`) and the shipped `default`
+  profile, detached and with no player values. `SETTINGS.data()` returns that base with the
+  player's declared settings, `default` differences, `characters` overrides and placement rows
+  merged on top, detached. These are the only two public loaders; `_shipped()`, `_characters()`
+  and `_filled_default()` are internal.
+- On mod load, the entry's `_ready()` calls `SETTINGS.load_settings()` before any getter: both
+  player files are parsed, the character data is imported and migrated, the result is merged over
+  the defaults (the player wins, and an absent player key is filled from the default) and written
+  back once. Declared settings are therefore materialised in `settings.json` on first run.
+  **A changed shipped declared default is a migration event for an existing player**: their
+  materialised value keeps winning. Promote a player value into the shipped document with
+  `scripts/settings_sync.py`; see `.opencode/skills/sync-settings/SKILL.md`.
+- `scripts/settings_sync.py diff` compares the player's `settings.json` with
+  `settings/settings.json`; `diff --characters` compares the player's `characters.json` with
+  `settings/characters.json` (the `default` differences, the per-mare overrides and the per-mare
+  placement rows). The settings report lists character-only player leaves as overrides promotable
+  with `--characters`. `promote` and `promote --characters` write into the matching document and
+  never touch a player file; `prompts.json` has no mode.
+- The `default` profile is resolved at read time from the shipped characters document, then the
+  provider layers, then the player's saved differences. The player file stores only the
+  differences the player made, so a changed shipped profile or a cross-mod provider layer reaches
+  every player who did not override it. The per-mare `anatomy.placement` rows work the same way: a
+  row equal to the resolved default is never written, and a `default` or `anon` row is a declared
+  setting, never a character row.
 - A player file with absent keys is filled from the defaults; the merge never requires every key.
   A player file that cannot be read, is empty, is not a JSON object, or was written by a newer
   schema is preserved as `<path>.<timestamp>.invalid` (for example
-  `settings.json.20261114-155724.invalid`), logged with the original and backup paths, and
-  replaced by a fresh document built from the shipped defaults. Hand-editing is still unsupported;
-  the backup is the recovery path. A missing or malformed value in `settings/defaults.json` or
-  `settings/catalogs.json` is a **shipped-data** error: `_shipped()`/`_catalog()` log the first
-  problem, `defaults()` and `data()` return an empty document, `_load()` refuses to write and
-  the entry's `_ready()` logs one line and installs no hooks. The game keeps running.
-- The schema test `_check_shipped_defaults()` enforces the exact declared path set (every
-  declaration has a value, and there is no undeclared path outside `default.*`), the exact JSON
-  type per kind, a choice/list value inside its declared options, a colour in `rrggbb`/`rrggbbaa`
-  form and a player-facing number inside its declared bounds. It never asserts a value, so
-  changing a shipped default does not touch the test. `_check_catalog()` does the same for
-  `settings/catalogs.json`: the prompt keys, the full roster, the template fields and the
-  placement keys.
-- `default.*` is not a declared setting. The schema test checks it as a block — its three numbers,
-  the event prompts, an empty prompt override block, the `PREFERENCES.KEYS` preference schema and
-  the `CATALOG.POSE_KEYS` pose schema — and excludes it from the declared path set.
+  `settings.json.20261114-155724.invalid`), logged with the original and backup paths, and replaced
+  by a fresh document built from the shipped defaults. Hand-editing is still unsupported; the
+  backup is the recovery path. The two files are checked separately, so a bad `characters.json`
+  does not discard `settings.json`. A missing or malformed value in `settings/settings.json` or
+  `settings/characters.json` is a **shipped-data** error: `_shipped()`/`_characters()` log the first
+  problem, `defaults()` and `data()` return an empty document, `_load()` refuses to write and the
+  entry's `_ready()` logs one line and installs no hooks. The game keeps running.
+- The schema test `_check_shipped_defaults()` enforces the exact declared path set on
+  `settings/settings.json` (every declaration has a value and there is no undeclared path), the
+  exact JSON type per kind, a choice/list value inside its declared options, a colour in
+  `rrggbb`/`rrggbbaa` form and a player-facing number inside its declared bounds. It never asserts
+  a value, so changing a shipped default does not touch the test. `_check_characters()` does the
+  same for `settings/characters.json`: the global `default` block (its three numbers, the
+  `PREFERENCES.KEYS` preference schema and the `CATALOG.POSE_KEYS` pose schema), every roster
+  profile against `REGISTRY.TEMPLATE_KEYS`, and the per-mare placement keys. `tests/test_prompts.gd`
+  is the graph check for `settings/prompts.json`.
+- `default.*` is not a declared setting and is no longer in the shipped settings document. The
+  schema test reads it from the characters document as a block and excludes it from the declared
+  path set.
 - The old `controls.act_key` choice strings (`o`, `y`) are converted to physical keycodes on load;
   `ACT_KEYS.DEFAULT_CODE` is only the legacy/invalid-code fallback, not the shipped default.
 - `anatomy.placement` is one block with `default.*` (the global default: its declarations are
   hidden, and only the Placement actions write them), `anon.*` (the player part's visible
-  Debug rows) and partial `<mare id>.*` overrides. The shipped per-mare
-  rows (the tuned tail/dock values) live in `settings/catalogs.json` under `anatomy.placement`;
-  `shared/anatomy_placement.gd` owns the schema and resolves override, provider, catalog row, then
-  global default. Only a row that differs from that resolved default is stored; schema 10 strips
-  the rows an older build materialised for every mare. The old `anatomy_place.json` and
-  `anon_place.json` import once and are renamed `.migrated`. The old `anatomy.tail_seat.<id>` rows
-  and the tail/dock millimetre globals migrate into the same block on load.
+  Debug rows) and partial `<mare id>.*` overrides. The shipped per-mare rows (the tuned tail/dock
+  values) live in `settings/characters.json` under `anatomy.placement`; `shared/anatomy_placement.gd`
+  owns the schema and resolves override, provider, shipped row, then global default. Only a row
+  that differs from that resolved default is stored, in the player's `characters.json`. The old
+  `anatomy_place.json` and `anon_place.json` import once and are renamed `.migrated`. The old
+  `anatomy.tail_seat.<id>` rows and the tail/dock millimetre globals migrate into the same block on
+  load.
 - `anatomy.reseat_tails`, `anatomy.dock_style` and the tail/dock placement behavior are in
   `docs/anatomy.md`. The settings layer owns only their paths, defaults and the placement
   migration above.
-- `settings/service.gd` owns the player file. `SETTINGS.load_settings()` parses it once per
+- `settings/service.gd` owns both player files. `SETTINGS.load_settings()` parses them once per
   process into `_cache` and writes the merged result; the typed getters only read the
-  generation-cached flat table, so a per-frame read never touches the disk. `SETTINGS.reload_file()`
-  re-reads the player file immediately; the settings page calls it when it opens.
+  generation-cached flat table, so a per-frame read never touches the disk.
+  `SETTINGS.reload_file()` resets both loaded flags, bumps the generation once and re-reads both
+  files immediately; the settings page calls it when it opens.
 - A write goes `Setting.set_value()` → `_store()` → `_sanitize()` → `_write_path()` → `_write()` →
-  `_write_file()`. `_write_file()` writes a temporary file and renames it, falling back to a direct
-  write. When both routes fail it logs the path and both errors; `_write()` adds that the new value
-  is live in memory but was not saved. The live cache keeps the edit either way.
-- **Migrations.** The player file carries `version`. `_migrate()` runs the `deprecated()` entries on
-  every file, then a version-gated chain: `_migrate_to_9()` holds the renames and retired keys, and
-  `_migrate_to_10()` resolves the global profile and placement rows. A file at the current
-  `SCHEMA_VERSION` skips both. When a migration actually changes the player document, `_load()` logs
-  the schema change and the concrete changed, added and removed leaf paths; a fresh profile and a
-  current file stay silent. The log runs before the defaults merge, so materialising a default is
-  not reported as a migration.
+  `_write_files()`. The settings document is the merged view with `default`, `characters` and the
+  per-mare placement rows removed; the characters document is the `default` difference, the
+  `characters` overrides and the per-mare rows, each file carrying `version`. A player with no
+  character data has no `characters.json`. Each file is written through a temporary file and a
+  rename, falling back to a direct write; the pair is not atomic, and the next write rebuilds both
+  from the one in-memory view. When a route fails it logs the path and both errors; `_write()` adds
+  that the new value is live in memory but was not saved. The live cache keeps the edit either way.
+- **Migrations.** `version` is the schema of the pair. `_migrate()` runs the `deprecated()` entries
+  and erases `RETIRED_PATHS` on every file, then the one version-gated step: `_migrate_to_11()`
+  drops the prompt overrides and reduces a saved character block to real differences. The split
+  itself runs before the migration: `_import_player()` reads a schema-10 document's `default` and
+  `characters` blocks and its per-mare placement rows into the character document and erases them
+  from the settings document; a present `characters.json` always wins over the old copies, and the
+  recovery is logged. `_normalize_anatomy_placement()` runs on every load, so a legacy placement
+  file that appears later still imports. A file older than schema 10 keeps its old keys and those
+  settings fall back to their defaults; that data loss is accepted. When a migration actually
+  changes the player document, `_load()` logs the schema change and the concrete changed, added and
+  removed leaf paths; a fresh profile and a current file stay silent. The log runs before the
+  defaults merge, so materialising a default is not reported as a migration.
 - **Deprecations.** Declare a retired setting next to its replacement:
 
   ```gdscript
@@ -336,18 +367,18 @@ the log sink joins the same list.
   ```
 
   The loader reads the old path once, merges the returned dictionary and erases the old key, so a
-  retired setting cannot linger in the file.
+  retired setting cannot linger in the file. `RETIRED_PATHS` lists the keys the mod no longer reads
+  at all; they are erased on load so an ignored key cannot persist forever.
 - `history.*` holds the act-history score weights, thresholds, decay and offer weighting; the
   contract is `docs/summary.md`. `tolerance.*` holds the mid-act warning/stop thresholds; the tier
   itself is a per-mare `preferences.tolerance`, not a global setting.
-- Built-in act prompts live in `settings/catalogs.json` (`act_prompts`); a profile's `act_prompts`
-  stores only overrides. **Reset act prompts** (General › Enable debug › Debug › Actions) clears
-  them.
+- Prompt text is not a setting and has no override: `settings/prompts.json` is the only copy, and
+  `docs/prompts.md` owns it. The **Reset act prompts** action is gone with the overrides.
 - `characters.<id>.profile` is a sparse per-mare participation layer. `profile.participation` holds
   `acts`, `anatomy` and `tail`; only differences from the resolved default are stored. A provider's
   `eligible` assertion is top-level and never a player value, because a player cannot age a
-  character up. The `characters` block is the same per-mare block as the preference, consent,
-  prompt and pose overrides.
+  character up. The `characters` block is the same per-mare block as the preference, consent and
+  pose overrides.
 - Unknown keys are ignored on load.
 - Never name a settings API function after a `Script`/`Object` built-in (`reload`, `set_path`,
   `get`, `set`): a preloaded script constant resolves the built-in instead. `tests/test_settings.gd`
@@ -357,37 +388,57 @@ the log sink joins the same list.
 
 - Scope: world
 - Constructed by: static initialization; the entry's `_ready()` loads it
-- Begin: `SETTINGS.load_settings()` — registry, shipped defaults and the player file
+- Begin: `SETTINGS.load_settings()` — registry, the shipped documents and both player files
 - End: process exit
 - Idempotent: yes
 
 
 ## Settings file shape
 
-Shipped defaults: `res://mods/unfplap/settings/defaults.json`. One nested block per dotted path,
-one value per declared setting, plus the global `default` profile; no `version`, no `ui`.
+Shipped settings: `res://mods/unfplap/settings/settings.json`. One nested block per dotted path and
+one value per declared setting; no `version`, no `ui`, and no profile or prompt block.
 
-Shipped catalog: `res://mods/unfplap/settings/catalogs.json`. `act_prompts`,
-`character_templates` and `anatomy.placement.<id>`; content only, never written to the player file.
+Shipped characters: `res://mods/unfplap/settings/characters.json`:
+
+```json
+{
+	"default": {"preferences": {...}, "poses": {...}, "cue_gap": ...,
+		"aftercare_min": ..., "smack_zone_radius": ...},
+	"characters": {"<mare id>": {"preferences": {...}, "poses": {...}}},
+	"anatomy": {"placement": {"<mare id>": {...}}}
+}
+```
+
+`default` is the whole block a fresh profile starts from; `characters` holds each mare's shipped
+profile as an overlay on it, and `anatomy.placement` the shipped placement rows. There is no
+`version`, no `act_prompts`, no `event_prompts` and no `character_templates` key.
+
+Shipped prompts: `res://mods/unfplap/settings/prompts.json`, the prompt document in
+`docs/prompts.md`; `version` plus one group per feature.
 
 Player settings: `user://mods/data/unfplap/settings.json`
-(`~/.local/share/home-equestria-public/mods/data/unfplap/settings.json`). The same declared
-blocks, plus `version`, `ui.sections`, the `default` differences, `characters` overrides and the
-sparse per-mare `anatomy.placement` rows.
+(`~/.local/share/home-equestria-public/mods/data/unfplap/settings.json`). The declared blocks plus
+`version`, `ui.sections` and the `default`/`anon` `anatomy.placement` rows.
 
-The player file is loaded once at mod load (`SETTINGS.load_settings()`) and kept in memory
-(`SETTINGS._cache`); it is written when a value changes or the merged document differs from the
-file. A read shares that cached view and must not mutate it; every setter starts from a detached
+Player characters: `user://mods/data/unfplap/characters.json`, beside it. The same three blocks as
+the shipped characters document, each sparse, plus `version`; the file is absent while the player
+has no character data.
+
+Both player files are loaded once at mod load (`SETTINGS.load_settings()`) and kept in memory
+(`SETTINGS._cache`); they are written when a value changes or the merged document differs from the
+files. A read shares that cached view and must not mutate it; every setter starts from a detached
 copy and ends at `_write()`, so a failed write never leaves a half-applied edit in the live cache
 and the failure is logged. Opening the Unfplap settings tab calls `SETTINGS.reload_file()`, which
-re-reads the player file immediately, so a hand-edited file applies when the tab opens; otherwise
-it needs a restart. The shipped document never reloads mid-process.
+re-reads both files immediately, so a hand edit applies when the tab opens; otherwise it needs a
+restart. A shipped document never reloads mid-process.
 
-Top level: `version`, `debug_mode`, `debug_perf`, `debug_hide_tails`, `debug`, `controls`,
-`features`, `relationship`, `thrust`, `auto_thrust`, `caress`, `jiggle`, `camera_thrust`,
-`presentation`, `history`, `tolerance`, `cues`, `talk`, `player`, `anatomy`, `ui` (section open
-state), `default` (the player's differences from the shipped profile only) and `characters`
-overrides.
+The merged view (`SETTINGS.data()`) carries `version`, `debug_mode`, `debug_perf`,
+`debug_hide_tails`, `debug`, `controls`, `features`, `relationship`, `thrust`, `auto_thrust`,
+`caress`, `jiggle`, `camera_thrust`, `presentation`, `history`, `tolerance`, `cues`, `talk`,
+`player`, `anatomy` (with the per-mare placement rows), `ui` (section open state), `default` (the
+player's differences from the shipped profile) and `characters` overrides. The settings document on
+disk carries the declared blocks and `ui` only; `default`, `characters` and the per-mare rows are
+split out into the character document on every write.
 
 ## The settings tab
 
@@ -537,7 +588,7 @@ unbounded.
 Feature flags are ordinary settings under `features.*` and are read through their typed accessor.
 The act session snapshots them with every other act value in `act/session.gd:snapshot_settings()`
 at act start, and `apply_live_settings()` re-runs that snapshot after any settings edit. Their
-default values live in `settings/defaults.json`.
+default values live in `settings/settings.json`.
 
 | Flag | Gates |
 |---|---|
@@ -571,7 +622,7 @@ flags and debug values are in `docs/hands.md`; anatomy feature flags and debug v
 ## Settings authoring rules for agents
 
 - Add a setting with one declaration line in `settings/service.gd`, one value in
-  `settings/defaults.json`, and read it with its typed accessor; never add a widget, a default
+  `settings/settings.json`, and read it with its typed accessor; never add a widget, a default
   constant, a path-keyed read or a save function anywhere else.
 - Contribute the setting from its owning service: edit the catalog literally, add its shipped
   value, document it in that service's contract and depend on the settings facade. Do not add a
@@ -579,9 +630,10 @@ flags and debug values are in `docs/hands.md`; anatomy feature flags and debug v
 - `SETTINGS.act_snapshot(group)` is the one bulk read. There is no path-keyed gameplay read and
   no second cache; a new per-act value belongs on `ActSnapshot`, not in a new `SETTINGS.block`.
 - **A consumer carries no default.** Do not declare a field, constant or argument default with a
-  value the setting also ships; the declaration and `settings/defaults.json` are the only source.
+  value the setting also ships; the declaration and `settings/settings.json` are the only source.
   Where a fallback is genuinely needed, read `SETTINGS.<name>.default` or the shipped block
-  (`PREFERENCES.defaults()`, `CATALOG.defaults(pose_id)`, `DEFAULTS.block(...)`), never a literal.
+  (`PREFERENCES.defaults()`, `CATALOG.defaults(pose_id)`, `DEFAULTS.settings_block(...)`), never a
+  literal.
   A complete settings block is indexed (`block["key"]`); do not soften it with
   `.get("key", literal)`, which only hides a missing or stale copy.
 - **A rule table or a constant set is a default copy too.** When several settings form one policy
@@ -618,10 +670,10 @@ flags and debug values are in `docs/hands.md`; anatomy feature flags and debug v
 - **Help is optional.** The label carries the row when the action is self-explanatory; add help
   when the row needs a reason, a range or a warning. An empty help string draws no Faint line.
 - **Docs name settings and bounds, never shipped values.** A default lives only in
-  `settings/defaults.json`; a doc that repeats it goes stale on the next promotion.
-- Promote a player value with `scripts/settings_sync.py promote` (settings) or
-  `scripts/settings_sync.py promote --catalog` (a per-mare template, prompt or placement row);
-  never hand-edit the shipped document to copy a local value.
+  `settings/settings.json`; a doc that repeats it goes stale on the next promotion.
+- Promote a player value with `scripts/settings_sync.py promote` (a declared setting) or
+  `scripts/settings_sync.py promote --characters` (a profile difference, a per-mare override or a
+  placement row); never hand-edit the shipped document to copy a local value.
 
 ## Debug actions and hotkeys
 
@@ -701,9 +753,9 @@ carries one retired key, with `into()` moving the stored value and `mapped()` re
 |---|---|---|---|
 | shared | act_keys | `shared/act_keys.gd` | act-key legacy fallback, key map and labels |
 | shared | anatomy_placement | `shared/anatomy_placement.gd` | placement schema and merge |
-| shared | character_preferences | `shared/character_preferences.gd` | roster and catalog templates |
+| shared | character_preferences | `shared/character_preferences.gd` | roster and shipped profiles |
 | shared | consent | `shared/consent.gd` | consent defaults |
-| shared | defaults_data | `shared/defaults_data.gd` | shipped settings and catalog documents |
+| shared | defaults_data | `shared/defaults_data.gd` | the three shipped documents |
 | shared | integrations | `shared/integrations.gd` | verified mod catalog and tab rows |
 | shared | log | `shared/log.gd` | log sink |
 | shared | participation | `shared/participation.gd` | participation defaults |
@@ -719,12 +771,15 @@ service edge.
 ## Tests
 
 - `tests/test_settings.gd` is the API contract, tested once: unique names and paths, a tab/group/
-  label/help on every declaration, the shipped document's schema (exact key set, types, options,
-  colour format and bounds; never values), the catalog's schema, the sparse player document, the
-  file round-trip, clamping and debug bypass, choice/list validation, section state, the panel
+  label/help on every declaration, the shipped settings document's schema (exact key set, types,
+  options, colour format and bounds; never values), the characters document (the global profile,
+  the roster templates and the placement keys), the split player documents, the schema-11 import,
+  the file round-trip, clamping and debug bypass, choice/list validation, section state, the panel
   drawing every declaration in its tab (and the Debug block only in debug mode), built-in name
-  clashes, the per-mare merge, provider precedence for preferences/poses/prompts/placement and the
-  consent cache's detached copy/invalidation.
+  clashes, the per-mare merge, provider precedence for preferences/poses/placement and the consent
+  cache's detached copy/invalidation.
+- `tests/test_prompts.gd` is the prompt graph contract over `settings/prompts.json`; see
+  `docs/prompts.md`.
 - `tests/test_settings_change.gd` is the notification contract: registration order, one place per
   callable, a released listener skipped, a mid-pass leave, and the last listener leaving the list.
   `hud/test_caption.gd` proves a live service re-reads through `apply_live()` with no entry.
@@ -738,6 +793,7 @@ service edge.
 ## Related docs
 
 - `docs/preferences.md` — the Characters form and the per-mare profiles.
+- `docs/prompts.md` — the shipped prompt document and its renderer.
 - `docs/eligibility.md` — consent and participation storage and gates.
 - `docs/debug.md` — the Debug actions, the console and the perf panel.
 - `docs/readiness.md`, `docs/poses.md`, `docs/camera.md`, `docs/hands.md`, `docs/anatomy.md` —

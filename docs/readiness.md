@@ -142,7 +142,8 @@ overwhelmed   a disliked touch/talk landed recently
 
 - `CLOSE_AT = 65` is only the “she is close” cue.
 - `PONY_CLIMAX_AT = 100` triggers the pony's climax.
-- Cue admission, stability, the shared slot and the prompt are `docs/dialogue.md`. The HUD shorthand
+- Cue admission, stability, the shared slot and the prompt are `docs/dialogue.md`; the prompt text
+  itself is `docs/prompts.md`. The HUD shorthand
   is `docs/hud.md`.
 - The base fallback cue is `She wants you to keep going.` A neutral touch sets no override; a
   neutral talk sets `She listens.` The two assist-cap lines mean the touch/talk assist is already
@@ -286,6 +287,7 @@ settings.
 ## Related docs
 
 - `docs/dialogue.md` — cue admission, prompt assembly, reactions.
+- `docs/prompts.md` — the prompt text the assembly renders.
 - `docs/hud.md` — cue, readiness and auto text.
 - `docs/preferences.md` — the per-mare profile and the two axes.
 - `docs/summary.md` — the act summary and the long-term history.

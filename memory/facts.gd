@@ -6,7 +6,7 @@ extends RefCounted
 enum LineState { ABSENT, QUEUED, GENERATING, SPEAKING, DELIVERED, UNKNOWN }
 ## The three ways the mod queues one of its own lines.
 enum LineKind { REACTION, UTTERANCE, BYSTANDER }
-## A settings-driven act reaction. The names are the `act_prompts.event_*` keys.
+## An act reaction the mod queues itself. Its name keys the line and the face note.
 enum Reaction { CLIMAX, END_EARLY, HISTORY_REFUSAL, HISTORY_REMINDER, HISTORY_COMPLAINT,
 		TOLERANCE_WARNING, TOLERANCE_STOP, FORM_OFFER }
 ## A world-context event with fixed wording.

@@ -64,8 +64,8 @@ var host: Host = null
 var body_change: BODY_CHANGE_SERVICE = null
 var initiation: INITIATION = null
 var negotiation: NEGOTIATION = null
-## Plain handles, set by the entry. The anatomy facade stays untyped because the placement editor
-## reads its aim rule from `debug/service.gd`; a typed import here would close a service cycle.
+## The services the buttons act through. The anatomy facade is typed; the pack's one hull rebuild is
+## a bound Callable so this node never imports a pack file.
 var anatomy: ANATOMY = null
 var pantyhose: Node = null
 ## The pack's one hull rebuild, bound once so this node never imports a pack file.
@@ -86,8 +86,7 @@ func _ready() -> void:
 	CHANGE.on_changed(Callable(self, "apply_settings"))
 
 
-## Set by the entry: the services the buttons act through. The anatomy facade stays a plain handle
-## because the placement rule would create a service cycle.
+## Set by the entry: the services the buttons act through.
 func bind(body_change_service: BODY_CHANGE_SERVICE, initiation_service: INITIATION,
 		negotiation_service: NEGOTIATION, anatomy_service: ANATOMY,
 		pantyhose_service: Node) -> void:

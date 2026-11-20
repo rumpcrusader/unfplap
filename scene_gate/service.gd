@@ -4,9 +4,11 @@ extends RefCounted
 ## Contract: `docs/scene_gate.md`
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
+const POSE_SESSION := preload("res://mods/unfplap/poses/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 
@@ -14,14 +16,14 @@ const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const STATE_IDLE := ACT_STATE.State.IDLE
 
 ## The act's scene handles. The runtime binds them on every gate call.
-var pony: Variant = null
+var pony: Node3D = null
 ## The pose session, for the missionary asset/rig rows. Its facade answers both.
-var pose_session: Variant = null
+var pose_session: POSE_SESSION = null
 
 ## The act identity and state the rows read.
 var state := 0
 var id := ""
-var features: Dictionary = {}
+var features: Features = null
 
 ## Host boundary. A missing callback is a no-op.
 var stool_need := Callable()
@@ -51,6 +53,30 @@ class RunningVerdict extends RefCounted:
 		reason = reason_in
 
 
+## The act's feature switches, copied once per act; the gate reads them by name.
+class Features extends RefCounted:
+	var flags: Dictionary = {}
+
+	static func from_dict(block: Dictionary) -> Features:
+		var out := Features.new()
+		out.flags = block.duplicate()
+		return out
+
+
+## The merged start/offer answer: the policy snapshot, every row and the scene's own pass.
+## `show` is the start answer and `offer_ok` the proactive-offer answer.
+class GateVerdict extends RefCounted:
+	var policy: ELIGIBILITY.Verdict = null
+	var rows: Array[ELIGIBILITY.Row] = []
+	var scene_ok := false
+
+	func show() -> bool:
+		return policy != null and policy.show and scene_ok
+
+	func offer_ok() -> bool:
+		return policy != null and policy.offer and scene_ok
+
+
 ## The Agreement's frozen pose capability, recorded at formation and never rebuilt.
 class FrozenPose:
 	var pose_profile_ok := false
@@ -73,29 +99,29 @@ class SceneVerdict:
 
 
 ## Bind the scene nodes and the pose session. A missing node fails the gate closed.
-func bind(pony_node: Variant, session: Variant) -> void:
+func bind(pony_node: Node3D, session: POSE_SESSION) -> void:
 	pony = pony_node
 	pose_session = session
 
 
 ## The runtime's live gate values. The act state, id and feature snapshot change per act.
-func configure(state_value: int, id_value: String, features_block: Dictionary) -> void:
+func configure(state_value: int, id_value: String, features_block: Features) -> void:
 	state = state_value
 	id = id_value
 	features = features_block
 
 
 ## The scene-only rows. They never enter the pure policy. `mode` is `start` or `offer`.
-func rows(pose: String, act_source: String, bed_in: Variant, mode: String,
-		forced: bool) -> Array:
-	var rows_out: Array = []
+func rows(pose: String, act_source: String, bed_in: Node3D, mode: String,
+		forced: bool) -> Array[ELIGIBILITY.Row]:
+	var rows_out: Array[ELIGIBILITY.Row] = []
 	if not is_instance_valid(pony):
 		return rows_out
 	_row(rows_out, "state", state == STATE_IDLE, "state=%d" % state)
 	var tree: SceneTree = pony.get_tree()
 	_row(rows_out, "paused", forced or tree == null or not tree.paused, "paused")
 	_row(rows_out, "conversation", conversation_ok(), "conversation")
-	_row(rows_out, "sleeping", not pony.sleeping, "sleeping")
+	_row(rows_out, "sleeping", not bool(pony.get("sleeping")), "sleeping")
 	_row(rows_out, "sex_active", not bool(pony.get_meta("sex_active", false)), "sex_active")
 	_row(rows_out, "aftercare", not pony.has_meta("sex_aftercare"), "aftercare")
 	_row(rows_out, "cuddle",
@@ -111,12 +137,12 @@ func rows(pose: String, act_source: String, bed_in: Variant, mode: String,
 	_row(rows_out, "pose_source", _source_allowed(pose, act_source), "pose_source")
 	if mode == "start":
 		_row(rows_out, "player", player_ready_for(pose, act_source, bed_in), "player")
-	var nav: Node = pony.get_node_or_null("Navigator")
+	var nav: Node = GAME.navigator_of(pony)
 	if mode == "start":
 		_row(rows_out, "navigator", nav != null, "no_navigator")
 		if nav != null:
 			_row(rows_out, "navigator_reserved",
-				str(nav.get("reserved_by")) == "", "navigator_reserved")
+				GAME.navigator_reserved(nav) == "", "navigator_reserved")
 			_row(rows_out, "nav_owner", nav_owner_allows(pose, act_source), "nav_owner")
 		_row(rows_out, "nav_pose", nav_pose_gate(pose, act_source), "nav_pose")
 	else:
@@ -141,7 +167,7 @@ func rows(pose: String, act_source: String, bed_in: Variant, mode: String,
 	elif mode == "offer":
 		if bool(scene.get("standing_free", false)):
 			_row(rows_out, "standing_free",
-				not pony.is_held() and not pony.has_meta("seated"), "standing_free")
+				not GAME.is_held(pony) and not pony.has_meta("seated"), "standing_free")
 		elif not POSE_SPECS.is_offerable(pose):
 			_row(rows_out, "pose", false, "pose")
 	return rows_out
@@ -149,29 +175,15 @@ func rows(pose: String, act_source: String, bed_in: Variant, mode: String,
 
 ## The structural rows and the policy/scene merge. The runtime supplies the policy verdict and
 ## the debug context; the gate owns the merge and the debug string.
-func start_verdict(pose: String, act_source: String, bed_in: Variant = null,
-		verdict_in: ELIGIBILITY.Verdict = null) -> Dictionary:
-	var data := _gate_data(pose, act_source, bed_in, "start", false, verdict_in)
-	var policy: ELIGIBILITY.Verdict = data.get("policy")
-	var scene_ok := bool(data.get("scene_ok", false))
-	return {
-		"show": policy != null and policy.show and scene_ok,
-		"rows": data.get("rows", []),
-		"policy": policy,
-	}
+func start_verdict(pose: String, act_source: String, bed_in: Node3D = null,
+		verdict_in: ELIGIBILITY.Verdict = null) -> GateVerdict:
+	return _gate_data(pose, act_source, bed_in, "start", false, verdict_in)
 
 
 ## The full proactive-offer gate. It uses the offer-safe scene subset.
-func offer_verdict(pose: String, act_source: String, bed_in: Variant = null,
-		forced := false, verdict_in: ELIGIBILITY.Verdict = null) -> Dictionary:
-	var data := _gate_data(pose, act_source, bed_in, "offer", forced, verdict_in)
-	var policy: ELIGIBILITY.Verdict = data.get("policy")
-	var scene_ok := bool(data.get("scene_ok", false))
-	return {
-		"ok": policy != null and policy.offer and scene_ok,
-		"rows": data.get("rows", []),
-		"policy": policy,
-	}
+func offer_verdict(pose: String, act_source: String, bed_in: Node3D = null,
+		forced: bool = false, verdict_in: ELIGIBILITY.Verdict = null) -> GateVerdict:
+	return _gate_data(pose, act_source, bed_in, "offer", forced, verdict_in)
 
 
 ## The scene-only start of an accepted Agreement: no policy rebuild, no formation row.
@@ -261,11 +273,10 @@ func hotkey_ready(pose: String, act_source: String, bed_in: Node3D = null,
 		stool_pair.x, stool_pair.y)
 	if verdict == null or not verdict.ok:
 		return false
-	var service: Variant = PONIES.eligibility
+	var service: ELIGIBILITY = PONIES.eligibility
 	if service == null or not is_instance_valid(service):
 		return false
-	return bool(service.call("eligible", pony, ELIGIBILITY.Target.ACT)) \
-		and bool(service.call("relationship_ok", pony))
+	return service.eligible(pony, ELIGIBILITY.Target.ACT) and service.relationship_ok(pony)
 
 
 func _hold_exempt(pose: String, act_source: String) -> bool:
@@ -274,36 +285,38 @@ func _hold_exempt(pose: String, act_source: String) -> bool:
 	return bool(hold_compatible.call(pose, act_source))
 
 
-func _gate_data(pose: String, act_source: String, bed_in: Variant, mode: String,
-		forced := false, verdict_in: ELIGIBILITY.Verdict = null) -> Dictionary:
-	var structural: Array = []
+func _gate_data(pose: String, act_source: String, bed_in: Node3D, mode: String,
+		forced := false, verdict_in: ELIGIBILITY.Verdict = null) -> GateVerdict:
+	var out := GateVerdict.new()
+	var structural: Array[ELIGIBILITY.Row] = []
 	_gate_row(structural, "invalid_pony", is_instance_valid(pony), "invalid_pony")
 	if not is_instance_valid(pony):
-		return {"rows": structural, "policy": null, "scene_ok": false}
+		out.rows = structural
+		return out
 	_gate_row(structural, "no_world", is_instance_valid(WORLD.game), "no_world")
 	if not is_instance_valid(WORLD.game):
-		return {"rows": structural, "policy": null, "scene_ok": false}
+		out.rows = structural
+		return out
 	_gate_row(structural, "no_player", is_instance_valid(WORLD.player), "no_player")
 	if not is_instance_valid(WORLD.player):
-		return {"rows": structural, "policy": null, "scene_ok": false}
+		out.rows = structural
+		return out
 	_gate_row(structural, "no_game", is_instance_valid(WORLD.game), "no_game")
 	if not is_instance_valid(WORLD.game):
-		return {"rows": structural, "policy": null, "scene_ok": false}
+		out.rows = structural
+		return out
 	var policy_mode: ELIGIBILITY.Mode = ELIGIBILITY.Mode.OFFER if mode == "offer" \
 		else ELIGIBILITY.Mode.START
-	var policy: ELIGIBILITY.Verdict = policy_verdict_for(policy_mode, verdict_in)
-	var scene_rows: Array = rows(pose, act_source, bed_in, mode, forced)
-	var rows_all: Array = structural.duplicate()
-	if policy != null:
-		for row: ELIGIBILITY.Row in policy.rows:
-			rows_all.append(row)
-	for row: Variant in scene_rows:
-		rows_all.append(row)
-	return {
-		"rows": rows_all,
-		"policy": policy,
-		"scene_ok": _report_ok(scene_rows),
-	}
+	out.policy = policy_verdict_for(policy_mode, verdict_in)
+	var scene_rows := rows(pose, act_source, bed_in, mode, forced)
+	var rows_all: Array[ELIGIBILITY.Row] = []
+	rows_all.append_array(structural)
+	if out.policy != null:
+		rows_all.append_array(out.policy.rows)
+	rows_all.append_array(scene_rows)
+	out.rows = rows_all
+	out.scene_ok = _report_ok(scene_rows)
+	return out
 
 
 ## The policy verdict. The host may override it for a suite; otherwise the gate reads the
@@ -322,7 +335,7 @@ func policy_verdict_for(mode: ELIGIBILITY.Mode,
 	return service.get_verdict(pony, mode)
 
 
-func _gate_row(rows_out: Array, key: String, ok: bool, reason := "") -> void:
+func _gate_row(rows_out: Array[ELIGIBILITY.Row], key: String, ok: bool, reason := "") -> void:
 	var row := ELIGIBILITY.Row.new()
 	row.key = key
 	row.ok = ok
@@ -330,17 +343,17 @@ func _gate_row(rows_out: Array, key: String, ok: bool, reason := "") -> void:
 	rows_out.append(row)
 
 
-func _report_ok(rows_in: Array) -> bool:
-	for row: ELIGIBILITY.Row in rows_in:
+func _report_ok(rows_in: Array[ELIGIBILITY.Row]) -> bool:
+	for row in rows_in:
 		if not row.ok:
 			return false
 	return true
 
 
 ## The failed reasons of a row list. The gate's debug line and the offer's status reads use it.
-func report_reasons(rows_in: Array) -> PackedStringArray:
+func report_reasons(rows_in: Array[ELIGIBILITY.Row]) -> PackedStringArray:
 	var reasons: PackedStringArray = []
-	for row: ELIGIBILITY.Row in rows_in:
+	for row in rows_in:
 		if not row.ok:
 			reasons.append(row.reason)
 	return reasons
@@ -357,14 +370,14 @@ func _policy_row_ok(policy: ELIGIBILITY.Verdict, key: String) -> bool:
 
 ## The debug status line. The gate owns the row and verdict assembly; the runtime supplies the
 ## live act values through the context callback.
-func debug_line(pose: String, act_source: String, bed_in: Variant = null,
-		distance := -1.0, dot := -1.0) -> String:
+func debug_line(pose: String, act_source: String, bed_in: Node3D = null,
+		distance: float = -1.0, dot: float = -1.0) -> String:
 	var context: Dictionary = debug_context.call() if debug_context.is_valid() else {}
 	var gate := start_verdict(pose, act_source, bed_in)
-	var policy: ELIGIBILITY.Verdict = gate.get("policy")
+	var policy: ELIGIBILITY.Verdict = gate.policy
 	var relations: ELIGIBILITY.Relations = policy.relations if policy != null \
 		else ELIGIBILITY.Relations.new()
-	var reasons: PackedStringArray = report_reasons(gate.get("rows", []))
+	var reasons: PackedStringArray = report_reasons(gate.rows)
 	var reason_text := "none" if reasons.is_empty() else ",".join(reasons)
 	var bed_pose := _is_bed_pose(pose)
 	var found_bed: Node3D = resolve_bed(pose, act_source, bed_in) if bed_pose else null
@@ -377,7 +390,7 @@ func debug_line(pose: String, act_source: String, bed_in: Variant = null,
 		str(context.get("love_name", "?")), int(context.get("love_level", 0)),
 		str(context.get("welcomes", false)),
 		str(context.get("mood", "?")),
-		str(bool(gate.get("show", false))), str(policy != null and policy.offer),
+		str(gate.show()), str(policy != null and policy.offer),
 		int(context.get("state", 0)), str(context.get("presenting", false)),
 		str(context.get("sleeping", false)), str(context.get("held", false)),
 		str(context.get("grounded", false)), str(context.get("seated", false)),
@@ -394,7 +407,7 @@ func debug_line(pose: String, act_source: String, bed_in: Variant = null,
 		str(_policy_row_ok(policy, "cycle")),
 		str(_policy_row_ok(policy, "history")), str(conversation_ok()), str(free_of_affection()),
 		str(player_ready_for(pose, act_source, bed_in)), str(nav_owner_allows(pose, act_source)),
-		str(nav_pose_gate(pose, act_source)), bed_text, str(bool(gate.get("show", false))),
+		str(nav_pose_gate(pose, act_source)), bed_text, str(gate.show()),
 		reason_text]
 	if int(context.get("state", 0)) != STATE_IDLE:
 		var limit_text := "∞" if int(context.get("max_pony_climaxes", 0)) <= 0 \
@@ -421,41 +434,39 @@ func owned_stools() -> int:
 
 
 func authored_ready(pose := "") -> bool:
-	return pose_session != null and bool(pose_session.call("authored_ready", pose))
+	return pose_session != null and pose_session.authored_ready(pose)
 
 
 func authored_reason(pose := "") -> String:
-	return str(pose_session.call("authored_reason", pose)) if pose_session != null else "pose_asset"
+	return pose_session.authored_reason(pose) if pose_session != null else "pose_asset"
 
 
-func rig_missing(pose := "") -> Array:
-	var missing: Variant = pose_session.call("rig_missing", pose) if pose_session != null else []
-	return missing if missing is Array else []
+func rig_missing(pose := "") -> Array[String]:
+	return pose_session.rig_missing(pose) if pose_session != null else []
 
 
-func rig_reason(missing: Array) -> String:
-	return str(pose_session.call("rig_reason", missing)) if pose_session != null else ""
+func rig_reason(missing: Array[String]) -> String:
+	return pose_session.rig_reason(missing) if pose_session != null else ""
 
 
 func buck_or_push() -> bool:
 	if not is_instance_valid(pony) or not is_instance_valid(WORLD.game):
 		return false
 	var affection: Node = pony.get_node_or_null("Affection")
-	if affection != null and affection.has_method("buck"):
-		if bool(affection.call("buck", WORLD.player_body())):
+	if affection != null:
+		if GAME.affection_buck(affection, WORLD.player_body()):
 			return true
-	var body: Variant = WORLD.player
+	var body: Node3D = WORLD.player
 	if not is_instance_valid(body):
 		return false
-	var knockdown: Variant = body.get("knockdown")
-	if knockdown == null or not knockdown.has_method("start"):
+	var knockdown: Object = GAME.knockdown_of(body)
+	if knockdown == null:
 		return false
 	var direction: Vector3 = pony.global_position - body.global_position
 	direction.y = 0.25
 	if direction.length_squared() < 0.0001:
 		direction = -body.global_basis.z
-	knockdown.call("start", body, direction.normalized() * 3.0)
-	return true
+	return GAME.start_knockdown(knockdown, body, direction.normalized() * 3.0)
 
 
 func conversation_ok() -> bool:
@@ -483,8 +494,7 @@ func suppress_auto_cuddle() -> void:
 		pony.remove_meta("couch_cuddle")
 	var session: Node = pony.get_node_or_null("CuddleSession")
 	if session != null and (bool(session.get("enabled")) or float(session.get("blend")) > 0.0):
-		if session.has_method("end"):
-			session.call("end", true)
+		GAME.cuddle_end(session)
 	if pony.has_meta("cuddle_active"):
 		pony.remove_meta("cuddle_active")
 
@@ -521,7 +531,7 @@ func free_of_affection() -> bool:
 		if kind != null and not str(kind).is_empty():
 			return false
 	var hoof: Variant = pony.get("hoof_hold")
-	if hoof != null and hoof.has_method("active") and bool(hoof.call("active")):
+	if hoof != null and GAME.hoof_active(hoof):
 		return false
 	return true
 
@@ -670,7 +680,7 @@ func bed_gate(pose: String, act_source: String, found: Node3D) -> bool:
 	return WORLD.player_beside_bed(found)
 
 
-func resolve_bed(pose: String, act_source: String, bed_in: Variant) -> Node3D:
+func resolve_bed(pose: String, act_source: String, bed_in: Node3D) -> Node3D:
 	if not _is_bed_pose(pose) or not is_instance_valid(WORLD.game):
 		return null
 	if bed_in is Node3D and is_instance_valid(bed_in):
@@ -689,7 +699,7 @@ func find_bed_under() -> Node3D:
 	return WORLD.bed_under(pony.global_position, exclude)
 
 
-func player_ready_for(pose: String, act_source: String, bed_in: Variant) -> bool:
+func player_ready_for(pose: String, act_source: String, bed_in: Node3D) -> bool:
 	if not is_instance_valid(WORLD.game):
 		return false
 	var body: Variant = WORLD.player
@@ -790,7 +800,7 @@ func headset_view() -> bool:
 		and WORLD.game.get("headset_view") == true
 
 
-func _row(rows_out: Array, key: String, ok: bool, reason := "") -> void:
+func _row(rows_out: Array[ELIGIBILITY.Row], key: String, ok: bool, reason := "") -> void:
 	var row := ELIGIBILITY.Row.new()
 	row.key = key
 	row.ok = ok

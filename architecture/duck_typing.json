@@ -296,22 +296,6 @@
       "count": 2
     },
     {
-      "file": "rest/control.gd",
-      "count": 3
-    },
-    {
-      "file": "rest/service.gd",
-      "count": 6
-    },
-    {
-      "file": "scene_gate/service.gd",
-      "count": 10
-    },
-    {
-      "file": "scene_hold/service.gd",
-      "count": 28
-    },
-    {
       "file": "settings/service.gd",
       "count": 2
     },

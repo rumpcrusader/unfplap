@@ -295,10 +295,10 @@ func run() -> void:
 	root.add_child(paused_runtime)
 	paused = true
 	var gate: Variant = paused_runtime._bundle.gate
-	var blocked_rows: Array = gate.call("offer_verdict", "standing", "", null).get("rows", [])
+	var blocked_rows: Array = gate.call("offer_verdict", "standing", "", null).rows
 	var blocked: PackedStringArray = gate.call("report_reasons", blocked_rows)
 	check("paused" in blocked, "a paused tree rejects a normal offer")
-	var forced_rows: Array = gate.call("offer_verdict", "standing", "", null, true).get("rows", [])
+	var forced_rows: Array = gate.call("offer_verdict", "standing", "", null, true).rows
 	var forced: PackedStringArray = gate.call("report_reasons", forced_rows)
 	check(not ("paused" in forced), "the debug offer bypasses the paused gate")
 	paused = false

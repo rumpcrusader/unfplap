@@ -113,6 +113,7 @@ teardown. A failed start leaves the same ownership as a failed release today.
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
 | service | world | `world/service.gd` | Anon's body and reach |
+| service | world | `world/game.gd` | service dependency |
 
 | shared | act_state | `shared/act_state.gd` | act state constants |
 ## Tests

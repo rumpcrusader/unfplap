@@ -20,6 +20,7 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const HUD := preload("res://mods/unfplap/hud/service.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const STOOL := preload("res://mods/unfplap/stool/service.gd")
+const SCENE_GATE := preload("res://mods/unfplap/scene_gate/service.gd")
 const CYCLE := preload("res://mods/unfplap/shared/cycle.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
@@ -122,8 +123,10 @@ func _set_state(next: int) -> void:
 func refresh_gate() -> void:
 	if context == null or context.gate == null:
 		return
-	context.gate.bind(host.pony if host != null else null, context.pose)
-	context.gate.configure(state, pony_id, features)
+	var pony_node: Node3D = host.pony if host != null and is_instance_valid(host.pony) else null
+	var session: POSE_SESSION = context.pose if is_instance_valid(context.pose) else null
+	context.gate.bind(pony_node, session)
+	context.gate.configure(state, pony_id, SCENE_GATE.Features.from_dict(features))
 
 func act_seconds() -> float:
 	return _act_seconds

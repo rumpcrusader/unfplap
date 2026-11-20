@@ -150,7 +150,8 @@ static func build(pony: Node, node: Node) -> Bundle:
 	b.anatomy_bridge.bind(b.anatomy_host)
 	_bind_facts(node, b)
 	b.gate.bind(b.pony, b.pose)
-	b.gate.configure(b.act.state, b.act.pony_id, b.act.features)
+	b.gate.configure(b.act.state, b.act.pony_id,
+		SCENE_GATE.Features.from_dict(b.act.features))
 	return b
 
 
@@ -297,11 +298,11 @@ static func _bind_facts(node: Node, b: Bundle) -> void:
 	b.gate.debug_context = Callable(b.act, "debug_context")
 	b.rest.context = Callable(b.act, "rest_context")
 	b.rest.restore_scene = Callable(b.frame, "restore_scene")
-	b.hold.bind({
-		"pony": Callable(b.host, "pony_value"),
-		"state": Callable(b.act, "state_value"),
-		"pose_family": Callable(b.act, "pose_family"),
-	})
+	var hold_host := SCENE_HOLD.Host.new()
+	hold_host.pony = Callable(b.host, "pony_value")
+	hold_host.state = Callable(b.act, "state_value")
+	hold_host.pose_family = Callable(b.act, "pose_family")
+	b.hold.bind(hold_host)
 	b.facts.play_mouth_kiss = Callable(b.audio, "play_mouth_kiss")
 	b.facts.act_actions_allowed = Callable(b.camera, "at_actions_allowed")
 	b.facts.auto_panel_open = Callable(b.input, "auto_panel_open")

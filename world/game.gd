@@ -447,7 +447,7 @@ static func clamp_view(form: Node) -> void:
 
 ## Clear a pony's navigator face point so a stale conversation aim cannot turn her.
 static func clear_face_point(pony: Node) -> void:
-	var nav := _navigator(pony)
+	var nav := navigator_of(pony)
 	if nav == null or not "face_point" in nav:
 		return
 	nav.set("face_point", Vector3.INF)
@@ -455,17 +455,318 @@ static func clear_face_point(pony: Node) -> void:
 
 ## Clear her navigator conversation target, which would otherwise face her away from the act.
 static func clear_conversation_target(pony: Node) -> void:
-	var nav := _navigator(pony)
+	var nav := navigator_of(pony)
 	if nav == null or not nav.has_method("set_conversation_target"):
 		return
 	nav.call("set_conversation_target", null, false)
 
 
 ## The pony's navigator node; null when the body has none.
-static func _navigator(pony: Node) -> Node:
+static func navigator_of(pony: Node) -> Node:
 	if not is_instance_valid(pony):
 		return null
 	return pony.get_node_or_null("Navigator")
+
+
+## The navigator's owner lease; empty when it is free.
+static func navigator_owner(nav: Node) -> String:
+	if not is_instance_valid(nav):
+		return ""
+	return str(nav.get("command_owner"))
+
+
+## The navigator's reservation lease; empty when it is unreserved.
+static func navigator_reserved(nav: Node) -> String:
+	if not is_instance_valid(nav):
+		return ""
+	return str(nav.get("reserved_by"))
+
+
+## Whether the navigator may wander; absent reads as enabled.
+static func navigator_wander(nav: Node) -> bool:
+	if not is_instance_valid(nav):
+		return true
+	return nav.get("wander_enabled") != false
+
+
+## Whether the navigator is walking to a target.
+static func navigator_has_target(nav: Node) -> bool:
+	return is_instance_valid(nav) and nav.get("_has_target") == true
+
+
+## Stop the navigator where it is; a node without the op is left alone.
+static func navigator_stay(nav: Node) -> void:
+	if is_instance_valid(nav) and nav.has_method("stay"):
+		nav.call("stay")
+
+
+## Write the navigator's owner lease.
+static func set_navigator_owner(nav: Node, owner: String) -> void:
+	if is_instance_valid(nav):
+		nav.set("command_owner", owner)
+
+
+## Write the navigator's wander switch.
+static func set_navigator_wander(nav: Node, enabled: bool) -> void:
+	if is_instance_valid(nav):
+		nav.set("wander_enabled", enabled)
+
+
+## Keep Anon as her conversation target; a body without the setter is left alone.
+static func set_conversation_target(pony: Node, target: Node3D, hold: bool) -> void:
+	if is_instance_valid(pony) and pony.has_method("set_conversation_target"):
+		pony.call("set_conversation_target", target, hold)
+
+
+## Her current face-turn rate; NAN when the body has none.
+static func face_turn_rate(pony: Node) -> float:
+	if not is_instance_valid(pony):
+		return NAN
+	var rate: Variant = pony.get("face_turn_rate")
+	return float(rate) if rate != null else NAN
+
+
+## Write her face-turn rate; a body without it keeps its own.
+static func set_face_turn_rate(pony: Node, value: float) -> void:
+	if is_instance_valid(pony) and pony.get("face_turn_rate") != null:
+		pony.set("face_turn_rate", value)
+
+
+## Whether she is held; a body without the op reads as not held.
+static func is_held(pony: Node) -> bool:
+	if not is_instance_valid(pony) or not pony.has_method("is_held"):
+		return false
+	return bool(pony.call("is_held"))
+
+
+## Whether her feet are grounded; a body without the op reads as not grounded.
+static func grounded(pony: Node) -> bool:
+	if not is_instance_valid(pony) or not pony.has_method("grounded"):
+		return false
+	return bool(pony.call("grounded"))
+
+
+## Her posture's requested name; empty when the body has no posture.
+static func posture_requested(pony: Node) -> String:
+	if not is_instance_valid(pony) or not pony.has_method("posture_status"):
+		return ""
+	var status: Variant = pony.call("posture_status")
+	if not status is Dictionary:
+		return ""
+	return str((status as Dictionary).get("requested", ""))
+
+
+## Whether her posture has settled; false when the body has no posture.
+static func posture_settled(pony: Node) -> bool:
+	if not is_instance_valid(pony) or not pony.has_method("posture_status"):
+		return false
+	var status: Variant = pony.call("posture_status")
+	return status is Dictionary and bool((status as Dictionary).get("settled", false))
+
+
+## The reason her current action is interrupted; empty when nothing interrupts.
+static func interruption_reason(pony: Node) -> String:
+	if not is_instance_valid(pony) or not pony.has_method("action_interruption_reason"):
+		return ""
+	return str(pony.call("action_interruption_reason"))
+
+
+## Let her Affection buck at Anon; false without the op or when it refuses.
+static func affection_buck(affection: Node, body: Node3D) -> bool:
+	if not is_instance_valid(affection) or not affection.has_method("buck"):
+		return false
+	return bool(affection.call("buck", body))
+
+
+## The knockdown handle Anon's body carries; null when it has none.
+static func knockdown_of(body: Node3D) -> Object:
+	if not is_instance_valid(body):
+		return null
+	return body.get("knockdown") as Object
+
+
+## Push Anon down along `direction`; false without a live knockdown handle.
+static func start_knockdown(node: Object, body: Node3D, direction: Vector3) -> bool:
+	if not is_instance_valid(node) or not node.has_method("start"):
+		return false
+	node.call("start", body, direction)
+	return true
+
+
+## End a cuddle session at once; a session without the op is left alone.
+static func cuddle_end(session: Node) -> void:
+	if is_instance_valid(session) and session.has_method("end"):
+		session.call("end", true)
+
+
+## Whether a hoof hold is active; false without the op.
+static func hoof_active(hoof: Object) -> bool:
+	if not is_instance_valid(hoof) or not hoof.has_method("active"):
+		return false
+	return bool(hoof.call("active"))
+
+
+## Seat Anon on a rest seat; false when the rig refuses or has no seat op.
+static func player_sit_on(player: Node3D, seat: Node3D) -> bool:
+	if not is_instance_valid(player) or not player.has_method("sit_on"):
+		return false
+	return bool(player.call("sit_on", seat))
+
+
+## Recline Anon on his couch seat; false without the op.
+static func player_toggle_couch_sleep(player: Node3D) -> bool:
+	if not is_instance_valid(player) or not player.has_method("toggle_couch_sleep"):
+		return false
+	return bool(player.call("toggle_couch_sleep"))
+
+
+## The guest-seat transform a couch rest lays a pony at; an infinite origin when it cannot.
+static func couch_pony_transform(node: Node3D, seat: Node3D) -> Transform3D:
+	if not is_instance_valid(node) or not is_instance_valid(seat) \
+			or not node.has_method("pony_transform"):
+		return Transform3D(Basis.IDENTITY, Vector3.INF)
+	var value: Variant = node.call("pony_transform", seat)
+	return value if value is Transform3D else Transform3D(Basis.IDENTITY, Vector3.INF)
+
+
+## A couch rest's seats, as a typed copy; empty when it has fewer than two.
+static func couch_seats(node: Node3D) -> Array[Node3D]:
+	var out: Array[Node3D] = []
+	if not is_instance_valid(node):
+		return out
+	var seats: Variant = node.get("seats")
+	if not seats is Array:
+		return out
+	for seat: Variant in seats:
+		if seat is Node3D and is_instance_valid(seat):
+			out.append(seat)
+	return out
+
+
+## Open the couch rest for a guest; false without the op.
+static func couch_open(node: Node3D) -> bool:
+	if not is_instance_valid(node) or not node.has_method("open"):
+		return false
+	return bool(node.call("open"))
+
+
+## Invite a pony to the guest seat; false without the op or when it refuses.
+static func couch_invite(node: Node3D, pony: Node3D, seat: Node3D) -> bool:
+	if not is_instance_valid(node) or not node.has_method("invite"):
+		return false
+	return bool(node.call("invite", pony, seat))
+
+
+## The front stand point a couch rest reports; `Vector3.INF` without the op.
+static func couch_approach(node: Node3D, seat: Node3D) -> Vector3:
+	if not is_instance_valid(node) or not node.has_method("approach"):
+		return Vector3.INF
+	var value: Variant = node.call("approach", seat)
+	return value if value is Vector3 else Vector3.INF
+
+
+## Whether the couch rest measured that this mare fits.
+static func couch_mare_fits(node: Node3D) -> bool:
+	return is_instance_valid(node) and node.get("_mare_fits") == true
+
+
+## When this pony's guest cooldown ends, in engine milliseconds; 0 when there is none.
+static func couch_cooldown_until(node: Node3D, pony: Node3D) -> int:
+	if not is_instance_valid(node) or not is_instance_valid(pony):
+		return 0
+	var cooldowns: Variant = node.get("_cooldowns")
+	if not cooldowns is Dictionary:
+		return 0
+	return int((cooldowns as Dictionary).get(pony.get_instance_id(), 0))
+
+
+## Take the carry the reach holds; false when it is not this pony or not cradled.
+static func carry_ours(reach: Node, pony: Node3D) -> bool:
+	if not is_instance_valid(reach) or not is_instance_valid(pony):
+		return false
+	return reach.get("held") == pony and reach.get("cradled") == true
+
+
+## The reach's desktop action node; null when it has none.
+static func carry_actions(reach: Node) -> Node:
+	if not is_instance_valid(reach):
+		return null
+	var actions: Variant = reach.get("desktop_actions")
+	return actions as Node if actions is Node else null
+
+
+## Clear the carry flags the salute path leaves behind.
+static func clear_carry(reach: Node) -> void:
+	if not is_instance_valid(reach):
+		return
+	reach.set("held", null)
+	reach.set("cradled", false)
+	reach.set("_drop_upright", false)
+	reach.set("_laying", -1.0)
+	reach.set("_sleepy_kiss", false)
+	reach.set("_lean", 0.0)
+	reach.set("_lay", {})
+
+
+## Tell the desktop actions the carried pony was released.
+static func carry_released(actions: Node) -> void:
+	if is_instance_valid(actions) and actions.has_method("pony_released"):
+		actions.call("pony_released")
+
+
+## End her hold interaction; a body without the op is left alone.
+static func end_interaction(pony: Node) -> void:
+	if is_instance_valid(pony) and pony.has_method("end_interaction"):
+		pony.call("end_interaction")
+
+
+## Set a body's velocity; a body without the member is left alone.
+static func set_velocity(body: Node3D, velocity: Vector3) -> void:
+	if is_instance_valid(body):
+		body.set("velocity", velocity)
+
+
+## Hold the seated player's Q action; a rig without the member is left alone.
+static func set_q_held(body: Node3D, held: bool) -> void:
+	if is_instance_valid(body):
+		body.set("_q_held", held)
+
+
+## The seating system's phase for this pony; empty when it has no entry.
+static func seating_phase(seating: Node, id: int) -> String:
+	if not is_instance_valid(seating):
+		return ""
+	var users: Variant = seating.get("_users")
+	if not users is Dictionary:
+		return ""
+	var entry: Variant = (users as Dictionary).get(id)
+	if not entry is Dictionary:
+		return ""
+	return str((entry as Dictionary).get("phase", ""))
+
+
+## Release this pony's seating entry; nothing happens without one.
+static func seating_release_entry(seating: Node, id: int) -> void:
+	if not is_instance_valid(seating) or not seating.has_method("_release"):
+		return
+	var users: Variant = seating.get("_users")
+	if not users is Dictionary:
+		return
+	var entry: Variant = (users as Dictionary).get(id)
+	if entry is Dictionary:
+		seating.call("_release", entry)
+
+
+## End a couch's guest stay; a rest without the private op is left alone.
+static func couch_finish_guest(node: Node3D) -> void:
+	if is_instance_valid(node) and node.has_method("_finish_guest"):
+		node.call("_finish_guest")
+
+
+## Release a pony from a couch's occupant list.
+static func couch_release_pony(node: Node3D, id: int) -> void:
+	if is_instance_valid(node) and node.has_method("_release_pony"):
+		node.call("_release_pony", id, false)
 
 
 ## Turn her secondary gaze toward `angles`; false when the body has no gaze controller.

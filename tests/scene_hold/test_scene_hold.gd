@@ -112,12 +112,10 @@ func _fixture(pose_family := "standing", state := STATE_ACTIVE) -> Dictionary:
 	main.game = game
 	WORLD.bind_world(main.game)
 	var hold: RefCounted = HOLD.new()
-	var host := {
-		"pony": Callable(_value, "make").bind(pony),
-		"main": Callable(_value, "make").bind(main),
-		"state": Callable(_value, "make").bind(state),
-		"pose_family": Callable(_value, "make").bind(pose_family),
-	}
+	var host := HOLD.Host.new()
+	host.pony = Callable(_value, "make").bind(pony)
+	host.state = Callable(_value, "make").bind(state)
+	host.pose_family = Callable(_value, "make").bind(pose_family)
 	hold.bind(host)
 	return {"hold": hold, "pony": pony, "nav": nav, "session": session, "body": body,
 		"game": game, "reach": reach, "main": main, "host": host}

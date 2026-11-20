@@ -27,21 +27,22 @@ func bind(scene_in: SCENE_GATE, agreement_in: ACT_AGREEMENT, session_in: ACT_SES
 
 ## The policy + scene rows for a start. The identity is refreshed first so a late-assigned
 ## relationship id is the one the rows read.
-func start_verdict(pose: String, act_source: String, bed_in: Variant = null,
-		verdict_in: ELIGIBILITY.Verdict = null) -> Dictionary:
+func start_verdict(pose: String, act_source: String, bed_in: Node3D = null,
+		verdict_in: ELIGIBILITY.Verdict = null) -> SCENE_GATE.GateVerdict:
 	session.refresh_identity()
 	return scene.start_verdict(pose, act_source, bed_in, verdict_in)
 
 
 ## The scene-only start rows for an accepted Agreement.
-func scene_only_verdict(pose: String, act_source: String, bed_in: Variant = null,
-		frozen: Variant = null, stool_need: int = -1, stool_have: int = -1) -> Variant:
+func scene_only_verdict(pose: String, act_source: String, bed_in: Node3D = null,
+		frozen: SCENE_GATE.FrozenPose = null, stool_need: int = -1,
+		stool_have: int = -1) -> SCENE_GATE.SceneVerdict:
 	session.refresh_identity()
-	var capability: Variant = frozen if frozen != null else SCENE_GATE.FrozenPose.new(true, true)
+	var capability := frozen if frozen != null else SCENE_GATE.FrozenPose.new(true, true)
 	return scene.scene_only_verdict(pose, act_source, bed_in, capability, stool_need, stool_have)
 
 
-func hotkey_ready(pose: String, act_source: String, bed_in: Variant = null) -> bool:
+func hotkey_ready(pose: String, act_source: String, bed_in: Node3D = null) -> bool:
 	return agreement.hotkey_ready(pose, act_source, bed_in)
 
 
@@ -67,7 +68,7 @@ func find_bed_under() -> Node3D:
 
 
 ## The debug status line: the scene gate owns the row and verdict assembly.
-func debug_line(pose: String, act_source: String, bed_in: Variant = null,
+func debug_line(pose: String, act_source: String, bed_in: Node3D = null,
 		distance: float = -1.0, dot: float = -1.0) -> String:
 	session.refresh_identity()
 	return scene.debug_line(pose, act_source, bed_in, distance, dot)

@@ -190,23 +190,23 @@ func _check_wanted() -> void:
 	var made := _fixture()
 	var facade: RefCounted = made["facade"]
 	current_context["satisfaction"] = 40.0
-	check(bool(facade.call("rejoin_wanted", current_context)),
+	check(bool(facade.call("rejoin_wanted", REST.Context.from_dict(current_context))),
 		"a good act with readiness above the aftercare floor wants the cuddle")
 	current_context["satisfaction"] = 4.0
-	check(not bool(facade.call("rejoin_wanted", current_context)),
+	check(not bool(facade.call("rejoin_wanted", REST.Context.from_dict(current_context))),
 		"a low readiness act stays standing")
 	current_context["summary"] = {"grade": "bad"}
-	check(not bool(facade.call("rejoin_wanted", current_context)),
+	check(not bool(facade.call("rejoin_wanted", REST.Context.from_dict(current_context))),
 		"a bad summary never cuddles")
 	current_context["summary"] = {"grade": "good"}
-	check(bool(facade.call("rejoin_wanted", current_context)),
+	check(bool(facade.call("rejoin_wanted", REST.Context.from_dict(current_context))),
 		"a good summary cuddles regardless of the readiness floor")
 	current_context["player_pony"] = true
-	check(not bool(facade.call("rejoin_wanted", current_context)),
+	check(not bool(facade.call("rejoin_wanted", REST.Context.from_dict(current_context))),
 		"AnonPony never uses the human bed rejoin")
 	current_context["player_pony"] = false
 	current_context["headset"] = true
-	check(not bool(facade.call("rejoin_wanted", current_context)),
+	check(not bool(facade.call("rejoin_wanted", REST.Context.from_dict(current_context))),
 		"a headset rig never uses the desktop rejoin")
 	current_context["headset"] = false
 	_free(made)
@@ -234,8 +234,8 @@ func _check_anchor() -> void:
 	couch.add_to_group("couches")
 	root.add_child(couch)
 	seat.global_position = Vector3(2.0, 0.6, 3.0)
-	var shared: Variant = facade.call("shared_bed_rest", bed)
-	check(shared is Transform3D and (shared as Transform3D).origin.is_equal_approx(
+	var shared: REST.RestState = facade.call("shared_bed_rest", bed)
+	check(shared != null and shared.guest.origin.is_equal_approx(
 		seat.global_position), "the shared bed rest returns the guest seat transform")
 	var shared_anchor: Transform3D = facade.call("bed_anchor")
 	check(shared_anchor.origin.is_equal_approx(seat.global_position),
@@ -262,7 +262,8 @@ func _check_rest_lookup() -> void:
 	check(facade.call("bed_rest_for", bed) == null,
 		"a crate without an invite entry is not the bed rest")
 	rest.set("_bed", bed)
-	check(facade.call("bed_rest_for", bed) == rest,
+	var found: REST.RestState = facade.call("bed_rest_for", bed)
+	check(found != null and found.node == rest,
 		"the couch with the invite entry and seats is the bed rest")
 	rest.seats = [seat_a]
 	check(facade.call("bed_rest_for", bed) == null,
@@ -280,7 +281,7 @@ func _check_note() -> void:
 	var rest := FakeRest.new()
 	rest._mare_fits = true
 	rest._cooldowns = {pony.get_instance_id(): Time.get_ticks_msec() + 4000}
-	var note := str(facade.call("rejoin_note", rest))
+	var note := str(facade.call("rejoin_note", REST.RestState.of_node(rest)))
 	check(note.contains("posture=stand"), "the note reports the posture")
 	check(note.contains("grounded=true"), "the note reports grounded")
 	check(note.contains("nav=life:idle"), "the note reports the navigator owner")

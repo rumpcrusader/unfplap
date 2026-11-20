@@ -72,10 +72,10 @@ class FixtureHost extends Node:
 	var game: Variant = null
 
 
-class FakePose extends RefCounted:
+class FakePose extends "res://mods/unfplap/poses/service.gd":
 	var ready := true
 	var reason := ""
-	var missing: Array = []
+	var missing: Array[String] = []
 
 	func authored_ready(_pose := "") -> bool:
 		return ready
@@ -83,10 +83,10 @@ class FakePose extends RefCounted:
 	func authored_reason(_pose := "") -> String:
 		return reason if not reason.is_empty() else "pose_asset"
 
-	func rig_missing(_pose := "") -> Array:
+	func rig_missing(_pose := "") -> Array[String]:
 		return missing
 
-	func rig_reason(_miss: Array) -> String:
+	func rig_reason(_miss: Array[String]) -> String:
 		return "pose_rig: missing"
 
 
@@ -177,7 +177,7 @@ func _fixture() -> Dictionary:
 	main.add_child(player)
 	main.add_child(game)
 	gate.bind(pony, pose)
-	gate.configure(STATE_IDLE, "rarity", {})
+	gate.configure(STATE_IDLE, "rarity", GATE.Features.from_dict({}))
 	gate.stool_need = Callable(stool, "stool_need")
 	gate.stool_count = Callable(stool, "stool_count")
 	var policy := FakePolicy.new()
@@ -272,7 +272,7 @@ func _check_cuddle() -> void:
 	check(bool(gate.call("cuddle_active")), "a blending session is an active cuddle")
 	session.blend = 0.0
 	check(not bool(gate.call("cuddle_active")), "an ended session is inactive")
-	gate.configure(STATE_IDLE, "rarity", {})
+	gate.configure(STATE_IDLE, "rarity", GATE.Features.from_dict({}))
 	_free(made)
 
 
@@ -444,14 +444,14 @@ func _check_rows() -> void:
 			"cuddle", "affection", "player", "navigator", "navigator_reserved", "nav_owner",
 			"nav_pose", "stool"]:
 		check(key in keys, "the standing start rows carry %s" % key)
-	gate.configure(STATE_ACTIVE, "rarity", {})
+	gate.configure(STATE_ACTIVE, "rarity", GATE.Features.from_dict({}))
 	rows = gate.call("rows", "standing", "", null, "start", false)
 	var state_ok := true
 	for row: ELIGIBILITY.Row in rows:
 		if row.key == "state":
 			state_ok = row.ok
 	check(not state_ok, "a running act fails the state row")
-	gate.configure(STATE_IDLE, "rarity", {})
+	gate.configure(STATE_IDLE, "rarity", GATE.Features.from_dict({}))
 	pony.set_meta("sex_aftercare", true)
 	rows = gate.call("rows", "standing", "", null, "start", false)
 	var aftercare_ok := true
@@ -512,10 +512,10 @@ func _check_scene_only() -> void:
 	root.remove_child(elsewhere)
 	elsewhere.free()
 
-	gate.configure(STATE_ACTIVE, "rarity", {})
+	gate.configure(STATE_ACTIVE, "rarity", GATE.Features.from_dict({}))
 	verdict = gate.call("scene_only_verdict", "missionary", "already_lying", bed, frozen)
 	check(not verdict.hard_ok, "a running act fails the hard state row")
-	gate.configure(STATE_IDLE, "rarity", {})
+	gate.configure(STATE_IDLE, "rarity", GATE.Features.from_dict({}))
 
 	var unfrozen := GATE.FrozenPose.new(false, false)
 	verdict = gate.call("scene_only_verdict", "missionary", "already_lying", bed, unfrozen)
@@ -646,36 +646,35 @@ func _check_verdicts() -> void:
 	row.reason = "relation"
 	verdict.rows.append(row)
 	policy.verdict = verdict
-	var start: Dictionary = gate.call("start_verdict", "standing", "", null)
-	check(bool(start.get("show", false)), "the start verdict follows the policy")
+	var start: GATE.GateVerdict = gate.call("start_verdict", "standing", "", null)
+	check(start.show(), "the start verdict follows the policy")
 	check(policy.calls == 1, "the policy callback runs once")
 	# The idle hint supplies its cached policy; the gate must skip the callback and still run
 	# every live scene row.
 	var reused := ELIGIBILITY.Verdict.new()
 	reused.show = true
 	var calls_before := policy.calls
-	var reused_start: Dictionary = gate.call("start_verdict", "standing", "", null, reused)
+	var reused_start: GATE.GateVerdict = gate.call("start_verdict", "standing", "", null, reused)
 	check(policy.calls == calls_before, "a supplied verdict skips the policy callback")
-	check(bool(reused_start.get("show", false)), "a supplied verdict still shows through the gate")
+	check(reused_start.show(), "a supplied verdict still shows through the gate")
 	pony.set_meta("sex_aftercare", true)
-	var reused_blocked: Dictionary = gate.call("start_verdict", "standing", "", null, reused)
-	check(not bool(reused_blocked.get("show", false)),
-		"a supplied verdict still runs the live scene rows")
+	var reused_blocked: GATE.GateVerdict = gate.call("start_verdict", "standing", "", null, reused)
+	check(not reused_blocked.show(), "a supplied verdict still runs the live scene rows")
 	pony.remove_meta("sex_aftercare")
 	var keys: Array[String] = []
-	for entry: ELIGIBILITY.Row in start.get("rows", []):
+	for entry: ELIGIBILITY.Row in start.rows:
 		keys.append(entry.key)
 	check("invalid_pony" in keys and "no_world" in keys and "no_player" in keys \
 		and "no_game" in keys, "the structural rows are appended")
 	check("relation" in keys, "the policy rows are appended")
 	check("state" in keys, "the scene rows are appended")
 	pony.set_meta("sex_aftercare", true)
-	var blocked: Dictionary = gate.call("start_verdict", "standing", "", null)
-	check(not bool(blocked.get("show", false)), "a failed scene row hides the start")
+	var blocked: GATE.GateVerdict = gate.call("start_verdict", "standing", "", null)
+	check(not blocked.show(), "a failed scene row hides the start")
 	pony.remove_meta("sex_aftercare")
-	var offer: Dictionary = gate.call("offer_verdict", "standing", "", null, true)
-	check(bool(offer.get("ok", false)), "the offer verdict follows the policy")
-	var reasons: PackedStringArray = gate.call("report_reasons", blocked.get("rows", []))
+	var offer: GATE.GateVerdict = gate.call("offer_verdict", "standing", "", null, true)
+	check(offer.offer_ok(), "the offer verdict follows the policy")
+	var reasons: PackedStringArray = gate.call("report_reasons", blocked.rows)
 	check(reasons.has("aftercare"), "the failed rows are reported")
 	context.values = {"id": "rarity", "display": "Rarity", "state": 0}
 	var line: String = gate.call("debug_line", "standing", "", null)
@@ -723,12 +722,12 @@ func _check_suppress() -> void:
 	pony.set_meta("cuddle_session", session)
 	pony.set_meta("cuddle_active", true)
 	pony.set_meta("couch_cuddle", true)
-	gate.configure(STATE_ACTIVE, "rarity", {})
+	gate.configure(STATE_ACTIVE, "rarity", GATE.Features.from_dict({}))
 	gate.call("suppress_auto_cuddle")
 	check(not pony.has_meta("couch_cuddle"), "the lying cuddle marker is cleared")
 	check(not pony.has_meta("cuddle_active"), "the cuddle active marker is cleared")
 	check(session.ended == 1, "the live cuddle session ends")
-	gate.configure(STATE_IDLE, "rarity", {})
+	gate.configure(STATE_IDLE, "rarity", GATE.Features.from_dict({}))
 	pony.set_meta("cuddle_active", true)
 	gate.call("suppress_auto_cuddle")
 	check(pony.has_meta("cuddle_active"), "an idle runtime leaves the stock cuddle alone")

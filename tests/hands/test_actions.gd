@@ -738,12 +738,12 @@ func run() -> void:
 	plant_body.free()
 
 	var gate_runtime: Node = RUNTIME.new()
-	check(not bool(gate_runtime._bundle.gate.start_verdict(CATALOG.MISSIONARY, "bed_side").get("show", false)),
+	check(not gate_runtime._bundle.gate.start_verdict(CATALOG.MISSIONARY, "bed_side").show(),
 		"missing pony blocks start")
 	var gate: Variant = gate_runtime._bundle.gate
-	check(not bool(gate.call("offer_verdict", CATALOG.STANDING, "", null).get("ok", false)),
+	check(not gate.call("offer_verdict", CATALOG.STANDING, "", null).offer_ok(),
 		"missing pony blocks offer")
-	var gate_rows: Array = gate.call("start_verdict", CATALOG.MISSIONARY, "bed_side").get("rows", [])
+	var gate_rows: Array = gate.call("start_verdict", CATALOG.MISSIONARY, "bed_side").rows
 	check(gate.call("report_reasons", gate_rows) == PackedStringArray(["invalid_pony"]),
 		"gate report keeps the invalid-pony reason")
 	gate_runtime.free()

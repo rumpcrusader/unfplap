@@ -12,6 +12,7 @@ const AFTERGLOW := preload("res://mods/unfplap/afterglow/service.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
+const REST := preload("res://mods/unfplap/rest/service.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const HUD := preload("res://mods/unfplap/hud/service.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
@@ -173,7 +174,7 @@ func _start_frame() -> String:
 ## ended session instead of the values from the call that started it.
 func _rejoin_wanted() -> bool:
 	context.rest.bind(host.pony, session.bed)
-	return context.rest.rejoin_wanted({
+	return context.rest.rejoin_wanted(REST.Context.from_dict({
 		"serial": session.serial,
 		"state": session.state,
 		"player_pony": session.player_pony,
@@ -181,7 +182,7 @@ func _rejoin_wanted() -> bool:
 		"summary": context.summary.summary,
 		"satisfaction": context.readiness.satisfaction,
 		"aftercare_min": session.aftercare_min,
-	})
+	}))
 
 
 ## Close the standing afterglow window and begin the one restore.

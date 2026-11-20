@@ -202,7 +202,9 @@ scene row is recomputed twice in different ways.
 |---|---|---|---|
 | service | eligibility | `eligibility/service.gd` | adult and consent gate |
 | service | ponies | `ponies/service.gd` | the live eligibility service for the hotkey readiness |
+| service | poses | `poses/service.gd` | pose and skeleton |
 | service | settings | `settings/service.gd` | settings declarations and live values |
+| service | world | `world/game.gd` | service dependency |
 | shared | act_state | `shared/act_state.gd` | act state constants |
 | shared | pose_specs | `shared/pose_specs.gd` | scene block, support lists and offerability |
 

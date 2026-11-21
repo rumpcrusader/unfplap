@@ -432,8 +432,9 @@ The bridge writes no perf gate: the persistent controller and the tail seat read
 ## Act bridge
 
 `anatomy/act_bridge.gd` is the per-act handle the builder owns. It is a `RefCounted`, created by
-`anatomy.gd.new_act(host)` with the typed `anatomy/act_host.gd`; `act/build.gd` creates one per
-pony, and `act/session.gd:refresh_anatomy()` binds it and lets the controller re-resolve. It owns:
+`anatomy.gd.new_act(host, service)` with the typed `anatomy/act_host.gd`; `act/build.gd` creates
+one per pony, and `act/session.gd:refresh_anatomy()` binds it and lets the controller re-resolve.
+It owns:
 
 - the persistent controller handle and the per-act `anatomy/act.gd` handle;
 - the reused `anatomy/facts.gd` context;
@@ -444,13 +445,14 @@ pony, and `act/session.gd:refresh_anatomy()` binds it and lets the controller re
 - the act hooks (`tick`, `on_climax`, `afterglow_tick`, `end`, `apply_live`, `detach`);
 - the VR hooks (`vr_start`, `vr_stop`, `vr_y_held`, `vr_forward`, `vr_depth`).
 
-The host is the typed `anatomy/act_host.gd`: named methods over callables `act/build.gd` binds once.
-Each callback names its owner: the node operations and `vr_scene()` are `act/host.gd`; the live
-state and act values are session accessors (`state_value`, `pose_view`, `cycle_phase`,
-`kiss_service`, `reactions_service`); the anatomical service reads are the `ponies` statics; depth,
-penetration, climaxes and auto pace are readiness; size scale and the act view are the camera
-session; the bed frame is the pose session; fluid ground, shaft length and the pose handles are
-their modules. A missing callable is a no-op. `act/host.gd:vr_scene()` is the one
+The host is an abstract port (`anatomy/act_host.gd`); `act/build.gd` implements it once per pony
+as `AnatomyHost`, and every method names its owner: the node operations and `vr_scene()` are
+`act/host.gd`; the live state and act values are session accessors (`state_value`, `pose_view`,
+`cycle_phase`, `kiss_service`, `reactions_service`); the anatomy and eligibility facades are the
+`ponies` statics; depth, penetration, climaxes and auto pace are readiness; size scale and the act
+view are the camera session; the bed frame is the pose session; fluid ground, shaft length and the
+pose handles are their modules. The abstract methods make an incomplete implementation a parse
+error, so there is no missing-callable no-op. `act/host.gd:vr_scene()` is the one
 scene read: `{player, avatar, camera, origin, hip_target}`, or null when the player or the XR rig is
 absent. The bridge wires `vr/service.gd` from that host and does no `find_child`/`find_children`
 lookup itself.
@@ -1007,7 +1009,7 @@ Current suites:
 - `tests/anatomy/test_oral_turn.gd`: the mouth/contact provider returns her mouth point and the
   base opening, follows the player's size scale, holds and clears the `D` viseme, and carries no
   turn, mix, facing or pose-key state.
-- `tests/anatomy/test_act_bridge.gd`: the host callbacks, the facts sync, the action gates, the
+- `tests/anatomy/test_act_bridge.gd`: the typed host port, the facts sync, the action gates, the
   mouth point and viseme routing, the face point, the VR scene wiring, the aim/gaze reads and the
   pose-change contact carry.
 - `tests/act_facts/test_act_facts.gd`: the `anatomy/facts.gd` typed context, its host callbacks,

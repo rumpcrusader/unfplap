@@ -106,13 +106,12 @@ Non-code tasks: a release is `.opencode/skills/release/SKILL.md`; syncing shippe
 
 Read `WORKFLOW.md` before any task. Commit in small, testable units; never push.
 
-- **Docs follow the code, same commit.** Land the behavior and its tests with the doc text the
-  change makes false, run every gate, and commit them together. A standalone `docs:` commit is only
-  for docs no code change touched: a new contract, an index row, a sweep.
+- **Docs follow the code, same commit.** Land the behavior, its tests and the sentences the change
+  makes false in one commit. A standalone `docs:` commit is only for docs no code change touched: a
+  new contract, an index row, a sweep.
 - Settle the design before touching files. Once it is settled, apply every code edit first, then
-  check the change. Gate the code once per task, not per commit: `scripts/test.sh <touched>`,
-  `scripts/check.sh` and `scripts/lint.sh` before each commit, `scripts/test_all.sh` once when the
-  code phase is done.
+  check the change. Before each commit run `scripts/test.sh <touched>`, `scripts/check.sh` and
+  `scripts/lint.sh`; run `scripts/test_all.sh` once when the code phase is done.
 - Use one whole-file write for a file that changes heavily, and send independent edits together in
   one turn. A chain of single-line edits costs a round trip each.
 - **The shell already runs in the mod directory.** Never prefix a command with `cd`; pass
@@ -130,7 +129,7 @@ Read `WORKFLOW.md` before any task. Commit in small, testable units; never push.
 
 1. The code, its tests and the doc text the change makes false are one code commit. A standalone
    `docs:` commit is only for docs no code change touched.
-2. A new doc is indexed in `docs/README.md` in the same commit; an index row is gate-read text.
+2. A new doc is indexed in `docs/README.md` in the same commit.
 3. Suites are added or retargeted; `scripts/test.sh <touched>` passes, `scripts/check.sh --all` is
    clean and `scripts/lint.sh` is clean before the commit.
 4. `scripts/test_all.sh` passes once, at the end of the code phase.
@@ -158,13 +157,18 @@ Read `WORKFLOW.md` before any task. Commit in small, testable units; never push.
   (`scripts/architecture.py --check` fails on any other shipped file, `tests/` excepted). A new
   long-running service joins the lifecycle with `on_world(host)`, `on_world_closed()`,
   `on_player(body)` and `shutdown()`, and one line in the entry's service list.
+- **One game boundary.** Only `world/game.gd` preloads a base-game module; every other file reads
+  the game through `GAME`. `scripts/architecture.py --check` fails a new base-game import outside it.
+- **No preload re-exports.** A file uses only the preload consts it declares. Reaching another
+  module's `const … := preload(...)` fails the gate; enums, nested classes and plain constants stay
+  reachable, and `GAME.X` is the one allowed re-export.
 - **Settings snapshot.** Values arrive once per act and again on `apply_live_settings()`; no
   per-frame `Settings` reads. One declaration in `settings/service.gd`, one shipped value in
   `settings/settings.json`, one typed read; the framework is `docs/settings.md`.
 - **No game-file edits and no JSON merges.** Everything lives under `res://mods/unfplap/`.
 - **The cross-mod API is frozen.** `api.gd`, `docs/api.md` and `tests/test_api.gd` are edited only
-  with the user's explicit approval; that approval starts the task, and the normal code/docs split
-  still applies.
+  with the user's explicit approval; that approval starts the task and the edit follows the
+  same-commit rule.
 - **No global debug hotkeys.** `debug/service.gd` declares none; a debug action is a button in its
   Debug block and the game's dev keys stay the game's.
 - **Tests move with the code.** A change is not done while its suite reads the old private path,
@@ -186,20 +190,21 @@ Read `WORKFLOW.md` before any task. Commit in small, testable units; never push.
 
 ## Documentation
 
-- Every service has exactly one doc under `docs/`, indexed by `docs/README.md`. A doc owns its
-  responsibility and boundary, the decisions behind them, invariants, ordering constraints, traps
-  and extension points. It never enumerates what a script, a declaration or the index already
-  carries: no API signature dumps, no dependency edges, no setting rows, no debug-action rosters,
-  no test lists, no numeric defaults, no call counts. Point at the owner instead. A doc names
-  another system in at most one clause; anything more is a link.
+- Every service has exactly one doc under `docs/`, indexed by exactly one row in `docs/README.md`.
+  A doc owns its responsibility and boundary, the decisions behind that boundary, invariants,
+  ordering constraints, traps and extension points. It never enumerates what a script, a
+  declaration or the index already carries: no API signature dumps, no dependency edges, no
+  setting rows, no debug-action rosters, no test lists, no numeric defaults, no call counts. Point
+  at the owner instead. A doc names another system in at most one clause; anything more is a link.
+- The index row owns the facade and the test paths; a contract does not repeat them.
 - A facade's non-underscore members are its surface; `_` marks internals. A `##` note above a
-  public type or an `api.gd` member states the rule the signature cannot. The facade public
-  functions without a note stay advisory; `--audit-surface` prints them.
+  facade's public type, and above every public member of `api.gd` that is not a preload const,
+  states the rule the signature cannot. Public facade functions without a note stay advisory:
+  `--audit-surface` prints them, and it is not a gate.
 - **Docs follow the code, same commit.** Documentation means both `.md` files and code comments. A
-  sentence a change makes false is fixed in the commit that makes it false. A standalone `docs:`
-  commit is only for docs no code change touched: a new contract, an index row, a sweep. A
-  `docs:` commit fixes only the comments the change made false; a comment that is still true is
-  never reworded.
+  claim a change makes false is fixed in the commit that makes it false. A standalone `docs:`
+  commit is only for docs no code change touched: a new contract, an index row, a sweep. Fix only
+  the claims that became false; a claim that is still true is never reworded.
 - **Comments state what the code cannot.** A `##` block is at most two lines: the promise, then one
   clause of why when the reason is not visible. A file header is at most five lines — the
   `Service:`/`Contract:`/`Scope:`/`Import:` fields plus one purpose sentence; the owning doc carries

@@ -21,15 +21,15 @@ is a separate repository; never commit game-source changes from the mod repo.
    git log --oneline -12
    ```
 
-3. Decide the commit-sized units before writing code. A code commit is one behavior, setting,
-   refactor or test change that fits in one sentence. Documentation — `.md` files and code
-   comments — lands in one separate `docs:` commit after the last code commit.
+3. Decide the commit-sized units before writing code. A commit is one behavior, setting, refactor or
+   test change that fits in one sentence, with the doc sentences it makes false. A standalone
+   `docs:` commit is only for docs no code change touched.
 4. Keep `master` buildable at every commit. No WIP, no failing tests, no TODO-only commits. If a
    task needs intermediate states, use a short-lived local branch and merge it back only when
    every commit passes.
 5. Never mix unrelated work. Stage explicitly (`git add <path>` or `git add -p`), never
    `git add -A` or `git commit -a` while another task has edits.
-6. Check the code before each code commit:
+6. Check before each commit:
    - `scripts/test.sh <suite>...` for the suites that cover it; use `--all` when it crosses
      several services;
    - `scripts/check.sh` for a quick parse check of the changed scripts;
@@ -45,12 +45,11 @@ is a separate repository; never commit game-source changes from the mod repo.
 
    The test runner runs every suite and ends in `TEST_ALL_PASS`; the lint gate checks the shipped
    GDScript. Do not re-run either after every commit or every file.
-8. Commit the code with one scoped, imperative subject line and no body. Do not stage `.md` files
-   or comment-only edits, except the minimum doc text a test or checker reads to stay green.
-9. After the task's last code commit, write the owning `.md` prose and fix only the comments the
-   change made false; never reword a comment that is still true.
-   Run `scripts/check.sh --all`, `scripts/lint.sh` and the suites that read the edited docs, then
-   commit them as `docs: <summary>`. See "Documentation commits" below.
+8. Commit with one scoped, imperative subject line and no body. Include the `.md` sentences the
+   change makes false; do not mix an unrelated doc edit into the same commit.
+9. A standalone `docs:` commit carries docs no code commit touched: a new contract, an index row, a
+   sweep. Run `scripts/check.sh --all`, `scripts/lint.sh` and the suites that read the edited docs,
+   then commit as `docs: <summary>`. See "Documentation commits" below.
 10. Commit locally only. Do not push, fetch, pull or force-push. The maintainer may push and tag;
     CI builds and releases from the remote, but the agent never pushes.
 
@@ -129,25 +128,19 @@ Examples:
 ```text
 missionary: start the shot at the old max lean point
 settings: stop clamping tuning values in the consumers
-docs: state the docs commit rule
+docs: state the same-commit rule
 revert: standing: follow the dock in the offer
 ```
 
 ## Documentation commits
 
-A task ends with at most one docs commit. Code may land in several commits; documentation waits
-for the last one.
+A code commit carries the behavior, its tests and the doc sentences the change makes false.
+`scripts/test_all.sh` runs once when the code phase is done.
 
-- The code commit carries the behavior, its tests and only the doc text a test or checker reads to
-  stay green. Run `scripts/test_all.sh` before it.
-- The docs commit carries the owning `.md` prose and fixes only the comments the change made
-  false.
-- Before the docs commit, run `scripts/check.sh --all`, `scripts/lint.sh`,
-  `python3 scripts/architecture.py --check` and `scripts/test.sh test_api` when `docs/api.md`
-  changed.
-- Subject: `docs: <short imperative summary>`.
-
-A docs-only task is one `docs:` commit.
+A standalone `docs:` commit is only for docs no code commit touched: a new contract, an index row,
+a sweep. Before it, run `scripts/check.sh --all`, `scripts/lint.sh`,
+`python3 scripts/architecture.py --check` and `scripts/test.sh test_api` when `docs/api.md`
+changed. Subject: `docs: <short imperative summary>`.
 
 ## Bisect
 
@@ -189,8 +182,7 @@ handles CI and both publish workflows: `publish-store` for the community store a
 - No `git add -A` or `git commit -a` while another task is in the tree.
 - No push, fetch, pull, force-push or history rewrite.
 - No combined "cleanup" commits. Split mechanical, behavioral and docs changes.
-- No `.md` prose or comment-only edits in a code commit; no behavior change in a `docs:` commit.
-- No dribbling docs across the code commits: one task, one docs commit.
+- No unrelated doc edit mixed into a behavior commit; no behavior change in a `docs:` commit.
 - No generated artifacts or local settings committed.
 
 ## Quick regression archaeology

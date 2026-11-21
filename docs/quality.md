@@ -39,7 +39,8 @@ rules:
 - any other `##` block is at most two lines: the promise, then one clause of why;
 - a `#` block is at most three lines;
 - no backticked private `_member` (Godot engine virtuals excepted);
-- every backticked `docs/x.md` and its `` `## Heading` `` anchor must exist;
+- every backticked `docs/x.md` must exist; heading anchors are not resolved, so a heading rename
+  never edits a comment;
 - a comment sentence may not copy a sentence from `docs/*.md` or `ARCHITECTURE.md`.
 
 `--audit` prints every finding as JSON and `--self-test` runs the rule fixtures that `lint.sh`

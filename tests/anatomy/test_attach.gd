@@ -47,10 +47,10 @@ func run() -> void:
 	root.add_child(api)
 	api.bind_eligibility(eligibility)
 	api.present(pony)
-	var controller := api.parts.controller(pony)
+	var controller := api._parts.controller(pony)
 	check(is_instance_valid(controller), "present creates one controller")
 	check(eligibility.calls == 1, "present asks the identity gate once")
-	var stored: BODY_FORM.BodyForm = api.parts.form_for(pony)
+	var stored: BODY_FORM.BodyForm = api._parts.form_for(pony)
 	check(stored != null and stored.is_own() and stored.pony_id == "twilight_sparkle",
 		"a null form presents the body's own default")
 
@@ -58,67 +58,67 @@ func run() -> void:
 	var revised := BODY_FORM.default_form(pony)
 	revised.revision = 2
 	api.present(pony, revised)
-	check(api.parts.controller(pony) == controller, "a revised form keeps the same controller")
-	check(api.parts.form_for(pony) == revised, "the revised form is stored")
+	check(api._parts.controller(pony) == controller, "a revised form keeps the same controller")
+	check(api._parts.form_for(pony) == revised, "the revised form is stored")
 
 	# An ineligible body keeps its stored form and loses both the controller and the tail row.
 	eligibility.allow = false
 	api.present(pony, revised)
-	check(api.parts.controller(pony) == null, "an ineligible body has no controller")
-	check(api.parts.form_for(pony) == revised, "the ineligible body still remembers its form")
-	var rows: Dictionary = api.parts.tail_seat.get("_rows")
+	check(api._parts.controller(pony) == null, "an ineligible body has no controller")
+	check(api._parts.form_for(pony) == revised, "the ineligible body still remembers its form")
+	var rows: Dictionary = api._parts.tail_seat.get("_rows")
 	check(not rows.has(pony), "an ineligible body seats no tail")
 	eligibility.allow = true
 	api.present(pony, revised)
-	check(is_instance_valid(api.parts.controller(pony)), "an eligible body presents again")
+	check(is_instance_valid(api._parts.controller(pony)), "an eligible body presents again")
 	check(eligibility.calls == 4, "each present asks the gate once")
 
 	# The deprecated tail key changes nothing for anatomy: the tail follows the anatomy capability.
 	SETTINGS.save_participation("twilight_sparkle", ROWS.Rows.of({"tail": false}))
 	api.present(pony)
-	check(is_instance_valid(api.parts.controller(pony)),
+	check(is_instance_valid(api._parts.controller(pony)),
 		"a deprecated tail opt-out leaves the anatomy controller")
 	SETTINGS.reset_participation("twilight_sparkle")
 
 	# A live capability edit re-asks the gate for every remembered body: the listener withdraws
 	# and re-attaches without another roster pass.
-	var kept: BODY_FORM.BodyForm = api.parts.form_for(pony)
+	var kept: BODY_FORM.BodyForm = api._parts.form_for(pony)
 	var before := eligibility.calls
 	eligibility.allow = false
 	api._on_settings_changed()
 	check(eligibility.calls == before + 1, "the listener asks the gate once per remembered body")
-	check(api.parts.controller(pony) == null, "a settings edit withdraws a now-ineligible body")
-	check(api.parts.form_for(pony) == kept, "the listener keeps the remembered form")
-	check(not (api.parts.tail_seat.get("_rows") as Dictionary).has(pony),
+	check(api._parts.controller(pony) == null, "a settings edit withdraws a now-ineligible body")
+	check(api._parts.form_for(pony) == kept, "the listener keeps the remembered form")
+	check(not (api._parts.tail_seat.get("_rows") as Dictionary).has(pony),
 		"the listener releases the tail")
 	before = eligibility.calls
 	eligibility.allow = true
 	api._on_settings_changed()
 	check(eligibility.calls == before + 1, "the second edit asks once more")
-	check(is_instance_valid(api.parts.controller(pony)),
+	check(is_instance_valid(api._parts.controller(pony)),
 		"a settings edit re-presents an eligible body")
 
 	# The withdraw releases the controller, the tail row and the form; a frame later the deferred
 	# tail retry does not resurrect the tail.
 	api.withdraw(pony)
 	await process_frame
-	check(api.parts.controller(pony) == null, "withdraw releases the controller")
-	check(api.parts.form_for(pony) == null, "withdraw forgets the form")
-	check(api.parts.controllers.is_empty(), "no controller returns after the deferred retry")
-	check(not (api.parts.tail_seat.get("_rows") as Dictionary).has(pony),
+	check(api._parts.controller(pony) == null, "withdraw releases the controller")
+	check(api._parts.form_for(pony) == null, "withdraw forgets the form")
+	check(api._parts.controllers.is_empty(), "no controller returns after the deferred retry")
+	check(not (api._parts.tail_seat.get("_rows") as Dictionary).has(pony),
 		"no tail row returns after the deferred retry")
 	api.withdraw(pony)
 	api.present(null)
-	check(api.parts.controller(null) == null, "a null body presents nothing")
+	check(api._parts.controller(null) == null, "a null body presents nothing")
 
 	# Absent identity fails closed: the form is stored, nothing is presented.
 	var unbound: API = API.new()
 	root.add_child(unbound)
 	var body := _pony("rainbow_dash")
 	unbound.present(body)
-	check(unbound.parts.controller(body) == null, "an unbound anatomy creates no controller")
-	check(unbound.parts.form_for(body) != null, "an unbound anatomy still stores the form")
-	check(not (unbound.parts.tail_seat.get("_rows") as Dictionary).has(body),
+	check(unbound._parts.controller(body) == null, "an unbound anatomy creates no controller")
+	check(unbound._parts.form_for(body) != null, "an unbound anatomy still stores the form")
+	check(not (unbound._parts.tail_seat.get("_rows") as Dictionary).has(body),
 		"an unbound anatomy seats no tail")
 	unbound.shutdown()
 	root.remove_child(unbound)

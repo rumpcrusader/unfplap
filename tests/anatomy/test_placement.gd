@@ -293,8 +293,8 @@ func run() -> void:
 	root.add_child(service)
 	var target_before := SETTINGS.edit_target.get_choice()
 	SETTINGS.edit_target.set_choice("mare")
-	check(service.parts.placement_editor != null, "the API owns the placement editor")
-	check(str(service.parts.placement_editor.placement_id(editor_pony)) == "editor_mare",
+	check(service._parts.placement_editor != null, "the API owns the placement editor")
+	check(str(service._parts.placement_editor.placement_id(editor_pony)) == "editor_mare",
 		"the editor reads the named pony")
 	check(service.debug_placement(editor_pony, "text", 0.0, false).begins_with("editor_mare"),
 		"the API delegates the placement text")

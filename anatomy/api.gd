@@ -257,17 +257,17 @@ class Garment extends RefCounted:
 			return false
 		return _controller.garment_visible()
 
-var rig: RIG
-var parts: PARTS
+var _rig: RIG
+var _parts: PARTS
 var _player: Node = null
 ## The identity gate the roster verbs ask; the entry binds it once.
 var _eligibility: ELIGIBILITY = null
 
 
 func _ready() -> void:
-	rig = RIG.new()
-	parts = PARTS.new()
-	parts.setup(self, rig)
+	_rig = RIG.new()
+	_parts = PARTS.new()
+	_parts.setup(self, _rig)
 	CHANGE.on_changed(Callable(self, "_on_settings_changed"))
 
 
@@ -281,20 +281,20 @@ func bind_eligibility(service: ELIGIBILITY) -> void:
 ## Idempotent. A null form means the pony's own default form. The identity gate lives here, so no
 ## caller can attach a controller or a tail to a body that is not an anatomy target.
 func present(pony: Node3D, form: BODY_FORM.BodyForm = null) -> void:
-	if not is_instance_valid(pony) or parts == null:
+	if not is_instance_valid(pony) or _parts == null:
 		return
-	parts.remember(pony, form)
+	_parts.remember(pony, form)
 	if not _assigned(pony):
-		parts.release(pony)
+		_parts.release(pony)
 		return
-	parts.attach(pony, Callable(self, "_emit_status"))
-	parts.push_part()
+	_parts.attach(pony, Callable(self, "_emit_status"))
+	_parts.push_part()
 
 
 ## Idempotent. Releases the controller, tail row and form.
 func withdraw(pony: Node3D) -> void:
-	if is_instance_valid(pony) and parts != null:
-		parts.detach(pony)
+	if is_instance_valid(pony) and _parts != null:
+		_parts.detach(pony)
 
 
 ## The one identity question these roster verbs ask.
@@ -307,9 +307,9 @@ func _assigned(pony: Node) -> bool:
 
 ## Null when the roster has not presented her; the returned handle owns its own close.
 func begin_act(pony: Node3D, view: PoseView, bed_frame: Variant) -> ActPresentation:
-	if parts == null:
+	if _parts == null:
 		return null
-	var controller := parts.controller(pony)
+	var controller := _parts.controller(pony)
 	if not is_instance_valid(controller):
 		return null
 	var act := controller.begin_act(view, bed_frame)
@@ -323,14 +323,14 @@ func begin_act(pony: Node3D, view: PoseView, bed_frame: Variant) -> ActPresentat
 
 ## Always returns a handle; its methods no-op when the part is absent.
 func anon(_pony: Node3D) -> AnonBody:
-	return AnonBody.new(parts.player_host if parts != null else null)
+	return AnonBody.new(_parts.player_host if _parts != null else null)
 
 
 ## World-space vulva point at hole mix 0; INF when absent.
 func entrance_point(pony: Node3D) -> Vector3:
-	if parts == null:
+	if _parts == null:
 		return Vector3.INF
-	var controller := parts.controller(pony)
+	var controller := _parts.controller(pony)
 	if not is_instance_valid(controller) or not controller.is_attached():
 		return Vector3.INF
 	var value := controller.entrance_point()
@@ -341,9 +341,9 @@ func entrance_point(pony: Node3D) -> Vector3:
 
 ## Idle wink only; no-op when absent or an act is presented.
 func wink(pony: Node3D, beats: int) -> void:
-	if parts == null:
+	if _parts == null:
 		return
-	var controller := parts.controller(pony)
+	var controller := _parts.controller(pony)
 	if not is_instance_valid(controller) or controller.act_presented:
 		return
 	controller.wink_burst(beats)
@@ -351,9 +351,9 @@ func wink(pony: Node3D, beats: int) -> void:
 
 ## Idle resting openness; no-op when absent or an act is presented.
 func rest(pony: Node3D, open: float) -> void:
-	if parts == null:
+	if _parts == null:
 		return
-	var controller := parts.controller(pony)
+	var controller := _parts.controller(pony)
 	if not is_instance_valid(controller) or controller.act_presented:
 		return
 	controller.set_rest(open)
@@ -363,15 +363,15 @@ func rest(pony: Node3D, open: float) -> void:
 
 ## Always returns a handle; a detached controller answers null, identity, null and false.
 func garment(pony: Node3D) -> Garment:
-	return Garment.new(parts.controller(pony) if parts != null else null)
+	return Garment.new(_parts.controller(pony) if _parts != null else null)
 
 
 ## Clear the shared hull cache; the next `hull()` rebuilds once.
 func rebuild_garment() -> void:
-	if parts == null:
+	if _parts == null:
 		return
 	GARMENT_HULL.clear_cache()
-	for handle: CONTROLLER in parts.controllers.values():
+	for handle: CONTROLLER in _parts.controllers.values():
 		if is_instance_valid(handle):
 			handle.garment_hull_clear()
 
@@ -380,9 +380,9 @@ func rebuild_garment() -> void:
 
 ## Idempotent and cheap: register the current and future coat/outline materials with the flank.
 func follow_body_coat(pony: Node3D, flank: Node) -> bool:
-	if parts == null or not is_instance_valid(flank):
+	if _parts == null or not is_instance_valid(flank):
 		return false
-	var controller := parts.controller(pony)
+	var controller := _parts.controller(pony)
 	if not is_instance_valid(controller) or not controller.is_attached():
 		return false
 	var targets: Variant = flank.get("_jiggle_targets")
@@ -426,79 +426,79 @@ func _add_coat_target(targets: Array, material: ShaderMaterial, body: MeshInstan
 # --------------------------------------------------------------------------- debug
 
 func debug_placement(pony: Node3D, op: String, value: float, tail_owned: bool) -> String:
-	if parts == null or not is_instance_valid(parts.placement_editor):
+	if _parts == null or not is_instance_valid(_parts.placement_editor):
 		return ""
-	return parts.placement_editor.placement_debug(pony, op, value, tail_owned)
+	return _parts.placement_editor.placement_debug(pony, op, value, tail_owned)
 
 
 func debug_show(pony: Node3D) -> String:
-	if parts == null or not is_instance_valid(parts.placement_editor):
+	if _parts == null or not is_instance_valid(_parts.placement_editor):
 		return ""
-	return parts.placement_editor.placement_show(pony)
+	return _parts.placement_editor.placement_show(pony)
 
 
 func debug_anon_scale(_pony: Node3D) -> Vector3:
-	if parts == null:
+	if _parts == null:
 		return Vector3.INF
-	return parts.player_host.debug_scale()
+	return _parts.player_host.debug_scale()
 
 
 # --------------------------------------------------------------------------- lifecycle
 
 func on_world(_host: Node) -> void:
-	if parts != null:
-		parts.refresh_all()
-		parts.apply_live()
-		parts.refresh_tails()
+	if _parts != null:
+		_parts.refresh_all()
+		_parts.apply_live()
+		_parts.refresh_tails()
 
 
 func on_world_closed() -> void:
-	if parts != null:
-		parts.player_host.on_world_closed()
-		parts.push_part()
+	if _parts != null:
+		_parts.player_host.on_world_closed()
+		_parts.push_part()
 	_player = null
 
 
 func on_player(body: Node) -> void:
 	_player = body
-	if parts == null:
+	if _parts == null:
 		return
-	parts.player_host.on_player(body)
-	parts.push_part()
+	_parts.player_host.on_player(body)
+	_parts.push_part()
 
 
 func shutdown() -> void:
 	CHANGE.off_changed(Callable(self, "_on_settings_changed"))
-	if parts != null:
-		parts.clear()
-		parts.player_host.on_world_closed()
-	parts = null
-	rig = null
+	if _parts != null:
+		_parts.clear()
+		_parts.player_host.on_world_closed()
+	_parts = null
+	_rig = null
 	_player = null
 
 
 func _on_settings_changed() -> void:
-	if parts == null:
+	if _parts == null:
 		return
 	# Re-ask the gate before the live refresh, so a body that lost the capability is released
 	# before its controller would be refreshed.
-	var ponies: Array = parts.forms.keys()
+	var ponies: Array = _parts.forms.keys()
 	for value: Variant in ponies:
 		if value is Node3D and is_instance_valid(value):
 			_reconcile(value as Node3D)
-	parts.player_host.refresh()
-	parts.push_part()
-	parts.refresh_all()
-	parts.apply_live()
-	parts.refresh_tails()
+	_parts.player_host.refresh()
+	_parts.push_part()
+	_parts.refresh_all()
+	_parts.apply_live()
+	_parts.refresh_tails()
 
 
 ## Re-attach or release one remembered body; the listener's single refresh pass covers survivors.
 func _reconcile(pony: Node3D) -> void:
 	if not _assigned(pony):
-		parts.release(pony)
-	elif parts.controller(pony) == null:
-		parts.attach(pony, Callable(self, "_emit_status"))
+		_parts.release(pony)
+	elif _parts.controller(pony) == null:
+		_parts.attach(pony, Callable(self, "_emit_status"))
 
 
 func _on_act_ended(_pony: Node3D) -> void:
@@ -510,5 +510,5 @@ func _emit_status(text: String, seconds := 2.0) -> void:
 
 
 func _refresh_dock_color(pony: Node) -> void:
-	if parts != null:
-		parts.refresh_dock_color(pony)
+	if _parts != null:
+		_parts.refresh_dock_color(pony)

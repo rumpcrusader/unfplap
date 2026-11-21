@@ -115,10 +115,8 @@ def expect(label: str, failures: list[str], wanted: str | None) -> int:
         if failures:
             print("FAIL %s: unexpected %s" % (label, failures))
             return 1
-        print("ok %s" % label)
         return 0
     if any(wanted in message for message in failures):
-        print("ok %s" % label)
         return 0
     print("FAIL %s: %s not in %s" % (label, wanted, failures))
     return 1
@@ -152,9 +150,7 @@ def preload_cases() -> int:
     failures = 0
     for label, text, wanted in PRELOAD_CASES:
         actual = len(architecture.preload_block_problems(text))
-        if actual == wanted:
-            print("ok preload %s" % label)
-        else:
+        if actual != wanted:
             print("FAIL preload %s: wanted %d findings, got %d" % (label, wanted, actual))
             failures += 1
     return failures
@@ -164,30 +160,22 @@ def rule_cases() -> int:
     failures = 0
     for src, tgt in GAME_ALLOWED:
         ok, _kind, _so, _to = architecture.is_allowed(src, tgt)
-        if ok:
-            print("ok game allowed %s -> %s" % (src, tgt))
-        else:
+        if not ok:
             print("FAIL game allowed edge refused: %s -> %s" % (src, tgt))
             failures += 1
     found = {(row["from"], row["to"]) for row in architecture.scan_reexports()}
     for src, to in REEXPORTS:
-        if (src, to) in found:
-            print("ok re-export %s -> %s" % (src, to))
-        else:
+        if (src, to) not in found:
             print("FAIL re-export not detected: %s -> %s" % (src, to))
             failures += 1
     for label, text, wanted in NOTE_CASES:
         actual = len(architecture.type_note_failures("fixture.gd", text))
-        if actual == wanted:
-            print("ok note %s" % label)
-        else:
+        if actual != wanted:
             print("FAIL note %s: wanted %d findings, got %d" % (label, wanted, actual))
             failures += 1
     for label, text, wanted in MEMBER_CASES:
         actual = len(architecture.member_note_failures("fixture.gd", text))
-        if actual == wanted:
-            print("ok member %s" % label)
-        else:
+        if actual != wanted:
             print("FAIL member %s: wanted %d findings, got %d" % (label, wanted, actual))
             failures += 1
     return failures
@@ -197,16 +185,12 @@ def main() -> int:
     failures = 0
     for src, tgt in ALLOWED:
         ok, _kind, _so, _to = architecture.is_allowed(src, tgt)
-        if ok:
-            print("ok allowed %s -> %s" % (src, tgt))
-        else:
+        if not ok:
             print("FAIL allowed edge refused: %s -> %s" % (src, tgt))
             failures += 1
     for src, tgt in FORBIDDEN:
         ok, _kind, _so, _to = architecture.is_allowed(src, tgt)
-        if not ok:
-            print("ok forbidden %s -> %s" % (src, tgt))
-        else:
+        if ok:
             print("FAIL forbidden edge allowed: %s -> %s" % (src, tgt))
             failures += 1
     failures += index_cases()

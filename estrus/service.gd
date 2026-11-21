@@ -99,7 +99,7 @@ func debug_set_phase(pony: Node, phase_name: String) -> String:
 	CYCLE.set_override(PONY_ID.of(pony), phase_name)
 	var session := _session(pony)
 	session.phase = ""
-	_refresh(pony, session, true)
+	_refresh(pony, session, PHASE_POLL_S, true)
 	var label := "automatic" if phase_name.is_empty() else phase_name
 	LOG.debug("estrus override %s=%s", [str(pony.name), label])
 	return phase(pony)
@@ -112,7 +112,7 @@ func track(pony: Node) -> void:
 	var session := Session.new()
 	_sessions[pony] = session
 	pony.tree_exiting.connect(func() -> void: untrack(pony))
-	_refresh(pony, session, true)
+	_refresh(pony, session, PHASE_POLL_S, true)
 
 
 func untrack(pony: Node) -> void:
@@ -126,7 +126,7 @@ func _process(delta: float) -> void:
 			_sessions.erase(pony)
 			continue
 		var session: Session = _sessions[pony]
-		_refresh(pony, session, false)
+		_refresh(pony, session, delta, false)
 		if session.phase == CYCLE.HEAT:
 			session.wink_left -= delta
 			if session.wink_left <= 0.0:
@@ -138,8 +138,8 @@ func _process(delta: float) -> void:
 
 ## Refresh one pony's phase and, on a change, its rest and wink clock. `force` re-applies the
 ## rest even when the phase did not move (a settings edit or a debug override).
-func _refresh(pony: Node, session: Session, force: bool) -> void:
-	session.phase_left -= get_process_delta_time()
+func _refresh(pony: Node, session: Session, delta: float, force: bool) -> void:
+	session.phase_left -= delta
 	if not force and session.phase_left > 0.0:
 		return
 	session.phase_left = PHASE_POLL_S
@@ -164,7 +164,7 @@ func _on_settings_changed() -> void:
 	_snapshot()
 	for pony: Node in _sessions.keys():
 		if is_instance_valid(pony):
-			_refresh(pony, _sessions[pony], true)
+			_refresh(pony, _sessions[pony], PHASE_POLL_S, true)
 
 
 func _session(pony: Node) -> Session:

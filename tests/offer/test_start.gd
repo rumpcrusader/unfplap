@@ -12,6 +12,7 @@ const LOG := preload("res://mods/unfplap/shared/log.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const PRIVACY := preload("res://mods/unfplap/privacy/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
+const FAKE_GATE := preload("res://mods/unfplap/tests/support/fakes/fake_act_gate.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const ACT_AGREEMENT := preload("res://mods/unfplap/act/agreement.gd")
@@ -451,6 +452,7 @@ func _fixture(with_world := true) -> Dictionary:
 	var targets := Targets.new()
 	targets.allowed = [pony]
 	PONIES.eligibility = targets
+	PONIES.act_gate = FAKE_GATE.new()
 	PONIES.stock_smack = null
 	var service := OFFER.new()
 	service.name = "UnfplapOffer"
@@ -493,6 +495,7 @@ func _free(made: Dictionary) -> void:
 	PONIES.stock_smack = null
 	PONIES.clear_active(made["runtime"])
 	PONIES.eligibility = null
+	PONIES.act_gate = null
 	PONIES.offer = null
 	WORLD.unbind()
 	var nodes: Array[Node] = [made["game"], made["negotiation"], made["hud"], made["pony"],

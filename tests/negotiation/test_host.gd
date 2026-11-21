@@ -13,6 +13,7 @@ const AGREEMENT := preload("res://mods/unfplap/negotiation/agreement.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
+const ACT_GATE := preload("res://mods/unfplap/act_gate/service.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const PRIVACY := preload("res://mods/unfplap/privacy/service.gd")
 const CONTEXT := preload("res://mods/unfplap/shared/context.gd")
@@ -166,22 +167,22 @@ class FakeOffer extends Node:
 
 class FakeEligibility extends ELIGIBILITY:
 	var act := true
-	var relationship := true
-	var facts: ELIGIBILITY.Facts = null
-
-	func setup() -> void:
-		pass
 
 	func eligible(_pony: Node, _target: int = ELIGIBILITY.Target.ACT) -> bool:
 		return act
 
+
+class FakeGate extends ACT_GATE:
+	var relationship := true
+	var facts: ACT_GATE.Facts = null
+
 	func relationship_ok(_pony: Node) -> bool:
 		return relationship
 
-	func get_verdict(_pony: Node, mode: ELIGIBILITY.Mode = ELIGIBILITY.Mode.START):
-		var out := ELIGIBILITY.Verdict.new()
+	func get_verdict(_pony: Node, mode: ACT_GATE.Mode = ACT_GATE.Mode.START):
+		var out := ACT_GATE.Verdict.new()
 		out.mode = mode
-		out.facts = facts if facts != null else ELIGIBILITY.Facts.new()
+		out.facts = facts if facts != null else ACT_GATE.Facts.new()
 		return out
 
 
@@ -251,18 +252,20 @@ func _bridge_fixture() -> Dictionary:
 	game.player = player
 	game.add_child(pony)
 	game.add_child(player)
-	var facts := ELIGIBILITY.Facts.new()
+	var facts := ACT_GATE.Facts.new()
 	facts.id = "rarity"
 	facts.willing = true
 	facts.heat = true
 	facts.cycle_phase = "heat"
 	facts.consent.public = false
 	var eligibility := FakeEligibility.new()
-	eligibility.facts = facts
+	var gate := FakeGate.new()
+	gate.facts = facts
 	var bridge := HOST.new()
 	bridge.service = FakeService.new()
 	bridge.adapter = FakeAdapter.new()
 	bridge.eligibility = eligibility
+	bridge.gate = gate
 	bridge.memory = FakeMemory.new()
 	bridge.privacy = FakePrivacy.new()
 	bridge.initiation = FakeInitiation.new()
@@ -275,7 +278,7 @@ func _bridge_fixture() -> Dictionary:
 	WORLD.bind_world(game)
 	WORLD.bind_player(player)
 	return {"bridge": bridge, "game": game, "pony": pony, "runtime": runtime,
-		"player": player, "eligibility": eligibility, "facts": facts,
+		"player": player, "eligibility": eligibility, "gate": gate, "facts": facts,
 		"service": bridge.service, "adapter": bridge.adapter, "initiation": bridge.initiation,
 		"offer": bridge.offer}
 
@@ -303,13 +306,14 @@ func _service_fixture() -> Dictionary:
 	game.add_child(player)
 	var director := FakeDirector.new()
 	director.add_to_group("conversation_director")
-	var facts := ELIGIBILITY.Facts.new()
+	var facts := ACT_GATE.Facts.new()
 	facts.id = "rarity"
 	facts.willing = true
 	facts.heat = true
 	facts.cycle_phase = "heat"
 	var eligibility := FakeEligibility.new()
-	eligibility.facts = facts
+	var gate := FakeGate.new()
+	gate.facts = facts
 	var initiation := FakeInitiation.new()
 	var offer := FakeOffer.new()
 	PONIES.shutdown()
@@ -322,9 +326,9 @@ func _service_fixture() -> Dictionary:
 	WORLD.bind_world(game)
 	WORLD.bind_player(player)
 	root.add_child(service)
-	service.bind(eligibility, FakeMemory.new(), FakePrivacy.new(), initiation, offer)
+	service.bind(eligibility, gate, FakeMemory.new(), FakePrivacy.new(), initiation, offer)
 	return {"service": service, "game": game, "pony": pony, "runtime": runtime,
-		"player": player, "eligibility": eligibility, "facts": facts,
+		"player": player, "eligibility": eligibility, "gate": gate, "facts": facts,
 		"initiation": initiation, "offer": offer, "director": director}
 
 
@@ -365,10 +369,11 @@ func _check_host_callbacks() -> void:
 	check(not bridge.eligible(made["pony"]), "an ineligible mare is not an act target")
 	eligibility.act = true
 	check(not bridge.eligible(null), "a missing mare is not an act target")
-	check(bridge.relationship_ok(made["pony"]), "the relationship row comes from eligibility")
-	eligibility.relationship = false
+	var gate: FakeGate = made["gate"]
+	check(bridge.relationship_ok(made["pony"]), "the relationship row comes from the act gate")
+	gate.relationship = false
 	check(not bridge.relationship_ok(made["pony"]), "a broken relationship refuses the route")
-	eligibility.relationship = true
+	gate.relationship = true
 	check(bridge.now() > 0.0, "the clock is the bridge's")
 	check((bridge.placement_for(runtime) as POSE_OPTIONS.Placement) != null,
 		"the placement comes from the Proactive service")

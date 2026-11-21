@@ -10,7 +10,7 @@ const GAME := preload("res://mods/unfplap/world/game.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
-const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
+const ACT_GATE := preload("res://mods/unfplap/act_gate/service.gd")
 
 ## The bond stages the sex-ready write never lowers: an engaged or married mare keeps her stage.
 const KEPT_STAGES := ["dating", "engaged", "married"]
@@ -243,14 +243,14 @@ static func _neutral_mood(host: Node, pony: Node3D, id: String) -> String:
 	return "%s -> %s" % [before, after]
 
 
-## The eligibility owner's relationship values for the debug line, or the empty defaults outside
-## a live service.
+## The act gate's relationship values for the debug line, or the empty defaults outside a live
+## service.
 static func _relations(pony: Node) -> Variant:
-	var service: Variant = PONIES.eligibility
+	var service: Variant = PONIES.act_gate
 	if not is_instance_valid(pony) or not is_instance_valid(service):
-		return ELIGIBILITY.Relations.new()
-	var verdict: Variant = service.get_verdict(pony, ELIGIBILITY.Mode.START)
-	return verdict.relations if verdict != null else ELIGIBILITY.Relations.new()
+		return ACT_GATE.Relations.new()
+	var verdict: Variant = service.get_verdict(pony, ACT_GATE.Mode.START)
+	return verdict.relations if verdict != null else ACT_GATE.Relations.new()
 
 
 ## The tree's pause state, read from the pony's tree so a runtime outside one cannot error.

@@ -359,6 +359,7 @@ No setting is read directly. The bridge's `relationship_ok` reads the Promiscuit
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
 | service | eligibility | `eligibility/service.gd` | adult and consent gate |
+| service | act_gate | `act_gate/service.gd` | dynamic act gate |
 | service | memory | `memory/service.gd` | act memory and witness pass |
 | service | ponies | `ponies/service.gd` | per-pony runtime registry |
 | service | privacy | `privacy/service.gd` | service dependency |

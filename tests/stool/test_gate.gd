@@ -3,7 +3,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/stool/test_gate.gd
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
-const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
+const ACT_GATE := preload("res://mods/unfplap/act_gate/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const STOOL := preload("res://mods/unfplap/stool/service.gd")
@@ -64,7 +64,7 @@ class FakeMain extends Node:
 	var eligibility: Node
 
 
-class FakeEligibility extends "res://mods/unfplap/tests/support/fakes/fake_eligibility.gd":
+class FakeGate extends "res://mods/unfplap/tests/support/fakes/fake_act_gate.gd":
 	pass
 
 
@@ -97,7 +97,7 @@ func run() -> void:
 	SETTINGS.standing_stool.set_bool(true)
 	SETTINGS.stool_gap_m.set_num(0.20)
 	SETTINGS.stool_height_m.set_num(0.20)
-	var fake_eligibility := FakeEligibility.new()
+	var fake_gate := FakeGate.new()
 	var main := FakeMain.new()
 	var pony := TestPony.new()
 	var nav := FakeNav.new()
@@ -116,7 +116,7 @@ func run() -> void:
 	main.anatomy = FakeService.new()
 	main.stool = STOOL.new()
 	PONIES.anatomy = main.anatomy
-	PONIES.eligibility = fake_eligibility
+	PONIES.act_gate = fake_gate
 	root.add_child(main)
 	root.add_child(pony)
 	root.add_child(player)
@@ -148,14 +148,14 @@ func run() -> void:
 	check(runtime.presentation.stool_case_count() == 2, "two case footstools are counted")
 
 	# Each hint scan reads the reach and Base clearance; a failed scene reads no Base clearance.
-	var eligibility: FakeEligibility = fake_eligibility
+	var gate: FakeGate = fake_gate
 	var anatomy_service: FakeService = main.anatomy
 	var prepare_before: int = anatomy_service.prepare_calls
 	var pair: Vector2i = runtime.presentation.stool_pair("standing")
 	check(runtime.scene.hotkey_ready("standing", "", null, pair), "the standing hint is ready")
 	check(anatomy_service.prepare_calls == prepare_before + 1,
 		"the hint reads the reach once")
-	check(eligibility.eligible_calls == 1 and eligibility.relationship_calls == 1,
+	check(gate.ready_calls == 1 and gate.relationship_calls == 1,
 		"the hint reads Base clearance")
 	var hint_stool: Dictionary = runtime.start.hint_stool()
 	check(int(hint_stool.get("need", -1)) == 1 and int(hint_stool.get("have", -1)) == 2,
@@ -166,16 +166,16 @@ func run() -> void:
 	check(runtime.scene.hotkey_ready("standing", "", null, pair), "the next hint scan stays ready")
 	check(anatomy_service.prepare_calls == prepare_before + 2,
 		"the next scan reads the reach again")
-	check(eligibility.eligible_calls == 2 and eligibility.relationship_calls == 2,
+	check(gate.ready_calls == 2 and gate.relationship_calls == 2,
 		"the next scan reads Base clearance again")
 	pony.set_meta("seated", true)
 	check(not runtime.scene.hotkey_ready("standing", "", null, pair),
 		"a seated pony fails the standing hint")
-	check(eligibility.eligible_calls == 2,
+	check(gate.ready_calls == 2,
 		"a failed scene row reads no Base clearance")
 	pony.remove_meta("seated")
 	check(runtime.scene.hotkey_ready("standing", "", null, pair), "the standing hint recovers")
-	check(eligibility.eligible_calls == 3,
+	check(gate.ready_calls == 3,
 		"the recovered scene reads Base clearance once")
 
 	SETTINGS.anatomy_mode.set_choice("never")
@@ -184,7 +184,7 @@ func run() -> void:
 	SETTINGS.stool_gap_m.set_num(0.20)
 	SETTINGS.stool_height_m.set_num(0.20)
 	runtime.free()
-	PONIES.eligibility = null
+	PONIES.act_gate = null
 	main.anatomy.free()
 	main.stool.free()
 	main.free()

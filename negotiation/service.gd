@@ -10,6 +10,7 @@ const PROMPTS := preload("res://mods/unfplap/negotiation/prompts.gd")
 const HOST := preload("res://mods/unfplap/negotiation/host.gd")
 const ADAPTER := preload("res://mods/unfplap/negotiation/adapter.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
+const ACT_GATE := preload("res://mods/unfplap/act_gate/service.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const PRIVACY := preload("res://mods/unfplap/privacy/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
@@ -150,9 +151,10 @@ var _serial := 0
 var _deadline := 0.0
 var _privacy_clock := 0.0
 
-## The services the bridge reads, bound once by the entry. `eligibility` alone is handed over
-## again on each world enter, because the entry constructs a fresh one.
+## The services the bridge reads, bound once by the entry. `eligibility` and `gate` alone are
+## handed over again on each world enter, because the entry constructs fresh ones.
 var eligibility: ELIGIBILITY = null
+var gate: ACT_GATE = null
 var memory: MEMORY = null
 var privacy: PRIVACY = null
 var hud: Node = null
@@ -162,9 +164,11 @@ var offer: Node = null
 
 ## The entry's one call: the services the bridge reads. The adapter and the bridge are built here
 ## and nowhere else, so the entry never assembles a `Host`.
-func bind(eligibility_service: ELIGIBILITY, memory_service: MEMORY, privacy_service: PRIVACY,
-		initiation_service: Node, offer_service: Node, hud_service: Node = null) -> void:
+func bind(eligibility_service: ELIGIBILITY, gate_service: ACT_GATE, memory_service: MEMORY,
+		privacy_service: PRIVACY, initiation_service: Node, offer_service: Node,
+		hud_service: Node = null) -> void:
 	eligibility = eligibility_service
+	gate = gate_service
 	memory = memory_service
 	privacy = privacy_service
 	initiation = initiation_service
@@ -180,6 +184,7 @@ func bind(eligibility_service: ELIGIBILITY, memory_service: MEMORY, privacy_serv
 	_bridge.service = self
 	_bridge.adapter = _adapter
 	_bridge.eligibility = eligibility
+	_bridge.gate = gate
 	_bridge.memory = memory
 	_bridge.privacy = privacy
 	_bridge.hud = hud
@@ -200,6 +205,7 @@ func on_world(_host: Node) -> void:
 	if _bridge == null:
 		return
 	_bridge.eligibility = eligibility
+	_bridge.gate = gate
 	_bind_host()
 	_bridge.disarm()
 

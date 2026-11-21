@@ -16,6 +16,7 @@ const POSE_OPTIONS := preload("res://mods/unfplap/shared/pose_options.gd")
 const COOLDOWNS := preload("res://mods/unfplap/initiation/cooldowns.gd")
 const CYCLE := preload("res://mods/unfplap/shared/cycle.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
+const ACT_GATE := preload("res://mods/unfplap/act_gate/service.gd")
 const CLEARANCE := preload("res://mods/unfplap/shared/clearance.gd")
 const CONTEXT := preload("res://mods/unfplap/shared/context.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
@@ -81,6 +82,8 @@ class ForceResult extends RefCounted:
 
 ## Set by the entry: the live eligibility service, rebuilt on every world enter.
 var eligibility: ELIGIBILITY = null
+## Set by the entry: the live dynamic gate, rebuilt on every world enter.
+var act_gate: ACT_GATE = null
 var _episode: Candidate = null
 var _scan_clock := 0.0
 var _serial := 0
@@ -130,9 +133,10 @@ func setup(privacy_node: PRIVACY = null, negotiation_node: NEGOTIATION = null,
 	add_child(_venue)
 
 
-## Set by the entry: the live eligibility service, rebuilt on every world enter.
-func bind(eligibility_service: ELIGIBILITY) -> void:
+## Set by the entry: the two live gates, rebuilt on every world enter.
+func bind(eligibility_service: ELIGIBILITY, gate_service: ACT_GATE) -> void:
 	eligibility = eligibility_service
+	act_gate = gate_service
 
 
 ## The bounded classifier this service owns, or null. The negotiation's adapter makes the one
@@ -354,7 +358,7 @@ func _candidate_for(runtime: Node, forced: bool, pose_request := "",
 		return null
 	var service := _eligibility()
 	var eligible: bool = service != null and service.eligible(pony, ELIGIBILITY.Target.ACT)
-	var relationship: bool = service != null and service.relationship_ok(pony)
+	var relationship: bool = is_instance_valid(act_gate) and act_gate.relationship_ok(pony)
 	var base := CLEARANCE.evaluate(eligible, relationship, _available(pony))
 	if not base.ok():
 		reasons.append("clearance:%s" % base.reasons_text())

@@ -6,6 +6,7 @@ extends RefCounted
 const PROMPTS := preload("res://mods/unfplap/negotiation/prompts.gd")
 const ADAPTER := preload("res://mods/unfplap/negotiation/adapter.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
+const ACT_GATE := preload("res://mods/unfplap/act_gate/service.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const PRIVACY := preload("res://mods/unfplap/privacy/service.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
@@ -33,6 +34,8 @@ var adapter: ADAPTER = null
 ## The services this bridge reads. `eligibility` alone is handed over again on each world enter,
 ## because the entry constructs a fresh one.
 var eligibility: ELIGIBILITY = null
+## The dynamic gate: the relationship row and the Context facts.
+var gate: ACT_GATE = null
 var memory: MEMORY = null
 var privacy: PRIVACY = null
 var hud: Node = null
@@ -55,7 +58,7 @@ func eligible(pony: Variant) -> bool:
 
 
 func relationship_ok(pony: Node) -> bool:
-	return is_instance_valid(eligibility) and eligibility.relationship_ok(pony)
+	return is_instance_valid(gate) and gate.relationship_ok(pony)
 
 
 func privacy_private(pony: Node, cuddle: bool) -> bool:
@@ -125,13 +128,13 @@ func toast(text: String) -> void:
 ## from the eligibility facts, act history, memory and the live privacy state.
 func context_facts(pony: Node) -> Dictionary:
 	var out: Dictionary = {}
-	if not is_instance_valid(pony) or not is_instance_valid(eligibility):
+	if not is_instance_valid(pony) or not is_instance_valid(gate):
 		return out
-	var verdict: ELIGIBILITY.Verdict = eligibility.get_verdict(pony, ELIGIBILITY.Mode.OFFER)
+	var verdict: ACT_GATE.Verdict = gate.get_verdict(pony, ACT_GATE.Mode.OFFER)
 	if verdict == null or verdict.facts == null:
 		return out
-	var facts: ELIGIBILITY.Facts = verdict.facts
-	var history: ELIGIBILITY.History = facts.history
+	var facts: ACT_GATE.Facts = verdict.facts
+	var history: ACT_GATE.History = facts.history
 	var id := facts.id
 	out["willingness"] = facts.willing
 	out["history"] = {

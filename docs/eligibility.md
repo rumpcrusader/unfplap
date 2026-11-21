@@ -463,15 +463,10 @@ refusal status (`docs/integrations.md`).
 |---|---|---|---|
 | service | registry | `registry/service.gd` | provider layers and stable ids |
 | service | settings | `settings/service.gd` | settings declarations and live values |
-| service | world | `world/game.gd` | service dependency |
 | service | world | `world/service.gd` | live scene reads |
-| shared | clearance | `shared/clearance.gd` | shared data |
 | shared | consent | `shared/consent.gd` | consent defaults |
-| shared | cycle | `shared/cycle.gd` | estrus cycle |
-| shared | cycle_state | `shared/cycle_state.gd` | shared data |
 | shared | participation | `shared/participation.gd` | participation defaults |
 | shared | pony_id | `shared/pony_id.gd` | shared data |
-| store | act_history | `shared/act_history.gd` | stored history rows |
 
 ## Lifecycle
 

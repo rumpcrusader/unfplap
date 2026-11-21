@@ -316,6 +316,7 @@ ponies are around. The heat line is appended only in heat and is empty otherwise
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
 | service | eligibility | `eligibility/service.gd` | adult and consent gate |
+| service | act_gate | `act_gate/service.gd` | dynamic act gate |
 | service | negotiation | `negotiation/service.gd` | service dependency |
 | service | offer | `offer/service.gd` | idle act offer and hint |
 | service | ponies | `ponies/service.gd` | per-pony runtime registry |

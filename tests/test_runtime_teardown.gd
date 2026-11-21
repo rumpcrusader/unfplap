@@ -124,8 +124,11 @@ class FakeMain extends Node:
 
 
 class FakeEligibility extends "res://mods/unfplap/tests/support/fakes/fake_eligibility.gd":
-	func consent(_pony: Node, _key: String) -> bool:
-		return true
+	pass
+
+
+class FakeGate extends "res://mods/unfplap/tests/support/fakes/fake_act_gate.gd":
+	pass
 
 
 class FakePresentation extends RefCounted:
@@ -287,32 +290,32 @@ func run() -> void:
 	check(inventory.placed == 1, "double teardown does not re-place the hotbar")
 
 	# Every hint scan reads Base clearance; a failing scene reads none.
-	var eligibility := FakeEligibility.new()
-	PONIES.eligibility = eligibility
-	runtime.scene.eligibility_service = eligibility
+	var gate := FakeGate.new()
+	PONIES.act_gate = gate
+	runtime.scene.gate_service = gate
 	runtime.act._set_state(0)
 	check(bool(runtime.scene.hotkey_ready(CATALOG_STANDING, "")),
 		"the idle hint passes with the scene rows ready")
-	check(eligibility.eligible_calls == 1 and eligibility.relationship_calls == 1,
+	check(gate.ready_calls == 1 and gate.relationship_calls == 1,
 		"the hint reads Base clearance")
 	var hint_stool: Dictionary = runtime.start.hint_stool()
 	check(int(hint_stool.get("need", -1)) == 0 and int(hint_stool.get("have", -1)) == 0,
 		"the hint reports the gate's footstool pair")
 	check(bool(runtime.scene.hotkey_ready(CATALOG_STANDING, "")),
 		"the next hint scan passes")
-	check(eligibility.eligible_calls == 2 and eligibility.relationship_calls == 2,
+	check(gate.ready_calls == 2 and gate.relationship_calls == 2,
 		"the next hint scan reads Base clearance again")
 	pony.set_meta("seated", true)
 	check(not bool(runtime.scene.hotkey_ready(CATALOG_STANDING, "")),
 		"a seated pony fails the standing hint")
-	check(eligibility.eligible_calls == 2,
+	check(gate.ready_calls == 2,
 		"a failed scene row reads no Base clearance")
 	pony.remove_meta("seated")
 	check(bool(runtime.scene.hotkey_ready(CATALOG_STANDING, "")),
 		"the standing hint recovers")
-	check(eligibility.eligible_calls == 3 and eligibility.relationship_calls == 3,
+	check(gate.ready_calls == 3 and gate.relationship_calls == 3,
 		"the recovered scene reads Base clearance once")
-	PONIES.eligibility = null
+	PONIES.act_gate = null
 
 	# A forced stop at IDLE must not touch the player's captured look.
 	var f2 := _fixture()
@@ -513,7 +516,7 @@ func run() -> void:
 	SETTINGS.anatomy_oral.set_bool(true)
 	var anatomy8: ANATOMY_API = ANATOMY_API.new()
 	PONIES.anatomy = anatomy8
-	PONIES.eligibility = FakeEligibility.new()
+	PONIES.act_gate = FakeGate.new()
 	pony8.global_position = Vector3(2.0, 0.0, 3.0)
 	var oral_from: Vector3 = pony8.global_position
 	runtime8.act.start._build_pose()

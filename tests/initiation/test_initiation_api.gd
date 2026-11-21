@@ -25,16 +25,13 @@ class FakeView extends RefCounted:
 
 class FakeEligibility extends ELIGIBILITY:
 	var act := true
-	var relationship := true
-
-	func setup() -> void:
-		pass
 
 	func eligible(_pony: Node, _target: int = ELIGIBILITY.Target.ACT) -> bool:
 		return act
 
-	func relationship_ok(_pony: Node) -> bool:
-		return relationship
+
+class FakeGate extends "res://mods/unfplap/tests/support/fakes/fake_act_gate.gd":
+	pass
 
 
 class FixtureHost extends Node:
@@ -250,11 +247,13 @@ func _fixture() -> Dictionary:
 	var service := INIT.new()
 	service.name = "UnfplapInitiation"
 	service.eligibility = eligibility
+	var gate := FakeGate.new()
+	service.act_gate = gate
 	service.setup(privacy, negotiation, offer)
 	root.add_child(service)
 	return {"main": main, "game": game, "context": context, "player": player,
 		"target": target, "nav": nav, "runtime": runtime, "eligibility": eligibility,
-		"adapter": adapter, "privacy": privacy, "service": service, "offer": offer,
+		"gate": gate, "adapter": adapter, "privacy": privacy, "service": service, "offer": offer,
 		"negotiation": negotiation}
 
 
@@ -356,13 +355,13 @@ func _check_clearance_and_options() -> void:
 	var service: Node = made["service"]
 	var negotiation: FakeNegotiation = made["negotiation"]
 	var runtime: FakeRuntime = made["runtime"]
-	var eligibility: FakeEligibility = made["eligibility"]
+	var gate: FakeGate = made["gate"]
 	var main: FixtureHost = made["main"]
-	eligibility.relationship = false
+	gate.relationship = false
 	var rejected: INIT.ForceResult = service.force(runtime, CATALOG.STANDING)
 	check(not rejected.ok and rejected.reject.contains("clearance:relationship"),
 		"a failed Base clearance rejects the offer")
-	eligibility.relationship = true
+	gate.relationship = true
 	runtime.state = 1
 	var busy: INIT.ForceResult = service.force(runtime)
 	check(not busy.ok and busy.reject.contains("state=1"), "force reports the runtime state")

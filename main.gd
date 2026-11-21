@@ -161,9 +161,9 @@ func _build_services() -> void:
 	# adapter, lock, form view and Context. The bridge reads this service back, so it is bound
 	# once both exist.
 	initiation = _add(INITIATION.new(), "UnfplapInitiation")
-	initiation.bind(eligibility)
+	initiation.bind(eligibility, act_gate)
 	initiation.setup(privacy, negotiation, offer)
-	negotiation.bind(eligibility, memory, privacy, initiation, offer, hud)
+	negotiation.bind(eligibility, act_gate, memory, privacy, initiation, offer, hud)
 	estrus = _add(ESTRUS.new(), "UnfplapEstrus")
 	anatomy = _add(ANATOMY.new(), "UnfplapAnatomy")
 	anatomy.status.connect(Callable(hud, "anatomy_status"))

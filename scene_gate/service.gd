@@ -4,7 +4,7 @@ extends RefCounted
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
-const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
+const ACT_GATE := preload("res://mods/unfplap/act_gate/service.gd")
 const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const POSE_SESSION := preload("res://mods/unfplap/poses/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
@@ -17,8 +17,8 @@ const STATE_IDLE := ACT_STATE.State.IDLE
 var pony: Node3D = null
 ## The pose session, for the missionary asset/rig rows. Its facade answers both.
 var pose_session: POSE_SESSION = null
-## The eligibility facade the Base clearance row reads; the runtime binds it once per pony.
-var eligibility_service: ELIGIBILITY = null
+## The act gate the policy rows and the Base clearance row read; the runtime binds it.
+var gate_service: ACT_GATE = null
 
 ## The act identity and state the rows read.
 var state := 0
@@ -30,7 +30,7 @@ var stool_need := Callable()
 var stool_count := Callable()
 var presentation_active := Callable()
 ## The policy verdict override and the debug context. The host may supply either; without the
-## override the gate reads the eligibility service itself.
+## override the gate reads the act gate service itself.
 var policy_verdict := Callable()
 var debug_context := Callable()
 ## The negotiation hold's predicate, bound by the host; missing means false.
@@ -66,8 +66,8 @@ class Features extends RefCounted:
 ## The merged start/offer answer: the policy snapshot, every row and the scene's own pass.
 ## `show` is the start answer and `offer_ok` the proactive-offer answer.
 class GateVerdict extends RefCounted:
-	var policy: ELIGIBILITY.Verdict = null
-	var rows: Array[ELIGIBILITY.Row] = []
+	var policy: ACT_GATE.Verdict = null
+	var rows: Array[ACT_GATE.Row] = []
 	var scene_ok := false
 
 	func show() -> bool:
@@ -93,17 +93,17 @@ class SceneVerdict:
 	var ok := false
 	var hard_ok := false
 	var transient_ok := true
-	var rows: Array[ELIGIBILITY.Row] = []
+	var rows: Array[ACT_GATE.Row] = []
 	var transient: PackedStringArray = []
 	var reasons: PackedStringArray = []
 
 
 ## Bind the scene nodes and the pose session. A missing node fails the gate closed.
 func bind(pony_node: Node3D, session: POSE_SESSION,
-		eligibility: ELIGIBILITY = null) -> void:
+		gate: ACT_GATE = null) -> void:
 	pony = pony_node
 	pose_session = session
-	eligibility_service = eligibility
+	gate_service = gate
 
 
 ## The runtime's live gate values. The act state, id and feature snapshot change per act.
@@ -115,8 +115,8 @@ func configure(state_value: int, id_value: String, features_block: Features) -> 
 
 ## The scene-only rows. They never enter the pure policy. `mode` is `start` or `offer`.
 func rows(pose: String, act_source: String, bed_in: Node3D, mode: String,
-		forced: bool) -> Array[ELIGIBILITY.Row]:
-	var rows_out: Array[ELIGIBILITY.Row] = []
+		forced: bool) -> Array[ACT_GATE.Row]:
+	var rows_out: Array[ACT_GATE.Row] = []
 	if not is_instance_valid(pony):
 		return rows_out
 	_row(rows_out, "state", state == STATE_IDLE, "state=%d" % state)
@@ -178,13 +178,13 @@ func rows(pose: String, act_source: String, bed_in: Node3D, mode: String,
 ## The structural rows and the policy/scene merge. The runtime supplies the policy verdict and
 ## the debug context; the gate owns the merge and the debug string.
 func start_verdict(pose: String, act_source: String, bed_in: Node3D = null,
-		verdict_in: ELIGIBILITY.Verdict = null) -> GateVerdict:
+		verdict_in: ACT_GATE.Verdict = null) -> GateVerdict:
 	return _gate_data(pose, act_source, bed_in, "start", false, verdict_in)
 
 
 ## The full proactive-offer gate. It uses the offer-safe scene subset.
 func offer_verdict(pose: String, act_source: String, bed_in: Node3D = null,
-		forced: bool = false, verdict_in: ELIGIBILITY.Verdict = null) -> GateVerdict:
+		forced: bool = false, verdict_in: ACT_GATE.Verdict = null) -> GateVerdict:
 	return _gate_data(pose, act_source, bed_in, "offer", forced, verdict_in)
 
 
@@ -192,7 +192,7 @@ func offer_verdict(pose: String, act_source: String, bed_in: Node3D = null,
 ## `player` and `bed_gate` stay transient; every other row is hard.
 func scene_only_verdict(pose: String, act_source: String, bed: Node3D = null,
 		frozen: FrozenPose = null, stool_need: int = -1, stool_have: int = -1) -> SceneVerdict:
-	var rows_out: Array[ELIGIBILITY.Row] = []
+	var rows_out: Array[ACT_GATE.Row] = []
 	_gate_row(rows_out, "invalid_pony", is_instance_valid(pony), "invalid_pony")
 	_gate_row(rows_out, "no_world", is_instance_valid(WORLD.game), "no_world")
 	_gate_row(rows_out, "no_player", is_instance_valid(WORLD.player),
@@ -248,11 +248,11 @@ func scene_only_verdict(pose: String, act_source: String, bed: Node3D = null,
 	return _scene_only_result(rows_out)
 
 
-func _scene_only_result(rows_in: Array[ELIGIBILITY.Row]) -> SceneVerdict:
+func _scene_only_result(rows_in: Array[ACT_GATE.Row]) -> SceneVerdict:
 	var out := SceneVerdict.new()
 	out.rows = rows_in
 	out.hard_ok = true
-	for row: ELIGIBILITY.Row in rows_in:
+	for row: ACT_GATE.Row in rows_in:
 		if row.ok:
 			continue
 		out.reasons.append(row.reason)
@@ -282,10 +282,10 @@ func hotkey_ready(pose: String, act_source: String, bed_in: Node3D = null,
 		return false
 	if not _stool_allows(pose, stool_pair):
 		return false
-	var service: ELIGIBILITY = eligibility_service
+	var service: ACT_GATE = gate_service
 	if service == null or not is_instance_valid(service):
 		return false
-	return service.eligible(pony, ELIGIBILITY.Target.ACT) and service.relationship_ok(pony)
+	return service.ready(pony)
 
 
 ## The runtime state and the standing scene rows that do not depend on a pose.
@@ -390,9 +390,9 @@ func _hold_exempt(pose: String, act_source: String) -> bool:
 
 
 func _gate_data(pose: String, act_source: String, bed_in: Node3D, mode: String,
-		forced := false, verdict_in: ELIGIBILITY.Verdict = null) -> GateVerdict:
+		forced := false, verdict_in: ACT_GATE.Verdict = null) -> GateVerdict:
 	var out := GateVerdict.new()
-	var structural: Array[ELIGIBILITY.Row] = []
+	var structural: Array[ACT_GATE.Row] = []
 	_gate_row(structural, "invalid_pony", is_instance_valid(pony), "invalid_pony")
 	if not is_instance_valid(pony):
 		out.rows = structural
@@ -409,11 +409,11 @@ func _gate_data(pose: String, act_source: String, bed_in: Node3D, mode: String,
 	if not is_instance_valid(WORLD.game):
 		out.rows = structural
 		return out
-	var policy_mode: ELIGIBILITY.Mode = ELIGIBILITY.Mode.OFFER if mode == "offer" \
-		else ELIGIBILITY.Mode.START
+	var policy_mode: ACT_GATE.Mode = ACT_GATE.Mode.OFFER if mode == "offer" \
+		else ACT_GATE.Mode.START
 	out.policy = policy_verdict_for(policy_mode, verdict_in)
 	var scene_rows := rows(pose, act_source, bed_in, mode, forced)
-	var rows_all: Array[ELIGIBILITY.Row] = []
+	var rows_all: Array[ACT_GATE.Row] = []
 	rows_all.append_array(structural)
 	if out.policy != null:
 		rows_all.append_array(out.policy.rows)
@@ -424,30 +424,30 @@ func _gate_data(pose: String, act_source: String, bed_in: Node3D, mode: String,
 
 
 ## The policy verdict. The host may override it for a suite; otherwise the gate reads the
-## eligibility service's verdict for the bound pony.
-func policy_verdict_for(mode: ELIGIBILITY.Mode,
-		verdict_in: ELIGIBILITY.Verdict = null) -> ELIGIBILITY.Verdict:
+## act gate service's verdict for the bound pony.
+func policy_verdict_for(mode: ACT_GATE.Mode,
+		verdict_in: ACT_GATE.Verdict = null) -> ACT_GATE.Verdict:
 	if verdict_in != null:
 		return verdict_in
 	if policy_verdict.is_valid():
 		return policy_verdict.call(mode, verdict_in)
 	if not is_instance_valid(WORLD.game):
 		return null
-	var service: ELIGIBILITY = eligibility_service
+	var service: ACT_GATE = gate_service
 	if service == null:
 		return null
 	return service.get_verdict(pony, mode)
 
 
-func _gate_row(rows_out: Array[ELIGIBILITY.Row], key: String, ok: bool, reason := "") -> void:
-	var row := ELIGIBILITY.Row.new()
+func _gate_row(rows_out: Array[ACT_GATE.Row], key: String, ok: bool, reason := "") -> void:
+	var row := ACT_GATE.Row.new()
 	row.key = key
 	row.ok = ok
 	row.reason = reason if not reason.is_empty() else key
 	rows_out.append(row)
 
 
-func _report_ok(rows_in: Array[ELIGIBILITY.Row]) -> bool:
+func _report_ok(rows_in: Array[ACT_GATE.Row]) -> bool:
 	for row in rows_in:
 		if not row.ok:
 			return false
@@ -455,7 +455,7 @@ func _report_ok(rows_in: Array[ELIGIBILITY.Row]) -> bool:
 
 
 ## The failed reasons of a row list. The gate's debug line and the offer's status reads use it.
-func report_reasons(rows_in: Array[ELIGIBILITY.Row]) -> PackedStringArray:
+func report_reasons(rows_in: Array[ACT_GATE.Row]) -> PackedStringArray:
 	var reasons: PackedStringArray = []
 	for row in rows_in:
 		if not row.ok:
@@ -463,7 +463,7 @@ func report_reasons(rows_in: Array[ELIGIBILITY.Row]) -> PackedStringArray:
 	return reasons
 
 
-func _policy_row_ok(policy: ELIGIBILITY.Verdict, key: String) -> bool:
+func _policy_row_ok(policy: ACT_GATE.Verdict, key: String) -> bool:
 	if policy == null:
 		return true
 	for row in policy.rows:
@@ -478,9 +478,9 @@ func debug_line(pose: String, act_source: String, bed_in: Node3D = null,
 		distance: float = -1.0, dot: float = -1.0) -> String:
 	var context: Dictionary = debug_context.call() if debug_context.is_valid() else {}
 	var gate := start_verdict(pose, act_source, bed_in)
-	var policy: ELIGIBILITY.Verdict = gate.policy
-	var relations: ELIGIBILITY.Relations = policy.relations if policy != null \
-		else ELIGIBILITY.Relations.new()
+	var policy: ACT_GATE.Verdict = gate.policy
+	var relations: ACT_GATE.Relations = policy.relations if policy != null \
+		else ACT_GATE.Relations.new()
 	var reasons: PackedStringArray = report_reasons(gate.rows)
 	var reason_text := "none" if reasons.is_empty() else ",".join(reasons)
 	var bed_pose := _is_bed_pose(pose)
@@ -904,8 +904,8 @@ func headset_view() -> bool:
 		and WORLD.game.get("headset_view") == true
 
 
-func _row(rows_out: Array[ELIGIBILITY.Row], key: String, ok: bool, reason := "") -> void:
-	var row := ELIGIBILITY.Row.new()
+func _row(rows_out: Array[ACT_GATE.Row], key: String, ok: bool, reason := "") -> void:
+	var row := ACT_GATE.Row.new()
 	row.key = key
 	row.ok = ok
 	row.reason = reason if not reason.is_empty() else key

@@ -1,6 +1,6 @@
 extends "res://mods/unfplap/tests/support/suite.gd"
-## Pure eligibility policy: adults, Promiscuity, willingness, history, cycle and per-mare
-## consent. No world or user:// file is touched.
+## Pure eligibility identity: adults, capability targets, the typed identity record and witness
+## age. No world or user:// file is touched.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/eligibility/test_eligibility.gd
 
 const FACTS := preload("res://mods/unfplap/eligibility/facts.gd")
@@ -46,20 +46,6 @@ func facts(over: Dictionary = {}) -> Dictionary:
 
 
 func run() -> void:
-	check(POLICY.level_ok("soulmates", 4), "Soulmates accepts level 4")
-	check(not POLICY.level_ok("soulmates", 3), "Soulmates rejects level 3")
-	check(POLICY.level_ok("head_over_hooves", 3), "Head Over Hooves accepts level 3")
-	check(not POLICY.level_ok("head_over_hooves", 2), "Head Over Hooves rejects level 2")
-	check(POLICY.level_ok("marefriend", 2), "Marefriend accepts level 2")
-	check(not POLICY.level_ok("marefriend", 1), "Marefriend rejects level 1")
-	check(POLICY.level_ok("new_couple", 1), "New Couple accepts level 1")
-	check(not POLICY.level_ok("new_couple", 0), "New Couple rejects level 0")
-	check(POLICY.level_ok("crush", 0), "Crush accepts level 0")
-	check(not POLICY.level_ok("crush", -1), "Crush rejects no crush")
-	check(POLICY.level_ok("any", -1), "Any Adult skips the love level")
-	check(POLICY.level_ok("", 2), "unknown Promiscuity falls back to Marefriend")
-	check(not POLICY.level_ok("", 1), "fallback still has a floor")
-
 	check(POLICY.adult_pony(facts()), "an identified adult pony")
 	check(POLICY.adult_mare(facts()), "an adult mare")
 	check(not POLICY.adult_mare(facts({"is_stallion": true})),
@@ -122,67 +108,6 @@ func run() -> void:
 		"a vetoed adult is neither an adult nor a young witness")
 	check(POLICY.age_kind(facts({"is_player_pony": true})) == FACTS.AgeKind.NONE,
 		"the player pony is not a witness")
-
-	var base := POLICY.evaluate(facts(), "start")
-	check(bool(base.base), "steady adult mare has a base")
-	check(bool(base.show), "all gates pass for a willing mare")
-	check(bool(base.offer), "all gates allow an offer")
-	check(bool(base.actions.anal) and bool(base.actions.oral), "action consent is read")
-	check(not bool(base.actions.public), "public consent defaults off")
-
-	var opt_out := POLICY.evaluate(facts({"participation": {"acts": false}}), "start")
-	check(not bool(opt_out.show), "a participation opt-out hides the hint")
-	check(not bool(opt_out.offer), "a participation opt-out does not offer")
-	var adult_override := POLICY.evaluate(facts({"is_filly": true, "eligible": true}), "start")
-	check(bool(adult_override.show), "a provider's eligible assertion overrides the filly flag")
-	var adult_override_off := POLICY.evaluate(facts({"is_filly": false, "eligible": false}), "start")
-	check(not bool(adult_override_off.show), "a provider's eligible assertion can block a base adult")
-
-	var filly := POLICY.evaluate(facts({"is_filly": true}), "start")
-	check(not bool(filly.show), "a filly is not a target")
-	var stallion := POLICY.evaluate(facts({"is_stallion": true}), "start")
-	check(not bool(stallion.show), "a stallion is not a target")
-	var young_player := POLICY.evaluate(facts({"player_young": true}), "start")
-	check(not bool(young_player.show), "a young player is not a target")
-	var no_relationship := POLICY.evaluate(facts({"has_relationship": false}), "start")
-	check(not bool(no_relationship.show), "no relationship runtime blocks")
-	var unregistered := POLICY.evaluate(facts({"registered_adult": false}), "start")
-	check(not bool(unregistered.show), "an unregistered adult blocks")
-
-	var low_level := POLICY.evaluate(facts({"promiscuity": "marefriend", "love_level": 1}), "start")
-	check(not bool(low_level.show), "Promiscuity still blocks the hint")
-	check(not bool(low_level.actions.public), "Promiscuity is not consent")
-	var no_romance := POLICY.evaluate(facts({"romance_eligible": false}), "start")
-	check(not bool(no_romance.show), "romance eligibility blocks")
-
-	var unwilling := POLICY.evaluate(facts({"willing": false}), "start")
-	check(not bool(unwilling.show), "an unwilling mare has no legacy hint")
-	check(not bool(unwilling.offer), "an unwilling mare never offers")
-
-	var withdrawn := POLICY.evaluate(facts({"history": {"blocks_start": true}}), "start")
-	check(bool(withdrawn.show), "a withdrawn mare still shows the hint")
-	check(not bool(withdrawn.offer), "a withdrawn mare does not offer")
-	var hurt := POLICY.evaluate(facts({"history": {"blocks_offers": true}}), "offer")
-	check(bool(hurt.show), "a hurt mare still starts")
-	check(not bool(hurt.offer), "a hurt mare does not offer")
-	check(float(hurt.offer_weight) == 0.0, "a hurt mare has no offer weight")
-
-	var cold := POLICY.evaluate(facts({"cycle_allows": false, "cycle_phase": "diestrus"}), "start")
-	check(not bool(cold.show), "diestrus hides the hint")
-	check(not bool(cold.offer), "diestrus blocks offers")
-
-	var public_consent := POLICY.evaluate(facts({"consent": {"public": true}}), "offer")
-	check(bool(public_consent.actions.public), "public consent is read as a soft preference")
-	var anal_off := POLICY.evaluate(facts({"consent": {"anal": false}}), "start")
-	check(not bool(anal_off.actions.anal), "anal consent is independent of start eligibility")
-
-	var rows: Array = POLICY.evaluate(facts({"willing": false}), "start").rows
-	var relation_row: Dictionary = {}
-	for row: Variant in rows:
-		if row is Dictionary and str((row as Dictionary).get("key", "")) == "relation":
-			relation_row = row
-	check(str(relation_row.get("effect", "")) == "refuse", "relation row uses the refusal effect")
-	check(not bool(relation_row.get("ok", true)), "relation row fails when unwilling")
 
 	if failures == 0:
 		print("ELIGIBILITY_PASS")

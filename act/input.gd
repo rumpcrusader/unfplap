@@ -242,9 +242,9 @@ func _toggle_oral() -> bool:
 
 
 func _consent(key: String) -> bool:
-	if not is_instance_valid(host.pony) or not is_instance_valid(PONIES.eligibility):
+	if not is_instance_valid(host.pony) or not is_instance_valid(PONIES.act_gate):
 		return false
-	return PONIES.eligibility.consent(host.pony, key)
+	return PONIES.act_gate.consent(host.pony, key)
 
 
 func _show_status(text: String) -> void:

@@ -1,19 +1,18 @@
 extends "res://mods/unfplap/tests/support/suite.gd"
-## Eligibility API adapter: live facts, capability targets, consent, the typed verdict and the
-## provider profile layer. No world file is touched; SETTINGS uses
+## Eligibility API adapter: the capability targets, the typed identity record, witness age, the
+## profile snapshots and the provider profile layer. No world file is touched; SETTINGS uses
 ## a throwaway XDG data dir in the test runner.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/eligibility/test_eligibility_api.gd
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
+const IDENTITY_RECORD := preload("res://mods/unfplap/eligibility/identity_record.gd")
 const FACTS := preload("res://mods/unfplap/eligibility/facts.gd")
 const PARTICIPATION := preload("res://mods/unfplap/shared/participation.gd")
 const CONSENT := preload("res://mods/unfplap/shared/consent.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const ROWS := preload("res://mods/unfplap/settings/rows.gd")
-const CYCLE := preload("res://mods/unfplap/shared/cycle.gd")
 const MARE_REGISTRY := preload("res://mods/unfplap/registry/service.gd")
-
 
 
 class FakeIdentity extends RefCounted:
@@ -23,41 +22,7 @@ class FakeIdentity extends RefCounted:
 	var stallion := false
 
 
-class FakeBonds extends RefCounted:
-	var adults := {"rarity": true}
-	var stage := "dating"
-	var welcome := true
-	var romance := true
-	var welcomes_calls := 0
-	var romance_calls := 0
-
-	func eligible_for_romance(_id: String) -> bool:
-		romance_calls += 1
-		return romance
-
-	func welcomes(_id: String, _kind: String) -> bool:
-		welcomes_calls += 1
-		return welcome
-
-	func record_for(_id: String) -> Dictionary:
-		return {"stage": stage}
-
-
 class FakeRelation extends Node:
-	var bonds: FakeBonds
-
-	func ladder(_id: String) -> Dictionary:
-		return {"love": {"level": 2}, "friendship": {"level": 3}}
-
-
-## A bond store that predates the reader methods: every accessor must answer its typed zero.
-class FakeBareBonds extends RefCounted:
-	pass
-
-
-class FakeBareRelation extends Node:
-	var bonds: FakeBareBonds = FakeBareBonds.new()
-
 	func ladder(_id: String) -> Dictionary:
 		return {"love": {"level": 2}, "friendship": {"level": 3}}
 
@@ -111,9 +76,7 @@ func run() -> void:
 	pony.name = "Rarity"
 	pony.identity = FakeIdentity.new()
 	pony.set_meta("relationship_id", "rarity")
-	var relation := FakeRelation.new()
-	relation.bonds = FakeBonds.new()
-	pony.set_meta("relationship_runtime", relation)
+	pony.set_meta("relationship_runtime", FakeRelation.new())
 	root.add_child(pony)
 
 	check(main.eligibility.eligible(pony), "an adult mare is an act target")
@@ -133,8 +96,10 @@ func run() -> void:
 	pony.identity = FakeIdentity.new()
 	check(main.eligibility.eligible(pony), "the rebuilt record follows the new identity")
 	pony.set_meta("relationship_id", "rarity_two")
-	check(str(main.eligibility.get_verdict(pony, ELIGIBILITY.Mode.START).facts.id) == "rarity_two",
-		"a relationship-meta change rebuilds the record's id")
+	main.eligibility.eligible(pony)
+	var record: IDENTITY_RECORD.IdentityRecord = \
+		(main.eligibility.get("_identity_records") as Dictionary).values()[0]
+	check(str(record.id) == "rarity_two", "a relationship-meta change rebuilds the record's id")
 	pony.set_meta("relationship_id", "rarity")
 	check(main.eligibility.witness_age(pony) == ELIGIBILITY.Age.ADULT,
 		"the rebuilt record keeps the witness age")
@@ -148,79 +113,6 @@ func run() -> void:
 		and FACTS.AgeKind.YOUNG == ELIGIBILITY.Age.YOUNG
 		and FACTS.AgeKind.ADULT == ELIGIBILITY.Age.ADULT,
 		"the pure age kind and the public witness age stay in step")
-
-	var verdict: ELIGIBILITY.Verdict = main.eligibility.get_verdict(pony, ELIGIBILITY.Mode.START)
-	check(str(verdict.facts.id) == "rarity", "facts take the relationship id")
-	check(not bool(verdict.facts.player_young), "the human form is adult")
-	check(bool(verdict.facts.has_relationship) and bool(verdict.facts.registered_adult),
-		"facts read the relationship runtime")
-	check(bool(verdict.facts.willing), "facts read kiss willingness")
-	check(str(verdict.facts.stage) == "dating" and int(verdict.facts.love_level) == 2,
-		"facts read the ladder and stage")
-
-	check(bool(verdict.show), "a willing mare starts")
-	check(bool(verdict.offer), "offers pass")
-	check(verdict.rows_text().contains("adult"), "the typed rows are readable")
-	check(verdict.reasons().is_empty(), "a passing verdict has no reasons")
-
-	# Base clearance reads only the relationship facts it uses; willingness, history and cycle
-	# stay on the full verdict.
-	relation.bonds.welcomes_calls = 0
-	check(main.eligibility.relationship_ok(pony), "the clearance relationship row passes")
-	check(relation.bonds.welcomes_calls == 0, "clearance does not read kiss willingness")
-	relation.bonds.welcome = false
-	check(main.eligibility.relationship_ok(pony), "clearance ignores willingness")
-	var saved_promiscuity := SETTINGS.promiscuity.get_choice()
-	SETTINGS.promiscuity.set_choice("any")
-	relation.bonds.romance = false
-	check(not main.eligibility.relationship_ok(pony), "romance eligibility gates clearance")
-	relation.bonds.romance = true
-	check(main.eligibility.relationship_ok(pony), "Any Adult passes the floor")
-	SETTINGS.promiscuity.set_choice("head_over_hooves")
-	check(not main.eligibility.relationship_ok(pony), "the love floor gates clearance")
-	pony.remove_meta("relationship_runtime")
-	check(not main.eligibility.relationship_ok(pony), "no relationship runtime fails clearance")
-	pony.set_meta("relationship_runtime", relation)
-	# The love level comes from the game's own ladder cache, and `ladder()` is the fallback for a
-	# pony the game has not recorded yet. The fake ladder says New Couple (2); the cache says
-	# No crush yet (0), so a floor that the cached level fails and the ladder level passes proves
-	# which read answered.
-	main.game.world_context.state["bond_levels"] = {"rarity": {"friendship": 3, "love": 0}}
-	SETTINGS.promiscuity.set_choice("new_couple")
-	check(not main.eligibility.relationship_ok(pony),
-		"the clearance floor reads the game's cached love level")
-	check(int(main.eligibility.get_verdict(pony, ELIGIBILITY.Mode.START).facts.love_level) == 0,
-		"the facts snapshot reads the cached love level too")
-	main.game.world_context.state["bond_levels"] = {}
-	check(main.eligibility.relationship_ok(pony),
-		"an unrecorded pony falls back to the relationship ladder")
-	check(int(main.eligibility.get_verdict(pony, ELIGIBILITY.Mode.START).facts.love_level) == 2,
-		"the fallback fills the facts snapshot")
-
-	# A bond store without the reader ops answers each accessor's typed zero, and the ladder
-	# fallback still supplies the level.
-	var bare_relation := FakeBareRelation.new()
-	var bare_pony := FakePony.new()
-	bare_pony.name = "BareBonds"
-	bare_pony.identity = FakeIdentity.new()
-	bare_pony.set_meta("relationship_id", "rarity")
-	bare_pony.set_meta("relationship_runtime", bare_relation)
-	root.add_child(bare_pony)
-	var bare: ELIGIBILITY.Verdict = main.eligibility.get_verdict(bare_pony, ELIGIBILITY.Mode.START)
-	check(not bool(bare.facts.romance_eligible) and not bool(bare.facts.willing)
-		and str(bare.facts.stage).is_empty(),
-		"absent bond readers answer the typed zero")
-	check(int(bare.facts.love_level) == 2, "the ladder fallback survives absent bond readers")
-	check(not main.eligibility.relationship_ok(bare_pony),
-		"absent bond readers fail the clearance romance row")
-	SETTINGS.estrus_cycle.set_bool(true)
-	check(ELIGIBILITY.cycle_phase_for(bare_pony, "rarity") == CYCLE.NORMAL,
-		"an absent bond clock answers the normal cycle phase")
-	SETTINGS.estrus_cycle.set_bool(false)
-	SETTINGS.promiscuity.set_choice(saved_promiscuity)
-	relation.bonds.welcome = false
-	var unwilling: ELIGIBILITY.Verdict = main.eligibility.get_verdict(pony, ELIGIBILITY.Mode.START)
-	check(not bool(unwilling.show), "an unwilling mare has no legacy hint")
 
 	var stallion := FakePony.new()
 	var stallion_identity := FakeIdentity.new()
@@ -243,7 +135,7 @@ func run() -> void:
 	check(not main.eligibility.eligible(nameless),
 		"an adult identity with no stable id is not an act target")
 
-	# Capability targets keep identity private: the three act-side targets accept an adult mare,
+	# Capability targets keep identity private: the act-side targets accept an adult mare,
 	# the character target has no participation veto, and an opt-out stays editable.
 	check(main.eligibility.eligible(pony, ELIGIBILITY.Target.ACT)
 		and main.eligibility.eligible(pony, ELIGIBILITY.Target.ANATOMY)
@@ -258,14 +150,14 @@ func run() -> void:
 		"an opt-out keeps the character target editable")
 	SETTINGS.reset_participation("rarity")
 
-	# Consent is read through the typed profile, not a raw settings dictionary.
+	# The resolved profile carries the stored consent and participation blocks; a deprecated
+	# participation key is still accepted and returned.
 	var consent: Dictionary = SETTINGS.consent("rarity").raw()
 	var profile: ELIGIBILITY.Profile = main.eligibility.get_profile("rarity")
 	check(profile.consent.public == bool(consent.get("public", false))
 		and profile.consent.anal == bool(consent.get("anal", false))
 		and profile.consent.oral == bool(consent.get("oral", false)),
 		"the profile consent matches the resolver")
-	# The snapshots and target vetoes follow the shared key tables, so a new key cannot drift.
 	check(profile.consent.to_dict().keys() == CONSENT.KEYS,
 		"the consent snapshot covers the shared consent keys")
 	check(profile.participation.to_dict().keys() == PARTICIPATION.all_keys(),
@@ -301,8 +193,7 @@ func run() -> void:
 	check(main.eligibility.get_profile("rarity").eligible_value() == true,
 		"the cross-mod shape is the tri-state eligible value")
 
-	# A provider eligible assertion resolves unfplap's registered-adult fact even when the base
-	# game has not registered the pony as an adult. Base-game willingness and romance still gate.
+	# A provider eligible assertion opens the identity target a base-game filly flag closed.
 	var filly := FakePony.new()
 	filly.name = "Scootaloo"
 	var filly_identity := FakeIdentity.new()
@@ -311,56 +202,28 @@ func run() -> void:
 	filly_identity.filly = true
 	filly.identity = filly_identity
 	filly.set_meta("relationship_id", "scootaloo")
-	var filly_relation := FakeRelation.new()
-	filly_relation.bonds = FakeBonds.new()
-	filly_relation.bonds.adults = {"scootaloo": false}
-	filly_relation.bonds.romance = false
-	filly_relation.bonds.welcome = false
-	filly.set_meta("relationship_runtime", filly_relation)
+	filly.set_meta("relationship_runtime", FakeRelation.new())
 	root.add_child(filly)
-
-	var fallback: ELIGIBILITY.Verdict = main.eligibility.get_verdict(filly, ELIGIBILITY.Mode.START)
-	check(not bool(fallback.facts.registered_adult),
-		"without a provider assertion registered_adult follows the base game")
+	check(not main.eligibility.eligible(filly, ELIGIBILITY.Target.ACT),
+		"a filly is not an act target without an assertion")
 
 	var filly_layer := ELIGIBILITY.Profile.new()
 	filly_layer.eligible = ELIGIBILITY.EligibilityAssertion.ELIGIBLE
 	check(main.eligibility.set_profile(main, "scootaloo", filly_layer).ok,
 		"set_profile writes the filly provider layer")
-	var filly_verdict: ELIGIBILITY.Verdict = main.eligibility.get_verdict(filly, ELIGIBILITY.Mode.START)
-	check(filly_verdict.facts.eligible == ELIGIBILITY.EligibilityAssertion.ELIGIBLE,
-		"the provider eligible assertion reaches the fact snapshot")
-	check(bool(filly_verdict.facts.registered_adult),
-		"the provider eligible assertion resolves registered_adult")
-	check(not bool(filly_verdict.facts.romance_eligible),
-		"base-game romance eligibility still gates")
-	check(not bool(filly_verdict.facts.willing),
-		"base-game kiss willingness still gates")
-	check(not bool(filly_verdict.show), "base-game gates still block the act")
+	check(main.eligibility.eligible(filly, ELIGIBILITY.Target.ACT),
+		"the provider eligible assertion opens the identity target")
 
-	# A provider not-eligible assertion overrides a base-game registered adult.
+	# A provider not-eligible assertion overrides a base-game adult.
 	layer.eligible = ELIGIBILITY.EligibilityAssertion.NOT_ELIGIBLE
 	check(main.eligibility.set_profile(main, "rarity", layer).ok,
 		"set_profile rewrites the eligible assertion")
-	var blocked: ELIGIBILITY.Verdict = main.eligibility.get_verdict(pony, ELIGIBILITY.Mode.START)
-	check(blocked.facts.eligible == ELIGIBILITY.EligibilityAssertion.NOT_ELIGIBLE,
-		"the provider not-eligible assertion reaches the fact snapshot")
-	check(not bool(blocked.facts.registered_adult),
-		"the provider not-eligible assertion overrides registered_adult")
+	check(not main.eligibility.eligible(pony, ELIGIBILITY.Target.ACT),
+		"the provider not-eligible assertion closes the identity target")
 	layer.eligible = ELIGIBILITY.EligibilityAssertion.ELIGIBLE
 	main.eligibility.set_profile(main, "rarity", layer)
 
-	relation.bonds.welcome = true
-	var available: ELIGIBILITY.Verdict = main.eligibility.get_verdict(pony, ELIGIBILITY.Mode.START)
-	check(bool(available.show), "a willing mare shows the legacy hint")
-	relation.bonds.welcome = false
-	var available_unwilling: ELIGIBILITY.Verdict = main.eligibility.get_verdict(
-		pony, ELIGIBILITY.Mode.START)
-	check(not bool(available_unwilling.show), "an unwilling mare has no legacy hint")
-	relation.bonds.welcome = true
-
-	# The attach warm reads the identity record and the relationship row once; a second warm for
-	# the same record era is a no-op, and a pony without a relationship runtime warms the record.
+	# The attach warm builds the identity record once per era; a second warm is a no-op.
 	var warm := ELIGIBILITY.new()
 	warm.on_world(null)
 	check((warm.get("_identity_records") as Dictionary).is_empty(),
@@ -369,32 +232,25 @@ func run() -> void:
 	warm_pony.name = "WarmPony"
 	warm_pony.identity = FakeIdentity.new()
 	warm_pony.set_meta("relationship_id", "rarity")
-	var warm_relation := FakeRelation.new()
-	warm_relation.bonds = FakeBonds.new()
-	warm_pony.set_meta("relationship_runtime", warm_relation)
 	root.add_child(warm_pony)
 	warm.warm(warm_pony)
-	check((warm.get("_identity_records") as Dictionary).size() == 1,
-		"the warm builds the identity record")
-	check(warm_relation.bonds.romance_calls == 1,
-		"the warm reads the relationship row once")
+	var warm_record: IDENTITY_RECORD.IdentityRecord = \
+		(warm.get("_identity_records") as Dictionary).values()[0]
 	warm.warm(warm_pony)
-	check(warm_relation.bonds.romance_calls == 1, "a second warm is a no-op")
-	var warm_bare := FakePony.new()
-	warm_bare.name = "WarmBare"
-	warm_bare.identity = FakeIdentity.new()
-	root.add_child(warm_bare)
-	warm.warm(warm_bare)
-	check((warm.get("_identity_records") as Dictionary).has(int(warm_bare.get_instance_id())),
-		"a pony without a relationship runtime still warms its record")
+	check((warm.get("_identity_records") as Dictionary).values()[0] == warm_record,
+		"a second warm keeps the same record")
+	warm_pony.set_meta("relationship_id", "rarity_two")
+	warm.warm(warm_pony)
+	var moved: IDENTITY_RECORD.IdentityRecord = \
+		(warm.get("_identity_records") as Dictionary).values()[0]
+	check(moved != warm_record and str(moved.id) == "rarity_two",
+		"a moved era rebuilds the warmed record")
 	warm.shutdown()
 
 	main.eligibility.shutdown()
 	check(not main.eligibility.eligible(pony), "cleared service rejects every pony")
 	main.eligibility.on_world(null)
 	check(main.eligibility.eligible(pony), "setup after clear restores the service")
-	var restored: ELIGIBILITY.Verdict = main.eligibility.get_verdict(pony, ELIGIBILITY.Mode.START)
-	check(bool(restored.show), "setup after clear restores the verdict")
 
 	if failures == 0:
 		print("ELIGIBILITY_API_PASS")

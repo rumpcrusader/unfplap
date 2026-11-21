@@ -227,7 +227,7 @@ scene row is recomputed twice in different ways.
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
-| service | eligibility | `eligibility/service.gd` | adult and consent gate |
+| service | act_gate | `act_gate/service.gd` | dynamic act gate |
 | service | poses | `poses/service.gd` | pose and skeleton |
 | service | settings | `settings/service.gd` | settings declarations and live values |
 | service | world | `world/game.gd` | service dependency |

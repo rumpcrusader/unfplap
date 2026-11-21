@@ -233,7 +233,7 @@ static func build(pony: Node, node: Node, hud: Node = null, memory: Node = null,
 	_bind_act_frame(node, b)
 	_bind_pose_hosts(node, b)
 	_bind_facts(node, b)
-	b.gate.bind(b.pony, b.pose, PONIES.eligibility)
+	b.gate.bind(b.pony, b.pose, PONIES.act_gate)
 	b.gate.configure(b.act.state, b.act.pony_id,
 		SCENE_GATE.Features.from_dict(b.act.features))
 	return b

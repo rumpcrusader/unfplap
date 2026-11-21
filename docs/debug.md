@@ -279,7 +279,7 @@ the skeleton overlay; `_ready()` joins that list and `_exit_tree()` leaves it.
 |---|---|---|---|
 | service | anatomy | `anatomy/api.gd` | anatomy and tail seat |
 | service | body_change | `body_change/service.gd` | service dependency |
-| service | eligibility | `eligibility/service.gd` | adult and consent gate |
+| service | act_gate | `act_gate/service.gd` | dynamic act gate |
 | service | initiation | `initiation/service.gd` | proactive offers |
 | service | negotiation | `negotiation/service.gd` | service dependency |
 | service | ponies | `ponies/service.gd` | per-pony runtime registry |

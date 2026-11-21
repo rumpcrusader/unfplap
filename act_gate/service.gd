@@ -44,7 +44,7 @@ class Facts extends RefCounted:
 	var id := ""
 	var eligible: ELIGIBILITY.EligibilityAssertion = ELIGIBILITY.EligibilityAssertion.IDENTITY
 	var adult := false
-	var participation: ELIGIBILITY.Participation = null
+	var participation: ELIGIBILITY.Participation = ELIGIBILITY.Participation.new()
 	var has_relationship := false
 	var registered_adult := false
 	var romance_eligible := false
@@ -58,7 +58,7 @@ class Facts extends RefCounted:
 	var cycle_allows := false
 	var heat := false
 	var history: History = History.new()
-	var consent: ELIGIBILITY.Consent = null
+	var consent: ELIGIBILITY.Consent = ELIGIBILITY.Consent.new()
 
 
 class Actions extends RefCounted:
@@ -180,8 +180,7 @@ func relationship_ok(pony: Node) -> bool:
 	return CLEARANCE.relationship_ok(true, romance, floor_ok)
 
 
-## Warm one attached body at attach: the relationship row once per body, so the first offer does
-## not pay the cold bond read. A missing relationship runtime warms nothing.
+## The attach-time read: one clearance row per body, so no offer pays a cold bond read first.
 func warm(pony: Node) -> void:
 	if not _live or not is_instance_valid(pony):
 		return

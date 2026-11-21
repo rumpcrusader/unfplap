@@ -7,7 +7,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const GATE := preload("res://mods/unfplap/scene_gate/service.gd")
-const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
+const ACT_GATE := preload("res://mods/unfplap/act_gate/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 
@@ -119,13 +119,13 @@ class FakePolicy extends RefCounted:
 		return verdict
 
 
-## Base clearance for the hint: the capability and the relationship row, as the live service answers.
-class FakeEligibility extends ELIGIBILITY:
+## Base clearance for the hint: the act target and the relationship row, as the live gate answers.
+class FakeGate extends ACT_GATE:
 	var act_ok := true
 	var relationship := true
 
-	func eligible(_pony: Node, _target: Target = Target.ACT) -> bool:
-		return act_ok
+	func ready(_pony: Node) -> bool:
+		return act_ok and relationship
 
 	func relationship_ok(_pony: Node) -> bool:
 		return relationship
@@ -185,15 +185,15 @@ func _fixture() -> Dictionary:
 	var context := FakeContext.new()
 	gate.policy_verdict = Callable(policy, "verdict_for")
 	gate.debug_context = Callable(context, "context")
-	var eligibility := FakeEligibility.new()
-	PONIES.eligibility = eligibility
-	gate.eligibility_service = eligibility
+	var gate_service := FakeGate.new()
+	PONIES.act_gate = gate_service
+	gate.gate_service = gate_service
 	await physics_frame
 	return {
 		"gate": gate, "pony": pony, "nav": nav, "player": player, "game": game,
 		"main": main, "bed": bed, "pose": pose, "stool": stool,
 		"affection": affection, "policy": policy, "context": context,
-		"eligibility": eligibility,
+		"gate_service": gate_service,
 	}
 
 
@@ -213,7 +213,7 @@ func _free(made: Dictionary) -> void:
 	main.free()
 	root.remove_child(bed)
 	bed.free()
-	PONIES.eligibility = null
+	PONIES.act_gate = null
 
 
 func run() -> void:
@@ -444,7 +444,7 @@ func _check_rows() -> void:
 	var pony: FakePony = made["pony"]
 	var rows: Array = gate.call("rows", "standing", "", null, "start", false)
 	var keys: Array[String] = []
-	for row: ELIGIBILITY.Row in rows:
+	for row: ACT_GATE.Row in rows:
 		keys.append(row.key)
 	for key: String in ["state", "paused", "conversation", "sleeping", "sex_active", "aftercare",
 			"cuddle", "affection", "player", "navigator", "navigator_reserved", "nav_owner",
@@ -453,7 +453,7 @@ func _check_rows() -> void:
 	gate.configure(STATE_ACTIVE, "rarity", GATE.Features.from_dict({}))
 	rows = gate.call("rows", "standing", "", null, "start", false)
 	var state_ok := true
-	for row: ELIGIBILITY.Row in rows:
+	for row: ACT_GATE.Row in rows:
 		if row.key == "state":
 			state_ok = row.ok
 	check(not state_ok, "a running act fails the state row")
@@ -461,7 +461,7 @@ func _check_rows() -> void:
 	pony.set_meta("sex_aftercare", true)
 	rows = gate.call("rows", "standing", "", null, "start", false)
 	var aftercare_ok := true
-	for row: ELIGIBILITY.Row in rows:
+	for row: ACT_GATE.Row in rows:
 		if row.key == "aftercare":
 			aftercare_ok = row.ok
 	check(not aftercare_ok, "aftercare fails its row")
@@ -471,7 +471,7 @@ func _check_rows() -> void:
 	stool.count = 1
 	rows = gate.call("rows", "standing", "", null, "start", false)
 	var stool_ok := true
-	for row: ELIGIBILITY.Row in rows:
+	for row: ACT_GATE.Row in rows:
 		if row.key == "stool":
 			stool_ok = row.ok
 	check(not stool_ok, "too few footstools fail the stool row")
@@ -564,7 +564,7 @@ func _check_small_checks() -> void:
 	var player: FakePlayer = made["player"]
 	var pose: FakePose = made["pose"]
 	var stool: FakeStool = made["stool"]
-	var eligibility: FakeEligibility = made["eligibility"]
+	var eligibility: FakeGate = made["gate_service"]
 	var frozen := GATE.FrozenPose.new(true, true)
 
 	check(_agrees(gate, "standing", "", null), "the standing hint agrees with the verdict")
@@ -723,14 +723,14 @@ func _agrees(gate: RefCounted, pose: String, source: String, bed: Variant) -> bo
 
 ## One row's pass value, or false when the key is absent.
 func _row_ok(rows: Array, key: String) -> bool:
-	for row: ELIGIBILITY.Row in rows:
+	for row: ACT_GATE.Row in rows:
 		if row.key == key:
 			return row.ok
 	return false
 
 
 func _has_row(rows: Array, key: String) -> bool:
-	for row: ELIGIBILITY.Row in rows:
+	for row: ACT_GATE.Row in rows:
 		if row.key == key:
 			return true
 	return false
@@ -811,10 +811,10 @@ func _check_verdicts() -> void:
 	var pony: FakePony = made["pony"]
 	var policy: FakePolicy = made["policy"]
 	var context: FakeContext = made["context"]
-	var verdict := ELIGIBILITY.Verdict.new()
+	var verdict := ACT_GATE.Verdict.new()
 	verdict.show = true
 	verdict.offer = true
-	var row := ELIGIBILITY.Row.new()
+	var row := ACT_GATE.Row.new()
 	row.key = "relation"
 	row.ok = true
 	row.reason = "relation"
@@ -825,7 +825,7 @@ func _check_verdicts() -> void:
 	check(policy.calls == 1, "the policy callback runs once")
 	# The idle hint supplies its cached policy; the gate must skip the callback and still run
 	# every live scene row.
-	var reused := ELIGIBILITY.Verdict.new()
+	var reused := ACT_GATE.Verdict.new()
 	reused.show = true
 	var calls_before := policy.calls
 	var reused_start: GATE.GateVerdict = gate.call("start_verdict", "standing", "", null, reused)
@@ -836,7 +836,7 @@ func _check_verdicts() -> void:
 	check(not reused_blocked.show(), "a supplied verdict still runs the live scene rows")
 	pony.remove_meta("sex_aftercare")
 	var keys: Array[String] = []
-	for entry: ELIGIBILITY.Row in start.rows:
+	for entry: ACT_GATE.Row in start.rows:
 		keys.append(entry.key)
 	check("invalid_pony" in keys and "no_world" in keys and "no_player" in keys \
 		and "no_game" in keys, "the structural rows are appended")

@@ -132,7 +132,7 @@ func refresh_gate() -> void:
 		return
 	var pony_node: Node3D = host.pony if host != null and is_instance_valid(host.pony) else null
 	var session: POSE_SESSION = context.pose if is_instance_valid(context.pose) else null
-	context.gate.bind(pony_node, session, context.gate.eligibility_service)
+	context.gate.bind(pony_node, session, context.gate.gate_service)
 	context.gate.configure(state, pony_id, SCENE_GATE.Features.from_dict(features))
 
 func act_seconds() -> float:
@@ -574,7 +574,7 @@ func cycle_override() -> String:
 func cycle_note() -> String:
 	if not is_instance_valid(host.pony):
 		return ""
-	var service: Variant = PONIES.eligibility
+	var service: Variant = PONIES.act_gate
 	return service.cycle_note(host.pony) if service != null else ""
 
 func reset_thrust_state() -> void:

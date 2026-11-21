@@ -91,7 +91,8 @@ Rules:
 
 ## Public API
 
-`eligibility/service.gd` extends `RefCounted`. The entry creates one instance per world and binds
+`eligibility/service.gd` extends `shared/service.gd`, the world-service base. The entry creates one
+instance per world and binds
 it as `PONIES.eligibility`; `initiation` and `negotiation` get the same instance. The instance is
 rebuilt on every world enter, so the entry rebinds the registry and those two, and `ponies` is
 the only one that also sees it at boot. `clear()` makes the service answer no to every read and

@@ -20,7 +20,8 @@ negotiation face here.
 
 ## Ownership
 
-`privacy/service.gd` (RefCounted) owns the scene reads for privacy:
+`privacy/service.gd` (a world-list service extending `shared/service.gd`) owns the scene reads for
+privacy:
 
 - Anon from `WORLD.player`;
 - the mares from `WORLD.game.mares`;

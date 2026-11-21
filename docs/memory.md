@@ -52,8 +52,8 @@ The purity boundary is deliberate:
 - The facade is the only file that preloads `memory/*`; no file outside `memory/service.gd` and
   `memory/` preloads `memory/*`.
 - The entry creates the service and binds it as `MEMORY.instance`. The facade reads `WORLD.game`
-  and `PONIES.eligibility` per call and stores nothing. It is a RefCounted,
-  not a Node, so it has no world lifecycle.
+  and `PONIES.eligibility` per call and stores nothing. It is a world-list service, so it extends
+  `shared/service.gd` and lives until the entry's shutdown.
 
 ## Internal API
 

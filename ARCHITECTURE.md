@@ -14,6 +14,7 @@ that service's purpose, API, state, settings, controls, debug actions, dependenc
 | Entry | `main.gd`: the mod's primitives, the one ordered service list, the `Mods` hooks, the frame order and the one teardown. |
 | Per-pony host | `runtime.gd`: one per non-player pony, idle and in an act. Lifetime, parenting, the two engine-frame forwards, the reparent across a body swap and the world-close release; its own `act/` modules own the state, timers and clock, the ledgers, the schedule, the collaborator set, the view and the idle schedule. |
 | Service | An isolated unit that owns one authority over mutable state and exposes it through one facade. |
+| Service base | `shared/service.gd`: the four lifecycle hooks as no-ops. Every world-list service extends it, so the entry calls the hooks directly; the HUD is the one `CanvasLayer` that carries them itself. |
 | Service internals | Private modules under `<service>/`. Nothing outside the service imports them. |
 | Shared pure module | Deterministic data or math in `shared/`. No scene, no lifecycle, no service dependency. |
 | Shared store | Persisted shared data in `shared/`. No scene, no lifecycle; may read `settings`, never a domain service. |
@@ -33,8 +34,10 @@ The entry has four jobs and nothing else:
 3. the broadcasts and the frame loop, in a visible order;
 4. the one teardown (`_release()` then `_shutdown()`).
 
-A service takes part in a broadcast by naming the hook — `on_world(host)`, `on_world_closed()`,
-`on_player(body)`, `shutdown()` — and the list order is the call order. The entry is not a service
+A world-list service extends `shared/service.gd`, which supplies `on_world(host)`,
+`on_world_closed()`, `on_player(body)` and `shutdown()` as no-ops; a service overrides the ones it
+needs. The list order is the call order. The entry validates the four names once at boot, so a
+service that skips the base fails loudly instead of being skipped. The entry is not a service
 locator: nothing outside `main.gd` (and `tests/`) names `main`, so a consumer preloads the facade it
 needs, reads `WORLD` for the scene, or takes a host parameter.
 
@@ -115,6 +118,11 @@ exposes idempotent begin/end or reset methods and never starts a second teardown
 contract, state ownership and the scene adaptation for that service. A service that needs an
 internal base class may extend it, but the public API must remain readable in `service.gd`; prefer
 delegation over inherited public methods.
+
+A world-list service extends `shared/service.gd` for the four no-op lifecycle hooks. A per-pony or
+per-act service is constructed inside the runtime and has no world broadcast, so it does not extend
+the base. The cross-mod `api.gd` is frozen, is parented without joining the list, and carries no
+hooks.
 
 The facade header names the service, its contract, its scope and the import rule:
 
@@ -198,7 +206,7 @@ give the mod two entry points and hide the real dependency.
 
 | Scope | Constructed by | Begun / ended by | Examples |
 |---|---|---|---|
-| World | the entry's service list, at boot | the list order on world enter, close and exit | eligibility, memory, negotiation, hud, offer, input, initiation, anatomy, body_change, the world adapters, stool, stock smack, api, debug actions |
+| World | the entry's service list, at boot | the list order on world enter, close and exit | eligibility, memory, negotiation, hud, offer, input, initiation, anatomy, body_change, the world adapters, stool, stock smack, debug actions; the cross-mod `api.gd` is parented but takes no broadcast |
 | Per-pony | `ponies` through the entry's one factory | pony despawn or world close | the runtime itself |
 | Per-pony handle | the runtime, once per pony | the runtime ledger or the negotiation hold | pose, camera, hands, kiss, face, history, afterglow, scene hold, rest |
 | Pure / read model | its owner | no teardown | preferences math, act view, the log sink and the profiler |
@@ -223,9 +231,10 @@ teardown to `free_pose()`. The order is `docs/poses.md`.
 
 - **the primitives**: the settings load, the two debug switch binds and the loader lookup;
 - **the ordered service list**: `_build_services()` constructs every long-running service in one
-  literal list, one construction line and one `bind()` per service; the entry never assigns a
-  service's fields. The list order is the construction order and the broadcast order, so a consumer
-  is built after the services it reads;
+  literal list, one construction line and one `bind()` per service. The list order is the
+  construction order and the broadcast order, so a consumer is built after the services it reads.
+  The entry assigns only the registry's composition handles and the cross-mod factory; a service
+  owns its own fields and rules;
 - **the broadcasts and the frame order**: `_on_world`, `_on_player` and the release walk the list;
   `_process` keeps the frame order visible;
 - **the one teardown**: `_exit_tree` runs the same `_release()` a world close runs, then
@@ -446,7 +455,10 @@ callback table where the service has a host.
 
 The architecture gate is `scripts/architecture.py --check`, run from `scripts/test_all.sh`:
 
-- discovers services from `*/service.gd` and treats the rest of the directory as private;
+- discovers services from `*/service.gd` outside `shared/` and treats the rest of the directory as
+  private;
+- checks that every service the entry adds extends `shared/service.gd`; the HUD is the allowed
+  `CanvasLayer` and must define all four hooks;
 - scans `preload`, `extends "res://..."` and `load()` for mod paths;
 - compares the source graph with the `### Uses` tables in the service docs;
 - rejects a private import, a service -> `runtime`/`main`/`api` import, a shared -> service import
@@ -503,8 +515,8 @@ block in an act and one outside it before and after, with **Enable debug** + **P
 6. Contribute the service's settings as declarations in `settings/service.gd` and its debug
    actions to `debug/service.gd`; document the behavior in the service contract.
 7. Add the service and its facade to `docs/README.md`.
-8. Name the lifecycle hooks it needs (`on_world(host)`, `on_world_closed()`, `on_player(body)`,
-   `shutdown()`) and add one line to the entry's `_build_services()` list.
+8. Extend `shared/service.gd` (or `body_change/source.gd` for a provider), override the lifecycle
+   hooks it needs, and add one line to the entry's `_build_services()` list.
 9. Run the architecture checker and the full gate.
 10. Add an exception only if the boundary cannot be fixed in the same change. An exception needs
     an owner, a reason and an expiry; a stale exception fails.

@@ -1,6 +1,6 @@
 extends Node
-## The world-service base: the four lifecycle hooks as no-ops, so the entry calls every service
-## directly. A service that needs a hook overrides it; the entry validates the names once at boot.
+## The world-service base: the four lifecycle hooks have empty bodies, so the entry calls every
+## list member directly. Override only what the service needs; the boot check validates the names.
 ##
 ## See `ARCHITECTURE.md` (`## Composition`).
 

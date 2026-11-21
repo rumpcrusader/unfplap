@@ -63,7 +63,7 @@ and summary) is owned elsewhere and reads `pony_id`, not the form.
 ## Types
 
 All types are loaded by path; none uses `class_name`. The read models and binding/policy bases are
-`RefCounted`; the source base is a `Node` world extension.
+`RefCounted`; the source base is a `Node` world extension that extends `shared/service.gd`.
 
 ### `BodyForm` — `shared/body_form.gd`
 

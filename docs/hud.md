@@ -179,6 +179,8 @@ world enter and never repeats inside one world.
 ## Lifecycle
 
 - Scope: world
+- Base: the one list service that is a `CanvasLayer`; it defines the four hooks itself instead of
+  extending `shared/service.gd`
 - Constructed by: the entry's service list, before any player exists; the entry keeps it as `HUD.instance`
 - Begin: `_ready()` builds the card; `apply_settings()` applies the act key and the caption mode
 - World: `on_world(host)` and `on_world_closed()` (the notice is armed again and the card is hidden)

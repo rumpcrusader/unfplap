@@ -87,6 +87,7 @@ only stable external surface is `docs/api.md`.
 | Act state | `shared/act_state.gd` | `docs/runtime.md` | `tests/hud/test_hud_lines.gd`, `tests/act_audio/test_audio.gd` |
 | Typed act view | `shared/act_facts.gd` | `docs/act_facts.md` | `tests/act_facts/` |
 | Settings change notification | `shared/settings_change.gd` | `docs/settings.md` | `tests/test_settings_change.gd` |
+| Service base | `shared/service.gd` | `../ARCHITECTURE.md` | `tests/entry/` |
 | Preferences | `shared/preferences.gd` | `docs/preferences.md` | `tests/readiness/`, `tests/test_character_preferences.gd` |
 | Character templates | `shared/character_preferences.gd` | `docs/preferences.md` | `tests/test_character_preferences.gd` |
 | Prompt text | `shared/prompt_text.gd` | `docs/prompts.md` | `tests/test_prompts.gd` |
@@ -116,7 +117,8 @@ only stable external surface is `docs/api.md`.
 | Standing offer cone | `shared/rump_cone.gd` | `docs/scene_gate.md` | `tests/test_rump_cone.gd` |
 
 Shared modules are not services. Pure modules have no scene, lifecycle or service dependency. A
-shared store may read `settings`; a read model is refreshed by its owner. The layer rules are in
+shared store may read `settings`; a read model is refreshed by its owner. `shared/service.gd` is
+the lifecycle base every world-list service extends, not a service. The layer rules are in
 `../ARCHITECTURE.md`.
 
 ## Cross-mod API

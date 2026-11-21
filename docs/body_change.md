@@ -346,11 +346,13 @@ The runtime binding looks the runtime up through `PONIES.runtime_for(body)` and 
 exit. `bind_body()` and `refresh_body()` both forward to the runtime's idempotent rebind; a body
 without a runtime is inert.
 
-The anatomy binding calls the API's `present`, `body_changed` and `withdraw`. The API stores the
-form, creates or refreshes the one controller, and updates the tail row. A revised form with the
-same rig and fit re-applies the live placement; a changed rig or fit rebuilds the placement,
-appearance and marker and re-seats the tail. The roster in `ponies/service.gd` owns the
-`Target.ANATOMY` and `Target.TAIL` checks; the binding itself does not gate.
+The anatomy binding calls the API's `present` for both bind and refresh, and `withdraw` for an
+unbind. `present` is idempotent and owns the identity decision: it stores the form, asks
+`eligibility` once for `Target.ANATOMY`, then creates or refreshes the one controller and seats or
+releases the tail with it. A revised form with the same rig and fit re-applies the live placement; a
+changed rig or fit rebuilds the placement, appearance and marker and re-seats the tail. A provider
+that binds a body before the roster sees it cannot present an ineligible controller, because the
+gate is inside the API and the binding itself never gates.
 
 The player frame has no separate binding: the runtime's rebind clears the smoothed shot and calls
 `act/frame.gd:refit(form)`, which re-solves Anon's placement, stance and aim from the presented form

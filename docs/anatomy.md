@@ -94,8 +94,8 @@ controller is a thin shell. The internal act reads the controller's `part()` han
 `PONIES.anatomy` holds one `anatomy/api.gd` instance. The public verbs are:
 
 ```gdscript
-present(pony, form), withdraw(pony), body_changed(pony, form)
-reseat_tail(pony, form), withdraw_tail(pony)
+bind_eligibility(service)
+present(pony, form), withdraw(pony)
 begin_act(pony, view, bed_frame) -> ActPresentation
 anon(pony) -> AnonBody, entrance_point(pony) -> Vector3
 wink(pony, beats), rest(pony, open)
@@ -104,9 +104,13 @@ follow_body_coat(pony, flank) -> bool
 debug_placement(pony, op, value, tail_owned), debug_show(pony), debug_anon_scale(pony)
 ```
 
-`present` is idempotent and a null form means the body's own default. `body_changed` updates an
-existing controller and tail row without a second one. `begin_act` returns null when the pony is
-not presented; its handle's `end()` is the only teardown. The status signal `status(text,
+`present` is idempotent and a null form means the body's own default. It is the one place the
+assignment is decided: it stores the form, asks `eligibility` once for `Target.ANATOMY`, and then
+attaches or detaches the controller and the tail row together. An ineligible body, or a facade with
+no bound eligibility, keeps its stored form and gets neither the controller nor the tail row.
+Presenting the same body with a new form refreshes the existing controller and tail instead of
+adding a second one. `withdraw` releases the controller, the tail row and the form. `begin_act` returns null when
+the pony is not presented; its handle's `end()` is the only teardown. The status signal `status(text,
 seconds)` is the one HUD output.
 
 The handles are inner classes of `api.gd`:
@@ -120,9 +124,11 @@ The handles are inner classes of `api.gd`:
   `hip_offset`, `note_hip_offset`, `debug_scale`, `reset_pelvis` and `encounter`.
 - `Garment` exposes `hull`, `transform`, `parent` and `visible`.
 
-`Parts` owns `_controllers`, `_forms`, the tail seat/visibility and the `PlayerHost`. A controller
-is constructed with `pony`, `form`, the `Rig`, a status callback and a dock-colour callback. The
-controller never reads the runtime node or eligibility; the roster owns the gate. `PlayerHost`
+`Parts` owns `controllers`, `forms`, the tail seat/visibility and the `PlayerHost`. Its roster
+verbs are `remember` (store the form), `attach` (build or refresh the controller and seat the tail together),
+`release` (drop both and keep the form) and `detach` (drop everything). A controller is constructed
+with `pony`, `form`, the `Rig`, a status callback and a dock-colour callback. The controller never
+reads the runtime node or eligibility; the facade owns the gate. `PlayerHost`
 resolves the Anon body through `Rig.anon_body_of()` and owns the hidden warm mesh.
 
 The Placement editor no longer selects a pony: `debug_placement(pony, op, value, tail_owned)` and
@@ -163,15 +169,15 @@ handle's `climaxed` flag, tells the internal act, clears the grip and releases t
   identities are excluded, and the player's own AnonPony never receives anatomy.
 - A provider's `eligible` assertion overrides the identity's age flag; `null` lets the identity
   decide. It changes age, not sex.
-- The eligibility facade owns the adult capability: anatomy calls
-  `eligible(pony, Target.ANATOMY)` and tail seating calls `eligible(pony, Target.TAIL)`. Anatomy
-  never inspects the identity, filly/stallion flags or the provider's `eligible` assertion itself.
-- `profile.participation.anatomy` is part of the `Target.ANATOMY` answer. A `false` value detaches
-  the anatomy and leaves the rest of the mare's profile alone. The Characters selector asks
-  `Target.CHARACTER`, which has no participation veto, so an opted-out mare stays editable.
-- The anatomy facade forwards the capability to its controllers and the tail seat as a callable;
-  the runtime asks the eligibility service directly before it binds a controller. Rig readiness
-  (`pony_hips`, the dock, the hair skeleton) stays here.
+- The eligibility facade owns the adult capability: `present` is the only caller and asks
+  `eligible(pony, Target.ANATOMY)` once. Anatomy never inspects the identity, filly/stallion flags
+  or the provider's `eligible` assertion itself. The tail follows the anatomy controller, so the
+  deprecated `tail` participation key no longer has a decision of its own.
+- `profile.participation.anatomy` is the whole `Target.ANATOMY` capability. A `false` value detaches
+  the anatomy and the tail and leaves the rest of the mare's profile alone. The Characters selector
+  asks `Target.CHARACTER`, which has no participation veto, so an opted-out mare stays editable.
+- Rig readiness (`pony_hips`, the dock, the hair skeleton) stays here; it is a physical check, not a
+  capability.
 - The stable id is `relationship_id` metadata first, then the identity id; the one rule is
   `shared/pony_id.gd:from()`. Placement, the per-mare profile and the act history all key off the
   same value.
@@ -196,13 +202,13 @@ handle's `climaxed` flag, tells the internal act, clears the grip and releases t
   Chrysalis's body uses this so its `chrysalis_own` hide pass leaves the anatomy alone. The marker
   is provider metadata, not a `docs/api.md` convention.
 - The anatomy body binding is `body_change/anatomy_binding.gd`: `body_change.wire()` builds it
-  from the anatomy API the entry hands over. `bind_body()` calls `present`, `refresh_body()` calls
-  `body_changed`, and `unbind_body()` calls `withdraw`. The API stores the form, creates or
-  refreshes the one controller and updates the tail row; `refresh_form()` re-fits the placement
-  and rebuilds the appearance, marker and placement only when the rig or fit changed.
-  `docs/body_change.md` owns the binding and lifecycle contract. The roster gate is in
-  `ponies/service.gd`, which checks `Target.ANATOMY` before `present` and `Target.TAIL` before
-  `reseat_tail` and re-checks on attach, act start and a settings change.
+  from the anatomy API the entry hands over. `bind_body()` and `refresh_body()` call `present`, and
+  `unbind_body()` calls `withdraw`. The API gates the identity itself, so a provider that binds a
+  body before the roster sees it cannot present an ineligible controller. `refresh_form()` re-fits
+  the placement and rebuilds the appearance, marker and placement only when the rig or fit changed.
+  `docs/body_change.md` owns the binding and lifecycle contract. The roster's
+  `PONIES._prepare()` calls `present` once with the provider's stored form; there is no separate
+  tail pass and no settings re-check loop.
 - The mare bits mesh and skin strip ship with the pack, so a missing mesh is a broken build, not a
   state the controller handles. The teats are generated from her body; the old mare-shaped
   `teats.scn` is the fallback when her belly cannot be measured.

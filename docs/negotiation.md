@@ -56,8 +56,8 @@ class Reply:          answer, option_index, failed, out_of_range
 class Terminal:       pony, pony_id, outcome, reason, trigger, cooldown_s
 class Host:           the named callbacks below
 
-bind(eligibility: Eligibility, memory: Memory, privacy: Privacy, initiation: Node, offer: Node)
-  -> void
+bind(eligibility: Eligibility, gate: ActGate, memory: Memory, privacy: Privacy,
+     initiation: Node, offer: Node) -> void
 setup(host: Host) -> void
 on_world(host: Node) -> void
 on_world_closed() -> void
@@ -93,7 +93,7 @@ The host callbacks are, in order:
 |---|---|---|
 | `now` | `() -> float` | the service clock |
 | `eligible` | `(pony) -> bool` | the eligibility service's `eligible?` |
-| `relationship_ok` | `(pony) -> bool` | the live relationship, romance and floor |
+| `relationship_ok` | `(pony) -> bool` | the act gate's live relationship, romance and floor |
 | `context_facts` | `(pony) -> Dictionary` | plain `shared/context.gd` facts |
 | `privacy_private` | `(pony, cuddle) -> bool` | the privacy provider |
 | `placement_for` | `(runtime) -> PoseOptions.Placement` | the live placement facts |
@@ -151,17 +151,17 @@ used to be the entry's assembly:
 - the `Host` callbacks that read another service or the scene: `now`, `eligible`,
   `relationship_ok`, `context_facts`, `privacy_private`, `placement_for`, `pose_placed`,
   `scene_ready`, `hold_for`, `classify`, `reason`, `await_answer`, `cancel_scope` and `toast`;
-- the Context facts both reasoning stages read: the eligibility snapshot, the act history, the
+- the Context facts both reasoning stages read: the act gate's snapshot, the act history, the
   world-context mood and the relationship note;
 - the global Anon-offer watch, the runtime state guard and the mare the game's conversation
   target names;
 - the adapter's model calls and the world-context situation record.
 
 It reads only service facades, `WORLD` and the `GAME` accessors, and the fields the entry binds
-once through `bind()`: `service` (this facade), `adapter`, `eligibility`, `memory`, `privacy`,
-`initiation` and `offer`. `initiation` and `offer` are plain nodes because each of them preloads
-this facade; everything else is the typed facade. `eligibility` is the one field a world enter
-rebinds, because the entry rebuilds that service.
+once through `bind()`: `service` (this facade), `adapter`, `eligibility`, `gate`, `memory`,
+`privacy`, `initiation` and `offer`. `initiation` and `offer` are plain nodes because each of them
+preloads this facade; everything else is the typed facade. `eligibility` and `gate` are the fields
+a world enter rebinds, because the entry rebuilds those services.
 
 The watch is armed by `tick()`, which is the entry's idle frame: the exchange's TTL and privacy
 sample first, then the bridge's watch as its own `entry_watch` perf chunk. The watch is armed only
@@ -331,9 +331,9 @@ the Proactive applies it. No reasoning record and no history write happens on a 
 
 ## Settings
 
-No setting is read directly. The bridge's `relationship_ok` reads the Promiscuity floor, and its
-`context_facts` carries heat, public preference and the rest as Context. The retired
-`features.act_public_offer` and `relationship.sex_start` are never consulted.
+No setting is read directly. The bridge's `relationship_ok` and `context_facts` read the act
+gate, which owns the Promiscuity floor, heat, the public preference and the rest as Context. The
+retired `features.act_public_offer` and `relationship.sex_start` are never consulted.
 
 ## Controls and debug
 

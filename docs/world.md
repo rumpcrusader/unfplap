@@ -306,7 +306,6 @@ behaviour exactly, and a game update that renames one is a change here rather th
 | `GAME.q_held(body)` | the rig's `_q_held` | `bool` | `false` |
 | `GAME.set_space_hold(body, seconds)` | the rig's `_space_hold` | — | no write |
 | `GAME.set_rest_held(body, held)` | the rig's `_rest_held` | — | no write |
-| `GAME.oral_ready(bridge)` | the anatomy bridge's `oral_ready` | `bool` | `false` |
 | `GAME.caress(touch)` | the VR touch bridge's `caress` event | — | no call |
 | `GAME.set_face_point(nav, point)` | the navigator's `face_point` | — | no write |
 | `GAME.clear_conversation_target(nav)` | the navigator's `set_conversation_target` | — | no call |

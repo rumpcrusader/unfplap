@@ -57,9 +57,9 @@ guards, the inventory and the player form.
 and the standing fan candidates nearest first. There is no cached gate verdict and no row list: the
 standing candidate's stool pair is read once, the small scene checks (`available`,
 `pose_supported`, `player_ready`, `navigator_allows`, `posture_allows`) are one call each, and
-`PONIES.act_target()` and `PONIES.relationship_ok()` are the eligibility reads. The composite
-`hotkey_ready()` stays the press's path. A live Agreement is checked first: it is already a yes, so
-the rump fan and the scene pass do not rediscover it.
+`PONIES.act_target()` is the eligibility read and `PONIES.relationship_ok()` is the act gate's Base
+clearance row. The composite `hotkey_ready()` stays the press's path. A live Agreement is checked
+first: it is already a yes, so the rump fan and the scene pass do not rediscover it.
 
 An offer of either kind keeps its logged key, and no offer at all clears both keys, so the same
 offer logs again when it comes back. The blocked note has one toast per world: `_last_blocked_key`

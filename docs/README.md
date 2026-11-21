@@ -45,7 +45,7 @@ the idle block; `act/build.gd` constructs and binds them once per pony.
 |---|---|---|---|
 | World reads | `world/service.gd`, `world/game.gd` | `docs/world.md` | `tests/world/` |
 | Pony runtimes | `ponies/service.gd` | `docs/ponies.md` | `tests/ponies/` |
-| Eligibility and consent | `eligibility/service.gd` | `docs/eligibility.md` | `tests/eligibility/` |
+| Identity eligibility | `eligibility/service.gd` | `docs/eligibility.md` | `tests/eligibility/` |
 | Act gate | `act_gate/service.gd` | `docs/act_gate.md` | `tests/act_gate/` |
 | Estrus cycle | `estrus/service.gd` | `docs/estrus.md` | `tests/estrus/` |
 | Scene gate and refusal | `scene_gate/service.gd` | `docs/scene_gate.md` | `tests/scene_gate/` |

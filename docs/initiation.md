@@ -55,14 +55,15 @@ The purity boundary is deliberate:
   through its facade; this service never reads the director. The bounded classifier is this
   service's own (`classifier.gd`), created in `setup()`: the Negotiation's adapter and both
   reasoning stages make every model call on it, and no other service imports it.
-- The facade is the only file that preloads `eligibility/service.gd`, `privacy/service.gd`,
+- The facade is the only file that preloads `eligibility/service.gd`, `act_gate/service.gd`,
+  `privacy/service.gd`,
   `negotiation/service.gd`, `shared/clearance.gd`, `shared/context.gd`, `shared/pose_options.gd`,
   `shared/pose_catalog.gd` and `shared/cycle.gd`; `cooldowns.gd` preloads
   `shared/act_history.gd`.
 - No file outside `initiation/service.gd` and `initiation/` preloads `initiation/*` except the
   orchestrator, which owns the service.
 - The entry's service list creates the service (`setup(privacy, negotiation, offer)`), binds the
-  live `eligibility` instance and drives it: `tick`, `on_world`/`on_world_closed`, `force`,
+  live `eligibility` and `act_gate` instances and drives it: `tick`, `on_world`/`on_world_closed`, `force`,
   `cancel_approach`, `placement_for` and the outcome handoff. `runtime.gd` exposes
   `cuddle_active()` and the scene-only verdict; the offer facade answers which pony the act key
   would start (`docs/offer.md`), and the Negotiation facade answers the lock, the form view and
@@ -83,7 +84,7 @@ class ForceResult: ok, id, pose, reject
 
 func setup(privacy_node: Privacy = null, negotiation_node: Negotiation = null,
         offer_node: Offer = null) -> void
-func bind(eligibility_service: Eligibility) -> void
+func bind(eligibility_service: Eligibility, gate_service: ActGate) -> void
 func tick(delta: float) -> void
 func on_world(host: Node) -> void
 func on_world_closed() -> void
@@ -97,8 +98,10 @@ func classifier_node() -> Node
 func classifier_available() -> bool
 ```
 
-`eligibility` is the entry's live instance, bound once at construction and read for the whole
-process. `classifier_node()` is the node the Negotiation adapter runs its one bounded call on, and
+`eligibility` is the entry's live identity instance and `act_gate` the live dynamic one, both
+bound once at construction and read for the whole process; the identity target comes from
+`eligibility` and the Base clearance relationship row from `act_gate`. `classifier_node()` is the
+node the Negotiation adapter runs its one bounded call on, and
 `classifier_available()` is the Anon-offer watch's gate. `on_world` and `on_world_closed` are the
 same close: a world enter and a world close both end every scope, because a scope belongs to the
 world that is gone.
@@ -178,7 +181,8 @@ The reason names are `unavailable`, `paused`, `mouse`, `menu`, `no_player`, `con
 Per mare, the scan then requires:
 
 - the runtime idle (`state == 0`), present, awake and a stable id;
-- Base clearance: the eligibility `eligible?` answer, the relationship row and availability;
+- Base clearance: the eligibility `eligible?` answer, the act gate's relationship row and
+  availability;
 - the cooldown: the history offer cooldown since `request_times[id]`, quartered in heat (the
   cooldown store owns it);
 - the `30 s` retry deadline left by a failed route, reasoning failure or refused handoff.
@@ -289,7 +293,7 @@ attempt when a new Anon offer or hotkey interrupts her walk.
 in `settings/prompts.json` (`docs/prompts.md`). This file chooses the branch: the pose opening, the
 privacy mode and the heat line. The facade supplies
 `relation_note` and `history_note` from `negotiation.context()`, the Negotiation's one Context
-snapshot of the eligibility facts, act history and the memory cue (`docs/memory.md`); the
+snapshot of the act gate's facts, act history and the memory cue (`docs/memory.md`); the
 reasoning payload carries the same Context. Wording mode is decided once per builder by
 `policy.wording_mode(private)`: `free` speaks plainly and asks clearly, `indirect` hints while other
 ponies are around. The heat line is appended only in heat and is empty otherwise.

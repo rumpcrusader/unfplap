@@ -157,7 +157,7 @@ func bind_eligibility(service: ELIGIBILITY) -> void:
 	_eligibility = service
 
 
-## The act key's answer: the identity act target plus the clearance relationship row.
+## The act key in one call: the identity target and the relationship row.
 func ready(pony: Node) -> bool:
 	if not _live or not is_instance_valid(pony) or not _has_eligibility():
 		return false
@@ -209,8 +209,7 @@ func consent(pony: Node, key: String) -> bool:
 	return false
 
 
-## The heat/diestrus note for the normal dialogue prompt, during and outside acts.
-## Empty while the act gate would stay shut.
+## The cycle line the normal dialogue prompt appends; empty while the base would stay shut.
 func cycle_note(pony: Node) -> String:
 	if not is_instance_valid(pony):
 		return ""

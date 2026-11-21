@@ -1,7 +1,7 @@
 # Scene gate contract
 
-The live half of the act gate. Eligibility policy answers whether an adult mare *may*; this answers
-whether the *scene* is ready right now.
+The live half of the act gate. The act gate answers whether an adult mare *may* right now; this
+answers whether the *scene* is ready right now.
 
 ## Ownership
 
@@ -32,12 +32,12 @@ relationship and player facts and adds the session's act values. The scene handl
 `find_bed_under`, `free_of_affection`, `cuddle_active`, `hotkey_ready`, the small checks
 (`available`, `pose_supported`, `player_ready`, `navigator_allows`, `posture_allows`,
 `agreement_ready`) and the scene-only verdict; the stool pair, hint and Agreement start are the
-other two handles. The gate reads
-`PONIES.eligibility` itself for the policy verdict; a suite may still override
-`policy_verdict`. The tolerance stop owns its impression and face (`docs/summary.md`,
+other two handles. The gate reads the bound `ACT_GATE` service (`gate_service`) for the policy
+verdict and for `ready(pony)`; a suite may still override `policy_verdict`. The runtime binds the
+gate through `act/build.gd` and re-binds it on every gate refresh. The tolerance stop owns its impression and face (`docs/summary.md`,
 `docs/face.md`).
 
-The rows carry `ELIGIBILITY.Row` objects with the policy's own keys and reasons. The pure policy
+The rows carry `ACT_GATE.Row` objects with the policy's own keys and reasons. The pure policy
 never sees a bed, a navigator, a pose asset or the player body. The merge answers a typed
 `GateVerdict`: `policy` is the snapshot, `rows` every row, and `show()` / `offer_ok()` the start
 and proactive-offer answers. `bind()` takes the typed pose session and `configure()` the act's
@@ -110,8 +110,8 @@ the same helpers as the rows, in this order, and never allocates a row:
 | `posture_allows(pose)` | `nav_pose`, `standing_free` |
 | the stool pair | `stool` |
 
-`hotkey_ready()` then reads Base clearance: `eligible(pony, Target.ACT)` and
-`relationship_ok(pony)`. `agreement_ready(pose, source, bed, FrozenPose)` is the same scene
+`hotkey_ready()` then reads Base clearance through the act gate's `ready(pony)`: the identity act
+target plus the clearance relationship row. `agreement_ready(pose, source, bed, FrozenPose)` is the same scene
 composition for a formed Agreement: the frozen profile and source rows instead of the live pose
 support, and no clearance read. Its caller is the Negotiation service's `ready_offer()`.
 
@@ -212,7 +212,7 @@ scene-gate row; the hotkey and the Agreement start keep their own scene checks.
 `buck_or_push()` asks her `Affection` to buck; when that is unavailable or fails, it starts a
 knockdown push on Anon. It returns whether either ran. It is the physical stop the tolerance strict
 stop uses; the impression and the held face belong to `docs/summary.md` and `docs/face.md`. The
-live act key never bucks, and no eligibility verdict carries a refusal.
+live act key never bucks, and no act-gate verdict carries a refusal.
 
 ## Debug
 
@@ -252,6 +252,6 @@ player, bed and row sets, the structural rows, the policy/scene merge (including
 the frozen pose rows, the hold exemption and the transient/hard split), the small checks and the
 matrix that pins `hotkey_ready()` equal to `scene_only_verdict().ok`, the debug line, the reason
 list, the buck/push and the auto-cuddle suppression with fake scene nodes.
-`tests/eligibility/` keeps the pure policy suites. The runtime suite
+`tests/act_gate/` keeps the pure policy suites. The runtime suite
 (`tests/test_runtime_teardown.gd`) and the stool suite (`tests/stool/test_gate.gd`) drive the
 public forwards and the gate's hotkey readiness; the history stop suite drives the history row.

@@ -26,8 +26,8 @@ kiss, wings, integrations, scene gate, scene hold, rest) own their own state and
   leaves them null and the per-pony modules treat that as an absent HUD, memory or stool.
 - `_ready()` sets process and physics on at priority `100` (after locomotion, the navigator and
   attention), reads the identity, binds the pony through the bundle, caches the idle probe flag,
-  binds the face, refreshes the persistent anatomy controller and retries the identity and anatomy
-  reads after the first frame.
+  binds the face, re-presents the persistent anatomy with the stored form and retries the identity
+  and anatomy reads after the first frame.
 - `_physics_process(delta)` is one `act.tick(delta)`; `_process(delta)` is one `act.render(delta)`.
 - `pony` is the presented body; its setter rebinds the pose session and the act host through the
   bundle. `live_id()` refreshes the identity and returns the stable act id.
@@ -255,8 +255,8 @@ The start sequence:
 
 1. `act/agreement.gd` re-reads the identity and the gate (the Agreement path runs the scene-only
    rows); `run()` opens with the presentation guard;
-2. bind the act's stool handle through `act/session.gd:stool()` and reset it, then refresh the
-   anatomy bridge;
+2. bind the act's stool handle through `act/session.gd:stool()` and reset it, then re-present the
+   anatomy controller with the stored form;
 3. clear the idle presentation, the mood face and the act face;
 4. snapshot the settings and preferences, build the profile and prompts;
 5. resolve the bed when the row's `scene.requires_bed` is set (a missing bed fails closed before

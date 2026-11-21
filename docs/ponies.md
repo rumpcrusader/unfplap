@@ -29,7 +29,7 @@ It does not cover the act itself (`docs/runtime.md`), the attach-time anatomy an
 | `attach(pony)` | the one spawn hook: the player-body refusal, the prepare pass, the pending-swap adoption, then one runtime built by the entry's factory |
 | `prepare_late(pony)` | the prepare pass again for a body a mod completed after its first spawn; never creates a runtime |
 | `runtime_for(pony)` | the registry entry, or the runtime node the body carries |
-| `live_ponies()` | the bodies that hold a runtime, for the settings tail pass and the debug block |
+| `live_ponies()` | the bodies that hold a runtime, for the debug block |
 | `set_active(runtime)` / `clear_active(runtime)` / `active()` / `act_running()` | the one live act and its two side effects: the idle offer is dropped and the stock smack layer opens and closes its act |
 | `begin_body_swap(runtime, old_pony, id, change)` | the act's one pending swap, and the old body's registry entry going with it |
 | `clear_body_swap(runtime)` / `body_swap_pending()` | the swap's one end, scoped to its runtime |
@@ -38,7 +38,7 @@ It does not cover the act itself (`docs/runtime.md`), the attach-time anatomy an
 | `prompt_note(id)` | the live act/afterglow note and the cycle line for one stable id |
 | `live_character_ids()` / `installed_character_ids()` | the off-roster mares the Characters tab lists |
 | `cone_target(eye)` | the nearest standing mare in the rear fan, from the game's live mare array |
-| `act_target(pony)` / `relationship_ok(pony)` | the eligibility capability and the Base clearance relationship row |
+| `act_target(pony)` / `relationship_ok(pony)` | the eligibility capability and the act gate's Base clearance relationship row |
 | `allocate_serial()` | the `unfplap.serial` key and the last value issued in this process |
 | `reset()` | a world enter: the pending swap belonged to the world that is gone |
 | `close_world()` | a world close: the act ends through its one exit and the swap goes |
@@ -55,11 +55,12 @@ dynamic on a `Node`, so the registry only needs the methods the act contract pub
 1. the player's own AnonPony and any node with a `rig` are refused, because they are Anon's body,
    not a mare's;
 2. the prepare pass: `body_change.notify_body_ready()` (the provider's form is fitted and mirrored
-   before anything binds), then the roster re-checks `Target.ANATOMY`/`Target.TAIL` and calls
-   `anatomy.present()`/`reseat_tail()` or `withdraw()`/`withdraw_tail()`, then
-   `estrus.track()`, the stock smack layer's `pony_ready()`, and `eligibility.warm()` (the identity
-   record and the clearance relationship row, read once at attach so the first offer does not pay
-   it). Every hook is idempotent, which is what makes `prepare_late()` safe;
+   before anything binds), then `anatomy.present()` once with the provider's stored form, then
+   `estrus.track()`, the stock smack layer's `pony_ready()`, `eligibility.warm()` (the identity
+   record, read once since the era moved) and `act_gate.warm()` (the clearance relationship row,
+   read once at attach so the first offer does not pay it). Anatomy owns the identity gate inside
+   `present`, so the roster makes no separate capability or tail decision. Every hook is
+   idempotent, which is what makes `prepare_late()` safe;
 3. the pending swap is offered the body, which is the only way a suspended act keeps its runtime;
 4. an already registered body is left alone; otherwise the factory builds the runtime, the runtime
    enters the body's tree, the registry maps the body and one `runtime attached <name> id=<id>`
@@ -117,7 +118,8 @@ without copying it, rejects by squared ground distance to the approximate rump a
 her standing posture and the rear fan (`shared/rump_cone.gd`), collecting the passing candidates in
 distance order. It asks `act_target()` down that order and returns the first one that passes; a
 nearer non-target is skipped, not the answer. The act key still runs its own gate.
-`relationship_ok(pony)` is the mirrored facade for the Base clearance relationship row.
+`relationship_ok(pony)` is the mirrored facade for the act gate's Base clearance relationship row;
+the offer fan reads it through this service, so no consumer preloads the gate.
 
 ## Characters
 
@@ -137,17 +139,18 @@ matched through its body's identity (`shared/pony_id.gd:of()`).
 ## Host boundary
 
 The entry's `bind(anatomy_service, body_change_service, offer_service, stock_smack_service,
-eligibility_service, estrus_service, api_service)` sets these once, before the first hook, from its
-`_build_services()` list:
+eligibility_service, gate_service, estrus_service, api_service)` sets these once, before the first
+hook, from its `_build_services()` list:
 
 | Bound by the entry's service list | Purpose |
 |---|---|
 | `factory` | `(Node pony) -> Node`, the entry's one runtime construction |
-| `anatomy` | `present(pony, form)`, `reseat_tail(pony, form)`, `withdraw(pony)`, `withdraw_tail(pony)` |
+| `anatomy` | `present(pony, form)` for the prepare and `withdraw(pony)` for a leaving body |
 | `body_change` | `notify_body_ready(pony)` and `installed_character_ids()` |
 | `offer` | `clear_current()` on an act start |
 | `stock_smack` | `pony_ready(pony)`, `act_start(pony)`, `act_end(pony)` |
-| `eligibility` | `eligible(pony, Target.CHARACTER)` for the Characters tab, and `Target.ACT` behind `act_target()` |
+| `eligibility` | `eligible(pony, Target.CHARACTER)` for the Characters tab, `Target.ACT` behind `act_target()`, and `warm(pony)` |
+| `act_gate` | `relationship_ok(pony)` behind `relationship_ok()` and `warm(pony)` |
 | `estrus` | `track(pony)` and `untrack(pony)` for the idle cycle schedule |
 | `api` | the cross-mod facade an integration registers its mare through |
 

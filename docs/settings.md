@@ -378,7 +378,9 @@ the log sink joins the same list.
 - Prompt text is not a setting and has no override: `settings/prompts.json` is the only copy, and
   `docs/prompts.md` owns it. The **Reset act prompts** action is gone with the overrides.
 - `characters.<id>.profile` is a sparse per-mare participation layer. `profile.participation` holds
-  `acts`, `anatomy` and `tail`; only differences from the resolved default are stored. A provider's
+  `acts` and `anatomy`; the deprecated `tail` key is still accepted and returned but no capability
+  reads it, and the Characters form has no Tail row. Only differences from the resolved default are
+  stored. A provider's
   `eligible` assertion is top-level and never a player value, because a player cannot age a
   character up. The `characters` block is the same per-mare block as the preference, consent and
   pose overrides.

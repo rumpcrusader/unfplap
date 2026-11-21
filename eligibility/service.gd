@@ -14,7 +14,7 @@ const CONSENT := preload("res://mods/unfplap/shared/consent.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
 const CYCLE := preload("res://mods/unfplap/shared/cycle.gd")
-const ESTRUS := preload("res://mods/unfplap/estrus/service.gd")
+const CYCLE_STATE := preload("res://mods/unfplap/shared/cycle_state.gd")
 const CLEARANCE := preload("res://mods/unfplap/shared/clearance.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
@@ -460,9 +460,7 @@ func _read_player(out: Dictionary) -> void:
 ## The debug override wins even with the feature off, so the lab can force heat.
 ## A just-spawned pony has no relationship runtime, so that reads as normal.
 static func cycle_phase_for(pony: Node, _id: String) -> String:
-	if ESTRUS.bound == null:
-		return CYCLE.NORMAL
-	return ESTRUS.phase_for(pony)
+	return CYCLE_STATE.phase(pony, SETTINGS.estrus_cycle.get_bool())
 
 
 ## The heat/diestrus note for the normal dialogue prompt, during and outside acts.

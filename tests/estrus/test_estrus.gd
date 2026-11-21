@@ -5,6 +5,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 
 const ESTRUS := preload("res://mods/unfplap/estrus/service.gd")
 const CYCLE := preload("res://mods/unfplap/shared/cycle.gd")
+const CYCLE_STATE := preload("res://mods/unfplap/shared/cycle_state.gd")
 
 
 func run() -> void:
@@ -18,9 +19,12 @@ func run() -> void:
 	check(service.debug_set_phase(pony, CYCLE.HEAT) == CYCLE.HEAT,
 		"the debug override forces heat")
 	check(service.phase(pony) == CYCLE.HEAT, "the phase reads the override")
-	check(ESTRUS.phase_for(pony) == CYCLE.HEAT, "the static read reaches the bound service")
+	check(CYCLE_STATE.phase(pony, false) == CYCLE.HEAT,
+		"the shared derivation honours the override with the feature off")
 	service.debug_set_phase(pony, "")
 	check(service.phase(pony) == CYCLE.NORMAL, "clearing the override restores normal")
+	check(CYCLE_STATE.phase(pony, true) == CYCLE.NORMAL,
+		"the shared derivation reads the automatic phase")
 
 	service.track(pony)
 	service.track(pony)
@@ -29,7 +33,6 @@ func run() -> void:
 	check(service.get_process_delta_time() >= 0.0, "one tick is safe without an anatomy link")
 
 	service.shutdown()
-	check(ESTRUS.bound == null, "shutdown unbinds the static service")
 	root.remove_child(pony)
 	pony.free()
 	root.remove_child(service)

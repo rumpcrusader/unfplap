@@ -45,8 +45,8 @@ settings change.
 |---|---|---|---|
 | service | anatomy | `anatomy/api.gd` | anatomy and tail seat |
 | service | settings | `settings/service.gd` | settings declarations and live values |
-| service | world | `world/game.gd` | service dependency |
 | shared | cycle | `shared/cycle.gd` | estrus cycle |
+| shared | cycle_state | `shared/cycle_state.gd` | shared data |
 | shared | log | `shared/log.gd` | log sink |
 | shared | perf | `shared/perf.gd` | one profiler |
 | shared | pony_id | `shared/pony_id.gd` | shared data |

@@ -8,15 +8,11 @@ extends "res://mods/unfplap/shared/service.gd"
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 const CYCLE := preload("res://mods/unfplap/shared/cycle.gd")
+const CYCLE_STATE := preload("res://mods/unfplap/shared/cycle_state.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
-const GAME := preload("res://mods/unfplap/world/game.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const PERF := preload("res://mods/unfplap/shared/perf.gd")
-
-## The live service's static handle. Eligibility calls this without preloading `ponies`; a null
-## handle means the cycle feature is off for that read and the phase falls back to normal.
-static var bound: Node = null
 
 const PHASE_POLL_S := 0.5
 
@@ -37,7 +33,6 @@ var _sessions: Dictionary[Node, Session] = {}
 
 
 func _ready() -> void:
-	bound = self
 	_snapshot()
 	CHANGE.on_changed(Callable(self, "_on_settings_changed"))
 	process_priority = 90
@@ -59,37 +54,12 @@ func on_world_closed() -> void:
 func shutdown() -> void:
 	CHANGE.off_changed(Callable(self, "_on_settings_changed"))
 	_sessions.clear()
-	if bound == self:
-		bound = null
 	anatomy = null
-
-
-func _exit_tree() -> void:
-	if bound == self:
-		bound = null
-
-
-## One pony's phase from the bound service, or normal when no service exists.
-static func phase_for(pony: Node) -> String:
-	if bound == null:
-		return CYCLE.NORMAL
-	return str(bound.phase(pony))
 
 
 ## One pony's effective phase: debug override, feature switch and the relationship bond day.
 func phase(pony: Node) -> String:
-	if not is_instance_valid(pony):
-		return CYCLE.NORMAL
-	var id := PONY_ID.of(pony)
-	var override := CYCLE.override_for(id)
-	if not override.is_empty():
-		return override
-	if not _enabled or id.is_empty() or not pony.has_meta("relationship_runtime"):
-		return CYCLE.NORMAL
-	var day := GAME.bond_day(GAME.bonds_of(pony))
-	if is_nan(day):
-		return CYCLE.NORMAL
-	return CYCLE.phase(day, id)
+	return CYCLE_STATE.phase(pony, _enabled)
 
 
 ## The debug override. A session override is honoured even with the feature off.

@@ -139,6 +139,29 @@ Read `WORKFLOW.md` before any task. Commit in small, testable units; never push.
 7. `mod.json.version` and `changelog.txt` change only through the release skill.
 8. `README.md` was not edited; a needed change is reported with exact replacement text.
 
+## Service API
+
+Every service facade, and every public handle it returns, follows these. The mechanics — facade,
+typing, state and reach-in rules — are in `ARCHITECTURE.md` (`## The service contract`).
+
+- **The surface is defined by the consumer, and the service adapts to it.** A member exists only
+  because a caller's job needs it and is traceable to that caller; when a consumer needs something,
+  the service changes, not the consumer's workaround. *Test: name the caller and the job it is
+  trying to do at the business-logic level.*
+- **The interface lives at the level of the business need.** A consumer asks for the action, query
+  or handle it actually needs; the API never exposes internal steps, state or data structures. It
+  need not be a command — a query is right when that is what the consumer really needs.
+  *Test: would the consumer otherwise have to reimplement business logic or reach inside?*
+- **Internals stay internal.** State, wiring and composition are private; the boundary exposes only
+  typed handles that behave like views of the service. No public fields, no reach-ins, no “just this
+  once” access. *Test: can the internal representation change without touching a consumer?*
+- **The contract is typed.** Every public member carries explicit parameter and return types; the
+  compiler and the architecture gate enforce it. Weak types and typing debt are defects, not
+  concessions. *Test: would a wrong call fail at parse time rather than at runtime?*
+- **Every public surface change needs explicit approval.** Adding, removing, renaming or re-signing
+  a public member is proposed with its justification and the list of consumers; an unapproved
+  surface change is a defect, however small.
+
 ## Non-negotiables
 
 - **Order is load-bearing.** `act/tick.gd:tick` and its `render` (render-time pose write), the

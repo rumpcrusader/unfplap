@@ -217,7 +217,8 @@ top-level world mesh that copies the anatomy mesh's transform, so the field can 
 when the anatomy is hidden (far mesh or `act` mode outside an act); the overlay state and the
 reason it is hidden are logged once per change with debug logs on.
 
-On `anatomy.act_started` the adapter reads `wanted()` under the wardrobe's own `_season()` and
+On `runtime.act_started` (connected by the entry) the adapter reads `wanted()` under the
+wardrobe's own `_season()` and
 collects the kinds she wears from this pack (`panties-*`, `pantyhose-*`). It sends one `take_off`
 action per kind through the game's action coordinator (`conversation_director.actions.commit`)
 with the director's current turn — the same path as one of her own `[take_off]` replies. The
@@ -322,7 +323,7 @@ six tries at 50 ms, scheduled from her own-body path and from an identity-less e
 finds the chain under `pony.skeleton` and, when that rig is not exposed, by searching for the
 `Hair_tail` attachment. When the chain appears it re-prepares the body (the form's `tail_root`
 changes its signature, so the revision bumps) and calls `PONIES.prepare_late(pony)` once for the
-late anatomy/tail pass. The check does not depend on the anatomy seat, `tail_ready()` or a dock.
+late anatomy/tail pass. The check does not depend on the anatomy seat, the tail row or a dock.
 
 Her own body's hide pass runs every half second and hides every mesh under her model that lacks
 the pack's `chrysalis_own` marker. The form carries that marker as `owned_mesh_meta`, the service
@@ -433,14 +434,14 @@ overlay reads them.
 | `reset()` | restore every saved value after the base kiss reset in `act/exit.gd:free_pose()` |
 | `shared/act_facts.gd` | typed read model passed to the constructor; no per-frame settings read |
 | `hold_beat(owner)` / `release_beat(owner)` | acquire or release the runtime's shared excitement Beat hold |
-| `PONIES.anatomy` | the controller's `garment_hull()`, `garment_transform()`, `garment_visible()`, `garment_parent()`, `garment_hull_rebuild()` and the `act_started` signal |
+| `PONIES.anatomy` | `garment(pony)` and its `hull()`, `transform()`, `parent()` and `visible()`, plus `rebuild_garment()` |
 | `WORLD.game.mares` | the loaded mares the world adapter scans |
 | `pony_wardrobe` group | the wardrobe's `wanted()`, `_season()`, `set_worn()` and `dress()` for the act undress |
 | `conversation_director.actions` | the action coordinator's `commit()` and `executors`, so the undress is a `take_off` action when her executor exists |
 | `shared/settings_change.gd` | calls the world adapter's `apply_live_settings()` after a settings edit, and the body-change service's per-body tail pass |
 | `PONIES.api` | the changelings adapter's `register_mare()` / `unregister_mare()` |
 | `PONIES._prepare(pony)` | calls `body_change.notify_body_ready()` before the tail seat and anatomy bind, then adopts a pending act instead of creating a runtime |
-| `PONIES.prepare_late(pony)` | re-runs the body-change prepare and `anatomy.tail_ready()` after a mod adds a node the first pass needed; late form/ownership only, no runtime and no tail wrapper |
+| `PONIES.prepare_late(pony)` | re-runs the body-change prepare and the anatomy `present`/`reseat_tail` pass after a mod adds a node the first pass needed; late form/ownership only, no runtime and no tail wrapper |
 | `SETTINGS.apply_live()` | one settings pass after the settled form: the live anatomy controllers, the player part and the tail seats re-read, the body's LOD rebuilds |
 | `WORLD.refresh_body_lod(pony)` | drops the new body's near/far LOD caches and re-arms its near mesh after a form or an adoption |
 | `PONIES.body_change` `has_tail_placement()` / `apply_tail_placement()` / `tail_placement_report()` | the anatomy editor's read of the provider that owns a body's tail placement |

@@ -281,7 +281,7 @@ func withdraw(pony: Node3D) -> void:
 		parts.withdraw(pony)
 
 
-## A revised form on the same body: update the controller and tail row without a second one.
+## A revised form on the same body: refresh what already exists, never add a controller.
 func body_changed(pony: Node3D, form: BODY_FORM.BodyForm = null) -> void:
 	if not is_instance_valid(pony) or parts == null:
 		return
@@ -304,7 +304,7 @@ func withdraw_tail(pony: Node3D) -> void:
 
 # --------------------------------------------------------------------------- act
 
-## Returns null when the pony is not presented. The handle's `end()` is the only teardown.
+## Null when the roster has not presented her; the returned handle owns its own close.
 func begin_act(pony: Node3D, view: PoseView, bed_frame: Variant) -> ActPresentation:
 	if parts == null:
 		return null

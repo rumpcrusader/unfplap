@@ -6,17 +6,14 @@ deliberately not imported.
 
 ## Ownership
 
-`vr/service.gd` is the VR controller, created by the anatomy bridge's `vr_start()` (called from the
-runtime's `_start_vr_act()`). The runtime's `_vr_scene()` supplies the scene handles: it resolves
-the player, the `AnonBody` avatar, the `XRCamera3D`/`XROrigin3D` pair and the avatar's hip target,
-or returns null when the player or the rig is absent. The bridge only wires the node from that
-dictionary; it does no scene lookup. It is a scene adapter with typed handles, never the runtime
-node: the bridge handle (`toggle_hole`, `oral_ready`, `vr_forward`, `vr_depth`), the `command`
-dispatcher for the oral id, the `align` write-back, the `touch` readiness event and a
-`pony_source` read. It also receives `player`, `hip_target`, `camera` and `origin`, and queues
-itself free in `vr_stop()`. The runtime owns the standing act state; the bridge owns the anatomy
-hooks the controller calls. The controller reads the bridge's oral gate and fires the touch
-host's caress event through `world/game.gd`.
+`vr/service.gd` is the VR controller. `act/session.gd:begin_vr()` calls its static `attach()`,
+which resolves the player, the `AnonBody` avatar, the `XRCamera3D`/`XROrigin3D` pair and the
+avatar's hip target from the live scene; a desktop launch or a missing rig returns null. The
+controller is a scene adapter with typed callables, never the runtime node: `toggle_hole`,
+`oral_ready`, `forward`, `depth`, the `command` dispatcher for the oral id, the `touch` readiness
+event and a `pony_source` read. The session binds those to its own anatomy target and impact
+calls, so VR scene construction no longer lives in anatomy. The session also passes `player`,
+`hip_target`, `camera` and `origin`; `stop_vr()` frees the node with the act handle.
 
 ## Controls
 

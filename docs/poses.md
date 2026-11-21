@@ -217,7 +217,7 @@ pose-scope leave steps keep it `STEADY`. During an edge, `from_id`/`to_id`, `edg
 to side is the session's target snapshot. `contact_kind` is the one contact source (`opening`,
 `mouth`, `face` or `none`); it starts at the spec's base kind, moves on an edge's `contact` switch
 and settles on the target's kind. The `face` kind's provider is the act body's `mouth_point()` on
-the anatomy bridge; its driver is `poses/face_contact.gd` and the anatomy act parks her part. `contact_target` is the
+the pose-owned act body; its driver is `poses/face_contact.gd` and the anatomy handle parks her part. `contact_target` is the
 pose turn's live anchor, and `facing`/`facing_amount` its live frame; the standing camera reads
 both every physics tick. The
 view carries no compatibility fields: `id`, `family`, `frame`, `settings_group`, the profiles, the
@@ -467,8 +467,8 @@ profile. A missing set allows only `end`. A lock channel's `block` list denies i
 non-empty `allow` list denies anything outside it; the lock is checked only inside the profile and
 cannot deny `end`. `pose_back`/`pose_forward` are reserved for pose navigation and no key emits them
 yet. The input protocol's `command("oral")` (`act/input.gd`) requests `standing_oral` from
-`standing` and the reverse edge from `standing_oral` through `request_pose`; it passes `consent: "oral"` only when the anatomy service's
-per-mare consent is true, and its refusal reason reaches the anatomy status label.
+`standing` and the reverse edge from `standing_oral` through `request_pose`; it passes `consent: "oral"` only when `eligibility.consent(pony, "oral")` is
+true, and its refusal reason is the input's HUD line.
 
 `apply_live_settings()` refreshes the target snapshot in place on a live settings edit: the same
 `to_config` object is re-merged from the target's settings group, and the presentation block is
@@ -607,7 +607,7 @@ and the runtime only re-asserts the pose weight, the tail, the HUD state and the
 ## Retarget hooks and the pose change
 
 `act/tick.gd:_fanout()` runs after the pose tick and the facts sync in every act phase above
-`IDLE`, in one fixed order: the pose service, the camera, the hands, the kiss, the anatomy bridge
+`IDLE`, in one fixed order: the pose service, the camera, the hands, the kiss, the anatomy handle
 and the audio. The pose service reconciles its modifier profile and applies the `act_body`/`anon`
 channel; each following owner implements `pose_changed(view)` and caches the last id/profile/
 family/contact, so an unchanged view is a cheap no-op. The face, dialogue and HUD read the view
@@ -624,11 +624,11 @@ The runtime calls it from its own live settings path.
 The `contact` channel is the one contact change: the forward oral edge switches `opening` to
 `mouth` at `0.9`, the reverse switches back at `0.0`, and completion settles the target row's base
 kind. The hands read `view.contact_kind` for the mouth path and the oral caress blend; the anatomy
-act reads it for the part target and the hole gate; the camera reads it for the oral lean lock; the
+handle reads it for the part target and the hole gate; the camera reads it for the oral lean lock; the
 dialogue and HUD read it through the facts. The `face` kind is the bed face-sit edge: the forward
 missionary edge switches to it at `0.9` and the reverse returns to `opening` at `0.0`. The anatomy
-act parks the part and reports a zero hip offset, the anatomy bridge refuses
-`hole_ready`, and `poses/face_contact.gd` follows the bridge's `face_point()`.
+handle parks the part and reports a zero hip offset, `can_target_*` refuses every target, and
+`poses/face_contact.gd` follows the pose body's `mouth_point()`.
 The standing camera reads `view.facing`/
 `facing_amount` directly each physics tick; the pose turn writes them, so no service carries a
 facing copy. The running lean kiss is ended by the oral lean tick; the kiss release still advances
@@ -646,9 +646,8 @@ it.
 The pose service owns the missionary `act_body` adapter (`poses/missionary_anon.gd`): it creates the
 node on the runtime host as `UnfplapMissionaryAnon`, installs it through the `anon` channel,
 binds the service's authored asset pair, applies it from `render_write()` and frees it once in
-`release_pose()`. The anatomy bridge receives
-only an opaque handle: it uses the body's `refresh_palm`/`diag_row` and eye reads and calls
-`remove()` at the act end; it never creates, installs, applies, frees or re-parents it. The adapter
+`release_pose()`. Anatomy receives only the part handle from the act facts; it never creates, installs, applies,
+frees or re-parents the pose body. The adapter
 exists only for a view whose `anon.mode` is `act_body` and desktop human Anon; the `player_body`
 specs (`standing`, `standing_test`) keep the runtime's standing Anon controller. The `anon` channel
 accepts `hold` (keep the adapter), `blend` (carry the live edge weight) and `switch` (name an

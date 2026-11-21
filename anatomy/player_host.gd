@@ -1,6 +1,6 @@
 extends RefCounted
-## The Anon part lifecycle: create, free, warm and resolve the player body.
-## Owns one `anatomy/player.gd` node under the API; the public handle is `api.AnonBody`.
+## Owns the one `anatomy/player.gd` node and its warm/body resolution.
+## The public surface is `api.AnonBody`; nothing outside anatomy reaches this module.
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const PLAYER := preload("res://mods/unfplap/anatomy/player.gd")

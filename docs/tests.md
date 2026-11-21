@@ -48,6 +48,7 @@ table, not a second owner: each rule has exactly one suite.
 | `tests/poses/test_body_sway.gd`, `tests/poses/test_prone_sway.gd` | `tests/poses/test_pose_sway.gd` |
 | `tests/poses/test_pose_scale.gd` | `tests/poses/test_pose_asset_v7.gd` |
 | `tests/anatomy/test_facts.gd` | `tests/act_facts/test_act_facts.gd` |
+| `tests/anatomy/test_act_bridge.gd` | `tests/anatomy/test_api.gd` |
 | `tests/anatomy/test_appearance.gd` | `tests/anatomy/test_coat.gd` |
 | `tests/anatomy/test_tail_hide.gd` | `tests/anatomy/test_placement.gd` |
 | `tests/privacy_rules/test_privacy_rules.gd` | `tests/privacy/test_privacy.gd` |
@@ -186,11 +187,13 @@ the source-only ones, while `leave_pose_body()` keeps the act-exit full removal;
 profile lives only in the session's test seam, and the live `refresh_modifiers()` edit swaps the
 feature flags into the same reconcile. The hook suites are
 `tests/act_camera/test_camera.gd`, `tests/act_camera/test_kiss.gd`, `tests/hands/test_caress.gd`,
-`tests/hands/test_actions.gd`, `tests/anatomy/test_act_bridge.gd` and
+`tests/hands/test_actions.gd`, `tests/anatomy/test_api.gd` and
 `tests/act_audio/test_audio.gd`. The pose ledger's order and its three callers, the
 `_fanout()` owner order in `act/tick.gd` (pose service first, then camera, hands, kiss, anatomy
 and audio), the pose-before-facts order in its `_tick()` and the ban on act-exit names under
-`poses/` are static rules in `scripts/architecture.py --check`. The contract is `docs/poses.md`; this doc only names
+`poses/` are static rules in `scripts/architecture.py --check`. The anatomy allow-list and its
+fixture test are `scripts/architecture.py` and `scripts/test_architecture.py`, both run by
+`scripts/test.sh`. The contract is `docs/poses.md`; this doc only names
 the gate.
 
 The body-swap handover is `tests/handover/test_body_swap.gd`: suspend → adopt → resume with the

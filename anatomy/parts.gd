@@ -1,6 +1,6 @@
 extends RefCounted
-## The anatomy roster: per-pony controllers, presented forms, the tail rows, the player host and
-## the placement editor. The API constructs it; nothing else reaches into it.
+## Keeps each presented body's controller and form, plus the shared tail and player pieces.
+## The API constructs it; nothing else reaches into it.
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")

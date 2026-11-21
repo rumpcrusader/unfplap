@@ -162,11 +162,11 @@ body and id and the act host's pony. There is no second bind pass and no facade 
 3. `_bind_act_frame()`: `act/host.gd` (node operations), `act/context.gd`, `act/settings.gd`,
    `act/session.gd`, consent, impact, view, idle, exit, input, swap, phases, tick, setup, start,
    agreement and their sibling handles;
-4. the two service-owned hosts: `AnatomyHost` and `BodyChangeHost` implement their ports from the
+4. the service-owned host: `BodyChangeHost` implements its port from the
    bundle, so there is no callback pass;
 5. `_bind_pose_hosts()` and `_bind_facts()`: the pose, readiness, face, reactions, gate, rest,
    scene-hold, afterglow and act-view callbacks;
-6. the bridge's host bind, the scene gate's bind and its one configuration.
+6. the scene gate's bind and its one configuration.
 
 The three world facades are injected, never static: `Bundle` holds `hud`, `memory` and `stool`;
 `act/context.gd` carries `hud`, `memory` and `stool_service`; `afterglow`, `summary`, `face`,
@@ -182,20 +182,20 @@ Every callback names its owner rather than a runtime method:
 - node and scene operations are `act/host.gd` (`pony_value`, `runtime`, `director`, `mod_enabled`,
   `vr_scene`, `near_mesh`, `tier`);
 - logging is `shared/log.gd` (`debug`, `warning`, `error`, `block`);
-- anatomy reads are `anatomy/act_bridge.gd` (`mouth_point`, `opening`, `face_point`,
-  `set_oral_viseme`, `gaze_point`, `set_missionary_anon`, …).
+- anatomy reads are the session's handle forwards (`anatomy_mouth_point`, `anatomy_opening`,
+  `anatomy_react`, `anatomy_set_mouth_viseme`) and the camera's `gaze_point`/`aim_eyes`.
 
 There is no `Callable(node, "_method")` left in the builder. The checker still validates any that
 would be introduced against `runtime.gd`'s functions.
 
-The anatomy bridge receives the typed `anatomy/act_host.gd`, and the body change receives the typed
-`body_change/act_host.gd`; no service locator or host dictionary is passed.
+The body change receives the typed `body_change/act_host.gd`; no service locator or host
+dictionary is passed. Anatomy receives its API handle through the act context, not a host port.
 
 ## Schedule
 
 `_physics_process` is one `act/tick.gd:tick(delta)` call and `_process` one `render(delta)` call.
-The schedule's physics frame ends with the anatomy `sync_facts()` write, so the persistent anatomy
-controller's own `_process` poll reads the frame's live state, pose, depth and bed frame.
+The schedule stages the anatomy handle every frame from `POSING_IN` through `RESTORE`; the handle
+owns the controller's placement trim and the act's shape drive.
 
 Act physics, in call order (`act/tick.gd:_tick`):
 
@@ -441,8 +441,8 @@ the act boundaries; the HUD reads fields and never probes the runtime. The view 
 `request_pose(target_id, trigger, request)`, `request_command(command_id)` and `command(command_id)`
 are the pose surface. `request_command(id)` is the pure allow check: `end` is reserved and always
 allowed, otherwise the id must be in the active pose's control profile and the live edge lock must
-not deny it. `command(id)` runs that check first, then dispatches the discrete `hole` id and `oral`
-to the anatomy bridge; the act-key hold still owns the one exit path.
+not deny it. `command(id)` runs that check first, then dispatches `hole` and `oral` through the act
+input's target rule and pose request; the act-key hold still owns the one exit path.
 
 The standing start/offer gap is `runtime.act.swap.standing_gap(form)`: it asks
 `act/frame.gd:standing_gap()`, which reads `context.pose.pose_config["gaps"]` (falling back to

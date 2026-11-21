@@ -96,14 +96,13 @@ the step it used.
 `ignore` is the partner pony; the stack must not collide with her.
 
 `runtime.gd` supplies the scene values, calls the handle and composes the gate; it does not read
-a controller's private state. The live opening comes from the per-pony anatomy controller's
-`entrance_point()`: the deformed resting hole point, cached in local space and mapped by the live
-mesh transform, so a scan does not re-run the coat line. The part root comes from
-`PONIES.anatomy.player_root_now()`, and `PONIES.anatomy.player_prepare()` builds the hidden part
-first. The part is normally warmed when the player part is created, so the first standing offer does
-not load it (`docs/anatomy.md`); `player_prepare()` remains the idempotent fallback. The handle reads
-the injected world stool facade for the settings/item/measure calls and `PONIES.anatomy` for the
-player part.
+a controller's private state. The live opening comes from the anatomy API's `entrance_point(pony)`:
+the deformed resting hole point, cached in local space and mapped by the live mesh transform, so a
+scan does not re-run the coat line. The part root and preparation come from
+`anatomy.anon(pony).root_now()` and `:prepare()`. The part is normally warmed when the player part
+is created, so the first standing offer does not load it (`docs/anatomy.md`); `prepare()` remains
+the idempotent fallback. The handle reads the injected world stool facade for the
+settings/item/measure calls and the anatomy API for the cover.
 
 ## Rule
 
@@ -150,7 +149,7 @@ idle hint and the act start.
   icon. A one-time toast points at houses.
 - The idle hint reads the reach and case pair once per scan (once per second) through
   `hotkey_pair()` and hands it to the scene row. The reach reads `entrance_point()`, the cached
-  local resting point, and `player_root_now()`; the case count is read once. The anatomy
+  local resting point, and `AnonBody.root_now()`; the case count is read once. The anatomy
   measurement and the inventory scan are not repeated inside the same scan.
 - The blocked hint reads that pair through `hint_pair()` (forwarded by `runtime.start.hint_stool()`); it
   does not repeat the reach or case reads. Before the first hint the accessor falls back to the live

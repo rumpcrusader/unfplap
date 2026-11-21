@@ -49,7 +49,7 @@ them.
 | `bind_view(view)` | carry the pose view whose `afterglow.close_window` decides that window |
 | `presentation()` | the typed afterglow row: tail target and flicks from the active `view.family`, HUD state and the wings flag; the act's current pose holds |
 | `reset()` | clear every per-act value; the callbacks stay |
-| `phase_tick(delta, anatomy, anatomy_host, standing)` | one AFTERGLOW frame: the bed-body part's tracking, then `close_tick()` when the live pose family is standing |
+| `phase_tick(delta, standing)` | one AFTERGLOW frame: `close_tick()` when the live pose family is standing; the act tick stages the anatomy handle itself |
 | `close_tick(delta)` | count caress time and run the window down |
 | `cancel_close()` | drop the window without a reward |
 | `apply_presentation(pose)` | apply the row: the held pose weight, the tail target and flicks and the HUD state; returns whether the row asks for the wing return |

@@ -133,16 +133,16 @@ the continuous ids; the rest are discrete. `end` is reserved and always allowed,
 `pose_back`/`pose_forward` are reserved for pose navigation with no key emitting them.
 
 The discrete act keys emit a command id through the active runtime's input protocol instead of
-calling an anatomy toggle directly: `V` emits `hole` and `N` emits `oral`, each only when its
+calling an anatomy verb directly: `V` emits `hole` and `N` emits `oral`, each only when its
 `anatomy_*_ready()` gate is true. `act/input.gd:command(id)` then checks the active pose's control
 profile and the live edge lock before dispatching, so a pose that does not allow the id does
 nothing. The key is consumed whether the command is allowed or refused.
 
-`N` is the standing oral request: the `oral` command's anatomy toggle requests `standing_oral`
+`N` is the standing oral request: `act/input.gd:_toggle_oral()` requests `standing_oral`
 from `standing` with the per-mare `oral` consent, and the reverse edge from `standing_oral`. The oral
 forward lock allows `oral`/`pose_back`/`end`, so `N` can return; the reverse lock allows only
 `end`. `V` is denied while the oral lock is live even when its feature gate is on. The VR
-left `by_button` emits the same `oral` command through the bridge's host callback.
+left `by_button` emits the same `oral` command through the VR controller's command callable.
 
 The continuous `thrust`, `lean`, `caress` and `kiss` inputs stay on their polled `RAW_KEYS`/mouse
 path, and the act-key hold owns `end`. Smack, auto-thrust and the debug wheel are body/camera

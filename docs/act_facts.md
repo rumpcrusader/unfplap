@@ -22,7 +22,6 @@ the runtime orchestrator and the scene adapters.
   hands internals (`hands/placement.gd`, `hands/coat_fit.gd`, `hands/path_base.gd` and its paths)
   and the pose modifiers (`poses/skeleton_pose.gd`, plus
   `poses/tail_pose.gd`, `poses/tail_lay.gd`, `poses/body_sway.gd`, `poses/prone_sway.gd`, `poses/ear_twitch.gd`).
-- `anatomy/facts.gd` is the same pattern for the anatomy system.
 
 ## Fields
 
@@ -109,7 +108,6 @@ A missing callback is a no-op, so a test can build the object without a runtime.
 
 | Callback | Contract |
 |---|---|
-| `body_coat_smack` | the anatomy's stock-smack hook |
 | `on_touch` | one readiness touch event, by kind |
 | `on_smack` | one smack impact, by strength |
 | `kiss` | return the live `kiss/service.gd` controller |
@@ -123,11 +121,10 @@ A missing callback is a no-op, so a test can build the object without a runtime.
 | `play_mouth_kiss` | the mouth kiss sound |
 | `act_actions_allowed` | the camera's action window |
 | `auto_panel_open` | the hold-X layer |
-| `view`, `missionary_anon` | the live act view and the posed Anon body |
-| `anatomy_normal`, `anatomy_opening` | the anatomy reads |
+| `view`, `missionary_anon` | the live act view and the pose-owned Anon body |
 | `missionary_face_point` | her face point for the eye view's kiss lean |
 | `authored_pose_asset` | the live authored asset, read only for the missionary look path |
-| `gaze_point` | the missionary gaze target the camera's look write uses |
+| `gaze_point` | the camera's missionary gaze target |
 | `free_look_rotation` | the debug view rotation |
 | `desktop_pose_driver` | the game's pose driver |
 | `pose_host` | the node that answers the Anon pose-driver write-backs |
@@ -136,7 +133,10 @@ A missing callback is a no-op, so a test can build the object without a runtime.
 | `hold_excitement`, `release_excitement` | the act-level excitement Beat hold |
 | `mod_enabled` | whether another mod's entry is active this launch, by mod id |
 
-Helper methods: `smack_body_coat()`, `touch()`, `smack_hit()`,
+`anon` and `anatomy_opening` are values, not callbacks: the anatomy part handle and the
+opening the anatomy stage writes each frame.
+
+Helper methods: `touch()`, `smack_hit()`,
 `kiss_controller()`, `neck_midpoint()`, `write_look()`, `write_forced_glance()`,
 `mark_camera_basis_ready()`, `clock()`, `call_value()`, `missionary_body()`, `feature()`,
 `view_controller()`, `pose_driver()`, `driver_host()`,
@@ -154,8 +154,7 @@ Helper methods: `smack_body_coat()`, `touch()`, `smack_hit()`,
 
 ## Tests
 
-- `tests/act_facts/test_act_facts.gd` — defaults, callback no-ops, helpers and the clock; the
-  anatomy context's host callback boundary.
+- `tests/act_facts/test_act_facts.gd` — defaults, callback no-ops, helpers and the clock.
 
 The import boundary is `scripts/architecture.py --check`; the "no scene reference and no runtime
 reach-in" part of the rule is review, not a text scan.

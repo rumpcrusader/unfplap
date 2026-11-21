@@ -12,7 +12,7 @@ binding registries, the per-body active-change read and the legacy metadata mirr
 `body_change/source.gd` is the documented provider base, `body_change/wire.gd` writes the legacy
 keys from the typed form, and `integrations/changelings.gd` plus
 `integrations/changelings_policy.gd` are the one shipped provider. `body_change/wire()` builds the
-five body-bound systems — `anatomy/body_binding.gd` and the service's own `runtime_binding.gd`,
+five body-bound systems — `body_change/anatomy_binding.gd` and the service's own `runtime_binding.gd`,
 `lod_binding.gd`, `garment_binding.gd` and `smack_binding.gd` — from the facades the entry hands it.
 
 The mechanism covers:
@@ -333,7 +333,7 @@ the same fan-out, and no binding adds a line to the entry.
 
 | Binding | Built from | Reads | Refreshes |
 |---|---|---|---|
-| `anatomy/body_binding.gd` | the anatomy facade | `fit_id`, `rig`, `owned_mesh_meta`, `tail_root` | anatomy placement and rig, appearance, owned marker and the tail seat row |
+| `body_change/anatomy_binding.gd` | the anatomy API | `fit_id`, `rig`, `owned_mesh_meta`, `tail_root` | anatomy placement and rig, appearance, owned marker and the tail seat row |
 | `body_change/runtime_binding.gd` | `PONIES.runtime_for()` | body, form | the live runtime's pose, face, hands, kiss, player frame, view, reactions, wings and audio; a suspended act is left to the one resume |
 | `body_change/lod_binding.gd` | `WORLD.refresh_body_lod()` | body | drops the near/far LOD caches and re-arms the near mesh |
 | `body_change/garment_binding.gd` | the Pantyhose adapter | body | one worn-garment scan; the adapter has no per-pony rebind |
@@ -346,11 +346,11 @@ The runtime binding looks the runtime up through `PONIES.runtime_for(body)` and 
 exit. `bind_body()` and `refresh_body()` both forward to the runtime's idempotent rebind; a body
 without a runtime is inert.
 
-The anatomy binding stores the form in the anatomy facade, creates the per-pony controller with
-that form and refreshes the tail seat row. A revised form with the same rig and fit re-applies the
-live placement; a changed rig or fit rebuilds the placement, appearance and marker and re-seats the
-tail. An unbind releases the tail row and detaches the controller, even when the node stays in the
-tree.
+The anatomy binding calls the API's `present`, `body_changed` and `withdraw`. The API stores the
+form, creates or refreshes the one controller, and updates the tail row. A revised form with the
+same rig and fit re-applies the live placement; a changed rig or fit rebuilds the placement,
+appearance and marker and re-seats the tail. The roster in `ponies/service.gd` owns the
+`Target.ANATOMY` and `Target.TAIL` checks; the binding itself does not gate.
 
 The player frame has no separate binding: the runtime's rebind clears the smoothed shot and calls
 `act/frame.gd:refit(form)`, which re-solves Anon's placement, stance and aim from the presented form

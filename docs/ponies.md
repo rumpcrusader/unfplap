@@ -55,14 +55,15 @@ dynamic on a `Node`, so the registry only needs the methods the act contract pub
 1. the player's own AnonPony and any node with a `rig` are refused, because they are Anon's body,
    not a mare's;
 2. the prepare pass: `body_change.notify_body_ready()` (the provider's form is fitted and mirrored
-   before anything binds), then `anatomy.tail_ready()`, then the stock smack layer's
-   `pony_ready()`, then `eligibility.warm()` (the identity record and the clearance relationship
-   row, read once at attach so the first offer does not pay it). Every hook is idempotent, which is
-   what makes `prepare_late()` safe;
+   before anything binds), then the roster re-checks `Target.ANATOMY`/`Target.TAIL` and calls
+   `anatomy.present()`/`reseat_tail()` or `withdraw()`/`withdraw_tail()`, then
+   `estrus.track()`, the stock smack layer's `pony_ready()`, and `eligibility.warm()` (the identity
+   record and the clearance relationship row, read once at attach so the first offer does not pay
+   it). Every hook is idempotent, which is what makes `prepare_late()` safe;
 3. the pending swap is offered the body, which is the only way a suspended act keeps its runtime;
-4. an already registered body is left alone; otherwise the factory builds the runtime, anatomy
-   binds its controller, the runtime enters the body's tree, the registry maps the body and one
-   `runtime attached <name> id=<id>` line is logged;
+4. an already registered body is left alone; otherwise the factory builds the runtime, the runtime
+   enters the body's tree, the registry maps the body and one `runtime attached <name> id=<id>`
+   line is logged;
 5. the body's `tree_exiting` drops the registry entry, so a freed body never leaves a stale map.
 
 A body with no factory, no runtime or no services attached is a quiet no-op: a suite can bind any
@@ -131,22 +132,23 @@ The game asks the mod for one dialogue note per mare through the `pony_prompt_no
 members must be Nodes. The entry keeps the group join and forwards three lines; the note itself is
 built here: the runtime whose stable id matches the query answers with its `prompt_note()`, and its
 `cycle_note()` is appended when the cycle has one. A runtime that has not read its id yet is
-matched through its body's identity (`anatomy/service.gd`'s `pony_id()`).
+matched through its body's identity (`shared/pony_id.gd:of()`).
 
 ## Host boundary
 
 The entry's `bind(anatomy_service, body_change_service, offer_service, stock_smack_service,
-eligibility_service, api_service)` sets these once, before the first hook, from its
+eligibility_service, estrus_service, api_service)` sets these once, before the first hook, from its
 `_build_services()` list:
 
 | Bound by the entry's service list | Purpose |
 |---|---|
 | `factory` | `(Node pony) -> Node`, the entry's one runtime construction |
-| `anatomy` | `bind(pony, runtime)`, `tail_ready(pony)`, `detach_controller(pony)` |
+| `anatomy` | `present(pony, form)`, `reseat_tail(pony, form)`, `withdraw(pony)`, `withdraw_tail(pony)` |
 | `body_change` | `notify_body_ready(pony)` and `installed_character_ids()` |
 | `offer` | `clear_current()` on an act start |
 | `stock_smack` | `pony_ready(pony)`, `act_start(pony)`, `act_end(pony)` |
 | `eligibility` | `eligible(pony, Target.CHARACTER)` for the Characters tab, and `Target.ACT` behind `act_target()` |
+| `estrus` | `track(pony)` and `untrack(pony)` for the idle cycle schedule |
 | `api` | the cross-mod facade an integration registers its mare through |
 
 `bind_settings()` joins the settings change notification and `shutdown()` leaves it: a settings edit

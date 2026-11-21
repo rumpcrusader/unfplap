@@ -25,16 +25,16 @@ It does not cover eligibility, act readiness, thrust scoring, pose or camera rul
 
 | File | Role |
 |---|---|
-| `anatomy/api.gd` | world facade: per-pony controllers, player part, tail seat/visibility and the placement delegate |
-| `anatomy/body_binding.gd` | the anatomy body binding: forwards a presented body's form to the facade |
-| `anatomy/placement_editor.gd` | the Anatomy Placement editor: the debug target, the placement and reset actions and the report |
-| `anatomy/controller.gd` | persistent per-mare shell: placement, shapes, coat and appearance forwards, the player-part handle, act lifecycle and the typed-facts boundary |
+| `anatomy/api.gd` | the public entry and composition root: roster verbs, act presentation, Anon and garment handles, the `Rig` and the `Parts` |
+| `anatomy/rig.gd` | the one `world/game.gd` boundary; every skeleton, body, hair, dock and mouth read |
+| `anatomy/parts.gd` | per-pony registry: controllers, forms, tail rows, the player host and the placement editor |
+| `anatomy/player_host.gd` | the Anon part lifecycle: create, free, warm and resolve the player body |
+| `anatomy/placement_editor.gd` | the Anatomy Placement editor: the named pony's placement and reset actions and the report |
+| `anatomy/controller.gd` | persistent per-mare shell: placement, shapes, coat, appearance, heat, the player-part handle and the act lifecycle |
 | `anatomy/attach.gd` | persistent attachment: mesh/anchor/dock, visibility, dock restore, the fluid node and idle discharge |
-| `anatomy/facts.gd` | typed runtime context: state, pose, depth, bed frame, cycle phase, the contact/family/frame predicates and the host callbacks |
 | `anatomy/placement.gd` | saved offset/pitch/scale, the calibrated lift and the missionary trims |
-| `anatomy/act.gd` | per-act controller: shaft-driven shapes, winking and fluid; reads the typed act facts and their contact predicates, and returns its opening normal and lid shape |
-| `anatomy/act_bridge.gd` | per-act handle the act owns: the persistent controller handle, the per-act handle, the typed context, the missionary body, the VR controller, the action gates and the aim/gaze reads |
-| `anatomy/act/state.gd` | pure hole/oral mix, shared shape drive and wink scheduler |
+| `anatomy/act.gd` | per-act presentation: shaft-driven shapes, winking, fluid and the afterglow track |
+| `anatomy/act/shape_drive.gd` | pure hole/oral mix, shared shape drive and wink scheduler |
 | `anatomy/act/oral.gd` | the mouth/contact provider: mouth point, base opening, D viseme and clear |
 | `anatomy/act/debug.gd` | the three aim markers |
 | `anatomy/shapes.gd` | persistent closed/idle/fill/grip state, shaft mask and V2 anal keys |
@@ -45,8 +45,9 @@ It does not cover eligibility, act readiness, thrust scoring, pose or camera rul
 | `anatomy/appearance.gd` | material, skin tones, teats, skin strip and their visibility |
 | `anatomy/body_fit.gd` | carries a part modelled on the mare body onto another body's skin binds |
 | `anatomy/udder.gd` | the generated two-lobe teats, grown from her own belly surface |
-| `anatomy/heat.gd` | idle heat phase poll, rest shape, wink and drip schedule |
-| `anatomy/player.gd` | player part mesh, placement, the act's aim/bed-inset write seam, girth/head/length shaping, throb and the hip-offset handshake |
+| `anatomy/heat.gd` | the idle rest shape and one wink burst; estrus owns the schedule |
+| `anatomy/player.gd` | player part mesh, placement, the aim/bed-inset write seam, girth/head/length shaping, throb and the hip-offset handshake |
+| `estrus/service.gd` | the optional cycle: phase, per-pony wink schedule and the idle rest push |
 | `shared/anatomy_placement.gd` | pure placement schema, merge/sanitize/diff and the one-time legacy migration |
 | `shared/body_profile.gd` | the typed `RigProfile`, the legacy body profiles, the body-fit key and the standing entrance offset |
 | `anatomy/tail/seat.gd` | world controller: seats every adult mare's hair tail at the reference dock, installs the dock cuff, applies placement and restores the original |
@@ -73,137 +74,87 @@ The internal entry points are:
   refresh to each controller, and pushes the live player part to every controller on a player
   rebuild. Runtime and pose systems use its methods; no other system needs the player node or a
   controller handle.
-- `act/build.gd` builds the anatomy bridge and its typed host once per pony;
-  `act/session.gd:refresh_anatomy()` resolves the controller through the service, and the start
-  and exit ledgers ask it to begin/end the act. The act tick calls the per-act handle and the
-  bridge supplies the body-coat jiggle handoff.
-- `poses/missionary_anon.gd` and `poses/standing_anon.gd` use the service's player methods for the hip
-  offset, root position and scale. The missionary act body is placed from the v7 hips anchor and
-  mattress contact (`place_origin`), so a non-canon pony keeps him on the mattress at her size.
+- `act/start.gd` calls `begin_act` before the pose reads its configuration, and `act/tick.gd`
+  stages the returned handle every frame. `act/exit.gd` ends it before the pose is freed;
+  `act/swap.gd` ends the old handle and begins the new body's. The runtime owns the `act_started`
+  signal the start emits.
+- `poses/missionary_anon.gd` and `poses/standing_anon.gd` read the `AnonBody` handle from the act
+  facts: the standing body applies its wanted pelvis offset through `drive_hip()`, and the bed
+  body asks for `hip_offset()` and records the applied value.
 - `input/service.gd` calls the act session's anatomy action gates; `hud/service.gd` renders the matching rows.
 - `settings/service.gd` and `registry/service.gd` use `shared/anatomy_placement.gd` as the shared pure schema.
 
-The controller reads the typed `anatomy/facts.gd` object and host callbacks; it never reads the
-runtime node. `anatomy/attach.gd` owns the mesh, dock, visibility and fluid, so the controller is
-a thin shell. The act reads the controller's `part()` handle and `player_track()` forward; it has
-no service dependency.
+The controller reads only its injected `anatomy/rig.gd` and Settings; it never reads the runtime
+node or eligibility. `anatomy/attach.gd` owns the mesh, dock, visibility and fluid, so the
+controller is a thin shell. The internal act reads the controller's `part()` handle and
+`player_track()` forward; it has no service dependency.
 
 ## Internal API
 
-`PONIES.anatomy` (world service):
+`PONIES.anatomy` holds one `anatomy/api.gd` instance. The public verbs are:
 
 ```gdscript
-setup()
-on_player(body), on_world_closed(), refresh_player(), player_apply_live()
-controller_for(pony, runtime), bind(pony, runtime), controller(pony)
-form_for(pony), bind_body(pony, form), refresh_body(pony, form), unbind_body(pony)
-refresh_all(), apply_live(), apply_settings(), detach_controller(pony), shutdown()
-tail_ready(pony), refresh_tails(), refresh_dock_color(pony), can_seat(pony), can_dock(pony),
-can_place_tail(pony), tail_report()
-placement_debug(op, value), placement_show()
-consent(pony, key), status(text)
-garment_hull(pony), garment_transform(pony), garment_visible(pony), garment_parent(pony)
-garment_hull_rebuild(), note_act_started(pony)
-player_encounter(on), player_showing()
-player_prepare(), player_root_now(), player_root_natural(), player_shaft_length_m()
-player_hip_offset(), player_note_hip_offset(offset), player_reset_pelvis(), player_debug_scale()
+present(pony, form), withdraw(pony), body_changed(pony, form)
+reseat_tail(pony, form), withdraw_tail(pony)
+begin_act(pony, view, bed_frame) -> ActPresentation
+anon(pony) -> AnonBody, entrance_point(pony) -> Vector3
+wink(pony, beats), rest(pony, open)
+garment(pony) -> Garment, rebuild_garment()
+follow_body_coat(pony, flank) -> bool
+debug_placement(pony, op, value, tail_owned), debug_show(pony), debug_anon_scale(pony)
 ```
 
-`apply_settings()` is the facade's settings change listener: the player part, every live controller
-and the tail seats re-read the switches in one pass.
+`present` is idempotent and a null form means the body's own default. `body_changed` updates an
+existing controller and tail row without a second one. `begin_act` returns null when the pony is
+not presented; its handle's `end()` is the only teardown. The status signal `status(text,
+seconds)` is the one HUD output.
 
-The Placement editor is `anatomy/placement_editor.gd`, owned by the facade as `placement_editor`.
-`placement_debug()` and `placement_show()` are one-line delegates. The editor owns
-`placement_target()`, `placement_id()`, `placement_values(id, fit_id)`, `placement_refresh()`, the
-placement and reset calls, and the report; it calls back into the facade for `can_dock()`,
-`can_place_tail()`, `apply_settings()` and `tail_report()`, and calls `SETTINGS.apply_live()` when it
-writes the default block.
+The handles are inner classes of `api.gd`:
 
-The handles are typed at the facade boundary: `controller_for()` and `controller()` answer the
-`anatomy/controller.gd` handle, `part()` answers `anatomy/player.gd` or null, and
-`player_debug_scale()` answers the part's live world scale as a `Vector3` (infinite when no part is
-shown). `body_profile()` takes the identity `Resource` and answers `Array[float]`;
-`off_roster_ids()` takes two `Array[String]` lists. The missionary Anon body stays an opaque `Node`
-handle because the pose service owns its script.
+- `PoseView` has `family`, `frame`, `contact_kind`, `contact_target` and the live `bed_frame`.
+- `ActStage` has `phase`, `depth`, `penetration_m` and `size_scale`.
+- `ActPresentation` exposes `pose`, `stage`, `climax`, `end`, the `can_target_*` gates, the
+  `target_*` choices, `target`, `mouth_point`, `hold_mouth`, `set_mouth_viseme`, `frame_point` and
+  `frame_axis`.
+- `AnonBody` exposes `prepare`, `showing`, `root_now`, `shaft_length_m`, `drive_hip`,
+  `hip_offset`, `note_hip_offset`, `debug_scale`, `reset_pelvis` and `encounter`.
+- `Garment` exposes `hull`, `transform`, `parent` and `visible`.
 
-The act's own handles are typed the same way: its controller handle is `anatomy/controller.gd`,
-its cached player-part handle `anatomy/player.gd`, the oral provider `anatomy/act/oral.gd` and the
-aim markers `anatomy/act/debug.gd`. The act calls each one directly; a freed or absent handle is
-still an `is_instance_valid()` guard, not a missing method. Inside the modules,
-`anatomy/attach.gd` keeps the controller handle and the `anatomy/fluid.gd` node,
-`anatomy/appearance.gd` the teat spring, and `anatomy/coat.gd` the `anatomy/still_zone_debug.gd`
-overlay.
+`Parts` owns `_controllers`, `_forms`, the tail seat/visibility and the `PlayerHost`. A controller
+is constructed with `pony`, `form`, the `Rig`, a status callback and a dock-colour callback. The
+controller never reads the runtime node or eligibility; the roster owns the gate. `PlayerHost`
+resolves the Anon body through `Rig.anon_body_of()` and owns the hidden warm mesh.
 
-`PONIES.anatomy.controller(pony)` (per-pony handle):
+The Placement editor no longer selects a pony: `debug_placement(pony, op, value, tail_owned)` and
+`debug_show(pony)` take the body the debug caller aimed at. A source-owned tail is passed as
+`tail_owned` by `debug/actions.gd`, which also applies the source's wrapper after a write.
 
-```gdscript
-setup(pony, facts, service, consent, status, dock_refresh, eligible)
-set_facts(facts)
-set_part(node), part(), player_track(...)
-form(), set_form(form), form_fit_id(), refresh_form(form)
-refresh(), detach(), apply_live()
-begin_act() -> Node, end_act()
-apply_part_visibility(show, teats_on, strip_on)
-is_attached(), body_coat_refresh()
-body_coat_mesh(), body_coat_material(), body_outline_material()
-fluid(), idle_discharge(count)
-entrance_point(), invalidate_entrance()
-garment_hull(), garment_transform(), garment_visible(), garment_parent()
-garment_transform_for(body, mesh), garment_margin_local(transform, millimetres)
-```
-
-`entrance_point()` is the resting hole anchor for the footstool reach: the coat line's deformed
-local point is cached and mapped through the live mesh transform. `invalidate_entrance()` drops it
-on a bind/attach, a form refresh, a body change and a world enter; the act's live `hole_point()`
-keeps deforming every call.
-
-The `PONIES.anatomy` `act_started(pony)` signal is emitted by `note_act_started()` when a
-controller builds its per-act handle, before the pose starts. A world integration uses it to take
-a worn garment off before the first rendered act frame. `garment_hull_rebuild()` clears the shared
-hull cache; the next read rebuilds once.
-
-`controller.begin_act()` (per-act handle):
-
-```gdscript
-tick(delta, facts)
-toggle_hole(state)
-toggle_oral(pose, display_name, features)
-hold_oral_mouth(), set_oral_viseme(letter), oral_mouth_point()
-opening_normal(), hole_point(), hole_rear()
-on_climax(), afterglow_tick(delta, facts)
-end(), teardown()
-```
-
-`part()` is an anatomy-internal handle for the act; other systems use the service's `player_*`
-methods. The act and controller read `anatomy/facts.gd`; neither reads the runtime node.
-
-The controller's `consent` callback is bound to its pony and takes the key only
-(`consent(key)`); the facade's `consent(pony, key)` stays the world-level lookup.
+`ActPresentation` stages the act with the caller-owned `PoseView` and `ActStage`. `act/tick.gd`
+calls `stage(delta, stage)` every frame from `POSING_IN` through `RESTORE`; `act/tick._fanout`
+updates the view and calls `pose(view)` on every change. `climax()` is one-shot: it sets the
+handle's `climaxed` flag, tells the internal act, clears the grip and releases the fluid.
 
 ## Controls
 
 | Input | Action |
 |---|---|
-| `V` | toggle the anal hole in `ACTIVE`/`CLIMAX`; refused during the mouth contact |
+| `V` | turn the vulva or the anus in `ACTIVE`/`CLIMAX`; refused in the mouth and face contacts |
 | `N` | request the standing oral pose, or its return edge |
 
-- The controls require their feature flag: `features.anatomy_holes` and `features.anatomy_oral`.
-  With both flags off the keys are not consumed and the act is the master act.
-- With `anatomy_mode = never` the keys pass through: the act controller does not exist.
-- `V` toggles the anal hole. The mare bits mesh carries the anal shape keys.
-- `N` runs the act bridge's `toggle_oral()`: the per-mare `oral` consent, the `standing`/
-  `standing_oral` edge request and the refusal line through the pose host. The act session only
-  calls it; the edge requirements still check the feature.
-- Anal and oral need the mare's per-mare consent (`get_profile(id).consent.anal` / `.oral`); a
-  refusal shows the anatomy status line and changes nothing. The oral consent is the `consent`
-  requirement on the forward pose edge.
+- The controls require their gate: `SETTINGS.anatomy_holes` for `V` and `SETTINGS.anatomy_oral`
+  for `N`. `act/input.gd:anatomy_hole_ready()` and `:anatomy_oral_ready()` read the act handle's
+  `can_target_vulva()`/`can_target_mouth()`, so the input service only consumes a key when the
+  anatomy offer is live.
+- `V` reads `target()`. From `VULVA`, if `can_target_anus()` and the per-mare `anal` consent from
+  `eligibility.consent(pony, "anal")` pass, it calls `target_anus()`; otherwise it calls
+  `target_vulva()`. A refusal is the input's HUD line, not an anatomy signal.
+- `N` calls `can_target_mouth()`, requests the authored `standing ↔ standing_oral` edge through
+  `poses/service.gd` with the per-mare `oral` consent, and shows the pose's refusal line. When
+  the new view reports `contact_kind == "mouth"`, the act fan-out calls `target_mouth()`.
+- `pose(view)` clears a `MOUTH` target back to `VULVA` when the contact is no longer mouth, so the
+  key cannot be locked out after the oral edge ends. A face contact overrides every target and
+  parks the part.
 - The act key owns the act; `V`/`N` never start or end it.
-
-The keys reach the runtime through the `hole` and `oral` commands
-(`shared/act_commands.gd`); the active pose's control profile and live edge lock must allow the id
-first. `N` is a thin delegate: `act/input.gd` passes the per-mare oral consent to the pose
-service's `request_pose`, which starts the authored `standing ↔ standing_oral` edge or refuses it. The anatomy act only reads the
-resulting `view.contact_kind`/`view.contact_target`.
 
 ## Attachment and identity
 
@@ -244,14 +195,14 @@ resulting `view.contact_kind`/`view.contact_target`.
   and attachment copies it onto the anatomy mesh and its parts, which ride the same skeleton. Queen
   Chrysalis's body uses this so its `chrysalis_own` hide pass leaves the anatomy alone. The marker
   is provider metadata, not a `docs/api.md` convention.
-- The anatomy body binding (`anatomy/body_binding.gd`) is the anatomy extension point of the
-  body-change binding chain: `body_change.wire()` builds it from the anatomy facade the entry hands
-  over. `bind_body()` stores the form, creates the per-pony controller with it and refreshes the
-  tail row; `refresh_body()` re-reads the same body's revised form; `unbind_body()` releases the
-  tail row and detaches the controller even when the node stays in the tree. The controller's
-  `refresh_form()` re-fits the placement and rebuilds the appearance, marker and placement only
-  when the rig or fit changed; a same-rig revision re-applies the live placement.
-  `docs/body_change.md` owns the binding and lifecycle contract.
+- The anatomy body binding is `body_change/anatomy_binding.gd`: `body_change.wire()` builds it
+  from the anatomy API the entry hands over. `bind_body()` calls `present`, `refresh_body()` calls
+  `body_changed`, and `unbind_body()` calls `withdraw`. The API stores the form, creates or
+  refreshes the one controller and updates the tail row; `refresh_form()` re-fits the placement
+  and rebuilds the appearance, marker and placement only when the rig or fit changed.
+  `docs/body_change.md` owns the binding and lifecycle contract. The roster gate is in
+  `ponies/service.gd`, which checks `Target.ANATOMY` before `present` and `Target.TAIL` before
+  `reseat_tail` and re-checks on attach, act start and a settings change.
 - The mare bits mesh and skin strip ship with the pack, so a missing mesh is a broken build, not a
   state the controller handles. The teats are generated from her body; the old mare-shaped
   `teats.scn` is the fallback when her belly cannot be measured.
@@ -412,101 +363,35 @@ that need a skeleton, body, hair, dock or mouth. No other anatomy file calls `GA
 
 ## Act anatomy
 
-The runtime passes one reused typed context from `anatomy/facts.gd`: `state`, `pose_view`, `depth`,
-`penetration_m`, `climaxes`, `size_scale`, `auto_pace`, `fluid_ground_y`, `penetration_reach`,
-`bed_frame` and `cycle_phase`. The bridge owns that one object; the act keeps it across ticks and
-`reset()` never allocates another. The act and the persistent controller read the object and the
-host callbacks; neither reads the runtime node. The act no longer writes pose keys or a facing: the
-pose-owned oral turn owns the frame, the facing and the neck keys, and the act reads the facts
-contact predicates for its part target and shape drive and its `frame` for the bed-only inset.
-The per-act handle is created without a start pose id. It returns the mouth point and opening through
-`oral_mouth_point()`/`hole_point()` for the runtime's pose host callbacks.
+`anatomy/api.gd:begin_act(pony, view, bed_frame)` creates the internal `anatomy/act.gd` and
+returns an `ActPresentation`. The act keeps the caller-owned `PoseView` and `ActStage` by
+reference; it allocates nothing per frame. The controller's `part()` is the one player-part seam;
+the API's `PlayerHost` pushes the part to every controller on a player rebuild, and the act calls
+`player_track()` for the per-tick track. The act writes the aim and bed inset through
+`player.set_aim()` and `player.set_bed_inset()`.
 
-The controller's `part()` handle is the one player-part seam. The service pushes the live part to
-every controller on `on_player()`, `refresh_player()` and `on_world_closed()`; the act caches the
-handle from `anatomy.part()` in `setup()`, refreshes an invalid handle in `tick()`, and calls
-`anatomy.player_track()` for the per-tick track. The act writes the aim and the bed inset through
-`player.set_aim()` and `player.set_bed_inset()` instead of setting fields by name. The missionary
-`part_inset_m` is read once in `setup()`; a live debug edit applies at the next act.
+`act/tick.gd` is the single per-frame anatomy caller: it fills `ActStage.phase` from the act
+state, `depth` and `penetration_m` from readiness and `size_scale` from the camera, then calls
+`ActPresentation.stage(delta, stage)` for every state from `POSING_IN` through `RESTORE`.
+`act/tick._fanout` copies the live pose family, frame and contact into `PoseView` and calls
+`ActPresentation.pose(view)` on every change. `act/phases.gd` calls the handle's `climax()` on
+each climax event, and `act/exit.gd` calls `session.release_anatomy()` before the pose is freed.
+`act/start.gd` creates the handle before the pose reads its configuration and emits the runtime's
+`act_started(pony)` for the world integrations.
 
-The bridge writes no perf gate: the persistent controller and the tail seat read
-`shared/perf.gd`'s own switch, which costs nothing while the profiler is off.
+The face contact has a real provider. `PoseView.contact_kind == "face"` parks the part once
+(`encounter(false)`), zeroes the fill, grip and anal shape, clears the shaft and drives the neutral
+closed vulva; it never calls `player_track` or writes the part's aim or bed inset. The first
+opening tick restores the part once and the normal track resumes. `contact_target` is the mouth
+point in the mouth contact and `Vector3.INF` otherwise; the act falls back to the live hole when
+it is not finite.
 
-## Act bridge
-
-`anatomy/act_bridge.gd` is the per-act handle the builder owns. It is a `RefCounted`, created by
-`anatomy.gd.new_act(host, service)` with the typed `anatomy/act_host.gd`; `act/build.gd` creates
-one per pony, and `act/session.gd:refresh_anatomy()` binds it and lets the controller re-resolve.
-It owns:
-
-- the persistent controller handle and the per-act `anatomy/act.gd` handle;
-- the reused `anatomy/facts.gd` context;
-- the service-owned missionary Anon body as an opaque handle, and the VR standing controller;
-- the action gates (`hole_ready`, `oral_ready`, `actions_ready`), the hole toggle, the mouth
-  point and the viseme write, the face point, and the placement controls;
-- the aim/gaze reads (`gaze_point`, `aim_eyes`, `normal`, `opening`, `rear`);
-- the act hooks (`tick`, `on_climax`, `afterglow_tick`, `end`, `apply_live`, `detach`);
-- the VR hooks (`vr_start`, `vr_stop`, `vr_y_held`, `vr_forward`, `vr_depth`).
-
-The host is an abstract port (`anatomy/act_host.gd`); `act/build.gd` implements it once per pony
-as `AnatomyHost`, and every method names its owner: the node operations and `vr_scene()` are
-`act/host.gd`; the live state and act values are session accessors (`state_value`, `pose_view`,
-`cycle_phase`, `kiss_service`, `reactions_service`); the anatomy and eligibility facades are the
-`ponies` statics; depth, penetration, climaxes and auto pace are readiness; size scale and the act
-view are the camera session; the bed frame is the pose session; fluid ground, shaft length and the
-pose handles are their modules. The abstract methods make an incomplete implementation a parse
-error, so there is no missing-callable no-op. `act/host.gd:vr_scene()` is the one
-scene read: `{player, avatar, camera, origin, hip_target}`, or null when the player or the XR rig is
-absent. The bridge wires `vr/service.gd` from that host and does no `find_child`/`find_children`
-lookup itself.
-
-The bridge never reads the runtime node's private fields and never preloads a host. The action
-keys, consent gates and shape behavior are `anatomy/act.gd` and the paragraph above; the bridge
-only routes them. `oral_ready()` is the feature, the standing pose family and an active act;
-`hole_ready()` reads the facts `mouth_contact()`/`face_contact()` predicates so V is refused while
-either owns the contact. The bridge's own contact reads and `pose_family()` use the same facts
-helpers, so the bridge and the act share one predicate. The VR left `by_button` emits the `oral`
-command through the host's `command` callback.
-
-The face contact has a real provider. `face_point()` is the act body's `mouth_point()` — his
-authored `Head` plus the game's eye-to-mouth offset. The act handles the `opening`, `mouth`, `face`
-and `none` contact kinds. In face contact the per-act handle parks the part once
-(`encounter(false)`), zeroes the fill, the grip and the anal shape, clears the shaft and drives the
-neutral closed vulva; it never calls `player_track` or writes the part's aim or bed inset. The
-parked part reports a zero `hip_offset_wanted`, so the act body holds its authored pose while the
-pose's face driver owns the contact placement. The first opening tick restores the part once
-(`encounter(true)`) and the normal track resumes. The `mouth_point()` oral provider is unchanged.
-
-The missionary Anon body is owned by `poses/service.gd`, not the bridge. It is the `act_body`
-spec's body, so the adapter is generalized over the `bed_facesit` row and keeps the one
-node, handle and act-scope ownership. The service binds the live pose's authored asset pair to it;
-outside an edge both sides are the live asset, and on an `anon` blend the adapter mixes the two
-authored placements and bone blocks. The bridge receives the node as an opaque handle through
-`set_missionary_anon()` and uses its `refresh_palm`/`diag_row`
-and eye reads; it never creates, installs, applies, frees or re-parents it. `end()` only calls the
-body's `remove()` to hand the avatar back; the pose session installs it through its `anon` channel,
-applies it from `render_write()` and frees the node once in its own `release_pose()`. The bridge's
-`pose_changed(view)` carries the view family and contact kind without rebuilding the controller or
-the act. The hip offset still comes from the part; a parked part reports a zero
-`hip_offset_wanted`, so the act body holds the authored pose while the face contact owns the
-placement.
-
-`apply_live()` re-reads the host's `state`, `pose_view`, `depth`, `bed_frame` and `cycle_phase`
-before it refreshes the controller. The runtime writes the typed facts once per physics tick,
-after the tick, so the persistent controller's own `_process` poll — the placement trim and the
-idle heat tick — reads the frame's live pose, depth and bed frame. The per-tick write does not
-rebuild the anatomy material; the explicit refresh is what restores the pose-specific
-appearance, including the missionary-only fold hack, when the pose family changes.
-
-A body swap changes the controller, not the act. The old bridge ends its act handle at suspension;
-the body-change service has already applied the new body's form and the anatomy binding has stored
-it before the registry calls `anatomy.bind(new_pony, runtime)`, so the placement and the tail seat
-resolve the body that is actually there. The resumed runtime calls `begin_act()` on the new
-controller. The new act starts at the current depth and readiness; the next `context()` carries the
-live penetration and climaxes. The player part stays shown because the encounter continues. A late
-variant raises the form revision; the service's refresh updates the same controller and re-seats
-the tail without a second controller, and a same-rig revision only re-applies the live placement.
-The settled form also rebuilds the body's near/far LOD through `WORLD.refresh_body_lod()`.
+The pose-owned oral turn supplies the mouth and opening points through the act session's
+`anatomy_mouth_point()` and `anatomy_opening()`. `poses/service.gd` owns the missionary Anon body;
+the act facts' `missionary_anon` callback reads it, so anatomy no longer carries that body. The
+gaze target and pupil aim move to `camera/service.gd:gaze_point()` and `:aim_eyes()`, which read
+the same act body. VR scene construction moves to `vr/service.gd:attach()`, called by the session
+with the act's typed callbacks.
 
 ### Shape drive
 
@@ -599,24 +484,19 @@ The settled form also rebuilds the body's near/far LOD through `WORLD.refresh_bo
 
 ## Idle heat
 
-- Idle heat uses the same phase as the estrus cycle. `cycle_phase()` is `normal` when the feature
-  is off or no relationship runtime exists; the debug cycle override still applies. The bond-day
-  phase is rebuilt every `CYCLE_REFRESH_S`; the feature switch and the override are read live.
-- `POSING_IN`, `ACTIVE` and `CLIMAX` suppress the idle display because the act owns the mesh.
-  `AFTERGLOW`, `RESTORE` and `IDLE` may display it.
-- The idle display requires the anatomy mesh to be shown and not a far mesh.
-- In heat she rests at `heat_rest_open` of the open shape. The rest is cached by
-  `heat.read_settings()` on setup and `controller.apply_live()`; a live edit applies at that
-  refresh, not mid-tween. Each idle burst uses
-  `cycle.wink_burst_count()`: 70% single, 25% double, 5% triple. The gap is
-  `wink_min_s…wink_max_s`.
-- Each beat opens to the `wink_open_min…wink_open_max` range of the open shape with an
-  accelerated open, a short hold and an accelerated close. `wink_timing` scales the three phase
-  times.
-- The first beat's peak may discharge one or more droplets. `drip` scales the count (`0` turns it
-  off), `fluid_size` the droplet size and `fluid_alpha` the opacity. The droplets launch along the
-  ground with `fluid_y_speed` and fall under the fluid node's gravity; the persistent node pools
-  them on the ground under her.
+- `estrus/service.gd` owns the cycle phase and the per-pony wink schedule. It is the only reader
+  of `features.estrus_cycle`, `anatomy.wink_min_s`, `anatomy.wink_max_s` and
+  `anatomy.heat_rest_open`; it snapshots them on world enter and on a settings change.
+- On a phase change estrus calls `anatomy.rest(pony, heat_rest_open)` and, in heat, a burst timer
+  calls `anatomy.wink(pony, cycle.wink_burst_count(randf()))`. The burst mix is 70% single, 25%
+  double, 5% triple; the gap is `wink_min_s…wink_max_s`.
+- Anatomy suppresses both verbs while an act holds the mesh. `anatomy/heat.gd` keeps only the
+  resting shape and one burst: it applies `set_idle_wink(amount)` and does not read Settings or
+  poll a phase. The idle display still needs the mesh shown and not a far mesh.
+- A burst opens to the `wink_open_min…wink_open_max` range with an accelerated open, a short hold
+  and an accelerated close; `wink_timing` scales the three phase times. The first beat's peak may
+  discharge droplets: `drip` scales the count, `fluid_size` the size and `fluid_alpha` the opacity.
+  They launch along the ground with `fluid_y_speed` and fall under the persistent fluid node.
 - Normal and diestrus rest closed. The idle path does not fight a running tween; it only writes a
   new rest when no tween is active.
 
@@ -749,10 +629,10 @@ sample of the body coat.
   `prepare()`, so the first standing offer does not load `anon_part.scn`, its shader and three
   textures inside the offer scan. The anatomy master must be on; a body that is not ready yet is
   left to the gate's fallback.
-- `player_prepare()` builds the part mesh hidden so the standing footstool gate can measure its
+- `AnonBody.prepare()` builds the part mesh hidden so the standing footstool gate can measure its
   natural root before an encounter, and is the idempotent fallback/rebuild path after the warm.
-  `player_root_now()` returns `Vector3.INF` until the mesh exists; `root_now()` on the part does
-  the same guard.
+  `AnonBody.root_now()` returns `Vector3.INF` until the mesh exists; the part's own `root_now()`
+  does the same guard.
 - `part_throb` scales a two-lobe heartbeat. It also lifts the visible shaft while it is outside
   her; the lift fades to nothing at full depth.
 - The tip rests at her entrance when it is all the way out: the runtime clamps penetration at zero,
@@ -887,10 +767,10 @@ one target rule.
 
 ## Lifecycle
 
-- Scope: world + per-act bridge
+- Scope: world + per-act handles
 - Constructed by: the entry's service list (`_build_services()`)
-- Begin: `setup()`/`new_act()`
-- End: `on_world_closed()`/`shutdown()`
+- Begin: `on_world(host)`/`begin_act(pony, view, bed_frame)`
+- End: `on_world_closed()`/`shutdown()`, or the act handle's `end()`
 - Idempotent: yes
 
 
@@ -901,10 +781,12 @@ declaration's `##` comment describes its row, so no label, hint or bound is repe
 section is the anatomy-specific behaviour. `SETTINGS.anatomy_on()` is the one gate the mode drives.
 
 The frame-path values are snapshotted: the coat-line and draw toggles, the anatomy mode, the
-grip/aim/scale tuning, the placement trims, the part standoff and the idle rest are read on
-`setup()`, `apply_live()` or the visibility poll. A live edit applies at that refresh;
-`part_inset_m` applies at the next act. The wink burst shape/timing and the action feature flags
-stay event-time reads.
+grip/aim/scale tuning, the placement trims and the part standoff are read on `setup()`,
+`apply_live()` or the visibility poll. A live edit applies at that refresh; `part_inset_m` applies
+at the next act. The wink burst shape/timing and the action feature flags stay event-time reads.
+`estrus/service.gd` is the only reader of `features.estrus_cycle`, `anatomy.wink_min_s`,
+`anatomy.wink_max_s` and `anatomy.heat_rest_open`; it snapshots them on world enter and on a
+settings change.
 
 - While the mode is `never` the settings page dims and disables every Anatomy row below the pill.
 - The old `show_dock` and `dock_color` keys migrate into the dock style in that order, with a
@@ -945,8 +827,8 @@ stay event-time reads.
 - With **Enable debug** and **Print perf logs** on, the anatomy contributes the
   `anatomy_process`, `anatomy_visibility`, `anatomy_tick`, `anatomy_coat_line` and
   `anatomy_afterglow` chunks to the profiler's block, plus `tail_attach` and `tail_refresh` when
-  the tail seat builds. The act's physics write is `runtime_anatomy_sync`, with `anatomy_bind`,
-  `anatomy_sync`, `anatomy_facts` and `anatomy_cycle` children. The seat also prints
+  the tail seat builds. The act's per-frame anatomy call is `anatomy_stage`; estrus adds
+  `estrus_tick`. The seat also prints
   `tail perf refresh` and a once-per-second
   `tail perf seats=… skinned=… builds=…/s` line; steady state is `builds=0/s` because the dock
   blend runs on the GPU. The seat's own `_process` returns on the profiler's switch, so it costs
@@ -988,17 +870,16 @@ Current suites:
 - `tests/anatomy/test_geometry.gd`: the lip-radius rule, the body-local mapping, the still-zone
   radius, the V2 anal ring weights/centre, the coat line targets/bend/frames and the shader
   sample-count sync.
-- `tests/anatomy/test_act_state.gd`: the hole/oral mix, the shared shape drive and the wink
+- `tests/anatomy/test_shape_drive.gd`: the hole/oral mix, the shared shape drive and the wink
   scheduler.
 - `tests/anatomy/test_oral_turn.gd`: the mouth/contact provider returns her mouth point and the
   base opening, follows the player's size scale, holds and clears the `D` viseme, and carries no
   turn, mix, facing or pose-key state.
-- `tests/anatomy/test_act_bridge.gd`: the typed host port, the facts sync, the action gates, the
-  mouth point and viseme routing, the face point, the VR scene wiring, the aim/gaze reads and the
-  pose-change contact carry.
-- `tests/act_facts/test_act_facts.gd`: the `anatomy/facts.gd` typed context, its host callbacks,
-  its view predicates and reset identity, alongside the `shared/act_facts.gd` model it shares the
-  boundary with.
+- `tests/anatomy/test_api.gd`: the public entry, the caller-owned read models, the safe absent
+  handles and the act target gates.
+- `tests/act_facts/test_act_facts.gd`: the `shared/act_facts.gd` read model, its host callbacks and
+  its defaults.
+- `tests/estrus/test_estrus.gd`: the phase override, the static read and the tracked schedule.
 - `tests/anatomy/test_afterglow_track.gd`: the afterglow keeps the attached part alignment and the
   live opening aim, follows the pose view's mouth anchor while the contact holds, returns to the
   opening once it is released, and clears the missionary inset outside the bed pose.
@@ -1015,13 +896,12 @@ Current suites:
   body, the vulva cut, the still zone, the material rebuild after a mesh re-set, the form rig/fit
   appearance refresh, the fold-colour scoping and the cached entrance point (one deformation per
   body revision, the live transform, the live hole point's per-call deformation).
-- `tests/anatomy/test_heat.gd`: the idle heat suppression, phase poll, rest shape and wink
-  schedule.
-- `tests/anatomy/test_attach.gd`: the per-mare consent, the identity/profile, the provider
-  `eligible` assertion, the participation gate, the runtime gates, the anatomy binding's form
-  store, one-controller reuse and refresh, the unbind release, the body-owned marker and the
-  source marker on the anatomy mesh and parts. The source-owned tail wrapper is
-  `tests/integrations/test_changelings.gd`; the VR tracker API regressions are
+- `tests/anatomy/test_heat.gd`: the rest shape, one idle wink burst and the act suppression; the
+  schedule half is `tests/estrus/test_estrus.gd`.
+- `tests/anatomy/test_attach.gd`: the stable id, the presented default form, one controller per
+  body, a revised form, and the withdraw path. The eligibility gates are in the roster and
+  `tests/ponies/test_service.gd`; the body binding chain is `tests/body_change/test_service.gd`;
+  the source-owned tail wrapper is `tests/integrations/test_changelings.gd`; the VR callables are
   `tests/test_vr_act.gd`.
 - `tests/anatomy/test_dock_attach.gd`: the dock's two-bind skin and bind math.
 - `tests/anatomy/test_dock_seat.gd`: the dock base ring stays at or inside `rump_z - 4 mm`.
@@ -1029,8 +909,8 @@ Current suites:
   world adapter's surface overrides and act-start undress.
 
 All anatomy suites live under `tests/anatomy/`. Pure tests must not instantiate a scene or read
-private controller state; facade tests use documented accessors and fakes. The act exposes
-read-only diagnostics for its own suite: `facts()`, `face_parted()`, `anal_turned()`,
+private controller state; facade tests use documented accessors and fakes. The internal act
+exposes read-only diagnostics for its own suite: `face_parted()`, `anal_turned()`,
 `contact_point()`, `contact_normal()`, `wink_left()` and `wink_beats()`. `heat.suppressed()`,
 `shapes.apply_anal_local()` and `shapes.state()` are the shape/heat diagnostics the pure modules
 keep for their suites.
@@ -1070,44 +950,17 @@ keep for their suites.
   represent is a deferred refinement, and the debug overlay is the way to see one. The panty
   mesh's own low resolution is a separate later concern; the mod does not tessellate it at
   runtime.
-- The persistent controller and the act read the typed `anatomy/facts.gd` context, not the
-  runtime node.
+- The controller and the internal act read the activity's caller-owned read models, not a
+  runtime object. `shared/act_facts.gd` belongs to the act, not anatomy.
 
-## Migration target
+## Boundary
 
-The anatomy migration is complete:
+- `anatomy/rig.gd` is the only anatomy file that preloads `world/game.gd`.
+- No anatomy file preloads a mod service except `settings/service.gd`; no outside file preloads
+  an anatomy file except `anatomy/api.gd`.
+- `scripts/architecture.py --check` enforces both rules, and `scripts/test_architecture.py` pins
+  an allowed and a forbidden synthetic edge.
 
-- `anatomy/api.gd` is the world facade the entry constructs and `ponies` exposes as
-  `PONIES.anatomy`. It owns the per-pony
-  controllers, the player part, tail seating and the placement editor delegate.
-- `anatomy/placement_editor.gd` owns the Placement target resolution and the placement and reset
-  actions; the facade keeps the debug entry points as delegates.
-- `anatomy/appearance.gd`, `shapes.gd`, `coat.gd`, `heat.gd`, `placement.gd` and `attach.gd` are
-  split out. The controller is a thin shell; the attach module owns the mesh, dock, visibility,
-  fluid and idle discharge.
-- `anatomy/act.gd` is the per-act handle returned by `controller.begin_act()`;
-  `anatomy/act/state.gd` is pure, and `act/oral.gd` and `act/debug.gd` own the
-  three behaviors.
-- `anatomy/act_bridge.gd` is the per-act bridge the runtime owns: created by
-  `anatomy.gd.new_act(host)`, it keeps the controller/act handles, the typed context, the
-  missionary Anon body, the VR controller, the action gates and the aim/gaze reads. The runtime
-  binds a cached host dictionary and never preloads the bridge.
-- `anatomy/identity.gd`, `geometry.gd`, `garment_hull.gd`, `body_fit.gd`, `udder.gd`,
-  `act/state.gd` and `facts.gd` are pure.
-  `shared/anatomy_placement.gd` stays a shared pure schema.
-- The player part and tail seating are under `anatomy/`; the entry keeps only thin debug/button
-  forwards. The status line goes through the injected HUD's `anatomy_status()` (`docs/hud.md`);
-  the player body,
-  the dock refresh and the debug logger are injected into the anatomy modules; the profiler is
-  shared and read directly.
-- The bridge owns the one typed `anatomy/facts.gd` context; the act and the persistent controller
-  read it instead of runtime private fields and never allocate a second object. The act reads the
-  controller's player-part handle and returns its opening normal and mouth point through its
-  public reads.
-- Tests live under `tests/anatomy/`, split pure vs facade; the anatomy context's callback boundary
-  is `tests/act_facts/test_act_facts.gd`. The import and purity boundary is
-  `scripts/architecture.py --check`.
-
-The test seam is split by concern: `tests/anatomy/test_placement.gd`, `test_part.gd`,
-`test_coat.gd`, `test_heat.gd` and `test_attach.gd` read the facade's documented accessors and the
-act's read-only diagnostics.
+Tests are split by concern: `tests/anatomy/test_api.gd` covers the public entry,
+`test_placement.gd`, `test_part.gd`, `test_coat.gd`, `test_heat.gd` and `test_attach.gd` cover the
+facade and its modules, and `tests/estrus/test_estrus.gd` covers the cycle.

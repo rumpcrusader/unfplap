@@ -62,9 +62,13 @@ graph and enforces the layer and privacy rules. These rules exist so code cannot
 the gate:
 
 - **Every mod path has an owner.** A shipped `.gd` must resolve through `owner_of()` to a service
-  (`<id>/service.gd` and everything under `<id>/`), `shared/`, or one of the three orchestrators
-  `main.gd`, `runtime.gd` and `api.gd`. Any other path has no owner, so every edge to and from it
+  (`<id>/service.gd`, or `anatomy/api.gd` for the anatomy package, and everything under
+  `<id>/`), `shared/`, or one of the three orchestrators `main.gd`, `runtime.gd` and `api.gd`. Any other path has no owner, so every edge to and from it
   is classified external and allowed; the mod root's former `runtime/` grew a file that way.
+- **Anatomy is a leaf.** `anatomy/rig.gd` is the only anatomy file that may preload
+  `world/game.gd`; no anatomy file may preload another mod service except `settings/service.gd`;
+  and no outside file may preload an anatomy file except `anatomy/api.gd`. The two directions are
+  synthetic fixtures in `scripts/test_architecture.py`, run by `scripts/test.sh`.
 - **The entry builds no binding.** `main.gd` may not name a `*_binding.gd` or call
   `register_binding`: the body-change service constructs and registers its chain from the facades
   the entry hands it, so a new body-bound system adds no line to the composition root.

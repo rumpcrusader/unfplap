@@ -29,26 +29,26 @@ audio facade (`docs/audio.md`).
 The facade is a `RefCounted` scene adapter. It reads the base-game flank and boop members through
 the `GAME` accessors and the `body_coat_deform` setting; the jiggle tuning is pushed in by
 `configure()` from the runtime's act snapshot. The block is complete, so the reaction context reads
-its five keys and the facade holds no fallback value. The anatomy controller and the standing tail
-modifier are optional-op handles (`Node` and `SkeletonModifier3D`) the facade calls directly; the
-pose builder binds the tail because it changes with the pose. The flank is discovered lazily from
+its five keys and the facade holds no fallback value. The anatomy API and the standing tail modifier are the facade's
+collaborators (`anatomy/api.gd` and `SkeletonModifier3D`); the pose builder binds the tail because
+it changes with the pose. The flank is discovered lazily from
 the pony's `FlankTouch`, so a stock smack outside an act still reaches the patched body coat.
 
 The patched body coat is the runtime case: `FlankTouch` rebuilds its `_jiggle_targets` list on
-every slap, so the anatomy's `body_coat_targets()` pairs are re-added after every
-`_start_jiggle()`. The list covers the rig body and outline and, when the merged near mesh
+every slap, so the facade calls `anatomy.follow_body_coat(pony, flank)` after every
+`_start_jiggle()`; anatomy re-adds its current rig and merged-near pairs. The list covers the rig body and outline and, when the merged near mesh
 contains her body, its palette and outline materials.
 
 ## Internal API
 
 | Method | Purpose |
 |---|---|
-| `bind_scene(pony, anatomy, flank = null)` | set the act's pony (`Node3D`), anatomy controller (`Node`) and (optional) flank |
+| `bind_scene(pony, anatomy: API, flank = null)` | set the act's pony, the anatomy API and the optional flank |
 | `bind_tail(tail)` | set the standing tail modifier (`SkeletonModifier3D`), or null outside standing |
 | `configure(context)` | take `pose_family`, `size_scale`, `climax_seconds` and the five `jiggle.*` values from the typed reaction context |
 | `begin_act()` | clear the per-act blush, jiggle log and heart pulses |
 | `end_act()` | free the blush decal, drop the tail and restore the stock shader radius |
-| `body_coat_target()` | re-add the patched rig and merged-near body materials to the jiggle targets |
+| `body_coat_target()` | ask anatomy to follow the flank and re-add the patched coat targets |
 | `thrust(weight)` | start the rump jiggle and scale its resolved amount |
 | `tail_thrust(weight)` | add the standing tail impulse for the same thrust |
 | `smack(strength)` | carry the native smack jiggle into the tail |
@@ -110,7 +110,7 @@ already set its own impulse before the facade scales it.
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
-| service | anatomy | `anatomy/api.gd` | anatomy and tail seat |
+| service | anatomy | `anatomy/api.gd` | coat-follow and patched materials |
 | service | settings | `settings/service.gd` | settings declarations and live values |
 | service | world | `world/game.gd` | service dependency |
 | shared | log | `shared/log.gd` | log sink |

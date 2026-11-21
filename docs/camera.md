@@ -12,7 +12,7 @@ and calls them directly, and the `camera_thrust` block arrives as the typed `cam
 record. It owns the lean input and its smoothing, the speed-driven surge/bob response and the
 afterglow back-off, the debug free look, and every size/torso helper the view and the hands read.
 It also owns the scene points the act reads: the neck midpoint, her missionary face point and the
-vulva target. The anatomy opening itself still comes from the anatomy bridge.
+vulva target. The anatomy opening is the stage-written `facts.anatomy_opening` value.
 
 `camera/view.gd` is the one live view. In standing it owns the player-camera offsets, the glance,
 the facing lock and the look clamp; in missionary it owns the act's own view node, written each
@@ -29,7 +29,7 @@ the kissing mouth by the kiss's own fade and writes the pose's `look_point`, `ki
 for the rendered frame. The pose node arrives as `poses/service.gd`'s `POSE` and the three fields
 are written directly, never by name. The runtime calls it after the pose render write and the eye
 view's own write, so the next frame's head solves against this frame's lean. The gaze target
-itself comes from the anatomy bridge through `facts.gaze_point`.
+is computed by `camera/service.gd:gaze_point()` from the pose-owned act body and the kiss.
 
 ## Typed view
 
@@ -172,10 +172,10 @@ and edited through one **Size** dropdown.
 - **His body keeps the authored placement.** There is no second stroke asset: during the act the
   attached alignment moves his pelvis, never his whole body, so his head (the view) cannot swing on
   a thrust.
-- **The two base poses use the attached alignment.** `anon_part.gd`'s `_aim_attached()` turns the
-  shaft about its base along her opening's normal and asks for `hip_offset_wanted`; the body that
-  carries him applies that offset, so his pelvis follows the entrance and the shaft can never slide
-  out of his crotch. The detached bed holder (`_track_bed`) is not used by the act.
+- **The two base poses use the attached alignment.** The standing body turns the shaft about its
+  base along her opening's normal and asks the `AnonBody` handle to apply the wanted pelvis offset;
+  the body that carries him applies it, so his pelvis follows the entrance and the shaft can never
+  slide out of his crotch. The detached bed holder (`_track_bed`) is not used by the act.
 - **Her tail is laid on the bed.** The hair tail is not in the authored body pose: every tail rig
   differs. `poses/tail_lay.gd` is installed on the hair skeleton for the missionary act and turns
   whichever `mTail1..6` bones exist onto the bed plane toward her rump, straightening the chain;

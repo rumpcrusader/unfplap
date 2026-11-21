@@ -66,11 +66,17 @@ class FakeRuntime extends Node:
 	var gap: Variant = 0.0
 	var case_count := 0
 	var gate: Variant = null
+	var scene: Variant = null
+	var start: Variant = null
+	var presentation: Variant = null
 	var mare: FakeMare = null
 	var bed: Node3D = null
 
 	func _init() -> void:
 		gate = self
+		scene = self
+		start = self
+		presentation = self
 
 	func available() -> bool:
 		hotkey_calls += 1

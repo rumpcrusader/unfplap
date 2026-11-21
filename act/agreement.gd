@@ -1,4 +1,4 @@
-extends RefCounted
+extends "res://mods/unfplap/shared/start_port.gd"
 ## The scene-only Agreement start and the act key's immediate start: the frozen-pose verdict, the
 ## presentation wait, the hotkey readiness and the footstool hint.
 ##
@@ -36,17 +36,18 @@ func bind(host_in: ACT_HOST, context_in: ACT_CONTEXT, session_in: ACT_SESSION,
 
 ## The scene-only Agreement start. Negotiation froze the policy and the pose capability; only the
 ## world rows run. `WAIT` keeps the Agreement live; `STARTED` and `FAILED` are reported by the offer.
-func start_agreement(handle: NEGOTIATION_HANDLE.Handle, skip_presentation := false) -> int:
-	if handle == null or not handle.valid():
+func start_agreement(handle: Object, skip_presentation := false) -> int:
+	var typed := handle as NEGOTIATION_HANDLE.Handle
+	if typed == null or not typed.valid():
 		return AGREEMENT_FAILED
-	var option: POSE_OPTIONS.Option = handle.option
+	var option: POSE_OPTIONS.Option = typed.option
 	if option == null:
 		return AGREEMENT_FAILED
 	session.refresh_identity()
 	var pose := str(option.pose)
 	var act_source := str(option.source)
 	var verdict: Variant = context.gate.scene_only_verdict(pose, act_source, option.bed,
-		SCENE_GATE.FrozenPose.new(bool(handle.pose_profile_ok), bool(handle.pose_source_ok)))
+		SCENE_GATE.FrozenPose.new(bool(typed.pose_profile_ok), bool(typed.pose_source_ok)))
 	if verdict == null or not bool(verdict.hard_ok):
 		LOG.debug("agreement start blocked pose=%s source=%s pony=%s reasons=%s", [
 			pose, act_source, host.pony_name(),

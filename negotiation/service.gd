@@ -516,9 +516,9 @@ func _on_outcome_terminal(terminal: Variant) -> void:
 	var pony: Variant = _field(terminal, "pony")
 	if is_instance_valid(pony):
 		var runtime: Variant = PONIES.runtime_for(pony)
-		var gate: Variant = runtime.get("gate") if is_instance_valid(runtime) else null
-		if gate != null and gate.has_method("clear_presentation"):
-			gate.clear_presentation()
+		var presentation := PONIES.presentation_of(runtime) if is_instance_valid(runtime) else null
+		if presentation != null:
+			presentation.clear_presentation()
 	if int(_field(terminal, "outcome", -1)) != Outcome.STARTED \
 			and is_instance_valid(initiation) and initiation.has_method("on_negotiation_outcome"):
 		initiation.on_negotiation_outcome(terminal)
@@ -538,13 +538,14 @@ func _on_agreement_handle(handle: Variant) -> void:
 		str(_field(option, "pose", "none")) if option != null else "none",
 		str(_field(handle, "private", false))])
 	var runtime: Variant = PONIES.runtime_for(pony) if is_instance_valid(pony) else null
-	var gate: Variant = runtime.get("gate") if is_instance_valid(runtime) else null
-	if gate == null or not gate.has_method("start_agreement"):
+	var start := PONIES.start_of(runtime) if is_instance_valid(runtime) else null
+	if start == null:
 		cancel(handle, "cancelled")
 		return
+	var presentation := PONIES.presentation_of(runtime) if is_instance_valid(runtime) else null
 	# The presentation is act-owned: it starts now, and the auto-start waits for it to settle.
 	if option != null and str(option.pose) == CATALOG.STANDING \
-			and not bool(gate.present_standing()):
+			and (presentation == null or not bool(presentation.present_standing())):
 		LOG.debug("agreement present failed pony=%s", [str(pony.name)])
 	if is_instance_valid(offer):
 		offer.clear_current()

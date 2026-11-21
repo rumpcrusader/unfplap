@@ -4,6 +4,34 @@
   ],
   "baseline": [
     {
+      "file": "anatomy/service.gd",
+      "count": 1
+    },
+    {
+      "file": "body_change/runtime_binding.gd",
+      "count": 1
+    },
+    {
+      "file": "debug/actions.gd",
+      "count": 3
+    },
+    {
+      "file": "debug/pony.gd",
+      "count": 2
+    },
+    {
+      "file": "initiation/service.gd",
+      "count": 6
+    },
+    {
+      "file": "initiation/venue.gd",
+      "count": 1
+    },
+    {
+      "file": "input/service.gd",
+      "count": 2
+    },
+    {
       "file": "integrations/changelings.gd",
       "count": 8
     },
@@ -14,6 +42,26 @@
     {
       "file": "integrations/service.gd",
       "count": 9
+    },
+    {
+      "file": "negotiation/host.gd",
+      "count": 1
+    },
+    {
+      "file": "negotiation/service.gd",
+      "count": 3
+    },
+    {
+      "file": "offer/fan_sensor.gd",
+      "count": 1
+    },
+    {
+      "file": "ponies/service.gd",
+      "count": 7
+    },
+    {
+      "file": "poses/anon_thrust.gd",
+      "count": 1
     }
   ]
 }

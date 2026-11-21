@@ -226,7 +226,9 @@ NODE_SURFACE = {
 # rather than rows because the entry reads them without a call; the comparison runs both ways.
 NODE_PROPERTIES = {
     "act": "the act's one session handle",
-    "gate": "the offer-facing act gate handle",
+    "scene": "the per-pony scene gate handle",
+    "start": "the per-pony start handle",
+    "presentation": "the per-pony presentation handle",
     "pony": "the presented body; its setter rebinds the bundle",
 }
 # A file over this many lines is reported as a smell, never as a failure. Size is a hint that a
@@ -827,14 +829,17 @@ def check_typing(failure: Failure) -> int:
 
 DUCK_CALL = re.compile(r'\.call\("[A-Za-z_]')
 DUCK_SET = re.compile(r'\.set\("')
+# The per-pony handles are read through `runtime.get("...")`; a new site is a locator a typed
+# accessor should replace.
+DUCK_GET = re.compile(r'\b(?:runtime|main)\.get\("')
 
 
 def duck_sites(text: str) -> int:
-    """Non-comment lines that dispatch by string: `.call("name"` or `.set("`."""
+    """Non-comment lines that dispatch by string: `.call("`, `.set("` or a runtime `.get("`."""
     return sum(
         1 for line in text.splitlines()
         if not line.lstrip().startswith("#")
-        and (DUCK_CALL.search(line) or DUCK_SET.search(line))
+        and (DUCK_CALL.search(line) or DUCK_SET.search(line) or DUCK_GET.search(line))
     )
 
 

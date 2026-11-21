@@ -226,7 +226,7 @@ scene row is recomputed twice in different ways.
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
 | service | eligibility | `eligibility/service.gd` | adult and consent gate |
-| service | ponies | `ponies/service.gd` | the live eligibility service for the hotkey readiness |
+| host | runtime | `bind(pony, pose, eligibility)` | the live eligibility service for the hotkey readiness |
 | service | poses | `poses/service.gd` | pose and skeleton |
 | service | settings | `settings/service.gd` | settings declarations and live values |
 | service | world | `world/game.gd` | service dependency |

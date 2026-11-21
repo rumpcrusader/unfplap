@@ -5,7 +5,6 @@ extends RefCounted
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
-const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const POSE_SESSION := preload("res://mods/unfplap/poses/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
@@ -18,6 +17,8 @@ const STATE_IDLE := ACT_STATE.State.IDLE
 var pony: Node3D = null
 ## The pose session, for the missionary asset/rig rows. Its facade answers both.
 var pose_session: POSE_SESSION = null
+## The eligibility facade the Base clearance row reads; the runtime binds it once per pony.
+var eligibility_service: ELIGIBILITY = null
 
 ## The act identity and state the rows read.
 var state := 0
@@ -98,9 +99,11 @@ class SceneVerdict:
 
 
 ## Bind the scene nodes and the pose session. A missing node fails the gate closed.
-func bind(pony_node: Node3D, session: POSE_SESSION) -> void:
+func bind(pony_node: Node3D, session: POSE_SESSION,
+		eligibility: ELIGIBILITY = null) -> void:
 	pony = pony_node
 	pose_session = session
+	eligibility_service = eligibility
 
 
 ## The runtime's live gate values. The act state, id and feature snapshot change per act.
@@ -279,7 +282,7 @@ func hotkey_ready(pose: String, act_source: String, bed_in: Node3D = null,
 		return false
 	if not _stool_allows(pose, stool_pair):
 		return false
-	var service: ELIGIBILITY = PONIES.eligibility
+	var service: ELIGIBILITY = eligibility_service
 	if service == null or not is_instance_valid(service):
 		return false
 	return service.eligible(pony, ELIGIBILITY.Target.ACT) and service.relationship_ok(pony)
@@ -430,7 +433,7 @@ func policy_verdict_for(mode: ELIGIBILITY.Mode,
 		return policy_verdict.call(mode, verdict_in)
 	if not is_instance_valid(WORLD.game):
 		return null
-	var service: ELIGIBILITY = PONIES.eligibility
+	var service: ELIGIBILITY = eligibility_service
 	if service == null:
 		return null
 	return service.get_verdict(pony, mode)

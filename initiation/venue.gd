@@ -9,10 +9,7 @@ const POLICY := preload("res://mods/unfplap/initiation/policy.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const POSE_OPTIONS := preload("res://mods/unfplap/shared/pose_options.gd")
 const PRIVACY := preload("res://mods/unfplap/privacy/service.gd")
-
-## The per-pony gate handle: the scene verdicts and the offer readiness reads.
-func _gate(runtime: Node) -> Variant:
-	return runtime.get("gate")
+const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 
 var _privacy: PRIVACY
 
@@ -250,7 +247,7 @@ func placement_for(runtime: Node) -> POSE_OPTIONS.Placement:
 	if not is_instance_valid(pony):
 		return out
 	var node := player()
-	var gate: Variant = _gate(runtime)
+	var gate: Variant = PONIES.scene_of(runtime)
 	var cuddle := bool(gate.cuddle_active()) if gate != null else false
 	if cuddle:
 		var under: Variant = gate.find_bed_under() if gate != null else null

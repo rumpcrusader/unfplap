@@ -187,6 +187,7 @@ func _fixture() -> Dictionary:
 	gate.debug_context = Callable(context, "context")
 	var eligibility := FakeEligibility.new()
 	PONIES.eligibility = eligibility
+	gate.eligibility_service = eligibility
 	await physics_frame
 	return {
 		"gate": gate, "pony": pony, "nav": nav, "player": player, "game": game,

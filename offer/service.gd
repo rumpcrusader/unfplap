@@ -36,10 +36,6 @@ const AGREEMENT_START_S := 0.25
 const AGREEMENT_WAIT := 0
 const AGREEMENT_STARTED := 1
 
-## The per-pony gate handle: the scene verdicts and the offer readiness reads.
-func _gate(runtime: Node) -> Variant:
-	return runtime.get("gate")
-
 ## The Negotiation service bound by the entry; its live Agreement is offered before the scene
 ## pass.
 var negotiation: NEGOTIATION = null
@@ -210,7 +206,9 @@ func _start_hotkey_offer(offer: POSE_OFFER) -> bool:
 			LOG.debug("hotkey interrupt negotiation id=%s", [id])
 			negotiation.interrupt_for_hotkey()
 	LOG.debug("hotkey immediate id=%s pose=%s source=%s", [id, offer.pose, offer.source])
-	var started := bool(_gate(runtime).start_hotkey(offer.pose, offer.bed, offer.source))
+	var start := PONIES.start_of(runtime)
+	var started := start != null \
+		and bool(start.start_hotkey(offer.pose, offer.bed, offer.source))
 	if not started:
 		LOG.debug("hotkey start blocked id=%s pose=%s source=%s", [id, offer.pose, offer.source])
 		return false
@@ -235,7 +233,11 @@ func _start_agreement_offer(offer: POSE_OFFER, skip_presentation: bool) -> bool:
 	if handle == null or not is_instance_valid(offer.runtime):
 		_clear_offer_hint()
 		return false
-	var result := int(_gate(offer.runtime).start_agreement(handle, skip_presentation))
+	var start := PONIES.start_of(offer.runtime)
+	if start == null:
+		_clear_offer_hint()
+		return false
+	var result := int(start.start_agreement(handle, skip_presentation))
 	var id := PONY_ID.from(str(offer.pony.get_meta("relationship_id", "")),
 		offer.pony.get("identity")) if is_instance_valid(offer.pony) else "?"
 	LOG.debug("agreement start id=%s pose=%s skip_presentation=%s result=%d", [
@@ -411,7 +413,8 @@ func _offer_bed_side(pony_form: bool) -> bool:
 	var runtime: Node = PONIES.runtime_for(lying)
 	if not is_instance_valid(runtime):
 		return false
-	var bed: Node3D = _gate(runtime).find_bed_under()
+	var scene := PONIES.scene_of(runtime)
+	var bed: Node3D = scene.find_bed_under() if scene != null else null
 	if bed == null or not _candidate_ready(runtime, CATALOG.MISSIONARY, "bed_side", bed):
 		return false
 	_offer = _new_offer(runtime, lying, CATALOG.MISSIONARY, "bed_side", bed)
@@ -430,7 +433,8 @@ func _offer_lying(pony_form: bool) -> bool:
 	var runtime: Node = PONIES.runtime_for(lying)
 	if not is_instance_valid(runtime):
 		return false
-	var bed: Node3D = _gate(runtime).find_bed_under()
+	var scene := PONIES.scene_of(runtime)
+	var bed: Node3D = scene.find_bed_under() if scene != null else null
 	if bed == null or not _candidate_ready(runtime, CATALOG.MISSIONARY, "already_lying", bed):
 		return false
 	if not PONIES.relationship_ok(lying):
@@ -455,7 +459,9 @@ func _offer_standing() -> void:
 		if not PONIES.relationship_ok(candidate):
 			continue
 		PERF.begin("offer_stool")
-		var pair: Vector2i = _gate(runtime).stool_pair(CATALOG.STANDING)
+		var presentation := PONIES.presentation_of(runtime)
+		var pair: Vector2i = presentation.stool_pair(CATALOG.STANDING) \
+			if presentation != null else Vector2i(-1, -1)
 		PERF.end("offer_stool")
 		if pair.x > 0 and pair.y < pair.x:
 			var blocked_offer := _new_offer(runtime, candidate, CATALOG.STANDING, "", null)
@@ -471,8 +477,8 @@ func _offer_standing() -> void:
 
 ## The scene checks the hint and the press share, without the composite's duplicate reads.
 func _candidate_ready(runtime: Node, pose: String, source: String, bed: Variant) -> bool:
-	var gate: Variant = _gate(runtime)
-	if not gate.available():
+	var gate := PONIES.scene_of(runtime)
+	if gate == null or not gate.available():
 		return false
 	if not gate.pose_supported(pose, source):
 		return false
@@ -615,10 +621,11 @@ func _log_blocked_offer(runtime: Node, target: Node, need: int) -> void:
 	if key == _last_blocked_key:
 		return
 	_last_blocked_key = key
-	var gap: Variant = _gate(runtime).stool_gap_m()
+	var presentation := PONIES.presentation_of(runtime)
+	var gap: Variant = presentation.stool_gap_m() if presentation != null else NAN
 	var gap_text := "n/a" if not (gap is float or gap is int) \
 		or not is_finite(float(gap)) else "%.3f" % float(gap)
-	var have := int(_gate(runtime).stool_case_count())
+	var have := int(presentation.stool_case_count()) if presentation != null else 0
 	LOG.debug("OFFER blocked pony=%s reason=needs_stool gap=%s need=%d have=%d", [
 		str(target.name), gap_text, need, have])
 	if not _stool_hint_toast_shown:

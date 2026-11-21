@@ -206,11 +206,11 @@ func run() -> void:
 	var inventory: FakeInventory = main.game.inventory
 
 	# The scene-only Agreement start's guard rails: no handle, no option, and the aftercare clear.
-	check(runtime.gate.start_agreement(null) == ACT_AGREEMENT.AGREEMENT_FAILED,
+	check(runtime.start.start_agreement(null) == ACT_AGREEMENT.AGREEMENT_FAILED,
 		"a missing Agreement handle fails the start")
-	check(runtime.gate.start_agreement(FakeHandle.new()) == ACT_AGREEMENT.AGREEMENT_FAILED,
+	check(runtime.start.start_agreement(FakeHandle.new()) == ACT_AGREEMENT.AGREEMENT_FAILED,
 		"an Agreement without an option fails the start")
-	check(runtime.gate.agreement_ready("missionary", "bed_side", null, null) == false,
+	check(runtime.scene.agreement_ready("missionary", "bed_side", null, null) == false,
 		"a missing Agreement capability is never ready")
 	pony.set_meta("sex_aftercare", true)
 	runtime.act.clear_aftercare()
@@ -245,25 +245,26 @@ func run() -> void:
 	# Every hint scan reads Base clearance; a failing scene reads none.
 	var eligibility := FakeEligibility.new()
 	PONIES.eligibility = eligibility
+	runtime.scene.eligibility_service = eligibility
 	runtime.act._set_state(0)
-	check(bool(runtime.gate.hotkey_ready(CATALOG_STANDING, "")),
+	check(bool(runtime.scene.hotkey_ready(CATALOG_STANDING, "")),
 		"the idle hint passes with the scene rows ready")
 	check(eligibility.eligible_calls == 1 and eligibility.relationship_calls == 1,
 		"the hint reads Base clearance")
-	var hint_stool: Dictionary = runtime.gate.hint_stool()
+	var hint_stool: Dictionary = runtime.start.hint_stool()
 	check(int(hint_stool.get("need", -1)) == 0 and int(hint_stool.get("have", -1)) == 0,
 		"the hint reports the gate's footstool pair")
-	check(bool(runtime.gate.hotkey_ready(CATALOG_STANDING, "")),
+	check(bool(runtime.scene.hotkey_ready(CATALOG_STANDING, "")),
 		"the next hint scan passes")
 	check(eligibility.eligible_calls == 2 and eligibility.relationship_calls == 2,
 		"the next hint scan reads Base clearance again")
 	pony.set_meta("seated", true)
-	check(not bool(runtime.gate.hotkey_ready(CATALOG_STANDING, "")),
+	check(not bool(runtime.scene.hotkey_ready(CATALOG_STANDING, "")),
 		"a seated pony fails the standing hint")
 	check(eligibility.eligible_calls == 2,
 		"a failed scene row reads no Base clearance")
 	pony.remove_meta("seated")
-	check(bool(runtime.gate.hotkey_ready(CATALOG_STANDING, "")),
+	check(bool(runtime.scene.hotkey_ready(CATALOG_STANDING, "")),
 		"the standing hint recovers")
 	check(eligibility.eligible_calls == 3 and eligibility.relationship_calls == 3,
 		"the recovered scene reads Base clearance once")

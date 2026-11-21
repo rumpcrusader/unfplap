@@ -21,11 +21,6 @@ const SCENE_GATE := preload("res://mods/unfplap/scene_gate/service.gd")
 ## The longest player line the Anon-offer classifier reads; a longer line is not an ask.
 const MAX_LINE := 600
 
-## The per-pony gate handle: the scene verdicts and the offer readiness reads.
-func _gate(runtime: Node) -> Variant:
-	return runtime.get("gate")
-
-
 ## The act state through the runtime's session handle; an invalid runtime is IDLE.
 func _state_of(runtime: Node) -> int:
 	var session: Variant = runtime.get("act") if is_instance_valid(runtime) else null
@@ -78,10 +73,10 @@ func placement_for(runtime: Node) -> POSE_OPTIONS.Placement:
 ## The live placement re-check the Agreement asks for: the chosen option's scene-only rows, with
 ## no frozen capability and no hold exemption. It is a scene check, not a new policy read.
 func pose_placed(runtime: Node, option: POSE_OPTIONS.Option) -> bool:
-	var gate: Variant = _gate(runtime) if is_instance_valid(runtime) else null
-	if gate == null or option == null or not gate.has_method("scene_only_verdict"):
+	var scene := PONIES.scene_of(runtime) if is_instance_valid(runtime) else null
+	if scene == null or option == null:
 		return false
-	var verdict: Variant = gate.scene_only_verdict(option.pose, option.source,
+	var verdict: Variant = scene.scene_only_verdict(option.pose, option.source,
 		option.bed, null)
 	return verdict != null and bool(verdict.hard_ok)
 
@@ -90,19 +85,16 @@ func pose_placed(runtime: Node, option: POSE_OPTIONS.Option) -> bool:
 ## The press and auto-start call it through `ready_offer()`; it builds no row list.
 func scene_ready(pony: Node, option: POSE_OPTIONS.Option, profile_ok: bool, source_ok: bool) -> bool:
 	var runtime: Variant = PONIES.runtime_for(pony) if is_instance_valid(pony) else null
-	var gate: Variant = _gate(runtime) if is_instance_valid(runtime) else null
-	if gate == null or option == null or not gate.has_method("agreement_ready"):
+	var scene := PONIES.scene_of(runtime) if is_instance_valid(runtime) else null
+	if scene == null or option == null:
 		return false
-	return bool(gate.agreement_ready(option.pose, option.source, option.bed,
+	return bool(scene.agreement_ready(option.pose, option.source, option.bed,
 		SCENE_GATE.FrozenPose.new(profile_ok, source_ok)))
 
 
 func hold_for(runtime: Node) -> RefCounted:
-	var gate: Variant = _gate(runtime) if is_instance_valid(runtime) else null
-	if gate != null and gate.has_method("hold_handle"):
-		var hold: Variant = gate.hold_handle()
-		return hold as RefCounted if hold is RefCounted else null
-	return null
+	var presentation := PONIES.presentation_of(runtime) if is_instance_valid(runtime) else null
+	return presentation.hold_handle() if presentation != null else null
 
 
 func classify(request: PROMPTS.Request, scope: String, done: Callable) -> bool:

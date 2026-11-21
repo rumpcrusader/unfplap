@@ -1,4 +1,4 @@
-extends RefCounted
+extends "res://mods/unfplap/shared/presentation_port.gd"
 ## The act's one state, timer, clock and value owner: a transition guards and dispatches, and the
 ## owner services do the work. Its typed one-liners are the contract callers use, not wrappers to
 ## move onto the owners.
@@ -129,7 +129,7 @@ func refresh_gate() -> void:
 		return
 	var pony_node: Node3D = host.pony if host != null and is_instance_valid(host.pony) else null
 	var session: POSE_SESSION = context.pose if is_instance_valid(context.pose) else null
-	context.gate.bind(pony_node, session)
+	context.gate.bind(pony_node, session, context.gate.eligibility_service)
 	context.gate.configure(state, pony_id, SCENE_GATE.Features.from_dict(features))
 
 func act_seconds() -> float:
@@ -593,6 +593,37 @@ func presentation_settled() -> bool:
 
 func clear_presentation() -> void:
 	context.presentation.clear_presentation()
+
+
+## The per-act footstool reads the offer's hint uses; a missing handle reads as blocked nothing.
+func stool_pair(pose: String) -> Vector2i:
+	var handle := stool()
+	return handle.hotkey_pair(pose) if handle != null else NO_STOOL_PAIR
+
+
+func stool_gap_m() -> float:
+	var handle := stool()
+	return handle.gap_m() if handle != null else NAN
+
+
+func stool_needed_count() -> int:
+	var handle := stool()
+	return handle.needed_count() if handle != null else 0
+
+
+func stool_case_count() -> int:
+	var handle := stool()
+	return handle.case_count() if handle != null else 0
+
+
+func stool_state_text() -> String:
+	var handle := stool()
+	return handle.state_text() if handle != null else "stool unavailable"
+
+
+## The rump point the offer hint anchors to.
+func rump_anchor() -> Vector3:
+	return context.reactions.rump_point()
 
 
 ## The typed reads the host-callback bindings use. Each one names the value's owner: the state and

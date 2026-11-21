@@ -43,9 +43,15 @@ class FakeRuntime extends Node:
 	var agreement_handles: Array = []
 	var agreement_skips: Array = []
 	var gate: Variant = null
+	var scene: Variant = null
+	var start: Variant = null
+	var presentation: Variant = null
 
 	func _init() -> void:
 		gate = self
+		scene = self
+		start = self
+		presentation = self
 
 	func available() -> bool:
 		return gate_ready

@@ -36,11 +36,6 @@ const PHASE_NAMES := {
 	Phase.BED_APPROACH: POLICY.PHASE_BED_APPROACH,
 }
 
-## The per-pony gate handle: the scene verdicts and the offer readiness reads.
-func _gate(runtime: Node) -> Variant:
-	return runtime.get("gate")
-
-
 ## The act state through the runtime's session handle; an invalid runtime is IDLE.
 func _state_of(runtime: Node) -> int:
 	var session: Variant = runtime.get("act") if is_instance_valid(runtime) else null
@@ -277,7 +272,7 @@ func _tick_cuddle_edges() -> void:
 		var runtime: Node = PONIES.runtime_for(node)
 		if not is_instance_valid(runtime):
 			continue
-		var gate: Variant = _gate(runtime)
+		var gate: Variant = PONIES.scene_of(runtime)
 		if gate == null:
 			continue
 		var id: String = _venue.pony_id(node)
@@ -381,7 +376,7 @@ func _candidate_for(runtime: Node, forced: bool, pose_request := "",
 			return null
 	var placeable: Array[POSE_OPTIONS.Option] = []
 	for option: POSE_OPTIONS.Option in options:
-		var verdict: Variant = _gate(runtime).scene_only_verdict(option.pose, option.source,
+		var verdict: Variant = PONIES.scene_of(runtime).scene_only_verdict(option.pose, option.source,
 			option.bed, null)
 		if verdict == null:
 			continue
@@ -710,7 +705,7 @@ func _start_ask_handoff() -> String:
 		return _close_episode("ask lost")
 	# The place can have changed since the scan; only a hard scene failure closes the ask. An
 	# unfilled bed gate or a player not yet in position is the Agreement's live condition.
-	var verdict: Variant = _gate(runtime).scene_only_verdict(option.pose, option.source,
+	var verdict: Variant = PONIES.scene_of(runtime).scene_only_verdict(option.pose, option.source,
 		option.bed, null)
 	if verdict == null or not bool(verdict.hard_ok):
 		return _close_episode("ask scene")

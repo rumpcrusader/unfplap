@@ -7,7 +7,9 @@ extends Node
 
 const ACT_BUILD := preload("res://mods/unfplap/act/build.gd")
 const ACT_SESSION := preload("res://mods/unfplap/act/session.gd")
-const ACT_GATE := preload("res://mods/unfplap/act/gate.gd")
+const SCENE_GATE := preload("res://mods/unfplap/scene_gate/service.gd")
+const START_PORT := preload("res://mods/unfplap/shared/start_port.gd")
+const PRESENTATION_PORT := preload("res://mods/unfplap/shared/presentation_port.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 
@@ -30,11 +32,20 @@ var act: ACT_SESSION:
 	get:
 		return _bundle.act if _bundle != null else null
 
-## The offer-facing gate handle: scene verdicts, the Agreement start, the hotkey readiness and the
-## stool/rump/presentation reads. `offer`, `negotiation` and `initiation` use this handle.
-var gate: ACT_GATE:
+## The per-pony scene gate: the offer-facing verdicts and readiness reads.
+var scene: SCENE_GATE:
 	get:
-		return _bundle.act_gate if _bundle != null else null
+		return _bundle.gate if _bundle != null else null
+
+## The per-pony start handle: the hotkey and Agreement starts and the footstool hint.
+var start: START_PORT:
+	get:
+		return _bundle.agreement if _bundle != null else null
+
+## The per-pony presentation handle: the stool reads, the scene hold and the standing invitation.
+var presentation: PRESENTATION_PORT:
+	get:
+		return _bundle.act if _bundle != null else null
 
 ## `reparent()` runs `_exit_tree()`. The handover moves the live runtime between bodies, so that
 ## signal must not run the world-close release it exists for.

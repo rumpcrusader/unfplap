@@ -32,11 +32,6 @@ const DEBUG_UI := preload("res://mods/unfplap/debug/ui.gd")
 ## without a text prompt. Player-named shapes belong to the dialogue path.
 const FORM_DEBUG_SHAPES := ["fluttershy", "rarity", "applejack", "pinkie_pie", "twilight_sparkle"]
 
-## The per-pony gate handle: the scene verdicts and the offer readiness reads.
-func _gate(runtime: Node) -> Variant:
-	return runtime.get("gate")
-
-
 ## The per-pony act session: the state, the pose view and the act reads.
 func _session(runtime: Variant) -> Variant:
 	return runtime.get("act") if is_instance_valid(runtime) else null
@@ -518,14 +513,15 @@ func _debug_gate_rows(target: Node, runtime: Variant) -> Array[String]:
 			dot = (-view.global_basis.z).dot(delta.normalized())
 	var pose := CATALOG.STANDING
 	var source := ""
+	var scene := PONIES.scene_of(runtime)
 	var bed: Variant = null
 	var requested := GAME.posture_requested(target)
 	if requested == "lie_down":
 		pose = CATALOG.MISSIONARY
 		source = "already_lying"
-		bed = _gate(runtime).find_bed_under()
-	var line := str(_gate(runtime).debug_line(pose, source, bed, dist, dot)) \
-		if _gate(runtime) != null else "no debug line"
+		bed = scene.find_bed_under() if scene != null else null
+	var line := str(scene.debug_line(pose, source, bed, dist, dot)) \
+		if scene != null else "no debug line"
 	return [line]
 
 
@@ -551,10 +547,10 @@ func _debug_act_rows(runtime: Variant) -> Array[String]:
 func _debug_stool_rows(runtime: Variant) -> Array[String]:
 	if not is_instance_valid(runtime):
 		return ["no runtime"]
-	var gate: Variant = _gate(runtime)
-	if gate == null or not gate.has_method("stool_state_text"):
+	var presentation := PONIES.presentation_of(runtime)
+	if presentation == null:
 		return ["stool unavailable"]
-	return [str(gate.stool_state_text())]
+	return [str(presentation.stool_state_text())]
 
 
 ## Debug: cycle the game's expression faces on the active act or the aimed mare.

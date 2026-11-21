@@ -120,6 +120,26 @@ static func active() -> Node:
 	return _active if is_instance_valid(_active) else null
 
 
+## The per-pony handles the world services read. One dynamic read each, inside the registry that
+## owns the runtime; the runtime's properties carry the typed contracts.
+static func scene_of(runtime: Node) -> Node:
+	if not is_instance_valid(runtime):
+		return null
+	return runtime.get("scene")
+
+
+static func start_of(runtime: Node) -> Node:
+	if not is_instance_valid(runtime):
+		return null
+	return runtime.get("start")
+
+
+static func presentation_of(runtime: Node) -> Node:
+	if not is_instance_valid(runtime):
+		return null
+	return runtime.get("presentation")
+
+
 ## An act owns the frame; every starter gates on it.
 static func act_running() -> bool:
 	return is_instance_valid(_active)

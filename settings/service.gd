@@ -672,59 +672,90 @@ static func set_section_open(tab: String, group: String, open: bool) -> void:
 # ======================================================== General
 
 # -- (ungrouped)
+
+## The keycode the hand-built capture row stores; input/service.gd matches it to start
+## and end an act. The act never takes a dev key.
 static var act_key := num("act_key", "controls.act_key",
 	"Act Key", "Key that starts and ends the act.", GENERAL, "") \
 	.with_range(1.0, float(ACT_KEYS.MAX_CODE - 1)).as_hidden()
+## Gates the act control card; every other HUD element is independent of it.
 static var act_controls := flag("act_controls", "features.act_controls", "Show controls",
 	"Show the act's control list. Off keeps the cue and climax readouts.", GENERAL, "")
+## Gates the cue and the separate Wants/You line; the hearts row and the close prompt
+## are drawn either way.
 static var hud_readouts := flag("hud_readouts", "features.hud_readouts", "Show HUD readouts",
 	"Show the mood cue and Wants/You line. Hearts and the afterglow close prompt stay visible.", GENERAL, "")
+## Moves the explicit bottom caption only in `POSING_IN`, `ACTIVE` and `CLIMAX`;
+## the HUD re-reads it on every settings edit and afterglow returns it to the bottom.
 static var captions_on_top := flag("captions_on_top", "features.captions_on_top",
 	"Move captions to top",
 	"Move the explicit bottom dialogue caption to the top during an act. Overhead and auto captions are unchanged.", GENERAL, "")
+## Silences the Ponese voice for one act in the audio sink; her generated text
+## still reaches the caption.
 static var mute_ponese_audio := flag("mute_ponese_audio", "features.mute_ponese_audio",
 	"Mute Ponese",
 	"Keep the act's generated text but silence the Ponese voice for that act.", GENERAL, "")
+## Chooses the pack's hand-smack take over the game's native flank smack outside
+## an act; the in-act impact audio is separate.
 static var pack_smack_sound := flag("pack_smack_sound", "features.pack_smack_sound",
 	"Use pack smack sound",
 	"Use the mod's own hand-smack audio for regular flank smacks outside an act.", GENERAL, "")
+## The caress surface level the hand provider branches on each tick.
 static var quality := choice("quality", "caress.quality",
 	["fast", "precise"], ["Fast", "Precise"],
 	"Caress surface quality",
 	"Fast is more performant, but hands may clip more often.", GENERAL, "")
+## Caps her climaxes per act; the HUD reads it for the `❤ N/limit` row and zero
+## shows the unlimited form.
 static var max_pony_climaxes := num("max_pony_climaxes", "thrust.max_pony_climaxes",
 	"Climax limit", "How many times a mare can climax in one act. 0 is unlimited.", GENERAL, "") \
 	.with_step(1.0).with_range(0.0, 20.0)
+## Converts mouse travel into stroke depth; his shaft length is one stroke, so the
+## same value feels shorter on a longer part.
 static var pixels_per_cm := num("pixels_per_cm", "thrust.pixels_per_cm",
 	"Mouse sensitivity",
 	"Mouse travel for each centimetre the cock moves. A full stroke is his shaft length, so a "
 	+ "longer part needs proportionally more travel.", GENERAL, "") \
 	.with_unit("px per cm").with_step(10.0).with_range(20.0, 400.0)
+## Chooses which mouse direction deepens the thrust; the act reads it from its snapshot.
 static var orientation := choice("orientation", "thrust.orientation", ["up", "down"],
 	["Mouse Up", "Mouse Down"], "Thrust direction",
 	"Which mouse direction deepens the thrust.", GENERAL, "")
+## Gates the footstool requirement in the standing pose; the shop and house drops
+## supply the `goods:footstool` stacks it spends.
 static var standing_stool := flag("standing_stool", "features.standing_stool",
 	"Enable footstool",
 	"A mare much taller than Anon needs a footstool for the standing act. Find one in a house or buy one at the shop.", GENERAL, "")
+## During an act every key but the act's own is consumed and its pressed state cleared, so
+## even raw-key pollers see nothing; see docs/input.md.
 static var act_input_shield := flag("act_input_shield", "features.act_input_shield",
 	"Block other mods' hotkeys during act", "", GENERAL, "")
+## Reveals every tab's Debug block and turns debug rows unclamped; the settings page reads
+## it live on the same edit.
 static var debug_mode := flag("debug_mode", "debug_mode", "Enable debug", "", GENERAL, "")
 
 # -- Auto Thrust
-## The auto-thrust defaults the act's X layer edits live. They are player settings: the band and
-## the pace are what the act starts with, and the X layer's own reads clamp them the same way.
+
+## Top of the starting automatic band; the act's hold-X layer moves the same value live,
+## so this row only sets where an act begins.
 static var max_depth := num("max_depth", "auto_thrust.max_depth", "Auto max depth",
 	"Starting auto-thrust peak depth. Mouse up/down sets it during an act.",
 	GENERAL, "Auto Thrust") \
 	.with_unit("%").with_step(5.0).with_scale(100.0).with_range(0.2, 1.0)
+## Bottom of the starting automatic band; the live layer keeps the band at least 18 % wide
+## so every stroke still counts.
 static var min_depth := num("min_depth", "auto_thrust.min_depth", "Auto min depth",
 	"Starting auto-thrust bottom depth. Hold X then Q/A sets it during an act; the band stays at "
 	+ "least 18 % wide so every stroke still counts.", GENERAL, "Auto Thrust") \
 	.with_unit("%").with_step(5.0).with_scale(100.0).with_range(0.0, 0.82)
+## Starting automatic strokes per second; the mouse wheel retunes the live value during an
+## act without writing this row back.
 static var pace := num("pace", "auto_thrust.pace", "Auto pace",
 	"Starting auto-thrust pace in thrusts per second. The mouse wheel changes it during an act.",
 	GENERAL, "Auto Thrust") \
 	.with_unit("/s").with_step(0.25).with_range(1.0, 3.75)
+## The easing each automatic stroke follows, by waveform name; the act's hold-X layer can
+## change it live for that act.
 static var curve := choice("curve", "auto_thrust.curve",
 	["cosine", "thrust", "tease", "saw", "hold"],
 	["Normal", "Thrust", "Tease", "Saw", "Hold"],
@@ -734,178 +765,258 @@ static var curve := choice("curve", "auto_thrust.curve",
 	GENERAL, "Auto Thrust")
 
 # -- (ungrouped)  (debug)
+
+## Enables the profiler in `shared/perf.gd`; off means it reads no clock at all.
 static var debug_perf := flag("debug_perf", "debug_perf", "Print perf logs",
 	"Print the per-second performance block: the timed chunks as one tree, in an act and out of one alike. Requires Enable debug.", GENERAL, "") \
 	.as_debug()
 
 # -- Act face  (debug)
+
+## Picks the climax face; `auto` scores the act in `face/` and chooses between the three
+## authored expressions.
 static var climax_mode := choice("climax_mode", "presentation.act.climax_mode",
 	["auto", "fluster", "ooo", "wide"],
 	["Act quality", "Flustered", "Round mouth", "Wide-eyed"],
 	"Climax face",
 	"Auto picks her climax expression from how the act is going: flustered for a warm, well-matched act, round-mouthed for a good physical act, wide-eyed for a poor or mismatched one.",
 	GENERAL, "Act face").as_debug()
+## Chooses whether act blush ramps with her readiness or starts full on the first frame;
+## the face module re-reads it on a settings edit.
 static var blush_arc := flag("blush_arc", "features.blush_arc", "Ramp act blush",
 	"Ramp the act blush with her readiness instead of full blush from the first frame.",
 	GENERAL, "Act face").as_debug()
+## Prints each act face change with the climax score and the blush/fluster values; it needs
+## Enable debug to be visible.
 static var face_debug := flag("face_debug", "features.face_debug", "Print face changes",
 	"Print every act face change, the climax quality score and the blush/fluster values. Requires Enable debug.",
 	GENERAL, "Act face").as_debug()
+## How far the hips retreat between thrusts, as a multiple of the stroke; the act reads it
+## from its snapshot and a debug value is never clamped.
 static var travel := num("travel", "thrust.travel", "Hip back-off",
 	"How far the hips retreat between thrusts.", GENERAL, "") \
 	.with_unit("\u00d7").with_step(0.05).with_range(0.25, 2.0).as_debug()
 
 # -- Caress  (debug)
+
+## Skins and raycasts a coat window around each caress hand instead of the whole body
+## patch; off restores the full patch for both hands.
 static var caress_local := flag("caress_local", "features.caress_local",
 	"Use local caress patch",
 	"Skin and raycast only the coat window around each caress hand instead of the whole body patch. Off restores the full patch for both hands.",
 	GENERAL, "Caress").as_debug()
+## Lets a caress point beyond the local window fall back to the full body patch; off keeps
+## the last local window and skips the point.
 static var caress_full_fallback := flag("caress_full_fallback",
 	"features.caress_full_fallback",
 	"Full caress patch fallback",
 	"Let a caress point beyond the coat window fall back to the full body patch. Off keeps the last local window and skips that point; on restores the old full-patch behavior.",
 	GENERAL, "Caress").as_debug()
+## Chooses which authored missionary caress chain the hand walks; the chain itself lives in
+## the pose's marked-area JSON.
 static var path_id := choice("path_id", "presentation.missionary.caress.path_id",
 	["one", "two"], ["Path one: belly/chest/neck/cheek", "Path two: flank/shoulder/neck"],
 	"Missionary path",
 	"Switch between the two authored missionary caress paths. Path one is belly/chest/neck/cheek; path two is flank/shoulder/neck.",
 	POSES, "Missionary").as_debug()
+## Logs the caress path, surface source, hand mode and contact once per hand per act;
+## Enable debug gates the button that shows it.
 static var caress_debug := flag("caress_debug", "features.caress_debug",
 	"Print caress contact",
 	"Log the caress path, surface source, hand mode and contact once per hand per act.", GENERAL,
 	"Caress").as_debug()
+## Caps how far the shoulder shifts to reach a missionary caress target; zero pins it and the
+## path stops at the reachable point either way.
 static var caress_reach_shoulder_m := num("caress_reach_shoulder_m",
 	"features.caress_reach_shoulder_m", "Missionary reach shoulder",
 	"Maximum shoulder shift used to reach a caress target in missionary. 0 keeps the shoulder fixed; the path stops at the reachable point either way.",
 	POSES, "Missionary").with_unit("cm").with_step(1.0).with_scale(100.0).as_debug()
+## Palm-centre distance from her coat in both base poses, scaled by Anon's height;
+## negative presses the palm into the coat.
 static var hover_m := num("hover_m", "caress.hover_m", "Palm hover",
 	"Palm-centre distance from her coat in both poses, in centimetres. Positive raises it, negative presses it into the coat.",
 	GENERAL, "Caress").with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
+## Regions the smack's hull contact query skips; the caress never reads it, because the
+## caress always uses the fixed torso/head coat surface.
 static var ignore := list("ignore", "caress.ignore",
 	["tail", "mane", "wing", "leg"], "Ignore body parts",
 	"Regions the smack's hull contact query skips. The caress always uses the fixed torso/head coat surface.",
 	GENERAL, "Caress").as_debug()
+## Averaging radius for the coat normal so mesh creases do not snap the palm; above 3 cm it
+## averages the whole patch and zero keeps the exact hit normal.
 static var normal_blur_m := num("normal_blur_m", "caress.normal_blur_m",
 	"Normal blur",
 	"Average the coat normal over this radius so mesh creases do not snap the palm. 0 keeps the exact hit normal.",
 	GENERAL, "Caress").with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
+## Caps how fast the palm normal may turn between ticks; zero disables the temporal clamp.
 static var normal_deg_s := num("normal_deg_s", "caress.normal_deg_s",
 	"Normal turn",
 	"Maximum palm normal turn rate. 0 disables the temporal normal clamp.",
 	GENERAL, "Caress").with_unit("°/s").with_step(10.0).as_debug()
+## Low-pass rate for the surface snap correction; zero keeps the exact contact.
 static var contact_smooth := num("contact_smooth", "caress.contact_smooth",
 	"Contact smooth",
 	"Low-pass rate for the surface snap correction. 0 keeps the exact contact; the intended oval motion is never delayed.",
 	GENERAL, "Caress").with_unit("/s").with_step(1.0).as_debug()
+## Radius of the caress oval along the body; scaled with Anon's height like the other
+## offsets.
 static var oval_across_m := num("oval_across_m", "caress.oval_across_m",
 	"Oval across", "Caress stroke length along the body.", GENERAL, "Caress") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
+## Radius of the caress oval vertically; with Oval across it defines the stroke the hand
+## traces.
 static var oval_up_m := num("oval_up_m", "caress.oval_up_m",
 	"Oval up", "Caress stroke height.", GENERAL, "Caress") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
+## Caress hand scale at the Canon preset; one row per body preset.
 static var canon := num("canon", "caress.palm_scale.canon",
 	"Palm scale (Canon)", "Caress hand scale for Canon-size Anon.", GENERAL, "Caress") \
 	.with_unit("×").with_step(0.01).as_debug()
+## Scale of the caress hand at the Hoers preset.
 static var hoers := num("hoers", "caress.palm_scale.hoers",
 	"Palm scale (Hoers)", "Caress hand scale for the Hoers size.", GENERAL, "Caress") \
 	.with_unit("×").with_step(0.01).as_debug()
+## Scale of the caress hand at the mounting preset.
 static var mounting := num("mounting", "caress.palm_scale.mounting",
 	"Palm scale (Mounting)", "Caress hand scale for mounting size.", GENERAL, "Caress") \
 	.with_unit("×").with_step(0.01).as_debug()
+## Scale of the caress hand at the same-height preset; the caress offsets are also
+## multiplied by her height scale there.
 static var same_height := num("same_height", "caress.palm_scale.same height",
 	"Palm scale (Same height)", "Caress hand scale at Anon's own height.", GENERAL, "Caress") \
 	.with_unit("×").with_step(0.01).as_debug()
 
 # -- Camera  (debug)
+
+## Vertical dip of the act camera on the inward stroke; it follows the filtered thrust
+## speed, not depth, with one critically damped response.
 static var bob := num("bob", "camera_thrust.bob", "Bob",
 	"Vertical camera dip on the inward stroke.", GENERAL, "Camera") \
 	.with_unit("%").with_step(5.0).with_scale(100.0).with_range(0.0, 1.0).as_debug()
+## Forward travel of the act camera on the inward stroke; same filtered-speed response as
+## Bob.
 static var surge := num("surge", "camera_thrust.surge", "Surge",
 	"Forward camera travel on the inward stroke.", GENERAL, "Camera") \
 	.with_unit("%").with_step(5.0).with_scale(100.0).with_range(0.0, 1.0).as_debug()
+## The slow breathing drift of the idle camera; off holds the view still while he is not
+## leaning.
 static var idle_camera_sway := flag("idle_camera_sway", "features.idle_camera_sway",
 	"Sway the idle camera", "Add a slow sway when you are not leaning.", GENERAL, "Camera") \
 	.as_debug()
 
 # -- Talk & cues  (debug)
+
+## How long a base cue must hold before it can be spoken; the act snapshot carries it into
+## the cue scheduler.
 static var base_stable_seconds := num("base_stable_seconds", "cues.base_stable_seconds",
 	"Base stability", "How long a base cue must hold before it can be spoken.", GENERAL,
 	"Talk & cues") \
 	.with_unit("s").with_step(0.1).as_debug()
+## Minimum time between two demand lines the scheduler may raise.
 static var demand_gap_seconds := num("demand_gap_seconds", "cues.demand_gap_seconds",
 	"Demand gap", "Minimum time between demand lines.", GENERAL, "Talk & cues") \
 	.with_unit("s").with_step(0.5).as_debug()
+## How long the same demand text stays locked out after it is spoken.
 static var demand_repeat_seconds := num("demand_repeat_seconds", "cues.demand_repeat_seconds", "Demand repeat", "How long the same demand text is locked out.", GENERAL, "Talk & cues") \
 	.with_unit("s").with_step(0.5).as_debug()
+## A queued cue older than this is dropped before audio; it guards the queue when
+## speech runs late.
 static var max_age_seconds := num("max_age_seconds", "cues.max_age_seconds",
 	"Cue max age", "Drop a queued cue that has not reached audio by this age.", GENERAL,
 	"Talk & cues") \
 	.with_unit("s").with_step(0.5).as_debug()
+## How long a touch or talk cue replaces the base cue before the base returns.
 static var override_seconds := num("override_seconds", "cues.override_seconds",
 	"Override lifetime", "How long a touch or talk cue replaces the base cue.", GENERAL,
 	"Talk & cues") \
 	.with_unit("s").with_step(0.5).as_debug()
+## How long a touch or talk cue must hold before it can replace the base cue.
 static var override_stable_seconds := num("override_stable_seconds",
 	"cues.override_stable_seconds", "Override stability",
 	"How long a touch or talk cue must hold before it can be spoken.", GENERAL, "Talk & cues") \
 	.with_unit("s").with_step(0.1).as_debug()
+## How long a disliked input keeps the overwhelmed cue on her face and in her voice.
 static var overwhelmed_seconds := num("overwhelmed_seconds", "cues.overwhelmed_seconds",
 	"Overwhelmed cue", "How long a disliked input keeps the overwhelmed cue.", GENERAL,
 	"Talk & cues") \
 	.with_unit("s").with_step(0.1).as_debug()
+## A queued reaction older than this is dropped before audio; reactions come from the
+## integrations bridge rather than the cue path.
 static var reaction_max_age_seconds := num("reaction_max_age_seconds",
 	"cues.reaction_max_age_seconds", "Reaction max age",
 	"Drop a queued reaction that has not reached audio by this age.", GENERAL, "Talk & cues") \
 	.with_unit("s").with_step(0.5).as_debug()
+## How long the line slot stays reserved after speech stops, so the next line cannot
+## start on top of the tail.
 static var release_hold_seconds := num("release_hold_seconds", "cues.release_hold_seconds",
 	"Release hold", "Keep the line slot reserved after speech stops.", GENERAL, "Talk & cues") \
 	.with_unit("s").with_step(0.1).as_debug()
+## Minimum time between any two generated act lines; the snapshot carries it into the
+## utterance scheduler.
 static var utterance_gap_seconds := num("utterance_gap_seconds", "cues.utterance_gap_seconds", "Line gap", "Minimum time between any two generated act lines.", GENERAL, "Talk & cues") \
 	.with_unit("s").with_step(0.5).as_debug()
+## How long a liked touch or talk keeps her receptive, so thrusts land harder.
 static var receptive_seconds := num("receptive_seconds", "talk.receptive_seconds",
 	"Receptive window", "How long a liked touch or talk makes thrusts land harder.", GENERAL,
 	"Talk & cues") \
 	.with_unit("s").with_step(0.5).as_debug()
+## Minimum time between two talk readiness chunks; the readiness pass reads it, not the
+## cue scheduler.
 static var talk_cooldown_seconds := num("talk_cooldown_seconds", "talk.talk_cooldown_seconds", "Talk cooldown", "Minimum time between talk readiness chunks.", GENERAL, "Talk & cues") \
 	.with_unit("s").with_step(0.1).as_debug()
+## Minimum time between two touch readiness chunks.
 static var touch_cooldown_seconds := num("touch_cooldown_seconds",
 	"talk.touch_cooldown_seconds", "Touch cooldown",
 	"Minimum time between touch readiness chunks.", GENERAL, "Talk & cues") \
 	.with_unit("s").with_step(0.1).as_debug()
 
 # -- Pose switches
-## The two pose-family switches. They are player rows at the top of the Poses tab; the act reads
-## them from its feature snapshot and the controls HUD hides a row whose switch is off.
+
+## Enables the N turn for oral in the standing pose; the option is known to be buggy and
+## turning it off removes the control from the act card.
 static var anatomy_oral := flag("anatomy_oral", "features.anatomy_oral", "Enable Oral",
 	"Let N turn her round for oral in the standing pose. (buggy)", POSES, "")
+## Enables the V switch between the front and the anal cup; off removes that control from
+## the act card.
 static var anatomy_holes := flag("anatomy_holes", "features.anatomy_holes", "Enable Anal",
 	"Let V switch between the front and the anal cup.", POSES, "")
 
 # -- Missionary  (debug)
+
+## Slides her body along the bed and nods her head on the thrust; the missionary
+## presentation module reads it per stroke.
 static var missionary_body_motion := flag("missionary_body_motion",
 	"features.missionary_body_motion", "Missionary body motion",
 	"Slide her body along the bed and nod her head on the thrust.", POSES, "Missionary") \
 	.as_debug()
+## Blends Anon's body scale toward hers in missionary; zero keeps him human-sized and one
+## scales him fully with her.
 static var anon_size_match := num("anon_size_match",
 	"presentation.missionary.anon_size_match",
 	"Anon size match",
 	"How much Anon's body scales with the pony in missionary. 0 keeps him human-sized; 1 scales him with her.",
 	POSES, "Missionary").with_range(0.0, 1.0).with_step(0.01).with_slider().as_debug()
+## Missionary-only: the whole vulva takes her outer skin tone.
 static var disable_fold_coloring := flag("disable_fold_coloring",
 	"presentation.missionary.disable_fold_coloring",
 	"Hack: Disable fold coloring",
 	"Draw the whole vulva in her outer skin color during the missionary act; the pink folds and clitoris colors are off.",
 	POSES, "Missionary").as_debug()
+## Turns the act camera freely and stops the mouse driving thrust, so a pose can be
+## inspected; it does not pause the act.
 static var free_look := flag("free_look", "presentation.missionary.free_look",
 	"Use free look",
 	"Turn the act shot where it stands, so the pose can be inspected. The mouse stops driving thrust.",
 	POSES, "Missionary").as_debug()
+## Slides the cock base toward Anon in missionary, on top of Cock forward; negative
+## pushes it into the pelvis to hide the base and close the hip gap.
 static var part_inset_m := num("part_inset_m", "presentation.missionary.part_inset_m",
 	"Cock base inset",
 	"Slide the cock base back toward Anon in missionary, in centimetres. Negative moves it into the pelvis; use it to hide the base and close the hip gap.",
 	POSES, "Missionary").with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
 
 # -- Missionary size  (debug)
+
 ## The geometry values are tuned per pony size: the dropdown picks which preset the rows below
 ## edit, and the act reads the size the game is currently set to.
 const MISSIONARY_SIZES: Array[String] = ["canon", "mounting", "same height", "hoers"]
@@ -913,101 +1024,131 @@ const MISSIONARY_SIZE_LABELS: Array[String] = ["Canon", "JRHNBR", "Same height",
 const MISSIONARY_SIZE_BASES: Array[String] = ["vulva_shift_mm", "vulva_pitch_deg",
 	"vulva_depth_shift_mm", "vulva_hug_mm", "head_clearance_mm", "gaze_offset_mm"]
 const MISSIONARY_SIZE_GROUP := "Missionary › Size"
+## Chooses which preset the six geometry rows below edit; the act always reads the pony
+## size the game is set to, not this row.
 static var size_group := choice("size_group", "presentation.missionary.size_group",
 	MISSIONARY_SIZES, MISSIONARY_SIZE_LABELS, "Size",
 	"The pony size these missionary values are for.", POSES, MISSIONARY_SIZE_GROUP).as_debug()
+## Missionary-only vulva lift for the Canon preset; it applies while the act runs and
+## nowhere else.
 static var vulva_shift_mm_canon := num("vulva_shift_mm_canon",
 	"presentation.missionary.size.canon.vulva_shift_mm", "Vulva shift",
 	"Raise or lower the vulva mesh only while the missionary act runs. Signed, unclamped millimetres.",
 	POSES, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(1.0).as_debug()
+## Missionary-only vulva lift for the mounting preset.
 static var vulva_shift_mm_mounting := num("vulva_shift_mm_mounting",
 	"presentation.missionary.size.mounting.vulva_shift_mm", "Vulva shift",
 	"Raise or lower the vulva mesh only while the missionary act runs. Signed, unclamped millimetres.",
 	POSES, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(1.0).as_debug()
+## Missionary-only vulva lift for the same-height preset.
 static var vulva_shift_mm_same_height := num("vulva_shift_mm_same_height",
 	"presentation.missionary.size.same height.vulva_shift_mm", "Vulva shift",
 	"Raise or lower the vulva mesh only while the missionary act runs. Signed, unclamped millimetres.",
 	POSES, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(1.0).as_debug()
+## Missionary-only vulva lift for the Hoers preset.
 static var vulva_shift_mm_hoers := num("vulva_shift_mm_hoers",
 	"presentation.missionary.size.hoers.vulva_shift_mm", "Vulva shift",
 	"Raise or lower the vulva mesh only while the missionary act runs. Signed, unclamped millimetres.",
 	POSES, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(1.0).as_debug()
+## Missionary-only vulva tilt for the Canon preset, in signed degrees.
 static var vulva_pitch_deg_canon := num("vulva_pitch_deg_canon",
 	"presentation.missionary.size.canon.vulva_pitch_deg", "Vulva pitch",
 	"Tilt the vulva mesh only while the missionary act runs. Signed, unclamped degrees.",
 	POSES, MISSIONARY_SIZE_GROUP).with_unit("°").with_step(0.5).as_debug()
+## Missionary-only vulva tilt for the mounting preset, in signed degrees.
 static var vulva_pitch_deg_mounting := num("vulva_pitch_deg_mounting",
 	"presentation.missionary.size.mounting.vulva_pitch_deg", "Vulva pitch",
 	"Tilt the vulva mesh only while the missionary act runs. Signed, unclamped degrees.",
 	POSES, MISSIONARY_SIZE_GROUP).with_unit("°").with_step(0.5).as_debug()
+## Missionary-only vulva tilt for the same-height preset, in signed degrees.
 static var vulva_pitch_deg_same_height := num("vulva_pitch_deg_same_height",
 	"presentation.missionary.size.same height.vulva_pitch_deg", "Vulva pitch",
 	"Tilt the vulva mesh only while the missionary act runs. Signed, unclamped degrees.",
 	POSES, MISSIONARY_SIZE_GROUP).with_unit("°").with_step(0.5).as_debug()
+## Missionary-only vulva tilt for the Hoers preset, in signed degrees.
 static var vulva_pitch_deg_hoers := num("vulva_pitch_deg_hoers",
 	"presentation.missionary.size.hoers.vulva_pitch_deg", "Vulva pitch",
 	"Tilt the vulva mesh only while the missionary act runs. Signed, unclamped degrees.",
 	POSES, MISSIONARY_SIZE_GROUP).with_unit("°").with_step(0.5).as_debug()
+## Missionary-only vulva travel at full depth for the Canon preset; it eases in after 20 %
+## depth.
 static var vulva_depth_shift_mm_canon := num("vulva_depth_shift_mm_canon",
 	"presentation.missionary.size.canon.vulva_depth_shift_mm", "Vulva depth shift",
 	"Move the vulva vertically with the thrust: millimetres at 100% depth, easing in after 20%. Negative pushes it down.",
 	POSES, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(0.5).as_debug()
+## Missionary-only vulva travel at full depth for the mounting preset.
 static var vulva_depth_shift_mm_mounting := num("vulva_depth_shift_mm_mounting",
 	"presentation.missionary.size.mounting.vulva_depth_shift_mm", "Vulva depth shift",
 	"Move the vulva vertically with the thrust: millimetres at 100% depth, easing in after 20%. Negative pushes it down.",
 	POSES, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(0.5).as_debug()
+## Missionary-only vulva travel at full depth for the same-height preset.
 static var vulva_depth_shift_mm_same_height := num("vulva_depth_shift_mm_same_height",
 	"presentation.missionary.size.same height.vulva_depth_shift_mm", "Vulva depth shift",
 	"Move the vulva vertically with the thrust: millimetres at 100% depth, easing in after 20%. Negative pushes it down.",
 	POSES, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(0.5).as_debug()
+## Missionary-only vulva travel at full depth for the Hoers preset.
 static var vulva_depth_shift_mm_hoers := num("vulva_depth_shift_mm_hoers",
 	"presentation.missionary.size.hoers.vulva_depth_shift_mm", "Vulva depth shift",
 	"Move the vulva vertically with the thrust: millimetres at 100% depth, easing in after 20%. Negative pushes it down.",
 	POSES, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(0.5).as_debug()
+## Missionary-only cock-to-lip pad for the Canon preset, added on top of the global Vulva
+## hug.
 static var missionary_vulva_hug_mm_canon := num("missionary_vulva_hug_mm_canon",
 	"presentation.missionary.size.canon.vulva_hug_mm", "Hack: Vulva hug",
 	"Missionary-only pad between the cock and the vulva lips. Positive opens, negative grips; unclamped millimetres.",
 	POSES, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(0.5).as_debug()
+## Missionary-only cock-to-lip pad for the mounting preset.
 static var missionary_vulva_hug_mm_mounting := num("missionary_vulva_hug_mm_mounting",
 	"presentation.missionary.size.mounting.vulva_hug_mm", "Hack: Vulva hug",
 	"Missionary-only pad between the cock and the vulva lips. Positive opens, negative grips; unclamped millimetres.",
 	POSES, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(0.5).as_debug()
+## Missionary-only cock-to-lip pad for the same-height preset.
 static var missionary_vulva_hug_mm_same_height := num("missionary_vulva_hug_mm_same_height",
 	"presentation.missionary.size.same height.vulva_hug_mm", "Hack: Vulva hug",
 	"Missionary-only pad between the cock and the vulva lips. Positive opens, negative grips; unclamped millimetres.",
 	POSES, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(0.5).as_debug()
+## Missionary-only cock-to-lip pad for the Hoers preset.
 static var missionary_vulva_hug_mm_hoers := num("missionary_vulva_hug_mm_hoers",
 	"presentation.missionary.size.hoers.vulva_hug_mm", "Hack: Vulva hug",
 	"Missionary-only pad between the cock and the vulva lips. Positive opens, negative grips; unclamped millimetres.",
 	POSES, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(0.5).as_debug()
+## Camera clearance outside her live skull and muzzle for the Canon preset; zero turns the
+## guard off.
 static var head_clearance_mm_canon := num("head_clearance_mm_canon",
 	"presentation.missionary.size.canon.head_clearance_mm", "Head clearance",
 	"Keep the act camera this far outside her live skull and muzzle. Unclamped millimetres; 0 turns the guard off.",
 	POSES, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(1.0).as_debug()
+## Camera clearance outside her live skull and muzzle for the mounting preset.
 static var head_clearance_mm_mounting := num("head_clearance_mm_mounting",
 	"presentation.missionary.size.mounting.head_clearance_mm", "Head clearance",
 	"Keep the act camera this far outside her live skull and muzzle. Unclamped millimetres; 0 turns the guard off.",
 	POSES, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(1.0).as_debug()
+## Camera clearance outside her live skull and muzzle for the same-height preset.
 static var head_clearance_mm_same_height := num("head_clearance_mm_same_height",
 	"presentation.missionary.size.same height.head_clearance_mm", "Head clearance",
 	"Keep the act camera this far outside her live skull and muzzle. Unclamped millimetres; 0 turns the guard off.",
 	POSES, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(1.0).as_debug()
+## Camera clearance outside her live skull and muzzle for the Hoers preset.
 static var head_clearance_mm_hoers := num("head_clearance_mm_hoers",
 	"presentation.missionary.size.hoers.head_clearance_mm", "Head clearance",
 	"Keep the act camera this far outside her live skull and muzzle. Unclamped millimetres; 0 turns the guard off.",
 	POSES, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(1.0).as_debug()
+## Where she looks at Anon in the act for the Canon preset; signed millimetres.
 static var gaze_offset_mm_canon := num("gaze_offset_mm_canon",
 	"presentation.missionary.size.canon.gaze_offset_mm", "Gaze height",
 	"Raise or lower where she looks at Anon during the act. Positive looks higher, negative lower; unclamped millimetres.",
 	POSES, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(1.0).as_debug()
+## Where she looks at Anon in the act for the mounting preset.
 static var gaze_offset_mm_mounting := num("gaze_offset_mm_mounting",
 	"presentation.missionary.size.mounting.gaze_offset_mm", "Gaze height",
 	"Raise or lower where she looks at Anon during the act. Positive looks higher, negative lower; unclamped millimetres.",
 	POSES, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(1.0).as_debug()
+## Where she looks at Anon in the act for the same-height preset.
 static var gaze_offset_mm_same_height := num("gaze_offset_mm_same_height",
 	"presentation.missionary.size.same height.gaze_offset_mm", "Gaze height",
 	"Raise or lower where she looks at Anon during the act. Positive looks higher, negative lower; unclamped millimetres.",
 	POSES, MISSIONARY_SIZE_GROUP).with_unit("mm").with_step(1.0).as_debug()
+## Where she looks at Anon in the act for the Hoers preset.
 static var gaze_offset_mm_hoers := num("gaze_offset_mm_hoers",
 	"presentation.missionary.size.hoers.gaze_offset_mm", "Gaze height",
 	"Raise or lower where she looks at Anon during the act. Positive looks higher, negative lower; unclamped millimetres.",
@@ -1078,128 +1219,176 @@ static func palm_scale_for(size: String) -> float:
 
 
 # -- Standing  (debug)
+
+## Head lift at the chin in the standing bake; poses/service.gd reads it when it builds the
+## standing frame.
 static var chin_up_deg := num("chin_up_deg", "presentation.standing.chin_up_deg",
 	"Chin up", "Standing head lift at the chin.", POSES, "Standing") \
 	.with_unit("°").with_step(1.0).as_debug()
+## Neck reach down and forward in the standing bake, read with Chin up.
 static var neck_down_deg := num("neck_down_deg", "presentation.standing.neck_down_deg",
 	"Neck down", "Standing neck reach down/forward.", POSES, "Standing") \
 	.with_unit("°").with_step(1.0).as_debug()
+## How far the standing bake lifts the tail; it pairs with Tail aside and applies to the
+## baked pose, not per frame.
 static var tail_pitch_deg := num("tail_pitch_deg", "presentation.standing.tail.pitch_deg",
 	"Tail lift (pitch)", "How far the standing tail lifts up. Pairs with Tail aside.", POSES, "Standing") \
 	.with_unit("°").with_step(1.0).with_range(0.0, 90.0).as_debug()
+## How far the standing bake sweeps the tail aside from her centreline.
 static var yaw_deg := num("yaw_deg", "presentation.standing.tail.yaw_deg",
 	"Tail aside (yaw)", "How far the standing tail sweeps aside from her centreline.", POSES, "Standing") \
 	.with_unit("°").with_step(1.0).with_range(0.0, 90.0).as_debug()
 
 # -- Standing › Motion  (debug)
+
+## Moves her body with the thrust while the hooves stay planted; Anon's hips follow so the
+## contact rocks with her.
 static var standing_body_sway := flag("standing_body_sway", "features.standing_body_sway",
 	"Sway her body",
 	"Move her body with the thrust while the hooves stay planted; Anon's hips follow so the contact rocks with her.",
 	POSES, "Standing › Motion") \
 	.as_debug()
+## Flicks both ears on some thrusts; the standing motion module decides when.
 static var thrust_ear_twitch := flag("thrust_ear_twitch", "features.thrust_ear_twitch",
 	"Twitch her ears", "Flick both ears on some thrusts.", POSES, "Standing › Motion") \
 	.as_debug()
+## Slides Anon's view forward relative to his chest so his own body sits behind the act
+## camera.
 static var camera_forward_m := num("camera_forward_m", "presentation.standing.camera_forward_m", "Camera forward",
 	"Slide Anon's view forward relative to his chest so his own body sits behind the camera.",
 	POSES, "Standing › Motion") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
+## Tilts Anon's standing view; positive looks up, and the value is read when the act
+## starts.
 static var camera_pitch_deg := num("camera_pitch_deg", "presentation.standing.camera_pitch_deg", "Camera pitch", "Tilt Anon's standing view up or down; positive looks up.", POSES,
 	"Standing › Motion") \
 	.with_unit("°").with_step(0.5).as_debug()
+## Pushes Anon's chest back from the camera in the standing act; zero is off.
 static var chest_back_m := num("chest_back_m", "presentation.standing.chest_back_m",
 	"Chest back", "Push Anon's chest back from the camera in the standing act. 0 is off.",
 	POSES, "Standing › Motion") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
+## Moves Anon closer or farther when a standing act starts, on top of the measured reach
+## gap.
 static var gap_offset_m := num("gap_offset_m", "presentation.standing.gap_offset_m",
 	"Gap offset", "Move Anon closer (negative) or farther (positive) when a standing act starts.",
 	POSES, "Standing › Motion") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
+## The reach gap above which the act spends footstools; stool/service.gd compares it with
+## the live hoof and part heights.
 static var stool_gap_m := num("stool_gap_m", "presentation.standing.stool_gap_m",
 	"Stool gap",
 	"Vertical gap between her bits and Anon's that needs a footstool. 20 cm by default.",
 	POSES, "Standing › Motion") \
 	.with_unit("cm").with_step(5.0).with_scale(100.0).as_debug()
+## Height each placed footstool adds; the act stacks enough to cover the gap and the shop
+## drop decides how many are carryable.
 static var stool_height_m := num("stool_height_m", "presentation.standing.stool_height_m",
 	"Stool height",
 	"Height each placed footstool adds. The act stacks enough footstools to cover the gap.",
 	POSES, "Standing › Motion") \
 	.with_unit("cm").with_step(5.0).with_scale(100.0).as_debug()
+## How fast a look-back glance eases in and out; it scales the standing camera blend.
 static var glance_back_speed := num("glance_back_speed",
 	"presentation.standing.glance_back_speed", "Glance-back speed",
 	"How fast a look-back glance eases in and out.", POSES, "Standing › Motion") \
 	.with_unit("×").with_step(0.05).with_range(0.25, 3.0).as_debug()
+## Lowers Anon's standing hips when his body sits too high over her; zero is off.
 static var hip_drop_m := num("hip_drop_m", "presentation.standing.hip_drop_m", "Hip drop",
 	"Lower Anon's standing hips; use this when his body sits too high. 0 is off.", POSES,
 	"Standing › Motion") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
+## Hinges his upper body at the hips; the pose reads the presentation block.
 static var torso_angle_deg := num("torso_angle_deg", "presentation.standing.torso_angle_deg", "Anon torso lean",
 	"Hinge Anon's upper body forward over her; the lower body stays planted.", POSES,
 	"Standing › Motion") \
 	.with_unit("°").with_step(1.0).as_debug()
 
 # -- Standing › Kiss  (debug)
+
+## Over-the-shoulder yaw toward her at the kiss; kiss/service.gd reads the block when the
+## kiss starts.
 static var camera_yaw_deg := num("camera_yaw_deg", "presentation.standing.kiss.camera_yaw_deg", "Kiss camera yaw", "Over-the-shoulder yaw toward her at the kiss.", POSES,
 	"Standing › Kiss") \
 	.with_unit("°").with_step(1.0).as_debug()
+## How far he drops over her at the kiss; kiss/service.gd applies it when the kiss starts.
 static var lean_drop := num("lean_drop", "presentation.standing.kiss.lean_drop",
 	"Kiss lean drop", "How far he drops over her at the kiss.", POSES, "Standing › Kiss") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
+## Forward lean he takes at the kiss, on top of the bed-family constants.
 static var lean_forward := num("lean_forward", "presentation.standing.kiss.lean_forward",
 	"Kiss forward lean", "Forward kiss lean.", POSES, "Standing › Kiss") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
+## Sideways kiss lean toward the shoulder side; the bed family uses its own constant instead.
 static var lean_side := num("lean_side", "presentation.standing.kiss.lean_side",
 	"Kiss side lean", "Sideways kiss lean toward the shoulder side.", POSES, "Standing › Kiss") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
+## Drop of Anon's mouth target at the kiss, in his body's frame.
 static var mouth_drop := num("mouth_drop", "presentation.standing.kiss.mouth_drop",
 	"Kiss mouth down", "Anon's mouth target drop at the kiss.", POSES, "Standing › Kiss") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
+## Forward offset of Anon's mouth target at the kiss.
 static var mouth_forward := num("mouth_forward", "presentation.standing.kiss.mouth_forward", "Kiss mouth forward", "Anon's mouth target forward at the kiss.", POSES,
 	"Standing › Kiss") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
+## Sideways offset of Anon's mouth target at the kiss.
 static var mouth_right := num("mouth_right", "presentation.standing.kiss.mouth_right",
 	"Kiss mouth right", "Anon's mouth target sideways at the kiss.", POSES, "Standing › Kiss") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
 
 # -- Standing › Smack  (debug)
+
+## Bow of the lift path toward her rump in the smack recipe; the contact point stays put.
 static var arc_m := num("arc_m", "presentation.standing.smack.arc_m", "Palm arc",
 	"Bow of the lift path toward her rump.", POSES, "Standing › Smack") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
+## Moves the smack contact up or down her cheek; negative goes lower.
 static var height_m := num("height_m", "presentation.standing.smack.height_m", "Height",
 	"Move the target up or down the cheek.", POSES, "Standing › Smack") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
+## Moves the smack contact toward her rump.
 static var hind_m := num("hind_m", "presentation.standing.smack.hind_m", "Hind offset",
 	"Move the target toward her rump.", POSES, "Standing › Smack") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
+## Pitches the raised palm down from the contact basis at the top of the wind-up.
 static var smack_pitch_deg := num("smack_pitch_deg", "presentation.standing.smack.pitch_deg", "Palm pitch", "Pitch the raised palm down from the contact basis.", POSES,
 	"Standing › Smack") \
 	.with_unit("°").with_step(1.0).as_debug()
+## Hand lift at the top of the wind-up, scaled by the hand's smack body scale.
 static var raise_m := num("raise_m", "presentation.standing.smack.raise_m", "Max raise",
 	"Hand lift at the top of the wind-up.", POSES, "Standing › Smack") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
+## Speed of the wind-up in metres per second; the return uses its own value.
 static var raise_speed := num("raise_speed", "presentation.standing.smack.raise_speed",
 	"Raise speed", "Wind-up speed in metres per second.", POSES, "Standing › Smack") \
 	.with_unit("m/s").with_step(0.1).as_debug()
+## Speed of the strike in metres per second.
 static var return_speed := num("return_speed", "presentation.standing.smack.return_speed",
 	"Return speed", "Strike speed in metres per second.", POSES, "Standing › Smack") \
 	.with_unit("m/s").with_step(0.1).as_debug()
 
 # -- Thrust jiggle  (debug)
+
+## Moves the wobble centre back from the hind-femur midpoint, toward the dock.
 static var center_back_m := num("center_back_m", "jiggle.center_back_m", "Center back",
 	"Backward center from the hind-femur midpoint; raise it to move the wobble toward the dock.",
 	GENERAL, "Thrust jiggle") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
+## Moves the wobble centre up the rump from the hind-femur midpoint.
 static var center_height_m := num("center_height_m", "jiggle.center_height_m",
 	"Center height",
 	"Taller center above the hind-femur midpoint; raise it to move the wobble up the rump.",
 	GENERAL, "Thrust jiggle") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
+## How much the thrust wobbles the rump; the jiggle pass reads it per stroke.
 static var intensity := num("intensity", "jiggle.intensity", "Intensity",
 	"Thrust amount of the rump wobble.", GENERAL, "Thrust jiggle") \
 	.with_unit("×").with_step(0.05).as_debug()
+## How far the wobble reaches across the flank.
 static var radius := num("radius", "jiggle.radius", "Radius",
 	"Spread of the rump wobble across the flank.", GENERAL, "Thrust jiggle") \
 	.with_unit("cm").with_step(1.0).with_scale(100.0).as_debug()
+## How much an act smack wobbles the rump, kept apart from the thrust amount.
 static var smack_intensity := num("smack_intensity", "jiggle.smack_intensity",
 	"Smack intensity", "Act-smack amount of the rump wobble.", GENERAL, "Thrust jiggle") \
 	.with_unit("×").with_step(0.05).as_debug()
@@ -1207,268 +1396,366 @@ static var smack_intensity := num("smack_intensity", "jiggle.smack_intensity",
 # ======================================================== Anatomy
 
 # -- (ungrouped)
+
+## The one gate `SETTINGS.anatomy_on()` reads: `never` detaches, `act` shows her from
+## `POSING_IN` to `CLIMAX`, `always` keeps her attached.
 static var anatomy_mode := choice("anatomy_mode", "anatomy.anatomy_mode",
 	["never", "act", "always"], ["Never", "During act only", "Always"], "Anatomy",
 	"When to show it", ANATOMY, "")
 
 # -- Mare
+
+## Hidden, coat-coloured or genitals; the seat and attach paths read it.
 static var dock_style := choice("dock_style", "anatomy.dock_style",
 	["hide", "coat", "genitals"], ["Hide", "Coat", "Genitals"], "Dock style",
 	"", ANATOMY, "Mare")
+## Draws the ventral midline strip; its width is Skin strip scale.
 static var skin_strip := flag("skin_strip", "anatomy.skin_strip",
 	"Show ventral midline",
 	"Skin strip between teats and vulva.", ANATOMY, "Mare")
+## Draws her teats; their size is her per-mare Teat size preference, not this switch.
 static var teats := flag("teats", "anatomy.teats", "Show teats", "",
 	ANATOMY, "Mare")
+## Draws climax and idle droplets; it is separate from the idle heat discharge rows.
 static var anatomy_fluid := flag("anatomy_fluid", "features.anatomy_fluid", "Show fluids",
 	"", ANATOMY, "Mare")
+## Vertical placement of the vulva on her body; the shader and the mesh both read it on
+## the next appearance.
 static var vulva_height := num("vulva_height", "anatomy.vulva_height",
 	"Vulva height", "", ANATOMY, "Mare") \
 	.with_unit("×").with_step(0.05).with_range(0.5, 1.5)
+## Scale of the visible ponut; the shapes, coat and controller all read it.
 static var anal_scale := num("anal_scale", "anatomy.anal_scale",
 	"Ponut scale", "", ANATOMY, "Mare") \
 	.with_unit("×").with_step(0.05).with_range(0.5, 1.5)
+## Blends the anatomy skin toward a dark tone; `anatomy/appearance.gd` applies it.
 static var skin_tone := num("skin_tone", "anatomy.skin_tone", "Skin tone",
 	"0% - same color as mare's coat, 100% - dark", ANATOMY, "Mare") \
 	.with_unit("%").with_step(1.0).with_scale(100.0).with_range(0.0, 1.0).with_slider()
+## Tint of the inner folds; it is applied per material build.
 static var vulva_inner_color := color("vulva_inner_color", "anatomy.vulva_inner_color", "Inner folds colour",
 	"", ANATOMY, "Mare")
+## Tint of the clitoris; the fold-colouring hack overrides both colours during
+## missionary.
 static var clitoris_color := color("clitoris_color", "anatomy.clitoris_color", "Clitoris colour",
 	"", ANATOMY, "Mare")
+## Seats every mare's hair tail and dock at the reference position.
 static var reseat_tails := flag("reseat_tails", "anatomy.reseat_tails",
 	"Re-seat tails and docks",
 	"Seat every mare's hair tail at the reference dock and snap the dock base to her rump. Off restores the game's original tail mount and dock.",
 	ANATOMY, "Mare")
+## Patches the rig coat shader at runtime so the area under the vulva stays still and the
+## coat spreads; off leaves the game shader untouched.
 static var body_coat_deform := flag("body_coat_deform", "features.body_coat_deform",
 	"Body coat deform",
 	"Patch the rig coat shader at runtime so the area under the vulva stays still and the coat spreads as the opening widens. Off leaves the game shader untouched.",
 	ANATOMY, "").as_debug()
 # -- Placement  (debug)
-## The anatomy place actions read this pill. It is hidden from the declaration rows because the
-## pill above those actions owns the widget.
+
+## Whether the Placement actions in the Anatomy Debug block edit the global default or the
+## pointed mare; the pill above those actions draws it.
 static var edit_target := choice("edit_target", "anatomy.placement_target",
 	["default", "mare"], ["Default", "Pointed mare"], "Placement target",
 	"Choose whether the Placement actions change the global default or the pointed mare.",
 	ANATOMY, "Placement").as_debug().as_hidden()
+## Model-space X of the anatomy mesh for a mare with no override; a provider or catalog row
+## wins first.
 static var offset_x := num("offset_x", "anatomy.placement.default.offset_x",
 	"Default X", "Model-space placement used when a mare has no override.", ANATOMY, "Placement") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug().as_hidden()
+## Model-space Y of the anatomy mesh for a mare with no override.
 static var offset_y := num("offset_y", "anatomy.placement.default.offset_y",
 	"Default Y", "Model-space placement used when a mare has no override.", ANATOMY, "Placement") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug().as_hidden()
+## Model-space Z of the anatomy mesh for a mare with no override.
 static var offset_z := num("offset_z", "anatomy.placement.default.offset_z",
 	"Default Z", "Model-space placement used when a mare has no override.", ANATOMY, "Placement") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug().as_hidden()
+## Pitch of the anatomy mesh for a mare with no override.
 static var pitch_deg := num("pitch_deg", "anatomy.placement.default.pitch_deg",
 	"Default pitch", "Pitch of the anatomy mesh when a mare has no override.", ANATOMY, "Placement") \
 	.with_unit("°").with_step(1.0).as_debug().as_hidden()
+## Scale of the anatomy mesh for a mare with no override.
 static var scale := num("scale", "anatomy.placement.default.scale",
 	"Default scale", "Scale of the anatomy mesh when a mare has no override.", ANATOMY, "Placement") \
 	.with_unit("×").with_step(0.01).as_debug().as_hidden()
+## Vertical tail-seat offset for a mare with no override.
 static var tail_y := num("tail_y", "anatomy.placement.default.tail_y",
 	"Default tail Y", "Vertical tail-seat offset when a mare has no override.", ANATOMY, "Placement") \
 	.with_unit("mm").with_step(1.0).with_scale(1000.0).as_debug().as_hidden()
+## Forward/back tail-seat offset for a mare with no override.
 static var tail_z := num("tail_z", "anatomy.placement.default.tail_z",
 	"Default tail Z", "Forward/back tail-seat offset when a mare has no override.", ANATOMY, "Placement") \
 	.with_unit("mm").with_step(1.0).with_scale(1000.0).as_debug().as_hidden()
+## Dock distance trim for a mare with no override; it is a post-skin lift, so it never
+## needs a rebuild.
 static var dock_y := num("dock_y", "anatomy.placement.default.dock_y",
 	"Default dock Y", "Dock distance trim when a mare has no override.", ANATOMY, "Placement") \
 	.with_unit("mm").with_step(1.0).with_scale(1000.0).as_debug().as_hidden()
+## Dock scale for a mare with no override; it rebuilds the dock without touching the
+## tail.
 static var dock_scale := num("dock_scale", "anatomy.placement.default.dock_scale",
 	"Default dock scale", "Dock scale when a mare has no override.", ANATOMY, "Placement") \
 	.with_unit("×").with_step(0.01).as_debug().as_hidden()
+## Side tilt of the tail seat for a mare with no override; the base stays put.
 static var tail_tilt_deg := num("tail_tilt_deg", "anatomy.placement.default.tail_tilt_deg",
 	"Default tail tilt", "Side tilt of the tail seat when a mare has no override.", ANATOMY, "Placement") \
 	.with_unit("°").with_step(1.0).as_debug().as_hidden()
+## Model-space X of the player part; the anatomy placement editor and the Debug rows both
+## write it.
 static var anon_offset_x := num("anon_offset_x", "anatomy.placement.anon.offset_x",
 	"Anon X", "Model-space placement of the player part.", ANATOMY, "Placement") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
+## Model-space Y of the player part.
 static var anon_offset_y := num("anon_offset_y", "anatomy.placement.anon.offset_y",
 	"Anon Y", "Model-space placement of the player part.", ANATOMY, "Placement") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
+## Model-space Z of the player part.
 static var anon_offset_z := num("anon_offset_z", "anatomy.placement.anon.offset_z",
 	"Anon Z", "Model-space placement of the player part.", ANATOMY, "Placement") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
+## Pitch of the player part; the placement editor and the Debug rows both write it.
 static var anon_pitch_deg := num("anon_pitch_deg", "anatomy.placement.anon.pitch_deg",
 	"Anon pitch", "Pitch of the player part.", ANATOMY, "Placement") \
 	.with_unit("°").with_step(1.0).as_debug()
+## Scale of the player part; Size scales the whole part relative to it.
 static var anon_scale := num("anon_scale", "anatomy.placement.anon.scale",
 	"Anon scale", "Scale of the player part.", ANATOMY, "Placement") \
 	.with_unit("×").with_step(0.01).as_debug()
 
 # -- You
+
+## Overall size of the player part relative to its modelled size; the hip geometry follows
+## it every frame.
 static var player_scale := num("player_scale", "anatomy.player_scale", "Size",
 	"Scale the player part relative to its default size.", ANATOMY, "You") \
 	.with_unit("×").with_step(0.05).with_range(0.25, 3.0)
+## Shaft length; the head, hole grip and fluid point follow it, so a longer part also
+## renders a longer stroke.
 static var part_length_scale := num("part_length_scale", "anatomy.part_length_scale",
 	"Length",
 	"Stretch the shaft along its length. The head, hole grip and fluid point follow it.", ANATOMY, "You") \
 	.with_unit("×").with_step(0.05).with_range(0.1, 3.0)
+## Thickness where the cock leaves his body; the grip reads it to size the hole.
 static var part_base_scale := num("part_base_scale", "anatomy.part_base_scale",
 	"Base radius", "Thickness of the cock where it leaves his body.", ANATOMY, "You") \
 	.with_unit("×").with_step(0.05).with_range(0.1, 3.0)
+## Thickness around the middle of the shaft.
 static var part_mid_scale := num("part_mid_scale", "anatomy.part_mid_scale",
 	"Mid radius", "Thickness of the cock around its middle.", ANATOMY, "You") \
 	.with_unit("×").with_step(0.05).with_range(0.1, 3.0)
+## Thickness of the glans at the tip, which is what the grip measures.
 static var part_head_scale := num("part_head_scale", "anatomy.part_head_scale",
 	"Head radius", "Thickness of the glans at the end of the shaft.", ANATOMY, "You") \
 	.with_unit("×").with_step(0.05).with_range(0.1, 3.0)
+## Pulse of the shaft, with a lift while it is outside her; `anatomy/player.gd` drives it.
 static var part_throb := num("part_throb", "anatomy.part_throb", "Throb",
 	"Heartbeat-like pulse of the shaft, with a slight upward beat while it is outside her. "
 	+ "1 is subtle; 0 turns it off.", ANATOMY, "You") \
 	.with_unit("×").with_step(0.05).with_range(0.0, 3.0)
 
 # -- You  (debug)
-## These two sit ungrouped in the Debug block: the player-facing **You** group above has the rest,
-## and a two-row section would not earn a heading.
+
+## Slides the cock base forward onto the front of the pelvis; a missionary act adds its own
+## inset on top.
 static var part_front_m := num("part_front_m", "anatomy.part_front_m", "Cock forward",
 	"Slide the cock's base forward from the hips so it sits on the front of the pelvis.", ANATOMY, "") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).with_range(-20.0, 20.0) \
 	.as_debug()
+## How far the pelvis stays behind her rear surface before the depth gives way.
 static var pelvis_gap_m := num("pelvis_gap_m", "anatomy.pelvis_gap_m", "Pelvis gap",
 	"Keep the pelvis at least this far behind her rear surface; the depth gives way instead.", ANATOMY, "") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).with_range(0.0, 10.0) \
 	.as_debug()
+## Width of the midline strip around its centre; one is the modelled width.
 static var strip_scale := num("strip_scale", "anatomy.strip_scale", "Skin strip scale",
 	"Scale the midline skin strip under the vulva sideways around its centre. 1 is the modelled width.", ANATOMY, "") \
 	.with_unit("×").with_step(0.05).as_debug()
+## Shows the vulva, anus and cock-tip markers during an act; it is a debug overlay.
 static var debug_aim_points := flag("debug_aim_points", "features.debug_aim_points",
 	"Show aim points", "Show the vulva, anus and cock-tip markers during an act.", ANATOMY, "") \
 	.as_debug()
+## Collapses every loaded pony's tail; the small root cap pinned to her pelvis may remain.
 static var debug_hide_tails := flag("debug_hide_tails", "debug_hide_tails", "Hide tails",
 	"Collapse every loaded pony's tail for debugging. The small tail root cap pinned to her pelvis may remain.", ANATOMY, "") \
 	.as_debug()
 
 # -- Holes  (debug)
+
+## Pads the gap between the cock and the vulva lips; positive opens them, negative grips
+## tighter. The missionary presets add to it.
 static var vulva_hug_mm := num("vulva_hug_mm", "anatomy.vulva_hug_mm",
 	"Vulva hug",
 	"Pad the gap between the cock and the vulva lips. Positive opens the lips wider; negative grips tighter.", ANATOMY, "Holes") \
 	.with_unit("mm").with_step(0.5).with_range(-5.0, 5.0) \
 	.as_debug()
+## Pads the gap between the cock and the anal opening, on the same rule as the vulva pad.
 static var anal_hug_mm := num("anal_hug_mm", "anatomy.anal_hug_mm",
 	"Anal hug",
 	"Pad the gap between the cock and the anal opening. Positive opens it wider; negative grips tighter.", ANATOMY, "Holes") \
 	.with_unit("mm").with_step(0.5).with_range(-5.0, 5.0) \
 	.as_debug()
+## Raises or lowers the V2 anal penetration point; the mesh itself does not move.
 static var anal_aim_mm := num("anal_aim_mm", "anatomy.anal_aim_mm",
 	"Anal aim height",
 	"Raise or lower the V2 anal penetration point. Negative lowers it; the mesh itself does not move.", ANATOMY, "Holes") \
 	.with_unit("mm").with_step(0.5).with_range(-40.0, 40.0) \
 	.as_debug()
+## Pushes the visible ponut inward around the anal opening so the V2 hole and an oversized
+## shaft stop clipping the body.
 static var anal_body_depth_mm := num("anal_body_depth_mm", "anatomy.anal_body_depth_mm",
 	"Anal body depth",
 	"Push the visible body ponut inward around the anal opening so the V2 hole and an oversized shaft stop clipping the body.", ANATOMY, "Holes") \
 	.with_unit("mm").with_step(1.0) \
 	.as_debug()
+## How much of the opening happens top to bottom; a lower value keeps the top and bottom
+## lips tight on the shaft while the sides part.
 static var lip_vertical := num("lip_vertical", "anatomy.lip_vertical",
 	"Lip vertical share",
 	"How much of the opening happens top to bottom. Lower keeps the top and bottom lips tight on the shaft while the sides part.", ANATOMY, "Holes") \
 	.with_unit("×").with_step(0.05).with_range(0.0, 1.0) \
 	.as_debug()
+## Scales how far the body coat stretches around the vulva as the opening widens.
 static var coat_spread := num("coat_spread", "anatomy.coat_spread",
 	"Coat spread",
 	"Multiplier for the body coat stretching around the vulva as the opening widens.", ANATOMY, "Holes") \
 	.with_unit("×").with_step(0.05) \
 	.as_debug()
+## Lateral radius of the coat cut behind the opening, as a share of the lip radius; keep it
+## at or below one so the cut stays under the lips, and zero turns the cut off.
 static var coat_hole := num("coat_hole", "anatomy.coat_hole",
 	"Coat hole width",
 	"Lateral radius of the ellipse cut out of the body coat behind the vulva opening, as a share of the measured lip radius. Keep it at or below 1 so the cut stays under the lips; 0 turns the cut off.", ANATOMY, "Holes") \
 	.with_unit("×").with_step(0.01) \
 	.as_debug()
+## Vertical radius of the coat cut, as a share of the lip radius.
 static var coat_hole_height := num("coat_hole_height", "anatomy.coat_hole_height",
 	"Coat hole height",
 	"Vertical radius of the coat cut, as a share of the measured lip radius. The lips reach further up and down than they do sideways, so this sits above the width; matching the width makes the cut round.", ANATOMY, "Holes") \
 	.with_unit("×").with_step(0.01) \
 	.as_debug()
+## How far behind the opening the cut reaches; keep it shorter than the inner cavity.
+## The coat reads it into its ring field with no code default.
 static var coat_hole_depth_mm := num("coat_hole_depth_mm", "anatomy.coat_hole_depth_mm",
 	"Coat hole depth",
 	"How far behind the vulva opening the coat cut reaches. Keep it shorter than the anatomy's inner cavity.", ANATOMY, "Holes") \
 	.with_unit("mm").with_step(1.0) \
 	.as_debug()
+## Scales the no-jiggle zone around the vulva; zero turns the zone off and the coat wobbles
+## through the opening.
 static var jiggle_still := num("jiggle_still", "anatomy.jiggle_still",
 	"Jiggle still zone",
 	"Multiplier for the no-jiggle zone around the vulva. 0 turns the still zone off.", ANATOMY, "Holes") \
 	.with_unit("×").with_step(0.05) \
 	.as_debug()
+## Scales the no-jiggle zone around the visible ponut.
 static var anal_still := num("anal_still", "anatomy.anal_still",
 	"Anal still zone",
 	"Multiplier for the no-jiggle zone around the visible ponut. 0 turns the still zone off.", ANATOMY, "Holes") \
 	.with_unit("×").with_step(0.05) \
 	.as_debug()
+## Vertical half-axis of both still zones as a share of the lateral one;
+## anatomy/coat.gd turns it into the ellipsoid rings.
 static var still_oval := num("still_oval", "anatomy.still_oval",
 	"Still zone oval",
 	"Vertical half-axis of both still zones as a share of the lateral one. Lower makes them flatter.", ANATOMY, "Holes") \
 	.with_unit("×").with_step(0.05) \
 	.as_debug()
+## Share of each still zone that blends back to full jiggle at its rim; higher is softer.
 static var still_fade := num("still_fade", "anatomy.still_fade",
 	"Still zone fade",
 	"Share of each still zone used to blend back to full jiggle at the rim. Higher is softer.", ANATOMY, "Holes") \
 	.with_unit("×").with_step(0.01) \
 	.as_debug()
+## Pushes the whole mesh outward along its own normal; placement caches it.
 static var vulva_out_mm := num("vulva_out_mm", "anatomy.vulva_out_mm",
 	"Vulva out",
 	"Push the whole anatomy mesh out of her coat along its own normal, so a pose that tucks it in does not clip her.",
 	ANATOMY, "Holes").with_unit("mm").with_step(1.0).as_debug()
+## Vertical placement of the vulva still zone from its opening; the zone rides the coat's
+## local frame, so a pose change moves it.
 static var still_height_mm := num("still_height_mm", "anatomy.still_height_mm",
 	"Still zone height",
 	"Vertical placement of the vulva still zone from its opening; positive is higher, negative lower.",
 	ANATOMY, "Holes") \
 	.with_unit("mm").with_step(0.5) \
 	.as_debug()
+## Overlays the two still-zone ellipsoids on the body coat; `anatomy/coat.gd` draws them.
 static var draw_still_zones := flag("draw_still_zones", "anatomy.draw_still_zones",
 	"Draw still zones",
 	"Overlay the vulva and visible-ponut still-zone ellipsoids on the body coat.",
 	ANATOMY, "Holes").as_debug()
+## Draws nearby ponies' skeletons; `debug/actions.gd` owns the overlay.
 static var skeleton_overlay := flag("skeleton_overlay", "anatomy.skeleton_overlay",
 	"Show skeleton overlay",
 	"Draw nearby ponies' body, face and hair/tail skeletons. Left-click a joint to print it. Requires Enable debug.",
 	ANATOMY, "").as_debug()
+## Bends the anatomy shell around the hind-leg line instead of keeping the mesh rigid;
+## the bend is rebuilt when the coat line settles.
 static var coat_line := flag("coat_line", "anatomy.coat_line",
 	"Coat line",
 	"Bend the anatomy shell around the hind-leg line. Off keeps the mesh rigid.",
 	ANATOMY, "").as_debug()
+## Draws the sampled rest line, the live bent line and a cross-section marker at each
+## sample; it is a debug overlay only.
 static var draw_coat_line := flag("draw_coat_line", "anatomy.draw_coat_line",
 	"Draw coat line",
 	"Draw the sampled rest line, the live bent and stretched line, and a cross-section marker at each sample.",
 	ANATOMY, "").as_debug()
 
 # -- Heat  (debug)
+
+## Shortest gap between idle heat winks; the heat module picks the next gap in this band.
 static var wink_min_s := num("wink_min_s", "anatomy.wink_min_s", "Wink min gap",
 	"Shortest gap between idle heat winks, in seconds.", ANATOMY, "Heat") \
 	.with_unit("s").with_step(0.5).with_range(1.0, 120.0).as_debug()
+## Longest gap between idle heat winks; the heat module picks the next gap in this band.
 static var wink_max_s := num("wink_max_s", "anatomy.wink_max_s", "Wink max gap",
 	"Longest gap between idle heat winks, in seconds.", ANATOMY, "Heat") \
 	.with_unit("s").with_step(0.5).with_range(1.0, 120.0).as_debug()
+## How open she rests between winks, as a share of the authored open shape; zero rests
+## fully closed.
 static var heat_rest_open := num("heat_rest_open", "anatomy.heat_rest_open", "Rest open",
 	"How open she rests between winks, as a share of the authored open shape. 0 is fully closed.",
 	ANATOMY, "Heat") \
 	.with_unit("%").with_step(1.0).with_scale(100.0).with_range(0.0, 1.0).as_debug()
+## Shallowest opening of an idle wink; the heat module picks the opening inside this band
+## each time.
 static var wink_open_min := num("wink_open_min", "anatomy.wink_open_min",
 	"Wink open min",
 	"Shallowest opening of an idle wink, as a share of the authored open shape.",
 	ANATOMY, "Heat") \
 	.with_unit("%").with_step(1.0).with_scale(100.0).with_range(0.0, 1.0).as_debug()
+## Deepest opening of an idle wink; the heat module picks the opening inside this band each time.
 static var wink_open_max := num("wink_open_max", "anatomy.wink_open_max",
 	"Wink open max",
 	"Deepest opening of an idle wink, as a share of the authored open shape.",
 	ANATOMY, "Heat") \
 	.with_unit("%").with_step(1.0).with_scale(100.0).with_range(0.0, 1.0).as_debug()
+## Scales the open, hold and close times of each wink; below one is quicker and the shape
+## itself is unchanged.
 static var wink_timing := num("wink_timing", "anatomy.wink_timing", "Wink timing",
 	"Scale the open, hold and close times of each idle wink. Below 1 is quicker; above 1 is slower.",
 	ANATOMY, "Heat") \
 	.with_unit("×").with_step(0.05).with_range(0.25, 4.0).as_debug()
+## Size of each idle heat droplet; the parent part scales it with the body.
 static var fluid_size := num("fluid_size", "anatomy.fluid_size", "Fluid size",
 	"Size of each idle heat droplet.", ANATOMY, "Heat") \
 	.with_unit("mm").with_step(0.5).with_scale(1000.0).with_range(0.0005, 0.02).as_debug()
+## Vertical speed of each idle heat droplet; negative falls, positive rises, and the value
+## is not clamped.
 static var fluid_y_speed := num("fluid_y_speed", "anatomy.fluid_y_speed",
 	"Fluid Y speed",
 	"Vertical speed of each idle heat droplet in metres per second. Negative falls, positive rises; not clamped.",
 	ANATOMY, "Heat") \
 	.with_unit("m/s").with_step(0.01).as_debug()
+## Scales the idle heat discharge, both droplet count and speed; zero turns the discharge
+## off.
 static var drip := num("drip", "anatomy.drip", "Discharge",
 	"Scale the idle heat discharge: droplet count and speed. 0 turns it off.",
 	ANATOMY, "Heat") \
 	.with_unit("×").with_step(0.05).with_range(0.0, 3.0).as_debug()
+## Multiplies the opacity of every fluid droplet, act droplets included.
 static var fluid_alpha := num("fluid_alpha", "anatomy.fluid_alpha", "Fluid opacity",
 	"Multiply the opacity of every fluid droplet.", ANATOMY, "Heat") \
 	.with_unit("%").with_step(1.0).with_scale(100.0).with_range(0.0, 1.0) \
@@ -1477,156 +1764,222 @@ static var fluid_alpha := num("fluid_alpha", "anatomy.fluid_alpha", "Fluid opaci
 # ======================================================== World
 
 # -- (ungrouped)
+
+## The lowest relationship level that consents to sex; the offer and eligibility gates read
+## it through the relationship provider.
 static var promiscuity := choice("promiscuity", "relationship.promiscuity",
 	["soulmates", "head_over_hooves", "marefriend", "new_couple", "crush", "any"],
 	["Soulmates", "Head Over Hooves", "Marefriend / Coltfriend", "New Couple", "Crush", "Any Adult"],
 	"Promiscuity", "Lowest relationship level for sex.", WORLD, "")
+## Gives mares the 30-day cycle: heat warms faster and offers sooner, diestrus is Context;
+## see docs/eligibility.md.
 static var estrus_cycle := flag("estrus_cycle", "features.estrus_cycle",
 	"Enable estrus cycle",
 	"Give mares a 30-day cycle: seven days of heat, two days turned off, then normal. In heat they warm faster and offer sooner; in diestrus they refuse sex.", WORLD, "")
+## Adds a thrust-paced interjection instruction to her cue lines; off keeps her sentences
+## whole.
 static var act_speech_feel := flag("act_speech_feel", "features.act_speech_feel",
 	"Enable speech interjections",
 	"Describe how Anon's current strokes break up her speech with interjections. Off keeps her sentences whole.", WORLD, "")
 
 # -- History › Points  (debug)
+
+## Hurt one sincere apology removes per day; shared/act_history.gd owns the points rule.
 static var apology_repair := num("apology_repair", "history.apology_repair",
 	"Apology repair", "Hurt removed by one sincere apology per day.", WORLD, "History › Points") \
 	.with_step(1.0).as_debug()
+## Hurt a bad act adds to the next act's history.
 static var bad_hurt := num("bad_hurt", "history.bad_hurt", "Bad hurt",
 	"Hurt added by a bad act.", WORLD, "History › Points") \
 	.with_step(1.0).as_debug()
+## Hurt one decay step removes; the step itself is Decay days.
 static var decay_amount := num("decay_amount", "history.decay_amount", "Decay amount",
 	"Hurt removed by one decay step.", WORLD, "History › Points") \
 	.with_step(1.0).as_debug()
+## In-game days per hurt decay step; shared/act_history.gd runs the step and the amount it
+## removes.
 static var decay_days := num("decay_days", "history.decay_days", "Decay days",
 	"In-game days per hurt decay step.", WORLD, "History › Points") \
 	.with_unit("days").with_step(0.5).as_debug()
+## Comfort a good act adds.
 static var good_comfort := num("good_comfort", "history.good_comfort", "Good comfort",
 	"Comfort added by a good act.", WORLD, "History › Points") \
 	.with_step(1.0).as_debug()
+## Hurt a good act removes.
 static var good_repair := num("good_repair", "history.good_repair", "Good repair",
 	"Hurt removed by a good act.", WORLD, "History › Points") \
 	.with_step(1.0).as_debug()
+## Comfort a great act adds.
 static var great_comfort := num("great_comfort", "history.great_comfort", "Great comfort",
 	"Comfort added by a great act.", WORLD, "History › Points") \
 	.with_step(1.0).as_debug()
+## Hurt a great act removes.
 static var great_repair := num("great_repair", "history.great_repair", "Great repair",
 	"Hurt removed by a great act.", WORLD, "History › Points") \
 	.with_step(1.0).as_debug()
+## Cap on stored comfort; a better act cannot raise it further.
 static var max_comfort := num("max_comfort", "history.max_comfort", "Comfort cap",
 	"Maximum stored comfort points.", WORLD, "History › Points") \
 	.with_step(1.0).as_debug()
+## Cap on stored hurt, which also caps every threshold below.
 static var max_hurt := num("max_hurt", "history.max_hurt", "Hurt cap",
 	"Maximum stored hurt points.", WORLD, "History › Points") \
 	.with_step(1.0).as_debug()
+## Hurt a neutral early end adds.
 static var mild_hurt := num("mild_hurt", "history.mild_hurt", "Early-end hurt",
 	"Hurt added by a neutral early end.", WORLD, "History › Points") \
 	.with_step(1.0).as_debug()
+## Hurt at which a mare stops asking for sex; shared/act_history.gd compares the stored
+## hurt with it before an offer.
 static var offer_block_hurt := num("offer_block_hurt", "history.offer_block_hurt",
 	"No offers at", "Hurt points at which a mare stops asking for sex.", WORLD, "History › Points") \
 	.with_step(1.0).as_debug()
+## Hurt at which a mare starts reminding Anon instead of offering.
 static var reminder_hurt := num("reminder_hurt", "history.reminder_hurt", "Reminder at",
 	"Hurt points at which a mare starts reminding Anon.", WORLD, "History › Points") \
 	.with_step(1.0).as_debug()
+## Hurt a severe act adds.
 static var severe_hurt := num("severe_hurt", "history.severe_hurt", "Severe hurt",
 	"Hurt added by a severe act.", WORLD, "History › Points") \
 	.with_step(1.0).as_debug()
+## Hurt at which a mare gently refuses an act; it sits above the offer block.
 static var withdraw_hurt := num("withdraw_hurt", "history.withdraw_hurt", "Not tonight at",
 	"Hurt points at which a mare gently refuses an act.", WORLD, "History › Points") \
 	.with_step(1.0).as_debug()
 
 # -- History › Score  (debug)
+
+## Share of applicable actions at or below which the act scores bad; summary/score.gd
+## compares it with the good threshold.
 static var bad_max := num("bad_max", "history.bad_max", "Bad threshold",
 	"Fraction of the applicable actions at or below which an act is bad.", WORLD, "History › Score") \
 	.with_step(0.01).with_range(0.0, 1.0).as_debug()
+## Seconds before an intentional early end can count as a summary instead of a cut act.
 static var early_grace_s := num("early_grace_s", "history.early_grace_s", "Early grace",
 	"Seconds before an intentional early end counts as a summary.", WORLD, "History › Score") \
 	.with_unit("s").with_step(1.0).as_debug()
+## Share of applicable actions that must go right for a good act.
 static var good_min := num("good_min", "history.good_min", "Good threshold",
 	"Fraction of the applicable actions that must go right for a good act.", WORLD, "History › Score") \
 	.with_step(0.01).with_range(0.0, 1.0).as_debug()
+## Real thrusts a very short act needs before any of it is scored.
 static var min_thrusts := num("min_thrusts", "history.min_thrusts", "Minimum thrusts",
 	"Real thrusts that make a very short act scoreable.", WORLD, "History › Score") \
 	.with_step(1.0).as_debug()
+## Points a scored disliked touch or talk subtracts.
 static var p_dislike := num("p_dislike", "history.p_dislike", "Dislike penalty",
 	"Subtract per scored disliked touch or talk.", WORLD, "History › Score") \
 	.with_step(0.01).with_range(0.0, 1.0).as_debug()
+## Extra points lost for a missed touch or movement preference, on top of the dislike
+## penalty.
 static var p_miss := num("p_miss", "history.p_miss", "Missed-preference penalty",
 	"Extra penalty for a missed touch or movement preference.", WORLD, "History › Score") \
 	.with_step(0.01).with_range(0.0, 1.0).as_debug()
+## Extra points lost for repeated disliked handling in one act.
 static var p_severe := num("p_severe", "history.p_severe", "Severe penalty",
 	"Extra penalty for repeated disliked handling.", WORLD, "History › Score") \
 	.with_step(0.01).with_range(0.0, 1.0).as_debug()
+## Extra points lost for silent sex with a mare whose profile likes to talk.
 static var p_silence := num("p_silence", "history.p_silence", "Silence penalty",
 	"Extra penalty for silent sex with a mare who likes to talk.", WORLD, "History › Score") \
 	.with_step(0.01).with_range(0.0, 1.0).as_debug()
+## Weight of her reaching climax in the act score.
 static var w_climax := num("w_climax", "history.w_climax", "Climax weight",
 	"Score weight for her reaching climax.", WORLD, "History › Score") \
 	.with_step(0.01).with_range(0.0, 1.0).as_debug()
+## Weight of matching both of her motion preferences; summary/score.gd sums the weights
+## into the act score.
 static var w_motion := num("w_motion", "history.w_motion", "Motion weight",
 	"Weight for matching both of her motion preferences.", WORLD, "History › Score") \
 	.with_step(0.01).with_range(0.0, 1.0).as_debug()
+## Weight of not ending before a mare finishes.
 static var w_not_early := num("w_not_early", "history.w_not_early", "Not-early weight",
 	"Weight for not ending before a mare finishes.", WORLD, "History › Score") \
 	.with_step(0.01).with_range(0.0, 1.0).as_debug()
+## Weight of talk that a talk-seeking mare enjoys.
 static var w_talk := num("w_talk", "history.w_talk", "Talk weight",
 	"Score weight for talk that a talk-seeking mare enjoys.", WORLD, "History › Score") \
 	.with_step(0.01).with_range(0.0, 1.0).as_debug()
+## Weight of touch that matches her preference.
 static var w_touch := num("w_touch", "history.w_touch", "Touch weight",
 	"Score component for touch that matches her preference.", WORLD, "History › Score") \
 	.with_step(0.01).with_range(0.0, 1.0).as_debug()
 
 # -- History › Offers  (debug)
+
+## Base cooldown between proactive offers; shared/act_history.gd turns the weights and
+## comfort into the actual wait.
 static var offer_base_s := num("offer_base_s", "history.offer_base_s", "Offer cooldown",
 	"Base seconds between proactive offers.", WORLD, "History › Offers") \
 	.with_unit("s").with_step(10.0).as_debug()
+## Seconds the cooldown loses per comfort point.
 static var offer_comfort_scale := num("offer_comfort_scale", "history.offer_comfort_scale", "Comfort cooldown", "Cooldown reduction per comfort point.", WORLD, "History › Offers") \
 	.with_step(0.01).as_debug()
+## Shortest cooldown at high comfort, so a warm mare still waits between offers.
 static var offer_min_s := num("offer_min_s", "history.offer_min_s", "Cooldown floor",
 	"Shortest cooldown at high comfort.", WORLD, "History › Offers") \
 	.with_unit("s").with_step(10.0).as_debug()
+## Base chance weight of a proactive offer before comfort and hurt are applied.
 static var offer_weight_base := num("offer_weight_base", "history.offer_weight_base",
 	"Offer weight", "Base chance weight for a proactive offer.", WORLD, "History › Offers") \
 	.with_step(0.01).as_debug()
+## Offer weight one comfort point adds.
 static var offer_weight_comfort := num("offer_weight_comfort", "history.offer_weight_comfort", "Comfort weight", "Offer weight added per comfort point.", WORLD, "History › Offers") \
 	.with_step(0.01).as_debug()
+## Offer weight one hurt point removes.
 static var offer_weight_hurt := num("offer_weight_hurt", "history.offer_weight_hurt",
 	"Hurt weight", "Offer weight removed per hurt point.", WORLD, "History › Offers") \
 	.with_step(0.01).as_debug()
 
 # -- Neglect tolerance  (debug)
+
+## Distress one decay step removes; readiness/tolerance.gd owns the step timing.
 static var tolerance_decay_amount := num("tolerance_decay_amount", "tolerance.decay_amount", "Decay amount", "Distress removed per decay step.", WORLD, "Neglect tolerance") \
 	.with_step(0.1).as_debug()
+## Seconds per passive distress decay step; readiness/tolerance.gd runs the decay while
+## the act is idle.
 static var decay_seconds := num("decay_seconds", "tolerance.decay_seconds",
 	"Decay interval", "Seconds per passive distress decay step.", WORLD, "Neglect tolerance") \
 	.with_unit("s").with_step(1.0).as_debug()
+## Distress each actual disliked touch or talk adds.
 static var dislike_amount := num("dislike_amount", "tolerance.dislike_amount",
 	"Dislike amount", "Distress added by each actual disliked touch or talk.", WORLD, "Neglect tolerance") \
 	.with_step(0.1).as_debug()
+## Distress at which a forgiving mare gives her one warning; readiness/tolerance.gd raises
+## it once and never stops the act.
 static var forgiving_warning := num("forgiving_warning", "tolerance.forgiving_warning",
 	"Forgiving warning", "Distress at which a forgiving mare gives her one warning.", WORLD, "Neglect tolerance") \
 	.with_step(1.0).as_debug()
+## Distress each actual liked touch or talk removes.
 static var like_relief := num("like_relief", "tolerance.like_relief", "Like relief",
 	"Distress removed by each actual liked touch or talk.", WORLD, "Neglect tolerance") \
 	.with_step(0.1).as_debug()
+## Sex-only cooldown after a normal mare stops the act.
 static var normal_cooldown_s := num("normal_cooldown_s", "tolerance.normal_cooldown_s",
 	"Normal cooldown", "Sex-only cooldown after a normal mare stops.", WORLD, "Neglect tolerance") \
 	.with_unit("s").with_step(10.0).as_debug()
+## Distress at which a normal mare stops the act; readiness/tolerance.gd ends it through
+## the consent stop.
 static var normal_stop := num("normal_stop", "tolerance.normal_stop", "Normal stop",
 	"Distress at which a normal mare stops the act.", WORLD, "Neglect tolerance") \
 	.with_step(1.0).as_debug()
+## First warning threshold for a normal mare.
 static var normal_warning_1 := num("normal_warning_1", "tolerance.normal_warning_1",
 	"Normal warning 1", "First warning for a normal mare.", WORLD, "Neglect tolerance") \
 	.with_step(1.0).as_debug()
+## Second warning threshold for a normal mare, before the stop.
 static var normal_warning_2 := num("normal_warning_2", "tolerance.normal_warning_2",
 	"Normal warning 2", "Second warning for a normal mare.", WORLD, "Neglect tolerance") \
 	.with_step(1.0).as_debug()
+## Sex-only cooldown after a strict mare stops; readiness/tolerance.gd holds offers for it.
 static var strict_cooldown_s := num("strict_cooldown_s", "tolerance.strict_cooldown_s",
 	"Strict cooldown", "Sex-only cooldown after a strict mare stops.", WORLD, "Neglect tolerance") \
 	.with_unit("s").with_step(10.0).as_debug()
+## Distress at which a strict mare stops the act, on the same consent stop as a normal mare.
 static var strict_stop := num("strict_stop", "tolerance.strict_stop", "Strict stop",
 	"Distress at which a strict mare stops the act.", WORLD, "Neglect tolerance") \
 	.with_step(1.0).as_debug()
+## The one warning threshold a strict mare gives.
 static var strict_warning := num("strict_warning", "tolerance.strict_warning",
 	"Strict warning", "Warning threshold for a strict mare.", WORLD, "Neglect tolerance") \
 	.with_step(1.0).as_debug()
@@ -1634,44 +1987,61 @@ static var strict_warning := num("strict_warning", "tolerance.strict_warning",
 # ======================================================== Integrations
 
 # -- (ungrouped)
+
+## Runs the Kissing reaction bridge during an act; a mid-act edit starts or stops the
+## provider live.
 static var kissing_reactions := flag("kissing_reactions", "features.kissing_reactions",
 	"Use Kissing reactions",
 	"Play the Kissing mod's horn, wing and earth-pony reactions during the act.",
 	INTEGRATIONS, "")
 
 # -- Pantyhose & Panties by mitty: the world garment adapter; see docs/integrations.md.
+
+## Takes her panties and pantyhose off when an act starts and leaves her undressed
+## afterwards.
 static var pantyhose_undress := flag("pantyhose_undress", "features.pantyhose_undress",
 	"Take them off for acts",
 	"Remove her panties and pantyhose when an act starts; she stays undressed afterwards.",
 	INTEGRATIONS, "")
+## Lifts the worn cloth over the anatomy instead of letting it poke through; the world
+## adapter caches it on a settings edit.
 static var pantyhose_bulge := flag("pantyhose_bulge", "features.pantyhose_bulge",
 	"Lift the cloth over the anatomy",
 	"Lift the worn panties and pantyhose over the anatomy instead of letting it poke through.",
 	INTEGRATIONS, "")
+## Carries a smack's rump wobble into her worn panties and pantyhose.
 static var pantyhose_jiggle := flag("pantyhose_jiggle", "features.pantyhose_jiggle",
 	"Jiggle the cloth",
 	"Carry a smack's rump wobble into her worn panties and pantyhose.",
 	INTEGRATIONS, "")
+## Depth-field cells across the anatomy width; more is smoother and costs a one-time
+## rebuild, and the adapter updates the hull every frame with no refresh setting.
 static var pantyhose_hull_width := num("pantyhose_hull_width",
 	"debug.pantyhose_hull_width", "Hull width",
 	"Depth-field cells across the anatomy width. Higher is smoother and costs a one-time rebuild.",
 	INTEGRATIONS, "Pantyhose").with_step(1.0).as_debug()
+## Depth-field cells across the anatomy height; the same one-time rebuild cost as the width.
 static var pantyhose_hull_height := num("pantyhose_hull_height",
 	"debug.pantyhose_hull_height", "Hull height",
 	"Depth-field cells across the anatomy height. Higher is smoother and costs a one-time rebuild.",
 	INTEGRATIONS, "Pantyhose").with_step(1.0).as_debug()
+## Averaging passes over the depth field; more softens the cloth lift but slows the rebuild.
 static var pantyhose_hull_smoothing := num("pantyhose_hull_smoothing",
 	"debug.pantyhose_hull_smoothing", "Hull smoothing",
 	"Averaging passes over the depth field; more softens the cloth lift.",
 	INTEGRATIONS, "Pantyhose").with_step(1.0).as_debug()
+## Extra lift over the anatomy toward the sides, in millimetres; the adapter rebuilds
+## the hull once after an edit.
 static var pantyhose_hull_margin_mm := num("pantyhose_hull_margin_mm",
 	"debug.pantyhose_hull_margin_mm", "Hull margin",
 	"Extra lift over the anatomy surface toward the sides, in millimetres.",
 	INTEGRATIONS, "Pantyhose").with_unit("mm").with_step(0.5).as_debug()
+## Lift kept at the vulva's vertical centre line, where the side margin stops.
 static var pantyhose_hull_min_margin_mm := num("pantyhose_hull_min_margin_mm",
 	"debug.pantyhose_hull_min_margin_mm", "Min hull margin",
 	"Lift at the vulva's vertical center line; Hull margin applies toward the sides.",
 	INTEGRATIONS, "Pantyhose").with_unit("mm").with_step(0.5).as_debug()
+## Draws the depth field over the anatomy as a heatmap; it is a debug overlay only.
 static var pantyhose_hull_show := flag("pantyhose_hull_show", "debug.pantyhose_hull_show",
 	"Show hull", "Draw the depth field over the anatomy as a heatmap.",
 	INTEGRATIONS, "Pantyhose").as_debug()

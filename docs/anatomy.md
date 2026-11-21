@@ -899,9 +899,9 @@ rule.
 
 ## Settings
 
-The declarations are in `settings/service.gd` and their values in
-`settings/settings.json`; this section is the anatomy-specific contract. The settings page is
-built from the declarations, so the label, help and bounds are not restated here.
+The declarations are in `settings/service.gd` and their values in `settings/settings.json`; each
+declaration's `##` comment describes its row, so no label, hint or bound is repeated here. This
+section is the anatomy-specific behaviour. `SETTINGS.anatomy_on()` is the one gate the mode drives.
 
 The frame-path values are snapshotted: the coat-line and draw toggles, the anatomy mode, the
 grip/aim/scale tuning, the placement trims, the part standoff and the idle rest are read on
@@ -909,47 +909,17 @@ grip/aim/scale tuning, the placement trims, the part standoff and the idle rest 
 `part_inset_m` applies at the next act. The wink burst shape/timing and the action feature flags
 stay event-time reads.
 
-- `anatomy.anatomy_mode`: `never`, `act` or `always`. It replaced the old master
-  switch and `act_only`, and drives `SETTINGS.anatomy_on()`. While `never` is selected the settings
-  page dims and disables every Anatomy row below the pill.
-- `anatomy.dock_style`: `hide`, `coat` or `genitals`. The old `show_dock` and
-  `dock_color` keys migrate in that order, with a hidden dock winning over its colour.
-- `anatomy.teats`, `anatomy.skin_strip`: optional teats and the ventral midline strip.
+- While the mode is `never` the settings page dims and disables every Anatomy row below the pill.
+- The old `show_dock` and `dock_color` keys migrate into the dock style in that order, with a
+  hidden dock winning over its colour.
+- The anatomy placement block is `anatomy.placement.default.*` (hidden: only the Placement actions
+  write it), `anatomy.placement.anon.*` (the player part's visible Debug rows) and the sparse
+  `anatomy.placement.<id>.*` override; `anatomy.placement_target` is the editor's target.
 - Her **Teat size** is a per-mare preference, not a setting: it lives in her Characters profile
   (`docs/preferences.md`) and applies the next time she appears.
-- `features.anatomy_fluid`: climax and idle droplets.
-- `features.body_coat_deform`: runtime coat patch; debug.
-- `anatomy.skin_tone`, `anatomy.vulva_height`, `anatomy.anal_scale`, `anatomy.vulva_inner_color`,
-  `anatomy.clitoris_color`: material appearance.
-- `anatomy.reseat_tails`: dock/tail seat and the source-owned tail wrapper.
-- `anatomy.placement.default.*` (hidden: only the Placement actions write it),
-  `anatomy.placement.anon.*` (the player part's visible Debug rows), `anatomy.placement.<id>.*`
-  and `anatomy.placement_target`: the placement block and editor target.
-- `anatomy.anal_aim_mm`, `anatomy.anal_hug_mm`, `anatomy.vulva_hug_mm`,
-  `anatomy.lip_vertical`, `anatomy.strip_scale`: shape and grip tuning.
-- `anatomy.coat_spread`, `anatomy.coat_hole`, `anatomy.coat_hole_height`,
-  `anatomy.coat_hole_depth_mm`,
-  `anatomy.jiggle_still`, `anatomy.anal_still`, `anatomy.still_oval`, `anatomy.still_fade`,
-  `anatomy.still_height_mm`, `anatomy.vulva_out_mm`, `anatomy.draw_still_zones`: body coat,
-  vulva cut and still-zone debug values.
-- `anatomy.wink_min_s`, `anatomy.wink_max_s`, `anatomy.heat_rest_open`, `anatomy.wink_open_min`,
-  `anatomy.wink_open_max`, `anatomy.wink_timing`: idle heat.
-- `anatomy.fluid_size`, `anatomy.fluid_y_speed`, `anatomy.drip`, `anatomy.fluid_alpha`: idle
-  discharge.
-- `anatomy.player_scale`, `anatomy.part_base_scale`, `anatomy.part_mid_scale`,
-  `anatomy.part_head_scale`, `anatomy.part_length_scale`, `anatomy.part_throb`: the **You** group.
-- `anatomy.part_front_m`, `anatomy.pelvis_gap_m`: player-part standoff, ungrouped in the Anatomy
-  Debug block.
-- `presentation.missionary.part_inset_m`: missionary-only part inset, added to `part_front_m`.
-- `presentation.missionary.size.<preset>.vulva_shift_mm`, `vulva_pitch_deg`,
-  `vulva_depth_shift_mm` and `vulva_hug_mm`: the missionary-only placement and grip trims.
-- `features.anatomy_holes`, `features.anatomy_oral`: the V/N controls.
 - The VR standing act always starts on a headset; the old `features.anatomy_vr` switch is retired.
-- `features.debug_aim_points`: the three aim markers.
-- `debug.pantyhose_hull_width`, `debug.pantyhose_hull_height`,
-  `debug.pantyhose_hull_smoothing`, `debug.pantyhose_hull_margin_mm` and
-  `debug.pantyhose_hull_show`: the garment-hull debug rows; their behavior is
-  `docs/integrations.md` (`## Pantyhose & Panties`). The hull rows are unbounded debug values.
+- The garment-hull rows are unbounded debug values; their behaviour is `docs/integrations.md`
+  (`## Pantyhose & Panties`).
 
 ## Debug and performance
 

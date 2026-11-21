@@ -72,9 +72,8 @@ caress. An unlimited limit uses the 3-climax reference.
 
 ## Card
 
-- `hud_readouts` shows the cue and the separate `Wants`/`You` line.
-- `act_controls` shows the control card. Off hides only the card; the cue,
-  readiness line and close prompt remain.
+Two declaration comments in `settings/service.gd` describe the card's two switches. With the
+control card off, the cue, readiness line and close prompt remain.
 - Top to bottom: cue line `❤ N/limit | cue` (or `❤ N/∞` when the climax limit is unlimited),
   readiness line `Wants: intensity & pattern | You: intensity & pattern`, the (always empty) form
   row, auto readout `Auto · 20–80% · 1.50/s · Normal` while auto is on, blank separator, controls.

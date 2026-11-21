@@ -79,16 +79,13 @@ members through `world/game.gd`. It does not store runtime state.
 
 ## Settings
 
-- `act_key` (General, top row, no section heading): the physical key that starts and ends the act.
-  The shipped default lives in `settings/settings.json`. The declaration is a hidden numeric
-  setting; `settings/ui.gd` draws its hand-built **Act Key** capture row because a key capture is
-  not one of the declaration widgets.
-  Press the row, then press any key; `Esc` cancels. The captured keycode is stored in
+- `act_key` is a hidden numeric declaration, so `settings/ui.gd` draws its hand-built **Act Key**
+  capture row: press the row, then press any key; `Esc` cancels. The captured keycode is stored in
   `settings.json` and the settings change notification rebuilds the action.
 - `Y` is not special in the setting: it can be captured, but it is the bundled Dance Mod's key, so
   the HUD shows its one-time notice when the act key is not `Y` (`docs/hud.md`).
-- `act_input_shield` (General, **Block other mods' hotkeys during act**, no hint, on by default): the act input
-  shield. `apply_settings()` caches it; the mechanism and its HACK note are below.
+- `act_input_shield` is the act input shield. `apply_settings()` caches it; the mechanism and its
+  HACK note are below.
 
 The game's own **Settings → Controls** page is not used. Its `Settings.BINDABLE` and `Settings.TABS`
 are game consts, `Settings.bind_key()` saves and resets only `BINDABLE` actions, and the `Settings`

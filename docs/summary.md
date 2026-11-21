@@ -268,8 +268,8 @@ navigator and blocks nothing; the gates above do that.
 
 ## Settings
 
-Act history always records. The thresholds and weights live under `History` in World's Debug
-block. They are debug numbers, so stored values are never clamped. See `docs/settings.md`.
+Act history always records. Its thresholds and weights are debug declarations, so stored values are
+never clamped; each one's `##` comment describes it. See `docs/settings.md`.
 
 ## Dependencies
 

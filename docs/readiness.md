@@ -239,15 +239,12 @@ testing.
 
 ## Settings
 
-Player-facing: `thrust.orientation`, `thrust.pixels_per_cm`, `thrust.travel`,
-`thrust.max_pony_climaxes`. Debug: `auto_thrust.pace`,
-`auto_thrust.min_depth`, `auto_thrust.max_depth`, `auto_thrust.curve`, the touch/talk cooldowns,
-the receptive window and the cue pacing under Talk & cues. See `docs/settings.md`; the values are
-declared once in `settings/service.gd`.
+The thrust, auto-thrust, cooldown, receptive-window and cue-pacing declarations are in
+`settings/service.gd`, each described by its `##` comment. See `docs/settings.md` for the framework.
 
 The per-mare neglect-tolerance tier is a preference field, not a global setting: edit it in
 **Characters**. The thresholds, like relief, decay and stop cooldowns, are the `tolerance.*` debug
-settings.
+declarations.
 
 ## Dependencies
 

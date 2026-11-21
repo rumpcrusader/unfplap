@@ -65,11 +65,12 @@ through the entry. The act session takes the settings service's typed `ActSnapsh
 ## Contributing a setting
 
 1. Add the declaration in `settings/service.gd`, in the tab and group where the player should see
-   it. The declaration owns the path, label, help, bounds, options and debug flag — not the value.
+   it, with its one- or two-line `##` description above it. The declaration owns the path, label,
+   help, bounds, options and debug flag — not the value.
 2. Add the same dotted path to `settings/settings.json` with its default value. The schema test
    fails when a declaration and the shipped document disagree.
-3. Document the behavior in the owning service's `## Settings` section.
-4. Depend on `settings/service.gd` and use the typed handle.
+3. Depend on `settings/service.gd` and use the typed handle; do not restate the row in the owning
+   service's doc.
 
 There is no `<service>/settings.gd` module, no registration call and no second layout list. The
 catalog order is the panel order. A setting whose value cannot be one of the generic widgets is
@@ -120,13 +121,18 @@ snapshot scalar.
 
 ## Adding a setting: one declaration, one shipped value, one read
 
-1. **One declaration, where it should appear in the panel.**
+1. **One declaration, where it should appear in the panel, with the row's one description.**
 
    ```gdscript
+   ## Hand lift at the top of the wind-up, scaled by the hand's smack body scale.
    static var raise_m := num("raise_m", "presentation.standing.smack.raise_m", "Max raise",
        "Hand lift at the top of the wind-up.", POSES, "Standing › Smack") \
        .with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
    ```
+
+   The `##` block is one or two lines and says what the setting is and what its hint does not: who
+   reads it, when an edit lands, or what a boundary value does. It is the only place that
+   description lives — no `.md` restates the row.
 
 2. **One value in the shipped document.** Add `raise_m` under `presentation.standing.smack` in
    `settings/settings.json`. The nesting mirrors the dotted path; the value's JSON type must match
@@ -139,12 +145,10 @@ snapshot scalar.
    ```
 
 4. **Run `scripts/test_all.sh`.** It checks the registry, the shipped document's schema, the file
-   round-trip, coercion and that the panel draws every declaration. Update the owning service's
-   `## Settings` section in the `docs:` commit that follows; a setting contributed by a service is
-   documented there, not only here.
+   round-trip, coercion and that the panel draws every declaration.
 
 Nothing else exists to update: the widget, unit, save, persistence and placement all come from the
-declaration; the value comes from the shipped document.
+declaration; the value comes from the shipped document; the description is the comment above it.
 
 ## Declaration reference
 
@@ -445,143 +449,24 @@ split out into the character document on every write.
 `Settings → Unfplap` has six sub-tabs: **General**, **Anatomy**, **Poses**, **World**,
 **Characters** and **Integrations**. **Poses** sits after Anatomy.
 Every setting row comes from one declaration in `settings/service.gd` — label, help, section,
-bounds — and applies live.
+bounds — and applies live. Which row sits in which tab, section and order is the declaration's, so
+this doc does not list them; the `##` comment above each declaration describes it.
 
-**General**
+A declaration-drawn page has no Save button: each edit writes its value and applies immediately.
+The hand-built Characters form is the exception; its preset changes are written by **Save preset**.
+Debug settings are never clamped; only the player-facing contract bounds are.
 
-One ungrouped list, in this order: **Show controls**, **Show HUD readouts**, **Move captions to
-top**, **Mute Ponese**, **Use pack smack sound**, **Caress surface quality** (`Fast` / `Precise`),
-**Climax limit** (`0…20`; `0` is unlimited), **Mouse sensitivity** in pixels per centimetre of hip
-travel (`20…400`), **Thrust direction** (which mouse direction deepens the stroke) and **Enable
-footstool**. The **Auto Thrust** section follows. The tab's last player row is **Enable debug**,
-the switch that reveals the Debug sections. The retired **I just wanna plap!**
-(`relationship.ignore_gates`) has no replacement; a stored value is dropped on load through
-`_deprecated`.
+One panel rule lives in `settings/ui.gd` rather than the declarations: the Anatomy tab dims and
+disables its rows while the Anatomy pill is **Never**, with a short note under it.
 
-**Auto Thrust** holds the values an automatic act starts with: **Auto min depth** (`0…0.82`),
-**Auto max depth** (`0.20…1`), **Auto pace** (`1.0…3.75/s`) and **Auto shape** (five waveforms).
-The act's hold-X layer edits the same values live; these rows set the starting point.
+**Characters** is the per-mare preference form in `docs/preferences.md`. **Integrations** is built
+from `shared/integrations.gd`: one Experimental box, one collapsible section per supported mod with
+its verified-version hint, and its own Debug block; `docs/integrations.md` owns it.
 
-**Move captions to top** moves the explicit bottom dialogue caption only while an act is in
-`POSING_IN`, `ACTIVE` or `CLIMAX`; afterglow returns it to the bottom. The HUD re-reads the mode on
-every settings edit and moves the caption in the same frame (`docs/hud.md`).
-
-**Block other mods' hotkeys during act** shields an act's input; see the HACK note in
-`docs/input.md`.
-
-The hip back-off (`0.25…2.0×`) lives in General's Debug block. The body slap fires at true
-contact; the old **Contact gap** row is retired.
-
-**Anatomy**
-
-The first row has no heading: the **Anatomy** pill (**Never** / **During act only** / **Always**),
-with the hint **When to show it**. While **Never** is selected every row below the pill is dimmed
-to three-quarter opacity and disabled, with a short note under it; the game's disabled styling also
-applies to the controls. Choosing Act or Always restores the rows.
-
-- **Mare**: **Dock style** (`Hide` / `Coat` / `Genitals`, no hint), **Show ventral midline**,
-  **Show teats**, **Show fluids**, **Vulva height**, **Ponut scale**, **Skin tone**, **Inner folds
-  colour**, **Clitoris colour** and **Re-seat tails and docks**. Rows without a hint are
-  intentionally self-explanatory.
-- **You** (renamed from Anon): size, length, base/mid/head radius and throb.
-
-The dock and appearance behavior is in `docs/anatomy.md`.
-
-**Poses**
-
-Poses is always in the bar, after Anatomy. It opens with the two pose switches, **Enable Oral** and
-**Enable Anal**, with no heading, so they stay reachable with debug off; turning one off also
-removes its control from the act's HUD card. The rest of the page is the tab's one Debug block: the
-pose tuning rows from `presentation.missionary.*` and `presentation.standing.*`, whose JSON paths
-and values are unchanged, so a player file carries over without a migration.
-
-- **Missionary**: **Missionary body motion**, **Missionary reach shoulder**, **Anon size match**,
-  **Missionary path** (the authored caress chain), **Disable fold coloring**, **Use free look** and
-  **Cock base inset**. The retired **Camera** (Anon eyes or authored shots) and **Third-person
-  views** rows are `deprecated()` entries with no value to carry over: the view is always his
-  eye.
-- **Missionary › Size**: the **Size** dropdown over the six per-size values — the three vulva trims,
-  **Vulva hug**, head clearance and gaze height — for the selected pony size.
-- **Standing**: **Chin up**, **Neck down**, **Tail lift (pitch)** and **Tail aside (yaw)**.
-- **Standing › Motion**: **Sway her body**, **Twitch her ears**, camera forward/pitch, chest back,
-  gap offset, stool gap and height, glance-back speed, hip drop and Anon torso lean.
-- **Standing › Kiss**: mouth right/down/forward, camera yaw and side/forward/drop lean.
-- **Standing › Smack**: max raise, hind offset, height, palm arc, palm pitch, raise speed and
-  return speed.
-
-The behavior behind the rows is in `docs/camera.md`, `docs/hands.md`, `docs/kiss.md` and
-`docs/stool.md`.
-
-**World**
-
-No headings: **Promiscuity**, **Enable estrus cycle** and **Enable speech interjections**.
-
-The retired `relationship.sex_start` (**Show start button**) and `features.act_public_offer`
-(**Enable public offers**) have no replacement; a stored value is dropped on load through
-`_deprecated`. The act key is the hotkey and offer visibility comes from the privacy provider.
-
-**Characters**
-
-- The hand-built per-mare preference form described in `docs/preferences.md`, with one in-page
-  pony selector shared by every field. The unfolded list scrolls inside the page and carries its
-  own search.
-
-**Integrations**
-
-- The tab opens with one blue **Experimental** box. Every supported mod in
-  `shared/integrations.gd`, in catalog order, whether or not the other mod is installed, then gets
-  its own collapsible section named `Mod by Author` and open by default. The section body carries
-  the Faint `Verified with version: ...` hint and its player-facing switches; its open state is
-  stored under `integrations/Mods/<mod id>`. The Kissing and Pantyhose & Panties entries are always
-  listed, whether or not the other mod is installed. The tab ends with its one Debug block (behind
-  **Enable debug**), which carries the Pantyhose hull width, height, smoothing, margin and show
-  rows and the **Pantyhose: rebuild hull** action. The behavior is in `docs/integrations.md`.
-
-**Debug sections**
-
-Turning on **Enable debug** (General's last row) adds one collapsed **Debug** section at the
-bottom of General, Anatomy, Poses, World and Integrations; each section keeps the groups it belongs
-to, plus the **Actions** buttons at the end of the tab's own group, in compact rows. The Poses tab's
-tuning rows are its Debug block; its two pose switches sit above it. Its settings are mostly act
-tuning:
-
-- **Talk & cues**: override lifetime, base/override stability, shared line gap, demand gap/repeat,
-  cue/reaction max age, release hold, overwhelmed duration, and the touch/talk cooldowns plus
-  receptive window.
-- **Kissing**: the reaction bridge's level and cap are `docs/integrations.md`; it has no debug
-  switch of its own.
-- **Pantyhose** (Integrations): **Hull width**, **Hull height**, **Hull smoothing**,
-  **Hull margin** and **Show hull**, plus the **Pantyhose: rebuild hull** action; see
-  `docs/integrations.md`. The hull rows are unbounded debug values: a high width/height or many
-  smoothing passes costs a one-time rebuild. The adapter updates the hull every frame; there is
-  no refresh-rate setting.
-- **World › Debug**: **History** (points, score, offers) and **Neglect tolerance**.
-- **Anatomy › Debug**: **Holes** (grip padding, lip shape, coat spread, the vulva coat hole and
-  still zones), plus the ungrouped cock forward, pelvis gap, skin-strip scale, aim points,
-  **Hide tails** and **Show skeleton overlay**. The coat and still-zone rows are unbounded debug
-  values; the shader turns a negative radius off.
-- **Camera**: idle camera sway, plus the two `0…100%` camera-thrust amounts, Surge and Bob. Surge is
-  the forward camera travel, Bob the vertical dip; both follow the filtered thrust **speed**, not
-  depth, with one smooth critically damped response.
-- **Missionary** (Poses): **Missionary body motion** and **Missionary reach shoulder**, **Anon size
-  match**, a **Size** dropdown over the six per-size values (the three vulva trims, **Vulva hug**,
-  head clearance, gaze height), **Missionary path**, **Disable fold coloring**, camera mode, free
-  look and third-person views.
-- **Standing** (Poses): chin up, neck down, tail lift and tail aside.
-- **Standing → Motion** (Poses): **Sway her body**, **Twitch her ears**, camera forward/pitch, chest
-  back, gap offset, stool gap and height, glance-back speed (`0.25…3.0×`), hip drop and Anon torso
-  lean.
-- **Standing → Kiss** (Poses): mouth right/down/forward, camera yaw, side/forward/drop lean.
-- **Standing → Smack** (Poses): max raise, hind offset, height, palm arc, palm pitch, raise speed
-  and return speed.
-- **Caress** (General): see `docs/hands.md`.
-- **Thrust jiggle**: radius, center height/back, thrust and smack intensity.
-
-The declaration-drawn pages have no Save buttons: each edit writes its value and applies to the
-active act immediately. The hand-built Characters form is the exception; its preset changes are
-written by **Save preset**. Debug settings are never clamped; only the player-facing contract
-bounds listed above are enforced. The framing, pitch and torso controls remain experimental and
-unbounded.
+Turning on **Enable debug** (General's last player row) adds one collapsed **Debug** section at the
+bottom of General, Anatomy, Poses, World and Integrations, which keeps the same group names and
+ends with that tab's **Actions** rows. The Poses tab's tuning rows are its Debug block; its two
+pose switches sit above it.
 
 ## Feature flags
 
@@ -590,43 +475,22 @@ The act session snapshots them with every other act value in `act/session.gd:sna
 at act start, and `apply_live_settings()` re-runs that snapshot after any settings edit. Their
 default values live in `settings/settings.json`.
 
-| Flag | Gates |
-|---|---|
-| `hud_readouts` | mood cue and `Wants`/`You` segments; hearts and the close prompt stay |
-| `act_controls` | act control card; the cue and close prompt stay |
-| `act_input_shield` | during an act every key but the act's own, `Enter`, `T`, `Esc` and `F1`–`F12` is consumed and its pressed state cleared, so other mods (including raw-key pollers) see nothing; see `docs/input.md` |
-| `blush_arc` | readiness-ramped act blush; off restores full blush from the first frame |
-| `face_debug` | print act face changes, the climax score and the mood-face start/end |
-| `idle_camera_sway` | slow idle breathing when not leaning; false removes the drift |
-| `captions_on_top` | move the explicit bottom caption to the top during an act; applies immediately |
-| `standing_body_sway` | standing body sway modifier; Anon's pinned hip follows the same offset |
-| `missionary_body_motion` | missionary torso slide and head nod on the thrust |
-| `thrust_ear_twitch` | standing thrust ear-twitch modifier |
-| `standing_stool` | a live reach gap over `stool_gap_m` needs enough `goods:footstool` stacks of `stool_height_m`; the shop or house drops supply them |
-| `estrus_cycle` | 30-day heat/diestrus cycle: heat warms faster and offers sooner; diestrus is Context; see `docs/eligibility.md` |
-| `act_speech_feel` | thrust-paced interjection instruction in cue lines |
-| `mute_ponese_audio` | mute a Ponese-only act voice but keep its text |
-| `pack_smack_sound` | use the pack hand-smack audio for the native flank smack outside an act; see `docs/audio.md` |
-| `kissing_reactions` | Kissing's horn, wing and earth-pony reaction bridge during the act; see `docs/integrations.md` |
-| `pantyhose_undress` | take her panties and pantyhose off when an act starts; she stays undressed; see `docs/integrations.md` |
-| `pantyhose_bulge` | lift the worn panties and pantyhose over the anatomy; see `docs/integrations.md` |
-| `pantyhose_jiggle` | carry a smack's rump wobble into her worn panties and pantyhose; see `docs/integrations.md` |
+Every flag is a `features.*` declaration whose `##` comment says what it gates; this doc does not
+keep a second list.
 
 Always on: act history and its per-act summary, act face beats and `{face_note}` prompt hints,
 unprompted act lines with their fresh-angle wording, starting an act through an active cuddle,
 standing afterglow stay-close window, lean-camera inertia smoothing and strong-thrust rump blush.
-Unknown settings keys are ignored. Caress feature
-flags and debug values are in `docs/hands.md`; anatomy feature flags and debug values are in
-`docs/anatomy.md`.
+Unknown settings keys are ignored.
 
 ## Settings authoring rules for agents
 
-- Add a setting with one declaration line in `settings/service.gd`, one value in
-  `settings/settings.json`, and read it with its typed accessor; never add a widget, a default
-  constant, a path-keyed read or a save function anywhere else.
-- Contribute the setting from its owning service: edit the catalog literally, add its shipped
-  value, document it in that service's contract and depend on the settings facade. Do not add a
-  private settings module.
+- Add a setting with one declaration in `settings/service.gd` and its `##` description above it,
+  one value in `settings/settings.json`, and read it with its typed accessor; never add a widget, a
+  default constant, a path-keyed read or a save function anywhere else.
+- Contribute the setting from its owning service: add the declaration and its description, add its
+  shipped value, and depend on the settings facade. Do not add a private settings module, and do
+  not describe the row in the owning doc.
 - `SETTINGS.act_snapshot(group)` is the one bulk read. There is no path-keyed gameplay read and
   no second cache; a new per-act value belongs on `ActSnapshot`, not in a new `SETTINGS.block`.
 - **A consumer carries no default.** Do not declare a field, constant or argument default with a
@@ -669,8 +533,12 @@ flags and debug values are in `docs/hands.md`; anatomy feature flags and debug v
   rather than forcing it.
 - **Help is optional.** The label carries the row when the action is self-explanatory; add help
   when the row needs a reason, a range or a warning. An empty help string draws no Faint line.
-- **Docs name settings and bounds, never shipped values.** A default lives only in
-  `settings/settings.json`; a doc that repeats it goes stale on the next promotion.
+- **The declaration carries the row; a doc carries the behaviour.** The label, help, bounds and the
+  one `##` description live at the declaration, and a `.md` never enumerates or describes a row. A
+  default lives only in `settings/settings.json`.
+- **One description per setting.** A `##` block of one or two lines above the declaration, saying
+  what the setting is and what its hint does not: who reads it, when an edit lands, or what a
+  boundary value does. `scripts/comments.py --check` enforces the shape.
 - Promote a player value with `scripts/settings_sync.py promote` (a declared setting) or
   `scripts/settings_sync.py promote --characters` (a profile difference, a per-mare override or a
   placement row); never hand-edit the shipped document to copy a local value.
@@ -788,7 +656,7 @@ service edge.
   it never asserts a shipped value.
 - `tests/integrations/` covers the catalog and reaction bridge; the Settings panel check includes
   the Integrations tab.
-- Keep the feature-flag table in this file current when adding a flag.
+- A new flag needs its declaration comment, not a row here: this file keeps no list of them.
 
 ## Related docs
 

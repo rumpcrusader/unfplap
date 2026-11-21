@@ -207,10 +207,9 @@ idle hint and the act start.
 
 ## Settings and debug
 
-- `features.standing_stool`, label **Enable footstool**.
-- `presentation.standing.stool_gap_m`, debug, unit cm, Standing › Motion.
-- `presentation.standing.stool_height_m`, debug, unit cm, Standing › Motion. Each
-  placed stool adds this much height.
+- The footstool switch and its two standing values are declarations in `settings/service.gd`,
+  each described by its `##` comment. A live reach gap over the shipped gap needs enough
+  `goods:footstool` stacks of the shipped step height.
 - **Give footstool** adds one to the briefcase.
 - **Show data** prints the aimed mare's stool state in its STOOL section: opening, hoof
   and part heights, gap, threshold, step height, required count, case count, owned count, free

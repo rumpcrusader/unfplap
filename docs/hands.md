@@ -249,26 +249,14 @@ does not scale the skin and closest query with its full coat.
 
 ## Settings
 
-| Setting | Effect |
-|---|---|
-| `caress.quality` | player-facing caress surface level; `precise` snaps to the coat every tick, `fast` refreshes at 15 Hz with a 1-ring blur and accepts the intended point on a ray miss |
-| `features.caress_local` | debug: skin and raycast only the coat window around each caress hand; off restores the full region patch |
-| `features.caress_full_fallback` | debug: let a point beyond the coat window fall back to the full body patch; off keeps the last local window and skips that point |
-| `features.caress_debug` | one precise contact line per hand per act, debug overlay |
-| `features.caress_reach_shoulder_m` | missionary reach shoulder shift |
-| `presentation.missionary.caress.path_id` | authored chain `one` or `two` |
-| `caress.hover_m` | body-scaled palm-centre hover in the two base poses |
-| `caress.normal_blur_m` | coat-normal average radius; above 3 cm it averages the whole patch |
-| `caress.normal_deg_s` | palm normal turn limit |
-| `caress.contact_smooth` | snap-correction low-pass |
-| `caress.ignore` | hull regions the smack contact query skips |
-| `caress.oval_across_m` | oval radius along the body |
-| `caress.oval_up_m` | oval radius vertically |
-| `caress.palm_scale.canon/mounting/same height/hoers` | shared hand scale per body preset |
+The caress declarations live in `settings/service.gd`, and each one's `##` comment describes its
+row.
 
 The three smoothing values apply to the two base poses. `0` restores the exact behaviour. The caress
 offsets are multiplied by `Settings.anon_height_scale()` for the Same Height preset; the other
-presets keep their authored values.
+presets keep their authored values. The quality level is what the hand provider branches on:
+`precise` snaps to the coat every tick, `fast` refreshes at 15 Hz with a 1-ring blur and accepts
+the intended point on a ray miss.
 
 The marked area JSON also stores `mode` and `roll`. The lean-driven standing provider uses
 `region` and keeps its existing palm frame and roll; the oral head path reads `mode` and `roll`

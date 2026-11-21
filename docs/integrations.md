@@ -395,20 +395,12 @@ timing. The summary reads its own `form_reveal` flag for the extra comfort (`doc
 
 ## Settings
 
-One declaration per supported integration, in `settings/service.gd`:
-
-| Setting | Behavior |
-|---|---|
-| `features.kissing_reactions` | run the Kissing reaction bridge during the act |
-| `features.pantyhose_undress` | take her panties and pantyhose off when an act starts; she stays undressed |
-| `features.pantyhose_bulge` | lift the worn panties and pantyhose over the anatomy |
-| `features.pantyhose_jiggle` | carry a smack's rump wobble into her worn panties and pantyhose |
+One declaration per supported integration in `settings/service.gd`, each with its `##` description.
 
 Each supported mod gets its own collapsible section, named `$mod_name by $author` and open by
 default, under one blue **Experimental** notice at the top of the tab. The section body carries the hint `Verified with version: $verified_version`, then that
-provider's player-facing feature flags; its open state is stored under `integrations/Mods/<mod id>`.
-The tab's one Debug block (behind **Enable debug**) carries the Pantyhose hull rows
-(`debug.pantyhose_hull_*`, including **Hull width** and **Hull height**) and the
+provider's player-facing declarations; its open state is stored under `integrations/Mods/<mod id>`.
+The tab's one Debug block (behind **Enable debug**) carries the Pantyhose hull rows and the
 **Pantyhose: rebuild hull** action; Kissing has no debug rows.
 There is no installed/mismatch status and no other buttons. A flag edit during an act starts or
 stops the Kissing provider live through `apply_live_settings()`; the Pantyhose flags are cached by

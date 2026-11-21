@@ -1,4 +1,4 @@
-extends RefCounted
+extends "res://mods/unfplap/shared/service.gd"
 ## Service: privacy
 ## Contract: docs/privacy.md
 ## Scope: world

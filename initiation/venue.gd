@@ -8,15 +8,16 @@ const BED_REST := preload("res://world/relationships/shared_bed.gd")
 const POLICY := preload("res://mods/unfplap/initiation/policy.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const POSE_OPTIONS := preload("res://mods/unfplap/shared/pose_options.gd")
+const PRIVACY := preload("res://mods/unfplap/privacy/service.gd")
 
 ## The per-pony gate handle: the scene verdicts and the offer readiness reads.
 func _gate(runtime: Node) -> Variant:
 	return runtime.get("gate")
 
-var _privacy: RefCounted
+var _privacy: PRIVACY
 
 
-func bind(privacy_node: RefCounted) -> void:
+func bind(privacy_node: PRIVACY) -> void:
 	_privacy = privacy_node
 
 

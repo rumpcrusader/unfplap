@@ -5,6 +5,7 @@ extends Node
 ## process exit run the same release, so a service cannot be released on one path and forgotten.
 
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
+const SERVICE := preload("res://mods/unfplap/shared/service.gd")
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
@@ -33,9 +34,12 @@ const API := preload("res://mods/unfplap/api.gd")
 const PONY_PATH := "res://world/characters/locomotion/pony_locomotion.gd"
 const SETTINGS_PAGE_PATH := "res://world/ui/settings_page.gd"
 
+## The four lifecycle hooks a list service carries; the boot check validates each one.
+const HOOKS: Array[String] = ["on_world", "on_world_closed", "on_player", "shutdown"]
+
 ## The long-running services in construction order: every broadcast walks the list, so a service
 ## joins a broadcast by being here.
-var _services: Array = []
+var _services: Array[Node] = []
 
 var hud: HUD
 var input: INPUT
@@ -135,7 +139,7 @@ func _build_services() -> void:
 	# The HUD exists before the player does: it owns the act card, the toast line, the caption
 	# move and the one-time key notice, and it is the one sink the rest of the mod reaches
 	# through `HUD.toast()`.
-	hud = _add(HUD.new(), "UnfplapHUD")
+	hud = _add_hud(HUD.new(), "UnfplapHUD")
 	HUD.instance = hud
 	hud.apply_settings()
 	offer = _add(OFFER.new(), "UnfplapOffer")
@@ -166,30 +170,57 @@ func _build_services() -> void:
 	changelings = _add(CHANGELINGS.new(), "UnfplapChangelings")
 	changelings.setup()
 	body_change.register_source(changelings)
-	api = _add(API.new(), "UnfplapAPI")
+	api = _add_node(API.new(), "UnfplapAPI")
 	# The debug actions run against the services above, so they are built last. They read the live
 	# act through the facades themselves; the entry hands them only the services they act through.
 	debug_actions = _add(DEBUG_ACTIONS.new(), "UnfplapDebugActions")
 	debug_actions.bind(body_change, initiation, negotiation, anatomy, pantyhose)
 	debug_actions.sync_skeleton_overlay()
 	PONIES.bind(anatomy, body_change, offer, stock_smack, eligibility, api)
+	_assert_hooks()
 
 
-## Join one service to the tree and to the ordered list. A RefCounted service only joins the list:
-## it has no node, no name and no teardown beyond its references.
-func _add(service: Variant, node_name := "") -> Variant:
+## Join one service to the tree and to the ordered list. Every list member is a base service.
+func _add(service: SERVICE, node_name := "") -> Variant:
 	_services.append(service)
-	if not service is Node:
-		return service
 	service.name = node_name
 	add_child(service)
 	return service
 
 
+## The HUD is the one `CanvasLayer` in the list; it carries the four hooks itself.
+func _add_hud(service: HUD, node_name: String) -> HUD:
+	_services.append(service)
+	service.name = node_name
+	add_child(service)
+	return service
+
+
+## The cross-mod API is frozen and carries no lifecycle hooks: parent it, keep it out of the list.
+func _add_node(service: Node, node_name: String) -> Variant:
+	service.name = node_name
+	add_child(service)
+	return service
+
+
+## Log one error per list service that is missing a lifecycle hook; returns the offender count.
+func _assert_hooks() -> int:
+	var missing := 0
+	for service: Node in _services:
+		var bad := false
+		for hook: String in HOOKS:
+			if not service.has_method(hook):
+				LOG.error("service %s is missing %s()", [str(service.name), hook])
+				bad = true
+		if bad:
+			missing += 1
+	return missing
+
+
 func _on_world(host: Node) -> void:
 	WORLD.bind_world(host)
-	for service: Variant in _services:
-		if is_instance_valid(service) and service.has_method("on_world"):
+	for service: Node in _services:
+		if is_instance_valid(service):
 			service.on_world(host)
 	# The registry is not a list member: it drops the swap of the world that is gone. The world
 	# binds before the first service and unbinds after the last, because every service reads it.
@@ -203,8 +234,8 @@ func _on_world_closed(_host: Node) -> void:
 
 ## The one release sequence, shared by the world close and the process exit.
 func _release() -> void:
-	for service: Variant in _services:
-		if is_instance_valid(service) and service.has_method("on_world_closed"):
+	for service: Node in _services:
+		if is_instance_valid(service):
 			service.on_world_closed()
 	WORLD.unbind()
 
@@ -212,8 +243,8 @@ func _release() -> void:
 func _on_player(body: Node) -> void:
 	WORLD.bind_player(body)
 	LOG.debug("player ready")
-	for service: Variant in _services:
-		if is_instance_valid(service) and service.has_method("on_player"):
+	for service: Node in _services:
+		if is_instance_valid(service):
 			service.on_player(body)
 
 
@@ -288,13 +319,11 @@ func _exit_tree() -> void:
 func _shutdown() -> void:
 	PONIES.shutdown()
 	for index: int in range(_services.size() - 1, -1, -1):
-		var service: Variant = _services[index]
+		var service: Node = _services[index]
 		if not is_instance_valid(service):
 			continue
-		if service.has_method("shutdown"):
-			service.shutdown()
-		if service is Node:
-			service.queue_free()
+		service.shutdown()
+		service.queue_free()
 	_services.clear()
 	SETTINGS_UI.clear_pages()
 	MEMORY.instance = null

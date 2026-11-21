@@ -1,4 +1,4 @@
-extends Node
+extends "res://mods/unfplap/shared/service.gd"
 ## The anatomy system's world facade: controllers, the player part, tail seats and the
 ## placement editor. Other systems call this facade, never a controller's internals.
 ## The per-pony controller is `anatomy/controller.gd`; it owns the per-act handle `anatomy/act.gd`.

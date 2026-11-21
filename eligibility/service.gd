@@ -1,4 +1,4 @@
-extends RefCounted
+extends "res://mods/unfplap/shared/service.gd"
 ## Service: eligibility
 ## Contract: docs/eligibility.md
 ## Scope: world

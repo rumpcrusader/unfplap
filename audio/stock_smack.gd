@@ -1,4 +1,4 @@
-extends Node
+extends "res://mods/unfplap/shared/service.gd"
 ## Scope: world.
 ## Swaps the native flank-smack sound for the pack variants while she is not in an act.
 ##

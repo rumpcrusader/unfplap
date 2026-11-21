@@ -1,4 +1,4 @@
-extends Node
+extends "res://mods/unfplap/shared/service.gd"
 ## The debug actions: every Debug block button and wheel slot, the show-data collector, the wheel
 ## gate and the skeleton overlay. The entry adds this one node; `debug/service.gd` dispatches to it
 ## and the registry's `target` is this node. See `docs/debug.md`.

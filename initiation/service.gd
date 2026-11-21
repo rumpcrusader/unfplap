@@ -1,4 +1,4 @@
-extends Node
+extends "res://mods/unfplap/shared/service.gd"
 ## Proactive offers: she reads the place, reasons, walks and asks; nothing starts the act here.
 ## Scope: world
 ## Contract: docs/initiation.md

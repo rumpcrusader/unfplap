@@ -198,6 +198,11 @@ func on_player(_body: Node) -> void:
 	_show_toast("Dance Mod uses Y; %s starts the act." % _act_key_label(), 5.0)
 
 
+## The `CanvasLayer` is the entry's one non-base service; the base's fourth no-op lives here.
+func shutdown() -> void:
+	pass
+
+
 ## Every `SpeechCaption` the game builds, tracked so the act can move it to the top.
 func caption_node(node: Node) -> void:
 	if not is_instance_valid(node):

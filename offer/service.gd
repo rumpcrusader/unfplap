@@ -1,4 +1,4 @@
-extends Node
+extends "res://mods/unfplap/shared/service.gd"
 ## Service: offer
 ## Contract: docs/offer.md
 ## Scope: world

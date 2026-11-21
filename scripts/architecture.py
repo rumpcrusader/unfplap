@@ -126,6 +126,10 @@ POSE_LEDGER_CALLERS = {
 # Rule 1, full form: only the entry names the entry. A service that needs another service
 # preloads its facade, one that needs the scene reads `WORLD`, and one that needs a callback takes
 # a host parameter. `tests/` and the prose literal `main.gd` are allowed.
+MAIN_CONST = re.compile(
+    r'^const\s+([A-Z][A-Z0-9_]*)\s*:=\s*preload\("(res://[^"]+)"\)', re.MULTILINE)
+MAIN_ADD = re.compile(r"_add\(\s*([A-Z][A-Z0-9_]*)\.new\(")
+MAIN_ADD_HUD = re.compile(r"_add_hud\(\s*([A-Z][A-Z0-9_]*)\.new\(")
 ENTRY_MEMBER = re.compile(r"(?<![\w.])main\.(?!gd\b)[A-Za-z_]\w*")
 ENTRY_DECLARATION = re.compile(r"^\s*(?:var|const)\s+main\b", re.MULTILINE)
 ENTRY_PRELOAD = re.compile(r'(?:preload|load)\(\s*"[^"]*main\.gd"')
@@ -255,6 +259,10 @@ RUNTIME_RAW_INPUT = (
 # base is a provider contract, not a second facade; the anatomy body binding is the attachment
 # contract the body-change service constructs from the anatomy facade it is handed.
 PUBLIC_SERVICE_FILES = {"body_change/source.gd", "anatomy/body_binding.gd", "world/game.gd"}
+# The lifecycle base is a no-behaviour contract: every world service extends it, so it is not a
+# dependency edge and needs no `### Uses` row in 16 contracts.
+SERVICE_BASE = "shared/service.gd"
+HUD_FACADE = "hud/service.gd"
 # A public accessor module outside a `service.gd` facade joins the weak-signature scan.
 TYPING_EXTRA = ("world/game.gd",)
 # The five body-bound systems `body_change.wire()` builds and registers. The entry names none of
@@ -293,7 +301,7 @@ def service_ids() -> list[str]:
     return sorted(
         p.parent.name
         for p in ROOT.glob("*/service.gd")
-        if not p.parent.name.startswith(".")
+        if not p.parent.name.startswith(".") and p.parent.name != "shared"
     )
 
 
@@ -496,6 +504,8 @@ def allowed_service_edges() -> dict[str, set[tuple[str, str]]]:
         so = owner_of(src)
         to = owner_of(tgt)
         if so is None or so.kind != "service":
+            continue
+        if tgt == SERVICE_BASE:
             continue
         ok, kind, _, _ = is_allowed(src, tgt)
         if not ok or so.id == (to.id if to else ""):
@@ -1714,6 +1724,51 @@ def check_entry_shape(failure: Failure) -> None:
             % line_of(text, match.start()))
 
 
+def check_service_bases(failure: Failure) -> None:
+    """Every service the entry adds is a `shared/service.gd` descendant; the HUD is the exception."""
+    main_path = ROOT / "main.gd"
+    if not main_path.is_file():
+        return
+    text = main_path.read_text(encoding="utf-8")
+    consts = {
+        match.group(1): match.group(2).replace("res://mods/unfplap/", "")
+        for match in MAIN_CONST.finditer(text)
+    }
+
+    def chain(name: str) -> set[str]:
+        seen: set[str] = set()
+        while name and name not in seen:
+            seen.add(name)
+            current = ROOT / name
+            if not current.is_file():
+                break
+            match = MOD_EXTENDS.search(current.read_text(encoding="utf-8"))
+            name = match.group(1).replace("res://mods/unfplap/", "") if match else ""
+        return seen
+
+    for match in MAIN_ADD.finditer(text):
+        const = match.group(1)
+        name = consts.get(const, "")
+        if not name:
+            failure.add("main.gd adds %s but no preloaded const resolves it" % const)
+        elif name == HUD_FACADE:
+            failure.add("main.gd adds the HUD with _add(); use _add_hud()")
+        elif SERVICE_BASE not in chain(name):
+            failure.add("%s does not extend %s; the typed service list requires it" % (
+                name, SERVICE_BASE))
+    for match in MAIN_ADD_HUD.finditer(text):
+        const = match.group(1)
+        if consts.get(const, "") != HUD_FACADE:
+            failure.add("main.gd adds %s with _add_hud(); only the HUD uses it" % const)
+    hud_path = ROOT / HUD_FACADE
+    if hud_path.is_file():
+        hud_text = hud_path.read_text(encoding="utf-8")
+        for hook in ("on_world", "on_world_closed", "on_player", "shutdown"):
+            if not re.search(r"^func %s\(" % hook, hud_text, re.MULTILINE):
+                failure.add(
+                    "hud/service.gd is missing %s(); it is the one non-base list service" % hook)
+
+
 def check_log_bleed(failure: Failure) -> None:
     """Only the log sink prints and only the profiler reads a clock or an engine monitor."""
     for path in shipped_sources():
@@ -1741,6 +1796,7 @@ def check() -> int:
     check_boundaries(failure)
     check_runtime_shape(failure)
     check_entry_shape(failure)
+    check_service_bases(failure)
     check_log_bleed(failure)
     check_act_owners(failure)
     check_owners(failure)

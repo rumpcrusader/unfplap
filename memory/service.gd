@@ -1,4 +1,4 @@
-extends RefCounted
+extends "res://mods/unfplap/shared/service.gd"
 ## Service: memory
 ## Contract: `docs/memory.md`
 ## The only file other systems preload or call; the peak store is the one persisted value.

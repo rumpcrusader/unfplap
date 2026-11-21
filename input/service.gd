@@ -1,4 +1,4 @@
-extends Node
+extends "res://mods/unfplap/shared/service.gd"
 ## Input and the seated-player Q guard. Runs in _input before desktop_player._unhandled_input.
 ## While an act is active it consumes the act keys and the interaction keys, and keeps the
 ## game's own stand_up poll from force-standing a seated player.

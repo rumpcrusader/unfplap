@@ -1,4 +1,4 @@
-extends Node
+extends "res://mods/unfplap/shared/service.gd"
 ## The documented provider base: a world node that observes its own pack and supplies body forms.
 ## Providers extend it by path; the service owns the transition and calls these hooks.
 

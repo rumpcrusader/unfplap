@@ -1,4 +1,4 @@
-extends Node
+extends "res://mods/unfplap/shared/service.gd"
 ## Service: body_change
 ## Contract: docs/body_change.md
 ## Scope: world

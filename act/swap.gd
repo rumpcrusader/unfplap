@@ -1,4 +1,4 @@
-extends RefCounted
+extends "res://mods/unfplap/body_change/swap_port.gd"
 ## The act's body-swap seams: the watcher dispatch, the handover's ordered release and resume, and
 ## the form rebinds. The handover decides when; this is the typed bridge to the live systems, and
 ## the node keeps only the reparent.
@@ -145,7 +145,7 @@ func release_scene() -> void:
 
 
 ## The one pose ledger call, then the bone restore. This is the body-swap caller of the ledger.
-func release_pose() -> void:
+func release_swap_pose() -> void:
 	exit.free_pose()
 	context.pose.restore_bones()
 

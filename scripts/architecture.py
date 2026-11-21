@@ -121,7 +121,7 @@ START_LEDGER_ORDER = (
 POSE_LEDGER_CALLERS = {
     ("act/exit.gd", "run"),
     ("act/start.gd", "_build_pose"),
-    ("act/swap.gd", "release_pose"),
+    ("act/swap.gd", "release_swap_pose"),
 }
 # Rule 1, full form: only the entry names the entry. A service that needs another service
 # preloads its facade, one that needs the scene reads `WORLD`, and one that needs a callback takes

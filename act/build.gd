@@ -18,6 +18,7 @@ const STANDING_ANON := preload("res://mods/unfplap/poses/standing_anon.gd")
 const STANDING_PRESENTATION := preload("res://mods/unfplap/poses/standing_presentation.gd")
 const BODY_CHANGE_ACT := preload("res://mods/unfplap/body_change/act.gd")
 const BODY_CHANGE_ACT_HOST := preload("res://mods/unfplap/body_change/act_host.gd")
+const SWAP_PORT := preload("res://mods/unfplap/body_change/swap_port.gd")
 const WING := preload("res://mods/unfplap/poses/wing_control.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/service.gd")
 const ACT_HOST := preload("res://mods/unfplap/anatomy/act_host.gd")
@@ -214,6 +215,90 @@ class AnatomyHost extends "res://mods/unfplap/anatomy/act_host.gd":
 		return Callable(b.host, "pony_value")
 
 
+## The runtime's implementation of the handover's value contract; the swap seam is `b.swap`.
+class BodyChangeHost extends "res://mods/unfplap/body_change/act_host.gd":
+	var b: Bundle = null
+
+	func _init(bundle: Bundle) -> void:
+		b = bundle
+
+	func swap() -> SWAP_PORT:
+		return b.swap
+
+	func runtime() -> Node:
+		return b.host.runtime()
+
+	func pony() -> Node3D:
+		return b.host.pony_value() as Node3D
+
+	func id() -> String:
+		return b.act.act_id()
+
+	func act_live() -> bool:
+		return b.act.act_live()
+
+	func restoring() -> bool:
+		return b.act.restoring()
+
+	func state() -> int:
+		return b.act.state_value()
+
+	func event_id() -> String:
+		return b.act.event_id_value()
+
+	func depth() -> float:
+		return b.readiness.depth_value()
+
+	func climaxes() -> int:
+		return b.readiness.climax_count()
+
+	func max_climaxes() -> int:
+		return b.act.climax_limit()
+
+	func satisfaction() -> float:
+		return b.readiness.satisfaction_value()
+
+	func cue() -> String:
+		return b.readiness.cue_value()
+
+	func pose_view() -> Variant:
+		return b.act.pose_view()
+
+	func start_pose_id() -> String:
+		return b.act.start_id()
+
+	func shape_name(shape_id: String) -> String:
+		return SETTINGS.character_name(shape_id)
+
+	func reaction_line(reaction: int, event_id: String, fallback: String,
+			valid: ACT_DIALOGUE.Validity) -> String:
+		return b.dialogue.reaction_line(reaction, event_id, fallback, valid)
+
+	func validity(rule: Callable) -> ACT_DIALOGUE.Validity:
+		return ACT_DIALOGUE.Validity.of(rule)
+
+	func note_reaction(key: String, cue_text: String, until: float) -> void:
+		b.dialogue.note_reaction(key, cue_text, until)
+
+	func add_heat(amount: float) -> void:
+		b.readiness.add_heat(amount)
+
+	func set_cue_override(text: String) -> void:
+		b.act.form_cue_override(text)
+
+	func set_face(smile: float) -> void:
+		b.act.form_set_face(smile)
+
+	func status(text: String) -> void:
+		b.act.form_status(text)
+
+	func now() -> float:
+		return b.act.clock_s()
+
+	func reaction_max_age() -> float:
+		return b.act.cue_reaction_max_age()
+
+
 ## Build the bundle once. `pony` is null at `_init()` because the registry assigns the body after
 ## the node is built; `bind_pony()` carries it then.
 static func build(pony: Node, node: Node, hud: Node = null, memory: Node = null,
@@ -248,7 +333,6 @@ static func build(pony: Node, node: Node, hud: Node = null, memory: Node = null,
 	b.anatomy_bridge = ANATOMY.new_act(b.anatomy_host, PONIES.anatomy as ANATOMY)
 	_build_systems(node, b)
 	_bind_act_frame(node, b)
-	_bind_handover_host(b)
 	_bind_pose_hosts(node, b)
 	_bind_facts(node, b)
 	b.gate.bind(b.pony, b.pose, PONIES.eligibility)
@@ -259,7 +343,7 @@ static func build(pony: Node, node: Node, hud: Node = null, memory: Node = null,
 
 ## The per-act systems, in construction order.
 static func _build_systems(node: Node, b: Bundle) -> void:
-	b.handover_host = BODY_CHANGE_ACT_HOST.new()
+	b.handover_host = BodyChangeHost.new(b)
 	b.handover = BODY_CHANGE_ACT.new(b.handover_host, b.memory)
 	b.wings = WING.new(b.facts)
 	b.hands = HANDS.new(b.facts)
@@ -429,63 +513,3 @@ static func _bind_facts(node: Node, b: Bundle) -> void:
 	b.facts.on_touch = Callable(b.readiness, "touch")
 	b.facts.on_smack = Callable(b.reactions, "smack")
 	b.facts.pose_host = Callable(b.host, "runtime")
-
-
-## The typed host for the act's body-change handover, filled once the act frame exists.
-static func _bind_handover_host(b: Bundle) -> void:
-	var host: BODY_CHANGE_ACT_HOST = b.handover_host
-	host.runtime_cb = Callable(b.host, "runtime")
-	host.pony_cb = Callable(b.host, "pony_value")
-	host.id_cb = Callable(b.act, "act_id")
-	host.act_live_cb = Callable(b.act, "act_live")
-	host.restoring_cb = Callable(b.act, "restoring")
-	host.state_cb = Callable(b.act, "state_value")
-	host.event_id_cb = Callable(b.act, "event_id_value")
-	host.depth_cb = Callable(b.readiness, "depth_value")
-	host.climaxes_cb = Callable(b.readiness, "climax_count")
-	host.max_climaxes_cb = Callable(b.act, "climax_limit")
-	host.satisfaction_cb = Callable(b.readiness, "satisfaction_value")
-	host.cue_cb = Callable(b.readiness, "cue_value")
-	host.pose_view_cb = Callable(b.act, "pose_view")
-	host.start_pose_cb = Callable(b.act, "start_id")
-	host.shape_name_cb = Callable(SETTINGS, "character_name")
-	host.reaction_line_cb = Callable(b.dialogue, "reaction_line")
-	host.note_reaction_cb = Callable(b.dialogue, "note_reaction")
-	host.add_heat_cb = Callable(b.readiness, "add_heat")
-	host.cue_override_cb = Callable(b.act, "form_cue_override")
-	host.set_face_cb = Callable(b.act, "form_set_face")
-	host.status_cb = Callable(b.act, "form_status")
-	host.now_cb = Callable(b.act, "clock_s")
-	host.reaction_max_age_cb = Callable(b.act, "cue_reaction_max_age")
-	host.attach_to_world_cb = Callable(b.swap, "attach_to_world")
-	host.release_carry_cb = Callable(b.swap, "release_carry")
-	host.release_contacts_cb = Callable(b.swap, "release_contacts")
-	host.remember_auto_cb = Callable(b.swap, "remember_auto")
-	host.release_act_body_cb = Callable(b.swap, "release_act_body")
-	host.release_scene_cb = Callable(b.swap, "release_scene")
-	host.free_pose_cb = Callable(b.swap, "release_pose")
-	host.restore_camera_cb = Callable(b.swap, "restore_camera")
-	host.stop_breath_cb = Callable(b.swap, "stop_breath")
-	host.resume_body_cb = Callable(b.swap, "resume_body")
-	host.prepare_anatomy_act_cb = Callable(b.swap, "prepare_anatomy_act")
-	host.apply_resume_settings_cb = Callable(b.swap, "apply_resume_settings")
-	host.rebind_reactions_cb = Callable(b.swap, "rebind_reactions")
-	host.set_act_pose_config_cb = Callable(b.swap, "set_act_pose_config")
-	host.rebuild_act_pose_cb = Callable(b.swap, "rebuild_act_pose")
-	host.sync_start_config_cb = Callable(b.swap, "sync_start_config")
-	host.reset_visual_for_form_cb = Callable(b.swap, "reset_visual_for_form")
-	host.reset_player_pelvis_cb = Callable(b.swap, "reset_pelvis")
-	host.reset_lean_cb = Callable(b.swap, "reset_lean")
-	host.open_camera_cb = Callable(b.swap, "open_camera")
-	host.reset_wings_cb = Callable(b.swap, "reset_wings")
-	host.claim_nav_cb = Callable(b.swap, "claim_nav")
-	host.pause_face_turn_cb = Callable(b.swap, "pause_face_turn")
-	host.reset_face_cb = Callable(b.swap, "reset_face")
-	host.apply_voice_policy_cb = Callable(b.swap, "apply_voice_policy")
-	host.apply_pose_change_cb = Callable(b.swap, "apply_pose_change")
-	host.apply_anatomy_live_cb = Callable(b.swap, "apply_anatomy_live")
-	host.begin_integrations_cb = Callable(b.swap, "begin_integrations")
-	host.sync_hud_cb = Callable(b.swap, "sync_hud")
-	host.resume_auto_cb = Callable(b.swap, "resume_auto")
-	host.rebind_body_cb = Callable(b.swap, "rebind_body")
-	host.new_body_adult_cb = Callable(b.swap, "new_body_is_adult")

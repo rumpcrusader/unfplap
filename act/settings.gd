@@ -24,7 +24,6 @@ var snapshot: SETTINGS.ActSnapshot = SETTINGS.ActSnapshot.new()
 ## settings document.
 var features: Dictionary = {}
 var presentation_config: Dictionary = {}
-var caress_quality := ""
 var max_pony_climaxes := 0
 var climax_mode := ""
 
@@ -58,7 +57,6 @@ func snapshot_values(group: String, family: String, preferences: Dictionary,
 		snapshot.receptive_seconds)
 	presentation_config = snapshot.presentation
 	climax_mode = snapshot.climax_mode
-	caress_quality = snapshot.caress_quality
 	configure_dialogue()
 
 

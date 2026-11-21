@@ -92,9 +92,6 @@ var presentation_config: Dictionary:
 		return settings.presentation_config
 	set(value):
 		settings.presentation_config = value
-var caress_quality: String:
-	get:
-		return settings.caress_quality
 var max_pony_climaxes: int:
 	get:
 		return settings.max_pony_climaxes

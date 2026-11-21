@@ -55,7 +55,6 @@ func refresh(facts: ACT_FACTS, session: ACT_SESSION) -> void:
 	facts.display_name = session.display_name
 	facts.preferences = session.preferences
 	facts.features = session.features
-	facts.caress_quality = session.caress_quality
 	facts.player_pony = session.player_pony
 	facts.bed = session.bed
 	facts.presentation_config = session.presentation_config

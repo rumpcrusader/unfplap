@@ -88,7 +88,6 @@
 			"tail",
 			"wing"
 		],
-		"normal_blur_m": 0.005,
 		"normal_deg_s": 120.0,
 		"oval_across_m": 0.01,
 		"oval_up_m": 0.02,
@@ -97,8 +96,7 @@
 			"hoers": 1.0,
 			"mounting": 0.9,
 			"same height": 1.0
-		},
-		"quality": "precise"
+		}
 	},
 	"controls": {
 		"act_key": 54.0
@@ -137,8 +135,6 @@
 		"body_coat_deform": true,
 		"captions_on_top": true,
 		"caress_debug": false,
-		"caress_full_fallback": false,
-		"caress_local": true,
 		"caress_reach_shoulder_m": 0.0,
 		"debug_aim_points": false,
 		"estrus_cycle": false,

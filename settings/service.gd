@@ -341,7 +341,6 @@ static func _default_block(prefix: String) -> Dictionary:
 ## presentation modules that consume config dictionaries.
 class ActSnapshot:
 	var features: Dictionary
-	var caress_quality: String
 	var thrust_up: bool
 	var thrust_pixels_per_cm: float
 	var thrust_travel: float
@@ -374,7 +373,6 @@ class ActSnapshot:
 static func act_snapshot(pose_id: String) -> ActSnapshot:
 	var snap := ActSnapshot.new()
 	snap.features = _block("features.")
-	snap.caress_quality = quality.get_choice()
 	snap.thrust_up = orientation.get_choice() == "up"
 	snap.thrust_pixels_per_cm = pixels_per_cm.get_num()
 	snap.thrust_travel = travel.get_num()
@@ -700,11 +698,6 @@ static var mute_ponese_audio := flag("mute_ponese_audio", "features.mute_ponese_
 static var pack_smack_sound := flag("pack_smack_sound", "features.pack_smack_sound",
 	"Use pack smack sound",
 	"Use the mod's own hand-smack audio for regular flank smacks outside an act.", GENERAL, "")
-## The caress surface level the hand provider branches on each tick.
-static var quality := choice("quality", "caress.quality",
-	["fast", "precise"], ["Fast", "Precise"],
-	"Caress surface quality",
-	"Fast is more performant, but hands may clip more often.", GENERAL, "")
 ## Caps her climaxes per act; the HUD reads it for the `❤ N/limit` row and zero
 ## shows the unlimited form.
 static var max_pony_climaxes := num("max_pony_climaxes", "thrust.max_pony_climaxes",
@@ -799,19 +792,6 @@ static var travel := num("travel", "thrust.travel", "Hip back-off",
 
 # -- Caress  (debug)
 
-## Skins and raycasts a coat window around each caress hand instead of the whole body
-## patch; off restores the full patch for both hands.
-static var caress_local := flag("caress_local", "features.caress_local",
-	"Use local caress patch",
-	"Skin and raycast only the coat window around each caress hand instead of the whole body patch. Off restores the full patch for both hands.",
-	GENERAL, "Caress").as_debug()
-## Lets a caress point beyond the local window fall back to the full body patch; off keeps
-## the last local window and skips the point.
-static var caress_full_fallback := flag("caress_full_fallback",
-	"features.caress_full_fallback",
-	"Full caress patch fallback",
-	"Let a caress point beyond the coat window fall back to the full body patch. Off keeps the last local window and skips that point; on restores the old full-patch behavior.",
-	GENERAL, "Caress").as_debug()
 ## Chooses which authored missionary caress chain the hand walks; the chain itself lives in
 ## the pose's marked-area JSON.
 static var path_id := choice("path_id", "presentation.missionary.caress.path_id",
@@ -836,27 +816,19 @@ static var caress_reach_shoulder_m := num("caress_reach_shoulder_m",
 static var hover_m := num("hover_m", "caress.hover_m", "Palm hover",
 	"Palm-centre distance from her coat in both poses, in centimetres. Positive raises it, negative presses it into the coat.",
 	GENERAL, "Caress").with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
-## Regions the smack's hull contact query skips; the caress never reads it, because the
-## caress always uses the fixed torso/head coat surface.
+## Regions the smack's hull contact query skips.
 static var ignore := list("ignore", "caress.ignore",
 	["tail", "mane", "wing", "leg"], "Ignore body parts",
-	"Regions the smack's hull contact query skips. The caress always uses the fixed torso/head coat surface.",
-	GENERAL, "Caress").as_debug()
-## Averaging radius for the coat normal so mesh creases do not snap the palm; above 3 cm it
-## averages the whole patch and zero keeps the exact hit normal.
-static var normal_blur_m := num("normal_blur_m", "caress.normal_blur_m",
-	"Normal blur",
-	"Average the coat normal over this radius so mesh creases do not snap the palm. 0 keeps the exact hit normal.",
-	GENERAL, "Caress").with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
+	"Regions the smack's hull contact query skips.", GENERAL, "Caress").as_debug()
 ## Caps how fast the palm normal may turn between ticks; zero disables the temporal clamp.
 static var normal_deg_s := num("normal_deg_s", "caress.normal_deg_s",
 	"Normal turn",
 	"Maximum palm normal turn rate. 0 disables the temporal normal clamp.",
 	GENERAL, "Caress").with_unit("°/s").with_step(10.0).as_debug()
-## Low-pass rate for the surface snap correction; zero keeps the exact contact.
+## Low-pass rate for the contact snap correction; zero keeps the exact contact.
 static var contact_smooth := num("contact_smooth", "caress.contact_smooth",
 	"Contact smooth",
-	"Low-pass rate for the surface snap correction. 0 keeps the exact contact; the intended oval motion is never delayed.",
+	"Low-pass rate for the contact snap correction. 0 keeps the exact contact; the intended oval motion is never delayed.",
 	GENERAL, "Caress").with_unit("/s").with_step(1.0).as_debug()
 ## Radius of the caress oval along the body; scaled with Anon's height like the other
 ## offsets.
@@ -2060,7 +2032,6 @@ static var _deprecated: Array[DEPRECATION.Rule] = [
 	# Caress settings moved from pose blocks to one shared `caress.*` block.
 	deprecated("presentation.standing.caress.palm_distance").into("caress.hover_m"),
 	deprecated("presentation.missionary.caress.over_coat_m").into("caress.hover_m"),
-	deprecated("presentation.missionary.caress.normal_blur_m").into("caress.normal_blur_m"),
 	deprecated("presentation.missionary.caress.normal_deg_s").into("caress.normal_deg_s"),
 	deprecated("presentation.missionary.caress.contact_smooth").into("caress.contact_smooth"),
 	deprecated("presentation.standing.caress.ignore").into("caress.ignore"),

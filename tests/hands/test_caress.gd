@@ -1,11 +1,11 @@
 extends "res://mods/unfplap/tests/support/suite.gd"
-## Caress contact surface, hand shape and reach plan.
+## Caress sphere contact, path chain, hand shape and reach plan.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/hands/test_caress.gd
 
-const SURFACE := preload("res://mods/unfplap/hands/surface.gd")
 const HAND := preload("res://mods/unfplap/hands/palm.gd")
 const ARM := preload("res://mods/unfplap/shared/hands_reach_plan.gd")
 const PATH := preload("res://mods/unfplap/hands/paths/anchors.gd")
+const FIT := preload("res://mods/unfplap/hands/coat_fit.gd")
 const SYSTEM := preload("res://mods/unfplap/hands/placement.gd")
 const PATH_BASE := preload("res://mods/unfplap/hands/path_base.gd")
 const FLANK := preload("res://mods/unfplap/hands/paths/standing.gd")
@@ -13,7 +13,7 @@ const ORAL := preload("res://mods/unfplap/hands/paths/oral.gd")
 const HANDS := preload("res://mods/unfplap/hands/service.gd")
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+
 
 class FlankPony extends Node3D:
 	var skeleton: Skeleton3D
@@ -36,12 +36,16 @@ class NodePony extends Node3D:
 class FixedPath extends PATH_BASE:
 	var point := Vector3.ZERO
 	var normal := Vector3.UP
+	var center := Vector3.ZERO
+	var radius := 0.0
 	var calls := 0
 
 	func candidates(_hand_side: String, _context: Dictionary) -> Array:
 		calls += 1
 		return [{
 			"point": point,
+			"center": center,
+			"radius": radius,
 			"normal": normal,
 			"oval_x": Vector3.RIGHT,
 			"oval_y": Vector3.FORWARD,
@@ -79,18 +83,11 @@ func _json_position(areas: Dictionary, area: String, side: String) -> Vector3:
 		float((values as Array)[2]))
 
 
-func _plane() -> Variant:
-	var surface: Variant = SURFACE.new()
-	var faces := PackedVector3Array([
-		Vector3(-1, 0, -1), Vector3(1, 0, -1), Vector3(1, 0, 1),
-		Vector3(-1, 0, -1), Vector3(1, 0, 1), Vector3(-1, 0, 1),
-	])
-	var normals := PackedVector3Array()
-	for _i in 6:
-		normals.append(Vector3.UP)
-	surface.set("faces", faces)
-	surface.set("vertex_normals", normals)
-	return surface
+## The coat point an anchor's fitted sphere passes through.
+func _anchor_point(anchor: Dictionary) -> Vector3:
+	var center: Vector3 = anchor.get("center", Vector3.ZERO)
+	var normal: Vector3 = anchor.get("normal", Vector3.UP)
+	return center + normal * float(anchor.get("radius", 0.0))
 
 
 func _add_quad(verts: PackedVector3Array, norms: PackedVector3Array,
@@ -175,62 +172,6 @@ func _path_fixture() -> Dictionary:
 
 
 func run() -> void:
-	var surface: Variant = _plane()
-	var hit: Dictionary = surface.call("closest", Vector3(0.2, 0.25, 0.1))
-	check(not hit.is_empty(), "the triangle patch answers a closest query")
-	check(near(float(hit.get("point", Vector3.ZERO).y), 0.0, 0.001), "the patch contact lies on the plane")
-	check((hit.get("normal", Vector3.UP) as Vector3).dot(Vector3.UP) > 0.99,
-		"the patch uses its vertex normal")
-	check(not bool(hit.get("inside", true)), "a point above the plane is outside")
-	var under: Dictionary = surface.call("closest", Vector3(0.0, -0.1, 0.0))
-	check(bool(under.get("inside", false)), "a point below the plane is inside")
-	var tri: TriangleMesh = surface.get("_tri")
-	check(tri == null, "the ray mesh is built lazily")
-	var ray_hit: Dictionary = surface.call("nearest", Vector3(0.2, 0.1, 0.1), Vector3.UP)
-	check(not ray_hit.is_empty(), "the hand ray finds the plane")
-	check(near(float(ray_hit.get("point", Vector3.ZERO).y), 0.0, 0.001),
-		"the ray contact lies on the plane")
-	check(not bool(ray_hit.get("inside", true)), "the ray point outside the plane is outside")
-	check(surface.get("_tri") != null, "the first ray builds the ray mesh once")
-
-	# The player quality: precise still snaps a missed ray to the coat; fast keeps the intended
-	# oval point and the path normal when the ray misses.
-	var lossy: Variant = _plane()
-	lossy.call("set_quality", "fast")
-	var miss: Dictionary = lossy.call("nearest", Vector3(0.2, 0.5, 0.1), Vector3.UP)
-	check(int(miss.get("face", 0)) < 0, "the lossy miss reports no exact face")
-	check((miss.get("point", Vector3.ZERO) as Vector3).is_equal_approx(Vector3(0.2, 0.5, 0.1)),
-		"the lossy miss keeps the intended oval point")
-	var exact: Variant = _plane()
-	exact.call("set_quality", "precise")
-	var exact_miss: Dictionary = exact.call("nearest", Vector3(0.2, 0.5, 0.1), Vector3.UP)
-	var exact_point: Vector3 = exact_miss.get("point", Vector3.ZERO)
-	check(near(exact_point.y, 0.0, 0.001), "precise still snaps a missed ray to the coat")
-	lossy.call("set_quality", "precise")
-	check(int(lossy.get("update_ms")) == 33 and int(lossy.get("blur_depth")) == 2,
-		"precise restores the full patch refresh and blur")
-	lossy.call("set_quality", "fast")
-	check(int(lossy.get("update_ms")) == 66 and int(lossy.get("blur_depth")) == 1,
-		"fast lowers the patch refresh and the blur ring")
-
-	# The refresh gate: a still body keeps the last skinned patch instead of paying for the skin,
-	# the soup write and the BVH rebuild.
-	var identity := Transform3D.IDENTITY
-	check(SURFACE._pose_close(identity, identity),
-		"the refresh gate accepts an unchanged pose")
-	check(SURFACE._pose_close(identity,
-		Transform3D(Basis(), Vector3(0.0005, 0.0, 0.0))),
-		"the refresh gate accepts a sub-millimetre shift")
-	check(not SURFACE._pose_close(identity,
-		Transform3D(Basis(), Vector3(0.003, 0.0, 0.0))),
-		"the refresh gate rejects a 3 mm shift")
-	check(not SURFACE._pose_close(identity,
-		Transform3D(Basis(Vector3.UP, deg_to_rad(2.0)), Vector3.ZERO)),
-		"the refresh gate rejects a 2 degree turn")
-	check(not SURFACE._pose_close(identity,
-		Transform3D(Basis(Vector3.RIGHT, deg_to_rad(2.0)), Vector3.ZERO)),
-		"the refresh gate catches a turn about a second axis")
-
 	var palm := HAND.place(Vector3.ZERO, Vector3.UP, Vector3.FORWARD, "right", "palm", 0.0, 0.0)
 	var hovered := HAND.place(Vector3.ZERO, Vector3.UP, Vector3.FORWARD, "right", "palm",
 		0.0, 0.03)
@@ -253,6 +194,8 @@ func run() -> void:
 	for i in 5:
 		world.append({
 			"position": Vector3(0.0, 0.0, -float(i) * 0.2),
+			"center": Vector3(0.0, -0.2, -float(i) * 0.2),
+			"radius": 0.2,
 			"normal": Vector3.UP,
 			"lateral": 1.0 - float(i) * 0.25,
 			"roll": 1.0 - float(i) * 0.25,
@@ -272,37 +215,14 @@ func run() -> void:
 	var left: Dictionary = PATH.sample_world(world, PATH.BELLY_U, "left", Vector3.RIGHT)
 	check((left["side"] as Vector3).dot(Vector3.RIGHT) < -0.9,
 		"the left hand uses her left lateral axis")
+	check((middle["center"] as Vector3).is_finite() and near(float(middle["radius"]), 0.2, 0.001),
+		"the path sample carries its sphere")
+	var start_center: Vector3 = start["center"]
+	var start_normal: Vector3 = start["normal"]
+	check((start_center + start_normal * float(start["radius"])).is_equal_approx(
+		start["point"]), "the coat point sits on the sphere at the anchor")
 
-	var fixture := _path_fixture()
-	var pony: Variant = fixture["pony"]
-	var root: Node3D = fixture["root"]
-	var path: Variant = PATH.new()
-	check(bool(path.call("build", pony, "right")), "the path builds from a real skinned mesh")
-	check((path.get("anchors") as Array).size() >= 3, "the path finds the body anchors")
-	var built: Dictionary = path.call("sample", 0.0, 0.0, Vector3.RIGHT)
-	check(not built.is_empty(), "the built path samples")
-	var built_point: Vector3 = built["point"]
-	var built_finger: Vector3 = built["finger"]
-	var built_normal: Vector3 = built["normal"]
-	check(built_point.is_finite(), "the built path point is finite")
-	check(near(built_point.y, -0.3, 0.01), "the built path point sits on the body mesh")
-	check(built_finger.dot(Vector3.FORWARD) > 0.5,
-		"the built path tangent points toward her head")
-	check(built_normal.y < -0.9, "the built path normal faces outward")
-	var ids: Array = []
-	for anchor: Dictionary in (path.get("anchors") as Array):
-		ids.append(str(anchor.get("id", "")))
-	check(ids.has("lower"), "the path keeps the lower belly anchor")
-	check(ids.has("neck"), "the path finds the neck side")
-	for anchor: Dictionary in (path.get("anchors") as Array):
-		if str(anchor.get("id", "")) == "lower":
-			var lower_position: Vector3 = anchor["position"]
-			check(near(lower_position.y, -0.3, 0.01),
-				"the lower anchor stays on the belly")
-	root.free()
-
-	# The real OpenPony head: the Head mesh's `skeleton` path is the model root, so the source
-	# must use the skeleton passed by `find_mesh`, not `mesh.skeleton`.
+	# The real OpenPony head and the real mare body; the fit and the authored paths read them.
 	var head_root := Node3D.new()
 	get_root().add_child(head_root)
 	var head_scene: Node = load("res://world/characters/openpony/openpony_mare.tscn").instantiate()
@@ -318,77 +238,6 @@ func run() -> void:
 	head_pony._model = head_model
 	head_pony.skeleton = head_sk
 	head_pony.head = fake_head
-	var head_surface: Variant = SURFACE.new()
-	var head_ok := bool(head_surface.call("ensure", head_pony, "head"))
-	check(head_ok, "the real head source builds")
-	if head_ok:
-		var head_source: Dictionary = head_surface.get("source")
-		check(not (head_source.get("vertices", []) as Array).is_empty(),
-			"the real head source has vertices")
-		var head_faces := PackedVector3Array()
-		var head_vertices: Array = head_source["vertices"]
-		var head_indices: PackedInt32Array = head_source["indices"]
-		head_faces.resize(head_indices.size())
-		for i in head_indices.size():
-			head_faces[i] = head_vertices[head_indices[i]]["position"]
-		var head_tri := TriangleMesh.new()
-		head_tri.create_from_faces(head_faces)
-		var head_bone := head_sk.find_bone("mHead")
-		check(head_bone >= 0, "the real head skeleton has mHead")
-		if head_bone >= 0:
-			var head_origin: Vector3 = head_sk.get_bone_global_rest(head_bone).origin \
-				+ Vector3.FORWARD * 0.52
-			var head_hit: Dictionary = head_tri.intersect_segment(
-				head_origin + Vector3.RIGHT * 0.6,
-				head_origin - Vector3.RIGHT * 0.6)
-			check(not head_hit.is_empty(), "the cheek ray hits the real head")
-	# Authored anchors from the Blender vertex groups, snapped to the real body/head sources.
-	var body_scene: Node = load("res://world/characters/hybrid_mare/body.glb").instantiate()
-	head_root.add_child(body_scene)
-	var body_mesh := body_scene.find_child("MareBody", true, false) as MeshInstance3D
-	var body_sk: Skeleton3D = null
-	if body_mesh != null and not body_mesh.skeleton.is_empty():
-		body_sk = body_mesh.get_node_or_null(body_mesh.skeleton) as Skeleton3D
-	if body_sk == null:
-		for child: Node in body_scene.find_children("*", "Skeleton3D", true, false):
-			body_sk = child as Skeleton3D
-			break
-	var body_pony := FakePony.new()
-	body_pony._model = body_scene as Node3D
-	body_pony.skeleton = body_sk
-	body_pony.head = fake_head
-	var authored_path: Variant = PATH.new()
-	for side in ["left", "right"]:
-		var anchors: Array = authored_path.call("_build_authored", body_pony, side, "one")
-		check(anchors.size() == 5, "the authored %s path has five anchors" % side)
-		var authored_ids: Array = []
-		for anchor: Dictionary in anchors:
-			authored_ids.append(str(anchor.get("id", "")))
-		check(authored_ids == ["lower", "belly", "chest", "neck", "cheek"],
-			"the authored %s path follows lower-belly-chest-neck-cheek" % side)
-		if anchors.size() == 5:
-			check(str((anchors[4] as Dictionary).get("source_region", "")) == "head",
-				"the authored %s cheek uses the head source" % side)
-		var side_sign := 1.0 if side == "left" else -1.0
-		for anchor: Dictionary in anchors:
-			var anchor_id := str(anchor.get("id", ""))
-			if anchor_id == "belly":
-				continue
-			var anchor_x := (anchor.get("position", Vector3.ZERO) as Vector3).x
-			check(signf(anchor_x) == side_sign,
-				"the authored %s %s is on the authored %s side" % [side, anchor_id, side])
-		var anchors_two: Array = authored_path.call("_build_authored", body_pony, side, "two")
-		check(anchors_two.size() == 3, "the authored %s second path has three anchors" % side)
-		var ids_two: Array = []
-		for anchor: Dictionary in anchors_two:
-			ids_two.append(str(anchor.get("id", "")))
-		check(ids_two == ["flank", "shoulder", "neck"],
-			"the authored %s second path follows flank-shoulder-neck" % side)
-		for anchor: Dictionary in anchors_two:
-			var anchor_x := (anchor.get("position", Vector3.ZERO) as Vector3).x
-			check(signf(anchor_x) == side_sign,
-				"the authored %s second path stays on the authored %s side" % [side, side])
-	# Marked area path: the JSON standing order is a lean-sampled chain.
 	var area_data: Variant = JSON.parse_string(FileAccess.get_file_as_string(
 		"res://mods/unfplap/hands/areas/areas.json"))
 	check(area_data is Dictionary, "the marked area JSON parses")
@@ -412,115 +261,94 @@ func run() -> void:
 		var row: Variant = area_areas.get(area_name, {})
 		if row is Dictionary and (row as Dictionary).has("left"):
 			expected_left.append(str(area_name))
-	# Local caress window: the region source is unchanged, but each hand skins and raycasts only
-	# the coat around its intended point. Inside the window the contact matches the full patch.
-	var local_surface: Variant = SURFACE.new()
-	check(bool(local_surface.call("ensure", body_pony, "torso")),
-		"the local caress window source builds")
-	var coat_source: Dictionary = local_surface.get("source")
-	var packed_positions: Variant = coat_source.get("positions", null)
-	check(packed_positions is PackedVector3Array
-		and (packed_positions as PackedVector3Array).size()
-			== (coat_source.get("vertices", []) as Array).size(),
-		"the coat source caches the packed rest positions for the anchor scans")
-	local_surface.call("set_quality", "precise")
-	local_surface.call("set_local", true)
-	var flank_centre := _json_position(area_areas, "flank_side", "left")
-	var flank_out := Vector3.LEFT
-	local_surface.call("select", flank_centre)
-	local_surface.call("update_pose", true)
-	var local_faces := int(local_surface.call("face_count"))
-	var full_faces := int(local_surface.call("patch_face_count"))
-	check(local_faces > 100 and local_faces * 2 < full_faces,
-		"the local window keeps a fraction of the patch")
-	var full_surface: Variant = SURFACE.new()
-	full_surface.call("ensure", body_pony, "torso")
-	full_surface.call("update_pose", true)
-	for point: Vector3 in [flank_centre, flank_centre + Vector3.UP * 0.03,
-			flank_centre + Vector3.BACK * 0.04,
-			flank_centre + Vector3.UP * 0.03 + Vector3.BACK * 0.03]:
-		var local_hit: Dictionary = local_surface.call("nearest", point, flank_out)
-		var full_hit: Dictionary = full_surface.call("nearest", point, flank_out)
-		check(not local_hit.is_empty() and not full_hit.is_empty(),
-			"the local and full patches both answer a nearby ray")
-		if local_hit.is_empty() or full_hit.is_empty():
-			continue
-		if int(local_hit.get("face", -1)) < 0 or int(full_hit.get("face", -1)) < 0:
-			continue
-		check((local_hit["point"] as Vector3).distance_to(full_hit["point"] as Vector3) < 0.0005,
-			"the local window keeps the exact contact point")
-		check((local_hit["normal"] as Vector3).dot(full_hit["normal"] as Vector3) > 0.999,
-			"the local window keeps the exact contact normal")
-	var seed_hit: Dictionary = local_surface.call("nearest", flank_centre + Vector3.UP * 0.03,
-		flank_out)
-	var seed := int(seed_hit.get("seed", -1))
-	var seed_face := int(seed_hit.get("face", -1))
-	var local_face_ids: PackedInt32Array = local_surface.get("_local_faces")
-	var source_indices: PackedInt32Array = local_surface.get("_indices")
-	check(seed >= 0, "the local hit reports a vertex seed")
-	if seed >= 0 and seed_face >= 0 and seed_face < local_face_ids.size():
-		var at := local_face_ids[seed_face] * 3
-		check(seed == source_indices[at] or seed == source_indices[at + 1]
-			or seed == source_indices[at + 2],
-			"the blur seed is a vertex of the hit face")
-	var first_center: Vector3 = local_surface.get("_local_center")
-	var neck_point := flank_centre + Vector3.FORWARD * 0.30
-	local_surface.call("select", neck_point)
-	local_surface.call("update_pose", true)
-	check(bool(local_surface.get("_local_valid")), "the re-centred window stays local")
-	check((local_surface.get("_local_center") as Vector3).distance_to(first_center) > 0.1,
-		"the window re-centres when the hand leaves its core")
-	check(not (local_surface.call("nearest", neck_point, flank_out) as Dictionary).is_empty(),
-		"the re-centred window still answers the ray")
-	var far_point := Vector3(100.0, 100.0, 100.0)
-	local_surface.call("set_full_fallback", false)
-	check(not bool(local_surface.call("select", far_point)),
-		"an off-source point is skipped without the full patch")
-	check((local_surface.call("nearest", far_point, flank_out) as Dictionary).is_empty(),
-		"an off-source caress point has no contact")
-	local_surface.call("set_full_fallback", true)
-	check(bool(local_surface.call("select", far_point)),
-		"the debug full-patch fallback accepts an off-source point")
-	check(not (local_surface.call("nearest", far_point, flank_out) as Dictionary).is_empty(),
-		"the debug full-patch fallback answers the off-source point")
-	local_surface.call("set_full_fallback", false)
-	local_surface.call("set_local", false)
-	local_surface.call("update_pose", true)
-	check(int(local_surface.call("face_count")) == full_faces,
-		"turning the local window off restores the full patch")
-	check(int(SURFACE.LOCAL_FACE_BUDGET) > 0, "the caress local window has a face budget")
-	check(local_faces <= int(SURFACE.LOCAL_FACE_BUDGET),
-		"the local window stays within the face budget")
-	var dense: Variant = SURFACE.new()
-	var dense_indices := PackedInt32Array()
-	var dense_faces: Array = []
-	for i in 1000:
-		dense_indices.append_array(PackedInt32Array([0, 1, 2]))
-		dense_faces.append(i)
-	dense.set("_indices", dense_indices)
-	dense.set("_rest_positions", PackedVector3Array([
-		Vector3.ZERO, Vector3.RIGHT * 0.001, Vector3.UP * 0.001]))
-	dense.set("_cells", {Vector3i.ZERO: dense_faces})
-	var collected: PackedInt32Array = dense.call("_collect_faces", Vector3.ZERO)
-	check(collected.size() <= int(SURFACE.LOCAL_FACE_BUDGET),
-		"a dense local window is thinned to the face budget")
-	var local_facts := ACT_FACTS.new()
-	local_facts.features = {"caress_local": true}
-	var split_engine: Variant = SYSTEM.new(local_facts)
-	var left_surface: Variant = split_engine.call("_surface", body_pony, "torso", "left",
-		flank_centre)
-	var right_surface: Variant = split_engine.call("_surface", body_pony, "torso", "right",
-		flank_centre)
-	check(left_surface != null and right_surface != null and left_surface != right_surface,
-		"each hand owns its local caress window")
-	local_facts.features = {"caress_local": false}
-	var shared_engine: Variant = SYSTEM.new(local_facts)
-	var shared_left: Variant = shared_engine.call("_surface", body_pony, "torso", "left",
-		flank_centre)
-	var shared_right: Variant = shared_engine.call("_surface", body_pony, "torso", "right",
-		flank_centre)
-	check(shared_left != null and shared_left == shared_right,
-		"the full caress patch is shared by both hands")
+	var head_side_left := _json_position(area_areas, "head_side", "left")
+	var head_side_right := _json_position(area_areas, "head_side", "right")
+	check(head_side_left.x < 0.0 and head_side_right.x > 0.0,
+		"the head side JSON is authored from the mare's point of view")
+
+	# The coat fit: one sphere per authored area, through the nearest coat vertex.
+	var flank_authored := _json_position(area_areas, "flank_side", "left")
+	var body_scene: Node = load("res://world/characters/hybrid_mare/body.glb").instantiate()
+	head_root.add_child(body_scene)
+	var body_mesh := body_scene.find_child("MareBody", true, false) as MeshInstance3D
+	var body_sk: Skeleton3D = null
+	if body_mesh != null and not body_mesh.skeleton.is_empty():
+		body_sk = body_mesh.get_node_or_null(body_mesh.skeleton) as Skeleton3D
+	if body_sk == null:
+		for child: Node in body_scene.find_children("*", "Skeleton3D", true, false):
+			body_sk = child as Skeleton3D
+			break
+	var body_pony := FakePony.new()
+	body_pony._model = body_scene as Node3D
+	body_pony.skeleton = body_sk
+	body_pony.head = fake_head
+	var torso_primitive: Variant = FIT.primitive(body_pony, "torso", flank_authored)
+	check(torso_primitive != null, "the coat fit returns a primitive for an authored area")
+	if torso_primitive != null:
+		check(float(torso_primitive.radius) >= FIT.MIN_RADIUS_M
+			and float(torso_primitive.radius) <= FIT.MAX_RADIUS_M,
+			"the fitted radius stays inside the scan bounds")
+		check((torso_primitive.normal as Vector3).length() > 0.99,
+			"the fitted sphere carries a unit coat normal")
+		check(not (torso_primitive.influences as Array).is_empty(),
+			"the fitted sphere carries its skin influences")
+		check(float(torso_primitive.residual_mm) < 20.0,
+			"the fitted sphere stays close to the coat")
+		check(FIT.primitive(body_pony, "torso", flank_authored) == torso_primitive,
+			"the coat fit is cached per skin and area")
+	var head_primitive: Variant = FIT.primitive(head_pony, "head", head_side_left)
+	check(head_primitive != null and float(head_primitive.radius) >= FIT.MIN_RADIUS_M,
+		"the head area fits its own sphere")
+	check(FIT.primitive(head_pony, "torso", Vector3(100.0, 100.0, 100.0)) == null,
+		"an area beyond the coat tolerance finds no primitive")
+
+	# Authored anchors from the Blender vertex groups, one fitted sphere each.
+	var authored_path: Variant = PATH.new()
+	check(bool(authored_path.call("build", body_pony, "right")),
+		"the authored path builds on the real body")
+	var built: Dictionary = authored_path.call("sample", 0.0, 0.0, Vector3.RIGHT)
+	check(not built.is_empty(), "the built path samples")
+	check((built["point"] as Vector3).is_finite(), "the built path point is finite")
+	check((built["center"] as Vector3).is_finite() and float(built["radius"]) > 0.0,
+		"the built sample carries its sphere")
+	check((built["finger"] as Vector3).dot(Vector3.FORWARD) > 0.5,
+		"the built path tangent points toward her head")
+	check((built["normal"] as Vector3).y < -0.9, "the built path normal faces outward")
+	for side in ["left", "right"]:
+		var anchors: Array = authored_path.call("_build_authored", body_pony, side, "one")
+		check(anchors.size() == 5, "the authored %s path has five anchors" % side)
+		var authored_ids: Array = []
+		for anchor: Dictionary in anchors:
+			authored_ids.append(str(anchor.get("id", "")))
+		check(authored_ids == ["lower", "belly", "chest", "neck", "cheek"],
+			"the authored %s path follows lower-belly-chest-neck-cheek" % side)
+		if anchors.size() == 5:
+			check(str((anchors[4] as Dictionary).get("region", "")) == "head",
+				"the authored %s cheek uses the head mesh" % side)
+		var side_sign := 1.0 if side == "left" else -1.0
+		for anchor: Dictionary in anchors:
+			var anchor_id := str(anchor.get("id", ""))
+			if anchor_id == "belly":
+				continue
+			var anchor_x := _anchor_point(anchor).x
+			check(signf(anchor_x) == side_sign,
+				"the authored %s %s is on the authored %s side" % [side, anchor_id, side])
+			check(float(anchor.get("radius", 0.0)) > 0.0
+				and not (anchor.get("influences", []) as Array).is_empty(),
+				"the authored %s %s carries its sphere and skin" % [side, anchor_id])
+		var anchors_two: Array = authored_path.call("_build_authored", body_pony, side, "two")
+		check(anchors_two.size() == 3, "the authored %s second path has three anchors" % side)
+		var ids_two: Array = []
+		for anchor: Dictionary in anchors_two:
+			ids_two.append(str(anchor.get("id", "")))
+		check(ids_two == ["flank", "shoulder", "neck"],
+			"the authored %s second path follows flank-shoulder-neck" % side)
+		for anchor: Dictionary in anchors_two:
+			var anchor_x := _anchor_point(anchor).x
+			check(signf(anchor_x) == side_sign,
+				"the authored %s second path stays on the authored %s side" % [side, side])
+
+	# Marked area chain: the JSON standing order is a lean-sampled chain of fitted spheres.
 	var area_path: Variant = PATH.new()
 	check(bool(area_path.call("build_areas", body_pony, "left", "standing")),
 		"the marked area path builds for the left hand")
@@ -554,6 +382,9 @@ func run() -> void:
 			"backward lean reaches the first JSON area")
 		check(str(area_neutral.get("id", "")) == area_start,
 			"the neutral area is the JSON start")
+		check((area_neutral["center"] as Vector3).is_finite()
+			and float(area_neutral["radius"]) > 0.0,
+			"the area sample carries its fitted sphere")
 	var area_right: Variant = PATH.new()
 	check(bool(area_right.call("build_areas", body_pony, "right", "standing")),
 		"the marked area path builds for the right hand")
@@ -561,43 +392,16 @@ func run() -> void:
 	check(not area_right_start.is_empty()
 		and (area_right_start["point"] as Vector3).x > 0.0,
 		"the right area path stays on her right side")
-	# The nearest-anchor scan reads the packed rest positions when the source has them and
-	# falls back to the vertex dictionaries for a source that does not.
-	var scan_source := {
-		"vertices": [
-			{"position": Vector3(0.0, 0.0, 0.0), "normal": Vector3.UP, "influence": []},
-			{"position": Vector3(1.0, 0.0, 0.0), "normal": Vector3.UP, "influence": []},
-		],
-		"indices": PackedInt32Array([0, 1, 0]),
-		"bindings": [],
-	}
-	var scan_path: Variant = PATH.new()
-	var scan_fallback: Dictionary = scan_path.call("_nearest_source_anchor", scan_source, null,
-		"torso", Vector3(0.9, 0.0, 0.0), 2.0)
-	check(not scan_fallback.is_empty()
-		and (scan_fallback.get("position", Vector3.ZERO) as Vector3).x > 0.5,
-		"the nearest anchor scan falls back to the vertex dictionaries")
-	scan_source["positions"] = PackedVector3Array([
-		Vector3(0.0, 0.0, 0.0), Vector3(1.0, 0.0, 0.0),
-	])
-	var scan_packed: Dictionary = scan_path.call("_nearest_source_anchor", scan_source, null,
-		"torso", Vector3(0.1, 0.0, 0.0), 2.0)
-	check(not scan_packed.is_empty()
-		and (scan_packed.get("position", Vector3.ZERO) as Vector3).x < 0.5,
-		"the nearest anchor scan reads the packed rest positions")
+
 	# Oral head path: one authored node per hand. The JSON is mare-PoV and Anon faces her, so
 	# his hands read the opposite side.
-	var head_side_left := _json_position(area_areas, "head_side", "left")
-	var head_side_right := _json_position(area_areas, "head_side", "right")
-	check(head_side_left.x < 0.0 and head_side_right.x > 0.0,
-		"the head side JSON is authored from the mare's point of view")
 	var single_path: Variant = PATH.new()
 	for side in ["left", "right"]:
 		check(bool(single_path.call("build_single_area", head_pony, side, "head_side")),
 			"the head side area builds one %s node" % side)
 		var single: Dictionary = single_path.call("single")
 		check(not single.is_empty()
-			and (single.get("position", Vector3.ZERO) as Vector3).distance_to(
+			and _anchor_point(single).distance_to(
 				_json_position(area_areas, "head_side", side)) < 0.005,
 			"the %s head node snaps to the authored vertex" % side)
 		check(str(single.get("region", "")) == "head",
@@ -629,7 +433,7 @@ func run() -> void:
 		check(str(left_candidate.get("mode", "")) == "palm",
 			"the oral candidate uses the area palm mode")
 		check(bool(left_candidate.get("exact", false)),
-			"the oral node is exact and skips the surface snap")
+			"the oral node is exact and skips the sphere snap")
 		check(absf(float(left_candidate.get("roll", 0.0))) > 0.0
 			and signf(float(left_candidate.get("roll", 0.0)))
 				!= signf(float(right_candidate.get("roll", 0.0))),
@@ -658,8 +462,8 @@ func run() -> void:
 		check(frame_zero.is_finite() and frame_moved.is_finite()
 			and frame_zero.origin.distance_to(frame_moved.origin) > 0.005,
 			"the oral oval phase moves the intended point")
-		# The exact node must not need the head patch: break the head handle after the path
-		# built and confirm the engine still frames the palm at the skinned vertex.
+		# The exact node must not need the head fit: break the head handle after the path
+		# built and confirm the engine still frames the palm at the skinned coat point.
 		var head_keep: Variant = oral_pony.head
 		oral_pony.head = null
 		var exact_engine: Variant = SYSTEM.new()
@@ -669,10 +473,10 @@ func run() -> void:
 		}
 		var exact_frame: Transform3D = exact_engine.call("frame", oral_pony, oral_path,
 			"left", exact_context)
-		check(exact_frame.is_finite(), "the exact oral node frames without the head surface")
+		check(exact_frame.is_finite(), "the exact oral node frames without the head fit")
 		check(exact_frame.is_finite()
 			and exact_frame.origin.distance_to(left_point + oval_normal * 0.02) < 0.001,
-			"the exact oral palm sits on the skinned vertex with the hover")
+			"the exact oral palm sits on the skinned coat point with the hover")
 		oral_pony.head = head_keep
 	var blend_from := Transform3D(Basis(), Vector3.ZERO)
 	var blend_to := Transform3D(Basis(), Vector3(1.0, 0.0, 0.0))
@@ -686,6 +490,8 @@ func run() -> void:
 		"the oral contact blend reaches the target at the window end")
 	check(near(HANDS.caress_oral_blend(blend_from, blend_to, 1.0).origin.x, 1.0, 0.001),
 		"the oral contact blend keeps the target after the window")
+
+	# Standing: the marked areas on the real body, the procedural flank fallback and the reach.
 	var stand_pony := NodePony.new()
 	stand_pony._model = body_scene as Node3D
 	stand_pony.skeleton = body_sk
@@ -728,6 +534,9 @@ func run() -> void:
 		check(end_point.y > start_point.y or end_point.z < start_point.z,
 			"forward lean walks toward the shoulder and neck")
 		check((end_point as Vector3).x < 0.0, "the left hand stays on her left side")
+		check((flank_start[0] as Dictionary).has("center")
+			and (flank_start[0] as Dictionary).has("radius"),
+			"the area candidate carries its fitted sphere")
 		stand_context["lean"] = 1.0
 		var right_flank: Array = standing_path.call("candidates", "right", stand_context)
 		check(right_flank.size() == 1 and (right_flank[0]["point"] as Vector3).x > 0.0,
@@ -738,7 +547,6 @@ func run() -> void:
 	stand_context["lean"] = -1.0
 	var rump: Array = standing_path.call("candidates", "left", stand_context)
 	check(rump.size() == 1, "backward lean still returns a contact")
-	# The marked area chain is the standing path; no toggle remains.
 	standing_path.call("reset")
 	var area_context := {
 		"lean": 0.0, "size": 1.0, "profile": {},
@@ -777,9 +585,14 @@ func run() -> void:
 	check(area_back_candidates.size() == 1
 		and (area_back_candidates[0]["point"] as Vector3).x < 0.0,
 		"backward lean reaches the area flank_back")
-	# The first caress of an act used to build both contact paths on the key press. The
-	# controller warms one hand per actionable tick, reports each build as `caress_path`, and
-	# never latches a caress while warming.
+
+	# The background fit fills the cache one area per tick while the act poses, and the warm
+	# build waits for it so the first caress press pays nothing.
+	var prefetched := 0
+	while prefetched < 400 and PATH.prefit_tick(stand_pony):
+		prefetched += 1
+	check(not PATH.prefit_pending(stand_pony), "the background coat fit drains its queue")
+	check(prefetched >= 20, "the background fit covers every authored area")
 	var warm_facts := ACT_FACTS.new()
 	warm_facts.pony = stand_pony
 	warm_facts.size_scale = 1.0
@@ -806,43 +619,9 @@ func run() -> void:
 	standing_path.call("reset")
 	head_root.free()
 
-	var blur_surface: Variant = SURFACE.new()
-	blur_surface.set("_positions", PackedVector3Array([
-		Vector3(0.0, 0.0, 0.0), Vector3(0.05, 0.0, 0.0), Vector3(0.10, 0.0, 0.0),
-	]))
-	blur_surface.set("_normals", PackedVector3Array([
-		Vector3.UP, Vector3(0.7, 0.7, 0.0), Vector3.RIGHT,
-	]))
-	var blurred: Vector3 = blur_surface.call("normal_blur", Vector3.ZERO, 0.08, Vector3.UP)
-	check(blurred.length() > 0.99, "the crease normal blur is normalized")
-	check(blurred.y > 0.7 and blurred.x > 0.1,
-		"the crease normal blur averages the facing normals")
-	check((blur_surface.call("normal_blur", Vector3.ZERO, 0.0, Vector3.UP) as Vector3)
-		.is_zero_approx(), "zero radius disables the normal blur")
-
-	# The seeded blur walks only the hit face's rings. At the real radii it must match the full
-	# scan, and a radius beyond the ring's proven reach must keep the full-scan average.
-	var ring_surface: Variant = SURFACE.new()
-	ring_surface.set("_positions", PackedVector3Array([
-		Vector3(0.0, 0.0, 0.0), Vector3(0.05, 0.0, 0.0), Vector3(0.10, 0.0, 0.0),
-		Vector3(0.0, 0.0, 0.05), Vector3(0.0, 0.0, -0.05),
-	]))
-	ring_surface.set("_normals", PackedVector3Array([
-		Vector3.UP, Vector3(0.7, 0.7, 0.0), Vector3.RIGHT, Vector3.UP, Vector3.UP,
-	]))
-	ring_surface.set("_rings", [
-		[1, 2, 3, 4], [0, 2], [0, 1], [0, 4], [0, 3],
-	])
-	var full: Vector3 = ring_surface.call("normal_blur", Vector3.ZERO, 0.02, Vector3.UP)
-	var seeded: Vector3 = ring_surface.call("normal_blur", Vector3.ZERO, 0.02, Vector3.UP, 0)
-	check(seeded.is_equal_approx(full), "the seeded blur matches the full scan at 2 cm")
-	var wide_full: Vector3 = ring_surface.call("normal_blur", Vector3.ZERO, 0.08, Vector3.UP)
-	var wide_seeded: Vector3 = ring_surface.call("normal_blur", Vector3.ZERO, 0.08, Vector3.UP, 0)
-	check(wide_seeded.is_equal_approx(wide_full),
-		"a blur beyond the ring reach keeps the full scan")
-
-	# The pose-free engine: the same candidate gives the same frame through different paths, and
-	# the intended oval motion is not delayed by contact smoothing.
+	# The pose-free engine: the same candidate gives the same frame through different paths, the
+	# sphere projects the intended oval point, and contact smoothing never delays the intended
+	# motion.
 	var engine: Variant = SYSTEM.new()
 	var engine_fixture := _path_fixture()
 	var engine_pony: Variant = engine_fixture["pony"]
@@ -863,9 +642,18 @@ func run() -> void:
 	check(first_frame.is_equal_approx(second_frame),
 		"the engine does not depend on which pose path supplied the contact")
 	check(near(first_frame.origin.y, -0.32, 0.005),
-		"the engine places the palm at the hover above the exact coat")
+		"a candidate without a sphere keeps its exact coat point and hover")
 	check((first_path.calls == 1) and (second_path.calls == 1),
 		"each caress hand asks its path once per tick")
+	var sphere_path := FixedPath.new()
+	sphere_path.point = Vector3(0.1, -0.1, 0.0)
+	sphere_path.normal = Vector3.UP
+	sphere_path.center = Vector3(0.0, -0.3, 0.0)
+	sphere_path.radius = 0.2
+	var sphere_frame: Transform3D = engine.call("frame", engine_pony, sphere_path, "left", context)
+	check(sphere_frame.is_finite(), "the engine frames a fitted sphere candidate")
+	check(near((sphere_frame.origin - sphere_path.center).length(), 0.22, 0.006),
+		"the palm sits one hover above the fitted sphere")
 	var state := {
 		"point": Vector3.INF, "normal": Vector3.UP, "source": "",
 		"switches": 0, "miss": 0, "offset": Vector3.ZERO, "offset_valid": false,
@@ -881,7 +669,7 @@ func run() -> void:
 		"contact smoothing never delays the intended caress motion")
 	var offset_y := (second_smooth["point"] as Vector3).y
 	check(offset_y > 0.01 and offset_y < 0.02,
-		"contact smoothing eases the surface snap correction")
+		"contact smoothing eases the sphere snap correction")
 	engine.call("reset")
 	engine_root.free()
 
@@ -916,6 +704,8 @@ func run() -> void:
 			"the standing oval axes are tangent and orthogonal")
 		check(flank_x.length() > 0.99 and flank_y.length() > 0.99,
 			"the standing oval axes are normalized")
+		check(float(flank_candidate.get("radius", 0.0)) == 0.0,
+			"the procedural flank point has no sphere and stays exact")
 	var coat_engine: Variant = SYSTEM.new()
 	var coat_frame: Transform3D = coat_engine.call("coat_frame", flank_pony, "right",
 		Vector3(0.0, 1.0, 0.0), Vector3.UP, Vector3.FORWARD, 0.02, false)

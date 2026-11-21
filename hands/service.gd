@@ -8,6 +8,7 @@ const GAME := preload("res://mods/unfplap/world/game.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const PLACEMENT := preload("res://mods/unfplap/hands/placement.gd")
 const PATH_BASE := preload("res://mods/unfplap/hands/path_base.gd")
+const PATHS := preload("res://mods/unfplap/hands/paths/anchors.gd")
 const FLANK_PATH := preload("res://mods/unfplap/hands/paths/standing.gd")
 const MISSIONARY_PATH := preload("res://mods/unfplap/hands/paths/missionary.gd")
 const ORAL_PATH := preload("res://mods/unfplap/hands/paths/oral.gd")
@@ -338,6 +339,7 @@ func _caress_tick(delta: float) -> void:
 		_end_caress()
 		_caress_oral_was_active = false
 		return
+	PATHS.prefit_tick(pony)
 	_caress_oral_tick()
 	warm_contact_paths()
 	# Hold-X auto settings owns A/D and Z/C, so the keys freeze while the layer is open. The
@@ -1127,6 +1129,9 @@ func warm_contact_paths() -> bool:
 	_sync()
 	if _pose_family() not in ["bed", "standing"]:
 		return false
+	# The background fit fills the cache one area per tick; build each hand only when it is ready.
+	if PATHS.prefit_pending(pony):
+		return not _warm_sides.is_empty()
 	var side: String = _warm_sides.pop_front()
 	_set_caress_hand(side, false)
 	return not _warm_sides.is_empty()

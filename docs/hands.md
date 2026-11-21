@@ -41,13 +41,13 @@ This contract covers:
 |---|---|
 | `hands/service.gd` | act hand coordinator: A/D/Z/C latches, five-second touch meter, shoulder reach, smack target selection and palm-holder/path wiring |
 | `hands/session.gd` | typed coordinator interface used by the smack action |
-| `hands/placement.gd` | pose-free placement engine: oval, posed-coat snap, smoothing, palm frame, last-good target |
+| `hands/placement.gd` | pose-free placement engine: oval, fitted-sphere contact, smoothing, palm frame, last-good target |
 | `hands/path_base.gd` | path contract: ordered candidates, debug anchors, reset |
 | `hands/paths/standing.gd` | standing path: marked area chain, procedural flank/rump fallback |
 | `hands/paths/oral.gd` | standing oral path: one authored head-side node per hand, mare-PoV lookup flipped for Anon |
 | `hands/paths/missionary.gd` | missionary and bed face-sit path: authored one/two and reach filtering |
-| `hands/paths/anchors.gd` | surface-anchored path builder: authored anchors, marked area chains, single area nodes, act-camera anchors, rest fallback |
-| `hands/surface.gd` | stable posed body/head patch, local caress window and coat queries |
+| `hands/paths/anchors.gd` | sphere path builder: one fitted sphere per authored area, skinning, lean sampling, background fit |
+| `hands/coat_fit.gd` | the one coat reader: one sphere per authored area, fitted once per skin and cached |
 | `hands/palm.gd` | single-point palm frame: basis, placement and normal turn |
 | `shared/hands_caress.gd` | typed caress profile, touch step, flank hit and smack presentation records |
 | `shared/hands_scale.gd` | shared per-preset hand-bone scale |
@@ -347,6 +347,7 @@ selection and starts the swing.
 | service | world | `world/game.gd` | base-game hand and flank accessors |
 | shared | act_state | `shared/act_state.gd` | act state constants |
 | shared | body_coat | `shared/body_coat.gd` | drawn body coat mesh and surface |
+| shared | body_profile | `shared/body_profile.gd` | the body rig map for a winking body |
 | shared | hands_caress | `shared/hands_caress.gd` | typed caress and smack records |
 | shared | log | `shared/log.gd` | log sink |
 | shared | pose_view | `shared/pose_view.gd` | typed pose read model |

@@ -16,6 +16,11 @@ const BELLY_U := 0.25
 static var _authored_data: Dictionary = {}
 static var _areas_data: Dictionary = {}
 
+## The background fit queue: one authored area per tick while an act poses, so the first
+## caress finds the spheres already cached.
+static var _prefit: Array = []
+static var _prefit_pony_id := 0
+
 var anchors: Array = []
 var side := "right"
 var valid := false
@@ -324,7 +329,7 @@ func _anchor(pony: Variant, region: String, position: Vector3) -> Dictionary:
 
 
 ## Authored areas are mare rest points; a winking body reads them through the anatomy rig map.
-func _body_position(pony: Variant, region: String, position: Vector3) -> Vector3:
+static func _body_position(pony: Variant, region: String, position: Vector3) -> Vector3:
 	if region == "head":
 		return position
 	var rig := _rig(pony)
@@ -337,7 +342,7 @@ func _body_position(pony: Variant, region: String, position: Vector3) -> Vector3
 
 
 ## A remapped point may miss the coat by more than an authored one does, so it may snap farther.
-func _fit_distance(pony: Variant, region: String) -> float:
+static func _fit_distance(pony: Variant, region: String) -> float:
 	if region == "head":
 		return FIT.MAX_DISTANCE_M
 	var rig := _rig(pony)
@@ -346,9 +351,9 @@ func _fit_distance(pony: Variant, region: String) -> float:
 	return FIT.REMAPPED_DISTANCE_M
 
 
-## The presented body's rig. A body-fit key with no princess profile (Chrysalis' own body is
-## keyed `chrysalis`) falls back to the identity's character, which is the princess.
-func _rig(pony: Variant) -> BODY_PROFILE.RigProfile:
+## The presented body's rig. A body-fit key with no princess profile falls back to the
+## identity's character, which is the princess.
+static func _rig(pony: Variant) -> BODY_PROFILE.RigProfile:
 	var rig := BODY_PROFILE.rig_for_pony(pony)
 	if rig != null and not rig.is_ordinary():
 		return rig
@@ -356,7 +361,7 @@ func _rig(pony: Variant) -> BODY_PROFILE.RigProfile:
 	return BODY_PROFILE.rig_for_identity(identity)
 
 
-func _rig_note(pony: Variant) -> String:
+static func _rig_note(pony: Variant) -> String:
 	var rig := _rig(pony)
 	var fit := BODY_PROFILE.body_fit_id(pony) if pony != null else ""
 	var character := ""
@@ -366,6 +371,77 @@ func _rig_note(pony: Variant) -> String:
 	return "rig %s size=%.2f fit=%s character=%s" % [
 		rig.id if rig != null else BODY_PROFILE.ORDINARY_RIG, rig.scale if rig != null else 1.0,
 		fit, character]
+
+
+## Fit one authored area per call while an act poses; true while entries remain for this pony.
+static func prefit_tick(pony: Variant) -> bool:
+	if not is_instance_valid(pony):
+		return false
+	var id := int(pony.get_instance_id())
+	if id != _prefit_pony_id:
+		_prefit_pony_id = id
+		_prefit = _area_points()
+	if _prefit.is_empty():
+		return false
+	var entry: Dictionary = _prefit.pop_front()
+	var region := str(entry.get("region", "torso"))
+	var position: Vector3 = entry.get("position", Vector3.ZERO)
+	var found := FIT.find_mesh(pony, region)
+	if not found.is_empty():
+		var sk: Variant = found["skeleton"]
+		if sk is Skeleton3D:
+			FIT.primitive(pony, region, _body_position(pony, region, position),
+				_fit_distance(pony, region))
+	return not _prefit.is_empty()
+
+
+## True while this pony's background fit queue still has entries.
+static func prefit_pending(pony: Variant) -> bool:
+	return is_instance_valid(pony) and int(pony.get_instance_id()) == _prefit_pony_id \
+		and not _prefit.is_empty()
+
+
+## Every authored area point this body can carry, both hands and every pose, deduplicated.
+static func _area_points() -> Array:
+	var out: Array = []
+	var seen := {}
+	var areas: Variant = _areas().get("areas", {})
+	if areas is Dictionary:
+		for slot_value: Variant in (areas as Dictionary).values():
+			if not slot_value is Dictionary:
+				continue
+			var entry: Dictionary = slot_value
+			var region := str(entry.get("region", "torso"))
+			for side: String in ["left", "right"]:
+				_push_point(out, seen, region, _entry_position(entry.get(side, {})))
+	for path_id: String in ANCHORS_FILES.keys():
+		var data := _authored(path_id)
+		var sides: Array = ["left", "right"]
+		for shared_name: String in ["shared"]:
+			if data.get(shared_name) is Dictionary:
+				sides.append(shared_name)
+		for side: String in sides:
+			var side_data: Variant = data.get(side, {})
+			if not side_data is Dictionary:
+				continue
+			for slot_value: Variant in (side_data as Dictionary).values():
+				if not slot_value is Dictionary:
+					continue
+				var entry: Dictionary = slot_value
+				_push_point(out, seen, str(entry.get("region", "torso")),
+					_entry_position(entry))
+	return out
+
+
+static func _push_point(out: Array, seen: Dictionary, region: String, point: Vector3) -> void:
+	if not point.is_finite():
+		return
+	var key := "%s|%d|%d|%d" % [region, int(round(point.x * 1000.0)),
+		int(round(point.y * 1000.0)), int(round(point.z * 1000.0))]
+	if seen.has(key):
+		return
+	seen[key] = true
+	out.append({"region": region, "position": point})
 
 
 func _update_belly_u() -> void:

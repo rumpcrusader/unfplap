@@ -525,8 +525,6 @@ func _check_snapshot() -> void:
 		"the act snapshot carries the thrust direction")
 	check(snap.features is Dictionary and not snap.features.is_empty(),
 		"the act snapshot carries the feature flags")
-	check(snap.caress_quality == SETTINGS.quality.get_choice(),
-		"the act snapshot carries the caress quality")
 	check(snap.presentation.has("free_look"), "the act snapshot carries the pose presentation")
 	var standing := SETTINGS.act_snapshot("standing")
 	check(standing.presentation.has("chin_up_deg") and standing.presentation.has("neck_down_deg"),

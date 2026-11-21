@@ -8,6 +8,11 @@ const HOST := preload("res://mods/unfplap/act/host.gd")
 const CONTEXT := preload("res://mods/unfplap/act/context.gd")
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const SCENE_GATE := preload("res://mods/unfplap/scene_gate/service.gd")
+const INPUT := preload("res://mods/unfplap/act/input.gd")
+const ACT_COMMANDS := preload("res://mods/unfplap/shared/act_commands.gd")
+const PONIES := preload("res://mods/unfplap/ponies/service.gd")
+const POSE_SESSION := preload("res://mods/unfplap/poses/service.gd")
+const FAKE_GATE := preload("res://mods/unfplap/tests/support/fakes/fake_act_gate.gd")
 
 const State := ACT_STATE.State
 
@@ -37,6 +42,37 @@ func _frame() -> Dictionary:
 	var session: RefCounted = SESSION.new()
 	session.bind(host, context)
 	return {"session": session, "host": host, "context": context}
+
+
+## The hole command's one gate: the pose allows it, the act gate owns consent.
+class FakePose extends POSE_SESSION:
+	func request_command(_id: String) -> bool:
+		return true
+
+
+class FakeAnatomyHandle extends RefCounted:
+	var target_value := 0
+	var anus_calls := 0
+
+	func can_target_anus() -> bool:
+		return true
+
+	func target() -> int:
+		return target_value
+
+	func target_anus() -> void:
+		anus_calls += 1
+		target_value = 1
+
+	func target_vulva() -> void:
+		target_value = 0
+
+
+class FakeHud extends Node:
+	var statuses: Array[String] = []
+
+	func anatomy_status(text: String, _seconds: float) -> void:
+		statuses.append(text)
 
 
 func run() -> void:
@@ -144,4 +180,47 @@ func run() -> void:
 	check(orphan.get_parent() == null, "a node-less host parents nothing")
 	orphan.free()
 
+	_check_hole_command()
 	finish()
+
+
+## The desktop and VR paths share one hole command: without anal consent the target stays on the
+## vulva and the HUD shows the refusal.
+func _check_hole_command() -> void:
+	var made := _frame()
+	var session: RefCounted = made["session"]
+	var host: RefCounted = made["host"]
+	var context: RefCounted = made["context"]
+	var gate := FAKE_GATE.new()
+	PONIES.act_gate = gate
+	var pony := Node3D.new()
+	root.add_child(pony)
+	host.pony = pony
+	var anatomy := FakeAnatomyHandle.new()
+	var hud := FakeHud.new()
+	root.add_child(hud)
+	context.anatomy = anatomy
+	context.hud = hud
+	context.pose = FakePose.new()
+	var input: RefCounted = INPUT.new()
+	input.bind(host, context, session)
+	session.input = input
+
+	gate.consent_ok = false
+	check(not input.command(ACT_COMMANDS.HOLE),
+		"the hole command refuses without anal consent")
+	check(anatomy.target_value == 0 and anatomy.anus_calls == 0,
+		"a refused hole command leaves the target on the vulva")
+	check(hud.statuses.size() == 1, "a refused hole command shows one status")
+	gate.consent_ok = true
+	check(input.command(ACT_COMMANDS.HOLE), "the hole command opens with anal consent")
+	check(anatomy.target_value == 1 and anatomy.anus_calls == 1,
+		"the allowed hole command turns the target")
+	PONIES.act_gate = null
+	root.remove_child(pony)
+	pony.free()
+	root.remove_child(hud)
+	hud.free()
+	gate.free()
+	context.pose = null
+	input = null

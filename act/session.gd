@@ -23,6 +23,7 @@ const STOOL := preload("res://mods/unfplap/stool/service.gd")
 const SCENE_GATE := preload("res://mods/unfplap/scene_gate/service.gd")
 const CYCLE := preload("res://mods/unfplap/shared/cycle.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
+const ACT_COMMANDS := preload("res://mods/unfplap/shared/act_commands.gd")
 const VR_ACT := preload("res://mods/unfplap/vr/service.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
@@ -410,23 +411,6 @@ func missionary_anon_body() -> Variant:
 	return context.pose.act_body_handle()
 
 
-## The optional anatomy toggles the debug panel drives.
-func toggle_anatomy_hole() -> void:
-	if context.anatomy == null:
-		return
-	if context.anatomy.target() == ANATOMY.Target.VULVA:
-		context.anatomy.target_anus()
-	else:
-		context.anatomy.target_vulva()
-
-
-func toggle_anatomy_oral() -> void:
-	if context.anatomy == null:
-		return
-	if context.anatomy.can_target_mouth():
-		context.anatomy.target_mouth()
-
-
 func anatomy_react() -> void:
 	if context.anatomy != null:
 		context.anatomy.react()
@@ -487,9 +471,9 @@ func begin_vr() -> void:
 		return
 	vr.forward = Callable(self, "vr_forward")
 	vr.depth = Callable(self, "vr_depth")
-	vr.toggle_hole = Callable(self, "toggle_anatomy_hole")
-	vr.oral_ready = Callable(context.input, "anatomy_oral_ready")
-	vr.command = Callable(context.input, "command")
+	vr.toggle_hole = Callable(input, "command").bind(ACT_COMMANDS.HOLE)
+	vr.oral_ready = Callable(input, "anatomy_oral_ready")
+	vr.command = Callable(input, "command")
 	vr.touch = Callable(context.readiness, "touch")
 	vr.pony_source = Callable(host, "pony_value")
 

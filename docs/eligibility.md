@@ -461,7 +461,7 @@ refusal status (`docs/integrations.md`).
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
-| service | registry | `registry/service.gd` | provider layers and stable ids |
+| store | registry | `registry/service.gd` | provider layers and stable ids |
 | service | settings | `settings/service.gd` | settings declarations and live values |
 | service | world | `world/service.gd` | live scene reads |
 | shared | consent | `shared/consent.gd` | consent defaults |

@@ -4,7 +4,7 @@ extends "res://mods/unfplap/shared/service.gd"
 ## Scope: world
 ## Public eligibility API: the permanent identity answer and the provider profile layer.
 
-const WORLD := preload("res://mods/unfplap/world/service.gd")
+const SCENE := preload("res://mods/unfplap/eligibility/scene.gd")
 const POLICY := preload("res://mods/unfplap/eligibility/policy.gd")
 const FACTS := preload("res://mods/unfplap/eligibility/facts.gd")
 const IDENTITY_RECORD := preload("res://mods/unfplap/eligibility/identity_record.gd")
@@ -86,8 +86,8 @@ var _live := true
 var _identity_records: Dictionary = {}
 ## Pony instance -> the record era its attach warm already read. Cleared with the world.
 var _warmed: Dictionary = {}
-## Shape id -> its scene identity, for the id-only capability. Cleared with the world.
-var _shape_identities: Dictionary = {}
+## The one scene boundary, and the shape identities it caches for this world.
+var _scene := SCENE.new()
 
 
 ## A world enter: every capability read answers again.
@@ -95,12 +95,14 @@ func on_world(_host: Node) -> void:
 	_live = true
 	_identity_records.clear()
 	_warmed.clear()
+	_scene.clear()
 
 
 ## The world closed: the records belonged to the bodies that are gone.
 func on_world_closed() -> void:
 	_identity_records.clear()
 	_warmed.clear()
+	_scene.clear()
 
 
 ## The process exit: every capability read answers no.
@@ -108,7 +110,7 @@ func shutdown() -> void:
 	_live = false
 	_identity_records.clear()
 	_warmed.clear()
-	_shape_identities.clear()
+	_scene.clear()
 
 
 ## One capability answer for a consumer, called in per-frame discovery loops.
@@ -141,10 +143,10 @@ func eligible_id(id: String, target: Target = Target.CHARACTER) -> bool:
 	var mare_id := id.strip_edges()
 	if mare_id.is_empty() or not _live or not TARGET_KEYS.has(target):
 		return false
-	var pony := _live_pony(mare_id)
+	var pony := _scene.live_pony(mare_id)
 	if is_instance_valid(pony):
 		return eligible(pony, target)
-	var identity := _shape_identity(mare_id)
+	var identity := _scene.shape_identity(mare_id)
 	if identity == null:
 		return false
 	var profile: Dictionary = SETTINGS.profile_identity(mare_id).raw()
@@ -310,65 +312,6 @@ func _owner_source(owner: Node) -> String:
 	if out.is_empty():
 		return "provider"
 	return out.substr(0, 64)
-
-
-## The live body for a shape id, when one is loaded. It is the authority for a provider mod's
-## off-roster mare.
-func _live_pony(id: String) -> Node:
-	if not _live:
-		return null
-	var game: Variant = WORLD.game
-	if game == null or not is_instance_valid(game):
-		return null
-	var mares: Variant = (game as Node).get("mares")
-	if not mares is Array:
-		return null
-	for pony: Variant in mares:
-		if is_instance_valid(pony) and _pony_id(pony as Node) == id:
-			return pony as Node
-	return null
-
-
-## The population scene's identity for a shape that is not live. The population's `available`
-## map is the catalogue the pack copies from; the scene's root carries its identity resource.
-func _shape_identity(id: String) -> Resource:
-	if _shape_identities.has(id):
-		return _shape_identities[id] as Resource
-	var identity: Resource = null
-	var game: Variant = WORLD.game
-	if game == null or not is_instance_valid(game):
-		_shape_identities[id] = identity
-		return null
-	var population: Variant = (game as Node).get("population")
-	if population == null or not is_instance_valid(population):
-		_shape_identities[id] = identity
-		return null
-	var available: Variant = (population as Node).get("available")
-	if not available is Dictionary:
-		_shape_identities[id] = identity
-		return null
-	var path := str((available as Dictionary).get(id, ""))
-	if path.is_empty():
-		_shape_identities[id] = identity
-		return null
-	var scene := load(path) as PackedScene
-	if scene == null:
-		_shape_identities[id] = identity
-		return null
-	var state := scene.get_state()
-	if state.get_node_count() > 0:
-		for i in state.get_node_property_count(0):
-			if state.get_node_property_name(0, i) == &"identity":
-				identity = state.get_node_property_value(0, i) as Resource
-				break
-	_shape_identities[id] = identity
-	return identity
-
-
-func _pony_id(pony: Node) -> String:
-	if not is_instance_valid(pony):
-		return ""
-	return PONY_ID.from(str(pony.get_meta("relationship_id", "")), pony.get("identity"))
 
 
 func _is_player_pony(pony: Node) -> bool:

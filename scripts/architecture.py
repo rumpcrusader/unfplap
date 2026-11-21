@@ -301,6 +301,9 @@ def rel(path: Path) -> str:
 
 # The anatomy package's public entry is `anatomy/api.gd`; every other service uses service.gd.
 FACADES = {"anatomy": "api.gd"}
+# A store holds a resolved document another service reads directly, with no scene work of its
+# own. Its facade keeps the file name but its edges are store edges.
+STORE_SERVICES = {"registry"}
 
 
 def facade_for(sid: str) -> str:
@@ -344,7 +347,8 @@ def owner_of(path: str) -> Owner | None:
         return Owner("shared:" + name, path, False, kind)
     for sid in SERVICES:
         if path == f"{sid}/{facade_for(sid)}":
-            return Owner(sid, path, False, "service")
+            kind = "store" if sid in STORE_SERVICES else "service"
+            return Owner(sid, path, False, kind)
         if path.startswith(f"{sid}/"):
             return Owner(sid, path, True, "service")
     return None
@@ -401,6 +405,7 @@ def edge_kind(src: str, tgt: str) -> tuple[str, Owner | None, Owner | None]:
 
 ANATOMY_FACADE = "anatomy/api.gd"
 ANATOMY_RIG = "anatomy/rig.gd"
+ELIGIBILITY_SCENE = "eligibility/scene.gd"
 
 
 def is_allowed(src: str, tgt: str) -> tuple[bool, str, Owner | None, Owner | None]:
@@ -410,8 +415,8 @@ def is_allowed(src: str, tgt: str) -> tuple[bool, str, Owner | None, Owner | Non
     if so.kind == "orchestrator":
         return True, kind, so, to
 
-    # Anatomy is a presentation leaf: only the rig reads world/game.gd, no anatomy file may
-    # preload another mod service except settings, and outside files may preload only api.gd.
+    # Anatomy is a presentation leaf: only the rig reads world/game.gd, only the facade asks
+    # eligibility or another mod service, and outside files may preload only api.gd.
     if src.startswith("anatomy/"):
         if src == ANATOMY_RIG:
             return tgt == "world/game.gd", kind, so, to
@@ -419,8 +424,24 @@ def is_allowed(src: str, tgt: str) -> tuple[bool, str, Owner | None, Owner | Non
             return tgt != "world/game.gd", kind, so, to
         if kind in ("self", "shared", "store", "read model"):
             return True, kind, so, to
-        if kind == "service" and to is not None and to.id in ("anatomy", "settings"):
+        if kind == "service" and to is not None:
+            if to.id in ("anatomy", "settings"):
+                return True, kind, so, to
+            if to.id == "eligibility" and src == ANATOMY_FACADE:
+                return True, kind, so, to
+        return False, kind, so, to
+    # Eligibility is a leaf: identity, shared data, the registry store and its scene boundary.
+    # The dynamic rows and every other service edge belong to act_gate.
+    if src.startswith("eligibility/"):
+        if src == ELIGIBILITY_SCENE and kind == "service" and to is not None:
+            return to.id == "world", kind, so, to
+        if kind in ("self", "shared", "store", "read model"):
             return True, kind, so, to
+        if kind == "service" and to is not None and to.id == "settings":
+            return True, kind, so, to
+        return False, kind, so, to
+    # The dynamic gate reads the identity answer; it never reads anatomy or estrus.
+    if so.id == "act_gate" and to is not None and to.id in ("anatomy", "estrus"):
         return False, kind, so, to
     if to is not None and to.id == "anatomy":
         return tgt == ANATOMY_FACADE, kind, so, to
@@ -432,6 +453,15 @@ def is_allowed(src: str, tgt: str) -> tuple[bool, str, Owner | None, Owner | Non
             return True, kind, so, to
         # A shared store may read settings; a pure/read-model module may not.
         if so.kind == "store" and to.id == "settings" and kind == "service":
+            return True, kind, so, to
+        return False, kind, so, to
+    if so.kind == "store":
+        # A store reads shared data and settings, and the accessor game boundary.
+        if tgt == "world/game.gd":
+            return True, kind, so, to
+        if kind in ("self", "shared", "store", "read model"):
+            return True, kind, so, to
+        if kind == "service" and to is not None and to.id == "settings":
             return True, kind, so, to
         return False, kind, so, to
     if so.kind == "service":
@@ -536,7 +566,7 @@ def allowed_service_edges() -> dict[str, set[tuple[str, str]]]:
     for src, tgt in scan_edges():
         so = owner_of(src)
         to = owner_of(tgt)
-        if so is None or so.kind != "service":
+        if so is None or so.kind not in ("service", "store") or so.path.startswith("shared/"):
             continue
         if tgt == SERVICE_BASE:
             continue

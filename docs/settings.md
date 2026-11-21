@@ -619,6 +619,7 @@ carries one retired key, with `into()` moving the stored value and `mapped()` re
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
 | service | world | `world/game.gd` | service dependency |
+| store | registry | `registry/service.gd` | provider layers and stable ids |
 | shared | act_keys | `shared/act_keys.gd` | shared data |
 | shared | anatomy_placement | `shared/anatomy_placement.gd` | placement schema and merge |
 | shared | character_preferences | `shared/character_preferences.gd` | roster and catalog templates |

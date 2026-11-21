@@ -137,16 +137,15 @@ Hold the act key:
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
-| service | face | `face/service.gd` | the close reward's content face |
-| host | the entry | `_init(hud, memory)` | the held HUD state |
-| service | memory | `memory/service.gd` | the `STAY_CLOSE` impression |
-| service | poses | `poses/service.gd` | the held pose, tail and tail flicks |
-| service | readiness | `readiness/service.gd` | the reward's cue clear |
-| service | reactions | `reactions/service.gd` | the reward's heart burst |
-| service | world | `world/service.gd` | the live world root |
-| service | world | `world/game.gd` | the navigator reads the aftercare holds |
-| store | act_history | `shared/act_history.gd` | the bad-act history repair |
+| service | face | `face/service.gd` | act face and mood |
+| service | memory | `memory/service.gd` | act memory and witness pass |
+| service | poses | `poses/service.gd` | pose and skeleton |
+| service | reactions | `reactions/service.gd` | jiggle, blush and hearts |
+| service | readiness | `readiness/service.gd` | readiness and auto stroke |
+| service | world | `world/game.gd` | service dependency |
+| service | world | `world/service.gd` | live scene reads |
 | shared | log | `shared/log.gd` | log sink |
+| store | act_history | `shared/act_history.gd` | stored history rows |
 
 ## Lifecycle
 

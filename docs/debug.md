@@ -277,27 +277,25 @@ the skeleton overlay; `_ready()` joins that list and `_exit_tree()` leaves it.
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
-| service | anatomy | `anatomy/service.gd` | the placement actions and Show placement |
-| service | body_change | `body_change/service.gd` | the form actions and the shape-source gate |
-| service | eligibility | `eligibility/service.gd` | the target's relationship values and the cycle override |
-| host | the entry | `bind(..., hud)` | the one-line wheel result |
-| service | initiation | `initiation/service.gd` | the forced offer, the cooldown and Show data's REQUEST rows |
-| service | negotiation | `negotiation/service.gd` | the Anon offer and Show data's NEGOTIATION rows |
-| service | ponies | `ponies/service.gd` | the live act, the act-target rule and the pony registry |
-| service | poses | `poses/service.gd` | Reload posed base re-reads the authored pose |
-| service | settings | `settings/service.gd` | action-button rows, the skeleton flag and the placement target pill |
-| service | stool | `stool/service.gd` | the footstool the Give footstool action grants |
-| service | world | `world/service.gd` | the scene target, camera and beds |
-| service | world | `world/game.gd` | the briefcase, posture, navigator, bond and mood reads the actions make |
-| shared | act_face | `shared/act_face.gd` | the face cycle |
-| shared | body_change | `shared/body_change.gd` | the provider origin of an idle form change |
-| shared | cycle | `shared/cycle.gd` | the estrus phase names |
+| service | anatomy | `anatomy/api.gd` | anatomy and tail seat |
+| service | body_change | `body_change/service.gd` | service dependency |
+| service | eligibility | `eligibility/service.gd` | adult and consent gate |
+| service | initiation | `initiation/service.gd` | proactive offers |
+| service | negotiation | `negotiation/service.gd` | service dependency |
+| service | ponies | `ponies/service.gd` | per-pony runtime registry |
+| service | poses | `poses/service.gd` | pose and skeleton |
+| service | settings | `settings/service.gd` | settings declarations and live values |
+| service | stool | `stool/service.gd` | footstool supply |
+| service | world | `world/game.gd` | service dependency |
+| service | world | `world/service.gd` | live scene reads |
+| shared | act_face | `shared/act_face.gd` | face beat data |
+| shared | body_change | `shared/body_change.gd` | shared data |
+| shared | cycle | `shared/cycle.gd` | estrus cycle |
 | shared | log | `shared/log.gd` | log sink |
-| shared | pony_id | `shared/pony_id.gd` | stable pony id in Show data's BED rows |
-| shared | pose_catalog | `shared/pose_catalog.gd` | the pose ids the actions name |
-| shared | settings_change | `shared/settings_change.gd` | the settings change notification |
-| store | act_history | `shared/act_history.gd` | Reset act history and Show data's HISTORY rows |
-| game | interaction_sounds | `res://world/audio/interaction_sounds.gd` | the hover `prop_ui_confirm` cue |
+| shared | pony_id | `shared/pony_id.gd` | shared data |
+| shared | pose_catalog | `shared/pose_catalog.gd` | pose ids and schema |
+| shared | settings_change | `shared/settings_change.gd` | settings change notification |
+| store | act_history | `shared/act_history.gd` | stored history rows |
 
 ## Lifecycle
 

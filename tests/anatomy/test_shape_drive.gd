@@ -1,9 +1,9 @@
 extends "res://mods/unfplap/tests/support/suite.gd"
 ## Pure act-anatomy decisions: the hole/oral mix, the shared shape drive and the wink scheduler.
 ##   godot --headless --xr-mode off --path <project> \
-##     --script res://mods/unfplap/tests/anatomy/test_act_state.gd
+##     --script res://mods/unfplap/tests/anatomy/test_shape_drive.gd
 
-const STATE := preload("res://mods/unfplap/anatomy/act/state.gd")
+const STATE := preload("res://mods/unfplap/anatomy/act/shape_drive.gd")
 
 
 func run() -> void:

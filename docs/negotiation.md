@@ -355,30 +355,29 @@ No setting is read directly. The bridge's `relationship_ok` reads the Promiscuit
 ## Dependencies
 
 ### Uses
-| service | world | `world/service.gd` | menu, player and world context |
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
-| service | eligibility | `eligibility/service.gd` | the act target, the relationship row and the Context facts |
-| host | the entry | `bind(..., hud)` | the one toast sink |
-| service | memory | `memory/service.gd` | the relationship note in Context |
-| service | ponies | `ponies/service.gd` | the runtime of the outcome, the Agreement and the mare the watch asks |
-| service | privacy | `privacy/service.gd` | live offer and cuddle privacy |
-| service | scene_gate | `scene_gate/service.gd` | the frozen pose capability and the Agreement's small scene check |
-| service | world | `world/game.gd` | the director's clock, sub-systems and model configuration |
-| shared | clearance | `shared/clearance.gd` | Base clearance result |
-| shared | context | `shared/context.gd` | typed Context snapshot |
-| shared | defaults_data | `shared/defaults_data.gd` | the shipped prompt document |
+| service | eligibility | `eligibility/service.gd` | adult and consent gate |
+| service | memory | `memory/service.gd` | act memory and witness pass |
+| service | ponies | `ponies/service.gd` | per-pony runtime registry |
+| service | privacy | `privacy/service.gd` | service dependency |
+| service | scene_gate | `scene_gate/service.gd` | live scene gate rows |
+| service | world | `world/game.gd` | service dependency |
+| service | world | `world/service.gd` | live scene reads |
+| shared | clearance | `shared/clearance.gd` | shared data |
+| shared | context | `shared/context.gd` | shared data |
+| shared | defaults_data | `shared/defaults_data.gd` | shipped settings and catalog documents |
 | shared | log | `shared/log.gd` | log sink |
 | shared | perf | `shared/perf.gd` | one profiler |
-| shared | pony_id | `shared/pony_id.gd` | stable mare id |
-| shared | pose_catalog | `shared/pose_catalog.gd` | the standing pose the Agreement presents |
-| shared | pose_options | `shared/pose_options.gd` | the available options and exact match |
-| shared | pose_placement | `shared/pose_placement.gd` | the frozen source capability |
-| shared | pose_specs | `shared/pose_specs.gd` | the frozen pose capability |
-| shared | prompt_text | `shared/prompt_text.gd` | the prompt renderer |
-| shared | relationship_cue | `shared/relationship_cue.gd` | the relationship prompt note |
-| store | act_history | `shared/act_history.gd` | the offer history note |
+| shared | pony_id | `shared/pony_id.gd` | shared data |
+| shared | pose_catalog | `shared/pose_catalog.gd` | pose ids and schema |
+| shared | pose_options | `shared/pose_options.gd` | shared data |
+| shared | pose_placement | `shared/pose_placement.gd` | shared data |
+| shared | pose_specs | `shared/pose_specs.gd` | pose capability table |
+| shared | prompt_text | `shared/prompt_text.gd` | shared data |
+| shared | relationship_cue | `shared/relationship_cue.gd` | relationship prompt note |
+| store | act_history | `shared/act_history.gd` | stored history rows |
 
 ## Tests
 

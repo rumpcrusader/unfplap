@@ -20,8 +20,7 @@ const BODY_CHANGE_ACT := preload("res://mods/unfplap/body_change/act.gd")
 const BODY_CHANGE_ACT_HOST := preload("res://mods/unfplap/body_change/act_host.gd")
 const SWAP_PORT := preload("res://mods/unfplap/body_change/swap_port.gd")
 const WING := preload("res://mods/unfplap/poses/wing_control.gd")
-const ANATOMY := preload("res://mods/unfplap/anatomy/service.gd")
-const ACT_HOST := preload("res://mods/unfplap/anatomy/act_host.gd")
+const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 const ACT_DIALOGUE := preload("res://mods/unfplap/dialogue/service.gd")
 const READINESS := preload("res://mods/unfplap/readiness/service.gd")
@@ -79,8 +78,6 @@ class Bundle extends RefCounted:
 	var face: FACE = null
 	var reactions: REACTIONS = null
 	var dialogue: ACT_DIALOGUE = null
-	var anatomy_bridge: RefCounted = null
-	var anatomy_host: ACT_HOST = null
 	var handover: BODY_CHANGE_ACT = null
 	var handover_host: BODY_CHANGE_ACT_HOST = null
 	var summary: SUMMARY = null
@@ -115,104 +112,9 @@ class Bundle extends RefCounted:
 			pose.id = act.pony_id
 		if host != null:
 			host.pony = value
-
-
-## The runtime's implementation of the anatomy bridge's host contract: each method names the
-## bundle owner it reads, and a call is only made once the act frame exists.
-class AnatomyHost extends "res://mods/unfplap/anatomy/act_host.gd":
-	var b: Bundle = null
-
-	func _init(bundle: Bundle) -> void:
-		b = bundle
-
-	func pony() -> Node:
-		return b.pony if is_instance_valid(b.pony) else null
-
-	func runtime() -> Node:
-		return b.node if is_instance_valid(b.node) else null
-
-	func reactions() -> Variant:
-		return b.reactions if is_instance_valid(b.reactions) else null
-
-	func anatomy_service() -> Variant:
-		return PONIES.anatomy if is_instance_valid(PONIES.anatomy) else null
-
-	func eligibility_service() -> Variant:
-		return PONIES.eligibility if is_instance_valid(PONIES.eligibility) else null
-
-	func state() -> int:
-		return b.act.state_value()
-
-	func pose_view() -> Variant:
-		return b.act.pose_view()
-
-	func depth() -> float:
-		return b.readiness.depth_value()
-
-	func penetration_m() -> float:
-		return b.readiness.penetration_m_value()
-
-	func penetration_reach() -> float:
-		return b.readiness.reach()
-
-	func climaxes() -> int:
-		return b.readiness.climax_count()
-
-	func size_scale() -> float:
-		return b.camera.size_scale()
-
-	func auto_pace() -> float:
-		return b.readiness.auto_pace()
-
-	func fluid_ground_y() -> float:
-		return b.phases.fluid_ground_y()
-
-	func cycle_phase() -> String:
-		return b.act.cycle_phase()
-
-	func bed_frame() -> Variant:
-		return b.pose._bed_frame_value()
-
-	func body_coat_smack() -> Callable:
-		return Callable(b.reactions, "body_coat_target")
-
-	func status() -> Callable:
-		if is_instance_valid(b.hud):
-			return Callable(b.hud, "anatomy_status")
-		return Callable()
-
-	func command() -> Callable:
-		return Callable(b.input, "command")
-
-	func missionary_camera() -> Variant:
-		return b.camera.view_controller()
-
-	func kiss_controller() -> Variant:
-		return b.act.kiss_service()
-
-	func pose() -> Variant:
-		return b.pose.self_handle()
-
-	func thrust_move() -> Callable:
-		return Callable(b.impact, "move")
-
-	func now_s() -> float:
-		return b.act.clock_s()
-
-	func set_penetration_m() -> Callable:
-		return Callable(b.impact, "set_depth")
-
-	func align() -> Callable:
-		return Callable(b.act, "apply_anon_align")
-
-	func touch() -> Callable:
-		return Callable(b.readiness, "touch")
-
-	func vr_scene() -> Variant:
-		return b.host.vr_scene()
-
-	func pony_callable() -> Callable:
-		return Callable(b.host, "pony_value")
+		if is_instance_valid(reactions) and value is Node3D:
+			reactions.bind_scene(value as Node3D, PONIES.anatomy,
+				(value as Node3D).get_node_or_null("FlankTouch"))
 
 
 ## The runtime's implementation of the handover's value contract; the swap seam is `b.swap`.
@@ -327,10 +229,6 @@ static func build(pony: Node, node: Node, hud: Node = null, memory: Node = null,
 	b.dialogue = ACT_DIALOGUE.new(b.facts, b.memory)
 	b.afterglow = AFTERGLOW.new(b.hud, b.memory)
 	b.hold = SCENE_HOLD.new()
-	# The anatomy bridge and its host exist before the act context can hold them; the host reads
-	# the bundle at call time, so it is complete before the act frame exists.
-	b.anatomy_host = AnatomyHost.new(b)
-	b.anatomy_bridge = ANATOMY.new_act(b.anatomy_host, PONIES.anatomy as ANATOMY)
 	_build_systems(node, b)
 	_bind_act_frame(node, b)
 	_bind_pose_hosts(node, b)
@@ -415,7 +313,6 @@ static func _build_act_context(b: Bundle) -> ACT_CONTEXT:
 	context.face = b.face
 	context.reactions = b.reactions
 	context.dialogue = b.dialogue
-	context.anatomy = b.anatomy_bridge
 	context.handover = b.handover
 	context.gate = b.gate
 	context.facts = b.facts
@@ -429,7 +326,6 @@ static func _build_act_context(b: Bundle) -> ACT_CONTEXT:
 	context.integrations = b.integrations
 	context.hold = b.hold
 	context.rest = b.rest
-	context.anatomy_host = b.anatomy_host
 	context.hud = b.hud
 	context.memory = b.memory
 	context.stool_service = b.stool
@@ -440,22 +336,20 @@ static func _build_act_context(b: Bundle) -> ACT_CONTEXT:
 static func _bind_pose_hosts(node: Node, b: Bundle) -> void:
 	b.pose.bind(node, b.pony)
 	b.pose.id = b.act.pony_id
-	b.pose.set_act_body = Callable(b.anatomy_bridge, "set_missionary_anon")
 	b.pose.eye_camera = Callable(b.view, "write_eye")
 	b.pose.facts = b.facts
-	b.pose.mouth_point = Callable(b.anatomy_bridge, "mouth_point")
-	b.pose.opening_point = Callable(b.anatomy_bridge, "opening")
-	b.pose.face_point = Callable(b.anatomy_bridge, "face_point")
+	b.pose.mouth_point = Callable(b.act, "anatomy_mouth_point")
+	b.pose.opening_point = Callable(b.act, "anatomy_opening")
+	b.pose.face_point = Callable(b.pose, "act_body_face_point")
 	b.pose.oral_kiss = Callable(b.audio, "oral_kiss")
 	b.pose.oral_speech_stop = Callable(b.phases, "oral_speech_stop")
-	b.pose.oral_viseme = Callable(b.anatomy_bridge, "set_oral_viseme")
+	b.pose.oral_viseme = Callable(b.act, "anatomy_set_mouth_viseme")
 	if is_instance_valid(b.hud):
 		b.pose.oral_status = Callable(b.hud, "anatomy_status")
 
 
 ## The act view, readiness, afterglow, face, scene gate, rest, scene hold and controller bindings.
 static func _bind_facts(node: Node, b: Bundle) -> void:
-	b.facts.body_coat_smack = Callable(b.reactions, "body_coat_target")
 	b.facts.kiss = Callable(b.act, "kiss_service")
 	b.facts.neck_point = Callable(b.camera, "neck_midpoint")
 	b.facts.set_look = Callable(b.phases, "set_look")
@@ -469,7 +363,7 @@ static func _bind_facts(node: Node, b: Bundle) -> void:
 	b.readiness.on_climax = Callable(b.act, "climax")
 	b.readiness.on_close = Callable(b.act, "face_beat").bind("close")
 	b.readiness.on_face = Callable(b.act, "face_beat")
-	b.readiness.on_anatomy_react = Callable(b.anatomy_bridge, "react")
+	b.readiness.on_anatomy_react = Callable(b.act, "anatomy_react")
 	b.readiness.heat_cycle = Callable(b.act, "in_heat")
 	b.readiness.on_cue = Callable(b.phases, "cue")
 	b.readiness.shaft_length = Callable(b.phases, "shaft_length_m")
@@ -495,12 +389,10 @@ static func _bind_facts(node: Node, b: Bundle) -> void:
 	b.facts.act_actions_allowed = Callable(b.camera, "at_actions_allowed")
 	b.facts.auto_panel_open = Callable(b.input, "auto_panel_open")
 	b.facts.view = Callable(b.camera, "view_controller")
-	b.facts.missionary_anon = Callable(b.act, "missionary_anon_body")
-	b.facts.anatomy_normal = Callable(b.act, "anatomy_normal")
-	b.facts.anatomy_opening = Callable(b.act, "anatomy_opening")
+	b.facts.missionary_anon = Callable(b.pose, "act_body_handle")
 	b.facts.missionary_face_point = Callable(b.camera, "missionary_face_point")
 	b.facts.authored_pose_asset = Callable(b.pose, "authored_asset")
-	b.facts.gaze_point = Callable(b.anatomy_bridge, "gaze_point")
+	b.facts.gaze_point = Callable(b.camera, "gaze_point")
 	b.facts.free_look_rotation = Callable(b.camera, "free_look_rotation")
 	b.facts.desktop_pose_driver = Callable(b.standing_anon, "driver")
 	b.facts.cuddle_active = Callable(b.gate, "cuddle_active")

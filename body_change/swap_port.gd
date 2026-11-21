@@ -82,9 +82,6 @@ extends RefCounted
 @abstract func apply_pose_change() -> void
 
 
-@abstract func apply_anatomy_live() -> void
-
-
 @abstract func begin_integrations() -> void
 
 

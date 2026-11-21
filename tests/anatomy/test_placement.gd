@@ -6,8 +6,10 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/controller.gd")
+const ANATOMY_API := preload("res://mods/unfplap/anatomy/api.gd")
+const RIG := preload("res://mods/unfplap/anatomy/rig.gd")
+const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const ANATOMY_PLACEMENT := preload("res://mods/unfplap/anatomy/placement.gd")
-const ANATOMY_SERVICE := preload("res://mods/unfplap/anatomy/service.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 const BODY_PROFILE := preload("res://mods/unfplap/shared/body_profile.gd")
 const MARE_REGISTRY := preload("res://mods/unfplap/registry/service.gd")
@@ -77,7 +79,7 @@ func run() -> void:
 	var meta_first := _pony("visual_id")
 	meta_first.set_meta("relationship_id", "relationship_id")
 	root.add_child(meta_first)
-	check(ANATOMY.pony_id(meta_first) == "relationship_id", "relationship id wins")
+	check(PONY_ID.of(meta_first) == "relationship_id", "relationship id wins")
 	# The placement reads the same stable id: an override saved on the relationship id is the one
 	# `load()` applies, not the identity id's row.
 	var meta_place := ANATOMY_PLACEMENT.new()
@@ -149,8 +151,8 @@ func run() -> void:
 	# Tail seat: an eligible pony with no measurable body gets no seat row, but still reports as
 	# seatable.
 	var seat := TAIL_SEAT.new()
+	seat.setup(RIG.new())
 	root.add_child(seat)
-	seat.set("eligible", func(_node: Node) -> bool: return true)
 	var rigged := _rigged_pony("twilight_sparkle")
 	root.add_child(rigged)
 	seat.call("attach", rigged)
@@ -188,6 +190,7 @@ func run() -> void:
 	# Dock style is visibility/colour only. The old placement pinned the mesh top to the dock's
 	# buried base ring, which dropped a low-docked mare's anatomy by up to 9 cm.
 	var place := ANATOMY.new()
+	place.setup(null, null, RIG.new())
 	var place_mesh := MeshInstance3D.new()
 	place_mesh.mesh = BoxMesh.new()
 	place.add_child(place_mesh)
@@ -286,32 +289,31 @@ func run() -> void:
 	root.add_child(editor_world)
 	editor_world.mares = [editor_pony]
 	WORLD.bind_world(editor_world)
-	var service: Node = ANATOMY_SERVICE.new()
+	var service: ANATOMY_API = ANATOMY_API.new()
 	root.add_child(service)
-	service.call("setup")
 	var target_before := SETTINGS.edit_target.get_choice()
 	SETTINGS.edit_target.set_choice("mare")
-	check(service.placement_editor != null, "the facade owns the placement editor")
-	check(str(service.placement_editor.call("placement_id")) == "editor_mare",
-		"the editor resolves the pointed mare")
-	check(service.call("placement_debug", "text").begins_with("editor_mare"),
-		"the facade delegates the placement text")
+	check(service.parts.placement_editor != null, "the API owns the placement editor")
+	check(str(service.parts.placement_editor.placement_id(editor_pony)) == "editor_mare",
+		"the editor reads the named pony")
+	check(service.debug_placement(editor_pony, "text", 0.0, false).begins_with("editor_mare"),
+		"the API delegates the placement text")
 
 	# The Default target applies on the action itself and Reset restores the shipped block, so the
 	# editor has no save step left.
 	SETTINGS.edit_target.set_choice("default")
 	var shipped_y := float(SETTINGS.offset_y.default)
-	check(str(service.call("placement_debug", "y", 0.01)).begins_with("default"),
+	check(str(service.debug_placement(editor_pony, "y", 0.01, false)).begins_with("default"),
 		"the editor nudges the global default")
 	check(near(float(SETTINGS.anatomy_placement_default("").raw()["offset_y"]),
 		shipped_y + 0.01), "a default nudge is applied without a save action")
-	check(str(service.call("placement_debug", "save")) == "Unknown placement action.",
+	check(str(service.debug_placement(editor_pony, "save", 0.0, false)) == "Unknown placement action.",
 		"the editor has no save action")
-	service.call("placement_debug", "reset")
+	service.debug_placement(editor_pony, "reset", 0.0, false)
 	check(near(float(SETTINGS.anatomy_placement_default("").raw()["offset_y"]), shipped_y),
 		"reset restores the shipped default placement")
 	SETTINGS.edit_target.set_choice(target_before)
-	service.call("shutdown")
+	service.shutdown()
 	root.remove_child(service)
 	service.free()
 	root.remove_child(editor_pony)

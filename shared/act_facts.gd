@@ -109,9 +109,13 @@ var pony: Variant = null
 var camera: Camera3D = null
 var pose: Variant = null
 var viewport: Variant = null
+## The act's Anon part handle, or null outside an act.
+var anon: Variant = null
+
+# The act's live anatomy opening, written by the anatomy stage.
+var anatomy_opening := Vector3.ZERO
 
 # Host callbacks. A missing callback is a no-op.
-var body_coat_smack := Callable()
 var on_touch := Callable()
 var on_smack := Callable()
 ## Services and write-backs that stay runtime-owned.
@@ -131,8 +135,6 @@ var act_actions_allowed := Callable()
 var auto_panel_open := Callable()
 var view := Callable()
 var missionary_anon := Callable()
-var anatomy_normal := Callable()
-var anatomy_opening := Callable()
 var missionary_face_point := Callable()
 var authored_pose_asset := Callable()
 ## The missionary gaze target (the authored Anon's face), owned by the anatomy bridge.
@@ -151,11 +153,6 @@ var release_excitement := Callable()
 var mod_enabled := Callable()
 ## The opaque host handle for the Anon pose-driver write-backs.
 var pose_host := Callable()
-
-
-func smack_body_coat() -> void:
-	if body_coat_smack.is_valid():
-		body_coat_smack.call()
 
 
 func kiss_controller() -> Variant:

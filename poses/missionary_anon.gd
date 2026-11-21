@@ -3,9 +3,7 @@ extends Node
 ## asset's `anon` block. The act parks his drivers and writes his bones at render time so nothing
 ## else on his rig wins; the asset carries every bone, and only this body is placed, not his node.
 
-const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
-const ANATOMY := preload("res://mods/unfplap/anatomy/service.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
 const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
@@ -883,9 +881,9 @@ func diag_row(face: Vector3, vulva: Vector3) -> String:
 		_leg_hide.influence if is_instance_valid(_leg_hide) else -1.0]
 	if not odd.is_empty():
 		row += " odd=[%s]" % ", ".join(odd)
-	var service := _anatomy_service()
-	if service != null and service.player_showing():
-		var part_scale := service.player_debug_scale()
+	var anon: Variant = facts.anon if facts != null else null
+	if anon != null and anon.showing():
+		var part_scale: Vector3 = anon.debug_scale()
 		if part_scale.is_finite():
 			row += " part_scale=(%.2f,%.2f,%.2f)" % [
 				part_scale.x, part_scale.y, part_scale.z]
@@ -900,23 +898,17 @@ func diag_row(face: Vector3, vulva: Vector3) -> String:
 	return row
 
 
-func _anatomy_service() -> ANATOMY:
-	return PONIES.anatomy as ANATOMY
-
-
 ## The pelvis offset the attached alignment asked for this frame, in world space.
 func _hip_offset() -> Vector3:
-	var service := _anatomy_service()
-	if service == null:
-		return Vector3.ZERO
-	return service.player_hip_offset()
+	var anon: Variant = facts.anon if facts != null else null
+	return anon.hip_offset() if anon != null else Vector3.ZERO
 
 
 ## Tell the part the offset was applied, so next frame it measures from the moved body.
 func _note_hip_offset(offset: Vector3) -> void:
-	var service := _anatomy_service()
-	if service != null:
-		service.player_note_hip_offset(offset)
+	var anon: Variant = facts.anon if facts != null else null
+	if anon != null:
+		anon.note_hip_offset(offset)
 
 
 ## Bone indices are stable for the life of the skeleton, so resolve the names once per skeleton.

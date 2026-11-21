@@ -75,9 +75,8 @@ controller.
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
-| shared | act_commands | `shared/act_commands.gd` | the oral command id the left `by_button` emits |
-| service | world | `world/game.gd` | the bridge's oral gate and the touch bridge's caress event |
-| host | runtime | `act/input.gd` | the one discrete command dispatcher |
+| service | world | `world/game.gd` | service dependency |
+| shared | act_commands | `shared/act_commands.gd` | act command vocabulary |
 
 ## Lifecycle
 

@@ -227,19 +227,19 @@ too-slow.
 ## Dependencies
 
 ### Uses
-| service | world | `world/service.gd` | the world root |
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
+| read model | act_facts | `shared/act_facts.gd` | typed act read model |
 | service | memory | `memory/service.gd` | act memory and witness pass |
-| service | world | `world/game.gd` | the base-game director, speech and voice members |
-| shared | act_state | `shared/act_state.gd` | act state constants |
+| service | world | `world/game.gd` | service dependency |
+| service | world | `world/service.gd` | live scene reads |
 | shared | act_face | `shared/act_face.gd` | face beat data |
-| read model | act_facts | `shared/act_facts.gd` | the typed act values and clock the note reads |
-| shared | defaults_data | `shared/defaults_data.gd` | the shipped prompt document |
+| shared | act_state | `shared/act_state.gd` | shared data |
+| shared | defaults_data | `shared/defaults_data.gd` | shipped settings and catalog documents |
 | shared | log | `shared/log.gd` | log sink |
-| shared | preferences | `shared/preferences.gd` | profile math and defaults |
-| shared | prompt_text | `shared/prompt_text.gd` | prompt graph and rendering |
+| shared | preferences | `shared/preferences.gd` | profile schema and math |
+| shared | prompt_text | `shared/prompt_text.gd` | shared data |
 | shared | relationship_cue | `shared/relationship_cue.gd` | relationship prompt note |
 | store | act_history | `shared/act_history.gd` | stored history rows |
 

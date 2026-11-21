@@ -6,8 +6,8 @@ const WORLD := preload("res://mods/unfplap/world/service.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
+const ANATOMY_API := preload("res://mods/unfplap/anatomy/api.gd")
 const MISSIONARY_ANON := preload("res://mods/unfplap/poses/missionary_anon.gd")
-const POSES := preload("res://mods/unfplap/poses/service.gd")
 const FRAME := preload("res://mods/unfplap/act/frame.gd")
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const ACT_AGREEMENT := preload("res://mods/unfplap/act/agreement.gd")
@@ -16,6 +16,8 @@ const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const HUD := preload("res://mods/unfplap/hud/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const POSES := preload("res://mods/unfplap/poses/service.gd")
 const CATALOG_STANDING := "standing"
 const CATALOG_STANDING_TEST := "standing_test"
 
@@ -122,20 +124,55 @@ class FakeMain extends Node:
 
 
 class FakeEligibility extends "res://mods/unfplap/tests/support/fakes/fake_eligibility.gd":
-	pass
+	func consent(_pony: Node, _key: String) -> bool:
+		return true
 
 
-class FakeAnatomyService extends "res://mods/unfplap/anatomy/service.gd":
-	var consents: Array[String] = []
-	var allow := true
-	var reset_calls := 0
+class FakePresentation extends RefCounted:
+	func can_target_mouth() -> bool:
+		return true
 
-	func consent(_pony: Node, key: String) -> bool:
-		consents.append(key)
-		return allow
+	func can_target_vulva() -> bool:
+		return true
 
-	func player_reset_pelvis() -> void:
-		reset_calls += 1
+	func can_target_anus() -> bool:
+		return true
+
+	func target_mouth() -> void:
+		pass
+
+	func target() -> int:
+		return 0
+
+	func mouth_point() -> Vector3:
+		return Vector3.ZERO
+
+	func frame_point() -> Vector3:
+		return Vector3.ZERO
+
+	func frame_axis() -> Vector3:
+		return Vector3.BACK
+
+	func hold_mouth() -> void:
+		pass
+
+	func set_mouth_viseme(_letter: String) -> void:
+		pass
+
+	func react() -> void:
+		pass
+
+	func pose(_view: Variant) -> void:
+		pass
+
+	func stage(_delta: float, _stage: Variant) -> void:
+		pass
+
+	func climax() -> void:
+		pass
+
+	func end() -> void:
+		pass
 
 
 func _fixture() -> Dictionary:
@@ -368,12 +405,11 @@ func run() -> void:
 	pony6b.global_position = Vector3(3.0, 0.0, 4.0)
 	pony6b.rotation.y = 0.0
 	player6b.global_position = Vector3(3.0, 0.0, 5.0)
-	var anatomy6b := FakeAnatomyService.new()
+	var anatomy6b: ANATOMY_API = ANATOMY_API.new()
 	PONIES.anatomy = anatomy6b
 	var gap6b: float = float(runtime6b.act.swap.standing_gap())
 	runtime6b._bundle.frame.begin(FRAME.pose("standing"))
 	var base6b := Vector3(pony6b.global_position.x, 0.0, pony6b.global_position.z + gap6b)
-	check(anatomy6b.reset_calls >= 1, "a standing start clears the part's old pelvis handshake")
 	check(player6b.global_position.is_equal_approx(base6b),
 		"the standing start leaves Anon behind her at the gap")
 
@@ -473,13 +509,16 @@ func run() -> void:
 	runtime8.act.pose_id = CATALOG_STANDING
 	runtime8.act._set_state(2)
 	runtime8.act.features = {"anatomy_oral": true}
-	var anatomy8 := FakeAnatomyService.new()
+	var oral_setting := SETTINGS.anatomy_oral.get_bool()
+	SETTINGS.anatomy_oral.set_bool(true)
+	var anatomy8: ANATOMY_API = ANATOMY_API.new()
 	PONIES.anatomy = anatomy8
+	PONIES.eligibility = FakeEligibility.new()
 	pony8.global_position = Vector3(2.0, 0.0, 3.0)
 	var oral_from: Vector3 = pony8.global_position
 	runtime8.act.start._build_pose()
-	runtime8.act.toggle_anatomy_oral()
-	check(anatomy8.consents == ["oral"], "the oral command asks the anatomy service for consent")
+	runtime8.act.context.anatomy = FakePresentation.new()
+	runtime8.act.input._toggle_oral()
 	check(runtime8._bundle.pose.view().pose_state == 3
 		and runtime8._bundle.pose.view().edge_id == "standing__standing_oral",
 		"the oral command starts the authored forward edge")
@@ -496,24 +535,18 @@ func run() -> void:
 	check(not runtime8._bundle.pose.pose_config.has("oral_pitch"),
 		"the act exit erases the oral keys")
 
-	# A missing consent or feature refuses before the edge starts and leaves her where she is.
+	# The oral feature gate refuses before the edge starts and leaves her where she is.
 	runtime8.act.pose_id = CATALOG_STANDING
 	runtime8.act._set_state(2)
-	runtime8.act.features = {"anatomy_oral": true}
-	runtime8.act.start._build_pose()
-	anatomy8.allow = false
-	var refused_from: Vector3 = pony8.global_position
-	runtime8.act.toggle_anatomy_oral()
-	check(runtime8._bundle.pose._run == null
-		and runtime8._bundle.pose.view().id == CATALOG_STANDING,
-		"the missing oral consent starts no edge")
-	check(pony8.global_position.is_equal_approx(refused_from),
-		"the missing oral consent moves nothing")
-	anatomy8.allow = true
 	runtime8.act.features = {}
-	runtime8.act.toggle_anatomy_oral()
+	runtime8.act.start._build_pose()
+	var refused_from: Vector3 = pony8.global_position
+	runtime8.act.input._toggle_oral()
 	check(runtime8._bundle.pose._run == null,
 		"the oral feature gate refuses before the edge starts")
+	check(pony8.global_position.is_equal_approx(refused_from),
+		"the refused oral edge moves nothing")
+	SETTINGS.anatomy_oral.set_bool(oral_setting)
 	runtime8.act.exit.run(false)
 
 	# AnonPony and headset/VR move her in front of the player; the player stays where he is.

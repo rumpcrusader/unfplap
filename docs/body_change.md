@@ -481,19 +481,19 @@ suspension, adoption, resume and failure phases.
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
-| service | anatomy | `anatomy/body_binding.gd` | the anatomy body binding this service constructs from the anatomy facade |
-| service | dialogue | `dialogue/service.gd` | the reaction line the form offer queues |
-| service | memory | `memory/service.gd` | the reveal impression and peak marks, and the form-offer reaction |
-| service | ponies | `ponies/service.gd` | the runtime binding's per-pony runtime lookup |
-| service | world | `world/service.gd` | the LOD binding's near/far cache refresh |
-| service | world | `world/game.gd` | the base-game held and body-scale reads and writes |
-| shared | act_state | `shared/act_state.gd` | the act state gate for the offer, reveal and player line |
-| shared | body_binding | `shared/body_binding.gd` | typed body-bound system base |
-| shared | body_change | `shared/body_change.gd` | body change type, state and origin |
-| shared | body_change_policy | `shared/body_change_policy.gd` | provider offer/reveal policy base |
-| shared | body_form | `shared/body_form.gd` | typed body form and the default own form |
+| service | anatomy | `anatomy/api.gd` | anatomy and tail seat |
+| service | dialogue | `dialogue/service.gd` | act dialogue and prompt notes |
+| service | memory | `memory/service.gd` | act memory and witness pass |
+| service | ponies | `ponies/service.gd` | per-pony runtime registry |
+| service | world | `world/game.gd` | service dependency |
+| service | world | `world/service.gd` | live scene reads |
+| shared | act_state | `shared/act_state.gd` | shared data |
+| shared | body_binding | `shared/body_binding.gd` | shared data |
+| shared | body_change | `shared/body_change.gd` | shared data |
+| shared | body_change_policy | `shared/body_change_policy.gd` | shared data |
+| shared | body_form | `shared/body_form.gd` | shared data |
 | shared | log | `shared/log.gd` | log sink |
-| shared | settings_change | `shared/settings_change.gd` | the settings change notification |
+| shared | settings_change | `shared/settings_change.gd` | settings change notification |
 
 ### Used by
 

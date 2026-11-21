@@ -9,10 +9,12 @@ const HIP_RANGE_M := 0.16
 const STICK_DEAD := 0.5
 const STICK_REPEAT_S := 0.18
 
-## Host boundary: the bridge owns the anatomy actions and the headset depth.
-## `command` is the runtime's discrete command dispatcher; missing callbacks are no-ops.
-var bridge: Variant = null
-var align := Callable()
+## Host boundary: the act owns the anatomy targets, the commands and the headset depth.
+## Missing callbacks are no-ops.
+var forward := Callable()
+var depth := Callable()
+var toggle_hole := Callable()
+var oral_ready := Callable()
 var touch := Callable()
 var pony_source := Callable()
 var command := Callable()
@@ -34,8 +36,31 @@ var _oral_held := false
 var y_held := false
 
 
+## Build the optional VR controller for `player` and parent it under `runtime`; null on desktop.
+static func attach(runtime: Node, player: Node) -> Node:
+	if not is_instance_valid(runtime) or not is_instance_valid(player):
+		return null
+	var avatar := player.find_child("AnonBody", true, false) as Node3D
+	if not is_instance_valid(avatar):
+		return null
+	var cameras: Array = player.find_children("*", "XRCamera3D", true, false)
+	var origins: Array = player.find_children("*", "XROrigin3D", true, false)
+	if cameras.is_empty() or origins.is_empty():
+		return null
+	var act: Node = load("res://mods/unfplap/vr/service.gd").new()
+	act.name = "UnfplapVrAct"
+	act.player = player as Node3D
+	act.hip_target = avatar.get("_hip_target") as Node3D
+	act.camera = cameras[0] as XRCamera3D
+	act.origin = origins[0] as XROrigin3D
+	runtime.add_child(act)
+	return act
+
+
 func _ready() -> void:
 	process_priority = 100
+	if not is_instance_valid(player):
+		return
 	for node: Node in player.find_children("*", "XRController3D", true, false):
 		var hand := node as XRController3D
 		if hand.tracker == &"left_hand":
@@ -45,8 +70,7 @@ func _ready() -> void:
 
 
 func _process(_delta: float) -> void:
-	if is_instance_valid(hip_target) and align.is_valid():
-		align.call(hip_target, Basis.IDENTITY)
+	pass
 
 
 func _physics_process(_delta: float) -> void:
@@ -54,8 +78,8 @@ func _physics_process(_delta: float) -> void:
 	_drive_depth()
 	_read_hands()
 	var swap := is_instance_valid(_right) and _right.is_button_pressed("ax_button")
-	if swap and not _swap_held and bridge != null:
-		bridge.toggle_hole()
+	if swap and not _swap_held and toggle_hole.is_valid():
+		toggle_hole.call()
 	_swap_held = swap
 	var oral := is_instance_valid(_left) and _left.is_button_pressed("by_button")
 	if oral and not _oral_held and command.is_valid() and _oral_ready():
@@ -63,9 +87,9 @@ func _physics_process(_delta: float) -> void:
 	_oral_held = oral
 
 
-## The anatomy side of the oral gate, the same one the desktop `N` key reads.
+## The act side of the oral gate, the same one the desktop `N` key reads.
 func _oral_ready() -> bool:
-	return GAME.oral_ready(bridge)
+	return oral_ready.call() if oral_ready.is_valid() else false
 
 
 ## integration: her body tracker's hips, or a positional tracker named for the waist.
@@ -96,10 +120,10 @@ func _drive_depth() -> void:
 		return
 	if _hip_base == Vector3.INF:
 		_hip_base = hips
-	if bridge == null:
+	if not forward.is_valid() or not depth.is_valid():
 		return
-	var forward: Vector3 = bridge.vr_forward()
-	bridge.vr_depth(clampf((hips - _hip_base).dot(forward) / HIP_RANGE_M, 0.0, 1.0))
+	var axis: Vector3 = forward.call()
+	depth.call(clampf((hips - _hip_base).dot(axis) / HIP_RANGE_M, 0.0, 1.0))
 
 
 ## integration: real hands caress when the game's touch body reports petting.

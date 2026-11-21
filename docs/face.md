@@ -124,15 +124,14 @@ the main handle and the `log` callback from the facade; it never reads the runti
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
-| host | runtime | `_init(memory)` | the game's cue mood |
-| service | readiness | `readiness/service.gd` | the climax shape's counters |
+| service | readiness | `readiness/service.gd` | readiness and auto stroke |
 | service | settings | `settings/service.gd` | settings declarations and live values |
-| service | world | `world/service.gd` | the live world root |
-| service | world | `world/game.gd` | base-game expression and impression reads |
+| service | world | `world/game.gd` | service dependency |
+| service | world | `world/service.gd` | live scene reads |
 | shared | act_face | `shared/act_face.gd` | face beat data |
-| shared | act_state | `shared/act_state.gd` | act state constants |
+| shared | act_state | `shared/act_state.gd` | shared data |
 | shared | log | `shared/log.gd` | log sink |
-| shared | preferences | `shared/preferences.gd` | profile math and defaults |
+| shared | preferences | `shared/preferences.gd` | profile schema and math |
 
 ## Lifecycle
 

@@ -3,9 +3,7 @@ extends Node
 ## other mods, persistent across acts. The mesh and textures ship with the mod.
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
-const IDENTITY := preload("res://mods/unfplap/anatomy/identity.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
-const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const GEOMETRY := preload("res://mods/unfplap/anatomy/geometry.gd")
 const SHAPES := preload("res://mods/unfplap/anatomy/shapes.gd")
 const ACT := preload("res://mods/unfplap/anatomy/act.gd")
@@ -15,13 +13,11 @@ const COAT_LINE_DEBUG := preload("res://mods/unfplap/anatomy/coat_line_debug.gd"
 const PLACEMENT := preload("res://mods/unfplap/anatomy/placement.gd")
 const APPEARANCE := preload("res://mods/unfplap/anatomy/appearance.gd")
 const HEAT := preload("res://mods/unfplap/anatomy/heat.gd")
-const FACTS := preload("res://mods/unfplap/anatomy/facts.gd")
 const ATTACH := preload("res://mods/unfplap/anatomy/attach.gd")
 const GARMENT_HULL := preload("res://mods/unfplap/anatomy/garment_hull.gd")
 const PLAYER := preload("res://mods/unfplap/anatomy/player.gd")
 const FLUID := preload("res://mods/unfplap/anatomy/fluid.gd")
-const SERVICE := preload("res://mods/unfplap/anatomy/service.gd")
-const GAME := preload("res://mods/unfplap/world/game.gd")
+const RIG := preload("res://mods/unfplap/anatomy/rig.gd")
 
 const ASSET_DIR := "res://mods/unfplap/assets/anatomy/mare/"
 const MARE_BITS_PATH := ASSET_DIR + "mare_bits_v2.scn"
@@ -31,20 +27,24 @@ const LOG := preload("res://mods/unfplap/shared/log.gd")
 const PERF := preload("res://mods/unfplap/shared/perf.gd")
 
 var pony: Node3D
-## The typed runtime context. The controller never reads the runtime node.
-var facts: FACTS
+## The world's game boundary, injected by the anatomy API.
+var rig: RIG
 ## The presented body's form. Null keeps the default own form built from her identity.
 var _form: BODY_FORM.BodyForm = null
 ## The anatomy facade's dock-colour refresh. Called after attach/detach/tone changes.
 var dock_refresh := Callable()
-## The anatomy facade and its host callbacks for the act handle.
-var service: SERVICE
-## The service's player-part handle, pushed on every player rebuild. The act reads this.
-var _part_handle: PLAYER
-var consent := Callable()
+## The status callback the API binds to its one signal. The act carries it.
 var status := Callable()
-## The anatomy facade's capability answer for this pony (identity + participation).
-var eligible := Callable()
+## The API's player-part handle, pushed on every player rebuild. The act reads this.
+var _part_handle: PLAYER
+## True while the roster presents this body; `anatomy_mode` reads both flags.
+var presented := true
+## True from `begin_act()` until the act handle's `end()`; `act` mode hides outside it.
+var act_presented := false
+## The act's live pose and stage; the __init__ defaults are the outside-act presentation.
+var _view: Variant = null
+var _stage: Variant = null
+var _act_bed_frame: Variant = null
 
 ## The persistent mesh/anchor/dock/fluid/visibility attachment.
 var attach: ATTACH
@@ -86,74 +86,31 @@ var _hull_smoothing := 1
 var _hull_ponut := 0.0
 
 
-## The mod's stable id for a pony: relationship metadata first, then the identity. This mirrors
-## `runtime._read_id()` so placement and preferences key off the same value.
-static func pony_id(pony_node: Node) -> String:
-	if not is_instance_valid(pony_node):
-		return ""
-	return PONY_ID.from(str(pony_node.get_meta("relationship_id", "")),
-		GAME.identity_of(pony_node))
-
-
-## The princess body scale and placement anchor for a known character.
-static func body_profile(identity: Resource) -> Array[float]:
-	return IDENTITY.body_profile(identity)
-
-
-## The body-fit key for a pony's placement row.
-static func body_fit_id(pony_node: Node) -> String:
-	return IDENTITY.body_fit_id(pony_node)
-
-
-## Deduplicated ids outside the base roster. The caller owns the eligibility filter and the live
-## source ordering; this helper only deduplicates.
-static func off_roster_ids(ids: Array[String], base_ids: Array[String]) -> Array[String]:
-	return IDENTITY.off_roster_ids(ids, base_ids)
-
-
-func _init() -> void:
-	facts = FACTS.new()
-	attach = ATTACH.new()
-	attach.setup(self, null, facts)
-	shapes = SHAPES.new()
-	shapes.setup(null, self)
-	coat = COAT.new()
-	coat.setup(null, shapes)
-	coat_line = COAT_LINE.new()
-	heat = HEAT.new()
-	heat.setup(shapes)
-	placement = PLACEMENT.new()
-
-
-func setup(pony_node: Node3D, facts_node: FACTS, service_node: SERVICE = null,
-		consent_callable := Callable(), status_callable := Callable(),
-		dock_refresh_callable := Callable(), eligible_callable := Callable()) -> void:
+func setup(pony_node: Node3D, form_node: BODY_FORM.BodyForm, rig_node: RIG,
+		status_callable := Callable(), dock_refresh_callable := Callable()) -> void:
 	pony = pony_node
-	set_facts(facts_node)
-	service = service_node
-	consent = consent_callable
+	rig = rig_node
+	_form = form_node
 	status = status_callable
 	dock_refresh = dock_refresh_callable
-	eligible = eligible_callable
-	attach.setup(self, pony, facts)
+	attach = ATTACH.new()
+	attach.setup(self, pony, rig)
+	shapes = SHAPES.new()
 	shapes.setup(pony, self)
-	coat.setup(pony, shapes)
+	coat = COAT.new()
+	coat.setup(pony, shapes, rig)
+	placement = PLACEMENT.new()
 	placement.setup(pony)
+	coat_line = COAT_LINE.new()
 	coat_line.setup(pony, placement)
+	heat = HEAT.new()
+	heat.setup(shapes)
 	appearance = APPEARANCE.new()
-	appearance.setup(pony, shapes, dock_refresh)
+	appearance.setup(pony, shapes, rig, dock_refresh)
 	appearance.set_form(form())
 	_read_hull_settings()
 	_read_toggles()
 	invalidate_entrance()
-
-
-## Replace the runtime context. The facade calls this when the controller is created; tests can
-## build a bare context without a runtime.
-func set_facts(facts_node: FACTS) -> void:
-	facts = facts_node if facts_node != null else FACTS.new()
-	if attach != null:
-		attach.facts = facts
 
 
 ## The body form the controller measures from: the body-change service's form, or the default own
@@ -195,7 +152,7 @@ func refresh_form(value: BODY_FORM.BodyForm) -> void:
 		return
 	placement.set_mesh(mesh, attach.bone_inverse, current.rig)
 	placement.load(current.fit_id)
-	placement.apply(_missionary_pose(), _pose_depth(), _bed_frame())
+	placement.apply(_missionary_pose(), _pose_depth(), _bed_frame_value())
 	if appearance != null:
 		appearance.set_form(current)
 		appearance.clear()
@@ -224,24 +181,35 @@ static func _same_rig_and_fit(a: BODY_FORM.BodyForm, b: BODY_FORM.BodyForm) -> b
 
 
 ## Create the per-act controller, owned here until `end_act()`.
-## The facade hears about it before the pose starts.
-func begin_act() -> ACT:
+func begin_act(view: Variant, bed_frame: Variant) -> ACT:
 	end_act()
 	_act = ACT.new()
 	_act.name = "UnfplapAnatomyAct"
 	add_child(_act)
-	_act.setup(pony, self, consent, status)
-	if is_instance_valid(service):
-		service.note_act_started(pony)
+	_act.setup(pony, self, rig, status)
+	act_presented = true
+	set_act_view(view, null, bed_frame)
 	return _act
 
 
 func end_act() -> void:
+	act_presented = false
 	if is_instance_valid(_act):
 		_act.end()
 		_act.teardown()
 		_act.queue_free()
 	_act = null
+	_view = null
+	_stage = null
+	_act_bed_frame = null
+
+
+## The act's caller-owned pose and stage, kept by reference; the placement trim polls them.
+func set_act_view(view: Variant, stage: Variant, bed_frame: Variant = null) -> void:
+	_view = view
+	_stage = stage
+	if bed_frame is Transform3D:
+		_act_bed_frame = bed_frame
 
 
 ## The service owns the player part; this handle is the one seam the act reads. A rebuild pushes
@@ -264,15 +232,10 @@ func player_track(target: Vector3, rear: Vector3, up: Vector3, bed: bool,
 
 func refresh() -> void:
 	_read_toggles()
-	if not _enabled() or not _is_eligible():
+	if not _enabled():
 		detach()
 		return
 	_attach()
-
-
-## The anatomy facade answers the capability; the controller never inspects identity itself.
-func _is_eligible() -> bool:
-	return not eligible.is_null() and is_instance_valid(pony) and bool(eligible.call(pony))
 
 
 func _enabled() -> bool:
@@ -289,8 +252,6 @@ func _read_toggles() -> void:
 
 func _attach() -> void:
 	_read_toggles()
-	if heat != null:
-		heat.read_settings()
 	if is_attached():
 		apply_live()
 		return
@@ -308,7 +269,7 @@ func _attach() -> void:
 	var current := form()
 	placement.set_mesh(mesh, attach.bone_inverse, current.rig)
 	placement.load(current.fit_id)
-	placement.apply(_missionary_pose(), _pose_depth(), _bed_frame())
+	placement.apply(_missionary_pose(), _pose_depth(), _bed_frame_value())
 	shapes.set_mesh(mesh)
 	coat.set_mesh(mesh, attach.skeleton)
 	coat_line.setup(pony, placement)
@@ -331,11 +292,12 @@ func _attach() -> void:
 
 
 func _process(delta: float) -> void:
+	if coat == null or placement == null or coat_line == null or attach == null:
+		return
 	PERF.begin("anatomy_process")
-	_heat_idle_tick(delta)
 	coat.tick()
 	coat.tick_debug()
-	placement.tick(_missionary_pose(), _pose_depth(), _bed_frame())
+	placement.tick(_missionary_pose(), _pose_depth(), _bed_frame_value())
 	PERF.begin("anatomy_coat_line")
 	coat_line.set_enabled(_coat_line_on)
 	coat_line.tick(attach.visible())
@@ -356,49 +318,39 @@ func _process(delta: float) -> void:
 	PERF.end("anatomy_process")
 
 
-## integration: the visibility pill. `act` shows her only during the act's states: POSING_IN,
-## ACTIVE, CLIMAX and AFTERGLOW.
+## integration: the visibility pill. `always` shows whenever presented; `act` shows from
+## `begin_act()` until the act handle's `end()`.
 func _act_visible() -> bool:
 	match _anatomy_mode:
 		"always":
-			return true
+			return presented
 		"act":
-			return facts.state in [1, 2, 3, 4]
+			return presented and act_presented
 	return false
 
 
-func _heat_idle_tick(delta: float) -> void:
-	if not attach.is_attached() or not is_instance_valid(pony) or heat == null:
-		return
-	heat.tick(delta, facts.state, attach.visible(),
-		Callable(self, "_cycle_phase_now"), Callable(self, "idle_discharge"))
-
-
-func _cycle_phase_now() -> String:
-	return facts.cycle_phase
-
-
-## How open she rests between winks, from the Heat debug settings.
-func _heat_rest_open() -> float:
-	return float(heat.rest_open()) if heat != null else 0.0
+## The estrus service's resting openness; the shape module owns the tween.
+func set_rest(open: float) -> void:
+	if heat != null:
+		heat.set_rest(open)
 
 
 ## The act-only placement trim. The lying missionary pose tilts her pelvis, so the rigged vulva can
 ## sit a little high/low or face the wrong way; these values move only the anatomy mesh.
 func _missionary_pose() -> bool:
-	return facts != null and facts.missionary()
+	return _view != null and str(_view.family) == "bed"
 
 
 func _pose_depth() -> float:
-	return clampf(float(facts.depth), 0.0, 1.0)
+	return clampf(float(_stage.depth), 0.0, 1.0) if _stage != null else 0.0
 
 
-func _bed_frame() -> Variant:
-	return facts.bed_frame
+func _bed_frame_value() -> Variant:
+	return _act_bed_frame
 
 
 func _apply_place() -> void:
-	placement.apply(_missionary_pose(), _pose_depth(), _bed_frame())
+	placement.apply(_missionary_pose(), _pose_depth(), _bed_frame_value())
 
 
 func _apply_material() -> void:
@@ -446,7 +398,7 @@ func apply_part_visibility(show: bool, teats_on: bool, strip_on: bool) -> void:
 
 
 func is_attached() -> bool:
-	return attach.is_attached()
+	return attach != null and attach.is_attached()
 
 
 func body_coat_mesh() -> MeshInstance3D:
@@ -482,8 +434,6 @@ func apply_live() -> void:
 	_read_toggles()
 	placement.read_settings()
 	shapes.read_settings()
-	if heat != null:
-		heat.read_settings()
 	if SETTINGS.placement_revision != placement.revision():
 		placement.load()
 	_read_hull_settings()
@@ -565,7 +515,7 @@ func garment_transform() -> Transform3D:
 	if not is_instance_valid(_garment_body):
 		_garment_body = null
 		if is_instance_valid(pony):
-			_garment_body = GAME.body_of(pony)
+			_garment_body = rig.body_of(pony)
 			if _garment_body == null:
 				_garment_body = pony
 	return garment_transform_for(_garment_body, attach.mesh)
@@ -671,11 +621,11 @@ func wink(count := 1, seconds := 0.45) -> void:
 	shapes.wink(count, seconds)
 
 
-## Idle heat wink. The shape module owns the tween; `discharge_count` releases the droplets at
-## the first beat's peak.
-func wink_burst(count: int, discharge_count := -1) -> void:
-	shapes.wink_burst(count, discharge_count, _heat_rest_open(),
-		Callable(self, "idle_discharge"))
+## Idle heat wink. The shape module owns the tween; the first beat's peak releases the droplets.
+func wink_burst(count: int) -> void:
+	if heat == null or act_presented:
+		return
+	heat.wink_burst(count, Callable(self, "idle_discharge"))
 	_apply_body_coat()
 
 
@@ -712,7 +662,7 @@ func react() -> void:
 	shapes.react()
 
 
-func _clear_part() -> void:
+func clear_part() -> void:
 	shapes.clear_part()
 	_apply_body_coat()
 

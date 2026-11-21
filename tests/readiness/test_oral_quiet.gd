@@ -1,6 +1,4 @@
 extends "res://mods/unfplap/tests/support/suite.gd"
-const ACT_HOST := preload("res://mods/unfplap/anatomy/act_host.gd")
-const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 ## The standing oral segment's quiet gate: the impact keeps the slide, vocal, wings, blush and ear
 ## twitch but drops the plap and the rump/tail jiggle; her act line, voice and climax line stop
 ## while the base game's soft kiss plays on the idle timer. Regular standing is unchanged.
@@ -28,36 +26,53 @@ const STATE_ACTIVE := 2
 
 
 
-class FakeBridge extends "res://mods/unfplap/anatomy/act_bridge.gd":
+class FakePresentation extends RefCounted:
 	var holds := 0
 	var visemes: Array[String] = []
 	var mouth := Vector3(0.2, 1.3, 0.5)
 	var point := Vector3(0.9, 0.0, 1.1)
 
-	func bind(_host: ACT_HOST, _service: Node = null,
-			_eligibility: ELIGIBILITY = null) -> void:
-		pass
-
-	func refresh() -> void:
-		pass
-
-	func end() -> void:
-		pass
-
-	func detach() -> void:
-		pass
-
-	func hold_oral_mouth() -> void:
+	func hold_mouth() -> void:
 		holds += 1
 
-	func set_oral_viseme(letter: String) -> void:
+	func set_mouth_viseme(letter: String) -> void:
 		visemes.append(letter)
 
 	func mouth_point() -> Vector3:
 		return mouth
 
-	func opening() -> Vector3:
+	func frame_point() -> Vector3:
 		return point
+
+	func frame_axis() -> Vector3:
+		return Vector3.BACK
+
+	func react() -> void:
+		pass
+
+	func stage(_delta: float, _stage: Variant) -> void:
+		pass
+
+	func pose(_view: Variant) -> void:
+		pass
+
+	func climax() -> void:
+		pass
+
+	func end() -> void:
+		pass
+
+	func target() -> int:
+		return 0
+
+	func can_target_vulva() -> bool:
+		return true
+
+	func can_target_anus() -> bool:
+		return true
+
+	func can_target_mouth() -> bool:
+		return true
 
 
 class FakeCamera extends ACT_CAMERA:
@@ -239,7 +254,7 @@ func _fixture() -> Dictionary:
 	var main := FakeMain.new()
 	var director := FakeDirector.new()
 	director.add_to_group("conversation_director")
-	var bridge := FakeBridge.new()
+	var presentation := FakePresentation.new()
 	var reactions := FakeReactions.new()
 	var wings := FakeWings.new()
 	var pose := FakePose.new()
@@ -264,7 +279,6 @@ func _fixture() -> Dictionary:
 		"warmth": "normal",
 	})
 	runtime.act.snapshot_settings()
-	runtime._bundle.anatomy_bridge = bridge
 	runtime._bundle.reactions = reactions
 	runtime._bundle.wings = wings
 	runtime._bundle.pose = pose
@@ -279,7 +293,7 @@ func _fixture() -> Dictionary:
 	runtime._bundle.context.camera = act_camera
 	runtime._bundle.context.audio = audio
 	runtime._bundle.context.dialogue = dialogue
-	runtime._bundle.context.anatomy = bridge
+	runtime._bundle.context.anatomy = presentation
 	runtime.act.reset_thrust_state()
 	root.add_child(main)
 	WORLD.bind_world(main)
@@ -288,7 +302,7 @@ func _fixture() -> Dictionary:
 	root.add_child(runtime)
 	return {
 		"runtime": runtime, "pony": pony, "boop": boop, "director": director,
-		"main": main, "bridge": bridge,
+		"main": main, "presentation": presentation,
 		"reactions": reactions, "wings": wings, "pose": pose,
 		"audio": audio, "dialogue": dialogue, "camera": act_camera, "kiss": kiss,
 	}
@@ -321,7 +335,7 @@ func run() -> void:
 	var boop: FakeBoop = made["boop"]
 	var main: FakeMain = made["main"]
 	var director: FakeDirector = made["director"]
-	var bridge: FakeBridge = made["bridge"]
+	var presentation: FakePresentation = made["presentation"]
 	var reactions: FakeReactions = made["reactions"]
 	var wings: FakeWings = made["wings"]
 	var pose: FakePose = made["pose"]
@@ -370,18 +384,18 @@ func run() -> void:
 		"the speech stop cancels her act line without letting it finish")
 	check(director.interrupts == 1, "the speech stop interrupts her own director turn")
 	check(pony.stops == 1 and not pony.speaking, "the speech stop stops her base-game voice")
-	check(bridge.holds == 1, "the speech stop re-asserts the mouth")
+	check(presentation.holds == 1, "the speech stop re-asserts the mouth")
 	check(boop.kisses == 0, "the speech stop plays no kiss")
 
-	# The edge's viseme event sets and clears the mouth through the bridge.
-	runtime._bundle.anatomy_bridge.set_oral_viseme("D")
-	runtime._bundle.anatomy_bridge.set_oral_viseme("")
-	check(bridge.visemes == ["D", ""], "the viseme event reaches the anatomy provider")
+	# The edge's viseme event sets and clears the mouth through the anatomy handle.
+	runtime.act.context.anatomy.set_mouth_viseme("D")
+	runtime.act.context.anatomy.set_mouth_viseme("")
+	check(presentation.visemes == ["D", ""], "the viseme event reaches the anatomy provider")
 
-	# The edge's mouth and opening host reads reach the anatomy provider.
-	check(runtime._bundle.anatomy_bridge.mouth_point().is_equal_approx(bridge.mouth),
+	# The edge's mouth and opening host reads reach the anatomy handle.
+	check(runtime.act.anatomy_mouth_point().is_equal_approx(presentation.mouth),
 		"the pose turn reads the provider's mouth point")
-	check(runtime._bundle.anatomy_bridge.opening().is_equal_approx(bridge.point),
+	check(runtime.act.anatomy_opening().is_equal_approx(presentation.point),
 		"the pose turn reads the provider's opening")
 
 	# The soft kiss cue is one base-game soft kiss; the audio facade owns the cue and its level

@@ -326,18 +326,19 @@ pose-specific target and starts the swing.
 ## Dependencies
 
 ### Uses
+
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
 | service | settings | `settings/service.gd` | settings declarations and live values |
-| service | world | `world/service.gd` | the eye's camera |
-| service | world | `world/game.gd` | base-game hand and flank accessors |
-| shared | act_state | `shared/act_state.gd` | act state constants |
-| shared | body_coat | `shared/body_coat.gd` | drawn body coat mesh and surface |
-| shared | body_profile | `shared/body_profile.gd` | the body rig map for a winking body |
-| shared | hands_caress | `shared/hands_caress.gd` | typed caress and smack records |
+| service | world | `world/game.gd` | service dependency |
+| service | world | `world/service.gd` | live scene reads |
+| shared | act_state | `shared/act_state.gd` | shared data |
+| shared | body_coat | `shared/body_coat.gd` | shared data |
+| shared | body_profile | `shared/body_profile.gd` | shared data |
+| shared | hands_caress | `shared/hands_caress.gd` | shared data |
 | shared | log | `shared/log.gd` | log sink |
 | shared | perf | `shared/perf.gd` | one profiler |
-| shared | pose_view | `shared/pose_view.gd` | typed pose read model |
+| shared | pose_view | `shared/pose_view.gd` | pose read model |
 
 ## Tests
 

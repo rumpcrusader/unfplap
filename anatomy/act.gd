@@ -1,18 +1,15 @@
 extends Node
-## integration: per-act anatomy behaviour. It reads the
-## current act depth, the pose view's contact and drives the anatomy meshes, the Anon part and the
-## fluid. It never touches thrust scoring, auto thrust or the camera.
+## integration: per-act anatomy behaviour. It reads the act's pose view and stage, and drives the
+## anatomy meshes, the Anon part and the fluid. It never touches thrust scoring or the camera.
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
-const PLAYER_FORM := preload("res://world/life/player_form.gd")
-const MATTRESS := preload("res://world/life/couch/mattress.gd")
-const STATE := preload("res://mods/unfplap/anatomy/act/state.gd")
+const SHAPE_DRIVE := preload("res://mods/unfplap/anatomy/act/shape_drive.gd")
 const DEBUG := preload("res://mods/unfplap/anatomy/act/debug.gd")
 const ORAL := preload("res://mods/unfplap/anatomy/act/oral.gd")
 const CONTROLLER := preload("res://mods/unfplap/anatomy/controller.gd")
 const PLAYER := preload("res://mods/unfplap/anatomy/player.gd")
 const FLUID := preload("res://mods/unfplap/anatomy/fluid.gd")
-const GAME := preload("res://mods/unfplap/world/game.gd")
+const RIG := preload("res://mods/unfplap/anatomy/rig.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
@@ -38,65 +35,62 @@ const PULLED_OUT_PHASE := 0.35
 const PONY_FLUID_COLOR := Color(0.9, 0.93, 1.0, 0.72)
 const PERF := preload("res://mods/unfplap/shared/perf.gd")
 
+## The act's phase values, matching `anatomy/api.gd`'s `Phase`.
+const PHASE_POSING_IN := 0
+const PHASE_ACTIVE := 1
+const PHASE_CLIMAX := 2
+const PHASE_AFTERGLOW := 3
+const PHASE_RESTORE := 4
+
 var pony: Node3D
 var anatomy: CONTROLLER
-var consent := Callable()
+var rig: RIG
 var status := Callable()
-var _display_name := ""
-## The bridge's typed act context, kept across ticks. The act never allocates or reads the runtime.
-var _facts: RefCounted = null
-## The controller's player-part handle. The act reads the anatomy it was given, never the facade.
+## The API's act stage and pose view for this tick. The API owns the objects.
+var _stage: Variant = null
+var _view: Variant = null
+## The controller's player-part handle.
 var _part_handle: PLAYER
 ## Missionary part inset, read once in setup.
 var _part_inset_m := 0.0
 var _anal := false
 var _hole_mix := 0.0
 var _oral: ORAL
-## True while the face contact has parked the part: his body owns the contact placement and her
-## opening is left neutral. The first face tick parts it; the first opening tick restores it.
+## True while the face contact has parked the part.
 var _face_parted := false
 var _fill := 0.0
 var _wide := 0.0
 ## Climax wink: the shapes stay driven around the shaft, and this adds the open/close pulses
 ## on top instead of a tween that the per-frame drive would cancel.
 var _wink_left := 0.0
-## The beat's own length and count, so the climax pulse and her act wink share one countdown.
 var _wink_total := 0.0
 var _wink_beats := 0.0
-## Her act wink scheduler: seconds to the next beat, and the mode those seconds were measured in.
+## True after the first climax; the wink cadence and `wink_mode` read it.
+var _climaxed := false
 var _act_wink_next := 0.0
 var _act_wink_mode := 0
 ## Unit normal of the current opening, pointing out of her toward Anon.
 var _normal := Vector3.ZERO
-## The part target for this tick: her mouth while the pose view names the mouth contact, her
-## opening otherwise. Filled in place so the per-frame path allocates nothing.
 var _contact_point := Vector3.ZERO
 var _contact_normal := Vector3.ZERO
 var _contact_rear := Vector3.ZERO
-## The aim diagnostic: the normal, the hips reference and the pelvis handshake. Debug mode only.
 var _debug_aim := false
 var _aim_debug_left := 0.0
 var _debug: DEBUG
 
 
-func setup(pony_node: Node3D, anatomy_node: CONTROLLER,
-		consent_callable := Callable(), status_callable := Callable()) -> void:
+func setup(pony_node: Node3D, anatomy_node: CONTROLLER, rig_node: RIG,
+		status_callable := Callable()) -> void:
 	pony = pony_node
 	anatomy = anatomy_node
-	consent = consent_callable
+	rig = rig_node
 	status = status_callable
 	_part_inset_m = SETTINGS.part_inset_m.get_num()
 	_part_handle = null
 	if is_instance_valid(anatomy):
 		_part_handle = anatomy.part()
-	var identity := GAME.identity_of(pony)
-	var display: Variant = identity.get("display_name") if identity != null else null
-	if display != null:
-		_display_name = str(display)
-	elif is_instance_valid(pony):
-		_display_name = str(pony.name)
 	_oral = ORAL.new()
-	_oral.setup(pony, anatomy)
+	_oral.setup(pony, anatomy, rig)
 	reset()
 	_debug_aim = SETTINGS.debug_mode.get_bool()
 	_debug = DEBUG.new()
@@ -109,6 +103,7 @@ func reset() -> void:
 	_fill = 0.0
 	_wide = 0.0
 	_face_parted = false
+	_climaxed = false
 	if _oral != null:
 		_oral.reset()
 	_wink_left = 0.0
@@ -120,14 +115,18 @@ func reset() -> void:
 		anatomy.animate(0.0, 1.0)
 
 
-## The typed context the act is ticking with.
-func facts() -> RefCounted:
-	return _facts
+## The pose read model for this act step. The API updates it on every view change.
+func set_view(view: Variant) -> void:
+	_view = view
 
 
-## The face contact's parked state: true while the act body owns the contact placement.
-func face_parted() -> bool:
-	return _face_parted
+## The act stage for this tick.
+func set_stage(stage: Variant) -> void:
+	_stage = stage
+
+
+func set_climaxed(value: bool) -> void:
+	_climaxed = value
 
 
 ## True while the hole mix is turned to the anal opening.
@@ -135,17 +134,16 @@ func anal_turned() -> bool:
 	return _anal
 
 
-## The part target this tick: her mouth in the mouth contact, her opening otherwise.
-func contact_point() -> Vector3:
-	return _contact_point
+## The selected opening's mix, for the presentation's frame point.
+func hole_mix() -> float:
+	return _hole_mix
 
 
-## The opening normal the part is aimed along this tick; zero in the mouth and face contacts.
-func contact_normal() -> Vector3:
-	return _contact_normal
+## The face contact's parked state and the live wink countdown, for the act debug rows.
+func face_parted() -> bool:
+	return _face_parted
 
 
-## The current wink countdown and beat count. The climax pulse and her act wink share them.
 func wink_left() -> float:
 	return _wink_left
 
@@ -154,38 +152,56 @@ func wink_beats() -> float:
 	return _wink_beats
 
 
-func _state() -> int:
-	return int(_facts.state) if _facts != null else 0
+## The part target and contact normal this tick, for the debug readouts.
+func contact_point() -> Vector3:
+	return _contact_point
+
+
+func contact_normal() -> Vector3:
+	return _contact_normal
+
+
+func _phase() -> int:
+	return int(_stage.phase) if _stage != null else PHASE_POSING_IN
 
 
 func _depth() -> float:
-	return clampf(float(_facts.depth), 0.0, 1.0) if _facts != null else 0.0
+	return clampf(float(_stage.depth), 0.0, 1.0) if _stage != null else 0.0
 
 
-func _climaxes() -> int:
-	return int(_facts.climaxes) if _facts != null else 0
+func _penetration() -> float:
+	return float(_stage.penetration_m) if _stage != null else 0.0
 
 
-## The per-act contact view the runtime refreshed this tick.
-func _pose_view() -> Variant:
-	return _facts.pose_view if _facts != null else null
+func _size_scale() -> float:
+	return float(_stage.size_scale) if _stage != null else 1.0
 
 
-## Whether the live pose is the bed frame. The act reads it for the missionary-only part inset and
-## owns no start pose id.
+func _family() -> String:
+	return str(_view.family) if _view != null else ""
+
+
+func _frame() -> String:
+	return str(_view.frame) if _view != null else ""
+
+
+func _contact_kind() -> String:
+	return str(_view.contact_kind) if _view != null else ""
+
+
+## Whether the live pose is the bed frame. The act reads it for the missionary-only part inset.
 func _bed_pose() -> bool:
-	return _facts != null and _facts.bed_pose()
+	return _frame() == "bed"
 
 
-## True while the pose view names the mouth contact. The pose service owns the contact switch;
-## the act only reads it.
+## True while the pose view names the mouth contact.
 func _mouth_contact() -> bool:
-	return _facts != null and _facts.mouth_contact()
+	return _contact_kind() == "mouth"
 
 
 ## True in face contact, where the act parks the part.
 func _face_contact() -> bool:
-	return _facts != null and _facts.face_contact()
+	return _contact_kind() == "face"
 
 
 ## Her vulva opening at the live hole mix.
@@ -195,8 +211,7 @@ func hole_point() -> Vector3:
 	return anatomy.hole_point(_hole_mix)
 
 
-## Her opening's outward normal: the mesh's own +Z, flipped if needed so it points at Anon. This
-## avoids every guess about which way the anatomy mesh was authored.
+## Her opening's outward normal.
 func opening_normal() -> Vector3:
 	return _normal
 
@@ -231,16 +246,9 @@ func oral_mouth_point() -> Vector3:
 	return point if point.is_finite() else Vector3.ZERO
 
 
-func toggle_hole(state: int) -> void:
-	if not SETTINGS.anatomy_holes.get_bool() or state not in [2, 3] \
-			or _mouth_contact() or _face_contact():
-		return
-	if not is_instance_valid(anatomy) or not is_instance_valid(anatomy.winking_mesh()):
-		return
-	if not _anal and not _consent("anal"):
-		_status("%s is not into that" % _display_name)
-		return
-	_anal = not _anal
+## Switch the presented opening. An invalid handle is a no-op.
+func set_anal(anal: bool) -> void:
+	_anal = anal
 
 
 func _part() -> PLAYER:
@@ -254,27 +262,14 @@ func _part() -> PLAYER:
 	return _part_handle
 
 
-func _consent(key: String) -> bool:
-	return bool(consent.call(key)) if consent.is_valid() else false
-
-
-func _status(text: String) -> void:
-	if status.is_valid():
-		status.call(text)
-
-
 ## The part target and contact normal for this tick.
-## The normal must be resolved first; in mouth contact the anchor comes from the pose turn.
 func _contact() -> void:
 	if _mouth_contact():
-		var view: Variant = _pose_view()
-		var point: Vector3 = (view.contact_target as Vector3) if view != null \
+		var point: Vector3 = (_view.contact_target as Vector3) if _view != null \
 			else Vector3.INF
 		if not point.is_finite():
 			point = hole_point()
 		_contact_point = point
-		# A zero normal makes the part auto-aim from his crotch to the mouth instead of
-		# turning along the vulva plane.
 		_contact_normal = Vector3.ZERO
 		_contact_rear = Vector3.ZERO
 		return
@@ -283,18 +278,15 @@ func _contact() -> void:
 	_contact_rear = hole_rear()
 
 
-func tick(delta: float, facts: RefCounted) -> void:
-	if facts != null:
-		_facts = facts
-	if _facts == null or not is_instance_valid(anatomy) or not is_instance_valid(pony):
+## One act frame: the phase's shape drive, the part track and the debug markers.
+func stage(delta: float, stage_node: Variant) -> void:
+	_stage = stage_node
+	if _stage == null or not is_instance_valid(anatomy) or not is_instance_valid(pony):
 		return
 	var mesh := anatomy.winking_mesh()
 	if not is_instance_valid(mesh):
 		return
 	var part := _part()
-	# The face contact owns his authored mouth and parks her part: no opening shape drive, no
-	# shaft, no player track, no aim writes. The hip offset the act body reads is zero because a
-	# parted part reports none.
 	if _face_contact():
 		_face_tick(delta, part)
 		return
@@ -302,6 +294,17 @@ func tick(delta: float, facts: RefCounted) -> void:
 		_face_parted = false
 		if is_instance_valid(part):
 			part.encounter(true)
+	var phase := _phase()
+	if phase == PHASE_ACTIVE or phase == PHASE_CLIMAX:
+		_active_tick(delta, part, mesh)
+	elif phase == PHASE_AFTERGLOW:
+		_afterglow_tick(delta, part, mesh)
+	else:
+		_normal = _compute_normal(part)
+		_contact()
+
+
+func _active_tick(delta: float, part: PLAYER, mesh: MeshInstance3D) -> void:
 	PERF.begin("anatomy_tick")
 	var frame: Transform3D = mesh.global_transform
 	var mesh_scale := maxf(frame.basis.get_scale().x, 0.001)
@@ -316,34 +319,33 @@ func tick(delta: float, facts: RefCounted) -> void:
 	_wide = lerpf(_wide, wide, 1.0 - exp(-delta * WINKING_HUG_RATE))
 	_fill = lerpf(_fill, smoothstep(0.0, WINKING_OPEN_AT, wide),
 		1.0 - exp(-delta * WINKING_FILL_RATE))
-	_hole_mix = STATE.hole_mix_step(_hole_mix, _anal, HOLE_SWAP_S, delta)
+	_hole_mix = SHAPE_DRIVE.hole_mix_step(_hole_mix, _anal, HOLE_SWAP_S, delta)
 	if _oral != null:
-		_oral.set_scale(_facts.size_scale)
+		_oral.set_scale(_size_scale())
 	var oral_mix := 1.0 if _mouth_contact() else 0.0
 	var rearward := 1.0 - oral_mix
-	var front := STATE.front(_hole_mix, oral_mix)
+	var front := SHAPE_DRIVE.front(_hole_mix, oral_mix)
 	_act_wink_tick(delta, part)
-	# The shapes stay driven through the climax too, so the lips keep their grip on the shaft
-	# instead of snapping closed; the climax wink is applied on top as a pulse.
-	if _state() in [2, 3]:
-		var closed := STATE.closed_for(_fill, _hole_mix, oral_mix, WINKING_REST_OPEN)
-		if _wink_left > 0.0:
-			_wink_left = maxf(_wink_left - delta, 0.0)
-			var beat := STATE.wink_beat(_wink_left, _wink_total, _wink_beats)
-			closed = lerpf(closed, WINK_OPEN if closed > 0.5 else 0.85, beat)
-		# The fill closes the shader's cut over the shaft; without it the hole stays fully open
-		# and the lips cannot read as gripping it.
-		anatomy.set_fill(_fill)
-		anatomy.drive(closed)
-		# Convert back to world metres: set_grip() takes world radii, and passing the local ratio
-		# made the hole about 12 % too large.
-		var grip_world := _wide * WINKING_STRETCH_RADIUS * mesh_scale
-		anatomy.set_grip(grip_world * front)
-		# The anal ring is solved against the same real shaft radius as the vulva, so it opens to
-		# exactly his girth instead of scaling a blend shape by a constant.
-		anatomy.set_anal_grip(grip_world * _hole_mix * rearward)
+	var closed := SHAPE_DRIVE.closed_for(_fill, _hole_mix, oral_mix, WINKING_REST_OPEN)
+	if _wink_left > 0.0:
+		_wink_left = maxf(_wink_left - delta, 0.0)
+		var beat := SHAPE_DRIVE.wink_beat(_wink_left, _wink_total, _wink_beats)
+		closed = lerpf(closed, WINK_OPEN if closed > 0.5 else 0.85, beat)
+	anatomy.set_fill(_fill)
+	anatomy.drive(closed)
+	var grip_world := _wide * WINKING_STRETCH_RADIUS * mesh_scale
+	anatomy.set_grip(grip_world * front)
+	anatomy.set_anal_grip(grip_world * _hole_mix * rearward)
 	_normal = _compute_normal(part)
 	_contact()
+	_track_part(delta, part, mesh, _penetration())
+	_aim_debug_tick(delta, part)
+	if _debug != null:
+		_debug.tick(part)
+	PERF.end("anatomy_tick")
+
+
+func _track_part(delta: float, part: PLAYER, mesh: MeshInstance3D, penetration_m: float) -> void:
 	if is_instance_valid(part):
 		if part.showing():
 			var pivot := part.root_now()
@@ -355,24 +357,13 @@ func tick(delta: float, facts: RefCounted) -> void:
 		else:
 			anatomy.clear_shaft()
 		part.set_aim(_contact_normal, _contact_point, 0.0)
-		# The bed pose needs the base pulled back into the pelvis: the authored pose puts it on
-		# the lower belly, which also leaves the hips farther from her than `Pelvis gap` implies.
 		part.set_bed_inset(_part_inset_m if _bed_pose() else 0.0)
-	# Both poses use the attached alignment: the part is a child of his Hips bone, it turns about its
-	# base to her opening's normal, and the pose that carries his body applies `hip_offset_wanted`, so
-	# his pelvis follows the entrance instead of the shaft sliding out of his crotch.
-	var shown: float = _facts.penetration_m
 	anatomy.player_track(_contact_point, _contact_rear,
-		frame.basis.y.normalized(), false, shown, delta, mesh.get_parent(),
-		true)
-	_aim_debug_tick(delta, part)
-	if _debug != null:
-		_debug.tick(part)
-	PERF.end("anatomy_tick")
+		mesh.global_transform.basis.y.normalized(), false, penetration_m, delta,
+		mesh.get_parent(), true)
 
 
 ## Face contact: park the part once, hold her shapes neutral, point at his mouth.
-## Nothing grips the shaft here, so the hug beat and the act wink stay off.
 func _face_tick(_delta: float, part: PLAYER) -> void:
 	PERF.begin("anatomy_tick")
 	if not _face_parted:
@@ -385,9 +376,8 @@ func _face_tick(_delta: float, part: PLAYER) -> void:
 		anatomy.clear_shaft()
 		anatomy.drive(WINKING_REST_OPEN)
 	var point := hole_point()
-	var view: Variant = _pose_view()
-	if view != null:
-		var target: Variant = view.contact_target
+	if _view != null:
+		var target: Variant = _view.contact_target
 		if target is Vector3 and (target as Vector3).is_finite():
 			point = target
 	_contact_point = point
@@ -397,16 +387,14 @@ func _face_tick(_delta: float, part: PLAYER) -> void:
 
 
 ## Her own wink: rest beats while touching, faster ones once she has climaxed.
-## It shares the climax countdown, so the two pulse trains never overlap.
 func _act_wink_tick(delta: float, part: PLAYER) -> void:
-	if _state() != 2 or _hole_mix >= 0.5 or _mouth_contact() or _wink_left > 0.0:
+	if _phase() != PHASE_ACTIVE or _hole_mix >= 0.5 or _mouth_contact() or _wink_left > 0.0:
 		return
 	var touching := false
 	if is_instance_valid(part) and part.showing():
-		var reach := TOUCH_MARGIN_M
 		var tip := part.tip_center()
-		touching = tip.is_finite() and tip.distance_to(hole_point()) <= reach
-	var mode := STATE.wink_mode(_depth(), touching, _climaxes(), PULLED_OUT_PHASE)
+		touching = tip.is_finite() and tip.distance_to(hole_point()) <= TOUCH_MARGIN_M
+	var mode := SHAPE_DRIVE.wink_mode(_depth(), touching, _climaxed, PULLED_OUT_PHASE)
 	if mode != _act_wink_mode:
 		_act_wink_mode = mode
 		_act_wink_next = _wink_interval(mode)
@@ -419,9 +407,9 @@ func _act_wink_tick(delta: float, part: PLAYER) -> void:
 	_start_wink(ACT_WINK_S, 1.0)
 
 
-## The pure decision lives in `anatomy/act/state.gd`.
-static func wink_mode(depth: float, touching: bool, climaxes: int) -> int:
-	return STATE.wink_mode(depth, touching, climaxes, PULLED_OUT_PHASE)
+## The pure decision lives in `anatomy/act/shape_drive.gd`.
+static func wink_mode(depth: float, touching: bool, climaxed: bool) -> int:
+	return SHAPE_DRIVE.wink_mode(depth, touching, 1 if climaxed else 0, PULLED_OUT_PHASE)
 
 
 func _wink_interval(mode: int) -> float:
@@ -430,8 +418,6 @@ func _wink_interval(mode: int) -> float:
 	return randf_range(TOUCH_WINK_MIN_S, TOUCH_WINK_MAX_S)
 
 
-## One open/close pulse layered on the live shape drive. The drive rewrites `closed` every tick,
-## so a tween would be cancelled; a countdown is what survives.
 func _start_wink(seconds: float, beats: float) -> void:
 	_wink_left = seconds
 	_wink_total = maxf(seconds, 0.001)
@@ -452,8 +438,7 @@ func _compute_normal(_part: PLAYER) -> Vector3:
 	return fallback
 
 
-## Debug: one aim line every two seconds, so a wrong side or a large pelvis handshake is visible in
-## the run log without logging the per-frame path. Enable debug reads the flag at act start.
+## Debug: one aim line every two seconds.
 func _aim_debug_tick(delta: float, part: PLAYER) -> void:
 	if not _debug_aim:
 		return
@@ -461,27 +446,27 @@ func _aim_debug_tick(delta: float, part: PLAYER) -> void:
 	if _aim_debug_left > 0.0:
 		return
 	_aim_debug_left = 2.0
-	if _facts == null or not is_instance_valid(pony):
+	if _stage == null or not is_instance_valid(pony):
 		return
 	var root := Vector3.INF
 	var hip := Vector3.ZERO
 	if is_instance_valid(part):
 		root = part.root_now()
 		hip = part.hip_offset_wanted()
-	var scale := GAME.body_scale_of(pony)
+	var scale := rig.body_scale_of(pony) if rig != null else 1.0
 	var fit := BODY_FORM.default_form(pony).fit_id
 	if is_instance_valid(anatomy):
 		fit = anatomy.form_fit_id()
 	LOG.debug("anatomy aim normal=%s hole=%s rear=%s hips=%s root=%s hip=%s fit=%s scale=%.2f pen=%.3f", [
 		str(_normal), str(hole_point()), str(hole_rear()), str(_hips_point()), str(root),
-		str(hip), fit, scale, float(_facts.penetration_m)])
+		str(hip), fit, scale, _penetration()])
 
 
-## Her pelvis bone in world space, the stable reference for the opening's outward direction.
+## Her pelvis bone in world space.
 func _hips_point() -> Vector3:
-	if not is_instance_valid(pony):
+	if not is_instance_valid(pony) or rig == null:
 		return Vector3.ZERO
-	var skeleton := GAME.skeleton_of(pony)
+	var skeleton := rig.skeleton_of(pony)
 	if not is_instance_valid(skeleton):
 		return Vector3.ZERO
 	var hips := skeleton.find_bone("pony_hips")
@@ -490,10 +475,11 @@ func _hips_point() -> Vector3:
 	return skeleton.global_transform * skeleton.get_bone_global_pose(hips).origin
 
 
-## integration: shape and fluid hooks called by the runtime.
-func on_climax() -> void:
+## One-shot climax: the grip releases, the pulse train starts and the fluid fires.
+func climax() -> void:
+	_climaxed = true
 	if is_instance_valid(anatomy):
-		anatomy._clear_part()
+		anatomy.clear_part()
 		_start_wink(CLIMAX_WINK_S, CLIMAX_WINKS)
 	if not SETTINGS.anatomy_fluid.get_bool():
 		return
@@ -504,31 +490,18 @@ func on_climax() -> void:
 	fluid.drip(Callable(self, "hole_point"), 2.5, 7.0, 0.007, PONY_FLUID_COLOR)
 
 
-## integration: afterglow part tracking, on the act's attached alignment.
-func afterglow_tick(delta: float, facts: RefCounted) -> void:
-	if facts != null:
-		_facts = facts
-	if _facts == null or not is_instance_valid(anatomy) or not is_instance_valid(pony):
-		return
+## The held afterglow keeps the part at her entrance on the attached alignment.
+func _afterglow_tick(delta: float, part: PLAYER, mesh: MeshInstance3D) -> void:
 	PERF.begin("anatomy_afterglow")
-	var mesh := anatomy.winking_mesh()
-	var part := _part()
-	if not is_instance_valid(mesh) or not is_instance_valid(part) or not part.showing():
+	if not is_instance_valid(part) or not part.showing():
 		PERF.end("anatomy_afterglow")
 		return
-	# The held phase rests the tip at her entrance; no finish state drives this depth any more.
-	var rest_m := 0.0
-	# Keep the act's attached alignment through the held phase. The detached bed holder aligns
-	# the part's roll to the anatomy mesh's own axes, and in the lying pose her mesh +Y points
-	# into the mattress, so the shaft would be rolled 180° there.
-	var normal := _compute_normal(part)
-	_normal = normal
+	_normal = _compute_normal(part)
 	_contact()
 	part.set_aim(_contact_normal, _contact_point, 0.0)
-	# The missionary inset belongs to the whole bed act, not only to the thrusting states.
 	part.set_bed_inset(_part_inset_m if _bed_pose() else 0.0)
 	anatomy.player_track(_contact_point, _contact_rear,
-		mesh.global_transform.basis.y.normalized(), false, rest_m, delta,
+		mesh.global_transform.basis.y.normalized(), false, 0.0, delta,
 		mesh.get_parent(), true)
 	PERF.end("anatomy_afterglow")
 
@@ -536,7 +509,7 @@ func afterglow_tick(delta: float, facts: RefCounted) -> void:
 func end() -> void:
 	if is_instance_valid(anatomy):
 		anatomy.animate(1.0, 1.5)
-		anatomy._clear_part()
+		anatomy.clear_part()
 	if _oral != null:
 		_oral.clear()
 
@@ -545,13 +518,15 @@ func teardown() -> void:
 	if _debug != null:
 		_debug.clear()
 		_debug = null
-	_facts = null
+	_stage = null
+	_view = null
 	_part_handle = null
 	if _oral != null:
 		_oral.teardown()
 	_anal = false
 	_hole_mix = 0.0
 	_face_parted = false
+	_climaxed = false
 
 
 func _hole_out() -> Vector3:

@@ -87,14 +87,14 @@ The facade never preloads `runtime.gd` or `main.gd` and never reads their privat
 ## Dependencies
 
 ### Uses
-| service | world | `world/service.gd` | Anon's body |
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
 | service | world | `world/game.gd` | service dependency |
+| service | world | `world/service.gd` | live scene reads |
+| shared | act_state | `shared/act_state.gd` | shared data |
 | shared | log | `shared/log.gd` | log sink |
 
-| shared | act_state | `shared/act_state.gd` | act state constants |
 ## Lifecycle
 
 - Scope: per-act

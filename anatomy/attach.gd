@@ -8,7 +8,7 @@ extends RefCounted
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const CLIMAX_FLUID := preload("res://mods/unfplap/anatomy/fluid.gd")
 const CONTROLLER := preload("res://mods/unfplap/anatomy/controller.gd")
-const GAME := preload("res://mods/unfplap/world/game.gd")
+const RIG := preload("res://mods/unfplap/anatomy/rig.gd")
 
 const ANATOMY_NAME := "UnfplapAnatomy"
 const ANCHOR_NAME := "UnfplapAnatomyAnchor"
@@ -25,7 +25,7 @@ const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 var controller: CONTROLLER
 var pony: Node3D
-var facts: RefCounted
+var rig: RIG
 
 var mesh: MeshInstance3D
 var skeleton: Skeleton3D
@@ -46,10 +46,10 @@ var _dock_style := ""
 var _owned_marked := false
 
 
-func setup(controller_node: CONTROLLER, pony_node: Node3D, facts_node: RefCounted) -> void:
+func setup(controller_node: CONTROLLER, pony_node: Node3D, rig_node: RIG) -> void:
 	controller = controller_node
 	pony = pony_node
-	facts = facts_node
+	rig = rig_node
 
 
 ## Load the mare bits mesh and install it under `pony_hips`. The controller refines the mesh and
@@ -61,7 +61,7 @@ func attach(mesh_path: String) -> bool:
 	if not is_instance_valid(pony):
 		last_error = "no pony"
 		return false
-	var skeleton_value := GAME.skeleton_of(pony)
+	var skeleton_value := rig.skeleton_of(pony)
 	if skeleton_value == null:
 		last_error = "no skeleton"
 		return false
@@ -98,16 +98,13 @@ func attach(mesh_path: String) -> bool:
 	anchor.add_child(found)
 	mesh = found
 	bone_inverse = skeleton.get_bone_global_rest(bone).affine_inverse()
-	dock = GAME.dock_of(pony)
+	dock = rig.dock_of(pony)
 	if is_instance_valid(dock):
 		dock_was_visible = dock.visible
 	attached = true
 	_visibility_init = false
 	_owned_marked = false
 	mark_owned()
-	if pony.has_signal("physical_reaction") \
-			and not pony.physical_reaction.is_connected(_on_physical_reaction):
-		pony.physical_reaction.connect(_on_physical_reaction)
 	return true
 
 
@@ -125,9 +122,6 @@ func mark_owned() -> void:
 
 
 func detach() -> void:
-	if is_instance_valid(pony) and pony.has_signal("physical_reaction") \
-			and pony.physical_reaction.is_connected(_on_physical_reaction):
-		pony.physical_reaction.disconnect(_on_physical_reaction)
 	_apply_dock(false)
 	if is_instance_valid(fluid_node):
 		fluid_node.queue_free()
@@ -166,7 +160,7 @@ func apply_visibility(act_visible: bool) -> void:
 		return
 	if not _owned_marked:
 		mark_owned()
-	var far := GAME.far_mesh_shown(pony)
+	var far := rig.far_mesh_shown(pony)
 	var teats_on := SETTINGS.teats.get_bool()
 	var strip_on := SETTINGS.skin_strip.get_bool()
 	var show := not far and act_visible
@@ -197,8 +191,8 @@ func fluid() -> CLIMAX_FLUID:
 		fluid_node = CLIMAX_FLUID.new()
 		fluid_node.name = FLUID_NAME
 		pony.add_child(fluid_node)
-	fluid_node.skeleton = GAME.skeleton_of(pony)
-	fluid_node.body_scale = GAME.body_scale_of(pony)
+	fluid_node.skeleton = rig.skeleton_of(pony)
+	fluid_node.body_scale = rig.body_scale_of(pony)
 	return fluid_node
 
 
@@ -218,11 +212,6 @@ func idle_discharge(count: int) -> void:
 	node.spray(_hole_point(), _discharge_direction(), shots,
 		IDLE_FLUID_SPEED * amount, maxf(SETTINGS.fluid_size.get_num(), 0.0001),
 		IDLE_FLUID_COLOR, IDLE_FLUID_CLEAR_S, SETTINGS.fluid_y_speed.get_num())
-
-
-func _on_physical_reaction(kind: String) -> void:
-	if kind == "flank_smack" and facts != null:
-		facts.smack_body_coat()
 
 
 func _apply_dock(anatomy_shown: bool) -> void:

@@ -253,9 +253,9 @@ declarations.
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
 | service | settings | `settings/service.gd` | settings declarations and live values |
-| shared | act_state | `shared/act_state.gd` | act state constants |
+| shared | act_state | `shared/act_state.gd` | shared data |
 | shared | log | `shared/log.gd` | log sink |
-| shared | preferences | `shared/preferences.gd` | profile math and defaults |
+| shared | preferences | `shared/preferences.gd` | profile schema and math |
 
 ## Tests
 

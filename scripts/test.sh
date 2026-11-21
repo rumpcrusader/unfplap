@@ -69,6 +69,10 @@ if ! python3 "$MOD_DIR/scripts/architecture.py" --check; then
 	printf 'ARCHITECTURE_FAIL\n' >&2
 	exit 1
 fi
+if ! python3 "$MOD_DIR/scripts/test_architecture.py"; then
+	printf 'ARCHITECTURE_RULES_FAIL\n' >&2
+	exit 1
+fi
 
 if [[ "$ALL" -eq 1 ]]; then
 	SELECTED=("${TESTS[@]}")

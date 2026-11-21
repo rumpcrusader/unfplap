@@ -1,38 +1,30 @@
 extends RefCounted
 ## The Anatomy Placement editor: the placement actions and the text report.
-## It resolves the pointed mare with the debug facade's aim rule, so wheel and editor agree.
+## The caller names the pony; the editor no longer selects one or reads the debug facade.
 ## See `docs/anatomy.md` (`## Placement`).
 
-const PONIES := preload("res://mods/unfplap/ponies/service.gd")
-const WORLD := preload("res://mods/unfplap/world/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
-const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/service.gd")
 const PLACEMENT := preload("res://mods/unfplap/shared/anatomy_placement.gd")
-const CONTROLLER := preload("res://mods/unfplap/anatomy/controller.gd")
-const SERVICE := preload("res://mods/unfplap/anatomy/service.gd")
+const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
+const IDENTITY := preload("res://mods/unfplap/anatomy/identity.gd")
+const PARTS := preload("res://mods/unfplap/anatomy/parts.gd")
+const RIG := preload("res://mods/unfplap/anatomy/rig.gd")
 
-var service: SERVICE
-
-
-func setup(service_node: SERVICE) -> void:
-	service = service_node
-
-
-func placement_target() -> Node:
-	var view: Camera3D = WORLD.camera()
-	var target: Node = DEBUG_ACTIONS.aimed_pony(view)
-	if not is_instance_valid(target):
-		target = DEBUG_ACTIONS.nearest_pony(view)
-	return target
+var parts: PARTS
+var rig: RIG
 
 
-func placement_id() -> String:
+func setup(parts_node: PARTS, rig_node: RIG) -> void:
+	parts = parts_node
+	rig = rig_node
+
+
+func placement_id(pony: Node) -> String:
 	if SETTINGS.edit_target.get_choice() == "default":
 		return "default"
-	var target := placement_target()
-	if not is_instance_valid(target):
+	if not is_instance_valid(pony):
 		return ""
-	return CONTROLLER.pony_id(target)
+	return PONY_ID.of(pony)
 
 
 func placement_values(id: String, fit_id: String = "") -> Dictionary:
@@ -42,23 +34,25 @@ func placement_values(id: String, fit_id: String = "") -> Dictionary:
 
 
 func placement_refresh() -> void:
-	if is_instance_valid(service):
-		service.apply_settings()
+	if parts != null:
+		parts.apply_live()
+		parts.refresh_tails()
 
 
-func placement_debug(op: String, value := 0.0) -> String:
-	var id := placement_id()
+## `tail_owned` is the body-change service's answer: a source-owned tail can be moved even when
+## the regular seat has no row.
+func placement_debug(pony: Node, op: String, value := 0.0, tail_owned := false) -> String:
+	var id := placement_id(pony)
 	if id.is_empty():
 		return "No placement pony targeted."
-	var target := placement_target()
 	var fit_id := ""
-	if id != "default" and is_instance_valid(target):
-		fit_id = CONTROLLER.body_fit_id(target)
+	if id != "default" and is_instance_valid(pony):
+		fit_id = IDENTITY.body_fit_id(pony)
 	if id != "default" and op.begins_with("dock_"):
-		if not service.can_dock(target):
+		if not parts.can_dock(pony):
 			return "%s: no dock on this tail." % id
 	if id != "default" and op.begins_with("tail_"):
-		if not service.can_place_tail(target):
+		if not tail_owned and not parts.can_seat(pony):
 			return "%s: tail seat unavailable (no hair tail or dock)." % id
 	var rows := (SETTINGS.anatomy_placement_default("") if id == "default"
 		else SETTINGS.anatomy_placement(id, fit_id))
@@ -72,7 +66,6 @@ func placement_debug(op: String, value := 0.0) -> String:
 				SETTINGS.save_anatomy_placement(id,
 					SETTINGS.anatomy_placement_default(id, fit_id), fit_id)
 				placement_refresh()
-				_apply_custom_tail(target)
 			return "%s %s" % [id, PLACEMENT.text(placement_values(id, fit_id))]
 		"text":
 			return "%s %s" % [id, PLACEMENT.text(values)]
@@ -85,27 +78,15 @@ func placement_debug(op: String, value := 0.0) -> String:
 			else:
 				SETTINGS.save_anatomy_placement(id, rows, fit_id)
 				placement_refresh()
-				_apply_custom_tail(target)
 			return "%s %s" % [id, PLACEMENT.text(values)]
 
 
-func placement_show() -> String:
-	var parts := PackedStringArray([placement_debug("text")])
-	var report := service.tail_report() if is_instance_valid(service) else ""
+func placement_show(pony: Node) -> String:
+	var parts_out := PackedStringArray([placement_debug(pony, "text")])
+	var report := parts.tail_report() if parts != null else ""
 	if not report.is_empty():
-		parts.append(report)
-	var change := PONIES.body_change
-	if is_instance_valid(change):
-		var custom := str(change.tail_placement_report())
-		if not custom.is_empty():
-			parts.append(custom)
-	return " | ".join(parts)
-
-
-func _apply_custom_tail(target: Node) -> void:
-	var change := PONIES.body_change
-	if is_instance_valid(target) and is_instance_valid(change):
-		change.apply_tail_placement(target)
+		parts_out.append(report)
+	return " | ".join(parts_out)
 
 
 static func _nudge_placement(placement: Dictionary, op: String, value: float) -> bool:

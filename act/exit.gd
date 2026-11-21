@@ -12,7 +12,6 @@ const AFTERGLOW := preload("res://mods/unfplap/afterglow/service.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
-const ANATOMY := preload("res://mods/unfplap/anatomy/service.gd")
 const REST := preload("res://mods/unfplap/rest/service.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
@@ -50,8 +49,7 @@ func run(rejoin_cuddle: bool) -> void:
 			and _rejoin_wanted():
 		rejoin_bed = session.bed
 	# integration: close the anatomy act once, before the pose is freed.
-	context.anatomy.bind(context.anatomy_host)
-	context.anatomy.end()
+	session.release_anatomy()
 	# The oral turn's facing override must not outlive the act, even on a direct forced stop.
 	context.view.reset_facing()
 	if is_instance_valid(context.hud):
@@ -71,10 +69,6 @@ func run(rejoin_cuddle: bool) -> void:
 		context.stool.release()
 	if is_instance_valid(host.pony):
 		host.pony.remove_meta("sex_active")
-	# integration: hide the player part when the act ends.
-	var anatomy_service := PONIES.anatomy as ANATOMY
-	if anatomy_service != null:
-		anatomy_service.player_encounter(false)
 	context.hold.release_nav()
 	if session.posture_owned:
 		restore_posture(_start_frame(), rejoin_cuddle)
@@ -89,8 +83,6 @@ func run(rejoin_cuddle: bool) -> void:
 	session.pose_id = ""
 	session.source = ""
 	session.bed = null
-	# integration: act-only anatomy hides immediately when the act ends.
-	context.anatomy.apply_live()
 	# Deferred so `finalize()` has started aftercare (and its navigator hold) first; the rejoin
 	# retries until that hold and the bed's guest cooldown are gone.
 	if rejoin_bed != null:
@@ -206,9 +198,6 @@ func restore_begin() -> void:
 	LOG.debug("restore begin from state=%d pony=%s", [session.state, host.pony_name()])
 	session.begin_restore()
 	context.handover.hint_tick()
-	# integration: act-only anatomy hides as soon as the act starts restoring.
-	context.anatomy.bind(context.anatomy_host)
-	context.anatomy.apply_live()
 	context.face.clear_face()
 	context.face.end_face()
 	context.wings.release()

@@ -618,22 +618,18 @@ carries one retired key, with `into()` moving the stored value and `mapped()` re
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
-| shared | act_keys | `shared/act_keys.gd` | act-key legacy fallback, key map and labels |
+| service | world | `world/game.gd` | service dependency |
+| shared | act_keys | `shared/act_keys.gd` | shared data |
 | shared | anatomy_placement | `shared/anatomy_placement.gd` | placement schema and merge |
-| shared | character_preferences | `shared/character_preferences.gd` | roster and shipped profiles |
+| shared | character_preferences | `shared/character_preferences.gd` | roster and catalog templates |
 | shared | consent | `shared/consent.gd` | consent defaults |
-| shared | defaults_data | `shared/defaults_data.gd` | the three shipped documents |
-| shared | integrations | `shared/integrations.gd` | verified mod catalog and tab rows |
+| shared | defaults_data | `shared/defaults_data.gd` | shipped settings and catalog documents |
+| shared | integrations | `shared/integrations.gd` | supported mod catalog |
 | shared | log | `shared/log.gd` | log sink |
 | shared | participation | `shared/participation.gd` | participation defaults |
 | shared | pose_catalog | `shared/pose_catalog.gd` | pose ids and schema |
 | shared | preferences | `shared/preferences.gd` | profile schema and math |
-| shared | settings_change | `shared/settings_change.gd` | the settings change notification |
-| service | world | `world/game.gd` | the base-game settings page, icon kind and mods folder |
-
-The settings page's private builder, icon texture and redraw, the mods host's data folder and the
-game's size setting are read through `world/game.gd`; it is the base-game boundary, not an upward
-service edge.
+| shared | settings_change | `shared/settings_change.gd` | settings change notification |
 
 ## Tests
 

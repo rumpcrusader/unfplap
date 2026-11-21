@@ -22,7 +22,8 @@ const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const STOOL := preload("res://mods/unfplap/stool/service.gd")
 const SCENE_GATE := preload("res://mods/unfplap/scene_gate/service.gd")
 const CYCLE := preload("res://mods/unfplap/shared/cycle.gd")
-const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
+const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
+const VR_ACT := preload("res://mods/unfplap/vr/service.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 const State := ACT_STATE.State
@@ -111,6 +112,8 @@ var _cycle_left := 0.0
 var _cycle_cached := "normal"
 var _cycle_dirty := true
 var _act_seconds := 0.0
+## The optional VR standing controller this act built.
+var vr: Node = null
 func bind(host_in: ACT_NODE, context_in: ACT_CONTEXT) -> void:
 	host = host_in
 	context = context_in
@@ -207,7 +210,7 @@ func stool() -> STOOL.ACT:
 		return null
 	if context.stool == null:
 		context.stool = service.new_act()
-	context.stool.bind(service, host.pony as Node3D, WORLD.player, context.anatomy.controller)
+	context.stool.bind(service, host.pony as Node3D, WORLD.player, PONIES.anatomy as ANATOMY)
 	return context.stool
 
 func release_stool() -> void:
@@ -393,45 +396,146 @@ func voice_status_line() -> String:
 	return context.audio.voice_status_line(pony_id)
 
 
-## The anatomy facts object for the persistent anatomy service.
-func anatomy_facts() -> RefCounted:
-	return context.anatomy.context()
-
-
-## The anatomy part's normal and opening points for the camera and facts callbacks.
-func anatomy_normal() -> Vector3:
-	return context.anatomy.normal()
+## The anatomy handle's mouth and frame points for the pose and camera callbacks.
+func anatomy_mouth_point() -> Vector3:
+	return context.anatomy.mouth_point() if context.anatomy != null else Vector3.ZERO
 
 
 func anatomy_opening() -> Vector3:
-	return context.anatomy.opening()
+	return context.anatomy.frame_point() if context.anatomy != null else Vector3.ZERO
 
 
-## The missionary body handle the pose service reads.
+## The missionary body handle the pose service owns.
 func missionary_anon_body() -> Variant:
-	return context.anatomy.missionary_anon_body()
+	return context.pose.act_body_handle()
 
 
 ## The optional anatomy toggles the debug panel drives.
 func toggle_anatomy_hole() -> void:
-	context.anatomy.bind(context.anatomy_host)
-	context.anatomy.toggle_hole()
+	if context.anatomy == null:
+		return
+	if context.anatomy.target() == ANATOMY.Target.VULVA:
+		context.anatomy.target_anus()
+	else:
+		context.anatomy.target_vulva()
 
 
 func toggle_anatomy_oral() -> void:
-	context.anatomy.bind(context.anatomy_host)
-	context.anatomy.toggle_oral(context.pose, display_name, features)
+	if context.anatomy == null:
+		return
+	if context.anatomy.can_target_mouth():
+		context.anatomy.target_mouth()
 
 
-## The VR depth read and write, routed through the anatomy bridge.
+func anatomy_react() -> void:
+	if context.anatomy != null:
+		context.anatomy.react()
+
+
+func anatomy_set_mouth_viseme(letter: String) -> void:
+	if context.anatomy != null:
+		context.anatomy.set_mouth_viseme(letter)
+
+
+## Begin the anatomy handle for this act. The pose view is the start row's view; the pose fan-out
+## replaces it on every later change.
+func begin_anatomy(view: ANATOMY.PoseView, bed_frame: Variant) -> void:
+	context.pose_view = view
+	context.stage = ANATOMY.ActStage.new()
+	context.anon = PONIES.anatomy.anon(host.pony as Node3D) if PONIES.anatomy != null else null
+	context.anatomy = PONIES.anatomy.begin_act(host.pony as Node3D, view, bed_frame) \
+		if PONIES.anatomy != null else null
+	context.facts.anon = context.anon
+	if context.anon != null:
+		context.anon.encounter(true)
+
+
+## The one per-frame anatomy call, after the pose fan-out.
+func stage_anatomy(delta: float) -> void:
+	if context.anatomy == null or context.stage == null:
+		return
+	context.stage.phase = _anatomy_phase(state)
+	context.stage.depth = context.readiness.depth_value()
+	context.stage.penetration_m = context.readiness.penetration_m_value()
+	context.stage.size_scale = context.camera.size_scale()
+	if context.pose_view != null:
+		context.pose_view.bed_frame = context.pose._bed_frame_value()
+	context.anatomy.stage(delta, context.stage)
+	var point: Vector3 = context.anatomy.frame_point()
+	context.facts.anatomy_opening = point if point.is_finite() else Vector3.ZERO
+
+
+## Release the act handle and hide the persistent part. The one exit calls this before the pose.
+func release_anatomy() -> void:
+	stop_vr()
+	if context.anatomy != null:
+		context.anatomy.end()
+		context.anatomy = null
+	if context.anon != null:
+		context.anon.encounter(false)
+		context.anon = null
+	context.facts.anon = null
+	context.pose_view = null
+	context.stage = null
+
+
+## Build the optional VR controller; the VR service owns the scene lookup and the node.
+func begin_vr() -> void:
+	stop_vr()
+	vr = VR_ACT.attach(host.node, WORLD.player)
+	if vr == null:
+		return
+	vr.forward = Callable(self, "vr_forward")
+	vr.depth = Callable(self, "vr_depth")
+	vr.toggle_hole = Callable(self, "toggle_anatomy_hole")
+	vr.oral_ready = Callable(context.input, "anatomy_oral_ready")
+	vr.command = Callable(context.input, "command")
+	vr.touch = Callable(context.readiness, "touch")
+	vr.pony_source = Callable(host, "pony_value")
+
+
+func stop_vr() -> void:
+	if is_instance_valid(vr):
+		vr.queue_free()
+	vr = null
+
+
+func vr_y_held() -> bool:
+	return is_instance_valid(vr) and bool(vr.y_held)
+
+
+## The forward axis the tracked hips travel along in the VR act.
 func vr_forward() -> Vector3:
-	context.anatomy.bind(context.anatomy_host)
-	return context.anatomy.vr_forward()
+	if context.anatomy != null:
+		var axis: Vector3 = context.anatomy.frame_axis()
+		var forward := Vector3(-axis.x, 0.0, -axis.z).normalized()
+		if forward.length_squared() > 0.001:
+			return forward
+	if is_instance_valid(host.pony):
+		return -host.pony.global_basis.z.normalized()
+	return Vector3.FORWARD
 
 
 func vr_depth(value: float) -> void:
-	context.anatomy.bind(context.anatomy_host)
-	context.anatomy.vr_depth(value)
+	if state not in [State.ACTIVE, State.CLIMAX]:
+		return
+	context.impact.move(value - context.readiness.depth_value(), clock_s())
+	context.impact.set_depth(context.readiness.depth_value() * context.readiness.reach())
+
+
+static func _anatomy_phase(value: int) -> int:
+	match value:
+		State.POSING_IN:
+			return ANATOMY.Phase.POSING_IN
+		State.ACTIVE:
+			return ANATOMY.Phase.ACTIVE
+		State.CLIMAX:
+			return ANATOMY.Phase.CLIMAX
+		State.AFTERGLOW:
+			return ANATOMY.Phase.AFTERGLOW
+		State.RESTORE:
+			return ANATOMY.Phase.RESTORE
+	return ANATOMY.Phase.POSING_IN
 
 
 ## The desktop Anon pose driver's act hooks.
@@ -457,12 +561,9 @@ func cycle_phase() -> String:
 	var override := CYCLE.override_for(pony_id)
 	if not override.is_empty():
 		return override
-	if not SETTINGS.estrus_cycle.get_bool():
-		return CYCLE.NORMAL
-	if _cycle_dirty:
-		_cycle_cached = ELIGIBILITY.cycle_phase_for(host.pony, pony_id)
-		_cycle_dirty = false
-	return _cycle_cached
+	if is_instance_valid(PONIES.estrus):
+		return str(PONIES.estrus.phase(host.pony))
+	return CYCLE.NORMAL
 
 
 func cycle_override() -> String:
@@ -556,8 +657,9 @@ func climax() -> void:
 		context.memory.note(MEMORY.NoteKind.CLIMAXED, pony_id, event_id)
 	view.climax_line(self)
 	context.audio.play_climax()
-	# integration: her fluid hook.
-	context.anatomy.on_climax()
+	# integration: her fluid and one-shot climax presentation.
+	if context.anatomy != null:
+		context.anatomy.climax()
 	if is_instance_valid(context.hud):
 		context.hud.set_state("CLIMAX")
 
@@ -707,10 +809,9 @@ func form_status(text: String) -> void:
 		context.hud.toast(text, 2.5)
 
 
-## The anatomy bridge's persistent refresh: bind its host and let the controller re-resolve.
+## The roster's anatomy re-check at act start; the handle itself is created by the start ledger.
 func refresh_anatomy() -> void:
-	context.anatomy.bind(context.anatomy_host)
-	context.anatomy.refresh()
+	PONIES.ensure_anatomy(host.pony if is_instance_valid(host.pony) else null)
 
 
 ## The adopted body's bind before the handover's one resume: the pose, face, identity name, view,

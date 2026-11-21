@@ -79,12 +79,11 @@ func suspended() -> bool:
 ## feature is live outside acts too.
 func apply_idle_live() -> void:
 	context.presentation.apply_live_settings()
-	_anatomy_refresh()
 
 
-## The live edit's pre-view half inside an act.
+## The live edit's pre-view half inside an act; anatomy subscribes to the change on its own.
 func apply_act_live_pre() -> void:
-	_anatomy_refresh()
+	pass
 
 
 ## The live preference refresh for a live id, or an empty dictionary when there is none.
@@ -135,8 +134,7 @@ func _refresh_live_modifiers(family: String) -> void:
 	if family == "standing":
 		context.standing_anon.refresh_palm()
 	elif family == "bed":
-		context.anatomy.bind(context.anatomy_host)
-		context.anatomy.refresh_palm()
+		context.pose.refresh_act_body_palm()
 
 
 ## A live voice-policy edit: give the player its saved volume back, then apply the new policy.
@@ -149,6 +147,4 @@ func _refresh_live_voice(pony_id: String) -> void:
 	context.audio.apply_voice_policy(muted(), host.pony, pony_id)
 
 
-func _anatomy_refresh() -> void:
-	context.anatomy.bind(context.anatomy_host)
-	context.anatomy.refresh()
+

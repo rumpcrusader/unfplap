@@ -1462,8 +1462,32 @@ func _act_body_wanted(view: POSE_VIEW) -> bool:
 	return not facts.player_pony and not facts.headset_view
 
 
-## The act's own Anon body, created on the runtime host and handed to the anatomy bridge as an
-## opaque handle. The bridge never creates or frees it.
+## The live act body, or null. The pose service owns it; camera, hands and kiss read it here.
+func act_body_handle() -> Node:
+	return act_body if is_instance_valid(act_body) else null
+
+
+## The act body's authored mouth point; INF when it is missing, inactive or non-finite.
+func act_body_face_point() -> Vector3:
+	if not is_instance_valid(act_body) or not bool(act_body.get("active")):
+		return Vector3.INF
+	var value: Variant = act_body.mouth_point()
+	return value if value is Vector3 and (value as Vector3).is_finite() else Vector3.INF
+
+
+## The act body's debug row, or "" when no body is installed.
+func act_body_diag_row(face: Vector3, vulva: Vector3) -> String:
+	if not is_instance_valid(act_body):
+		return ""
+	return str(act_body.diag_row(face, vulva))
+
+
+func refresh_act_body_palm() -> void:
+	if is_instance_valid(act_body):
+		act_body.refresh_palm()
+
+
+## The act's own Anon body, created on the runtime host. The pose service owns it and frees it.
 func _install_act_body() -> void:
 	if is_instance_valid(act_body):
 		return

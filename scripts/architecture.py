@@ -260,7 +260,7 @@ RUNTIME_RAW_INPUT = (
 # Service files another owner may extend or preload as a documented extension point. The source
 # base is a provider contract, not a second facade; the anatomy body binding is the attachment
 # contract the body-change service constructs from the anatomy facade it is handed.
-PUBLIC_SERVICE_FILES = {"body_change/source.gd", "anatomy/body_binding.gd", "world/game.gd"}
+PUBLIC_SERVICE_FILES = {"body_change/source.gd", "world/game.gd"}
 # The lifecycle base is a no-behaviour contract: every world service extends it, so it is not a
 # dependency edge and needs no `### Uses` row in 16 contracts.
 SERVICE_BASE = "shared/service.gd"
@@ -270,7 +270,7 @@ TYPING_EXTRA = ("world/game.gd",)
 # The five body-bound systems `body_change.wire()` builds and registers. The entry names none of
 # them: a new binding adds a preload to the service, not to the composition root.
 BODY_BINDINGS = (
-    "anatomy/body_binding.gd",
+    "body_change/anatomy_binding.gd",
     "body_change/runtime_binding.gd",
     "body_change/lod_binding.gd",
     "body_change/garment_binding.gd",
@@ -299,12 +299,24 @@ def rel(path: Path) -> str:
     return path.relative_to(ROOT).as_posix()
 
 
+# The anatomy package's public entry is `anatomy/api.gd`; every other service uses service.gd.
+FACADES = {"anatomy": "api.gd"}
+
+
+def facade_for(sid: str) -> str:
+    return FACADES.get(sid, "service.gd")
+
+
 def service_ids() -> list[str]:
-    return sorted(
+    found = {
         p.parent.name
         for p in ROOT.glob("*/service.gd")
         if not p.parent.name.startswith(".") and p.parent.name != "shared"
-    )
+    }
+    for sid, facade in FACADES.items():
+        if (ROOT / sid / facade).is_file():
+            found.add(sid)
+    return sorted(found)
 
 
 SERVICES = service_ids()
@@ -331,7 +343,7 @@ def owner_of(path: str) -> Owner | None:
         kind = SHARED_KINDS.get(name, "shared")
         return Owner("shared:" + name, path, False, kind)
     for sid in SERVICES:
-        if path == f"{sid}/service.gd":
+        if path == f"{sid}/{facade_for(sid)}":
             return Owner(sid, path, False, "service")
         if path.startswith(f"{sid}/"):
             return Owner(sid, path, True, "service")
@@ -387,12 +399,31 @@ def edge_kind(src: str, tgt: str) -> tuple[str, Owner | None, Owner | None]:
     return "external", so, to
 
 
+ANATOMY_FACADE = "anatomy/api.gd"
+ANATOMY_RIG = "anatomy/rig.gd"
+
+
 def is_allowed(src: str, tgt: str) -> tuple[bool, str, Owner | None, Owner | None]:
     kind, so, to = edge_kind(src, tgt)
     if so is None or to is None:
         return True, kind, so, to
     if so.kind == "orchestrator":
         return True, kind, so, to
+
+    # Anatomy is a presentation leaf: only the rig reads world/game.gd, no anatomy file may
+    # preload another mod service except settings, and outside files may preload only api.gd.
+    if src.startswith("anatomy/"):
+        if src == ANATOMY_RIG:
+            return tgt == "world/game.gd", kind, so, to
+        if kind == "game":
+            return tgt != "world/game.gd", kind, so, to
+        if kind in ("self", "shared", "store", "read model"):
+            return True, kind, so, to
+        if kind == "service" and to is not None and to.id in ("anatomy", "settings"):
+            return True, kind, so, to
+        return False, kind, so, to
+    if to is not None and to.id == "anatomy":
+        return tgt == ANATOMY_FACADE, kind, so, to
     if so.kind == "shared":
         # The accessor module is the game boundary, so a shared module may read it like the scene.
         if tgt == "world/game.gd":
@@ -576,7 +607,8 @@ PURPOSE = {
     "hands/service.gd": "hand contact and smack",
     "kiss/service.gd": "kiss control",
     "integrations/service.gd": "optional mod reaction bridge",
-    "anatomy/service.gd": "anatomy and tail seat",
+    "anatomy/api.gd": "anatomy and tail seat",
+    "estrus/service.gd": "estrus cycle and idle heat",
     "vr/service.gd": "VR act controls",
     "initiation/service.gd": "proactive offers",
     "reactions/service.gd": "jiggle, blush and hearts",
@@ -682,7 +714,8 @@ LIFECYCLES = {
     "scene_hold": ("per-pony", "`runtime._init()`", "`bind()`/`claim_nav()`", "runtime free", "yes"),
     "rest": ("per-act", "`runtime._init()`", "`bind()`", "act teardown", "yes"),
     "hands": ("per-act", "`runtime`", "`bind()`/`begin()`", "act teardown", "yes"),
-    "anatomy": ("world + per-act bridge", "the entry's service list", "`setup()`/`new_act()`", "`on_world_closed()`/`shutdown()`", "yes"),
+    "anatomy": ("world + per-act handles", "the entry's service list", "`on_world()`/`begin_act()`", "`on_world_closed()`/`shutdown()`", "yes"),
+    "estrus": ("world", "the entry's service list", "`on_world(host)`", "`on_world_closed()`/`shutdown()`", "yes"),
     "vr": ("per-act", "`anatomy` act bridge", "act start", "act end", "yes"),
     "initiation": ("world", "the entry's service list", "`setup()`", "`on_world_closed()`", "yes"),
     "negotiation": ("world", "the entry's service list", "`bind()`/`on_world(host)`", "`on_world_closed()`", "yes"),
@@ -766,7 +799,7 @@ def file_public_functions(service: str, path: Path) -> list[dict[str, str]]:
 
 
 def public_functions(service: str) -> list[dict[str, str]]:
-    return file_public_functions(service, ROOT / service / "service.gd")
+    return file_public_functions(service, ROOT / service / facade_for(service))
 
 
 def weak_signature(signature: str) -> bool:
@@ -1461,8 +1494,8 @@ def check_sources(failure: Failure) -> None:
         if not path.exists():
             continue
         text = path.read_text(encoding="utf-8")
-        if f"{sid}/service.gd" not in text:
-            failure.add("docs/%s.md does not name %s/service.gd" % (sid, sid))
+        if f"{sid}/{facade_for(sid)}" not in text:
+            failure.add("docs/%s.md does not name %s/%s" % (sid, sid, facade_for(sid)))
         section = doc_tests_section(text)
         if section is None:
             failure.add("docs/%s.md has no ## Tests section" % sid)

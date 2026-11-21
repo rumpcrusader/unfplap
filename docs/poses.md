@@ -997,15 +997,14 @@ The aftercare lifetime, positive tail-up rule and the held mood face are in `doc
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
-| service | world | `world/service.gd` | player, camera and mares |
-| service | world | `world/game.gd` | the base-game accessors the presentation, the wing control, the Anon wrappers, the pose rig and the session diagnostics read |
-| service | anatomy | `anatomy/service.gd` | the player's anatomy handle: showing, hip offset and debug scale |
+| read model | act_facts | `shared/act_facts.gd` | typed act read model |
 | service | eligibility | `eligibility/service.gd` | adult and consent gate |
-| service | ponies | `ponies/service.gd` | the eligibility and anatomy handles |
+| service | ponies | `ponies/service.gd` | per-pony runtime registry |
 | service | settings | `settings/service.gd` | settings declarations and live values |
-| read model | act_facts | `shared/act_facts.gd` | the typed act view |
-| shared | act_state | `shared/act_state.gd` | act state constants |
+| service | world | `world/game.gd` | service dependency |
+| service | world | `world/service.gd` | live scene reads |
 | shared | act_motion | `shared/act_motion.gd` | lean and travel math |
+| shared | act_state | `shared/act_state.gd` | shared data |
 | shared | hands_reach_plan | `shared/hands_reach_plan.gd` | reach planning math |
 | shared | hands_scale | `shared/hands_scale.gd` | palm scale |
 | shared | log | `shared/log.gd` | log sink |
@@ -1013,21 +1012,6 @@ The aftercare lifetime, positive tail-up rule and the held mood face are in `doc
 | shared | pose_catalog | `shared/pose_catalog.gd` | pose ids and schema |
 | shared | pose_specs | `shared/pose_specs.gd` | pose capability table |
 | shared | pose_view | `shared/pose_view.gd` | pose read model |
-
-## Lifecycle
-
-- Scope: per runtime, one per pony; the session is not rebuilt for each act
-- Constructed by: `act/build.gd` through `runtime._init()`; `bind()` points it at the node and
-  its pony
-- Begin: `begin(values)` builds the act's pose once from its typed values, enters `ENTERING`, fills
-  the pose view and
-  settles `STEADY`, and returns `false`, before installing anything, when a pose is already live or
-  the pony has no body skeleton
-- Request: `request_pose()` starts one authored edge without rebuilding the pose, `tick()` advances
-  it and `release_pose()` aborts it
-- End: `release_pose()` exits through `EXITING`, frees the pose and the standing tail, then clears
-  the act identity, the features, the live config, the view and the bed frame
-- Idempotent: the teardown phases are safe to repeat; `begin()` is not
 
 ### Teardown scope
 
@@ -1068,6 +1052,15 @@ the act-scope resets between them. `release_pose()` is called only from `free_po
 `context.camera.finish_act()` then ends the lean action, resets the hands, removes the standing
 player-body Anon wrapper and drops the act view. That is the act's camera restore path, not the pose
 teardown.
+
+## Lifecycle
+
+- Scope: per-act
+- Constructed by: `runtime._init()`
+- Begin: `bind()`/`begin()`
+- End: `release_pose()`
+- Idempotent: yes
+
 
 ## Tests
 

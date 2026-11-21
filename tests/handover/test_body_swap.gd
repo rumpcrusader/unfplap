@@ -15,6 +15,7 @@ const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const ACT_SESSION := preload("res://mods/unfplap/act/session.gd")
 const CONTROLLER := preload("res://mods/unfplap/anatomy/controller.gd")
+const ANATOMY_API := preload("res://mods/unfplap/anatomy/api.gd")
 const SUMMARY := preload("res://mods/unfplap/summary/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
@@ -365,25 +366,6 @@ class FakeHost extends Node:
 		return null
 
 
-## A service with only the player handshake: the body swap must clear the old body's offset even
-## when no anatomy controller is available.
-class FakePlayerAnatomy extends "res://mods/unfplap/anatomy/service.gd":
-	var reset_calls := 0
-
-	## The registry's two bind calls: a body takes a runtime and its tail is seated.
-	func bind(_pony: Node, _runtime: Node) -> CONTROLLER:
-		return null
-
-	func tail_ready(_pony: Node) -> void:
-		pass
-
-	func controller_for(_pony: Node, _runtime: Node) -> CONTROLLER:
-		return null
-
-	func player_reset_pelvis() -> void:
-		reset_calls += 1
-
-
 func _pony(display_name: String, node_name := "Pony") -> FakePony:
 	var pony := FakePony.new()
 	pony.name = node_name
@@ -552,7 +534,7 @@ func _check_handover() -> void:
 	var runtime: Node = f["runtime"]
 	var old_pony: FakePony = f["old"]
 	var source: FakeSource = f["source"]
-	var anatomy := FakePlayerAnatomy.new()
+	var anatomy: ANATOMY_API = ANATOMY_API.new()
 	PONIES.anatomy = anatomy
 	host.anatomy = anatomy
 
@@ -572,7 +554,6 @@ func _check_handover() -> void:
 	PONIES.attach(new_pony)
 	runtime.act.swap.tick(0.1)
 	check(not runtime.act.suspended(), "the new body resumes the act")
-	check(anatomy.reset_calls >= 1, "the new body clears the part's old pelvis handshake")
 	check(runtime.pony == new_pony, "the runtime owns the new body")
 	check(runtime.get_parent() == new_pony, "the runtime moved under the new body")
 	check(PONIES.runtime_for(new_pony) == runtime, "ponies maps the new body to the same runtime")

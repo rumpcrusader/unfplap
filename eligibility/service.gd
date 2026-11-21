@@ -14,6 +14,7 @@ const CONSENT := preload("res://mods/unfplap/shared/consent.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
 const CYCLE := preload("res://mods/unfplap/shared/cycle.gd")
+const ESTRUS := preload("res://mods/unfplap/estrus/service.gd")
 const CLEARANCE := preload("res://mods/unfplap/shared/clearance.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
@@ -372,6 +373,22 @@ func get_profile(id: String) -> Profile:
 	return out
 
 
+## One pony's per-mare consent key: `public`, `anal` or `oral`. An empty id reads false.
+func consent(pony: Node, key: String) -> bool:
+	var id := PONY_ID.of(pony)
+	if id.is_empty():
+		return false
+	var profile := get_profile(id)
+	match key:
+		"public":
+			return profile.consent.public
+		"anal":
+			return profile.consent.anal
+		"oral":
+			return profile.consent.oral
+	return false
+
+
 ## Write the provider layer for one owner: assertion, participation and consent.
 ## It lives in the registry; this service stores nothing and returns the registration result.
 func set_profile(owner: Node, id: String, profile: Profile) -> MARE_REGISTRY.Result:
@@ -442,18 +459,10 @@ func _read_player(out: Dictionary) -> void:
 
 ## The debug override wins even with the feature off, so the lab can force heat.
 ## A just-spawned pony has no relationship runtime, so that reads as normal.
-static func cycle_phase_for(pony: Node, id: String) -> String:
-	var override := CYCLE.override_for(id)
-	if not override.is_empty():
-		return override
-	if not SETTINGS.estrus_cycle.get_bool() or id.is_empty() or not is_instance_valid(pony):
+static func cycle_phase_for(pony: Node, _id: String) -> String:
+	if ESTRUS.bound == null:
 		return CYCLE.NORMAL
-	if not pony.has_meta("relationship_runtime"):
-		return CYCLE.NORMAL
-	var day := GAME.bond_day(GAME.bonds_of(pony))
-	if is_nan(day):
-		return CYCLE.NORMAL
-	return CYCLE.phase(day, id)
+	return ESTRUS.phase_for(pony)
 
 
 ## The heat/diestrus note for the normal dialogue prompt, during and outside acts.

@@ -188,19 +188,17 @@ The Debug block builds its own `Host` from the `PONIES` facade in `debug/actions
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
-| service | anatomy | `anatomy/service.gd` | anatomy and tail seat |
+| service | anatomy | `anatomy/api.gd` | anatomy and tail seat |
 | service | eligibility | `eligibility/service.gd` | adult and consent gate |
 | service | settings | `settings/service.gd` | settings declarations and live values |
+| service | world | `world/game.gd` | service dependency |
 | service | world | `world/service.gd` | live scene reads |
-| service | world | `world/game.gd` | the mod state section and its save |
+| shared | body_change | `shared/body_change.gd` | shared data |
+| shared | body_form | `shared/body_form.gd` | shared data |
 | shared | log | `shared/log.gd` | log sink |
-| shared | body_change | `shared/body_change.gd` | typed body swap record |
-| shared | body_form | `shared/body_form.gd` | the presented form's name |
-| shared | pony_id | `shared/pony_id.gd` | stable pony ids |
-| shared | rump_cone | `shared/rump_cone.gd` | the standing cone target |
-| shared | settings_change | `shared/settings_change.gd` | the settings change notification |
-
-The runtime itself is not a dependency: it is built by the entry's factory and called dynamically.
+| shared | pony_id | `shared/pony_id.gd` | shared data |
+| shared | rump_cone | `shared/rump_cone.gd` | standing offer zone |
+| shared | settings_change | `shared/settings_change.gd` | settings change notification |
 
 ## Tests
 

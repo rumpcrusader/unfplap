@@ -5,6 +5,7 @@ extends "res://mods/unfplap/shared/service.gd"
 
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
 const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const CUT_SHADER := preload("res://mods/unfplap/integrations/shaders/pantyhose_cut.gdshader")
@@ -80,7 +81,6 @@ func setup() -> void:
 		mod_active = Callable(self, "_mod_active")
 	set_process(false)
 	apply_live_settings()
-	_connect_anatomy()
 	CHANGE.on_changed(Callable(self, "apply_live_settings"))
 
 
@@ -92,7 +92,6 @@ func on_world(host: Node) -> void:
 	_mismatch_logged = false
 	_overlay_reason = ""
 	set_process(true)
-	_connect_anatomy()
 	apply_live_settings()
 
 
@@ -112,7 +111,6 @@ func on_world_closed() -> void:
 func shutdown() -> void:
 	CHANGE.off_changed(Callable(self, "apply_live_settings"))
 	on_world_closed()
-	_disconnect_anatomy()
 
 
 func _exit_tree() -> void:
@@ -191,10 +189,10 @@ func rebuild_hull() -> String:
 	if not is_instance_valid(_game) or not _mod_active_now():
 		return "Pantyhose integration is inactive."
 	var anatomy := _anatomy()
-	if anatomy == null or not anatomy.has_method("garment_hull_rebuild"):
+	if anatomy == null:
 		return "No anatomy service."
 	PERF.begin("garment_hull")
-	anatomy.call("garment_hull_rebuild")
+	anatomy.rebuild_garment()
 	scan()
 	PERF.end("garment_hull")
 	LOG.debug("[pantyhose] garment hull rebuilt")
@@ -257,17 +255,14 @@ func _update_garments() -> void:
 			_tracked.erase(mesh_node)
 			_restore_if_applied(mesh_node)
 			continue
-		var visible := _bulge and anatomy != null and anatomy.has_method("garment_visible") \
-			and bool(anatomy.call("garment_visible", pony))
+		var garment: Variant = anatomy.garment(pony) if anatomy != null else null
+		var visible: bool = _bulge and garment != null and bool(garment.visible())
 		var hull: Variant = null
 		var xform := Transform3D.IDENTITY
 		if visible:
-			if anatomy.has_method("garment_hull"):
-				hull = anatomy.call("garment_hull", pony)
-			if hull != null and anatomy.has_method("garment_transform"):
-				var value: Variant = anatomy.call("garment_transform", pony)
-				if value is Transform3D:
-					xform = value as Transform3D
+			hull = garment.hull()
+			if hull != null:
+				xform = garment.transform()
 		_apply_node(mesh_node, pony as Node3D, hull, xform)
 
 
@@ -462,25 +457,9 @@ static func _variant_of(shader: Shader) -> String:
 
 # --------------------------------------------------------------------------- act undress
 
-func _connect_anatomy() -> void:
-	var anatomy := _anatomy()
-	if anatomy == null or not anatomy.has_signal("act_started"):
-		return
-	if not anatomy.is_connected("act_started", _on_act_started):
-		anatomy.connect("act_started", _on_act_started)
-
-
-func _disconnect_anatomy() -> void:
-	var anatomy := _anatomy()
-	if anatomy == null or not anatomy.has_signal("act_started"):
-		return
-	if anatomy.is_connected("act_started", _on_act_started):
-		anatomy.disconnect("act_started", _on_act_started)
-
-
 ## The act start: one `take_off` per worn kind, so dialogue records the undress; a missing
 ## director or executor falls back to the wardrobe calls.
-func _on_act_started(pony: Node3D) -> void:
+func act_started(pony: Node3D) -> void:
 	if not _undress or not _mod_active_now():
 		return
 	if not is_instance_valid(_game) or not is_instance_valid(pony):
@@ -553,11 +532,11 @@ func _take_off_action(tree: SceneTree, id: String, kinds: Array[String], wardrob
 
 # --------------------------------------------------------------------------- debug heatmap
 
-func _scan_overlay(mares: Array, anatomy: Node) -> void:
+func _scan_overlay(mares: Array, anatomy: ANATOMY) -> void:
 	if DisplayServer.get_name() == "headless":
 		_hide_overlay()
 		return
-	if not anatomy.has_method("garment_hull") or not anatomy.has_method("garment_parent"):
+	if anatomy == null:
 		_hide_overlay()
 		_note_overlay_reason("no anatomy reads")
 		return
@@ -566,10 +545,11 @@ func _scan_overlay(mares: Array, anatomy: Node) -> void:
 			continue
 		# The anatomy may be hidden (far mesh or act mode); the field still exists, and the
 		# heatmap is the debug way to inspect it. Only a detached controller has no parent/hull.
-		var parent_value: Variant = anatomy.call("garment_parent", pony)
+		var garment := anatomy.garment(pony as Node3D)
+		var parent_value: Variant = garment.parent()
 		if not parent_value is Node3D:
 			continue
-		var value: Variant = anatomy.call("garment_hull", pony)
+		var value: Variant = garment.hull()
 		if value == null:
 			continue
 		_show_overlay(pony as Node3D, value, parent_value as Node3D)
@@ -729,11 +709,8 @@ func _hull_mesh(hull: Variant) -> ArrayMesh:
 
 # --------------------------------------------------------------------------- host
 
-func _anatomy() -> Node:
-	var value: Node = PONIES.anatomy
-	if value is Node:
-		return value as Node
-	return null
+func _anatomy() -> ANATOMY:
+	return PONIES.anatomy as ANATOMY
 
 
 func _mod_active() -> bool:

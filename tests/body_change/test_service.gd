@@ -5,8 +5,8 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/body_change/test_service.gd
 
-const ANATOMY_BINDING := preload("res://mods/unfplap/anatomy/body_binding.gd")
-const ANATOMY_SERVICE := preload("res://mods/unfplap/anatomy/service.gd")
+const ANATOMY_BINDING := preload("res://mods/unfplap/body_change/anatomy_binding.gd")
+const ANATOMY_SERVICE := preload("res://mods/unfplap/anatomy/api.gd")
 const BODY_BINDING := preload("res://mods/unfplap/shared/body_binding.gd")
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
@@ -387,10 +387,9 @@ func _check_wire() -> void:
 	faceless.identity = {"id": "fluttershy", "display_name": "Fluttershy"}
 	bare.bind_body(faceless)
 
-	var anatomy := ANATOMY_SERVICE.new()
+	var anatomy: ANATOMY_SERVICE = ANATOMY_SERVICE.new()
 	anatomy.name = "WireAnatomy"
 	root.add_child(anatomy)
-	anatomy.call("setup")
 	var wired := SERVICE.new()
 	wired.setup()
 	wired.wire(anatomy, null, null)
@@ -398,7 +397,7 @@ func _check_wire() -> void:
 	seated.name = "WiredBody"
 	seated.identity = {"id": "fluttershy", "display_name": "Fluttershy"}
 	wired.bind_body(seated)
-	check(anatomy.call("form_for", seated) != null,
+	check(anatomy.parts.form_for(seated) != null,
 		"the wired anatomy binding forwards the form to its facade")
 
 	var garment_target := FakeGarments.new()
@@ -444,6 +443,8 @@ func _check_wire() -> void:
 	service.free()
 	bare.free()
 	wired.free()
+	anatomy.shutdown()
+	root.remove_child(anatomy)
 	anatomy.free()
 	host.free()
 	garment_target.free()

@@ -3,7 +3,6 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/act_facts/test_act_facts.gd
 
 const FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
-const ANATOMY_FACTS := preload("res://mods/unfplap/anatomy/facts.gd")
 const ANATOMY_ACT := preload("res://mods/unfplap/anatomy/act.gd")
 const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 
@@ -81,7 +80,6 @@ func run() -> void:
 	check(not facts.neck_point.is_valid(), "neck callback starts absent")
 	check(not facts.set_look.is_valid(), "look write-back starts absent")
 
-	facts.smack_body_coat()
 	facts.write_look(1.0, 2.0)
 	facts.write_forced_glance("L")
 	facts.mark_camera_basis_ready()
@@ -89,15 +87,12 @@ func run() -> void:
 	check(facts.neck_midpoint() == Vector3.INF, "absent neck callback returns infinity")
 
 	var sink := Sink.new()
-	facts.body_coat_smack = Callable(sink, "smack")
 	facts.set_look = Callable(sink, "look")
 	facts.set_forced_glance = Callable(sink, "force_glance")
 	facts.set_camera_basis_ready = Callable(sink, "mark_ready")
 	facts.kiss = Callable(sink, "controller")
 	facts.neck_point = Callable(sink, "neck_point")
 	facts.now = Callable(sink, "clock_now")
-	facts.smack_body_coat()
-	check(sink.smack_calls == 1, "the smack callback receives one call")
 	facts.write_look(0.4, -0.2)
 	check(is_equal_approx(sink.look_yaw, 0.4) and is_equal_approx(sink.look_pitch, -0.2),
 		"the look write-back keeps yaw and pitch")
@@ -147,54 +142,4 @@ func run() -> void:
 	facts.pose_view = null
 	check(facts.pose_view == null, "the pose view clears")
 
-	var anatomy_facts := ANATOMY_FACTS.new()
-	anatomy_facts.smack_body_coat()
-	var anatomy_sink := Sink.new()
-	anatomy_facts.body_coat_smack = Callable(anatomy_sink, "smack")
-	anatomy_facts.smack_body_coat()
-	check(anatomy_sink.smack_calls == 1, "the anatomy smack callback receives one call")
-	anatomy_facts.body_coat_smack = Callable()
-	anatomy_facts.smack_body_coat()
-
-	# The anatomy view predicates: a null view matches nothing, and a set one reads its family,
-	# frame and contact kind.
-	check(anatomy_facts.contact_kind() == "" and anatomy_facts.family() == ""
-		and anatomy_facts.frame() == "", "a null view has no contact, family or frame")
-	check(not anatomy_facts.mouth_contact() and not anatomy_facts.face_contact()
-		and not anatomy_facts.bed_pose() and not anatomy_facts.missionary(),
-		"a null view matches no contact or pose predicate")
-	var anatomy_view: Variant = VIEW.new()
-	anatomy_view.family = "bed"
-	anatomy_view.frame = "bed"
-	anatomy_view.contact_kind = "mouth"
-	anatomy_facts.pose_view = anatomy_view
-	check(anatomy_facts.contact_kind() == "mouth" and anatomy_facts.mouth_contact(),
-		"the mouth contact reads the view")
-	check(not anatomy_facts.face_contact(), "the mouth contact is not the face contact")
-	check(anatomy_facts.family() == "bed" and anatomy_facts.missionary(),
-		"the bed family is the missionary pose")
-	check(anatomy_facts.frame() == "bed" and anatomy_facts.bed_pose(),
-		"the bed frame carries the part inset")
-	anatomy_view.contact_kind = "face"
-	check(anatomy_facts.face_contact() and not anatomy_facts.mouth_contact(),
-		"the face contact reads the view")
-	anatomy_view.family = "standing"
-	anatomy_view.frame = "ground"
-	anatomy_view.contact_kind = "opening"
-	check(anatomy_facts.contact_kind() == "opening" and anatomy_facts.family() == "standing"
-		and anatomy_facts.frame() == "ground",
-		"the standing opening carries its family and frame")
-	check(not anatomy_facts.mouth_contact() and not anatomy_facts.face_contact()
-		and not anatomy_facts.bed_pose() and not anatomy_facts.missionary(),
-		"a standing opening matches no contact or bed predicate")
-
-	var act: Node = ANATOMY_ACT.new()
-	var kept := ANATOMY_FACTS.new()
-	act.set("_facts", kept)
-	act.call("reset")
-	check(is_same(act.get("_facts"), kept), "reset keeps the context it was given")
-	act.free()
-
-	if failures == 0:
-		print("ACT_FACTS_PASS")
 	finish()

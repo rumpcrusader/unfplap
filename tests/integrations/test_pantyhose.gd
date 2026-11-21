@@ -6,6 +6,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 const HULL := preload("res://mods/unfplap/anatomy/garment_hull.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const CONTROLLER := preload("res://mods/unfplap/anatomy/controller.gd")
+const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
 const INTEGRATION := preload("res://mods/unfplap/integrations/pantyhose.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
@@ -28,28 +29,35 @@ const SHADER_DIR := "res://mods/unfplap/integrations/shaders/"
 
 
 
-class FakeAnatomy extends Node:
-	signal act_started(pony: Node3D)
+class FakeGarment extends ANATOMY.Garment:
+	var source: Variant = null
 
+	func hull() -> RefCounted:
+		return source.hull if source != null else null
+
+	func transform() -> Transform3D:
+		return source.xform if source != null else Transform3D.IDENTITY
+
+	func parent() -> Node3D:
+		return source.parent_node if source != null else null
+
+	func visible() -> bool:
+		return bool(source.visible) if source != null else false
+
+
+class FakeAnatomy extends ANATOMY:
 	var hull: Variant = null
 	var xform := Transform3D.IDENTITY
 	var visible := true
 	var parent_node: Node3D = null
 	var rebuilds := 0
 
-	func garment_hull(_pony: Node) -> Variant:
-		return hull
+	func garment(_pony: Node3D) -> ANATOMY.Garment:
+		var handle := FakeGarment.new(null)
+		handle.source = self
+		return handle
 
-	func garment_transform(_pony: Node) -> Transform3D:
-		return xform
-
-	func garment_visible(_pony: Node) -> bool:
-		return visible
-
-	func garment_parent(_pony: Node) -> Node3D:
-		return parent_node
-
-	func garment_hull_rebuild() -> void:
+	func rebuild_garment() -> void:
 		rebuilds += 1
 
 
@@ -1176,7 +1184,7 @@ func _check_undress() -> void:
 	root.add_child(director)
 
 	# Her own take_off action: one commit, the kinds she wears, the director's own turn.
-	anatomy.act_started.emit(pony)
+	integration.act_started(pony)
 	check(coordinator.commits.size() == 1, "the act takes the game's take_off path")
 	var row: Dictionary = coordinator.commits[0] if not coordinator.commits.is_empty() else {}
 	var acts: Array = row.get("actions", [])
@@ -1205,7 +1213,7 @@ func _check_undress() -> void:
 	# A refused commit takes the direct path with the wardrobe's own season and id.
 	wardrobe.wanted_map = {"panties-lace": 0, "pantyhose-sheer": 0}
 	coordinator.refuse = true
-	anatomy.act_started.emit(pony)
+	integration.act_started(pony)
 	check(wardrobe.calls.has("set_worn:rarity:panties-lace:false"),
 		"a refused take_off still removes the panties")
 	check(wardrobe.calls.has("set_worn:rarity:pantyhose-sheer:false"),
@@ -1221,7 +1229,7 @@ func _check_undress() -> void:
 	# A pony the director does not track also takes the direct path.
 	wardrobe.wanted_map = {"panties-lace": 0}
 	coordinator.executors = {}
-	anatomy.act_started.emit(pony)
+	integration.act_started(pony)
 	check(wardrobe.calls.has("set_worn:rarity:panties-lace:false"),
 		"a missing executor takes the direct path")
 	wardrobe.calls.clear()
@@ -1229,7 +1237,7 @@ func _check_undress() -> void:
 
 	# Nothing of the pack's is worn: no action, no outcome, no wardrobe call.
 	wardrobe.wanted_map = {"scarf": 0}
-	anatomy.act_started.emit(pony)
+	integration.act_started(pony)
 	check(coordinator.commits.size() == commits and wardrobe.calls.is_empty(),
 		"a mare with only her winter scarf is not touched")
 
@@ -1237,17 +1245,17 @@ func _check_undress() -> void:
 	SETTINGS.pantyhose_undress.set_bool(false)
 	integration.call("apply_live_settings")
 	wardrobe.wanted_map = {"panties-lace": 0}
-	anatomy.act_started.emit(pony)
+	integration.act_started(pony)
 	check(coordinator.commits.size() == commits and wardrobe.calls.is_empty(),
 		"the undress flag can keep her dressed")
 	SETTINGS.pantyhose_undress.set_bool(before)
 	integration.call("apply_live_settings")
 	integration.set("mod_active", func() -> bool: return false)
-	anatomy.act_started.emit(pony)
+	integration.act_started(pony)
 	check(wardrobe.calls.is_empty(), "an absent pantyhose pack leaves the wardrobe alone")
 	integration.set("mod_active", func() -> bool: return true)
 	wardrobe.free()
-	anatomy.act_started.emit(pony)
+	integration.act_started(pony)
 	director.free()
 	coordinator.free()
 	pony.free()

@@ -16,7 +16,7 @@ const POSE_SESSION := preload("res://mods/unfplap/poses/service.gd")
 const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
-const ANATOMY := preload("res://mods/unfplap/anatomy/service.gd")
+const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const REST := preload("res://mods/unfplap/rest/control.gd")
@@ -52,7 +52,7 @@ func run(pose: String, bed_in: Variant, act_source: String, skip_presentation :=
 			pose, act_source, host.pony_name()])
 		return false
 	session.reset_stool_state()
-	_anatomy_refresh()
+	session.refresh_anatomy()
 	if bool(POSE_SPECS.scene(pose).get("stool", false)):
 		var stool_act := session.stool()
 		var stool_need := stool_act.needed_count() if stool_act != null else 0
@@ -138,9 +138,9 @@ func run(pose: String, bed_in: Variant, act_source: String, skip_presentation :=
 	body.sleeping = false
 	body.set_sim_tier(body.SimTier.HERO)
 	body.set_meta("sex_active", true)
-	# integration: build the per-act anatomy controller before the pose reads its config.
-	_anatomy_refresh()
-	_anatomy_act_refresh()
+	# integration: build the per-act anatomy handle before the pose reads its config.
+	session.refresh_anatomy()
+	_begin_anatomy(pose)
 
 	# The act is its own state for both of them: the setup adapter places the bodies before the
 	# snapshot and the lock. The bed only supplies the frame their bodies are placed in.
@@ -164,16 +164,11 @@ func run(pose: String, bed_in: Variant, act_source: String, skip_presentation :=
 	context.hold.lock_player()
 	context.hold.pause_face_turn(false)
 	if context.camera.begin_act(session.start_family(), session.player_pony, WORLD.headset_view()):
-		context.anatomy.bind(context.anatomy_host)
-		context.anatomy.vr_start()
+		session.begin_vr()
 	context.audio.start(host.pony, session.pony_id, session.bed)
 	context.audio.apply_voice_policy(session.feature("mute_ponese_audio"), host.pony, session.pony_id)
 	if is_instance_valid(context.hud):
 		context.hud.set_inventory_hidden(true)
-	# integration: show the player part for the encounter.
-	var service := PONIES.anatomy as ANATOMY
-	if service != null:
-		service.player_encounter(true)
 	session.begin_pose_in()
 	view.refresh(context.facts, session)
 	# The pose session installs the act body and reconciles the modifiers for the start view,
@@ -181,9 +176,8 @@ func run(pose: String, bed_in: Variant, act_source: String, skip_presentation :=
 	context.pose.pose_changed(context.pose.view())
 	context.integrations.begin()
 	session.face_beat("start")
-	# integration: act-only visibility updates at the state change, not on the next poll.
-	context.anatomy.apply_live()
 	PONIES.set_active(host.node)
+	host.runtime().emit_signal("act_started", host.pony)
 	if is_instance_valid(context.hud):
 		session.sync_hud()
 		context.hud.show_act(context.facts)
@@ -230,11 +224,12 @@ func _remember_talk_turn() -> void:
 	context.handover.remember_talk_turn(director)
 
 
-func _anatomy_refresh() -> void:
-	context.anatomy.bind(context.anatomy_host)
-	context.anatomy.refresh()
-
-
-func _anatomy_act_refresh() -> void:
-	context.anatomy.bind(context.anatomy_host)
-	context.anatomy.begin_act()
+func _begin_anatomy(pose: String) -> void:
+	if PONIES.anatomy == null:
+		return
+	var view := ANATOMY.PoseView.new()
+	view.family = session.start_family()
+	view.frame = str(POSE_SPECS.spec(pose).get("frame", ""))
+	view.contact_kind = "opening"
+	view.contact_target = Vector3.INF
+	session.begin_anatomy(view, context.pose._bed_frame_value())

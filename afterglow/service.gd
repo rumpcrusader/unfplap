@@ -229,13 +229,8 @@ func close_tick(delta: float) -> void:
 		_finish_close()
 
 
-## One AFTERGLOW frame: the optional bed-body part keeps tracking, then the close window counts.
-## The tick owner calls this only in AFTERGLOW, so the phase guard stays there.
-func phase_tick(delta: float, anatomy: RefCounted, anatomy_host: RefCounted,
-		standing: bool) -> void:
-	# integration: keep the optional bed-body part tracking through afterglow.
-	anatomy.bind(anatomy_host)
-	anatomy.afterglow_tick(delta)
+## One AFTERGLOW frame: the close window counts. The anatomy handle is staged by the act tick.
+func phase_tick(delta: float, standing: bool) -> void:
 	if standing:
 		close_tick(delta)
 

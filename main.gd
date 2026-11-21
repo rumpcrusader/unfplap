@@ -19,7 +19,8 @@ const PERF := preload("res://mods/unfplap/shared/perf.gd")
 const BUILD_STAMP := preload("res://mods/unfplap/shared/build_stamp.gd")
 const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/actions.gd")
 const DEBUG_STRETCH := preload("res://mods/unfplap/debug/idle_stretch.gd")
-const ANATOMY := preload("res://mods/unfplap/anatomy/service.gd")
+const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
+const ESTRUS := preload("res://mods/unfplap/estrus/service.gd")
 const BODY_CHANGE_SERVICE := preload("res://mods/unfplap/body_change/service.gd")
 const PANTYHOSE := preload("res://mods/unfplap/integrations/pantyhose.gd")
 const CHANGELINGS := preload("res://mods/unfplap/integrations/changelings.gd")
@@ -47,6 +48,8 @@ var input: INPUT
 var api: API
 ## Anatomy system facade: one controller per pony, the player part and its tail seat.
 var anatomy: ANATOMY
+## The optional estrus cycle: phase, schedule and the idle wink/rest pushes.
+var estrus: ESTRUS
 ## Base body-change service: the per-body form store and the source/binding registries. Inert until
 ## `wire()` builds the bindings from the facades above and the providers register with it.
 var body_change: BODY_CHANGE_SERVICE
@@ -154,8 +157,10 @@ func _build_services() -> void:
 	initiation.bind(eligibility)
 	initiation.setup(privacy, negotiation, offer)
 	negotiation.bind(eligibility, memory, privacy, initiation, offer, hud)
+	estrus = _add(ESTRUS.new(), "UnfplapEstrus")
 	anatomy = _add(ANATOMY.new(), "UnfplapAnatomy")
-	anatomy.setup(hud)
+	anatomy.status.connect(Callable(hud, "anatomy_status"))
+	estrus.bind(anatomy)
 	body_change = _add(BODY_CHANGE_SERVICE.new(), "UnfplapBodyChange")
 	body_change.setup()
 	pantyhose = _add(PANTYHOSE.new(), "UnfplapPantyhose")
@@ -173,7 +178,7 @@ func _build_services() -> void:
 	debug_actions = _add(DEBUG_ACTIONS.new(), "UnfplapDebugActions")
 	debug_actions.bind(body_change, initiation, negotiation, anatomy, pantyhose, hud)
 	debug_actions.sync_skeleton_overlay()
-	PONIES.bind(anatomy, body_change, offer, stock_smack, eligibility, api)
+	PONIES.bind(anatomy, body_change, offer, stock_smack, eligibility, estrus, api)
 	_assert_hooks()
 
 
@@ -258,6 +263,8 @@ func _new_runtime(pony: Node) -> Node:
 	var runtime: RUNTIME = RUNTIME.new(hud, memory, stool)
 	runtime.name = "UnfplapRuntime"
 	runtime.pony = pony
+	if is_instance_valid(pantyhose):
+		runtime.act_started.connect(Callable(pantyhose, "act_started"))
 	return runtime
 
 

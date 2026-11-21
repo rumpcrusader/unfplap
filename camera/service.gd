@@ -190,12 +190,43 @@ func write_look_target(pose: POSES.POSE) -> void:
 	pose.climaxing = int(facts.state) == STATE_CLIMAX
 
 
-## The missionary gaze target the anatomy bridge resolves, or `INF` when no callback is bound.
+## Her missionary gaze target: the act body's eye, then the kiss's mouth, or ZERO.
 func gaze_point() -> Vector3:
-	if facts == null or not facts.gaze_point.is_valid():
-		return Vector3.INF
-	var point: Variant = facts.gaze_point.call()
-	return point if point is Vector3 else Vector3.INF
+	if facts == null:
+		return Vector3.ZERO
+	var body: Variant = facts.missionary_body()
+	if is_instance_valid(body) and bool(body.active):
+		var point: Variant = body.eye_point()
+		if point is Vector3 and (point as Vector3).is_finite():
+			var aim: Vector3 = point
+			aim.y += SETTINGS.gaze_offset_mm_for(SETTINGS.pony_size_name()) / 1000.0
+			if view != null and view.has_method("head_look_point_at"):
+				return view.head_look_point_at(aim)
+	var kiss_controller: Variant = facts.kiss_controller()
+	if view != null and view.has_method("head_look_point") and kiss_controller != null \
+			and kiss_controller.has_method("mouth_view"):
+		return view.head_look_point(kiss_controller.mouth_view())
+	return Vector3.INF
+
+
+## Her pupils follow the same gaze target the head solve uses; the pose's look point wins.
+func aim_eyes() -> void:
+	var pony := _pony_node()
+	if not is_instance_valid(pony) or facts == null:
+		return
+	var target := gaze_point()
+	var pose: Variant = facts.pose
+	if pose != null:
+		var value: Variant = pose.look_point
+		if value is Vector3 and (value as Vector3).is_finite() \
+				and (value as Vector3).length_squared() > 0.0001:
+			target = value
+	if not target.is_finite():
+		return
+	var eye_motion := GAME.eye_motion_of(pony)
+	if eye_motion == null:
+		return
+	GAME.aim_eyes(eye_motion, target)
 
 
 ## Take the act's camera tuning from the runtime's settings snapshot.
@@ -561,9 +592,7 @@ func missionary_face_point() -> Vector3:
 func missionary_vulva_point() -> Vector3:
 	var point := Vector3.ZERO
 	if facts != null:
-		var value: Variant = facts.call_value(facts.anatomy_opening, Vector3.ZERO)
-		if value is Vector3:
-			point = value
+		point = facts.anatomy_opening
 	if point != Vector3.ZERO:
 		return point
 	var pony := _pony_node()

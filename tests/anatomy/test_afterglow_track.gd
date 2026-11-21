@@ -6,11 +6,11 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ##     --script res://mods/unfplap/tests/anatomy/test_afterglow_track.gd
 
 const ACT := preload("res://mods/unfplap/anatomy/act.gd")
-const FACTS := preload("res://mods/unfplap/anatomy/facts.gd")
+const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
+const RIG := preload("res://mods/unfplap/anatomy/rig.gd")
 const PLAYER_PART := preload("res://mods/unfplap/anatomy/player.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
-const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 
 
 
@@ -83,15 +83,15 @@ func _afterglow_tick(pose_id: String) -> Array:
 	anatomy.mesh = mesh
 	anatomy.part_node = part
 	var act: Node = ACT.new()
-	act.call("setup", pony, anatomy, Callable(), Callable())
-	var facts := FACTS.new()
-	facts.penetration_reach = 0.2
-	var view: Variant = VIEW.new()
-	view.id = pose_id
+	root.add_child(act)
+	act.call("setup", pony, anatomy, RIG.new(), Callable())
+	var view := ANATOMY.PoseView.new()
 	view.family = "bed" if pose_id == CATALOG.MISSIONARY else "standing"
 	view.frame = "bed" if pose_id == CATALOG.MISSIONARY else "ground"
-	facts.pose_view = view
-	act.call("afterglow_tick", 0.25, facts)
+	var stage := ANATOMY.ActStage.new()
+	stage.phase = ANATOMY.Phase.AFTERGLOW
+	act.call("set_view", view)
+	act.call("stage", 0.25, stage)
 	return [act, anatomy, part]
 
 
@@ -137,15 +137,15 @@ func run() -> void:
 	var oral_act: Node = oral_rig[0]
 	var oral_anatomy: FakeAnatomy = oral_rig[1]
 	var oral_part: FakePart = oral_rig[2]
-	var oral_facts := FACTS.new()
-	oral_facts.penetration_reach = 0.2
-	var oral_view: Variant = VIEW.new()
+	var oral_view := ANATOMY.PoseView.new()
 	oral_view.family = "standing"
 	oral_view.contact_kind = "mouth"
 	oral_view.contact_target = Vector3(0.3, 0.9, 1.1)
-	oral_facts.pose_view = oral_view
+	var oral_stage := ANATOMY.ActStage.new()
+	oral_stage.phase = ANATOMY.Phase.AFTERGLOW
 	oral_anatomy.tracks.clear()
-	oral_act.call("afterglow_tick", 0.25, oral_facts)
+	oral_act.call("set_view", oral_view)
+	oral_act.call("stage", 0.25, oral_stage)
 	check(oral_anatomy.tracks.size() == 1, "the oral afterglow tracks the part once")
 	if oral_anatomy.tracks.size() == 1:
 		var oral_track: Dictionary = oral_anatomy.tracks[0]
@@ -157,16 +157,13 @@ func run() -> void:
 			"the oral part aims at the mouth anchor")
 		check(oral_part.aim_normal.is_zero_approx(),
 			"the mouth anchor uses the auto aim")
-	var holes_on := SETTINGS.anatomy_holes.get_bool()
-	SETTINGS.anatomy_holes.set_bool(true)
-	oral_act.call("toggle_hole", 2)
 	check(not bool(oral_act.get("_anal")),
-		"the mouth contact refuses the hole")
-	SETTINGS.anatomy_holes.set_bool(holes_on)
+		"the mouth contact keeps the opening neutral")
 	oral_view.contact_kind = "opening"
 	oral_view.contact_target = Vector3.INF
 	oral_anatomy.tracks.clear()
-	oral_act.call("afterglow_tick", 0.25, oral_facts)
+	oral_act.call("set_view", oral_view)
+	oral_act.call("stage", 0.25, oral_stage)
 	check(oral_anatomy.tracks.size() == 1, "the released afterglow tracks the part once")
 	if oral_anatomy.tracks.size() == 1:
 		var released: Dictionary = oral_anatomy.tracks[0]

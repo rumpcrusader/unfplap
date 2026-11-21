@@ -7,8 +7,8 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 
 const ANATOMY := preload("res://mods/unfplap/anatomy/controller.gd")
 const ANATOMY_ACT := preload("res://mods/unfplap/anatomy/act.gd")
-const ANATOMY_SERVICE := preload("res://mods/unfplap/anatomy/service.gd")
-const FACTS := preload("res://mods/unfplap/anatomy/facts.gd")
+const ANATOMY_API := preload("res://mods/unfplap/anatomy/api.gd")
+const RIG := preload("res://mods/unfplap/anatomy/rig.gd")
 const PLAYER_PART := preload("res://mods/unfplap/anatomy/player.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
@@ -31,7 +31,7 @@ class FakePony extends Node3D:
 class FakeAnatomy extends "res://mods/unfplap/anatomy/controller.gd":
 	var calls: Array[String] = []
 
-	func _clear_part() -> void:
+	func clear_part() -> void:
 		calls.append("clear")
 
 
@@ -176,22 +176,21 @@ func _check_face_contact() -> void:
 	anatomy.part_node = part
 	var act: Node = ANATOMY_ACT.new()
 	root.add_child(act)
-	act.setup(pony, anatomy)
-	var view: RefCounted = VIEW.new()
+	act.setup(pony, anatomy, RIG.new(), Callable())
+	var view := ANATOMY_API.PoseView.new()
 	view.family = "bed"
 	view.frame = "bed"
 	view.contact_kind = "face"
 	view.contact_target = Vector3(0.4, 0.5, 0.6)
-	var facts: RefCounted = FACTS.new()
-	facts.state = 2
-	facts.pose_view = view
-	facts.depth = 0.2
-	facts.size_scale = 1.0
-	facts.penetration_m = 0.1
-	facts.penetration_reach = 0.2
-	facts.bed_frame = Transform3D.IDENTITY
+	view.bed_frame = Transform3D.IDENTITY
+	var stage := ANATOMY_API.ActStage.new()
+	stage.phase = ANATOMY_API.Phase.ACTIVE
+	stage.depth = 0.2
+	stage.size_scale = 1.0
+	stage.penetration_m = 0.1
+	act.set_view(view)
 
-	act.tick(0.016, facts)
+	act.stage(0.016, stage)
 	check(anatomy.tracks.is_empty(), "the face contact never tracks the part")
 	check(part.encounters == [false], "the first face tick parts the part once")
 	check(part.aim_normal_writes == 0 and part.aim_opening_writes == 0,
@@ -215,19 +214,14 @@ func _check_face_contact() -> void:
 	check(act.contact_normal().is_zero_approx(),
 		"the face contact carries no normal")
 
-	act.tick(0.016, facts)
+	act.stage(0.016, stage)
 	check(part.encounters == [false], "a second face tick does not part the part again")
 	check(anatomy.tracks.is_empty(), "the face contact still never tracks the part")
-	check(is_same(act.facts(), facts), "the act keeps the context it was ticked with")
-	var holes_on := SETTINGS.anatomy_holes.get_bool()
-	SETTINGS.anatomy_holes.set_bool(true)
-	act.call("toggle_hole", 2)
-	check(not act.anal_turned(), "the hole toggle refuses in the face contact")
-	SETTINGS.anatomy_holes.set_bool(holes_on)
+	check(not act.anal_turned(), "the face contact leaves the opening neutral")
 
 	view.contact_kind = "opening"
 	view.contact_target = Vector3.INF
-	act.tick(0.016, facts)
+	act.stage(0.016, stage)
 	check(part.encounters == [false, true], "the first opening tick restores the part once")
 	check(not act.face_parted(), "the face flag clears on the opening contact")
 	check(anatomy.tracks.size() == 1, "the opening contact resumes the player track")
@@ -265,7 +259,7 @@ func _check_normal_source() -> void:
 	pony.skeleton = sk
 	var act: Node = ANATOMY_ACT.new()
 	root.add_child(act)
-	act.setup(pony, anatomy)
+	act.setup(pony, anatomy, RIG.new(), Callable())
 	var normal: Variant = act.call("_compute_normal", null)
 	check(normal is Vector3 and (normal as Vector3).is_equal_approx(Vector3(0.0, 0.0, 1.0)),
 		"the anatomy rear stays outward even with the opening in front of the hips")
@@ -308,7 +302,7 @@ func run() -> void:
 	var anatomy_act: Node = ANATOMY_ACT.new()
 	var fake_anatomy := FakeAnatomy.new()
 	anatomy_act.anatomy = fake_anatomy
-	anatomy_act.on_climax()
+	anatomy_act.climax()
 	check(fake_anatomy.calls.size() == 1 and fake_anatomy.calls[0] == "clear",
 		"climax clears the shape once")
 	check(absf(anatomy_act.wink_left() - ANATOMY_ACT.CLIMAX_WINK_S) < 0.001,
@@ -426,12 +420,11 @@ func run() -> void:
 	wink_act.free()
 
 	# The facade's debug scale is typed: a Vector3, and infinite when no part is showing.
-	var facade: Node = ANATOMY_SERVICE.new()
+	var facade: ANATOMY_API = ANATOMY_API.new()
 	root.add_child(facade)
-	facade.call("setup")
-	var debug_scale: Vector3 = facade.player_debug_scale()
+	var debug_scale: Vector3 = facade.debug_anon_scale(null)
 	check(debug_scale == Vector3.INF, "no player part answers an infinite debug scale")
-	facade.call("shutdown")
+	facade.shutdown()
 	root.remove_child(facade)
 	facade.free()
 

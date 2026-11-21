@@ -142,8 +142,8 @@ func sync_hud(facts: ACT_FACTS, session: ACT_SESSION, max_climaxes: int,
 	facts.close_earned = bool(afterglow.close_caress_earned) if afterglow != null else false
 	facts.hud_readouts = bool(features.get("hud_readouts", false))
 	facts.hud_controls = bool(features.get("act_controls", false))
-	facts.hole_ready = bool(anatomy.hole_ready()) if anatomy != null else false
-	facts.oral_ready = bool(anatomy.oral_ready()) if anatomy != null else false
+	facts.hole_ready = bool(anatomy.can_target_vulva()) if anatomy != null else false
+	facts.oral_ready = bool(anatomy.can_target_mouth()) if anatomy != null else false
 	facts.auto_on = bool(readiness.auto_active()) if readiness != null else false
 	if facts.auto_on:
 		facts.auto_min_depth = readiness.auto_min_depth()

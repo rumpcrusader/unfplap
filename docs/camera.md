@@ -256,20 +256,20 @@ effect when the panel closes.
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
-| service | world | `world/service.gd` | the eye's camera |
-| service | world | `world/game.gd` | the base-game members the view reads and writes |
-| service | hands | `hands/service.gd` | the caress and the reach the lean drives |
-| service | kiss | `kiss/service.gd` | the kiss lean, side and mouth target |
-| service | poses | `poses/service.gd` | the pose node's typed look-target write |
-| read model | act_facts | `shared/act_facts.gd` | the typed act context the view reads |
-| shared | pose_view | `shared/pose_view.gd` | the pose family, contact kind and lean profile |
+| read model | act_facts | `shared/act_facts.gd` | typed act read model |
+| service | hands | `hands/service.gd` | hand contact and smack |
+| service | kiss | `kiss/service.gd` | kiss control |
+| service | poses | `poses/service.gd` | pose and skeleton |
 | service | settings | `settings/service.gd` | settings declarations and live values |
-| shared | act_state | `shared/act_state.gd` | act state constants |
+| service | world | `world/game.gd` | service dependency |
+| service | world | `world/service.gd` | live scene reads |
 | shared | act_motion | `shared/act_motion.gd` | lean and travel math |
-| shared | body_form | `shared/body_form.gd` | presented body rig and scale for the entrance offset |
-| shared | body_profile | `shared/body_profile.gd` | rig entrance offset math |
+| shared | act_state | `shared/act_state.gd` | shared data |
+| shared | body_form | `shared/body_form.gd` | shared data |
+| shared | body_profile | `shared/body_profile.gd` | shared data |
 | shared | log | `shared/log.gd` | log sink |
 | shared | perf | `shared/perf.gd` | one profiler |
+| shared | pose_view | `shared/pose_view.gd` | pose read model |
 
 ## Lifecycle
 

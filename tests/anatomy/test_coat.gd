@@ -9,6 +9,7 @@ const APPEARANCE := preload("res://mods/unfplap/anatomy/appearance.gd")
 const BODY_COAT_SURFACE := preload("res://mods/unfplap/shared/body_coat.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 const BODY_PROFILE := preload("res://mods/unfplap/shared/body_profile.gd")
+const RIG := preload("res://mods/unfplap/anatomy/rig.gd")
 const COAT := preload("res://mods/unfplap/anatomy/coat.gd")
 const COAT_PATCH := preload("res://mods/unfplap/anatomy/body_coat_patch.gd")
 const GEOMETRY := preload("res://mods/unfplap/anatomy/geometry.gd")
@@ -116,6 +117,7 @@ func run() -> void:
 	get_root().add_child(v2_mi)
 	v2_mi.transform = Transform3D.IDENTITY
 	var v2_anatomy: Node = ANATOMY.new()
+	v2_anatomy.setup(null, null, RIG.new())
 	v2_anatomy.shapes.set_mesh(v2_mi)
 	v2_anatomy.shapes.apply_anal_local(0.030)
 	var open_i := v2_mi.find_blend_shape_by_name("anal_open")
@@ -396,7 +398,7 @@ func run() -> void:
 		"group": {"variants": {"full": {"outputs": [{"entries": entries}]}}},
 		"built": {"full": {"materials": [palette]}}}]}
 	var near_coat := COAT.new()
-	near_coat.setup(near_pony, null)
+	near_coat.setup(near_pony, null, RIG.new())
 	near_coat.set("_body_mesh", near_body)
 	near_coat.set("_body_patched", true)
 	near_coat.call("_refresh_near")
@@ -423,7 +425,7 @@ func run() -> void:
 	shapes.setup(appearance_pony, appearance_pony)
 	shapes.set_mesh(appearance_mesh)
 	var appearance := APPEARANCE.new()
-	appearance.setup(appearance_pony, shapes)
+	appearance.setup(appearance_pony, shapes, RIG.new())
 	appearance.set_mesh(appearance_mesh, null)
 	appearance.apply_material(false)
 	var initial_material := appearance_mesh.get_surface_override_material(0) as ShaderMaterial

@@ -5,6 +5,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ##     --script res://mods/unfplap/tests/anatomy/test_oral_turn.gd
 
 const ORAL := preload("res://mods/unfplap/anatomy/act/oral.gd")
+const RIG := preload("res://mods/unfplap/anatomy/rig.gd")
 
 
 
@@ -56,7 +57,7 @@ func run() -> void:
 	root.add_child(anatomy)
 
 	var oral: RefCounted = ORAL.new()
-	oral.call("setup", pony, anatomy)
+	oral.call("setup", pony, anatomy, RIG.new())
 	var nose: Vector3 = boop.nose_world()
 	check(oral.call("mouth_point").is_equal_approx(
 		nose + Vector3.DOWN * float(ORAL.ORAL_BELOW_NOSE_M)),

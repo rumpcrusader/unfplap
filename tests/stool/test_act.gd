@@ -9,6 +9,8 @@ const ITEM := preload("res://mods/unfplap/stool/item.gd")
 const PROP := preload("res://mods/unfplap/stool/prop.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const STORE := preload("res://world/inventory/inventory_store.gd")
+const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
+const PLAYER_HOST := preload("res://mods/unfplap/anatomy/player_host.gd")
 
 
 
@@ -64,26 +66,30 @@ class FakeFacade extends "res://mods/unfplap/stool/service.gd":
 		return 0.0
 
 
-class FakeController extends "res://mods/unfplap/anatomy/controller.gd":
-	var opening_y := 1.30
-	var entrance_calls := 0
-	var hole_calls := 0
+class FakeAnonHost extends PLAYER_HOST:
+	var root_y := 0.9
 
-	func entrance_point() -> Vector3:
-		entrance_calls += 1
-		return Vector3(0.0, opening_y, 0.0)
-
-	func hole_point(_mix := 0.0) -> Vector3:
-		hole_calls += 1
-		return Vector3(0.0, opening_y, 0.0)
-
-
-class FakeService extends "res://mods/unfplap/anatomy/service.gd":
-	func player_prepare() -> bool:
+	func prepare() -> bool:
 		return true
 
-	func player_root_now() -> Vector3:
-		return Vector3(0.0, 0.9, 0.0)
+	func showing() -> bool:
+		return true
+
+	func root_now() -> Vector3:
+		return Vector3(0.0, root_y, 0.0)
+
+
+class FakeService extends ANATOMY:
+	var opening_y := 1.30
+	var entrance_calls := 0
+	var host := FakeAnonHost.new()
+
+	func anon(_pony: Node3D) -> ANATOMY.AnonBody:
+		return ANATOMY.AnonBody.new(host)
+
+	func entrance_point(_pony: Node3D) -> Vector3:
+		entrance_calls += 1
+		return Vector3(0.0, opening_y, 0.0)
 
 
 class FakeGame extends Node:
@@ -119,17 +125,16 @@ func _fixture() -> Dictionary:
 	WORLD.bind_world(main.game)
 	main.anatomy = FakeService.new()
 	PONIES.anatomy = main.anatomy
-	var ctl := FakeController.new()
 	root.add_child(main)
 	root.add_child(pony)
 	root.add_child(player)
 	root.add_child(game)
 	root.add_child(inventory)
 	var act: RefCounted = ACT.new()
-	act.bind(facade, pony, player, ctl)
+	act.bind(facade, pony, player, main.anatomy)
 	return {
 		"act": act, "facade": facade, "pony": pony, "player": player, "main": main,
-		"game": game, "inventory": inventory, "store": store, "ctl": ctl,
+		"game": game, "inventory": inventory, "store": store, "anatomy": main.anatomy,
 	}
 
 
@@ -140,7 +145,6 @@ func _free(made: Dictionary) -> void:
 	var main: FakeMain = made["main"]
 	var game: FakeGame = made["game"]
 	var inventory: FakeInventory = made["inventory"]
-	var ctl: FakeController = made["ctl"]
 	root.remove_child(pony)
 	pony.free()
 	root.remove_child(player)
@@ -150,7 +154,6 @@ func _free(made: Dictionary) -> void:
 	main.anatomy.free()
 	root.remove_child(main)
 	main.free()
-	ctl.free()
 
 
 func run() -> void:
@@ -169,19 +172,19 @@ func _check_rule() -> void:
 	var act: RefCounted = made["act"]
 	check(bool(act.call("applies")), "the rule applies with anatomy and a human player")
 	check(is_equal_approx(float(act.call("gap_m")), 0.40), "the fake facade gap reaches the handle")
-	var ctl: FakeController = made["ctl"]
-	check(ctl.entrance_calls == 1 and ctl.hole_calls == 0,
-		"the reach reads the cached entrance point, not the live hole")
+	var anatomy: FakeService = made["anatomy"]
+	check(anatomy.entrance_calls == 1,
+		"the reach reads the anatomy's cached entrance point")
 	check(int(act.call("needed_count")) == 2, "the facade step count reaches the handle")
 	check(bool(act.call("required")), "a positive step count is required")
 	var text := str(act.call("state_text"))
 	check(text.contains("need=2") and text.contains("active=false"),
 		"the debug row reports the need and the inactive stack")
-	var no_ctl := _fixture()
-	(no_ctl["act"] as RefCounted).anatomy_ctl = null
-	check(not bool((no_ctl["act"] as RefCounted).call("applies")),
-		"a missing anatomy controller makes the rule inapplicable")
-	_free(no_ctl)
+	var no_anatomy := _fixture()
+	(no_anatomy["act"] as RefCounted).anatomy = null
+	check(not bool((no_anatomy["act"] as RefCounted).call("applies")),
+		"a missing anatomy API makes the rule inapplicable")
+	_free(no_anatomy)
 	(made["facade"] as FakeFacade).gap_value = 0.1
 	(made["facade"] as FakeFacade).need = 0
 	check(not bool(act.call("required")), "a below-threshold gap needs no stool")

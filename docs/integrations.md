@@ -453,22 +453,23 @@ overlay reads them.
 ## Dependencies
 
 ### Uses
-| service | world | `world/service.gd` | the world root and the LOD rebuild |
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
-| service | settings | `settings/service.gd` | feature flags, hull precision and the cached values |
-| service | body_change | `body_change/source.gd` | typed body-change provider base |
-| shared | act_state | `shared/act_state.gd` | act state constants |
-| shared | body_change_policy | `shared/body_change_policy.gd` | provider offer/reveal policy base |
-| shared | body_profile | `shared/body_profile.gd` | rig profiles for the borrowed forms |
-| shared | defaults_data | `shared/defaults_data.gd` | the shipped prompt document |
-| shared | integrations | `shared/integrations.gd` | verified mod catalog |
+| service | anatomy | `anatomy/api.gd` | anatomy and tail seat |
+| service | body_change | `body_change/source.gd` | service dependency |
+| service | ponies | `ponies/service.gd` | per-pony runtime registry |
+| service | settings | `settings/service.gd` | settings declarations and live values |
+| service | world | `world/service.gd` | live scene reads |
+| shared | act_state | `shared/act_state.gd` | shared data |
+| shared | body_change_policy | `shared/body_change_policy.gd` | shared data |
+| shared | body_profile | `shared/body_profile.gd` | shared data |
+| shared | defaults_data | `shared/defaults_data.gd` | shipped settings and catalog documents |
+| shared | integrations | `shared/integrations.gd` | supported mod catalog |
 | shared | log | `shared/log.gd` | log sink |
 | shared | perf | `shared/perf.gd` | one profiler |
-| shared | prompt_text | `shared/prompt_text.gd` | the prompt renderer |
-| shared | settings_change | `shared/settings_change.gd` | the settings change notification |
-| service | ponies | `ponies/service.gd` | the live character list and the late prepare |
+| shared | prompt_text | `shared/prompt_text.gd` | shared data |
+| shared | settings_change | `shared/settings_change.gd` | settings change notification |
 
 ### Used by
 

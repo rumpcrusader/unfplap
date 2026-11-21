@@ -222,17 +222,17 @@ memory is marked used only after the caller queues the line.
 ## Dependencies
 
 ### Uses
-| service | world | `world/service.gd` | the world root |
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
 | service | eligibility | `eligibility/service.gd` | adult and consent gate |
-| service | ponies | `ponies/service.gd` | the eligibility handle |
-| service | world | `world/game.gd` | the base-game events, bonds, story and mod-state reads |
+| service | ponies | `ponies/service.gd` | per-pony runtime registry |
+| service | world | `world/game.gd` | service dependency |
+| service | world | `world/service.gd` | live scene reads |
 | shared | act_face | `shared/act_face.gd` | face beat data |
-| shared | defaults_data | `shared/defaults_data.gd` | the shipped prompt document |
-| shared | pony_id | `shared/pony_id.gd` | stable pony id |
-| shared | prompt_text | `shared/prompt_text.gd` | prompt graph and rendering |
+| shared | defaults_data | `shared/defaults_data.gd` | shipped settings and catalog documents |
+| shared | pony_id | `shared/pony_id.gd` | shared data |
+| shared | prompt_text | `shared/prompt_text.gd` | shared data |
 | store | act_history | `shared/act_history.gd` | stored history rows |
 
 ## Lifecycle

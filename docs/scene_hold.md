@@ -113,10 +113,10 @@ teardown. A failed start leaves the same ownership as a failed release today.
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
-| service | world | `world/service.gd` | Anon's body and reach |
 | service | world | `world/game.gd` | service dependency |
+| service | world | `world/service.gd` | live scene reads |
+| shared | act_state | `shared/act_state.gd` | shared data |
 
-| shared | act_state | `shared/act_state.gd` | act state constants |
 ## Tests
 
 `tests/scene_hold/` covers the claim/keep/release, the negotiation lease in `IDLE`, the token the

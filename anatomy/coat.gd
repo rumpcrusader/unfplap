@@ -10,7 +10,7 @@ const GEOMETRY := preload("res://mods/unfplap/anatomy/geometry.gd")
 const BODY_COAT_PATCH := preload("res://mods/unfplap/anatomy/body_coat_patch.gd")
 const BODY_COAT := preload("res://mods/unfplap/shared/body_coat.gd")
 const STILL_ZONE_DEBUG := preload("res://mods/unfplap/anatomy/still_zone_debug.gd")
-const GAME := preload("res://mods/unfplap/world/game.gd")
+const RIG := preload("res://mods/unfplap/anatomy/rig.gd")
 
 const BODY_ANAL_REACH := 0.09
 const VULVA_RELIEF_M := 0.002
@@ -19,6 +19,7 @@ const PALETTE_ENTRIES := 32
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 var pony: Node3D
+var rig: RIG
 var mesh: MeshInstance3D
 var skeleton: Skeleton3D
 var shapes: RefCounted
@@ -46,9 +47,10 @@ var _materials: Array = []
 var _targets: Array = []
 
 
-func setup(pony_node: Node3D, shapes_node: RefCounted) -> void:
+func setup(pony_node: Node3D, shapes_node: RefCounted, rig_node: RIG) -> void:
 	pony = pony_node
 	shapes = shapes_node
+	rig = rig_node
 
 
 func set_mesh(mesh_node: MeshInstance3D, skeleton_node: Skeleton3D) -> void:
@@ -113,7 +115,7 @@ func apply() -> void:
 		restore()
 		# The body material is shared across an identity, so the per-pony copy lives on FlankTouch
 		# along with the outline.
-		GAME.own_body_materials(pony)
+		rig.own_body_materials(pony)
 		var source := body.get_active_material(surface) as ShaderMaterial
 		if source == null:
 			var active := body.get_active_material(surface)

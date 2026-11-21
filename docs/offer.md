@@ -218,24 +218,24 @@ private Agreement does not start on a stale answer.
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
-| service | hud | `hud/service.gd` | the prompt row unit, the HUD fallback and the toasts |
-| service | negotiation | `negotiation/service.gd` | the live Agreement offer, the exact match and the start report |
-| service | ponies | `ponies/service.gd` | the live runtime, the act-target rule and the act-running gate |
-| service | poses | `poses/service.gd` | the warmed authored pose assets |
-| service | privacy | `privacy/service.gd` | the fresh sample before a private Agreement auto-starts |
-| service | settings | `settings/service.gd` | the act key's cap label |
-| service | world | `world/service.gd` | player, camera, mares, headset, menu panel and pause |
-| service | world | `world/game.gd` | the seated couch partner and the player's seat |
-| shared | act_keys | `shared/act_keys.gd` | the act key's key cap label |
+| service | hud | `hud/service.gd` | act HUD card |
+| service | negotiation | `negotiation/service.gd` | service dependency |
+| service | ponies | `ponies/service.gd` | per-pony runtime registry |
+| service | poses | `poses/service.gd` | pose and skeleton |
+| service | privacy | `privacy/service.gd` | service dependency |
+| service | settings | `settings/service.gd` | settings declarations and live values |
+| service | world | `world/game.gd` | service dependency |
+| service | world | `world/service.gd` | live scene reads |
+| shared | act_keys | `shared/act_keys.gd` | shared data |
 | shared | log | `shared/log.gd` | log sink |
 | shared | perf | `shared/perf.gd` | one profiler |
-| shared | pony_id | `shared/pony_id.gd` | the mare id in the start log lines |
-| shared | pose_catalog | `shared/pose_catalog.gd` | the two offerable pose ids |
-| shared | pose_offer | `shared/pose_offer.gd` | the typed act offer |
-| shared | pose_options | `shared/pose_options.gd` | the exact option a hotkey match names |
-| shared | pose_specs | `shared/pose_specs.gd` | the two offerable assets |
+| shared | pony_id | `shared/pony_id.gd` | shared data |
+| shared | pose_catalog | `shared/pose_catalog.gd` | pose ids and schema |
+| shared | pose_offer | `shared/pose_offer.gd` | typed act offer |
+| shared | pose_options | `shared/pose_options.gd` | shared data |
+| shared | pose_specs | `shared/pose_specs.gd` | pose capability table |
 | shared | rump_cone | `shared/rump_cone.gd` | standing offer zone |
-| shared | settings_change | `shared/settings_change.gd` | the settings change notification |
+| shared | settings_change | `shared/settings_change.gd` | settings change notification |
 
 ### Used by
 

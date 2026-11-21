@@ -10,8 +10,6 @@ const ACT_SESSION := preload("res://mods/unfplap/act/session.gd")
 const POSE_SESSION := preload("res://mods/unfplap/poses/service.gd")
 const PERF := preload("res://mods/unfplap/shared/perf.gd")
 const ACT_FACE := preload("res://mods/unfplap/shared/act_face.gd")
-const PONIES := preload("res://mods/unfplap/ponies/service.gd")
-const ANATOMY := preload("res://mods/unfplap/anatomy/service.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
 
 var host: ACT_HOST = null
@@ -36,8 +34,7 @@ func presentation(delta: float) -> void:
 		return
 	session.advance_act_seconds(delta)
 	if session.pose_family() == "bed":
-		context.anatomy.bind(context.anatomy_host)
-		context.anatomy.aim_eyes()
+		context.camera.aim_eyes()
 	var boop := GAME.boop_of(host.pony)
 	if boop != null:
 		GAME.sustain_blush(boop, ACT_FACE.blush_for(ACT_FACE.phase_for(session.state),
@@ -56,7 +53,7 @@ func log_settled() -> void:
 
 ## The posed Anon body's diagnostic row, or silence when the act has no Anon body.
 func pose_diag_row() -> String:
-	return context.anatomy.diag_row(context.camera.missionary_face_point(),
+	return context.pose.act_body_diag_row(context.camera.missionary_face_point(),
 		context.camera.missionary_vulva_point())
 
 
@@ -90,10 +87,9 @@ func fluid_ground_y() -> float:
 ## The anatomy service's visible shaft length, or zero when the part is not showing. The readiness
 ## stroke state turns zero into the nominal length, so the mouse feel is the same with it off.
 func shaft_length_m() -> float:
-	var service := PONIES.anatomy as ANATOMY
-	if service == null:
+	if context.anon == null:
 		return 0.0
-	var length := service.player_shaft_length_m()
+	var length: float = context.anon.shaft_length_m()
 	return length if length > 0.001 else 0.0
 
 
@@ -120,4 +116,5 @@ func stop_speech() -> void:
 		return
 	if GAME.pony_speaking(host.pony):
 		GAME.stop_speaking(host.pony)
-		context.anatomy.hold_oral_mouth()
+		if context.anatomy != null:
+			context.anatomy.hold_mouth()

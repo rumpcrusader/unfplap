@@ -278,15 +278,15 @@ never clamped; each one's `##` comment describes it. See `docs/settings.md`.
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
-| service | dialogue | `dialogue/service.gd` | the last spoken line and the peak text |
+| service | dialogue | `dialogue/service.gd` | act dialogue and prompt notes |
 | service | memory | `memory/service.gd` | act memory and witness pass |
-| service | readiness | `readiness/service.gd` | the act counters and the peak meter |
-| service | world | `world/service.gd` | the live world root |
+| service | readiness | `readiness/service.gd` | readiness and auto stroke |
 | service | settings | `settings/service.gd` | settings declarations and live values |
+| service | world | `world/service.gd` | live scene reads |
+| shared | defaults_data | `shared/defaults_data.gd` | shipped settings and catalog documents |
 | shared | log | `shared/log.gd` | log sink |
-| shared | preferences | `shared/preferences.gd` | profile math and defaults |
-| shared | defaults_data | `shared/defaults_data.gd` | the shipped prompt document |
-| shared | prompt_text | `shared/prompt_text.gd` | prompt graph and rendering |
+| shared | preferences | `shared/preferences.gd` | profile schema and math |
+| shared | prompt_text | `shared/prompt_text.gd` | shared data |
 | shared | relationship_cue | `shared/relationship_cue.gd` | relationship prompt note |
 | store | act_history | `shared/act_history.gd` | stored history rows |
 

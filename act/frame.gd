@@ -14,7 +14,6 @@ const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
-const ANATOMY := preload("res://mods/unfplap/anatomy/service.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
 const STOOL := preload("res://mods/unfplap/stool/service.gd")
@@ -707,6 +706,5 @@ static func _floor_y_at(rig: Rig, at: Vector3, body: Node3D) -> float:
 
 
 func _reset_pelvis() -> void:
-	var service := PONIES.anatomy as ANATOMY
-	if service != null:
-		service.player_reset_pelvis()
+	if context.anon != null:
+		context.anon.reset_pelvis()

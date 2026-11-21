@@ -96,12 +96,12 @@ answer is public.
 ## Dependencies
 
 ### Uses
-| service | world | `world/service.gd` | player and mares |
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
-| shared | pony_id | `shared/pony_id.gd` | target label |
-| shared | privacy_rules | `shared/privacy_rules.gd` | offer and cuddle formulas |
+| service | world | `world/service.gd` | live scene reads |
+| shared | pony_id | `shared/pony_id.gd` | shared data |
+| shared | privacy_rules | `shared/privacy_rules.gd` | shared data |
 
 ## Tests
 

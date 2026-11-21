@@ -8,6 +8,7 @@ const CONTEXT := preload("res://mods/unfplap/reactions/context.gd")
 const FLANK_TOUCH := preload("res://world/characters/hybrid_mare/pony_flank_touch.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
 const RUMP_CONE := preload("res://mods/unfplap/shared/rump_cone.gd")
 
 ## The stock jiggle clamps its own impulse to 0.3..1.0; this scales the resolved amount.
@@ -22,7 +23,7 @@ const LOG := preload("res://mods/unfplap/shared/log.gd")
 ## Scene handles. The runtime binds them; tests may inject a fake flank and anatomy.
 var pony: Node3D = null
 var flank: Node = null
-var anatomy: Node = null
+var anatomy: ANATOMY = null
 ## The standing tail modifier, null outside a standing act.
 var tail: SkeletonModifier3D = null
 
@@ -47,12 +48,23 @@ var _heart_times: Array[float] = []
 var _heart_counts: Array[int] = []
 
 
-## Bind the act's pony and anatomy; a test may inject its fake flank.
-func bind_scene(pony_node: Node3D, anatomy_ctl: Node, flank_ctl: Node = null) -> void:
+## Bind the act's pony and the anatomy API; a test may inject its fake flank.
+func bind_scene(pony_node: Node3D, anatomy_api: ANATOMY, flank_ctl: Node = null) -> void:
 	pony = pony_node
-	anatomy = anatomy_ctl
+	anatomy = anatomy_api
 	if flank_ctl != null:
 		flank = flank_ctl
+	_follow_coat()
+
+
+## Ask anatomy to register its current and future coat/outline materials with the flank.
+func _follow_coat() -> void:
+	if anatomy == null or not is_instance_valid(pony):
+		return
+	if not is_instance_valid(flank):
+		flank = pony.get_node_or_null("FlankTouch")
+	if is_instance_valid(flank):
+		anatomy.follow_body_coat(pony, flank)
 
 
 ## The standing tail modifier changes with the pose, so the pose builder binds it.
@@ -101,54 +113,7 @@ func end_act() -> void:
 func body_coat_target() -> void:
 	if not SETTINGS.body_coat_deform.get_bool():
 		return
-	if not is_instance_valid(flank) and is_instance_valid(pony):
-		flank = pony.get_node_or_null("FlankTouch")
-	if not is_instance_valid(flank) or not is_instance_valid(anatomy):
-		return
-	if not anatomy.is_attached():
-		return
-	var targets: Variant = flank.get("_jiggle_targets")
-	if not targets is Array:
-		return
-	var pairs: Variant = anatomy.body_coat_targets()
-	if pairs is Array and (pairs as Array).is_empty():
-		anatomy.body_coat_refresh()
-		pairs = anatomy.body_coat_targets()
-	if pairs is Array and not (pairs as Array).is_empty():
-		for pair_v: Variant in pairs as Array:
-			if not pair_v is Array:
-				continue
-			var pair := pair_v as Array
-			if pair.size() < 2 or not pair[0] is ShaderMaterial \
-					or not pair[1] is MeshInstance3D:
-				continue
-			_add_coat_target(targets as Array, pair[0] as ShaderMaterial,
-				pair[1] as MeshInstance3D)
-		return
-	var body: Variant = anatomy.body_coat_mesh()
-	var mat: Variant = anatomy.body_coat_material()
-	if not is_instance_valid(body) or not body is MeshInstance3D \
-			or not is_instance_valid(mat) or not mat is ShaderMaterial:
-		# The near mesh can be rebuilt between the anatomy's visibility polls. Catch up now
-		# instead of waiting for the next poll and losing a few thrusts of body wobble.
-		anatomy.body_coat_refresh()
-		body = anatomy.body_coat_mesh()
-		mat = anatomy.body_coat_material()
-	if not is_instance_valid(body) or not body is MeshInstance3D \
-			or not is_instance_valid(mat) or not mat is ShaderMaterial:
-		return
-	_add_coat_target(targets as Array, mat as ShaderMaterial, body as MeshInstance3D)
-	var outline: Variant = anatomy.body_outline_material()
-	if is_instance_valid(outline) and outline is ShaderMaterial:
-		_add_coat_target(targets as Array, outline as ShaderMaterial, body as MeshInstance3D)
-
-
-func _add_coat_target(targets: Array, material: ShaderMaterial, body: MeshInstance3D) -> void:
-	for target: Variant in targets:
-		if target is Array and not (target as Array).is_empty() \
-				and (target as Array)[0] == material:
-			return
-	targets.append([material, body])
+	_follow_coat()
 
 
 ## The thrust's rump wobble. `FlankTouch` holds one jiggle at a time, so both flanks share the

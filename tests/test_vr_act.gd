@@ -143,8 +143,10 @@ func run() -> void:
 
 	var hip := Node3D.new()
 	var act := VR_ACT.new()
-	act.set("bridge", bridge)
-	act.set("align", Callable(bridge, "apply_anon_align"))
+	act.set("forward", Callable(bridge, "vr_forward"))
+	act.set("depth", Callable(bridge, "vr_depth"))
+	act.set("toggle_hole", Callable(bridge, "toggle_hole"))
+	act.set("oral_ready", Callable(bridge, "oral_ready"))
 	act.set("touch", Callable(bridge, "on_touch"))
 	act.set("pony_source", Callable(bridge, "pony_node"))
 	act.set("command", Callable(bridge, "command"))
@@ -220,7 +222,6 @@ func run() -> void:
 
 	# The VR act also holds the anatomy part on the tracked hip and caresses from real petting.
 	act.call("_process", 0.02)
-	check(_count(bridge, "align") == 1, "process applies the hip alignment once")
 	touch.petting = true
 	_tick(act)
 	check(_count(bridge, "touch:caress") == 1, "petting caresses through the act")

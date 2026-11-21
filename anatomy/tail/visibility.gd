@@ -6,19 +6,24 @@ extends Node
 
 const TAIL_HIDE := preload("res://mods/unfplap/anatomy/tail/hide.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
-const GAME := preload("res://mods/unfplap/world/game.gd")
+const RIG := preload("res://mods/unfplap/anatomy/rig.gd")
 const GROUP := "ai_characters"
 ## Only the chain root is collapsed; every child bone inherits its scale, so the whole tail
 ## shrinks without stacking tiny scales down the chain.
 const HAIR_BONES: Array[StringName] = [&"mTail1"]
 const BODY_BONES: Array[StringName] = [&"pony_tail_01"]
 
+var rig: RIG = null
 var _clock := 0.0
 ## True while the Debug switch is on. The anatomy facade pushes it, so nothing reads Settings
 ## here per frame.
 var _on := false
 ## pony -> the modifiers installed on its hair and body skeletons (`Array[TAIL_HIDE]`).
 var _pairs: Dictionary[Node, Array] = {}
+
+
+func setup(rig_node: RIG) -> void:
+	rig = rig_node
 
 
 func _ready() -> void:
@@ -55,8 +60,10 @@ func _sync() -> void:
 			var fresh: Array[TAIL_HIDE] = []
 			_pairs[pony] = fresh
 		var pair: Array[TAIL_HIDE] = _pairs[pony]
-		_attach(pair, GAME.hair_skeleton_of(pony), HAIR_BONES)
-		_attach(pair, GAME.skeleton_of(pony), BODY_BONES)
+		if rig == null:
+			continue
+		_attach(pair, rig.hair_skeleton_of(pony), HAIR_BONES)
+		_attach(pair, rig.skeleton_of(pony), BODY_BONES)
 	for pony: Node in _pairs.keys():
 		if not is_instance_valid(pony):
 			_pairs.erase(pony)

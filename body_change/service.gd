@@ -5,7 +5,7 @@ extends "res://mods/unfplap/shared/service.gd"
 ## Import: body_change/service.gd only
 ## Per-body form store, provider and binding registries, binding fan-out.
 
-const ANATOMY_BINDING := preload("res://mods/unfplap/anatomy/body_binding.gd")
+const ANATOMY_BINDING := preload("res://mods/unfplap/body_change/anatomy_binding.gd")
 const BODY_BINDING := preload("res://mods/unfplap/shared/body_binding.gd")
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
 const BODY_CHANGE_POLICY := preload("res://mods/unfplap/shared/body_change_policy.gd")

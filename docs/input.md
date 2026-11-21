@@ -179,20 +179,20 @@ The controls table is `docs/runtime.md`. Debug actions and the wheel are in `doc
 ## Dependencies
 
 ### Uses
-| service | world | `world/service.gd` | menus, headset, player and the act chat |
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
 | service | debug | `debug/service.gd` | debug action registry |
-| service | offer | `offer/service.gd` | the act key's one start |
-| service | settings | `settings/service.gd` | the `act_key` keycode and the shield flag |
-| shared | act_keys | `shared/act_keys.gd` | action name, legacy fallback and cap labels |
-| shared | act_state | `shared/act_state.gd` | act state constants |
-| shared | act_commands | `shared/act_commands.gd` | the ids `V`/`N` emit |
+| service | offer | `offer/service.gd` | idle act offer and hint |
+| service | ponies | `ponies/service.gd` | per-pony runtime registry |
+| service | settings | `settings/service.gd` | settings declarations and live values |
+| service | world | `world/game.gd` | service dependency |
+| service | world | `world/service.gd` | live scene reads |
+| shared | act_commands | `shared/act_commands.gd` | act command vocabulary |
+| shared | act_keys | `shared/act_keys.gd` | shared data |
+| shared | act_state | `shared/act_state.gd` | shared data |
 | shared | log | `shared/log.gd` | log sink |
-| shared | settings_change | `shared/settings_change.gd` | the settings change notification |
-| service | ponies | `ponies/service.gd` | the live act's runtime |
-| service | world | `world/game.gd` | the seated player's Q, space and rest holds |
+| shared | settings_change | `shared/settings_change.gd` | settings change notification |
 
 ## Tests
 

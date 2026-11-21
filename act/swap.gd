@@ -13,6 +13,8 @@ const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
+const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
+const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 const State := ACT_STATE.State
@@ -69,9 +71,9 @@ func rebind_body() -> void:
 	context.face.bind(host.pony as Node3D, host.node)
 	context.audio.bind_identity(host.pony, session.pony_id, session.bed)
 	session.refresh_view()
-	context.anatomy.bind(context.anatomy_host)
-	context.anatomy.refresh()
-	context.reactions.bind_scene(host.pony as Node3D, context.anatomy.controller)
+	session.refresh_anatomy()
+	context.reactions.bind_scene(host.pony as Node3D,
+		PONIES.anatomy, _flank())
 	var view := context.pose.view()
 	context.hands.pose_changed(view)
 	context.kiss.pose_changed(view)
@@ -135,8 +137,7 @@ func remember_auto() -> void:
 
 func release_act_body() -> void:
 	context.wings.release()
-	context.anatomy.bind(context.anatomy_host)
-	context.anatomy.end()
+	session.release_anatomy()
 
 
 func release_scene() -> void:
@@ -175,9 +176,17 @@ func resume_body() -> void:
 
 
 func prepare_anatomy_act() -> void:
-	context.anatomy.bind(context.anatomy_host)
-	context.anatomy.refresh()
-	context.anatomy.begin_act()
+	session.refresh_anatomy()
+	var view := context.pose.view()
+	if view == null:
+		return
+	var wrap := ANATOMY.PoseView.new()
+	wrap.family = str(view.family)
+	wrap.frame = str(view.frame)
+	wrap.contact_kind = str(view.contact_kind)
+	wrap.contact_target = view.contact_target if view.contact_target is Vector3 else Vector3.INF
+	wrap.bed_frame = context.pose._bed_frame_value()
+	session.begin_anatomy(wrap, wrap.bed_frame)
 
 
 func apply_resume_settings() -> void:
@@ -187,7 +196,7 @@ func apply_resume_settings() -> void:
 
 
 func rebind_reactions() -> void:
-	context.reactions.bind_scene(host.pony as Node3D, context.anatomy.controller)
+	context.reactions.bind_scene(host.pony as Node3D, PONIES.anatomy, _flank())
 	context.reactions.apply_radius()
 
 
@@ -225,8 +234,7 @@ func reset_lean() -> void:
 func open_camera() -> void:
 	if context.camera.begin_act(session.pose_family(), session.player_pony,
 			WORLD.headset_view()):
-		context.anatomy.bind(context.anatomy_host)
-		context.anatomy.vr_start()
+		session.begin_vr()
 
 
 func reset_wings() -> void:
@@ -258,9 +266,11 @@ func apply_pose_change() -> void:
 	context.pose.pose_changed(context.pose.view())
 
 
-func apply_anatomy_live() -> void:
-	context.anatomy.bind(context.anatomy_host)
-	context.anatomy.apply_live()
+## The flank the reactions facade jiggles and patches; resolved by the scene adapter.
+func _flank() -> Node3D:
+	if not is_instance_valid(host.pony):
+		return null
+	return host.pony.get_node_or_null("FlankTouch") as Node3D
 
 
 func begin_integrations() -> void:

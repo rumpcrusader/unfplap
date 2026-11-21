@@ -7,19 +7,21 @@ const ORAL_MOUTH := "D"
 const ORAL_BELOW_NOSE_M := 0.03
 
 const CONTROLLER := preload("res://mods/unfplap/anatomy/controller.gd")
-const GAME := preload("res://mods/unfplap/world/game.gd")
+const RIG := preload("res://mods/unfplap/anatomy/rig.gd")
 
 var pony: Node3D = null
 var anatomy: CONTROLLER = null
+var rig: RIG = null
 ## The player's size scale, written by the act each tick from its typed facts.
 var size_scale := 1.0
 
 var _viseme := ""
 
 
-func setup(pony_node: Node3D, anatomy_node: CONTROLLER) -> void:
+func setup(pony_node: Node3D, anatomy_node: CONTROLLER, rig_node: RIG) -> void:
 	pony = pony_node
 	anatomy = anatomy_node
+	rig = rig_node
 	reset()
 
 
@@ -57,35 +59,37 @@ func opening() -> Vector3:
 
 func set_viseme(letter: String) -> void:
 	_viseme = letter
-	GAME.set_viseme(_pony_mouth(), letter)
+	if rig != null:
+		rig.set_viseme(_pony_mouth(), letter)
 
 
 ## Re-apply the current mouth shape after a speech stop. The base game restores its rest viseme
 ## and the oral segment owns the open mouth only while the edge holds it.
 func hold_viseme() -> void:
-	if _viseme.is_empty():
+	if _viseme.is_empty() or rig == null:
 		return
-	GAME.set_viseme(_pony_mouth(), _viseme)
+	rig.set_viseme(_pony_mouth(), _viseme)
 
 
 func clear() -> void:
 	_viseme = ""
-	GAME.clear_viseme(_pony_mouth())
+	if rig != null:
+		rig.clear_viseme(_pony_mouth())
 
 
 func _head_ends() -> Array:
-	if not is_instance_valid(pony):
+	if not is_instance_valid(pony) or rig == null:
 		return []
-	var boop := GAME.boop_of(pony)
-	var skeleton := GAME.head_skeleton_of(boop)
+	var boop := rig.boop_of(pony)
+	var skeleton := rig.head_skeleton_of(boop)
 	if skeleton == null:
 		return []
 	var bone := skeleton.find_bone("mHead")
 	if bone < 0:
 		return []
 	return [skeleton.global_transform * skeleton.get_bone_global_pose(bone).origin,
-		GAME.nose_world(boop)]
+		rig.nose_world(boop)]
 
 
 func _pony_mouth() -> Node:
-	return GAME.mouth_of(GAME.head_of(pony))
+	return rig.mouth_of(rig.head_of(pony))

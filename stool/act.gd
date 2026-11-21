@@ -2,8 +2,7 @@ extends RefCounted
 ## One act's footstool handle: reach rule, case loans, stack lifetime and item return.
 ## Contract: `docs/stool.md`
 
-const PONIES := preload("res://mods/unfplap/ponies/service.gd")
-const ANATOMY := preload("res://mods/unfplap/anatomy/service.gd")
+const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
@@ -18,8 +17,8 @@ const PROP := preload("res://mods/unfplap/stool/prop.gd")
 var facade: SERVICE = null
 var pony: Node3D = null
 var player: Node3D = null
-## The per-act anatomy controller; the player part comes from the anatomy service.
-var anatomy_ctl: ANATOMY.CONTROLLER = null
+## The world anatomy API; the Anon part comes from its handle.
+var anatomy: ANATOMY = null
 
 ## Live act state.
 var active := false
@@ -44,11 +43,11 @@ var _hotkey_stool_have := 0
 ## Bind the scene nodes for this act. The runtime refreshes them on every access, so a suite can
 ## build a runtime without entering the tree.
 func bind(facade_node: SERVICE, pony_node: Node3D, player_node: Node3D,
-		anatomy_node: ANATOMY.CONTROLLER) -> void:
+		anatomy_api: ANATOMY) -> void:
 	facade = facade_node
 	pony = pony_node
 	player = player_node
-	anatomy_ctl = anatomy_node
+	anatomy = anatomy_api
 
 
 ## Whether the footstool rule can apply at all: standing desktop human Anon, the feature and the
@@ -69,9 +68,9 @@ func applies() -> bool:
 		return false
 	if GAME.headset_view(WORLD.game):
 		return false
-	if not is_instance_valid(anatomy_ctl):
+	if anatomy == null:
 		return false
-	return true
+	return anatomy.anon(pony).showing() or anatomy.entrance_point(pony).is_finite()
 
 
 ## The live vertical gap: her opening above her hooves against his part above his feet.
@@ -79,13 +78,11 @@ func applies() -> bool:
 func gap_m() -> float:
 	if not applies():
 		return NAN
-	var service := _anatomy()
-	if service == null:
+	var anon := anatomy.anon(pony)
+	if not anon.prepare():
 		return NAN
-	if not service.player_prepare():
-		return NAN
-	var opening := anatomy_ctl.entrance_point()
-	var part := service.player_root_now()
+	var opening := anatomy.entrance_point(pony)
+	var part := anon.root_now()
 	if not opening.is_finite() or not part.is_finite():
 		return NAN
 	return facade.gap(opening.y, pony.global_position.y, part.y, player.global_position.y)
@@ -160,15 +157,15 @@ func blocks_start(reasons: PackedStringArray) -> bool:
 
 func state_text() -> String:
 	var store := inventory_store()
-	var anatomy_ok := is_instance_valid(anatomy_ctl)
-	var opening := Vector3.ZERO
+	var anatomy_ok := anatomy != null
+	var opening := Vector3.INF
 	if anatomy_ok:
-		opening = anatomy_ctl.hole_point(0.0)
-	var service := _anatomy()
+		opening = anatomy.entrance_point(pony)
+	var anon := anatomy.anon(pony) if anatomy != null else null
 	var part := Vector3.ZERO
 	var part_ok := false
-	if service != null and service.player_prepare():
-		var value := service.player_root_now()
+	if anon != null and anon.prepare():
+		var value := anon.root_now()
 		if value.is_finite():
 			part = value
 			part_ok = true
@@ -323,6 +320,4 @@ func inventory_store() -> Object:
 	return GAME.case_store(GAME.inventory(WORLD.game))
 
 
-## The anatomy facade as its typed self; null when the host has none.
-func _anatomy() -> ANATOMY:
-	return PONIES.anatomy as ANATOMY
+

@@ -25,7 +25,7 @@ It does not cover eligibility, act readiness, thrust scoring, pose or camera rul
 
 | File | Role |
 |---|---|
-| `anatomy/service.gd` | world facade: per-pony controllers, player part, tail seat/visibility and the placement delegate |
+| `anatomy/api.gd` | world facade: per-pony controllers, player part, tail seat/visibility and the placement delegate |
 | `anatomy/body_binding.gd` | the anatomy body binding: forwards a presented body's form to the facade |
 | `anatomy/placement_editor.gd` | the Anatomy Placement editor: the debug target, the placement and reset actions and the report |
 | `anatomy/controller.gd` | persistent per-mare shell: placement, shapes, coat and appearance forwards, the player-part handle, act lifecycle and the typed-facts boundary |
@@ -68,7 +68,7 @@ The internal entry points are:
   controller on attach and seats the tail on
   every prepare, `_on_player` creates the player part, and the placement debug buttons forward to
   the service.
-- `anatomy/service.gd` owns the per-pony controllers, the player part, tail seat/visibility and the
+- `anatomy/api.gd` owns the per-pony controllers, the player part, tail seat/visibility and the
   placement editor. It supplies the typed facts, the service, consent, status and the dock
   refresh to each controller, and pushes the live player part to every controller on a player
   rebuild. Runtime and pose systems use its methods; no other system needs the player node or a
@@ -403,6 +403,12 @@ fade. The hull block is in the copied compatibility shaders under
   v0-v3 shifts live only in that migration.
 - Old skin tones map to the slider anchors; an old `teats = false` file keeps the strip off once.
   Retired anatomy keys are erased on load and unknown keys are inert.
+
+## Rig contract
+
+`anatomy/rig.gd` is the anatomy package's one game boundary: it wraps every `world/game.gd` read
+and command anatomy makes. It is constructed by `anatomy/api.gd` and injected into the modules
+that need a skeleton, body, hair, dock or mouth. No other anatomy file calls `GAME`.
 
 ## Act anatomy
 
@@ -955,28 +961,17 @@ stay event-time reads.
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
-| service | debug | `debug/service.gd` | the aimed-mare target rule |
-| service | eligibility | `eligibility/service.gd` | adult and consent gate |
-| host | the entry | `setup(hud)` | the anatomy status line |
-| service | ponies | `ponies/service.gd` | the eligibility and body-change handles |
-| service | poses | `poses/service.gd` | the pose request record and its verdict |
 | service | settings | `settings/service.gd` | settings declarations and live values |
-| service | vr | `vr/service.gd` | VR act controls |
-| service | world | `world/service.gd` | the player body and the live scene |
-| service | world | `world/game.gd` | the base-game members the anatomy reads and writes |
-| shared | act_state | `shared/act_state.gd` | act state constants |
-| shared | perf | `shared/perf.gd` | one profiler |
-| shared | pose_catalog | `shared/pose_catalog.gd` | the standing oral edge ids |
-| shared | anatomy_placement | `shared/anatomy_placement.gd` | placement defaults |
-| shared | body_binding | `shared/body_binding.gd` | the anatomy body binding base |
-| shared | body_coat | `shared/body_coat.gd` | drawn body coat mesh and surface |
-| shared | body_form | `shared/body_form.gd` | presented body rig, fit and marker |
-| shared | body_profile | `shared/body_profile.gd` | typed rig, profile table and legacy fit key |
-| shared | cycle | `shared/cycle.gd` | estrus cycle |
+| service | world | `world/game.gd` | service dependency |
+| shared | anatomy_placement | `shared/anatomy_placement.gd` | placement schema and merge |
+| shared | body_coat | `shared/body_coat.gd` | shared data |
+| shared | body_form | `shared/body_form.gd` | shared data |
+| shared | body_profile | `shared/body_profile.gd` | shared data |
 | shared | log | `shared/log.gd` | log sink |
-| shared | pony_id | `shared/pony_id.gd` | stable pony id |
-| shared | preferences | `shared/preferences.gd` | teat size preset |
-| shared | settings_change | `shared/settings_change.gd` | the settings change notification |
+| shared | perf | `shared/perf.gd` | one profiler |
+| shared | pony_id | `shared/pony_id.gd` | shared data |
+| shared | preferences | `shared/preferences.gd` | profile schema and math |
+| shared | settings_change | `shared/settings_change.gd` | settings change notification |
 
 ## Tests
 
@@ -1082,7 +1077,7 @@ keep for their suites.
 
 The anatomy migration is complete:
 
-- `anatomy/service.gd` is the world facade the entry constructs and `ponies` exposes as
+- `anatomy/api.gd` is the world facade the entry constructs and `ponies` exposes as
   `PONIES.anatomy`. It owns the per-pony
   controllers, the player part, tail seating and the placement editor delegate.
 - `anatomy/placement_editor.gd` owns the Placement target resolution and the placement and reset

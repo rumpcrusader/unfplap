@@ -180,7 +180,6 @@ func resume() -> bool:
 	host.swap().reset_face()
 	host.swap().apply_voice_policy()
 	host.swap().apply_pose_change()
-	host.swap().apply_anatomy_live()
 	host.swap().begin_integrations()
 	host.swap().sync_hud()
 	host.swap().resume_auto()

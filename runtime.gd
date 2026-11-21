@@ -13,6 +13,10 @@ const PRESENTATION_PORT := preload("res://mods/unfplap/shared/presentation_port.
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 
+## One act's presentation began. The entry connects this to the world integrations, so the
+## undress and the anatomy act handle fire from the runtime instead of the anatomy service.
+signal act_started(pony: Node3D)
+
 ## The presented body. A new assignment rebinds the pose session and host through the bundle;
 ## nothing rebinds per frame.
 var pony: Node:
@@ -123,8 +127,6 @@ func _exit_tree() -> void:
 	act.release_stool()
 	_bundle.host.end_tail_tuck()
 	_bundle.afterglow.clear_post_act(pony if is_instance_valid(pony) else null)
-	# integration: never leave the anatomy nodes or the per-act controller behind.
-	_bundle.anatomy_bridge.bind(_bundle.anatomy_host)
-	_bundle.anatomy_bridge.end()
-	_bundle.anatomy_bridge.detach()
+	# integration: never leave the anatomy act handle or the per-pony controller behind.
+	act.release_anatomy()
 	_bundle.face.shutdown()

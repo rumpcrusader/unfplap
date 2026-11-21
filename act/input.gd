@@ -11,6 +11,9 @@ const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const ACT_COMMANDS := preload("res://mods/unfplap/shared/act_commands.gd")
 const ACT_SUMMARY := preload("res://mods/unfplap/summary/score.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
+const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
+const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
+const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const DIALOGUE := preload("res://mods/unfplap/dialogue/service.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
@@ -70,11 +73,11 @@ func smack() -> void:
 
 ## The anatomy action gates the input service's V/N keys read.
 func anatomy_hole_ready() -> bool:
-	return context.anatomy.hole_ready()
+	return context.anatomy != null and context.anatomy.can_target_vulva()
 
 
 func anatomy_oral_ready() -> bool:
-	return context.anatomy.oral_ready()
+	return context.anatomy != null and context.anatomy.can_target_mouth()
 
 
 ## How many pony climaxes this act has had; the act-key hold picks afterglow or cancel.
@@ -82,9 +85,9 @@ func climaxes() -> int:
 	return context.readiness.pony_climaxes
 
 
-## The VR act's right primary click is the act key's hold. The anatomy bridge owns the controller.
+## The VR act's right primary click is the act key's hold.
 func vr_y_held() -> bool:
-	return context.anatomy.vr_y_held()
+	return session.vr_y_held()
 
 
 ## The act-key hold takes her to afterglow once she has climaxed, and cancels at zero.
@@ -182,15 +185,69 @@ func command(command_id: String) -> bool:
 		return false
 	match command_id:
 		ACT_COMMANDS.HOLE:
-			context.anatomy.bind(context.anatomy_host)
-			context.anatomy.toggle_hole()
-			return true
+			return _toggle_hole()
 		ACT_COMMANDS.ORAL:
-			context.anatomy.bind(context.anatomy_host)
-			context.anatomy.toggle_oral(context.pose, session.display_name, session.features)
-			return true
+			return _toggle_oral()
 		ACT_COMMANDS.POSE_BACK, ACT_COMMANDS.POSE_FORWARD:
 			return false
 		ACT_COMMANDS.END:
 			return true
 	return false
+
+
+## V: turn the vulva or the anus. Consent stays with the input; anatomy never checks it.
+func _toggle_hole() -> bool:
+	var anatomy = context.anatomy
+	if anatomy == null:
+		return false
+	if anatomy.target() == ANATOMY.Target.VULVA and anatomy.can_target_anus():
+		if not _consent("anal"):
+			_show_status("%s is not into that" % session.display_name)
+			return false
+		anatomy.target_anus()
+		return true
+	anatomy.target_vulva()
+	return true
+
+
+## N: request the standing oral edge, or its return; the pose service owns the edge.
+func _toggle_oral() -> bool:
+	var anatomy = context.anatomy
+	if anatomy == null or not anatomy.can_target_mouth():
+		return false
+	var live: Variant = context.pose.view()
+	var from_id := str(live.id) if live != null else ""
+	var target := CATALOG.STANDING_ORAL if from_id == CATALOG.STANDING else CATALOG.STANDING
+	var request := POSE_SESSION.PoseRequest.new()
+	var consent := false
+	if target == CATALOG.STANDING_ORAL:
+		consent = _consent("oral")
+		if consent:
+			request.consent = "oral"
+	request.act_state = session.state
+	request.features = session.features
+	request.features_set = true
+	var result: POSE_SESSION.PoseResult = context.pose.request_pose(target, "oral", request)
+	if result != null and result.ok:
+		LOG.debug("oral pose %s -> %s: ok", [from_id, target])
+		return true
+	LOG.debug("oral pose %s -> %s refused: %s (%s)", [
+		from_id, target, str(result.code if result != null else ""),
+		str(result.reason if result != null else "")])
+	if target == CATALOG.STANDING_ORAL and not consent:
+		_show_status("%s is not into that" % session.display_name)
+	elif result != null:
+		_show_status(str(result.reason))
+	return false
+
+
+func _consent(key: String) -> bool:
+	if not is_instance_valid(host.pony) or not is_instance_valid(PONIES.eligibility):
+		return false
+	return PONIES.eligibility.consent(host.pony, key)
+
+
+func _show_status(text: String) -> void:
+	if text.is_empty() or not is_instance_valid(context.hud):
+		return
+	context.hud.anatomy_status(text, 2.0)

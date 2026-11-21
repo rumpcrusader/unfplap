@@ -125,13 +125,13 @@ new player under the presented body. It never edits the game file or another pon
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
-| service | settings | `settings/service.gd` | the outside-act smack switch |
-| service | world | `world/game.gd` | the base-game snout, kiss, TTS and vocal members |
-| shared | act_state | `shared/act_state.gd` | the act state the breath phase follows |
+| service | settings | `settings/service.gd` | settings declarations and live values |
+| service | world | `world/game.gd` | service dependency |
+| shared | act_state | `shared/act_state.gd` | shared data |
 | shared | log | `shared/log.gd` | log sink |
-| shared | pose_view | `shared/pose_view.gd` | the pose view's `audio` impact profile |
-| shared | preferences | `shared/preferences.gd` | profile math and defaults |
-| shared | settings_change | `shared/settings_change.gd` | the settings change notification |
+| shared | pose_view | `shared/pose_view.gd` | pose read model |
+| shared | preferences | `shared/preferences.gd` | profile schema and math |
+| shared | settings_change | `shared/settings_change.gd` | settings change notification |
 
 ## Lifecycle
 

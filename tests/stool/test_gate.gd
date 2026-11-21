@@ -9,31 +9,40 @@ const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const STOOL := preload("res://mods/unfplap/stool/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const STORE := preload("res://world/inventory/inventory_store.gd")
+const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
+const PLAYER_HOST := preload("res://mods/unfplap/anatomy/player_host.gd")
 
 
 
-class FakeController extends "res://mods/unfplap/anatomy/controller.gd":
-	var opening_y := 1.25
-	var entrance_calls := 0
-
-	func entrance_point() -> Vector3:
-		entrance_calls += 1
-		return Vector3(0.0, opening_y, 0.0)
-
-	func hole_point(_mix := 0.0) -> Vector3:
-		return Vector3(0.0, opening_y, 0.0)
-
-
-class FakeService extends "res://mods/unfplap/anatomy/service.gd":
+class FakeAnonHost extends PLAYER_HOST:
 	var root_y := 0.9
-	var prepare_calls := 0
+	var owner: Variant = null
 
-	func player_prepare() -> bool:
-		prepare_calls += 1
+	func prepare() -> bool:
+		if owner != null:
+			owner.prepare_calls += 1
 		return true
 
-	func player_root_now() -> Vector3:
+	func showing() -> bool:
+		return true
+
+	func root_now() -> Vector3:
 		return Vector3(0.0, root_y, 0.0)
+
+
+class FakeService extends ANATOMY:
+	var opening_y := 1.25
+	var prepare_calls := 0
+	var host := FakeAnonHost.new()
+
+	func _init() -> void:
+		host.owner = self
+
+	func anon(_pony: Node3D) -> ANATOMY.AnonBody:
+		return ANATOMY.AnonBody.new(host)
+
+	func entrance_point(_pony: Node3D) -> Vector3:
+		return Vector3(0.0, opening_y, 0.0)
 
 
 class FakeGame extends Node:
@@ -117,11 +126,10 @@ func run() -> void:
 	runtime.pony = pony
 	# The scene gate gets its body from the runtime's own refresh, as it does on the idle frame.
 	runtime.act.refresh_gate()
-	runtime._bundle.anatomy_bridge.controller = FakeController.new()
-	var controller: Node = runtime._bundle.anatomy_bridge.controller
-	controller.set("opening_y", 1.30)
+	var anatomy: FakeService = main.anatomy
+	anatomy.opening_y = 1.30
 	var stool: Variant = main.stool.new_act()
-	stool.bind(main.stool, pony, player, controller)
+	stool.bind(main.stool, pony, player, anatomy)
 
 	check(main.stool.enabled() == SETTINGS.standing_stool.get_bool(),
 		"the facade reads the feature switch")
@@ -129,10 +137,10 @@ func run() -> void:
 	check(is_equal_approx(runtime.presentation.stool_gap_m(), 0.40), "the live gap is 40 cm")
 	check(runtime.presentation.stool_needed_count() == 2, "40 cm needs two 20 cm steps")
 	check(runtime.presentation.stool_case_count() == 0, "no case footstool")
-	controller.set("opening_y", 1.09)
+	anatomy.opening_y = 1.09
 	check(is_equal_approx(runtime.presentation.stool_gap_m(), 0.19), "the live gap follows her opening")
 	check(runtime.presentation.stool_needed_count() == 0, "19 cm does not need a stool")
-	controller.set("opening_y", 1.25)
+	anatomy.opening_y = 1.25
 	check(runtime.presentation.stool_needed_count() == 1, "35 cm needs one 20 cm step")
 	store.slots[0] = {"id": STOOL.ID, "count": 1}
 	check(runtime.presentation.stool_case_count() == 1, "one case footstool is counted")
@@ -176,7 +184,6 @@ func run() -> void:
 	SETTINGS.stool_gap_m.set_num(0.20)
 	SETTINGS.stool_height_m.set_num(0.20)
 	runtime.free()
-	controller.free()
 	PONIES.eligibility = null
 	main.anatomy.free()
 	main.stool.free()

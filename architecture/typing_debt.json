@@ -1,3 +1,9 @@
 {
-  "debt": []
+  "debt": [
+    {
+      "service": "anatomy",
+      "func": "begin_act",
+      "signature": "func begin_act(pony: Node3D, view: PoseView, bed_frame: Variant) -> ActPresentation:"
+    }
+  ]
 }

@@ -8,6 +8,7 @@ const REACTIONS := preload("res://mods/unfplap/reactions/service.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const RUMP_CONE := preload("res://mods/unfplap/shared/rump_cone.gd")
+const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
 const FLANK_TOUCH := preload("res://world/characters/hybrid_mare/pony_flank_touch.gd")
 
 
@@ -40,7 +41,7 @@ class FakeTail extends SkeletonModifier3D:
 		last_strength = strength
 
 
-class FakeAnatomy extends Node:
+class FakeAnatomy extends ANATOMY:
 	var mesh: MeshInstance3D
 	var material: ShaderMaterial
 	var outline: ShaderMaterial
@@ -64,6 +65,33 @@ class FakeAnatomy extends Node:
 
 	func body_coat_refresh() -> void:
 		refreshes += 1
+
+	func follow_body_coat(_pony: Node3D, flank: Node) -> bool:
+		if not is_instance_valid(flank):
+			return false
+		var targets: Variant = flank.get("_jiggle_targets")
+		if not targets is Array:
+			return false
+		if target_pairs.is_empty():
+			body_coat_refresh()
+		for pair: Variant in target_pairs:
+			if pair is Array and (pair as Array).size() >= 2:
+				var material: Variant = (pair as Array)[0]
+				var body_node: Variant = (pair as Array)[1]
+				if material is ShaderMaterial and body_node is MeshInstance3D:
+					_add(targets, material, body_node)
+		if target_pairs.is_empty() and material != null and mesh != null:
+			_add(targets, material, mesh)
+			if outline != null:
+				_add(targets, outline, mesh)
+		return true
+
+	func _add(targets: Array, material: ShaderMaterial, body_node: MeshInstance3D) -> void:
+		for target: Variant in targets:
+			if target is Array and not (target as Array).is_empty() \
+					and (target as Array)[0] == material:
+				return
+		targets.append([material, body_node])
 
 
 class FakeBoop extends Node:
@@ -144,8 +172,12 @@ func _check_body_coat_target() -> void:
 	flank._jiggle_targets = []
 	var was_on := SETTINGS.body_coat_deform.get_bool()
 	SETTINGS.body_coat_deform.set_bool(true)
+	var pony := FakePony.new()
 	var reactions := REACTIONS.new()
-	reactions.bind_scene(null, anatomy, flank)
+	reactions.bind_scene(pony, anatomy, flank)
+	flank._jiggle_targets = []
+	anatomy.refreshes = 0
+	root.add_child(pony)
 	root.add_child(flank)
 	root.add_child(anatomy)
 	root.add_child(body)

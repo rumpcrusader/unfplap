@@ -1,6 +1,4 @@
 extends "res://mods/unfplap/tests/support/suite.gd"
-const ACT_HOST := preload("res://mods/unfplap/anatomy/act_host.gd")
-const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 ## The bed face-sit debug action and its runtime refusal helper: the pair toggle, every refusal
 ## reason in order and the ready case. Pure fakes; no game scene.
 ##   godot --headless --xr-mode off --path <project> \
@@ -17,22 +15,6 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 
-
-
-## The real bridge's shape, with the lifecycle calls stubbed so a bare Node handle is enough.
-class FakeBridge extends "res://mods/unfplap/anatomy/act_bridge.gd":
-	func bind(_host: ACT_HOST, _service: Node = null,
-			_eligibility: ELIGIBILITY = null) -> void:
-		pass
-
-	func refresh() -> void:
-		pass
-
-	func end() -> void:
-		pass
-
-	func detach() -> void:
-		pass
 
 
 ## The act input protocol the debug action reaches through the runtime's session handle.
@@ -99,28 +81,22 @@ func _fixture() -> Dictionary:
 	pose.facts = runtime._bundle.facts
 	pose._view = view
 	pose.act_body = MISSIONARY_ANON.new()
-	var bridge := FakeBridge.new()
-	bridge.missionary_anon = Node.new()
 	runtime.act._set_state(2)
 	runtime._bundle.pose = pose
 	runtime.act.context.pose = pose
-	runtime._bundle.anatomy_bridge = bridge
-	runtime.act.context.anatomy = bridge
+	runtime._bundle.facts.missionary_anon = Callable(pose, "act_body_handle")
 	runtime._bundle.facts.kiss_active = false
 	root.add_child(runtime)
-	return {"runtime": runtime, "pose": pose, "bridge": bridge, "view": view}
+	return {"runtime": runtime, "pose": pose, "view": view}
 
 
 func _free_fixture(made: Dictionary) -> void:
 	var runtime: Node = made["runtime"]
 	var pose: RefCounted = made["pose"]
-	var bridge: FakeBridge = made["bridge"]
 	root.remove_child(runtime)
 	runtime.free()
 	if is_instance_valid(pose.act_body):
 		pose.act_body.free()
-	if is_instance_valid(bridge.missionary_anon):
-		bridge.missionary_anon.free()
 
 
 func _check_helper() -> void:
@@ -129,7 +105,6 @@ func _check_helper() -> void:
 	var made := _fixture()
 	var runtime: Node = made["runtime"]
 	var pose: RefCounted = made["pose"]
-	var bridge: FakeBridge = made["bridge"]
 	var view: Variant = made["view"]
 	runtime.act._set_state(0)
 	check(runtime.act.face_sit_error() == "no active act", "no idle act is refused")
@@ -160,10 +135,6 @@ func _check_helper() -> void:
 	check(runtime.act.face_sit_error() == "the anatomy is not available",
 		"a missing act body is refused")
 	pose.act_body = MISSIONARY_ANON.new()
-	bridge.missionary_anon = null
-	check(runtime.act.face_sit_error() == "the anatomy is not available",
-		"a missing bridge handle is refused")
-	bridge.missionary_anon = Node.new()
 	view.id = CATALOG.BED_FACESIT
 	check(runtime.act.face_sit_error() == "", "a steady face-sit act is ready")
 	view.id = CATALOG.MISSIONARY

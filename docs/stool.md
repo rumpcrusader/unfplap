@@ -223,13 +223,13 @@ idle hint and the act start.
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
-| service | anatomy | `anatomy/service.gd` | the player part and its height |
-| service | ponies | `ponies/service.gd` | the live act gate |
+| service | anatomy | `anatomy/api.gd` | anatomy and tail seat |
+| service | ponies | `ponies/service.gd` | per-pony runtime registry |
 | service | settings | `settings/service.gd` | settings declarations and live values |
-| service | world | `world/service.gd` | the world root and the headset |
-| service | world | `world/game.gd` | the briefcase case, the house interiors and the shop scene |
+| service | world | `world/game.gd` | service dependency |
+| service | world | `world/service.gd` | live scene reads |
 | shared | log | `shared/log.gd` | log sink |
-| shared | pose_specs | `shared/pose_specs.gd` | the stool scene row for the hotkey pair |
+| shared | pose_specs | `shared/pose_specs.gd` | pose capability table |
 
 ## Tests and limits
 

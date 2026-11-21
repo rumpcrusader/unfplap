@@ -15,7 +15,6 @@ const ACT_EXIT := preload("res://mods/unfplap/act/exit.gd")
 const ACT_SWAP := preload("res://mods/unfplap/act/swap.gd")
 const ACT_PHASES := preload("res://mods/unfplap/act/phases.gd")
 const CYCLE := preload("res://mods/unfplap/shared/cycle.gd")
-const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const PERF := preload("res://mods/unfplap/shared/perf.gd")
 
@@ -41,19 +40,10 @@ func bind(host_in: ACT_HOST, context_in: ACT_CONTEXT, session_in: ACT_SESSION,
 	idle = idle_in
 
 
-## One physics frame: the ordered act work, then the anatomy facts the persistent controller
-## polls outside the act.
+## One physics frame: the ordered act work.
 func tick(delta: float) -> void:
 	PERF.begin("runtime_physics")
 	_tick(delta)
-	PERF.begin("runtime_anatomy_sync")
-	PERF.begin("anatomy_bind")
-	context.anatomy.bind(context.anatomy_host)
-	PERF.end("anatomy_bind")
-	PERF.begin("anatomy_sync")
-	context.anatomy.sync_facts()
-	PERF.end("anatomy_sync")
-	PERF.end("runtime_anatomy_sync")
 	PERF.end("runtime_physics")
 
 
@@ -75,16 +65,19 @@ func _tick(delta: float) -> void:
 		PERF.begin("pose_fanout")
 		_fanout()
 		PERF.end("pose_fanout")
+	if session.state in [State.POSING_IN, State.ACTIVE, State.CLIMAX, State.AFTERGLOW,
+			State.RESTORE]:
+		PERF.begin("anatomy_stage")
+		session.stage_anatomy(delta)
+		PERF.end("anatomy_stage")
 	if session.state == State.IDLE:
 		idle.tick(delta)
 		return
 	if not is_instance_valid(host.pony) or not is_instance_valid(WORLD.game):
 		exit.force_stop()
 		return
-	session.cycle_heat = false
 	session.refresh_identity()
-	if is_instance_valid(host.pony):
-		session.cycle_heat = ELIGIBILITY.cycle_phase_for(host.pony, session.pony_id) == CYCLE.HEAT
+	session.cycle_heat = session.cycle_phase() == CYCLE.HEAT
 	context.pose.sync_frame(session.pose_family())
 	if host.pony.sleeping:
 		host.pony.sleeping = false
@@ -112,9 +105,6 @@ func _tick(delta: float) -> void:
 		context.impact.auto_advance(delta)
 		context.impact.tick()
 		PERF.end("runtime_ai")
-		if context.anatomy.act_available():
-			context.anatomy.bind(context.anatomy_host)
-			context.anatomy.tick(delta)
 		if session.state == State.ACTIVE:
 			PERF.begin("runtime_talk")
 			context.readiness.tick(delta)
@@ -140,8 +130,7 @@ func _tick(delta: float) -> void:
 		ACT_SESSION.FINISH_RESTORE:
 			exit.finish_restore()
 	if session.state == State.AFTERGLOW:
-		context.afterglow.phase_tick(delta, context.anatomy, context.anatomy_host,
-			session.pose_family() == "standing")
+		context.afterglow.phase_tick(delta, session.pose_family() == "standing")
 	PERF.begin("runtime_camera")
 	context.view.lock_facing()
 	context.view.drive_glance(delta)
@@ -186,8 +175,13 @@ func _fanout() -> void:
 	context.camera.pose_changed(view)
 	context.hands.pose_changed(view)
 	context.kiss.pose_changed(view)
-	context.anatomy.bind(context.anatomy_host)
-	context.anatomy.pose_changed(view)
+	if context.anatomy != null and context.pose_view != null and view != null:
+		context.pose_view.family = str(view.family)
+		context.pose_view.frame = str(view.frame)
+		context.pose_view.contact_kind = str(view.contact_kind)
+		context.pose_view.contact_target = view.contact_target \
+			if view.contact_target is Vector3 else Vector3.INF
+		context.anatomy.pose(context.pose_view)
 	# The act audio has no pose hook today; the row stays the fan-out's last seam.
 	if context.audio != null and context.audio.has_method("pose_changed"):
 		context.audio.pose_changed(view)

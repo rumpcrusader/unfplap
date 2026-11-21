@@ -19,7 +19,7 @@ const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const POSES := preload("res://mods/unfplap/poses/service.gd")
 const INITIATION := preload("res://mods/unfplap/initiation/service.gd")
 const NEGOTIATION := preload("res://mods/unfplap/negotiation/service.gd")
-const ANATOMY := preload("res://mods/unfplap/anatomy/service.gd")
+const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
 const STOOL := preload("res://mods/unfplap/stool/service.gd")
 const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/service.gd")
 const DEBUG_BED := preload("res://mods/unfplap/debug/bed.gd")
@@ -221,7 +221,10 @@ func _debug_cycle_toggle(phase_name: String) -> String:
 		return "No runtime for %s." % str(target.name)
 	var current := str(_session(runtime).cycle_phase())
 	var next := CYCLE.NORMAL if current == phase_name else phase_name
-	CYCLE.set_override(_debug_pony_id(target), next)
+	if is_instance_valid(PONIES.estrus):
+		PONIES.estrus.debug_set_phase(target, next)
+	else:
+		CYCLE.set_override(_debug_pony_id(target), next)
 	var verb := "cleared" if next == CYCLE.NORMAL else "forced"
 	LOG.debug("cycle %s %s=%s", [phase_name, str(target.name), next])
 	return "%s %s for %s." % [phase_name.capitalize(), verb, str(target.name)]
@@ -250,7 +253,10 @@ func _debug_cycle_request(phase_name: String) -> String:
 	var runtime: Node = _runtime_for(target)
 	if not is_instance_valid(runtime):
 		return "No runtime for %s." % str(target.name)
-	CYCLE.set_override(_debug_pony_id(target), phase_name)
+	if is_instance_valid(PONIES.estrus):
+		PONIES.estrus.debug_set_phase(target, phase_name)
+	else:
+		CYCLE.set_override(_debug_pony_id(target), phase_name)
 	var label := "automatic" if phase_name.is_empty() else phase_name
 	LOG.debug("cycle override %s=%s", [str(target.name), label])
 	return "Cycle for %s: %s." % [str(target.name), label]
@@ -731,11 +737,18 @@ func _debug_force_tolerance(kind: String) -> String:
 	return "Neglect %s queued." % kind
 
 
-## integration: the anatomy service owns the placement editor.
+## integration: the anatomy API owns the placement editor; the action names the pony.
 func _placement_debug(op: String, value := 0.0) -> String:
-	if anatomy != null:
-		return anatomy.placement_debug(op, value)
-	return "Anatomy service unavailable."
+	if anatomy == null:
+		return "Anatomy service unavailable."
+	var target := _aim() as Node3D
+	if not is_instance_valid(target):
+		return "No placement pony targeted."
+	var tail_owned := is_instance_valid(body_change) and body_change.has_tail_placement(target)
+	var report := anatomy.debug_placement(target, op, value, tail_owned)
+	if op != "text" and is_instance_valid(body_change):
+		body_change.apply_tail_placement(target)
+	return report
 
 
 func action_anatomy_up() -> String:
@@ -815,9 +828,15 @@ func action_placement_reset() -> String:
 
 
 func action_placement_show() -> String:
-	if anatomy != null:
-		return anatomy.placement_show()
-	return "Anatomy service unavailable."
+	if anatomy == null:
+		return "Anatomy service unavailable."
+	var target := _aim() as Node3D
+	var report := anatomy.debug_show(target)
+	if is_instance_valid(body_change):
+		var custom := str(body_change.tail_placement_report())
+		if not custom.is_empty():
+			report = custom if report.is_empty() else report + " | " + custom
+	return report
 
 
 ## The actions' optional `requires` gate. Only `shape_source` exists today: the form buttons stay

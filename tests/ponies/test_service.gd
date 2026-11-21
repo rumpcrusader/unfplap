@@ -5,6 +5,8 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ##     --script res://mods/unfplap/tests/ponies/test_service.gd
 
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
+const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
+const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
@@ -76,18 +78,29 @@ class FakeRuntime extends Node:
 
 
 ## The three services one attached body passes through, with their calls in order.
-class FakeAnatomy extends Node:
+class FakeEligibility extends "res://mods/unfplap/tests/support/fakes/fake_eligibility.gd":
+	pass
+
+
+class FakeAnatomy extends ANATOMY:
 	var journal: Array[String] = []
+	var presented: Dictionary = {}
 
-	func bind(pony: Node, _runtime: Node) -> Node:
-		journal.append("bind:" + str(pony.name))
-		return null
+	func present(pony: Node3D, _form: BODY_FORM.BodyForm = null) -> void:
+		if presented.has(pony):
+			return
+		presented[pony] = true
+		journal.append("present:" + str(pony.name))
 
-	func tail_ready(pony: Node) -> void:
+	func reseat_tail(pony: Node3D, _form: BODY_FORM.BodyForm = null) -> void:
 		journal.append("tail:" + str(pony.name))
 
-	func detach_controller(pony: Node) -> void:
-		journal.append("detach:" + str(pony.name))
+	func withdraw(pony: Node3D) -> void:
+		presented.erase(pony)
+		journal.append("withdraw:" + str(pony.name))
+
+	func withdraw_tail(pony: Node3D) -> void:
+		journal.append("untail:" + str(pony.name))
 
 
 class FakeBodyChange extends Node:
@@ -96,6 +109,9 @@ class FakeBodyChange extends Node:
 
 	func notify_body_ready(pony: Node) -> void:
 		journal.append("form:" + str(pony.name))
+
+	func form_for(_pony: Node3D) -> Variant:
+		return null
 
 	func installed_character_ids() -> Array[String]:
 		return installed
@@ -161,6 +177,7 @@ func _bind() -> Dictionary:
 	var made: Array[FakeRuntime] = []
 	WORLD.bind_world(host)
 	PONIES.anatomy = anatomy
+	PONIES.eligibility = FakeEligibility.new()
 	PONIES.body_change = body_change
 	PONIES.stock_smack = smack
 	PONIES.offer = offer
@@ -272,8 +289,8 @@ func _check_attach() -> void:
 	check(is_instance_valid(runtime), "an attached body gets one runtime")
 	check(runtime.get_parent() == pony, "the runtime lives under its body")
 	check(runtime.get("pony") == pony, "the factory hands the runtime its body")
-	check(anatomy.journal == ["tail:FluttershyBody", "bind:FluttershyBody"],
-		"the prepare seats the tail and the attach binds the body, in that order")
+	check(anatomy.journal == ["present:FluttershyBody", "tail:FluttershyBody"],
+		"the prepare presents the body and seats its tail, in that order")
 	check(body_change.journal == ["form:FluttershyBody"], "the body is prepared once")
 	check(smack.journal == ["ready:FluttershyBody"], "the smack layer is told about the body")
 	PONIES.attach(pony)
@@ -382,16 +399,17 @@ func _check_prepare() -> void:
 	var pony := _pony("applejack", "ApplejackBody")
 	root.add_child(pony)
 	PONIES.prepare_late(pony)
-	check(anatomy.journal == ["tail:ApplejackBody"], "the late prepare seats the tail")
+	check(anatomy.journal == ["present:ApplejackBody", "tail:ApplejackBody"],
+		"the late prepare presents the body and seats the tail")
 	check(body_change.journal == ["form:ApplejackBody"], "the late prepare fits the body")
 	check(smack.journal == ["ready:ApplejackBody"], "the late prepare arms the smack layer")
 	PONIES.prepare_late(pony)
-	check(anatomy.journal.size() == 2, "a second late prepare runs again")
+	check(anatomy.journal.size() == 3, "a second late prepare seats the tail again")
 	check(PONIES.runtime_for(pony) == null, "a prepare never creates a runtime")
 	var host: Node = f["host"]
 	WORLD.unbind()
 	PONIES.prepare_late(pony)
-	check(anatomy.journal.size() == 2, "a prepare without the entry does nothing")
+	check(anatomy.journal.size() == 3, "a prepare without the entry does nothing")
 	WORLD.bind_world(host)
 	PONIES.shutdown()
 	root.remove_child(pony)
@@ -433,7 +451,7 @@ func _check_adoption() -> void:
 	check(runtime.attached == [new_pony], "the runtime is reparented once")
 	check(runtime.adopted == [new_pony], "the runtime adopts the new body once")
 	check(runtime.pony == new_pony, "the runtime owns the new body")
-	check(anatomy.journal.count("bind:NewBody") == 1, "anatomy binds the adopted body once")
+	check(anatomy.journal.count("present:NewBody") == 1, "anatomy presents the adopted body once")
 
 	# The runtime's own late adoption: the spawn hook never reached the attach.
 	PONIES.begin_body_swap(runtime, new_pony, "test_mare", change)
@@ -490,8 +508,8 @@ func _check_duplicate_guard() -> void:
 	check(PONIES.runtime_for(new_pony) == runtime, "the act's runtime wins the body")
 	check(duplicate.stopped == 1, "the duplicate is stopped once")
 	check(duplicate.is_queued_for_deletion(), "the duplicate is freed")
-	check(anatomy.journal.has("detach:RaceNewBody"),
-		"the duplicate's anatomy controller is dropped before the act's bind")
+	check(anatomy.journal.has("withdraw:RaceNewBody"),
+		"the duplicate's anatomy controller is dropped before the act's present")
 
 	PONIES.shutdown()
 	source.free()

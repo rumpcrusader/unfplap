@@ -110,10 +110,11 @@ already set its own impulse before the facade scales it.
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
+| service | anatomy | `anatomy/api.gd` | anatomy and tail seat |
 | service | settings | `settings/service.gd` | settings declarations and live values |
-| service | world | `world/game.gd` | the base-game flank and boop accessors |
+| service | world | `world/game.gd` | service dependency |
 | shared | log | `shared/log.gd` | log sink |
-| shared | rump_cone | `shared/rump_cone.gd` | the approximate rump anchor |
+| shared | rump_cone | `shared/rump_cone.gd` | standing offer zone |
 
 ## Lifecycle
 

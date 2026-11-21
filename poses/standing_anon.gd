@@ -2,9 +2,7 @@ extends RefCounted
 ## Standing Anon body: the hip thrust wrapper, the pelvis-sway follow and palm scale. The runtime
 ## owns readiness and scoring; this controller only poses the player rig.
 
-const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
-const ANATOMY := preload("res://mods/unfplap/anatomy/service.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
 const ANON_THRUST := preload("res://mods/unfplap/poses/anon_thrust.gd")
 const HIP_THRUST := preload("res://mods/unfplap/poses/anon_hip_thrust.gd")
@@ -69,12 +67,11 @@ func apply_anon_thrust(_hip: Node3D, facing: Basis) -> void:
 	var forward := -facing.z.normalized()
 	# With the anatomy part showing, the part asks for the pelvis to move to her entrance; the
 	# Hips-bone offset carries the pelvis and the part together.
-	var service := _anatomy_service()
-	if service != null and service.player_showing():
-		var wanted := service.player_hip_offset()
+	var anon: Variant = facts.anon if facts != null else null
+	if anon != null and anon.showing():
+		var wanted: Vector3 = anon.hip_offset()
 		if wanted.is_finite():
-			_hip_thrust.offset_world = wanted
-			service.player_note_hip_offset(wanted)
+			anon.drive_hip(_hip_thrust)
 			return
 	_hip_thrust.offset_world = forward * hip_offset(_hip_phase, scale, travel)
 
@@ -119,12 +116,6 @@ func apply_anon_lean(hip: Node3D, facing: Basis) -> void:
 		elif _lower_captured:
 			_lower_captured = false
 			LOG.debug("standing lower body released")
-
-
-func _anatomy_service() -> ANATOMY:
-	if facts == null:
-		return null
-	return PONIES.anatomy as ANATOMY
 
 
 ## Lower Anon's standing hips; use this when his body sits too high.

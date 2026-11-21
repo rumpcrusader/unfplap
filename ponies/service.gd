@@ -10,7 +10,7 @@ const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
-const ANATOMY := preload("res://mods/unfplap/anatomy/service.gd")
+const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
@@ -21,7 +21,8 @@ const RUMP_CONE := preload("res://mods/unfplap/shared/rump_cone.gd")
 static var factory := Callable()
 ## The services one attached body passes through, bound once by the entry.
 ## Eligibility is rebuilt each world enter, so the entry rebinds that one.
-static var anatomy: Node = null
+static var anatomy: ANATOMY = null
+static var estrus: Node = null
 static var body_change: Node = null
 static var stock_smack: Node = null
 static var offer: Node = null
@@ -34,6 +35,10 @@ static var api: Node = null
 ## can bind it without naming the runtime node.
 static func anatomy_service() -> Node:
 	return anatomy
+
+
+static func estrus_service() -> Node:
+	return estrus
 
 
 static func eligibility_service() -> ELIGIBILITY:
@@ -68,14 +73,21 @@ static func attach(pony: Node) -> void:
 	var runtime: Node = factory.call(pony) if factory.is_valid() else null
 	if not is_instance_valid(runtime):
 		return
-	if is_instance_valid(anatomy):
-		anatomy.bind(pony, runtime)
 	if runtime.get_parent() != pony:
 		pony.add_child(runtime)
 	_runtimes[pony] = runtime
 	LOG.debug("runtime attached %s id=%s", [
 		str(pony.name), str(pony.get_meta("relationship_id", ""))])
-	pony.tree_exiting.connect(func() -> void: _runtimes.erase(pony))
+	pony.tree_exiting.connect(func() -> void: _on_body_exit(pony))
+
+
+## One body left the tree: drop its runtime, its anatomy and its estrus schedule.
+static func _on_body_exit(pony: Node) -> void:
+	_runtimes.erase(pony)
+	if is_instance_valid(estrus):
+		estrus.untrack(pony)
+	if is_instance_valid(anatomy):
+		anatomy.withdraw(pony as Node3D)
 
 
 ## A mod that adds a node the first prepare needed, such as the changelings tail chain, calls this
@@ -213,7 +225,7 @@ static func prompt_note(id: String) -> String:
 		if runtime_id.is_empty():
 			var target: Variant = live.get("pony")
 			if is_instance_valid(target):
-				runtime_id = ANATOMY.pony_id(target)
+				runtime_id = PONY_ID.of(target)
 		if runtime_id != id:
 			continue
 		var session: Variant = live.get("act")
@@ -241,8 +253,8 @@ static func live_character_ids() -> Array[String]:
 	for pony: Variant in _runtimes.keys():
 		if pony is Node3D and is_instance_valid(pony) and is_instance_valid(eligibility) \
 				and eligibility.eligible(pony, ELIGIBILITY.Target.CHARACTER):
-			ids.append(ANATOMY.pony_id(pony))
-	var out: Array[String] = ANATOMY.off_roster_ids(ids, _base_order())
+			ids.append(PONY_ID.of(pony))
+	var out: Array[String] = PONY_ID.off_roster(ids, _base_order())
 	for id: String in installed_character_ids():
 		if not id in SETTINGS.CHARACTER_ORDER and not out.has(id):
 			out.append(id)
@@ -327,9 +339,11 @@ static func bind_settings() -> void:
 
 ## Bind the services one attached body passes through.
 ## The entry binds at the end of its build, so a body spawned mid-build still reads a complete set.
-static func bind(anatomy_service: Node, body_change_service: Node, offer_service: Node,
-		stock_smack_service: Node, eligibility_service: ELIGIBILITY, api_service: Node) -> void:
+static func bind(anatomy_service: ANATOMY, body_change_service: Node, offer_service: Node,
+		stock_smack_service: Node, eligibility_service: ELIGIBILITY, estrus_service: Node,
+		api_service: Node) -> void:
 	anatomy = anatomy_service
+	estrus = estrus_service
 	body_change = body_change_service
 	offer = offer_service
 	stock_smack = stock_smack_service
@@ -340,6 +354,9 @@ static func bind(anatomy_service: Node, body_change_service: Node, offer_service
 ## A settings edit: also the swapped act the registry no longer holds.
 static func _on_settings_changed() -> void:
 	apply_live_settings()
+	for pony: Variant in _runtimes.keys():
+		if is_instance_valid(pony):
+			_recheck_anatomy(pony)
 	if is_instance_valid(_active) and not _runtimes.has(_active.get("pony")):
 		var session: Variant = _active.get("act")
 		if session != null:
@@ -377,6 +394,7 @@ static func shutdown() -> void:
 	_runtimes.clear()
 	factory = Callable()
 	anatomy = null
+	estrus = null
 	body_change = null
 	stock_smack = null
 	offer = null
@@ -389,12 +407,41 @@ static func shutdown() -> void:
 static func _prepare(pony: Node) -> void:
 	if is_instance_valid(body_change):
 		body_change.notify_body_ready(pony)
-	if is_instance_valid(anatomy):
-		anatomy.tail_ready(pony)
+	_recheck_anatomy(pony)
+	if is_instance_valid(estrus):
+		estrus.track(pony)
 	if is_instance_valid(stock_smack):
 		stock_smack.pony_ready(pony)
 	if is_instance_valid(eligibility):
 		eligibility.warm(pony)
+
+
+## The roster's anatomy gate. There is no eligibility-changed event, so attach, act start and a
+## settings edit each re-check the two capabilities and withdraw what no longer passes.
+static func _recheck_anatomy(pony: Node) -> void:
+	if not is_instance_valid(pony) or not is_instance_valid(anatomy):
+		return
+	var body := pony as Node3D
+	if not is_instance_valid(body):
+		return
+	var form: Variant = body_change.form_for(body) if is_instance_valid(body_change) else null
+	var anatomy_ok: bool = is_instance_valid(eligibility) \
+		and eligibility.eligible(pony, ELIGIBILITY.Target.ANATOMY)
+	if anatomy_ok:
+		anatomy.present(body, form)
+	else:
+		anatomy.withdraw(body)
+	var tail_ok: bool = is_instance_valid(eligibility) \
+		and eligibility.eligible(pony, ELIGIBILITY.Target.TAIL)
+	if tail_ok:
+		anatomy.reseat_tail(body, form)
+	else:
+		anatomy.withdraw_tail(body)
+
+
+## Re-check one pony before an act binds her presentation.
+static func ensure_anatomy(pony: Node) -> void:
+	_recheck_anatomy(pony)
 
 
 ## Adopt the suspended act onto a newly spawned body. Runs after the adapter fitted it but before
@@ -420,9 +467,9 @@ static func _adopt_pending(pony: Node) -> bool:
 	var duplicate: Variant = _runtimes.get(pony)
 	if is_instance_valid(duplicate) and duplicate != runtime:
 		# A runtime created before adoption could only be a race; the suspended act is the owner.
-		# Its anatomy controller holds the duplicate's facts, so drop it before the bind below.
-		if is_instance_valid(anatomy) and anatomy.has_method("detach_controller"):
-			anatomy.detach_controller(pony)
+		# Its anatomy controller belongs to the duplicate, so withdraw it before the adopt.
+		if is_instance_valid(anatomy):
+			anatomy.withdraw(pony as Node3D)
 		var session: Variant = duplicate.get("act")
 		if session != null:
 			session.force_stop()
@@ -431,11 +478,10 @@ static func _adopt_pending(pony: Node) -> bool:
 	if is_instance_valid(old_pony) and _runtimes.get(old_pony) == runtime:
 		_runtimes.erase(old_pony)
 	_runtimes[pony] = runtime
-	if is_instance_valid(anatomy):
-		anatomy.bind(pony, runtime)
+	_recheck_anatomy(pony)
 	if runtime.get_parent() != pony:
 		runtime.attach_to_body(pony)
-	pony.tree_exiting.connect(func() -> void: _runtimes.erase(pony))
+	pony.tree_exiting.connect(func() -> void: _on_body_exit(pony))
 	_swap = {}
 	runtime.adopt_body(pony)
 	return true

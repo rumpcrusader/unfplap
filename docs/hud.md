@@ -169,13 +169,13 @@ world enter and never repeats inside one world.
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
-| service | settings | `settings/service.gd` | the caption mode and the act-key label |
-| service | world | `world/service.gd` | the world root |
-| service | world | `world/game.gd` | the inventory, hotbar and toast accessors |
-| shared | act_state | `shared/act_state.gd` | act state constants |
-| shared | act_keys | `shared/act_keys.gd` | the act key's key cap label |
+| service | settings | `settings/service.gd` | settings declarations and live values |
+| service | world | `world/game.gd` | service dependency |
+| service | world | `world/service.gd` | live scene reads |
+| shared | act_keys | `shared/act_keys.gd` | shared data |
+| shared | act_state | `shared/act_state.gd` | shared data |
 | shared | log | `shared/log.gd` | log sink |
-| shared | settings_change | `shared/settings_change.gd` | the settings change notification |
+| shared | settings_change | `shared/settings_change.gd` | settings change notification |
 
 ## Lifecycle
 

@@ -529,7 +529,6 @@ func _caress_context(side: String, hand_side: String) -> Dictionary:
 		"size": size,
 		"oval": oval,
 		"hover": _palm_clearance(),
-		"clearance": _palm_clearance(),
 		"profile": _caress_profile(),
 		"reach": _caress_reach(hand_side),
 		"delta": float(facts.physics_delta),

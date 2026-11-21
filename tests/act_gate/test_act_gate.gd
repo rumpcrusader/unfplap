@@ -236,6 +236,12 @@ func _check_facade() -> void:
 	check(bool(verdict.offer), "offers pass")
 	check(verdict.rows_text().contains("adult"), "the typed rows are readable")
 	check(verdict.reasons().is_empty(), "a passing verdict has no reasons")
+	var keys: Array[String] = []
+	for row: ACT_GATE.Row in verdict.rows:
+		keys.append(row.key)
+	check(keys == ["adult", "relationship", "form", "romance", "promiscuity", "participation",
+		"relation", "cycle", "history", "history_offers", "public"],
+		"the verdict keeps the policy rows and their order")
 
 	SETTINGS.save_participation("rarity", ROWS.Rows.of({"acts": false}))
 	check(not gate.ready(pony), "a participation opt-out closes the act key")

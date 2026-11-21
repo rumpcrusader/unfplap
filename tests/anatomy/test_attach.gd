@@ -7,6 +7,8 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 const API := preload("res://mods/unfplap/anatomy/api.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const ROWS := preload("res://mods/unfplap/settings/rows.gd")
 
 
 class FakeIdentity extends "res://mods/unfplap/tests/support/fakes/fake_identity.gd":
@@ -70,6 +72,13 @@ func run() -> void:
 	api.present(pony, revised)
 	check(is_instance_valid(api.parts.controller(pony)), "an eligible body presents again")
 	check(eligibility.calls == 4, "each present asks the gate once")
+
+	# The deprecated tail key changes nothing for anatomy: the tail follows the anatomy capability.
+	SETTINGS.save_participation("twilight_sparkle", ROWS.Rows.of({"tail": false}))
+	api.present(pony)
+	check(is_instance_valid(api.parts.controller(pony)),
+		"a deprecated tail opt-out leaves the anatomy controller")
+	SETTINGS.reset_participation("twilight_sparkle")
 
 	# The withdraw releases the controller, the tail row and the form; a frame later the deferred
 	# tail retry does not resurrect the tail.

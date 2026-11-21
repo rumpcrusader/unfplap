@@ -192,6 +192,11 @@ func run() -> void:
 	check(main.eligibility.get_profile("rarity").eligible_value() == true,
 		"the cross-mod shape is the tri-state eligible value")
 
+	# The dynamic questions belong to the act gate, not here.
+	for verb: String in ["get_verdict", "relationship_ok", "consent", "cycle_note"]:
+		check(not main.eligibility.has_method(verb),
+			"eligibility exposes no dynamic %s" % verb)
+
 	# A provider eligible assertion opens the identity target a base-game filly flag closed.
 	var filly := FakePony.new()
 	filly.name = "Scootaloo"

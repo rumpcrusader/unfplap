@@ -18,8 +18,7 @@ const REFINE_STEPS := 8
 const MIN_NORMAL_DOT := 0.5
 ## An authored area farther than this from the coat is a miss for this body, not a fit elsewhere.
 const MAX_DISTANCE_M := 0.06
-## A remapped authored point (a body the areas were not authored on) may sit this far off; the
-## fit still takes the nearest coat vertex and reports how far it had to snap.
+## How far a point can miss once it has been mapped onto a body these areas did not come from.
 const REMAPPED_DISTANCE_M := 0.12
 const CACHE_LIMIT := 32
 

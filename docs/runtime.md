@@ -131,12 +131,11 @@ through `PONIES.display_name_for()` and refreshes the scene gate. `live_id()` is
 cached for `CYCLE_REFRESH_S`, while the feature switch and the debug override stay live.
 
 The act settings snapshot lives in `act/settings.gd`: one `SETTINGS.ActSnapshot`, the feature
-flags, the presentation block, the caress quality, and the climax limit and mode.
+flags, the presentation block, and the climax limit and mode.
 `snapshot_settings()` is the one bulk snapshot at act start and again at the top of
 `apply_live_settings()`, before the `IDLE` early return. The session exposes typed read-throughs
-(`snapshot`, `features`, `presentation_config`, `caress_quality`, `max_pony_climaxes`,
-`climax_mode`); no second per-frame settings read exists, and a zeroed snapshot stands in until the
-first act.
+(`snapshot`, `features`, `presentation_config`, `max_pony_climaxes`, `climax_mode`); no second
+per-frame settings read exists, and a zeroed snapshot stands in until the first act.
 
 The session dispatches; the owners keep the bodies. `act/view.gd` composes the act values the
 owners read: the face beat and rows, the climax line, the summary input, the prompt note, the debug

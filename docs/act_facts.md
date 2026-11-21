@@ -19,7 +19,7 @@ the runtime orchestrator and the scene adapters.
 - The consumers are `poses/missionary_anon.gd`, `camera/view.gd`, `poses/standing_anon.gd`,
   `poses/standing_presentation.gd`, `camera/service.gd`, `act/frame.gd`, `kiss/service.gd`,
   `hands/service.gd`, the
-  hands internals (`hands/placement.gd`, `hands/surface.gd`, `hands/path_base.gd` and its paths)
+  hands internals (`hands/placement.gd`, `hands/coat_fit.gd`, `hands/path_base.gd` and its paths)
   and the pose modifiers (`poses/skeleton_pose.gd`, plus
   `poses/tail_pose.gd`, `poses/tail_lay.gd`, `poses/body_sway.gd`, `poses/prone_sway.gd`, `poses/ear_twitch.gd`).
 - `anatomy/facts.gd` is the same pattern for the anatomy system.
@@ -41,7 +41,6 @@ event_id, pony_id, display_name, act_seconds
 last_intensity, last_pattern, last_touch, last_talk
 thrust_pace, cue_override
 preferences, features
-caress_quality (the act's precise or fast caress surface level)
 ```
 
 Size and camera:

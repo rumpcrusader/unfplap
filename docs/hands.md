@@ -9,7 +9,7 @@ This contract covers:
 
 - caress input and state in the two base poses;
 - the pose-specific paths and authored anchors;
-- the surface contact, smoothing and palm frame;
+- the fitted-sphere contact, smoothing and palm frame;
 - the five-second touch meter and the caress scoring hooks;
 - the shared shoulder reach and smack hand actions;
 - the shared hand-bone scale and debug controls.
@@ -87,7 +87,7 @@ smack reports through `hand_on_touch()` / `hand_on_smack_impact()` on
 
 The caress profile, the touch step and the flank hit are typed records from
 `shared/hands_caress.gd`, and `smack_presentation()` returns its smack record. The coordinator,
-placement engine, paths, surfaces and smack phases hold those types and the path and surface
+placement engine, paths and smack phases hold those types and the path and fitted-sphere
 handles directly, so a renamed method fails at compile time. Base-game hand, flank and
 `PonyTouchBody` members go through the typed accessors in `world/game.gd`; the mod-owned
 `missionary_anon.caress_reach()` read stays a `Callable` because that body is not a base-game node.
@@ -115,13 +115,11 @@ edge's contact time, not at the request.
   - `two`: flank -> shoulder -> neck.
 - Neutral is the belly for path one and the flank for path two. W/lean walks toward the end of
   the chain; S walks toward the lower belly (path one) or clamps at the flank (path two).
-- Each anchor is a rest-space body/head point snapped to the nearest source vertex, so it keeps
-  the source skin weights and follows the live pose.
-- The missionary pose uses this authored surface chain. There is no hull caress: the authored
-  pose is bed-space, and a procedural hull palm frame is not valid on the lying body.
-- Without authored anchors, `hands/paths/anchors.gd` casts rays from the act camera to the belly,
-  chest, neck and head bone origins through the posed patch. A rest-space ray path remains the
-  fallback when the camera is unavailable.
+- Each anchor is one fitted rest-space sphere: its centre sits under the authored point, and the
+  nearest coat vertex supplies the coat normal and the skin weights it follows.
+- The missionary pose uses this authored area chain. There is no hull caress: the authored pose is
+  bed-space, and a procedural hull palm frame is not valid on the lying body.
+- A missing authored slot fails the path; there is no camera or rest ray fallback.
 - The finger axis is the body head axis projected onto the coat tangent plane, not the path
   tangent. The palm roll is 30 degrees, fading to 0 at the neck/cheek. The neck/cheek use the
   `fingertip` mode.
@@ -135,14 +133,14 @@ edge's contact time, not at the request.
 - The standing path is the marked-area chain from `hands/areas/areas.json`:
   `flank_back -> flank_side` (the JSON `start`) `-> flank_top -> back -> shoulder -> neck`.
 - No lean is the `start`; W/lean walks through the shoulder to the neck, and S walks toward
-  `flank_back`. The points are the representative rest points of the marked vertex groups,
-  snapped to the body/head source.
+  `flank_back`. The points are the representative rest points of the marked vertex groups, and
+  `hands/coat_fit.gd` fits one sphere through the nearest coat vertex at each.
 - The area JSON stores the mare's own body sides, so the standing hand side is used directly.
-- The area's `region` field picks the body or head coat patch. This pass is lean-driven: W/S
+- The area's `region` field picks the body or head mesh. This pass is lean-driven: W/S
   still leans and the hand follows the chain. The discrete area index, one-sided pause and
   slide/arc transition are not part of it.
-- The procedural flank/rump point is the fallback when the area chain cannot build; it is
-  still snapped to the posed coat by the placement engine.
+- The procedural flank/rump point is the fallback when the area chain cannot build; it carries
+  no sphere, so the placement engine keeps its exact point and path normal.
 - The oval uses the standing radii and the old across/up axes. The palm fingers point forward
   (`-pony.global_basis.z`).
 
@@ -152,14 +150,12 @@ edge's contact time, not at the request.
   the standing chain. `A`/`D` still toggle each hand, `Z`/`C` keep the oval and the five-second
   caress meter keeps scoring.
 - The path holds one authored node per hand: the `head_side` area in `hands/areas/areas.json`,
-  region `head`, mode `palm`, roll `1.0`. `hands/paths/anchors.gd:build_single_area()` snaps the
-  authored point to the nearest head source vertex, so the node keeps the live head skin weights.
-- The candidate is `exact`: the path's skinned vertex already is the coat contact, so the
-  placement engine skips the posed-coat snap, normal blur and surface smoothing. The head patch
-  is never skinned or BVH-rebuilt for this path, which matters because the oral turn keeps the
-  head moving.
+  region `head`, mode `palm`, roll `1.0`. `hands/paths/anchors.gd:build_single_area()` fits one
+  sphere through the nearest head coat vertex, so the node keeps the live head skin weights.
+- The candidate is `exact`: the path's skinned coat point already is the contact, so the
+  placement engine skips the sphere projection and the smoothing. No mesh query follows the head.
 - There is no lean sample or chain, and no flank fallback. A missing `head_side` side or a point
-  farther than `AUTHORED_MAX_DISTANCE` from the head source leaves that hand without a target and
+  farther than `coat_fit.MAX_DISTANCE_M` from the head coat leaves that hand without a target and
   logs the miss; a flank contact during oral would be the wrong target.
 - The oval travels fore/aft along the head tangent with the vertical as its other axis. The
   fingers point forward and the palm roll is `ORAL_PALM_ROLL_DEG = 24°` with the hand sign,
@@ -196,42 +192,43 @@ A path returns ordered candidates, preferred first. Each candidate carries:
 
 ```text
 point, normal, oval_x, oval_y
+center, radius          the fitted sphere the point was derived from; radius 0 means none
 finger, mode, roll
-region                 torso or head
-exact                  the point is already on the coat; skip the surface snap
-u                      optional debug parameter
+region                  torso or head
+exact                   the point is already on the coat; skip the sphere projection
+u                       optional debug parameter
 ```
 
 For one hand the engine:
 
 1. applies the oval offset
    `point + oval_x * cos(phase) * across + oval_y * sin(phase) * up`;
-2. an `exact` candidate skips the next four steps and builds the palm frame directly, because
-   its point already is the skinned coat vertex;
-3. snaps the point to the exact body/head coat patch with one `nearest` ray on the candidate's
-   region only; a ray miss uses the exact `closest()` point at `precise` quality and keeps the
-   intended oval point with the path normal at `fast`;
-4. applies the distance-weighted normal blur around a ray hit; a miss keeps the exact `closest()`
-   normal at `precise` or the path normal at `fast`;
-5. clamps the temporal normal turn;
-6. low-passes the **surface snap correction**, not the intended point, so the intended oval
-   motion is never delayed or shrunk;
-7. builds the single-point palm frame with `hands/palm.gd`;
-8. falls back to the last good target when the path or surface is unavailable.
+2. an `exact` candidate skips the next two steps and builds the palm frame directly, because
+   its point already is the skinned coat point;
+3. projects the intended point radially onto the candidate's sphere,
+   `center + normalize(intended - center) * radius`, and uses that radial direction as the contact
+   normal: it is smooth at every point and needs no blur or mesh query;
+4. low-passes the **sphere snap correction**, not the intended point, so the intended oval motion
+   is never delayed or shrunk, and clamps the temporal normal turn;
+5. builds the single-point palm frame with `hands/palm.gd`;
+6. falls back to the last good target when the path is unavailable or the candidate is not finite.
 
-With `features.caress_local` on, the stable region patch stays the source, but each hand skins and
-raycasts only a rest-space window of its intended point. The window re-centres when the point
-leaves its inner half, so the contact and the normal blur's rings never see the window boundary;
-the mesh gather, the vertex rings and the face buckets are shared per source, while each hand owns
-its own window so opposite flanks never compete. A point beyond the source keeps the previous
-local window and skips that point; the debug `features.caress_full_fallback` restores the old
-full-region fallback for comparison. With `features.caress_local` off, both hands share the full
-region patch as before.
+A candidate without a sphere (`radius 0`, the procedural flank/rump fallback) keeps its exact
+point and path normal.
 
-The coat source is the **drawn** body coat: `MareBody` while the game body is visible, otherwise
-the visible source body (the changelings pack's `ChrysalisBody`). A hidden game body is never
-queried. The local window keeps at most `LOCAL_FACE_BUDGET = 480` faces, so a dense source body
-does not scale the skin and closest query with its full coat.
+## Coat fit
+
+`hands/coat_fit.gd` is the only code that reads a coat mesh after the fit. Per authored area it
+takes the nearest coat vertex, its normal and its skin influences, then scans the radius whose
+centre `point - normal * r` best matches the coat within `FIT_RADIUS_M = 0.06 m`, keeping a flat
+patch at the `MAX_RADIUS_M = 1 m` plane limit. The result is cached per skin and area, so a pony
+fits each area once.
+
+An authored area farther than `MAX_DISTANCE_M = 0.06 m` from its body is a miss. A winking body
+(princesses, changelings, a borrowed form) first maps the authored mare point through the body rig
+(`BODY_PROFILE.rig_for_pony`, falling back to the identity's character) about the rear anchor, and
+may snap up to `REMAPPED_DISTANCE_M = 0.12 m`; the fit line reports that distance as `snap`. Head
+areas are never rig-mapped: the loose heads are the shared native head.
 
 ## Lifecycle
 
@@ -240,11 +237,11 @@ does not scale the skin and closest query with its full coat.
 - Begin: `bind()`/`begin()`
 - End: act teardown
 - Idempotent: yes
-- Warm-up: once the act is actionable, the controller builds each hand's contact path one hand
-  per physics tick, so the body/head source gather and the marked-area scans land before the
-  first `A`/`D` rather than on the key press. The warm frame is not applied and no caress is
-  latched, and a fresh `A`/`D` still resets that hand through the normal start. A `hands.path`
-  change arms the warm again for the new path.
+- Warm-up: once the act is actionable, `anchors.prefit_tick()` fits one authored area per physics
+  tick from the pony's body and head meshes, and the controller builds each hand's path one hand
+  per tick once that queue drains, so neither the coat fit nor the marked-area scan lands on the
+  first `A`/`D`. The warm frame is not applied and no caress is latched, and a fresh `A`/`D` still
+  resets that hand through the normal start. A `hands.path` change arms the warm again.
 
 
 ## Settings
@@ -254,9 +251,8 @@ row.
 
 The three smoothing values apply to the two base poses. `0` restores the exact behaviour. The caress
 offsets are multiplied by `Settings.anon_height_scale()` for the Same Height preset; the other
-presets keep their authored values. The quality level is what the hand provider branches on:
-`precise` snaps to the coat every tick, `fast` refreshes at 15 Hz with a 1-ring blur and accepts
-the intended point on a ray miss.
+presets keep their authored values. `Palm hover`, the oval radii and the contact smoothing are the
+contact knobs; the sphere fit itself is fixed and has no player row.
 
 The marked area JSON also stores `mode` and `roll`. The lean-driven standing provider uses
 `region` and keeps its existing palm frame and roll; the oral head path reads `mode` and `roll`
@@ -268,35 +264,21 @@ The rub centre is lifted `CARESS_UP_BIAS_M = 0.05` above the profile's `up` poin
 
 ## Debug and performance
 
-- `features.caress_debug` logs one `precise caress` line per hand per act for the surface-snapped
-  paths, with `u`, target, normal, finger, roll, hover, surface and the ray hit/miss counts. It
-  also logs anchor builds/misses and each anchor's world position/normal. The caress path line
-  prints `path=areas` or `path=oral`; the exact oral node logs its path build and anchor instead
-  of a surface line. The surface field reports `faces=<window>/<patch>`.
-- The debug overlay draws the path anchors, the exact contact, the palm target and the actual
-  hand.
-- `Print perf logs` reports `caress_tick`, `caress_precise`, `caress_path`, `caress_surface`,
-  `caress_ensure`, `caress_select`, `caress_skin`, `caress_tri`, `caress_ray`, `caress_blur`,
-  `caress_closest` and `caress_arm` chunks.
-- `caress_tick` covers the controller; `caress_precise` covers the path plus engine for one hand;
-  `caress_path` covers a one-time path/anchor build and appears only on the tick that builds it;
-  `caress_surface` covers the whole caress hand, `caress_ensure` the mesh/anchor cache check,
-  `caress_select` the window re-centre, `caress_skin` the patch update (skinning plus the face and
-  normal arrays), `caress_tri` the `TriangleMesh` rebuild, `caress_ray` the segment query (it also
-  contains the lazy `TriangleMesh` rebuild on a refresh), `caress_blur` the normal average,
-  `caress_closest` the full-triangle fallback when the ray misses; `caress_arm` covers the
-  missionary reach plan.
-- The anchor scans read the source's packed rest positions, so a marked-area build pays one
-  `PackedVector3Array` compare per vertex instead of a vertex-dictionary lookup. A source without
-  the packed array still builds through the dictionary fallback.
-- The patch is skinned and re-BVHed at most once per `caress.quality` refresh (33 ms precise,
-  66 ms fast) and at most once per physics tick per hand; a window re-centre forces one update
-  regardless of the refresh. A refresh is also skipped while every bound bone is within
-  `POSE_EPS_M` (0.8 mm) and `POSE_EPS_SIN` (0.15°) of the last skinned pose, so a still body does
-  not pay for the skin, the soup write and the BVH rebuild; the retry costs one bone compare per
-  tick. The normal blur averages the hit face's ring (`BLUR_RING_RADIUS_M = 0.03 m`, 2 rings
-  precise, 1 fast) instead of the whole patch; a wider radius scans the whole active patch, which
-  is the local window when the flag is on.
+- `features.caress_debug` logs one `precise caress` line per hand per act with `u`, target,
+  normal, finger, roll, hover and the fitted radius, plus each path build's anchors and their
+  world position/normal.
+- Every coat fit logs `caress fit mesh=… region=… r=… err=…mm snap=…mm`, and a failed area logs
+  `caress area miss region=… rig=… authored=… mapped=…`. Both use the normal debug log switch, not
+  the caress feature.
+- The debug overlay draws the path anchors, the exact contact, the palm target and the actual hand.
+- `Print perf logs` reports `caress_tick`, `caress_precise`, `caress_path`, `caress_fit`,
+  `caress_contact` and `caress_arm` chunks.
+- `caress_tick` covers the controller and the background fit; `caress_precise` covers the path plus
+  engine for one hand; `caress_path` covers a one-time path build, `caress_fit` the sphere fit it
+  triggers, `caress_contact` the radial projection and the smoothing, `caress_arm` the missionary
+  reach plan.
+- The first act on a pony pays one fit per authored area, spread over the posing ticks; later acts
+  reuse the cache, and a rig-mapped body reports its `snap` distances on that first build.
 
 ## Reach
 
@@ -338,52 +320,47 @@ selection and starts the swing.
 ## Dependencies
 
 ### Uses
-| service | world | `world/service.gd` | the eye's camera |
-
-| shared | perf | `shared/perf.gd` | one profiler |
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
 | service | settings | `settings/service.gd` | settings declarations and live values |
+| service | world | `world/service.gd` | the eye's camera |
 | service | world | `world/game.gd` | base-game hand and flank accessors |
 | shared | act_state | `shared/act_state.gd` | act state constants |
 | shared | body_coat | `shared/body_coat.gd` | drawn body coat mesh and surface |
 | shared | body_profile | `shared/body_profile.gd` | the body rig map for a winking body |
 | shared | hands_caress | `shared/hands_caress.gd` | typed caress and smack records |
 | shared | log | `shared/log.gd` | log sink |
+| shared | perf | `shared/perf.gd` | one profiler |
 | shared | pose_view | `shared/pose_view.gd` | typed pose read model |
 
 ## Tests
 
-- `tests/hands/test_caress.gd`: surface patch and its two quality levels, authored paths, marked
-  area path, side mapping, standing path, oral head node and side inversion, the exact node
-  without a head patch, contact blend, engine placement, smoothing and reach, the one-hand-per-tick
-  path warm, the visible-coat choice, the local face budget, the off-source skip and its debug
-  full-patch fallback, the packed source-position anchor scan and the `caress_path` row.
+- `tests/hands/test_caress.gd`: the coat fit, its cache and its miss, authored paths, marked area
+  path, side mapping, standing path and its procedural fallback, oral head node and side inversion,
+  the exact node without a head fit, contact blend, sphere projection and smoothing, the background
+  fit queue and the path warm, and reach geometry.
 - `tests/hands/test_actions.gd`: pure act-action helpers and smack geometry.
 
 ## Known limits
 
-- The coat patch covers the body and head meshes (torso, neck, cheek). Hair, mane, wing and tail
-  layers are not part of the exact patch; the standing `Ignore body parts` setting filters the
-  smack's hull contact query only. A source body whose game `Head` is hidden still uses that head
-  mesh for the head region; the caress body region follows the drawn coat.
-- The local window follows the hand's intended point; a point that lands beyond the region source
-  keeps the last local window and is skipped for that hand. The debug
-  `features.caress_full_fallback` restores the old full-region fallback. `ray()` (the authored
-  anchor build) always uses the full patch, because it maps a soup face back to a source vertex.
+- The coat fit covers the body and head meshes (torso, neck, cheek). Hair, mane, wing and tail
+  layers are not fitted; the standing `Ignore body parts` setting filters the smack's hull contact
+  query only.
+- One sphere per area is a local approximation: it follows the area's skinned point but not local
+  skin deformation under it, and on a body the areas were not authored on, a snapped bead can sit
+  several centimetres from the authored spot.
 - The path builders cache per hand and pony; changing `path_id` rebuilds the next caress path.
-- The oral head path has no fallback: a missing `head_side` side, an unbuilt head source or a
-  point beyond `AUTHORED_MAX_DISTANCE` leaves that hand without a caress target for the turn. A
-  flank contact during oral is deliberately not accepted.
-- The exact oral node uses the authored vertex normal directly, without the coat normal blur.
-  The head-side vertex sits on a smooth part of the head; the snap and blur are unnecessary there.
-- The area chain is lean-driven: W/S still leans and the hand follows the JSON chain.
-  It does not add a discrete area index, a one-sided pause or the slide/arc transition.
+- The oral head path has no fallback: a missing `head_side` side, an unbuilt head fit or a point
+  beyond `coat_fit.MAX_DISTANCE_M` leaves that hand without a caress target for the turn. A flank
+  contact during oral is deliberately not accepted.
+- The exact oral node uses the authored coat normal directly, without the sphere projection.
+- The area chain is lean-driven: W/S still leans and the hand follows the JSON chain. It does not
+  add a discrete area index, a one-sided pause or the slide/arc transition.
 - The area JSON is global for the shared body/head. A missing side or fewer than three buildable
-  areas makes the area chain fail and the standing provider falls back to the procedural
-  flank/rump point.
-- The area chain uses one representative point per group (the vertex nearest the group mean). It
-  does not roam the whole marked region; the oval remains the local stroke.
+  areas makes the area chain fail and the standing provider falls back to the procedural flank/rump
+  point.
+- The area chain fits one sphere per marked group at its representative point; it does not roam the
+  whole region, and the oval remains the local stroke.
 - `hands/service.gd` is the facade and the coordinator in one file. It reads the typed act view
   (`facts.lean_forward`, `facts.size_scale`) and its own copies of the presentation config and the
   per-mare profile, and calls the callbacks the runtime injects (`_on_touch`).

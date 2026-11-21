@@ -149,8 +149,8 @@ func _place_candidate(hand_side: String, candidate: Dictionary,
 		finger, mode, roll, hover)
 
 
-## Snap the intended oval point onto the candidate's fitted sphere and place the palm there.
-## The sphere normal is radial, so it is smooth at every point and no mesh query is needed.
+## Project the intended oval point onto the candidate's fitted sphere, then place the palm.
+## Nothing is read from a mesh; see `docs/hands.md` (`## Contact engine`).
 func _place_precise(hand_side: String, candidate: Dictionary,
 		context: Dictionary, intended: Vector3, normal: Vector3, finger: Vector3,
 		mode: String, roll: float, hover: float) -> Transform3D:

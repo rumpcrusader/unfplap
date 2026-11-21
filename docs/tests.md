@@ -169,7 +169,7 @@ scripts/test.sh ...` line and ends in `TEST_FAIL <k> of <n> suites: <names>` (or
 Every suite must also leave no `SCRIPT ERROR` or `Parse Error` in its log.
 
 Discovery is `tests/**/test_*.gd`, two levels deep, excluding the manual labs (`test_lab*.gd`,
-`test_stress_lab.gd`). `TEST_JOBS` sets the parallelism (default 6).
+`test_stress_lab.gd`). `TEST_JOBS` sets the parallelism (default 12).
 
 `scripts/check.sh` is a parse check, not a test run: use it for the files you touched, and
 `scripts/check.sh --all` before you report the task done.

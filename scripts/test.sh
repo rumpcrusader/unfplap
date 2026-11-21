@@ -6,14 +6,14 @@
 #        scripts/test.sh --list           # the discovered suites, then exit
 #        scripts/test.sh --verbose ...    # also print one PASS line per suite
 # Godot 4.5 must be on PATH.
-# TEST_JOBS sets the parallelism (default 6). TEST_VERBOSE=1 is --verbose.
+# TEST_JOBS sets the parallelism (default 12). TEST_VERBOSE=1 is --verbose.
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MOD_DIR="$(dirname "$SCRIPT_DIR")"
 PROJECT_ROOT="$(cd "$MOD_DIR/../.." && pwd)"
-JOBS="${TEST_JOBS:-6}"
+JOBS="${TEST_JOBS:-12}"
 VERBOSE="${TEST_VERBOSE:-0}"
 ALL=0
 LIST=0

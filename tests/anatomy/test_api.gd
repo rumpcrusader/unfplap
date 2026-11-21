@@ -65,9 +65,10 @@ func run() -> void:
 	check(presentation.target() == ANATOMY.Target.ANUS, "the target follows the anal choice")
 	view.contact_kind = "mouth"
 	presentation.pose(view)
-	check(presentation.target() == ANATOMY.Target.ANUS, "a non-mouth pose keeps the target")
+	check(presentation.target() == ANATOMY.Target.MOUTH,
+		"the mouth contact selects the mouth target")
 	presentation.target_mouth()
-	check(presentation.target() == ANATOMY.Target.MOUTH, "the mouth target needs the mouth contact")
+	check(presentation.target() == ANATOMY.Target.MOUTH, "the mouth target stays selected")
 	view.contact_kind = "opening"
 	presentation.pose(view)
 	check(presentation.target() == ANATOMY.Target.VULVA,

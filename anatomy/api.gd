@@ -70,7 +70,10 @@ class ActPresentation extends RefCounted:
 		if _act != null:
 			_act.set_view(view)
 		_controller.set_act_view(view, _stage, _bed_frame)
-		if _target == Target.MOUTH and str(view.contact_kind) != "mouth":
+		if str(view.contact_kind) == "mouth":
+			if can_target_mouth():
+				_target = Target.MOUTH
+		elif _target == Target.MOUTH:
 			_target = Target.VULVA
 
 	func stage(delta: float, stage: Variant) -> void:

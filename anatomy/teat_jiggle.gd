@@ -2,13 +2,14 @@ extends Node
 ## integration: springy sway for the teats mesh. It
 ## only offsets the mesh in its shader; her own skin carries the shape through her poses.
 
+const PERF := preload("res://mods/unfplap/shared/perf.gd")
+
 const STIFFNESS := 130.0
 const DAMPING := 7.0
 const INERTIA := 0.08
 const MAX_ACCELERATION := 60.0
 const TELEPORT_SPEED := 6.0
 const MAX_SWAY_M := 0.014
-const PERF := preload("res://mods/unfplap/shared/perf.gd")
 
 var material: ShaderMaterial
 var skeleton: Skeleton3D

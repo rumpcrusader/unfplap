@@ -5,11 +5,12 @@ extends SkeletonModifier3D
 ## world offset, which the standing Anon body applies to its pinned hip so the two move together.
 ##
 
+const PERF := preload("res://mods/unfplap/shared/perf.gd")
+const POSE_VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
+
 const BODY_SWAY_MAX_M := 0.035
 const SWAY_STIFFNESS := 90.0
 const SWAY_DAMPING := 16.0
-const PERF := preload("res://mods/unfplap/shared/perf.gd")
-const POSE_VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 
 var mare: Node3D
 ## The typed act view: the live depth and the world-space sway the standing Anon reads.

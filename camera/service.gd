@@ -16,6 +16,9 @@ const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 const BODY_PROFILE := preload("res://mods/unfplap/shared/body_profile.gd")
+const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
+const PERF := preload("res://mods/unfplap/shared/perf.gd")
 
 ## The thrust camera: both channels are velocity-driven metres with one critically damped
 ## response, so the shot eases through the stroke instead of being kicked at its close.
@@ -36,13 +39,10 @@ const HOLD_SWAY_HZ := 0.80
 ## Anon's spine length used by the standing torso hinge.
 const ANON_TORSO_LEN_M := 0.65
 
-const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const STATE_IDLE := ACT_STATE.State.IDLE
 const STATE_ACTIVE := ACT_STATE.State.ACTIVE
 const STATE_CLIMAX := ACT_STATE.State.CLIMAX
 const STATE_AFTERGLOW := ACT_STATE.State.AFTERGLOW
-const LOG := preload("res://mods/unfplap/shared/log.gd")
-const PERF := preload("res://mods/unfplap/shared/perf.gd")
 
 ## The typed act view. Presentation modules read it; the runtime refreshes it once per phase
 ## through `refresh_view()`.

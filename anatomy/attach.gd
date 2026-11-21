@@ -9,6 +9,7 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const CLIMAX_FLUID := preload("res://mods/unfplap/anatomy/fluid.gd")
 const CONTROLLER := preload("res://mods/unfplap/anatomy/controller.gd")
 const RIG := preload("res://mods/unfplap/anatomy/rig.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 const ANATOMY_NAME := "UnfplapAnatomy"
 const ANCHOR_NAME := "UnfplapAnatomyAnchor"
@@ -21,7 +22,6 @@ const IDLE_FLUID_SPEED := 0.9
 ## Ignore the body ellipsoid for this long after a discharge spawn, so a drop leaving the vulva
 ## flies instead of sticking to the rump and creeping down to the tail.
 const IDLE_FLUID_CLEAR_S := 0.2
-const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 var controller: CONTROLLER
 var pony: Node3D

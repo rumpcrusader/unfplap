@@ -8,13 +8,13 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const HAND := preload("res://mods/unfplap/hands/palm.gd")
 const COAT := preload("res://mods/unfplap/hands/contact.gd")
 const PATH_BASE := preload("res://mods/unfplap/hands/path_base.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 const PALM_CONTACT_MAX_STEP_M := 0.06
 const PALM_CONTACT_SOURCE_HITS := 2
 ## The most path candidates one hand tries in a frame. A candidate beyond the source is
 ## skipped locally, so a long fallback chain cannot fan out into a full-patch query.
 const MAX_CANDIDATES := 3
-const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 var facts: Variant
 

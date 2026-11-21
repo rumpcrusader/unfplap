@@ -1,8 +1,8 @@
 extends SkeletonModifier3D
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 ## Pushes Anon's chest backward from the camera in the standing act. The head/camera pose is
 ## restored after the move, so the view stays put while the chest clears it. 0 is off.
 
+const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 
 var player: Node3D
 

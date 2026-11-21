@@ -13,6 +13,8 @@ const DOCK_SEAT := preload("res://mods/unfplap/anatomy/tail/dock_seat.gd")
 const DOCK_ATTACH := preload("res://mods/unfplap/anatomy/tail/dock_attach.gd")
 const ANATOMY_PLACEMENT := preload("res://mods/unfplap/shared/anatomy_placement.gd")
 const RIG := preload("res://mods/unfplap/anatomy/rig.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
+const PERF := preload("res://mods/unfplap/shared/perf.gd")
 
 const DOCK_NAME := "OpenPonyDock"
 const REFERENCE_PATH := "res://world/characters/hybrid_mare/dock_tail_mounts.json"
@@ -24,8 +26,6 @@ const DOCK_SETTLE_S := 0.12
 ## The per-mare placement keys and their defaults, compared in `refresh_all()`.
 const PLACEMENT_KEYS := [["tail_y", 0.0], ["tail_z", 0.0], ["dock_y", 0.0],
 	["dock_scale", 1.0], ["tail_tilt_deg", 0.0]]
-const LOG := preload("res://mods/unfplap/shared/log.gd")
-const PERF := preload("res://mods/unfplap/shared/perf.gd")
 
 ## One mare's seat: the measured anchor and cap, the cached originals and the live placement.
 class SeatRow:

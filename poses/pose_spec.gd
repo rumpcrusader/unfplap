@@ -3,7 +3,7 @@ extends RefCounted
 ## the registry caches one per id and the pose view carries the fields. It never reads settings,
 ## files or the scene. Contract: `docs/poses.md`.
 
-const PATH := "res://mods/unfplap/poses/pose_spec.gd"
+const SELF := preload("res://mods/unfplap/poses/pose_spec.gd")
 const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 
 const ID_PATTERN := "^[a-z][a-z0-9_]*$"
@@ -62,7 +62,7 @@ static func from_dict(spec_id: String, data: Dictionary, table: Dictionary = {})
 	var found := errors(spec_id, data, table)
 	if not found.is_empty():
 		return null
-	var spec: Variant = load(PATH).new()
+	var spec: Variant = SELF.new()
 	spec._fill(spec_id, data)
 	return spec
 

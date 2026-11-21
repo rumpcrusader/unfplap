@@ -5,11 +5,11 @@ const WORLD := preload("res://mods/unfplap/world/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const PATH := preload("res://mods/unfplap/hands/paths/anchors.gd")
 const HAND := preload("res://mods/unfplap/hands/palm.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
+const PERF := preload("res://mods/unfplap/shared/perf.gd")
 
 const MISSIONARY_CARESS_LATERAL_M := 0.045
 const MISSIONARY_CARESS_PALM_ROLL_DEG := 30.0
-const LOG := preload("res://mods/unfplap/shared/log.gd")
-const PERF := preload("res://mods/unfplap/shared/perf.gd")
 
 var _paths: Dictionary = {}
 var _last_world: Dictionary = {}

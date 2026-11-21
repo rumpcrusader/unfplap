@@ -4,9 +4,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/test_face_sit_action.gd
 
-## Loaded at run time: `main.gd` names the game's `Mods` autoload, which the `--script`
-## compiler cannot see at preload time. The autoload node exists before the suite runs.
-var MAIN: Variant = null
+const MAIN := preload("res://mods/unfplap/main.gd")
 const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/service.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const POSES := preload("res://mods/unfplap/poses/service.gd")
@@ -143,10 +141,6 @@ func _check_helper() -> void:
 
 
 func _check_action() -> void:
-	MAIN = load("res://mods/unfplap/main.gd")
-	check(MAIN != null, "main.gd loads with the game autoloads")
-	if MAIN == null:
-		return
 	var main: Node = MAIN.new()
 	root.add_child(main)
 	var runtime := FakeRuntime.new()

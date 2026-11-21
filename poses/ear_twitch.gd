@@ -2,6 +2,9 @@ extends SkeletonModifier3D
 ## An eased ear twitch on a thrust, on top of the act's pinned ears. It rotates the two ear
 ## roots and leaves the face weights alone.
 
+const PERF := preload("res://mods/unfplap/shared/perf.gd")
+const POSE_VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
+
 const TWITCH_CHANCE := 0.22
 const TWITCH_ANGLE := 0.20
 const TWITCH_SIDE_RATIO_MIN := 0.30
@@ -12,8 +15,6 @@ const COOLDOWN_MIN_S := 0.45
 const COOLDOWN_MAX_S := 1.80
 const TWITCH_GAIN_MIN := 0.75
 const TWITCH_GAIN_MAX := 1.15
-const PERF := preload("res://mods/unfplap/shared/perf.gd")
-const POSE_VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 
 var mare: Node3D
 ## The typed act view. Absent outside an act.

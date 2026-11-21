@@ -3,10 +3,10 @@ extends "res://mods/unfplap/hands/path_base.gd"
 
 const PATH := preload("res://mods/unfplap/hands/paths/anchors.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
-
-const ORAL_PALM_ROLL_DEG := 24.0
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const PERF := preload("res://mods/unfplap/shared/perf.gd")
+
+const ORAL_PALM_ROLL_DEG := 24.0
 
 var _paths: Dictionary = {}
 var _failed: Dictionary = {}

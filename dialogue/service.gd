@@ -18,6 +18,8 @@ const ACT_FACE := preload("res://mods/unfplap/shared/act_face.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const HOUSE := preload("res://world/buildings/house_interior.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
+const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 const RECENT_LINES := 8
 
@@ -90,12 +92,10 @@ const BYSTANDER_GAP_S := 20.0
 const BYSTANDER_CHANCE := 0.7
 const BYSTANDER_MAX := 3
 
-const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const STATE_IDLE := ACT_STATE.State.IDLE
 const STATE_POSING_IN := ACT_STATE.State.POSING_IN
 const STATE_ACTIVE := ACT_STATE.State.ACTIVE
 const STATE_CLIMAX := ACT_STATE.State.CLIMAX
-const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 var facts: ACT_FACTS = null
 ## The world memory the line channel writes; the runtime's builder passes it once.

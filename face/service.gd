@@ -11,6 +11,9 @@ const GAME := preload("res://mods/unfplap/world/game.gd")
 const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
 const READINESS := preload("res://mods/unfplap/readiness/service.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
+## The act states the lids answer. The runtime owns the enum; these are its values.
+const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 ## The world memory the cue mood reads; the runtime's builder passes it once.
 var memory: Node = null
@@ -37,13 +40,10 @@ const ACT_LIDS := 0.45
 const CLIMAX_LIDS := 0.0
 const AFTERGLOW_LIDS := 0.9
 const AFTERGLOW_CLOSE_LIDS := 0.95
-## The act states the lids answer. The runtime owns the enum; these are its values.
-const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const STATE_POSING_IN := ACT_STATE.State.POSING_IN
 const STATE_ACTIVE := ACT_STATE.State.ACTIVE
 const STATE_CLIMAX := ACT_STATE.State.CLIMAX
 const STATE_AFTERGLOW := ACT_STATE.State.AFTERGLOW
-const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 ## The face the act set. A spoken line face always wins until it ends.
 var act_face := ""

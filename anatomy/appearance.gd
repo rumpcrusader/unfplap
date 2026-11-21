@@ -15,6 +15,7 @@ const UDDER := preload("res://mods/unfplap/anatomy/udder.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
 const RIG := preload("res://mods/unfplap/anatomy/rig.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 const ASSET_DIR := "res://mods/unfplap/assets/anatomy/mare/"
 const TEATS_PATH := ASSET_DIR + "teats.scn"
@@ -30,7 +31,6 @@ const WINKING_SLIT_HALF := 0.06
 const TEAT_STRIP_END_Y := 0.384
 const TEAT_STRIP_END_Z := Vector2(0.18, 0.175)
 const STRIP_END_FADE := 0.03
-const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 var pony: Node3D
 var rig: RIG

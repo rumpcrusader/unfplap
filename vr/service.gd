@@ -4,6 +4,7 @@ extends Node
 
 const ACT_COMMANDS := preload("res://mods/unfplap/shared/act_commands.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
+const SELF := preload("res://mods/unfplap/vr/service.gd")
 
 const HIP_RANGE_M := 0.16
 const STICK_DEAD := 0.5
@@ -47,7 +48,7 @@ static func attach(runtime: Node, player: Node) -> Node:
 	var origins: Array = player.find_children("*", "XROrigin3D", true, false)
 	if cameras.is_empty() or origins.is_empty():
 		return null
-	var act: Node = load("res://mods/unfplap/vr/service.gd").new()
+	var act: Node = SELF.new()
 	act.name = "UnfplapVrAct"
 	act.player = player as Node3D
 	act.hip_target = avatar.get("_hip_target") as Node3D

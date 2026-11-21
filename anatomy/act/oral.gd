@@ -3,11 +3,12 @@ extends RefCounted
 ## the clear action. It owns no turn, no mix, no facing and no pose keys; the pose service's oral
 ## turn drives the frame and the contact anchor. Contract: `docs/anatomy.md`.
 
+const CONTROLLER := preload("res://mods/unfplap/anatomy/controller.gd")
+const RIG := preload("res://mods/unfplap/anatomy/rig.gd")
+
 const ORAL_MOUTH := "D"
 const ORAL_BELOW_NOSE_M := 0.03
 
-const CONTROLLER := preload("res://mods/unfplap/anatomy/controller.gd")
-const RIG := preload("res://mods/unfplap/anatomy/rig.gd")
 
 var pony: Node3D = null
 var anatomy: CONTROLLER = null

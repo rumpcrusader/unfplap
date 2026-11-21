@@ -1,11 +1,11 @@
 extends RefCounted
+## Durable per-mare act history. Pure policy plus one `Mods.state("unfplap").act_history`
+## dictionary; no scene access.
+
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
 const DEFAULTS_DATA := preload("res://mods/unfplap/shared/defaults_data.gd")
 const PROMPT_TEXT := preload("res://mods/unfplap/shared/prompt_text.gd")
-## Durable per-mare act history. Pure policy plus one `Mods.state("unfplap").act_history`
-## dictionary; no scene access.
-
 
 const MOD_ID := "unfplap"
 const KEY := "act_history"

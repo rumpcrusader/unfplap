@@ -18,8 +18,6 @@ var order: Array = []
 ## A base service with all four hooks. It records the hook, and the world root and player the scene
 ## facade held at that moment, so a broadcast that runs outside the bind or the unbind shows.
 class StandIn extends "res://mods/unfplap/shared/service.gd":
-	const WORLD := preload("res://mods/unfplap/world/service.gd")
-
 	var id: String
 	var sink: Array
 	var seen_world: Array = []

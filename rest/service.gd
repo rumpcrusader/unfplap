@@ -6,13 +6,13 @@ const WORLD := preload("res://mods/unfplap/world/service.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
 const MATTRESS := preload("res://world/life/couch/mattress.gd")
 const COUCH_EXIT := preload("res://world/life/couch/exit_space.gd")
+const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 const CUDDLE_REJOIN_SETTLE_S := 1.5
 const CUDDLE_REJOIN_RETRY_S := 0.5
 const CUDDLE_REJOIN_WINDOW_S := 30.0
-const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const STATE_IDLE := ACT_STATE.State.IDLE
-const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 ## Scene handles. The runtime binds them on every access.
 var pony: Node3D = null

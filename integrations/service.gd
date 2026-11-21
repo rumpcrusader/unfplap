@@ -9,9 +9,9 @@ const CATALOG := preload("res://mods/unfplap/shared/integrations.gd")
 const CONTEXT := preload("res://mods/unfplap/integrations/context.gd")
 const ACTION := preload("res://mods/unfplap/integrations/action.gd")
 const KISSING := preload("res://mods/unfplap/integrations/kissing.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 const POLICY := {"kissing": KISSING}
-const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 
 ## One provider's per-act state. The context and action arrays are reused every tick.

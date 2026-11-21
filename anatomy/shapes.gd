@@ -7,10 +7,10 @@ extends RefCounted
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const GEOMETRY := preload("res://mods/unfplap/anatomy/geometry.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 const WINKING_CUT_DEPTH := 0.07
 const WINKING_CUT_FILLED := 0.9
-const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 var pony: Node3D
 var host: Node

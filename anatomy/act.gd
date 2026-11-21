@@ -12,6 +12,7 @@ const FLUID := preload("res://mods/unfplap/anatomy/fluid.gd")
 const RIG := preload("res://mods/unfplap/anatomy/rig.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
+const PERF := preload("res://mods/unfplap/shared/perf.gd")
 
 const WINKING_REST_OPEN := 0.6
 const WINKING_OPEN_AT := 0.3
@@ -33,7 +34,6 @@ const TOUCH_MARGIN_M := 0.02
 const HOLE_SWAP_S := 0.9
 const PULLED_OUT_PHASE := 0.35
 const PONY_FLUID_COLOR := Color(0.9, 0.93, 1.0, 0.72)
-const PERF := preload("res://mods/unfplap/shared/perf.gd")
 
 ## The act's phase values, matching `anatomy/api.gd`'s `Phase`.
 const PHASE_POSING_IN := 0

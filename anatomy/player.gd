@@ -3,6 +3,8 @@ extends Node
 
 const GAME := preload("res://mods/unfplap/world/game.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
+
 const SKIN := Color(0.34, 0.66, 0.34)
 const SKIN_SHADE := Color(0.27, 0.54, 0.28)
 const TIP := Color(0.62, 0.74, 0.42)
@@ -46,7 +48,6 @@ const MESH_PATH := "res://mods/unfplap/assets/anatomy/anon/anon_part.scn"
 const ALBEDO_PATH := "res://mods/unfplap/assets/anatomy/anon/anon_part_albedo.png"
 const AO_PATH := "res://mods/unfplap/assets/anatomy/anon/anon_part_ao.png"
 const NRM_PATH := "res://mods/unfplap/assets/anatomy/anon/anon_part_nrm.png"
-const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 ## The Anon body this part binds to. The facade resolves it; the part never reads the main node.
 var player_body: Node3D

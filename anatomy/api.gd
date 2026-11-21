@@ -14,6 +14,7 @@ const RIG := preload("res://mods/unfplap/anatomy/rig.gd")
 const PARTS := preload("res://mods/unfplap/anatomy/parts.gd")
 const CONTROLLER := preload("res://mods/unfplap/anatomy/controller.gd")
 const ACT := preload("res://mods/unfplap/anatomy/act.gd")
+const PLAYER_HOST := preload("res://mods/unfplap/anatomy/player_host.gd")
 
 ## The anatomy action status line. The entry connects it to the HUD.
 signal status(text: String, seconds: float)
@@ -186,8 +187,6 @@ class ActPresentation extends RefCounted:
 
 ## The Anon part handle. Its methods are no-ops when the part is absent.
 class AnonBody extends RefCounted:
-	const PLAYER_HOST := preload("res://mods/unfplap/anatomy/player_host.gd")
-
 	var _host: PLAYER_HOST
 
 	func _init(host: PLAYER_HOST) -> void:

@@ -939,6 +939,159 @@ def shipped_sources() -> list[Path]:
     )
 
 
+# Every `.gd` in the repository, tests and tools included. Only the generated and fetched trees
+# are out of scope; they are not source.
+ALL_SOURCE_SKIP_DIRS = {".git", ".godot", "dist", "assets", "sources"}
+
+
+def all_sources() -> list[Path]:
+    return sorted(
+        path for path in ROOT.rglob("*.gd")
+        if not (set(path.relative_to(ROOT).parts) & ALL_SOURCE_SKIP_DIRS)
+    )
+
+
+PRELOAD_CALL = re.compile(r"(?<![\w.])preload\(")
+LOAD_CALL = re.compile(r"(?<![\w.])load\(")
+GD_CONST = re.compile(
+    r'^const\s+([A-Za-z_]\w*)\s*(?::\s*[\w.\[\]]+\s*)?(?::=|=)\s*'
+    r'(?:preload\(\s*)?"([^"]+\.gd)"',
+    re.MULTILINE,
+)
+GD_LITERAL = re.compile(r'^"([^"]+\.gd)"')
+
+
+def _code_part(line: str) -> str:
+    """The line up to an end-of-line comment, quotes respected."""
+    quote = ""
+    index = 0
+    while index < len(line):
+        char = line[index]
+        if quote:
+            if char == "\\":
+                index += 2
+                continue
+            if char == quote:
+                quote = ""
+        elif char in ("\"", "'"):
+            quote = char
+        elif char == "#":
+            return line[:index]
+        index += 1
+    return line
+
+
+def _bracket_delta(line: str) -> int:
+    """Open minus close brackets on a line, ignoring strings and comments."""
+    depth = 0
+    quote = ""
+    index = 0
+    while index < len(line):
+        char = line[index]
+        if quote:
+            if char == "\\":
+                index += 2
+                continue
+            if char == quote:
+                quote = ""
+        elif char in ("\"", "'"):
+            quote = char
+        elif char == "#":
+            break
+        elif char in "([{":
+            depth += 1
+        elif char in ")]}":
+            depth -= 1
+        index += 1
+    return depth
+
+
+def preload_block_problems(text: str) -> list[tuple[int, str]]:
+    """Where a script breaks the top preload block: a late or nested ``preload()`` and a script
+    ``load()``. The block is the contiguous top-level const region below the doc header.
+
+    Asset ``load(path)``, ``ANATOMY.MEMBER`` and a `.load()` method stay legal: only a script is a
+    dependency the preload graph must carry.
+    """
+    lines = text.splitlines()
+    out: list[tuple[int, str]] = []
+    cursor = 0
+    while cursor < len(lines) and (not lines[cursor].strip() or lines[cursor].startswith("@")):
+        cursor += 1
+    if cursor < len(lines) and lines[cursor].startswith("extends "):
+        cursor += 1
+    # The first `##` block before any other declaration is the file's doc header. A preload
+    # above it is outside the block even though it is a top-level const.
+    probe = cursor
+    header_at = None
+    while probe < len(lines):
+        line = lines[probe]
+        if not line.strip() or line.lstrip().startswith("#"):
+            probe += 1
+            continue
+        if line.startswith("const "):
+            probe += 1
+            continue
+        break
+    for at in range(cursor, probe):
+        if lines[at].startswith("##"):
+            header_at = at
+            break
+    if header_at is not None:
+        cursor = header_at
+        while cursor < len(lines) and lines[cursor].startswith("##"):
+            cursor += 1
+
+    allowed: set[int] = set()
+    while cursor < len(lines):
+        line = lines[cursor]
+        if not line.strip() or line.lstrip().startswith("#"):
+            cursor += 1
+            continue
+        if not line.startswith("const "):
+            break
+        start = cursor
+        depth = _bracket_delta(line)
+        while depth > 0 or lines[cursor].rstrip().endswith("\\"):
+            if cursor + 1 >= len(lines):
+                break
+            cursor += 1
+            depth += _bracket_delta(lines[cursor])
+        if not any(PRELOAD_CALL.search(_code_part(lines[at])) for at in range(start, cursor + 1)):
+            break
+        allowed.update(range(start, cursor + 1))
+        cursor += 1
+
+    for number, line in enumerate(lines, start=1):
+        code = _code_part(line)
+        for _match in PRELOAD_CALL.finditer(code):
+            if number - 1 not in allowed:
+                out.append((number, "preload() outside the leading const block: declare every "
+                                   "script dependency directly below the doc header"))
+
+    scripts = {match.group(1) for match in GD_CONST.finditer(text)}
+    for number, line in enumerate(lines, start=1):
+        code = _code_part(line)
+        for match in LOAD_CALL.finditer(code):
+            argument = code[match.end():].strip()
+            literal = GD_LITERAL.match(argument)
+            if literal:
+                out.append((number, "load() of the script %s: preload it as a top-level const"
+                            % literal.group(1)))
+                continue
+            name = re.match(r"([A-Za-z_]\w*)\s*[,)]", argument)
+            if name and name.group(1) in scripts:
+                out.append((number, "load() of the script const %s: preload it and call new()"
+                            % name.group(1)))
+    return out
+
+
+def check_preloads(failure: Failure) -> None:
+    for path in all_sources():
+        for number, message in preload_block_problems(path.read_text(encoding="utf-8")):
+            failure.add("%s:%d %s" % (rel(path), number, message))
+
+
 def function_body(text: str, name: str) -> str:
     match = re.search(r"^(?:static\s+)?func %s\(" % re.escape(name), text, re.MULTILINE)
     if not match:
@@ -1805,6 +1958,7 @@ def check() -> int:
     check_act_owners(failure)
     check_owners(failure)
     check_tests(failure)
+    check_preloads(failure)
     failures = len(failure.messages)
     for message in failure.messages:
         print("FAIL", message)

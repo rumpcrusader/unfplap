@@ -12,6 +12,7 @@ const CUT_SHADER := preload("res://mods/unfplap/integrations/shaders/pantyhose_c
 const SHEER_SHADER := preload("res://mods/unfplap/integrations/shaders/pantyhose_sheer.gdshader")
 ## The per-node cloth jiggle; see `docs/integrations.md` (`## Pantyhose & Panties`).
 const GARMENT_JIGGLE := preload("res://mods/unfplap/integrations/garment_jiggle.gd")
+const PERF := preload("res://mods/unfplap/shared/perf.gd")
 
 const MOD_ID := "pantyhose"
 ## The garment nodes are children of the body's parent, next to `MareBody`.
@@ -29,7 +30,6 @@ const PROCESS_PRIORITY := 100
 ## The debug heatmap sits this far in front of the field surface (anatomy-local metres).
 const OVERLAY_Z_LIFT := 0.0015
 const OVERLAY_ALPHA := 0.78
-const PERF := preload("res://mods/unfplap/shared/perf.gd")
 
 
 ## One garment node's saved overrides, so a feature-off, a mod-off or a world close restores

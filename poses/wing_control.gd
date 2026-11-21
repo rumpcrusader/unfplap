@@ -4,6 +4,7 @@ extends RefCounted
 
 const WING_SWEEP := preload("res://mods/unfplap/poses/wing_sweep.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 const READINESS_MAX := 100.0
 const WING_FADE_SECONDS := 2.20
@@ -22,7 +23,6 @@ const WING_STANDING_SPREAD := 0.25
 const WING_AFTERGLOW_RETURN_SECONDS := 6.0
 const WING_FLUTTER_COOLDOWN_S := 1.80
 const WING_SWEEP_DEG := 10.0
-const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 ## The typed act view: her node and the act clock.
 var facts: Variant

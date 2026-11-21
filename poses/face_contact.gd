@@ -2,6 +2,10 @@ extends RefCounted
 ## The bed face-sit contact driver: her pose follows his live mouth.
 ## Contract: `docs/poses.md`.
 
+const LOG := preload("res://mods/unfplap/shared/log.gd")
+const POSE_VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
+const POSE := preload("res://mods/unfplap/poses/skeleton_pose.gd")
+
 ## The offset eases at this exponential rate; a few centimetres of residual land in a few frames
 ## without dragging her across the mattress.
 const OFFSET_RATE := 9.0
@@ -10,9 +14,6 @@ const OFFSET_RATE := 9.0
 const PRESS_M := 0.025
 const ROCK_M := 0.012
 const ROCK_RATE := 2.4
-const LOG := preload("res://mods/unfplap/shared/log.gd")
-const POSE_VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
-const POSE := preload("res://mods/unfplap/poses/skeleton_pose.gd")
 
 var pony: Node3D = null
 var face_point := Callable()

@@ -7,6 +7,8 @@ extends SkeletonModifier3D
 
 const TAIL_CHAIN := preload("res://mods/unfplap/poses/tail_chain.gd")
 const POSE_VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
+const PERF := preload("res://mods/unfplap/shared/perf.gd")
+
 const ASIDE_ANGLE := 0.55
 const LIFT_ANGLE := 0.42
 var aside_angle := ASIDE_ANGLE
@@ -34,7 +36,6 @@ const JIGGLE_BASE_BOB_FREQ := 24.0
 const JIGGLE_BASE_BOB_DECAY := 3.6
 const JIGGLE_BASE_BOB_DELAY := 0.035
 const JIGGLE_BASE_NORMAL := 0.8
-const PERF := preload("res://mods/unfplap/shared/perf.gd")
 
 var mare: Node3D
 ## The typed act view: the live depth. Absent outside an act.

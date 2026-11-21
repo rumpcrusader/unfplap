@@ -29,6 +29,7 @@ const REGISTRY := preload("res://mods/unfplap/poses/registry.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
 const MATTRESS := preload("res://world/life/couch/mattress.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 ## The empty sets the reconcile and the anon channel read, so a steady tick allocates nothing.
 const NO_OWNERS: Array[String] = []
@@ -37,7 +38,6 @@ const NO_CHANNEL := {}
 const MODIFIER_ORDER := ["body_sway", "prone_sway", "ear_twitch", "tail", "tail_lay"]
 ## The absent pose frame: a real transform whose infinite origin no reader mistakes for space.
 const NO_FRAME := Transform3D(Basis.IDENTITY, Vector3.INF)
-const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 
 ## The act's live feature switches, held by reference so the session and the snapshot agree.

@@ -6,8 +6,9 @@ extends SkeletonModifier3D
 
 const TAIL_CHAIN := preload("res://mods/unfplap/poses/tail_chain.gd")
 const POSE_VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
-const FADE_SECONDS := 0.5
 const RIG := preload("res://mods/unfplap/poses/pose_rig.gd")
+
+const FADE_SECONDS := 0.5
 
 var mare: Node3D
 ## The typed act view: the live bed frame. Absent outside a missionary act.

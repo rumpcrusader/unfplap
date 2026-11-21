@@ -162,6 +162,10 @@ Read `WORKFLOW.md` before any task. Commit in small, testable units; never push.
 - **No preload re-exports.** A file uses only the preload consts it declares. Reaching another
   module's `const … := preload(...)` fails the gate; enums, nested classes and plain constants stay
   reachable, and `GAME.X` is the one allowed re-export.
+- **The top preload block is the dependency manifest.** Every script dependency is a top-level
+  `const … := preload(...)` in the contiguous block directly below the doc header, in every `.gd`
+  including `tests/` and `tools/`. A late or nested preload and a `load()` of a script are gate
+  failures; a runtime asset `load(path)` stays allowed.
 - **Settings snapshot.** Values arrive once per act and again on `apply_live_settings()`; no
   per-frame `Settings` reads. One declaration in `settings/service.gd`, one shipped value in
   `settings/settings.json`, one typed read; the framework is `docs/settings.md`.

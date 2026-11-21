@@ -11,6 +11,7 @@ const POSE_VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
 const SOUND := preload("res://mods/unfplap/audio/sound.gd")
 const VOICE := preload("res://mods/unfplap/audio/voice_status.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 ## The withdraw cue fires when the depth crosses back out; the impact fires at the inward bottom,
 ## so the plap lands with the motion instead of at the stroke's close.
@@ -23,7 +24,6 @@ const ORAL_KISS_DB := -22.0
 const VOCAL_COOLDOWN_S := 3.0
 ## Her body's own vocal level under the spoken line.
 const VOCAL_DB := -34.0
-const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 ## The active impact profile, from the pose view's `impact` (`missionary` or `standing`).
 ## `pose_changed()` sets it; the impact and withdraw calls read it instead of the pose id.

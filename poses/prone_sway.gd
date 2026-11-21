@@ -3,6 +3,9 @@ extends SkeletonModifier3D
 ## a pony on a bed slides a little along the mattress on each thrust and nods her head, instead
 ## of rocking her chest forward and back over planted hooves.
 
+const PERF := preload("res://mods/unfplap/shared/perf.gd")
+const POSE_VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
+
 const SLIDE_M := 0.022
 const SLIDE_STIFFNESS := 62.0
 const SLIDE_DAMPING := 14.0
@@ -11,8 +14,6 @@ const NOD_STIFFNESS := 70.0
 const NOD_DAMPING := 15.0
 ## Flip if the slide should follow the other end of the bed on a given body orientation.
 const SLIDE_SIGN := -1.0
-const PERF := preload("res://mods/unfplap/shared/perf.gd")
-const POSE_VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 
 var mare: Node3D
 ## The typed act view: the live state and depth. Absent outside an act.

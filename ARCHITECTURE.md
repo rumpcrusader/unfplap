@@ -446,6 +446,10 @@ The architecture gate is `scripts/architecture.py --check`, run from `scripts/te
 - rejects a static `instance` in a shipped service; world facades are injected or taken as host
   parameters;
 - scans `preload`, `extends "res://..."` and `load()` for mod paths and base-game paths;
+- requires every script dependency in every `.gd` to be a top-level `const … := preload(...)` in the
+  contiguous block directly below the doc header; a preload after another declaration or inside a
+  class or function fails, and so does a `load()` of a script path or a const that resolves to one,
+  while a runtime `load(path)` for an asset stays allowed;
 - rejects a base-game import outside `world/game.gd`; every other module reads the game through
   `GAME`;
 - rejects a cross-module preload-const reach-through; enums, nested classes and plain constants

@@ -5,10 +5,10 @@ extends RefCounted
 ##
 ## See `docs/audio.md`.
 
-const ACT_AUDIO_PATH := "res://mods/unfplap/audio/service.gd"
+const AUDIO := preload("res://mods/unfplap/audio/service.gd")
 
-## The live audio node, or null before the first act. Its script is loaded lazily so both audio
-## flags off never load the pack streams or the catalogue.
+## The live audio node, or null before the first act. It is created lazily so both audio flags
+## off keep the node out of the scene.
 var node: Variant = null
 ## The runtime node: the one parent of the audio node.
 var host: Node = null
@@ -27,10 +27,7 @@ func bind(host_node: Node) -> void:
 func service() -> Variant:
 	if is_instance_valid(node):
 		return node
-	var audio_script: Script = load(ACT_AUDIO_PATH)
-	if audio_script == null:
-		return null
-	node = audio_script.new()
+	node = AUDIO.new()
 	node.name = "UnfplapActAudio"
 	if is_instance_valid(host):
 		host.add_child(node)

@@ -15,6 +15,11 @@ const ORAL_PATH := preload("res://mods/unfplap/hands/paths/oral.gd")
 const COAT := preload("res://mods/unfplap/hands/contact.gd")
 const SMACK := preload("res://mods/unfplap/hands/smack.gd")
 const POSE_VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
+## Native impact strength for the smack; also drives the tail jiggle propagation.
+## A peak-normalised pack hand-smack plays on the native player; the stock level and pitch return at act end.
+const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
+const PERF := preload("res://mods/unfplap/shared/perf.gd")
 
 ## Ease the hand from its rest frame onto the shoulder instead of teleporting it.
 const REACH_HAND_BLEND_S := 0.35
@@ -43,13 +48,8 @@ const SMACK_ZONE_RADIUS_M := 0.035
 ## Missionary keeps its old hidden-hand swing through the same constants.
 const SMACK_HEIGHT_M := -0.03
 const SMACK_HIND_M := 0.10
-## Native impact strength for the smack; also drives the tail jiggle propagation.
-## A peak-normalised pack hand-smack plays on the native player; the stock level and pitch return at act end.
-const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const STATE_ACTIVE := ACT_STATE.State.ACTIVE
 const STATE_CLIMAX := ACT_STATE.State.CLIMAX
-const LOG := preload("res://mods/unfplap/shared/log.gd")
-const PERF := preload("res://mods/unfplap/shared/perf.gd")
 
 ## Pure palm geometry for tests and the controller.
 static func palm_clearance_for(body_scale: float, distance := 0.02) -> float:

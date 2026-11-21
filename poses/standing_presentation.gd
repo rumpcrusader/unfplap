@@ -12,6 +12,8 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
 const POSE := preload("res://mods/unfplap/poses/skeleton_pose.gd")
 const TAIL := preload("res://mods/unfplap/poses/tail_pose.gd")
+const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 const PRESENT_TURN_RATE := 2.4
 const PRESENT_FACE_TURN_RATE := 1.5
@@ -34,9 +36,7 @@ const TURN_YAW := "yaw"
 ## Safety cap: the invitation owns her body, so no missed end path may leave the pose on forever.
 ## Longer than the invite wait plus the turn.
 const PRESENT_MAX_SECONDS := 75.0
-const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const STATE_IDLE := ACT_STATE.State.IDLE
-const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 var facts: Variant
 var pony: Variant

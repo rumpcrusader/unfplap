@@ -2,11 +2,12 @@ extends RefCounted
 ## Pure act HUD text: cue, readiness, auto readout and `End` tint.
 ## Contract: `docs/hud.md`
 
+const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
+
 ## The act-key hint's `End` shade: one step per climax, capped below full so only the earned afterglow
 ## caress turns it fully pink.
 const Y_END_TINT_MAX := 0.75
 
-const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const STATE_ACTIVE := ACT_STATE.State.ACTIVE
 const STATE_CLIMAX := ACT_STATE.State.CLIMAX
 const STATE_AFTERGLOW := ACT_STATE.State.AFTERGLOW

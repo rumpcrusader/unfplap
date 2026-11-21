@@ -10,6 +10,7 @@ const GAME := preload("res://mods/unfplap/world/game.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
 const RUMP_CONE := preload("res://mods/unfplap/shared/rump_cone.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 ## The stock jiggle clamps its own impulse to 0.3..1.0; this scales the resolved amount.
 const JIGGLE_RUMP_SCALE := 2.8
@@ -18,7 +19,6 @@ const RUMP_BLUSH_MIN_STRENGTH := 0.55
 const RUMP_BLUSH_STEP := 0.0525
 const RUMP_BLUSH_MAX := 0.375
 const RUMP_BLUSH_DECAY := 0.006
-const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 ## Scene handles. The runtime binds them; tests may inject a fake flank and anatomy.
 var pony: Node3D = null

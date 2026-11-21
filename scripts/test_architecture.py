@@ -67,6 +67,26 @@ MEMBER_CASES = (
     ("unnoted member", "const PUBLIC := 1\n", 1),
     ("preload const", "const SCRIPT := preload(\"res://a.gd\")\n", 0),
 )
+PRELOAD_CASES = (
+    ("preload block", "extends RefCounted\n## Header.\n\n"
+     "const A := preload(\"res://a.gd\")\nconst B := preload(\"res://b.gd\")\n\nvar x := 1\n", 0),
+    ("preload array", "extends RefCounted\n## Header.\n\nconst A := [\n"
+     "\tpreload(\"res://a.gd\"),\n\tpreload(\"res://b.gd\"),\n]\n", 0),
+    ("preload after const", "extends RefCounted\n## Header.\n\nconst A := 1\n"
+     "const B := preload(\"res://b.gd\")\n", 1),
+    ("preload after var", "extends RefCounted\n## Header.\n\nvar x := 1\n"
+     "const A := preload(\"res://a.gd\")\n", 1),
+    ("preload in class", "extends RefCounted\n## Header.\n\nclass Inner:\n"
+     "\tconst A := preload(\"res://a.gd\")\n", 1),
+    ("preload above header", "extends RefCounted\n"
+     "const A := preload(\"res://a.gd\")\n## Header.\n\nvar x := 1\n", 1),
+    ("load literal", "extends RefCounted\n## Header.\n\nfunc make():\n"
+     "\treturn load(\"res://a.gd\")\n", 1),
+    ("load const", "extends RefCounted\n## Header.\n\nconst PATH := \"res://a.gd\"\n\n"
+     "func make():\n\treturn load(PATH)\n", 1),
+    ("dynamic asset load", "extends RefCounted\n## Header.\n\nfunc make(path):\n"
+     "\treturn load(path)\n", 0),
+)
 
 
 def index_row(sid: str, tests: str | None = None) -> str:
@@ -128,6 +148,18 @@ def index_cases() -> int:
     return failures
 
 
+def preload_cases() -> int:
+    failures = 0
+    for label, text, wanted in PRELOAD_CASES:
+        actual = len(architecture.preload_block_problems(text))
+        if actual == wanted:
+            print("ok preload %s" % label)
+        else:
+            print("FAIL preload %s: wanted %d findings, got %d" % (label, wanted, actual))
+            failures += 1
+    return failures
+
+
 def rule_cases() -> int:
     failures = 0
     for src, tgt in GAME_ALLOWED:
@@ -179,12 +211,13 @@ def main() -> int:
             failures += 1
     failures += index_cases()
     failures += rule_cases()
+    failures += preload_cases()
     if failures:
         print("ARCH_RULES_FAIL %d" % failures)
         return 1
     print("ARCH_RULES_PASS %d" % (
         len(ALLOWED) + len(FORBIDDEN) + len(GAME_ALLOWED) + len(REEXPORTS)
-        + len(NOTE_CASES) + len(MEMBER_CASES) + 6))
+        + len(NOTE_CASES) + len(MEMBER_CASES) + len(PRELOAD_CASES) + 6))
     return 0
 
 

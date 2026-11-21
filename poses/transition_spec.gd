@@ -4,7 +4,7 @@ extends RefCounted
 ## file once, validates it and caches the wrapper, and `pose_state.gd` runs the validated
 ## document. It never reads settings, files or the scene. Contract: `docs/poses.md`.
 
-const PATH := "res://mods/unfplap/poses/transition_spec.gd"
+const SELF := preload("res://mods/unfplap/poses/transition_spec.gd")
 const POSE_SPEC := preload("res://mods/unfplap/poses/pose_spec.gd")
 const POSE_STATE := preload("res://mods/unfplap/poses/pose_state.gd")
 
@@ -40,7 +40,7 @@ static func from_dict(edge_id: String, document: Dictionary, specs: Dictionary =
 	var found := errors(edge_id, document, specs)
 	if not found.is_empty():
 		return null
-	var edge: Variant = load(PATH).new()
+	var edge: Variant = SELF.new()
 	edge._fill(edge_id, document)
 	return edge
 

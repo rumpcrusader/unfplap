@@ -17,6 +17,12 @@ const ROWS := preload("res://mods/unfplap/settings/rows.gd")
 const PROFILE := preload("res://mods/unfplap/settings/profile.gd")
 const DEPRECATION := preload("res://mods/unfplap/settings/deprecation.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
+## Character names, order and preference templates live in `shared/character_preferences.gd`; the settings view
+## and the runtime merge read them through these aliases.
+const CHARACTERS := preload("res://mods/unfplap/shared/character_preferences.gd")
+## Cross-mod provider layers; see docs/api.md. Provider data is in memory only.
+const MARE_REGISTRY := preload("res://mods/unfplap/registry/service.gd")
+
 const ID := "unfplap"
 const FILE := "settings.json"
 ## The player's character file: the profile difference and the per-mare rows.
@@ -30,13 +36,8 @@ const LEGACY_SKIN_TONES := {
 	"darker": 0.5,
 	"dark": 1.0,
 }
-## Character names, order and preference templates live in `shared/character_preferences.gd`; the settings view
-## and the runtime merge read them through these aliases.
-const CHARACTERS := preload("res://mods/unfplap/shared/character_preferences.gd")
 const CHARACTER_ORDER := CHARACTERS.ORDER
 const CHARACTER_NAMES := CHARACTERS.NAMES
-## Cross-mod provider layers; see docs/api.md. Provider data is in memory only.
-const MARE_REGISTRY := preload("res://mods/unfplap/registry/service.gd")
 
 ## Tabs, in panel order. Poses holds the pose family switches plus the tuning rows, which stay
 ## behind debug mode; Characters and Integrations are hand-built and catalog-driven.

@@ -5,6 +5,8 @@ extends Node3D
 ## drops move with her.
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const PERF := preload("res://mods/unfplap/shared/perf.gd")
+
 const MAX_DROPS := 220
 const GRAVITY := 3.4
 const DRAG := 0.5
@@ -15,7 +17,6 @@ const LET_GO := -0.72
 ## integration: her rear half in the shared body's rest space, scaled by the pony's body_scale.
 const BODY_CENTRE := Vector3(0.0, 0.47, 0.12)
 const BODY_RADII := Vector3(0.165, 0.175, 0.215)
-const PERF := preload("res://mods/unfplap/shared/perf.gd")
 
 enum { FLYING, STUCK, POOLED }
 

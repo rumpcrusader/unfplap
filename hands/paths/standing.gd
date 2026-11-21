@@ -4,12 +4,12 @@ extends "res://mods/unfplap/hands/path_base.gd"
 
 const PATH := preload("res://mods/unfplap/hands/paths/anchors.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
+const PERF := preload("res://mods/unfplap/shared/perf.gd")
 
 const CARESS_UP_BIAS_M := 0.05
 ## Backward lean reaches the rump top at this magnitude, not at a full -1 lean.
 const CARESS_RUMP_LEAN := 0.5
-const LOG := preload("res://mods/unfplap/shared/log.gd")
-const PERF := preload("res://mods/unfplap/shared/perf.gd")
 
 var _flank: Node
 var _paths: Dictionary = {}

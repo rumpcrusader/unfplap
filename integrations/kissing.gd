@@ -6,6 +6,8 @@ extends "res://mods/unfplap/integrations/provider.gd"
 ## her hips.
 
 const ACTION := preload("res://mods/unfplap/integrations/action.gd")
+const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
+
 const FEATURE := "kissing_reactions"
 const REQUIRED := ["feelings", "excitement", "beat"]
 
@@ -20,7 +22,6 @@ const FALL_RATE := 0.25
 ## The climax pins her to the cap quickly instead of waiting for the close ramp.
 const CLIMAX_RATE := 1.5
 
-const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const STATE_CLIMAX := ACT_STATE.State.CLIMAX
 
 var _start_until := ACTION.set_value("excitement", "_until", 0.0)

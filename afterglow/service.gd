@@ -14,13 +14,13 @@ const READINESS := preload("res://mods/unfplap/readiness/service.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 ## The close window only exists in the standing afterglow.
 const STAY_CLOSE_SECONDS := 8.0
 const STAY_CLOSE_CARESS_SECONDS := 2.5
 ## The satisfaction meter runs down to zero over this window after every act.
 const SATISFACTION_DECAY_SECONDS := 30.0
-const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 ## The post-act decision: the tail tuck after a partner stop, or the earned aftercare beat.
 ## The post-act face reads the same values.

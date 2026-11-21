@@ -18,13 +18,13 @@ const GARMENT_HULL := preload("res://mods/unfplap/anatomy/garment_hull.gd")
 const PLAYER := preload("res://mods/unfplap/anatomy/player.gd")
 const FLUID := preload("res://mods/unfplap/anatomy/fluid.gd")
 const RIG := preload("res://mods/unfplap/anatomy/rig.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
+const PERF := preload("res://mods/unfplap/shared/perf.gd")
 
 const ASSET_DIR := "res://mods/unfplap/assets/anatomy/mare/"
 const MARE_BITS_PATH := ASSET_DIR + "mare_bits_v2.scn"
 const TEATS_PATH := ASSET_DIR + "teats.scn"
 const STRIP_PATH := ASSET_DIR + "skin_bridge.scn"
-const LOG := preload("res://mods/unfplap/shared/log.gd")
-const PERF := preload("res://mods/unfplap/shared/perf.gd")
 
 var pony: Node3D
 ## The world's game boundary, injected by the anatomy API.

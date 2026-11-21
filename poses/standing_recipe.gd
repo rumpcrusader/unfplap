@@ -2,13 +2,14 @@ extends "res://mods/unfplap/poses/pose_driver.gd"
 ## Standing skeleton recipe and the baked-base delta.
 ## Contract: `docs/poses.md`.
 
+const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
+
 const STANDING_BOW := 2.4
 const STANDING_FORELEG := 2.0
 const STANDING_FORELEG_SPREAD := 0.172
 const STANDING_HIND_SPREAD := 0.32
 const STANDING_CHIN_UP_DEG := 30.0
 const STANDING_NECK_DOWN_DEG := 30.0
-const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 
 var _config: Dictionary = {}
 

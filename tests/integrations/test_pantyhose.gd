@@ -12,8 +12,9 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const CUT_SHADER := preload("res://mods/unfplap/integrations/shaders/pantyhose_cut.gdshader")
 const SHEER_SHADER := preload("res://mods/unfplap/integrations/shaders/pantyhose_sheer.gdshader")
-const ANATOMY_SCENE := "res://mods/unfplap/assets/anatomy/mare/mare_bits_v2.scn"
 const SCHEMA := preload("res://world/ai/pony_action_schema.gd")
+
+const ANATOMY_SCENE := "res://mods/unfplap/assets/anatomy/mare/mare_bits_v2.scn"
 ## The live coat uniforms `FlankTouch` writes, with the game's `flank_jiggle.gdshaderinc` names.
 const COAT_SHADER_CODE := "shader_type spatial;\n" \
 	+ "uniform float jiggle_amount = 0.0;\n" \

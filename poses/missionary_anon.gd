@@ -13,6 +13,8 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 const REACH_PLAN := preload("res://mods/unfplap/shared/hands_reach_plan.gd")
 const PALM_SCALE := preload("res://mods/unfplap/shared/hands_scale.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
+const PERF := preload("res://mods/unfplap/shared/perf.gd")
 
 ## The lean joint: everything above it follows as one, while the hips, thighs and legs keep the
 ## authored pose and the stroke. The camera is his head, so the lean also moves the act view.
@@ -27,8 +29,6 @@ const MOUTH_OFFSET := Vector3(0.0, -0.07, -0.02)
 ## leaves the hand floating when the act ends.
 const HOLD_BLEND_S := 0.35
 const HOLD_RELEASE_S := 0.35
-const LOG := preload("res://mods/unfplap/shared/log.gd")
-const PERF := preload("res://mods/unfplap/shared/perf.gd")
 
 ## The typed act view. Every live value and callback comes through it; the runtime node is never
 ## read directly.

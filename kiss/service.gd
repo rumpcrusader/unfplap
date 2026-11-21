@@ -12,6 +12,8 @@ const POSE_VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
 
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
+
 const STATE_ACTIVE := ACT_STATE.State.ACTIVE
 const STATE_CLIMAX := ACT_STATE.State.CLIMAX
 const KISS_FADE_IN := 0.35
@@ -30,7 +32,6 @@ const KISS_SIDE_HOLD_S := 9999.0
 const STANDING_KISS_LEAN := 0.90
 ## The side lean alone would drag the kiss along, so W is required too.
 const MISSIONARY_KISS_LEAN := 0.90
-const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 var facts: ACT_FACTS
 var pony: Node3D

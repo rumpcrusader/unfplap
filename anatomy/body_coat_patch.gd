@@ -5,6 +5,8 @@ extends RefCounted
 ## The cel cutout/occlusion variants have no hook, so the patch injects one; a game update
 ## that breaks a hook yields null and the caller keeps the original shader.
 
+const LOG := preload("res://mods/unfplap/shared/log.gd")
+
 const GAME_INCLUDE := "res://world/characters/hybrid_mare/flank_jiggle.gdshaderinc"
 const GAME_INCLUDE_LINE := "#include \"" + GAME_INCLUDE + "\""
 const MOD_INCLUDE := "res://mods/unfplap/anatomy/body_coat_deform.gdshaderinc"
@@ -18,7 +20,6 @@ const FRAGMENT_HOOK := "void fragment() {"
 const PATCHED_FRAGMENT := "void fragment() {\n\tif (body_coat_vulva_cut(body_coat_vertex)) { discard; }"
 const PATCHED_NEAR_FRAGMENT := "void fragment() {\n\tif (body_coat_entry[pal] > 0.5 && body_coat_vulva_cut(body_coat_vertex)) { discard; }"
 const NEAR_ENTRY_UNIFORM := "uniform float body_coat_entry[ENTRIES];"
-const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 static var _cache: Dictionary = {}
 

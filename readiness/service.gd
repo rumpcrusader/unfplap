@@ -11,6 +11,8 @@ const AUTO_THRUST := preload("res://mods/unfplap/readiness/auto_thrust.gd")
 const AUTO_PANEL := preload("res://mods/unfplap/readiness/auto_panel.gd")
 const TOLERANCE := preload("res://mods/unfplap/readiness/tolerance.gd")
 const THRUST_STATE := preload("res://mods/unfplap/readiness/thrust_state.gd")
+const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 const READINESS_MAX := 100.0
 const PONY_CLIMAX_AT := READINESS_MAX
@@ -24,10 +26,8 @@ const ASSIST_CAP := 60.0
 const TOUCH_HEAT := 6.0
 const TALK_HEAT := 6.0
 const STROKE_MEMORY_S := 1.2
-const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const STATE_ACTIVE := ACT_STATE.State.ACTIVE
 const STATE_CLIMAX := ACT_STATE.State.CLIMAX
-const LOG := preload("res://mods/unfplap/shared/log.gd")
 ## The face moment a disliked touch or talk presents; `shared/act_face.gd` owns the beat itself.
 const FACE_OVERWHELMED := "overwhelmed"
 

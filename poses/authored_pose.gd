@@ -2,6 +2,9 @@ extends RefCounted
 ## The authored pose asset loader: v7 local-rest poses, v6 bed-space migration.
 ## Contract: `docs/poses.md`.
 
+const SELF := preload("res://mods/unfplap/poses/authored_pose.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
+
 const PATH := "res://mods/unfplap/poses/missionary_pose.json"
 const MIN_VERSION := 6
 const CURRENT_VERSION := 7
@@ -34,7 +37,6 @@ const PONY_BONES := [
 ## Bones the game or the act animates every frame: they are never baked.
 const BANNED_PREFIXES := ["pony_head", "pony_lid", "pony_ear", "pony_Wing", "pony_wing",
 	"pony_Feather", "pony_foldedWing", "pony_tail", "rd_", "jaw", "EYETARGET", "MOUNT_"]
-const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 ## True once a valid asset is parsed and `error` is empty.
 var available := false
@@ -101,7 +103,7 @@ var _clearance_value := -1.0
 static func shared(path := PATH) -> Variant:
 	var resolved := resolve(path)
 	if not _shared.has(resolved):
-		var made: Variant = load("res://mods/unfplap/poses/authored_pose.gd").new()
+		var made: Variant = SELF.new()
 		made.load_file(resolved)
 		_shared[resolved] = made
 	return _shared[resolved]

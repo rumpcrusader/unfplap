@@ -6,11 +6,11 @@ const GAME := preload("res://mods/unfplap/world/game.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const ACT_FACE := preload("res://mods/unfplap/shared/act_face.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 const DURATION := 300.0
 const MOOD_FACES := ACT_FACE.MOOD_FACES
 const MOOD_CHECK_SECONDS := 0.5
-const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 signal finished(reason: String)
 

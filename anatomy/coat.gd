@@ -11,12 +11,12 @@ const BODY_COAT_PATCH := preload("res://mods/unfplap/anatomy/body_coat_patch.gd"
 const BODY_COAT := preload("res://mods/unfplap/shared/body_coat.gd")
 const STILL_ZONE_DEBUG := preload("res://mods/unfplap/anatomy/still_zone_debug.gd")
 const RIG := preload("res://mods/unfplap/anatomy/rig.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 const BODY_ANAL_REACH := 0.09
 const VULVA_RELIEF_M := 0.002
 const JIGGLE_STILL_MIN_M := 0.05
 const PALETTE_ENTRIES := 32
-const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 var pony: Node3D
 var rig: RIG

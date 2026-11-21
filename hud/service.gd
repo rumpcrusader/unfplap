@@ -10,13 +10,14 @@ const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const ACT_KEYS := preload("res://mods/unfplap/shared/act_keys.gd")
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
+const HUD_LINES := preload("res://mods/unfplap/hud/lines.gd")
+
 const STATE_IDLE := ACT_STATE.State.IDLE
 const STATE_POSING_IN := ACT_STATE.State.POSING_IN
 const STATE_ACTIVE := ACT_STATE.State.ACTIVE
 const STATE_CLIMAX := ACT_STATE.State.CLIMAX
 const STATE_AFTERGLOW := ACT_STATE.State.AFTERGLOW
 const STATE_RESTORE := ACT_STATE.State.RESTORE
-const HUD_LINES := preload("res://mods/unfplap/hud/lines.gd")
 const ICON_PATH := "res://world/ui/prompts/%s.png"
 ## The game's own speech caption; the entry forwards every one to `caption_node()`.
 const CAPTION_PATH := "res://world/ui/speech_caption.gd"

@@ -180,7 +180,8 @@ func _build_services() -> void:
 ## Join one service to the tree and to the ordered list. Every list member is a base service.
 func _add(service: SERVICE, node_name := "") -> Variant:
 	_services.append(service)
-	service.name = node_name
+	if not node_name.is_empty():
+		service.name = node_name
 	add_child(service)
 	return service
 

@@ -205,6 +205,13 @@ func run() -> void:
 	var nav: FakeNav = runtime._bundle.hold.nav
 	var inventory: FakeInventory = main.game.inventory
 
+	# The registry accessors hand back the runtime's real handles, which are RefCounted, not Nodes.
+	check(PONIES.scene_of(runtime) == runtime.scene, "the scene accessor returns the live gate")
+	check(PONIES.start_of(runtime) == runtime.start, "the start accessor returns the live start handle")
+	check(PONIES.presentation_of(runtime) == runtime.presentation,
+		"the presentation accessor returns the live presentation handle")
+	check(PONIES.scene_of(null) == null, "a missing runtime reads no scene handle")
+
 	# The scene-only Agreement start's guard rails: no handle, no option, and the aftercare clear.
 	check(runtime.start.start_agreement(null) == ACT_AGREEMENT.AGREEMENT_FAILED,
 		"a missing Agreement handle fails the start")

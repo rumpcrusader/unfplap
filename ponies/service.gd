@@ -120,21 +120,21 @@ static func active() -> Node:
 	return _active if is_instance_valid(_active) else null
 
 
-## The per-pony handles the world services read. One dynamic read each, inside the registry that
-## owns the runtime; the runtime's properties carry the typed contracts.
-static func scene_of(runtime: Node) -> Node:
+## The per-pony handles the world services read. `Object` is the shared base of the `Node` the
+## suites substitute and the `RefCounted` the runtime exposes; the properties stay typed.
+static func scene_of(runtime: Node) -> Object:
 	if not is_instance_valid(runtime):
 		return null
 	return runtime.get("scene")
 
 
-static func start_of(runtime: Node) -> Node:
+static func start_of(runtime: Node) -> Object:
 	if not is_instance_valid(runtime):
 		return null
 	return runtime.get("start")
 
 
-static func presentation_of(runtime: Node) -> Node:
+static func presentation_of(runtime: Node) -> Object:
 	if not is_instance_valid(runtime):
 		return null
 	return runtime.get("presentation")

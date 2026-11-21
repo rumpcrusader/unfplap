@@ -152,6 +152,10 @@ func _check_add() -> void:
 	check(first.get_parent() == builder, "_add parents the service under the entry")
 	check(builder.call("_add", second, "UnfplapSecond") == second, "_add returns the second service")
 	check((builder.get("_services") as Array).size() == 2, "_add joins both to the one list")
+	var unnamed := StandIn.new()
+	check(builder.call("_add", unnamed) == unnamed, "_add takes a service without a name")
+	check(not unnamed.name.is_empty(), "_add never assigns the empty node name the engine rejects")
+	check((builder.get("_services") as Array).size() == 3, "an unnamed service still joins the list")
 	builder.free()
 
 

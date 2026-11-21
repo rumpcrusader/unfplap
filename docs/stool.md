@@ -152,7 +152,7 @@ idle hint and the act start.
   `hotkey_pair()` and hands it to the scene row. The reach reads `entrance_point()`, the cached
   local resting point, and `player_root_now()`; the case count is read once. The anatomy
   measurement and the inventory scan are not repeated inside the same scan.
-- The blocked hint reads that pair through `hint_pair()` (forwarded by `runtime.gate.hint_stool()`); it
+- The blocked hint reads that pair through `hint_pair()` (forwarded by `runtime.start.hint_stool()`); it
   does not repeat the reach or case reads. Before the first hint the accessor falls back to the live
   pair.
 - Pressing the act key on the blocked note does not start an act.

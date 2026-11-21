@@ -8,10 +8,10 @@ The act itself is four layers, all under `act/`:
 
 | Layer | Owner | Contract |
 |---|---|---|
-| Node | `runtime.gd` | lifetime, node operations, engine callbacks and the two typed handles |
+| Node | `runtime.gd` | lifetime, node operations, engine callbacks and the typed handles |
 | Session | `act/session.gd` | act state, timers, clock, act values, transitions and the two frame forwards |
 | Ledgers | `act/start.gd`, `act/exit.gd` | the ordered start recipe and the one teardown |
-| Modules | `act/tick.gd`, `act/view.gd`, `act/idle.gd`, `act/input.gd`, `act/phases.gd`, `act/gate.gd`, `act/agreement.gd`, `act/consent.gd`, `act/impact.gd`, `act/swap.gd`, `act/setup.gd`, `act/settings.gd` | schedule, view, idle, input protocol, presentation, offer gate, Agreement, consent, stroke, swap seams and the start adapters |
+| Modules | `act/tick.gd`, `act/view.gd`, `act/idle.gd`, `act/input.gd`, `act/phases.gd`, `act/agreement.gd`, `act/consent.gd`, `act/impact.gd`, `act/swap.gd`, `act/setup.gd`, `act/settings.gd` | schedule, view, idle, input protocol, presentation, the start ports, consent, stroke, swap seams and the start adapters |
 
 `act/build.gd` constructs every one of them once per pony and binds their typed hosts. The systems
 (readiness, poses, camera, audio, face, reactions, dialogue, summary, afterglow, anatomy, hands,
@@ -45,7 +45,9 @@ The node's public surface is exactly:
 | Surface | Contract |
 |---|---|
 | `act` | the typed `ActSession` handle (`act/session.gd`) |
-| `gate` | the per-pony offer `SceneGate` handle (`act/gate.gd`) |
+| `scene` | the per-pony `SceneGate` handle (`scene_gate/service.gd`) |
+| `start` | the per-pony start handle (`shared/start_port.gd`, implemented by `act/agreement.gd`) |
+| `presentation` | the per-pony presentation handle (`shared/presentation_port.gd`, implemented by `act/session.gd`) |
 | `pony` | the presented body |
 | `live_id()` | the stable pony id the entry and `ponies` read |
 | `attach_to_body()` | the handover's reparent off the old body |
@@ -159,7 +161,7 @@ body and id and the act host's pony. There is no second bind pass and no facade 
    standing body controllers, the camera and audio bindings;
 3. `_bind_act_frame()`: `act/host.gd` (node operations), `act/context.gd`, `act/settings.gd`,
    `act/session.gd`, consent, impact, view, idle, exit, input, swap, phases, tick, setup, start,
-   agreement and the offer gate, and their sibling handles;
+   agreement and their sibling handles;
 4. `_bind_anatomy_host()` and `_bind_handover_host()`, now that the session and every module exist;
 5. `_bind_pose_hosts()` and `_bind_facts()`: the pose, readiness, face, reactions, gate, rest,
    scene-hold, afterglow and act-view callbacks;
@@ -237,10 +239,10 @@ scene-only rows.
 The live start paths share the one body (`act/start.gd:run()`; `act/session.gd:begin()` is its one
 entry). The three entry points live in `act/agreement.gd`:
 
-- **The hotkey** runs `runtime.gate.start_hotkey()`: the scene gate's `hotkey_ready()` (the small
+- **The hotkey** runs `runtime.start.start_hotkey()`: the scene gate's `hotkey_ready()` (the small
   scene checks plus Base clearance), then `act/start.gd:run()`. No policy row, no offer
   cooldown, no buck and no history refusal.
-- **The Agreement** runs `runtime.gate.start_agreement(handle)`: the scene-only rows with the
+- **The Agreement** runs `runtime.start.start_agreement(handle)`: the scene-only rows with the
   frozen pose capability (`scene_only_verdict`), then `act/start.gd:run()`. It answers
   `AGREEMENT_WAIT`, `AGREEMENT_STARTED` or `AGREEMENT_FAILED`; the offer, its only caller, reports
   `Started` or `StartFailed` to the Negotiation service.
@@ -463,9 +465,9 @@ fan-out invariants:
 
 - `state` is declared and written only in `act/session.gd` (`_set_state()`); `runtime.gd` has no
   `state` field and contains no `state` assignment;
-- `NODE_SURFACE` and `NODE_PROPERTIES` fix the node's public surface (`act`, `gate`, `pony`,
-  `live_id`, `attach_to_body`, `adopt_body`); both lists are compared both ways, and the engine
-  callbacks are private;
+- `NODE_SURFACE` and `NODE_PROPERTIES` fix the node's public surface (`act`, `scene`, `start`,
+  `presentation`, `pony`, `live_id`, `attach_to_body`, `adopt_body`); both lists are compared both
+  ways, and the engine callbacks are private;
 - no `Input.`/`InputMap.`/input event/keycode read and no input callback in `runtime.gd`;
 - `runtime.gd` contains no settings read; `act/settings.gd` is the act's one snapshot boundary
   (`snapshot_values` and `live_preferences`), and every `SETTINGS.<member>` read there is a named

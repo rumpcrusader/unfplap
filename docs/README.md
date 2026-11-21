@@ -37,7 +37,7 @@ the idle block; `act/build.gd` constructs and binds them once per pony.
 | Per-pony composition | `act/build.gd` | `docs/runtime.md` | `tests/act/`, `tests/test_runtime_teardown.gd` |
 | Act session | `act/session.gd` | `docs/runtime.md` | `tests/act/test_session.gd` |
 | Act ledgers | `act/start.gd`, `act/exit.gd` | `docs/runtime.md` | `tests/poses/test_start_setup.gd`, `tests/test_runtime_teardown.gd` |
-| Act modules | `act/tick.gd`, `act/view.gd`, `act/idle.gd`, `act/input.gd`, `act/phases.gd`, `act/gate.gd`, `act/agreement.gd`, `act/consent.gd`, `act/impact.gd`, `act/swap.gd`, `act/setup.gd`, `act/settings.gd`, `act/host.gd`, `act/context.gd` | `docs/runtime.md` | `tests/` |
+| Act modules | `act/tick.gd`, `act/view.gd`, `act/idle.gd`, `act/input.gd`, `act/phases.gd`, `act/agreement.gd`, `act/consent.gd`, `act/impact.gd`, `act/swap.gd`, `act/setup.gd`, `act/settings.gd`, `act/host.gd`, `act/context.gd` | `docs/runtime.md` | `tests/` |
 
 ## Services
 
@@ -88,6 +88,8 @@ only stable external surface is `docs/api.md`.
 | Typed act view | `shared/act_facts.gd` | `docs/act_facts.md` | `tests/act_facts/` |
 | Settings change notification | `shared/settings_change.gd` | `docs/settings.md` | `tests/test_settings_change.gd` |
 | Service base | `shared/service.gd` | `../ARCHITECTURE.md` | `tests/entry/` |
+| Start handle | `shared/start_port.gd` | `docs/runtime.md` | `tests/offer/`, `tests/negotiation/` |
+| Presentation handle | `shared/presentation_port.gd` | `docs/runtime.md` | `tests/stool/` |
 | Preferences | `shared/preferences.gd` | `docs/preferences.md` | `tests/readiness/`, `tests/test_character_preferences.gd` |
 | Character templates | `shared/character_preferences.gd` | `docs/preferences.md` | `tests/test_character_preferences.gd` |
 | Prompt text | `shared/prompt_text.gd` | `docs/prompts.md` | `tests/test_prompts.gd` |

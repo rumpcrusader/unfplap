@@ -21,6 +21,7 @@ that service's purpose, API, state, settings, controls, debug actions, dependenc
 | Scene read facade | `world/service.gd`: the live world root, Anon's body and the reads derived from them, bound by the entry. Answers where and what, never whether. |
 | Base-game accessors | `world/game.gd`: every base-game and presentation member the mod reads or writes, one static typed function per member with the handle as an argument. Read like the scene by services, shared modules and the settings layer. |
 | Read model | A scene-free mutable value object refreshed by its owner, for example the act view. |
+| Port | A service-owned abstract `RefCounted` contract the runtime implements once per pony, for example `shared/start_port.gd`; it replaces a `Callable` bag without a service cycle. |
 | Cross-mod API | `api.gd` and `docs/api.md`: the only stable contract another mod may call. |
 | Host | A scene or orchestrator object a service receives values and callbacks from. A host is not a service. |
 
@@ -257,8 +258,9 @@ act, and it:
   world-close release. `_init()` builds the bundle once; `_ready()` binds the pony, the face and the
   anatomy; `_physics_process` is one `act.tick()`, `_process` one `act.render()`, and `_exit_tree()`
   releases the kiss forelegs, the stool, the tail tuck, the aftercare, the anatomy act and the face;
-- exposes exactly `act` (the `ActSession`), `gate` (the offer `SceneGate`), `pony`, `live_id()`,
-  `attach_to_body()`, `adopt_body()` and the engine callbacks. `NODE_SURFACE` and `NODE_PROPERTIES`
+- exposes exactly `act` (the `ActSession`), `scene` (the `SceneGate`), `start` and `presentation`
+  (the two ports), `pony`, `live_id()`, `attach_to_body()`, `adopt_body()` and the engine
+  callbacks. `NODE_SURFACE` and `NODE_PROPERTIES`
   in `scripts/architecture.py` compare both directions, so a new public member and a stale row both
   fail;
 - hands all composition to `act/build.gd`, a plain struct builder with typed fields and
@@ -475,8 +477,10 @@ The architecture gate is `scripts/architecture.py --check`, run from `scripts/te
 - reads `architecture/exceptions.json` and fails on a new violation or a stale exception;
 - reads `architecture/typing_debt.json` and fails when the weak-signature debt grows;
 - reads `architecture/duck_typing.json` and fails when a shipped file outside the accessor
-  allowlist adds a `.call("name")` or `.set("name")` site. The three `integrations/` rows are a
-  deferred exception — that service talks to other mods, not the base game — and not a pattern.
+  allowlist adds a `.call("name")`, `.set("name")` or `runtime.get("name")` site. The
+  `integrations/` rows are a deferred exception — that service talks to other mods, not the base
+  game — and not a pattern; the `runtime.get` rows are the handle reads the typed accessors are
+  replacing.
 
 `scripts/architecture.py --graph` prints the service graph for review; it is not checked in.
 `scripts/architecture.py --write-debt` is the deliberate way to update the debt after a service

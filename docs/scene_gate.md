@@ -24,12 +24,15 @@ whether the *scene* is ready right now.
   the one stop;
 - the physical buck/push (`buck_or_push`), which the tolerance strict stop uses.
 
-`runtime.gate` is the offer-facing handle. The live scene context comes through the gate's
-`debug_context` callback, bound by `act/build.gd` to `runtime.act.debug_context()`: that gathers
-`debug/pony.gd`'s pony, world, relationship and player facts and adds the session's act values. The
-handle exposes `find_bed_under`, `free_of_affection`, `cuddle_active`, `hotkey_ready`, the small
-checks (`available`, `pose_supported`, `player_ready`, `navigator_allows`, `posture_allows`,
-`agreement_ready`), `stool_pair`, `hint_stool` and the Agreement start. The gate reads
+`runtime.scene` is the offer-facing scene handle; `runtime.start` carries the hotkey/Agreement
+starts and the footstool hint, and `runtime.presentation` the stool and standing-presentation
+reads. The live scene context comes through the gate's `debug_context` callback, bound by
+`act/build.gd` to `runtime.act.debug_context()`: that gathers `debug/pony.gd`'s pony, world,
+relationship and player facts and adds the session's act values. The scene handle exposes
+`find_bed_under`, `free_of_affection`, `cuddle_active`, `hotkey_ready`, the small checks
+(`available`, `pose_supported`, `player_ready`, `navigator_allows`, `posture_allows`,
+`agreement_ready`) and the scene-only verdict; the stool pair, hint and Agreement start are the
+other two handles. The gate reads
 `PONIES.eligibility` itself for the policy verdict; a suite may still override
 `policy_verdict`. The tolerance stop owns its impression and face (`docs/summary.md`,
 `docs/face.md`).
@@ -176,7 +179,7 @@ start rows. `aftercare` is removed; the Act service clears it at start. `SceneVe
 
 The host binds `hold_compatible(pose, source) -> bool`; it is true only while the navigator owner
 and the affection hold belong to the live negotiation hold. A hard failure is a `StartFailed`; a
-failing transient row is waited on within the Agreement TTL. `runtime.gate.start_agreement(handle)`
+failing transient row is waited on within the Agreement TTL. `runtime.start.start_agreement(handle)`
 consumes this verdict; the act key's general path still runs `start_verdict()`.
 
 `running_verdict(nav, bed, player_pony, kissing)` is the live act's periodic check. It returns a

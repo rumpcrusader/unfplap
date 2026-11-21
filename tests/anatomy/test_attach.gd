@@ -80,6 +80,20 @@ func run() -> void:
 		"a deprecated tail opt-out leaves the anatomy controller")
 	SETTINGS.reset_participation("twilight_sparkle")
 
+	# A live capability edit re-asks the gate for every remembered body: the listener withdraws
+	# and re-attaches without another roster pass.
+	var kept: BODY_FORM.BodyForm = api.parts.form_for(pony)
+	eligibility.allow = false
+	api._on_settings_changed()
+	check(api.parts.controller(pony) == null, "a settings edit withdraws a now-ineligible body")
+	check(api.parts.form_for(pony) == kept, "the listener keeps the remembered form")
+	check(not (api.parts.tail_seat.get("_rows") as Dictionary).has(pony),
+		"the listener releases the tail")
+	eligibility.allow = true
+	api._on_settings_changed()
+	check(is_instance_valid(api.parts.controller(pony)),
+		"a settings edit re-presents an eligible body")
+
 	# The withdraw releases the controller, the tail row and the form; a frame later the deferred
 	# tail retry does not resurrect the tail.
 	api.withdraw(pony)

@@ -479,6 +479,12 @@ func shutdown() -> void:
 func _on_settings_changed() -> void:
 	if parts == null:
 		return
+	# Re-ask the gate before the live refresh, so a body that lost the capability is released
+	# before its controller would be refreshed.
+	var ponies: Array = parts.forms.keys()
+	for value: Variant in ponies:
+		if value is Node3D and is_instance_valid(value):
+			present(value as Node3D, parts.form_for(value))
 	parts.player_host.refresh()
 	parts.push_part()
 	parts.refresh_all()

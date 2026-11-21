@@ -197,7 +197,8 @@ handle's `climaxed` flag, tells the internal act, clears the grip and releases t
   the placement and rebuilds the appearance, marker and placement only when the rig or fit changed.
   `docs/body_change.md` owns the binding and lifecycle contract. The roster's
   `PONIES._prepare()` calls `present` once with the provider's stored form; there is no separate
-  tail pass and no settings re-check loop.
+  tail pass. A settings edit re-asks the gate for every remembered form in `anatomy/api.gd`, so a
+  participation change attaches or detaches her without a roster pass.
 - The mare bits mesh and skin strip ship with the pack, so a missing mesh is a broken build, not a
   state the controller handles. The teats are generated from her body; the old mare-shaped
   `teats.scn` is the fallback when her belly cannot be measured.

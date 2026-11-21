@@ -417,7 +417,6 @@ def edge_kind(src: str, tgt: str) -> tuple[str, Owner | None, Owner | None]:
 
 
 ANATOMY_FACADE = "anatomy/api.gd"
-ANATOMY_RIG = "anatomy/rig.gd"
 ELIGIBILITY_SCENE = "eligibility/scene.gd"
 
 
@@ -432,11 +431,11 @@ def is_allowed(src: str, tgt: str) -> tuple[bool, str, Owner | None, Owner | Non
     if so.kind == "orchestrator":
         return True, kind, so, to
 
-    # Anatomy is a presentation leaf: only the rig reads world/game.gd, only the facade asks
-    # eligibility or another mod service, and outside files may preload only api.gd.
+    # Anatomy is a presentation leaf: every anatomy file reads the game through `GAME`; only the
+    # facade asks eligibility or another mod service, and outside files may preload only api.gd.
     if src.startswith("anatomy/"):
-        if src == ANATOMY_RIG:
-            return tgt == "world/game.gd", kind, so, to
+        if tgt == GAME_SOURCE:
+            return True, kind, so, to
         if kind in ("self", "shared", "store", "read model"):
             return True, kind, so, to
         if kind == "service" and to is not None:

@@ -69,34 +69,9 @@ The purity boundary is deliberate:
   would start (`docs/offer.md`), and the Negotiation facade answers the lock, the form view and
   the Context.
 
-## Internal API
+## Facade
 
-`initiation/service.gd`:
-
-```gdscript
-enum Phase { NONE, APPROACH, ARRIVE, ASK, BED_APPROACH }
-
-class Candidate:
-    id, runtime, pony, options, option, base, context, private, forced,
-    serial, phase, started_at, arrive_until, token, nav, prev_owner, prev_wander,
-    prev_limit, prev_pace, player_start, region, bed_front
-class ForceResult: ok, id, pose, reject
-
-func setup(privacy_node: Privacy = null, negotiation_node: Negotiation = null,
-        offer_node: Offer = null) -> void
-func bind(eligibility_service: Eligibility, gate_service: ActGate) -> void
-func tick(delta: float) -> void
-func on_world(host: Node) -> void
-func on_world_closed() -> void
-func force(runtime: Node, pose := "") -> ForceResult
-func cancel_approach() -> void
-func on_negotiation_outcome(terminal: RefCounted) -> void
-func clear_cooldown(pony: Node) -> bool
-func placement_for(runtime: Node) -> PoseOptions.Placement
-func debug_rows(pony: Node) -> Array[String]
-func classifier_node() -> Node
-func classifier_available() -> bool
-```
+`initiation/service.gd` is the proactive request service.
 
 `eligibility` is the entry's live identity instance and `act_gate` the live dynamic one, both
 bound once at construction and read for the whole process; the identity target comes from
@@ -112,12 +87,6 @@ the scan's first option decide; an internal pose is rejected, never substituted.
 before the ask reports its close reason in `reject`.
 
 The venue adapter is internal:
-
-```gdscript
-venue: player, mares, pony_id, region_of, camera_forward, house_at, can_approach,
-       ensure_stand, claim_nav, nav_owned, nav_has_target, stay, release_nav, restore_limits,
-       find_bed_for, placement_for
-```
 
 `can_approach` answers a plain bool without reject reasons, and `claim_nav` always stops her
 before taking ownership. `ensure_stand` is the only posture request the facade uses.

@@ -72,32 +72,13 @@ Rules:
   identity id. Runtime, eligibility, placement, memory and the anatomy internals call it.
 - The cross-mod read stays static (`docs/api.md`); it is not extended with live eligibility.
 
-## Public API
+## Facade
 
 `eligibility/service.gd` extends `shared/service.gd`, the world-service base. The entry creates one
 instance per world and binds it as `PONIES.eligibility`; `anatomy`, `act_gate`, `initiation`,
 `negotiation`, `debug`, `memory`, `api` and the standing presentation read it. The types are
 declared in the facade, so a consumer names them `ELIGIBILITY.Target`, `ELIGIBILITY.Profile`, and
 so on.
-
-```gdscript
-enum Target { ACT, ANATOMY, CHARACTER }
-enum Age { NONE, YOUNG, ADULT }
-enum EligibilityAssertion { IDENTITY, ELIGIBLE, NOT_ELIGIBLE }
-
-class Participation: acts, anatomy, tail  # tail is deprecated and ignored
-class Consent: public, anal, oral
-class Profile: eligible, participation, consent
-               eligible_value() -> Variant  # null, true or false; the cross-mod shape
-               to_dict() -> Dictionary
-
-func eligible(pony: Node, target: Target = Target.ACT) -> bool
-func eligible_id(id: String, target: Target = Target.CHARACTER) -> bool
-func get_profile(id: String) -> Profile
-func set_profile(owner: Node, id: String, profile: Profile) -> MARE_REGISTRY.Result
-func witness_age(pony: Node) -> Age
-func warm(pony: Node) -> void
-```
 
 `eligible()` is the capability answer: the cached identity record, the provider assertion, the
 stable id and the target's participation veto. It is called in per-frame discovery loops, so it
@@ -111,24 +92,6 @@ about a player-named body. `witness_age()` is the only age-shaped answer and onl
 wording. `get_profile()` reads the resolved provider/player profile for one id; `set_profile()`
 writes the provider layer's eligible assertion, participation and consent. The pair is the internal
 typed read/write side; the cross-mod surface is `docs/api.md`. `set_profile` is test-only today.
-
-### Callers
-
-| Caller | API | Scene work it keeps |
-|---|---|---|
-| `PONIES._prepare()` | `warm(pony)` | none; the attach-time identity record |
-| `PONIES.act_target()` | `eligible(pony, Target.ACT)` | the cone scan's distance order |
-| `PONIES.live_character_ids()` | `eligible(pony, Target.CHARACTER)` | runtime roster, ordering |
-| `anatomy/api.gd` `present()` | `eligible(pony, Target.ANATOMY)` | the rig, the assets and the dock |
-| `act_gate` `get_verdict()` | `eligible(pony, Target.CHARACTER)` + `get_profile(id)` | none |
-| `act_gate` `ready()` | `eligible(pony, Target.ACT)` | none |
-| `initiation` | `eligible(pony, Target.ACT)` | approach, bed search, privacy; see `docs/initiation.md` |
-| `negotiation/host.gd` | `eligible(pony, Target.ACT)` | the act target; see `docs/negotiation.md` |
-| `act/frame.gd` | `eligible(pony, Target.ACT)` | the adopted body's re-check |
-| `poses/standing_presentation.gd` | `eligible(pony, Target.ACT)` | pose, state |
-| `integrations/changelings` | `eligible_id(id)` | a player-named disguise body that may not be live |
-| `memory` | `witness_age(pony)` | perception, sleeping |
-| `api.describe_mare()` | `get_profile(id)` | provider metadata, the settings shape |
 
 ## Capability targets
 

@@ -27,43 +27,7 @@ over the service flags for the teardown reports and the suites. The service owns
 the runtime's. It is created by `act/build.gd` and works while the runtime is `IDLE`, because
 the negotiation runs before the act.
 
-## Public API
-
-- `bind(host)` — the typed host record: the live `pony`, `pose_family` and `state` reads.
-- `claim_nav(owner_id)` — takes the navigator for the act, records the old wander flag, builds the
-  `unfplap:<id>` token and returns whether the lease is owned.
-- `claim_negotiation(owner_id)` — claims `unfplap:negotiation:<id>` while the runtime is `IDLE`.
-  A missing/reserved navigator, another mod's owner, a routine owner with an active route, or
-  another `unfplap:` owner is Occupied.
-- `claim_attention()` — takes the attention and physical affection hold without a navigator lease.
-  A cuddle session already owns the navigator; the claim leaves that owner alone.
-- `transfer_nav(existing_token, old_wander)` — takes over the proactive request's live lease,
-  keeping its token and release data.
-- `adopt_nav(existing_token, old_wander)` — attaches a second ledger to a live owner without
-  touching the navigator.
-- `adopt_hold()` — the act start keeps this ledger's negotiation owner instead of claiming a
-  second one.
-- `holds_negotiation()` — true while this ledger owns the negotiation lease.
-- `accepts_hold(pose, source)` — the scene gate's compatibility predicate: the affection hold is
-  ours and, when the ledger has a navigator lease, the owner is this ledger's token. An
-  attention-only cuddle hold has no lease of its own. It stays true after `adopt_hold()`.
-- `keep_nav()` — re-asserts the lease if the owner changed; a negotiation lease also clears a
-  route target another system set.
-- `keep_target()` — keeps Anon as the conversation target. A cleared target is re-asserted;
-  a target under Anon (his rig or body) is still Anon, and any other live target returns false
-  (`target_left`).
-- `hold_affection()` / `release_affection()` — set and clear the game's `affection_active` meta.
-  Any live affection hold is Occupied.
-- `release_negotiation()` — releases the whole negotiation hold: affection first, then the
-  navigator. Idempotent; every terminal outcome calls it.
-- `release_nav()` — gives the owner back and restores the wander flag.
-- `pause_face_turn(force)` — holds the standing family face-turn rate at zero.
-- `restore_face_turn()` — restores the saved rate.
-- `keep_attention()` — clears the conversation target while the act runs.
-- `lock_player()` — takes the movement hold and pauses the kisser.
-- `unlock_player()` — restores the hold and the kisser.
-- `release_carry()` — releases the held carry and returns whether it was released.
-- `end_cuddle()` — ends the active cuddle session.
+## Order
 
 The ledger calls the leaves in this order: cuddle/carry at start, navigator claim before the pose,
 then on end the face-turn restore, the player unlock, the carry/stool release, the navigator

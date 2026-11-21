@@ -40,22 +40,9 @@ cuddle_private = house_alone if indoors else not others_near
 counts every other mare within the radius. `State` carries the facts and the two resolved
 predicates; `private_for(cuddle)` picks the predicate for the offer kind.
 
-## Internal API
+## Facade
 
-`privacy/service.gd`:
-
-```gdscript
-class State:  player, house, indoors, house_alone, others_near, offer_private, cuddle_private,
-              in_house, nearby
-              private_for(cuddle: bool) -> bool
-
-state_for(target: Node) -> State
-private_for(target: Node, cuddle := false) -> bool
-offer_private(target: Node) -> bool
-cuddle_private(target: Node) -> bool
-report(target: Node) -> String
-house_at(at: Vector3) -> Node3D
-```
+`privacy/service.gd` owns the privacy answer.
 
 `offer_private()` is the bed/standing offer rule; `cuddle_private()` is the stricter cuddle rule.
 Both exclude the target. A missing world root fails closed to not-private.

@@ -46,28 +46,6 @@ mod's line channel through the injected memory facade and every act value throug
 on the facts; the processed-time clock is a second callable, so line pacing freezes with a paused
 tree.
 
-## Internal API
-
-| Method | Contract |
-|---|---|
-| `configure(pacing)` | push the seven pacing values once per settings snapshot (a typed `Pacing` record) |
-| `reset(now, gap)` | start a fresh act: clear the slot, serial, recent angles, memories and bystander state; keep the pacing |
-| `admit_cue(now)` | observe the cue, apply the gates in order, log a change, queue one cue prompt; returns the key or `""` |
-| `tick()` | release a delivered line, drop an absent row and expire a queued/generating row at its max age |
-| `bystander_tick(delta)` | one adult observer line per interval, at most three per act |
-| `history_tick(delta, pony, pony_id, event_id, now)` | the idle history scan: repair on a sincere apology, queue one pending reminder/complaint line |
-| `end_act(event_id, keep_speaking)` | cancel the act's queued/generating lines; a speaking line may finish |
-| `reaction_line(reaction, event_id, fallback, valid)` | queue a reaction through the memory channel |
-| `note_reaction(key, cue_text, until)` | reserve the shared slot for that reaction |
-| `busy()` | the director or the pony is actually speaking |
-| `recent_lines()` / `last_spoken_line()` / `last_spoken_at()` | read the director's recent speech |
-| `act_prompt(values)` | the normal note from the act's typed values; the history and relationship notes are read here |
-| `history_note(pony_id)` / `relationship_note(pony_id, event_id)` | the stored-history and private relationship notes |
-| `climax_line(mouth_busy, cue, act_id, count, max_age)` | the one generated climax line and its validity window |
-| `stop_oral_turn(pony_id)` | interrupt the shared director only when it drives this mare |
-| `prompt_note(values)` | the pure note assembly's facade entry, from a typed `PromptValues` record |
-| `scheduler()` | the pure scheduler, for the facade's own calls and the facade suite |
-
 ## Admission
 
 `admit_cue()` applies the gates in this order, and the first failure is the logged reason:

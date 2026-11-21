@@ -39,30 +39,6 @@ every slap, so the facade calls `anatomy.follow_body_coat(pony, flank)` after ev
 `_start_jiggle()`; anatomy re-adds its current rig and merged-near pairs. The list covers the rig body and outline and, when the merged near mesh
 contains her body, its palette and outline materials.
 
-## Internal API
-
-| Method | Purpose |
-|---|---|
-| `bind_scene(pony, anatomy: API, flank = null)` | set the act's pony, the anatomy API and the optional flank |
-| `bind_tail(tail)` | set the standing tail modifier (`SkeletonModifier3D`), or null outside standing |
-| `configure(context)` | take `pose_family`, `size_scale`, `climax_seconds` and the five `jiggle.*` values from the typed reaction context |
-| `begin_act()` | clear the per-act blush, jiggle log and heart pulses |
-| `end_act()` | free the blush decal, drop the tail and restore the stock shader radius |
-| `body_coat_target()` | ask anatomy to follow the flank and re-add the patched coat targets |
-| `thrust(weight)` | start the rump jiggle and scale its resolved amount |
-| `tail_thrust(weight)` | add the standing tail impulse for the same thrust |
-| `smack(strength)` | carry the native smack jiggle into the tail |
-| `add_blush(impact)` / `blush_tick(delta)` | step, cap, decay and place the rump blush |
-| `apply_radius()` / `restore_radius()` | set or clear `jiggle_radius` on the live targets |
-| `clear_stock_marks()` | hide and age the stock `FlankTouch` marks at act start |
-| `rump_point()` | the hind-femur midpoint plus the configured height/backset |
-| `schedule_hearts()` / `hearts_tick(delta)` | the three climax pulses |
-| `hearts_burst()` / `hearts_burst_at(origin)` | one boop burst, optionally moved to the dock |
-| `dock_point()` | the hair `mTail1` base, with the hips and body fallbacks |
-
-`smack()` keeps its `strength` parameter for the runtime's event shape; the native smack has
-already set its own impulse before the facade scales it.
-
 ## Jiggle and smack
 
 - One shader center on the rump midline so both flanks wobble together. The center is the

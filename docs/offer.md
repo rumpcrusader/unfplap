@@ -117,31 +117,7 @@ path that cancels a private Agreement between auto-start polls.
 | The act key | `try_start()` | a forced sensor read and `reconsider()` |
 | A live Agreement becomes ready | the 0.25 s auto-start clock | `ready_offer()` |
 
-## Internal API
-
-```gdscript
-const OFFER := preload("res://mods/unfplap/offer/service.gd")
-
-const OFFER_HINT := "Make love"
-const NEEDS_STOOL_HINT := "Needs a footstool"
-const AGREEMENT_START_S := 0.25
-const AGREEMENT_WAIT := 0
-const AGREEMENT_STARTED := 1
-
-func tick(delta: float) -> void
-func reconsider() -> void
-func offer_target() -> Node
-func current() -> POSE_OFFER
-func blocked() -> POSE_OFFER
-func try_start() -> bool
-func start_pose_offer(offer: POSE_OFFER) -> bool
-func agreement_offer(handle: AGREEMENT.Handle) -> POSE_OFFER
-func clear_current() -> void
-func hide_hint() -> void
-func apply_settings() -> void
-func on_world(_host: Node) -> void
-func on_world_closed() -> void
-```
+## Facade
 
 The entry ticks the offer first in the idle branch, before `initiation.tick()` and
 `negotiation.tick()`, so the Proactive cuddle check reads the frame's offer and the hints are

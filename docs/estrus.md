@@ -12,14 +12,7 @@ the schedule and the idle animation. Anatomy keeps the wink animation settings a
 estrus owns when to call `anatomy.wink()` and `anatomy.rest()`. The relationship bond day is the
 clock.
 
-## Public API
-
-```gdscript
-phase(pony) -> String
-debug_set_phase(pony, phase) -> String
-track(pony), untrack(pony)
-bind(anatomy: API)
-```
+## Facade
 
 `phase()` returns `heat`, `diestrus` or `normal` from `shared/cycle_state.gd`: the debug override
 first, then the feature switch and her relationship bond day. `debug_set_phase()` writes the

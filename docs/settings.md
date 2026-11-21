@@ -570,7 +570,7 @@ their level, and a parent's unmeasured remainder prints as a `self` row. The pro
 allocation-free when either switch is off. It is a debug tool, not a setting: no declaration, no
 persisted value. The block's rows and panel are `docs/debug.md`'s.
 
-## Internal API
+## Facade
 
 The document and per-mare profile functions return typed views rather than raw dictionaries, so a
 caller reads a block through a named accessor. `settings/rows.gd` wraps one settings document:
@@ -579,27 +579,3 @@ caller reads a block through a named accessor. `settings/rows.gd` wraps one sett
 comparison — calls `raw()` at that boundary, and a writer takes the view the reader returned.
 `settings/profile.gd` carries the four facets of one resolved profile; `settings/deprecation.gd`
 carries one retired key, with `into()` moving the stored value and `mapped()` replacing it.
-
-| Function | Returns | Meaning |
-|---|---|---|
-| `data()` | `Rows` | the merged player document, detached |
-| `defaults()` | `Rows` | the document a fresh profile starts from, detached |
-| `pose(id, pose_id)` | `Rows` | one pose block with that group's values |
-| `preferences(id)` | `Rows` | her resolved preference profile |
-| `default_preferences(id)`, `default_preferences_for(base, id)` | `Rows` | the profile a preset reset returns to |
-| `preferences_match(a, b)` | `bool` | both profiles name the same preset |
-| `consent(id)` | `Rows` | her resolved consent block, a detached copy |
-| `save_preferences(id, values)`, `save_consent(id, values)`, `save_participation(id, values)` | `void` | store only the differences from her resolved default |
-| `default_participation(id)`, `default_participation_for(base, id)` | `Rows` | the participation a reset returns to |
-| `profile_identity(id)` | `Rows` | the provider `eligible` assertion and the participation block |
-| `profile_participation(id)` | `Rows` | the resolved participation block |
-| `profile_has_assertion(id)` | `bool` | a provider asserted an eligibility value |
-| `profile_eligible(id)` | `bool` | the asserted value; read it only after `profile_has_assertion()` |
-| `template_for(id)` | `Rows` | the merged default and per-mare template |
-| `profile_for(base, characters, id)` | `Profile` | the four typed facets of that merge; both documents are views |
-| `anatomy_placement_default(id, fit_id)` | `Rows` | the shipped and provider default for that fit |
-| `anatomy_placement(id, fit_id)` | `Rows` | her player override over that default |
-| `anon_placement()` | `Rows` | the player part's one global block |
-| `save_anatomy_placement(id, values, fit_id)`, `save_anatomy_placement_default(values)` | `void` | store the row, or write the global default |
-| `reset_anatomy_placement_default()` | `void` | write the shipped default block |
-| `deprecated(path)` | `Rule` | one retired key; its converter is a field of the rule, never a public argument |

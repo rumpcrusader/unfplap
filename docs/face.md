@@ -39,35 +39,6 @@ Host callbacks, all optional so a test can build the facade without a runtime:
 The facade also binds `pony` and `host` once. `bind()` is called from `_ready`; a suite that builds
 a runtime without entering the tree calls `ensure_bound()` on its first facade call.
 
-## Internal API
-
-| Method | Meaning |
-|---|---|
-| `bind(pony, host)` | bind the pony (`Node3D`) and the runtime node that parents the mood face and the hold timer |
-| `beat(moment, context)` | run the beat table for one moment; `context` is the typed beat record: `first_time`, `tolerance`, and the climax `quality` or the `summary` |
-| `act_beat_for(moment, values, readiness, debug)` | the typed beat call: the values come from `act/view.gd`, the climax shape from the meter |
-| `quality_for(readiness)` | the typed climax shape's inputs |
-| `act_rows(values, readiness)` | the act-face rows, including the game's cue mood |
-| `eyes_for(state, close_rewarded, eyes_active)` | the typed lid call |
-| `act_beat(moment, context, debug)` | the runtime's beat call: applies the debug flag, then the beat table |
-| `beat_context()` | one empty beat record for the consent warning's two values |
-| `set_face(smile, lids, hold_seconds)` | write the act's smile and lids; a hold starts the face timer |
-| `clear_face()` | stop the hold, release the stare and release the act's touch layer |
-| `eyes_tick(context)` | the late lid owner; `context` carries `state`, `close_rewarded` and `eyes_active` |
-| `climax_quality(context)` | the typed climax shape the beat record carries; `act/view.gd` gathers the counters |
-| `set_act_face(face, hold_s)` | set one face unless a spoken line owns it; returns whether it applied |
-| `end_face()` | clear only the face this owner set; a spoken line face is never cleared |
-| `dialogue_face()` | the face a director line currently owns, or empty |
-| `sync_settings(debug)` | apply the live debug flag |
-| `force_face(face)` | debug preview: set one face for 3 s |
-| `rows(context)` | the act-face rows in Show data's ACT section; the beat record carries the state, moods, mode and blush flag |
-| `start_post_act(context)` | start the held post-act face from the summary or the satisfaction in the beat record |
-| `start_mood_face(mood, face, blush, warm)` | start or replace the held face |
-| `end_mood_face()` | free the held face and clear the warm note |
-| `start_upset(mood)` | the refusal face |
-| `end_upset()` / `end_satisfied()` | compatibility aliases for `end_mood_face()` |
-| `shutdown()` | free the held face and clear the act face when the runtime leaves the tree |
-
 ## Beat table
 
 | Moment | Face | Hold |

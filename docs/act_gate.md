@@ -58,54 +58,18 @@ Rules:
   live through `SETTINGS.consent(id)`.
 - `Facts` is a snapshot, not a cache. `Verdict` is rebuilt per call.
 
-## Public API
+## Facade
 
 `act_gate/service.gd` extends `shared/service.gd`, the world-service base. The entry creates one
 instance per world after `eligibility`, calls `bind_eligibility()`, and binds the gate into
 `PONIES`, `initiation`, `negotiation`, `scene_gate` and `debug`. The types are declared in the
 facade, so a consumer names them `ACT_GATE.Verdict`, `ACT_GATE.Row`, and so on.
 
-```gdscript
-enum Mode { START, OFFER }
-enum Effect { NONE, BLOCK, REFUSE, HISTORY_REFUSE, OFFER_BLOCK, FLAG }
-
-class History: tier, hurt, comfort, blocks_start, blocks_offers, offer_weight
-class Facts: id, eligible, adult, participation, has_relationship, ... (see `## Facts`)
-class Actions: public, anal, oral
-class Relations: id, stage, love_level, willing, promiscuity, cycle_phase, heat, base
-class Row: key, ok, reason, effect
-class Verdict: mode, base, show, offer, offer_weight, facts, actions, relations, rows
-               reasons() -> PackedStringArray
-               rows_text() -> String
-
-func bind_eligibility(service) -> void
-func ready(pony: Node) -> bool
-func get_verdict(pony: Node, mode: Mode = Mode.START) -> Verdict
-func relationship_ok(pony: Node) -> bool
-func consent(pony: Node, key: String) -> bool
-func cycle_note(pony: Node) -> String
-func warm(pony: Node) -> void
-```
-
 `ready(pony)` is the act key: the identity act target plus `relationship_ok`. `get_verdict()` is the
 typed truth table; the mode is recorded and every field is always computed. `consent()` answers one
 key of `shared/consent.gd` for a live pony. `cycle_note()` appends the heat or diestrus sentence
 while the gate's base holds. `warm(pony)` reads the clearance row once per attached body so the
 first offer does not pay the cold bond read. A cleared service answers no to every verb.
-
-### Callers
-
-| Caller | API | Scene work it keeps |
-|---|---|---|
-| `scene_gate/service.gd` `hotkey_ready()` | `ready(pony)` | the scene rows, bed, navigator and stool checks |
-| `scene_gate/service.gd` `policy_verdict_for()` | `get_verdict(pony, Mode)` | the row merge and the debug line |
-| `PONIES.relationship_ok()` | `relationship_ok(pony)` | none; the offer fan reads the mirrored facade |
-| `initiation` | `relationship_ok(pony)` + `eligible(pony, ACT)` from `eligibility` | cooldown, approach, privacy; `docs/initiation.md` |
-| `negotiation/host.gd` | `relationship_ok(pony)` and `get_verdict(pony, Mode.OFFER)` | the Context facts, the privacy state; `docs/negotiation.md` |
-| `act/input.gd` | `consent(pony, "anal"/"oral"/"public")` | the anatomy action keys |
-| `act/session.gd` `cycle_note()` | `cycle_note(pony)` | the dialogue prompt note |
-| `debug/pony.gd` | `get_verdict(pony, Mode.START).relations` | the debug line |
-| `PONIES._prepare()` | `warm(pony)` | none |
 
 ## Facts
 

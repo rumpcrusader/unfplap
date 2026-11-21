@@ -43,41 +43,7 @@ service's private bridge to the live world (see `## Bridge`). The bounded classi
 Proactive service; this service
 asks its facade for the node the model calls run on. The Act service gets only the handle.
 
-## Internal API
-
-```gdscript
-enum Phase { NONE, OFFERED, AGREEMENT }
-enum Outcome { ACCEPTED, REFUSED, EXPIRED, INTERRUPTED, START_FAILED, NO_OFFER, OCCUPIED, STARTED }
-
-class FormView:       form, view
-class MareOffer:      runtime, pony, option, base, private, hold_token, hold_old_wander, line, cuddle
-class Request:        kind, text, line, context, options
-class Reply:          answer, option_index, failed, out_of_range
-class Terminal:       pony, pony_id, outcome, reason, trigger, cooldown_s
-class Host:           the named callbacks below
-
-bind(eligibility: Eligibility, gate: ActGate, memory: Memory, privacy: Privacy,
-     initiation: Node, offer: Node) -> void
-setup(host: Host) -> void
-on_world(host: Node) -> void
-on_world_closed() -> void
-adapter() -> ADAPTER
-context(pony: Node) -> Context
-form_view() -> FormView
-tick(delta: float) -> void
-phase() -> Phase
-is_locked() -> bool
-handle() -> Agreement.Handle
-agreement() -> Agreement.Package
-ready_offer() -> bool
-begin_mare_offer(offer: MareOffer) -> bool
-begin_anon_offer(runtime: Node, text: String) -> bool
-report(handle: Handle, started: bool) -> bool
-cancel(handle: Handle, reason: String) -> bool
-hotkey_handle(runtime: Node, option: PoseOptions.Option) -> Handle
-interrupt_for_hotkey() -> bool
-debug_rows(pony: Node) -> Array[String]
-```
+## Facade
 
 `bind()` is the entry's one call: the facades it reads are handed over once and the service builds
 the adapter and the `Host` from them. `on_world()` re-reads the eligibility service the entry
@@ -86,6 +52,8 @@ takes a `Host` directly and is the seam the suites use; the entry never calls it
 
 `context(pony)` and `form_view()` are the two snapshots the Proactive service's reasoning reads, so
 both stages judge one mare from the same facts.
+
+## Host boundary
 
 The host callbacks are, in order:
 

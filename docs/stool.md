@@ -38,50 +38,11 @@ service list creates it and the runtime receives it in `act/context.gd` (`stool_
 no `Node`, tree, time, file or game-scene access. `stool/item.gd` reads the case through the
 `world/game.gd` accessors and owns no scene state.
 
-## Internal API
-
-The facade's calls:
-
-```gdscript
-setup(), shutdown(), on_world(game), on_world_closed()
-enabled(), threshold_m(), height_m()
-gap(her_opening_y, her_hoof_y, his_root_y, his_foot_y) -> float
-required(gap_m) -> bool
-needed_count(gap_m) -> int
-case_slot(store) -> int
-case_count(store) -> int
-owned_count(store) -> int
-free_slots(store) -> int
-writable(store) -> bool
-build_prop(host, at, yaw, count, step_height, ignore) -> PROP.Stack
-free_prop(prop)
-new_act() -> ACT
-floor_y_at(at, body) -> float
-```
+## Facade
 
 `new_act()` creates one per-act handle; the runtime keeps one for its whole lifetime, resets it per
 act and drops it with the runtime. `floor_y_at()` is the stateless standing-spot floor probe, with the player capsule
 excluded.
-
-The handle's internal API:
-
-```gdscript
-bind(facade, pony, player, anatomy)
-applies() -> bool
-gap_m() -> float
-needed_count() -> int
-required() -> bool
-case_slot() -> int
-case_count() -> int
-blocks_start(reasons) -> bool
-state_text() -> String
-has_failed() -> bool
-take_items(need) -> bool
-place(target, yaw, floor) -> Vector3
-release()
-reset()
-floor_y_at(at, body) -> float
-```
 
 `place()` builds the stack under the runtime's standing spot and returns the raised player
 target; `release()` frees the prop, lowers the player and returns every case unit. The handle also

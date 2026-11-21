@@ -89,20 +89,9 @@ node or eligibility. `anatomy/attach.gd` owns the mesh, dock, visibility and flu
 controller is a thin shell. The internal act reads the controller's `part()` handle and
 `player_track()` forward; it has no service dependency.
 
-## Internal API
+## Facade
 
-`PONIES.anatomy` holds one `anatomy/api.gd` instance. The public verbs are:
-
-```gdscript
-bind_eligibility(service)
-present(pony, form), withdraw(pony)
-begin_act(pony, view, bed_frame) -> ActPresentation
-anon(pony) -> AnonBody, entrance_point(pony) -> Vector3
-wink(pony, beats), rest(pony, open)
-garment(pony) -> Garment, rebuild_garment()
-follow_body_coat(pony, flank) -> bool
-debug_placement(pony, op, value, tail_owned), debug_show(pony), debug_anon_scale(pony)
-```
+`PONIES.anatomy` holds one `anatomy/api.gd` instance. The facade's verbs are declared in `anatomy/api.gd`.
 
 `present` is idempotent and a null form means the body's own default. It is the one place the
 assignment is decided: it stores the form, asks `eligibility` once for `Target.ANATOMY`, and then

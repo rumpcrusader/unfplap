@@ -172,47 +172,16 @@ The base answers the neutral default, so a provider overrides only what it suppo
 hooks, the policy, the installed list and the tail hooks are optional. The provider owns its form
 names, its shape lookup and whether a named form is copyable and adult.
 
-## Internal API
+## Facade
 
-`PONIES.body_change` (`body_change/service.gd`):
-
-```gdscript
-setup()
-wire(anatomy, pantyhose, stock_smack)
-register_source(source) -> bool
-unregister_source(source)
-register_binding(binding) -> bool
-unregister_binding(binding)
-active_sources() -> Array[BodyChangeSource]
-active() -> bool
-on_world(host)
-installed_character_ids() -> Array[String]
-has_tail_placement(body) -> bool
-apply_tail_placement(body)
-tail_placement_report() -> String
-source_for(body) -> BodyChangeSource
-policy_for(body) -> BodyChangePolicy
-active_change_for(body) -> BodyChange
-active_change() -> BodyChange
-form_for(body) -> BodyForm
-pony_id_for(body) -> String
-default_form(body) -> BodyForm
-apply_form(body, form)
-bind_body(body)
-refresh_body(body)
-unbind_body(body)
-notify_source_changed(source)
-notify_body_ready(body)
-request_form(body, form_id, origin) -> bool
-request_own_form(body, origin) -> bool
-```
+`PONIES.body_change` is `body_change/service.gd`.
 
 Registration rejects an object that is not the typed base. Registration order is the binding
 fan-out order and the source lookup order. `wire()` is the one call that builds the built-in
 binding chain; `register_binding()` stays public for a provider or a test that adds its own
 binding, which joins the end of the same fan-out.
 
-### Form store and apply path
+## Form store and apply path
 
 `_forms` maps a presented body to its form, including the cached default. `form_for()` returns the
 stored form, builds and caches the default when the body has none, and returns null for an invalid
@@ -238,7 +207,7 @@ A provider's form may carry a `tail_root` that arrives frames after the first pr
 provider's form signature changes, its next `prepare_body()` bumps `revision`, and the service's
 refresh path updates the anatomy and tail without a new body.
 
-### Active changes
+## Active changes
 
 The service indexes a live change by source and by both presented bodies. A provider runs one
 change at a time, so the source key is unique; the body key makes the runtime's old-body and
@@ -255,7 +224,7 @@ the change while the new body is alive, and a new body that leaves before it set
 The provider keeps the terminal change as a read-only record for the act's completion read;
 `change_in_progress()` is the in-progress gate.
 
-### Provider notification
+## Provider notification
 
 `notify_body_ready(body)` asks the claiming provider for the body's form and applies it:
 
@@ -274,7 +243,7 @@ terminal or null change clears the active entry; an unknown source cannot inject
 `request_form()` and `request_own_form()` forward to the source that handles the body and adopt the
 change when the provider accepts it. A refused request returns false and changes nothing.
 
-### Legacy metadata mirror
+## Legacy metadata mirror
 
 `body_change/wire.gd` writes `body_fit_id` (`fit_id`), `anatomy_owned_meta` (`owned_mesh_meta`),
 `tail_pose_root` (`tail_root`) and the live body scale. An empty marker or a missing tail root

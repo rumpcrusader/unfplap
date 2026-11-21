@@ -32,7 +32,7 @@ added to the tree. It owns no saved data. Its state is transient:
 The entry owns construction, the service list and world teardown. `runtime.gd` owns the per-pony
 act state and exposes the protocol this service calls; `debug/service.gd` owns the action registry.
 
-## Internal API
+## Input routing
 
 The service is a Node; its contract is the Node lifecycle and the input callbacks:
 

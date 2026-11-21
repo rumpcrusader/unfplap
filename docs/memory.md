@@ -57,47 +57,7 @@ The purity boundary is deliberate:
   `PONIES.eligibility` per call and stores nothing. It is a world-list service, so it extends
   `shared/service.gd` and lives until the entry's shutdown.
 
-## Internal API
-
-The facade's types and calls:
-
-```gdscript
-enum LineState { ABSENT, QUEUED, GENERATING, SPEAKING, DELIVERED, UNKNOWN }
-enum LineKind { REACTION, UTTERANCE, BYSTANDER }
-enum Reaction { CLIMAX, END_EARLY, HISTORY_REFUSAL, HISTORY_REMINDER,
-                HISTORY_COMPLAINT, TOLERANCE_WARNING, TOLERANCE_STOP, FORM_OFFER }
-enum NoteKind { CANCELLED, CLIMAXED, STOPPED, APOLOGY }
-enum StopReason { NONE, UNWILLING, PICKED_UP, INTERRUPTED, FORM_CHANGE, WITHDREW }
-enum ImpressionSlot { ACT, ACT_EARLY, STAY_CLOSE, FORM_REVEAL }
-enum Sense { SIGHT, SOUND }
-
-class Impression:   id, event_id, slot, mood, romance, thought, event_text
-class Peak:         id, event_id, text, score
-class Witness:      id, young, sense, indoors, distance, place, text; to_dict()
-class Observer:     id, node, sense, indoors
-class CueFacts:     friendship, friendship_level, love, love_level, stage, anger,
-                    mood, first_time, careful; to_dict()
-class MemoryHit:    id, text; found()
-class Line:         key, queued
-class LineRequest:  kind, id, event_id, suffix, purpose, reaction, valid, finished
-
-func commit(impression: Impression) -> void
-func form_reveal_impression(id: String, event_id: String) -> Impression
-func form_reveal_peak(id: String, event_id: String, score: float) -> Peak
-func note(kind: NoteKind, id: String, event_id: String, reason := 0) -> void
-func record_peak(peak: Peak) -> void
-
-func line(request: LineRequest) -> Line
-func line_state(key: String) -> LineState
-func cancel_line(key: String) -> void
-func cancel_act(event_id: String, keep_speaking := true) -> int
-
-func cue_facts(id: String, event_id: String) -> CueFacts
-func shared_memory(id: String, cue: String, event_id: String, used: Array[String]) -> MemoryHit
-func observers(partner: Node3D) -> Array[Observer]
-func witnesses(partner_id: String, name: String, serial: int,
-        partner: Node3D) -> Array[Witness]
-```
+## Facade
 
 The enum values are the `int` members of the enum; `0` is the first member of each. The facade
 re-exports them as `MEMORY.LineState`, `MEMORY.LineKind`, and so on, so a caller compares

@@ -343,37 +343,7 @@ situation record, the mod state section, the settings page's tab icon kind, the 
 writes and world drops, the inventory's quick-slot card and its bar, the HUD's toast line, the
 seated space and rest holds, and the VR touch bridge's caress event.
 
-## Internal API
-
-```gdscript
-const WORLD := preload("res://mods/unfplap/world/service.gd")
-const GAME := preload("res://mods/unfplap/world/game.gd")
-
-static var game: Node
-static var player: Node3D
-
-static func bind_world(host: Node) -> void
-static func bind_player(body: Node3D) -> void
-static func unbind() -> void
-static func camera() -> Camera3D
-static func interactor() -> Node
-static func desktop() -> Node
-static func player_body() -> Node3D
-static func player_is_pony() -> bool
-static func game_player() -> Node3D
-static func mares() -> Array[Node3D]
-static func bed_under(point: Vector3, exclude: RID = RID()) -> Node3D
-static func real_bed(node: Node) -> Node3D
-static func bed_for_cradle(pony: Node3D) -> Node3D
-static func bed_occupied(bed: Node3D, target: Node) -> bool
-static func player_beside_bed(bed: Node3D) -> bool
-static func scan_allowed() -> bool
-static func menu_panel_open() -> bool
-static func menu_open() -> bool
-static func headset_view() -> bool
-static func refresh_body_lod(pony: Node) -> void
-static func open_act_chat() -> bool
-```
+## Facade
 
 `WORLD.mares()` answers a typed copy of the game's live list, so a caller may keep it across a
 scan but never expects the game's own array. `GAME` is the raw layer: every function takes the

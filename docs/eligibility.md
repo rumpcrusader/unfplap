@@ -192,45 +192,6 @@ negotiation reasoning, never a gate; `anal` and `oral` gate the anatomy targets'
 debug action and no console line. The Debug actions that used the old verdict now read the act
 gate: `docs/act_gate.md` and `docs/debug.md`.
 
-## Dependencies
-
-### Uses
-
-| Kind | Target | Entry point | Purpose |
-|---|---|---|---|
-| service | settings | `settings/service.gd` | settings declarations and live values |
-| service | world | `world/service.gd` | live scene reads |
-| store | registry | `registry/service.gd` | provider layers and stable ids |
-| shared | consent | `shared/consent.gd` | consent defaults |
-| shared | participation | `shared/participation.gd` | participation defaults |
-| shared | pony_id | `shared/pony_id.gd` | shared data |
-
-## Lifecycle
-
-- Scope: world
-- Constructed by: the entry's service list
-- Begin: `on_world(host)`
-- End: `on_world_closed()` on a world enter or close, and `shutdown()` on process exit
-- Idempotent: yes
-
-## Tests
-
-- `tests/eligibility/test_eligibility.gd`: the one adulthood predicate, capability targets, the
-  typed participation record and witness age.
-- `tests/eligibility/test_eligibility_api.gd`: the facade's `eligible()`, `eligible_id()`, `warm()`,
-  `witness_age()`, capability targets, the no-stable-id boundary, the typed identity record's reuse
-  and rebuild, the profile snapshots, the provider layer through `set_profile()`/`get_profile()` and
-  the clear/setup lifecycle.
-- `tests/test_participation.gd`: the pure participation layer, defaults, partial merge, clean and
-  the deprecated key.
-- `tests/test_pony_id.gd`: the stable-id rule (metadata wins, identity fallback, no identity).
-- `scripts/architecture.py --check`: the eligibility leaf rule and the pure core's boundary.
-- `scripts/test_architecture.py`: the allowed and forbidden eligibility edges.
-- `tests/anatomy/test_attach.gd`: `Target.ANATOMY` decides `present`.
-- `tests/memory/test_memory_api.gd`, `test_text.gd`: `witness_age()` and the witness wording.
-- `tests/integrations/test_changelings.gd`: `eligible_id()` for a player-named body.
-- `tests/test_standing_presentation.gd`, `tests/act/test_session.gd`: the act-target reads.
-
 ## Known limits
 
 - The internal typed API is not part of `docs/api.md`, which owns the cross-mod surface.

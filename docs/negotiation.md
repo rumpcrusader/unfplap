@@ -321,14 +321,6 @@ The live negotiation and the Agreement live in memory. Nothing is persisted. The
 belongs to the Proactive service's cooldown store; this service passes `Terminal.cooldown_s` and
 the Proactive applies it. No reasoning record and no history write happens on a failure.
 
-## Lifecycle
-
-- Scope: world
-- Constructed by: the entry's service list (`_build_services()`)
-- Begin: `bind()`/`on_world(host)`; `setup(host)` in the suites
-- End: `on_world_closed()` on a world enter or close
-- Idempotent: yes
-
 ## Settings
 
 No setting is read directly. The bridge's `relationship_ok` and `context_facts` read the act
@@ -351,53 +343,6 @@ retired `features.act_public_offer` and `relationship.sex_start` are never consu
 - **Trigger Anon offer** (Debug → Actions / the Mare wheel) forms an Anon offer for the aimed mare
   as if Anon had just asked her. **Clear offer cooldown** is the Proactive service's action; the
   `NEGOTIATION` Show data section is the live state.
-
-## Dependencies
-
-### Uses
-
-| Kind | Target | Entry point | Purpose |
-|---|---|---|---|
-| service | eligibility | `eligibility/service.gd` | adult and consent gate |
-| service | act_gate | `act_gate/service.gd` | dynamic act gate |
-| service | memory | `memory/service.gd` | act memory and witness pass |
-| service | ponies | `ponies/service.gd` | per-pony runtime registry |
-| service | privacy | `privacy/service.gd` | service dependency |
-| service | scene_gate | `scene_gate/service.gd` | live scene gate rows |
-| service | world | `world/game.gd` | service dependency |
-| service | world | `world/service.gd` | live scene reads |
-| shared | clearance | `shared/clearance.gd` | shared data |
-| shared | context | `shared/context.gd` | shared data |
-| shared | defaults_data | `shared/defaults_data.gd` | shipped settings and catalog documents |
-| shared | log | `shared/log.gd` | log sink |
-| shared | perf | `shared/perf.gd` | one profiler |
-| shared | pony_id | `shared/pony_id.gd` | shared data |
-| shared | pose_catalog | `shared/pose_catalog.gd` | pose ids and schema |
-| shared | pose_options | `shared/pose_options.gd` | shared data |
-| shared | pose_placement | `shared/pose_placement.gd` | shared data |
-| shared | pose_specs | `shared/pose_specs.gd` | pose capability table |
-| shared | prompt_text | `shared/prompt_text.gd` | shared data |
-| shared | relationship_cue | `shared/relationship_cue.gd` | relationship prompt note |
-| store | act_history | `shared/act_history.gd` | stored history rows |
-
-## Tests
-
-- `tests/negotiation/test_agreement.gd`: the package fields, TTL, expiry, exact match and the
-  handle.
-- `tests/negotiation/test_service.gd`: the Anon offer, the captured option list, the live
-  placement re-check, the Anon decision, the Mare response, the silent non-offer, the counter-offer
-  line, the failure semantics, the lock, the hold, privacy, `target_left`, the cooldown table, the
-  Agreement handle, `ready_offer()` and its live scene/privacy/expiry answers,
-  `Started`/`StartFailed` and the stale-handle guard, with a fake host and model.
-- `tests/negotiation/test_prompts.gd`: the payload shape, the request dispatch and the three
-  reply parsers, including the Anon offer's out-of-range marker.
-- `tests/negotiation/test_adapter.gd`: the quiet gate, the queue and the situation record, the
-  answer watch and its cancel, the three model calls and the raw path, with a fake director and
-  classifier source.
-- `tests/negotiation/test_host.gd`: the bridge — the host callbacks resolving to the service, the
-  scene readiness reaching the runtime gate's small check with the frozen pose pair, the Context
-  and form view the Proactive reads, the watch arming only while idle and unlocked, the Anon-line
-  guard table, the react purpose per close reason, the outcome routing and the Agreement handoff.
 
 ## Known limits
 

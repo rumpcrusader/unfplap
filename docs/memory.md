@@ -81,7 +81,6 @@ class MemoryHit:    id, text; found()
 class Line:         key, queued
 class LineRequest:  kind, id, event_id, suffix, purpose, reaction, valid, finished
 
-
 func commit(impression: Impression) -> void
 func form_reveal_impression(id: String, event_id: String) -> Impression
 func form_reveal_peak(id: String, event_id: String, score: float) -> Peak
@@ -218,47 +217,6 @@ the pure relationship and cue formatters.
 the story journal (a cue-word match, then the most recent player exchange), then the
 world-context events. The `used` ids are skipped. A hit with no text is `found()` false. The
 memory is marked used only after the caller queues the line.
-
-## Dependencies
-
-### Uses
-
-| Kind | Target | Entry point | Purpose |
-|---|---|---|---|
-| service | eligibility | `eligibility/service.gd` | adult and consent gate |
-| service | ponies | `ponies/service.gd` | per-pony runtime registry |
-| service | world | `world/game.gd` | service dependency |
-| service | world | `world/service.gd` | live scene reads |
-| shared | act_face | `shared/act_face.gd` | face beat data |
-| shared | defaults_data | `shared/defaults_data.gd` | shipped settings and catalog documents |
-| shared | pony_id | `shared/pony_id.gd` | shared data |
-| shared | prompt_text | `shared/prompt_text.gd` | shared data |
-| store | act_history | `shared/act_history.gd` | stored history rows |
-
-## Lifecycle
-
-- Scope: world
-- Constructed by: the entry's service list (`_build_services()`)
-- Begin: none; its events are reset per act by the act's own services
-- End: freed with the entry
-- Idempotent: yes
-
-
-## Tests
-
-- `tests/memory/test_text.gd`: the pure wording — the adult sight/sound perceptions, the young
-  scene texts, the stop texts, the impression and event suffixes, the witness
-  impression, the keep-active rule, the `MemoryHit` `found()` flag and the typed to-dictionary
-  keys.
-- `tests/memory/test_store.gd`: the peak record, the higher-score replacement and the save.
-- `tests/memory/test_dialogue.gd`: the typed line state, the keep-active cancel and the cancel
-  prefix.
-- `tests/memory/test_memory_api.gd`: the facade through a fake game and director — one
-  impression and event per slot, the stay-close reward, the reveal impression
-  and peak, one event per note, the
-  cue facts and the typed memory hit's absent and peak answers.
-
-The pure-core and facade-only import boundary is `scripts/architecture.py --check`.
 
 ## Known limits
 

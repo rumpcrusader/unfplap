@@ -69,14 +69,6 @@ Nothing is saved. The service reads `PONIES.active()`, the debug facade's `wheel
 `act_input_shield` settings. Its seated guard and movement hold read and write the rig's private
 members through `world/game.gd`. It does not store runtime state.
 
-## Lifecycle
-
-- Scope: world
-- Constructed by: the entry's service list (`_build_services()`)
-- Begin: Node `_ready()`
-- End: freed with the entry
-- Idempotent: yes; the Node lifecycle owns setup and release
-
 ## Settings
 
 - `act_key` is a hidden numeric declaration, so `settings/ui.gd` draws its hand-built **Act Key**
@@ -175,41 +167,3 @@ The controls table is `docs/runtime.md`. Debug actions and the wheel are in `doc
   holding it during an act is handled by `act/input.gd` through `runtime.act.input` (`docs/runtime.md`). The bundled Dance Mod
   polls raw `Y`; the act input shield clears it during an act, and the shipped default act key
   keeps the collision out of idle play too.
-
-## Dependencies
-
-### Uses
-
-| Kind | Target | Entry point | Purpose |
-|---|---|---|---|
-| service | debug | `debug/service.gd` | debug action registry |
-| service | offer | `offer/service.gd` | idle act offer and hint |
-| service | ponies | `ponies/service.gd` | per-pony runtime registry |
-| service | settings | `settings/service.gd` | settings declarations and live values |
-| service | world | `world/game.gd` | service dependency |
-| service | world | `world/service.gd` | live scene reads |
-| shared | act_commands | `shared/act_commands.gd` | act command vocabulary |
-| shared | act_keys | `shared/act_keys.gd` | shared data |
-| shared | act_state | `shared/act_state.gd` | shared data |
-| shared | log | `shared/log.gd` | log sink |
-| shared | settings_change | `shared/settings_change.gd` | settings change notification |
-
-## Tests
-
-- `tests/test_input.gd` — the legacy fallback, the installed action, a captured rebind, typing
-  protection, the start route into the offer facade's `try_start()`, the release-injection spike,
-  the shield (a foreign key consumed and cleared, an act-polled key kept, the pass list, typing, a
-  paused tree, an open panel and the setting off), the `V`/`N` dispatch (each emits its command id
-  once when ready, a non-ready or refused command does not dispatch, and the key is consumed), the
-  seated guard's save/restore and the movement hold's guarded writes.
-  `B` is retired: it dispatches nothing and is only shielded.
-- `tests/test_act_commands.gd` — the pure vocabulary: unique `lower_snake_case` ids, the
-  continuous/discrete partition, the helpers and the reserved `end`.
-- The manual lab covers act start, end, smack, auto, chat and the seated-player guard.
-- The architecture checker covers the facade-only import rule.
-
-## Related docs
-
-- `docs/runtime.md` — act controls, state and tick order.
-- `docs/debug.md` — the action registry and lab keys.
-- `docs/settings.md` — settings widgets and the settings panel.

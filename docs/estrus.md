@@ -12,14 +12,6 @@ the schedule and the idle animation. Anatomy keeps the wink animation settings a
 estrus owns when to call `anatomy.wink()` and `anatomy.rest()`. The relationship bond day is the
 clock.
 
-## Lifecycle
-
-- Scope: world
-- Constructed by: the entry's service list
-- Begin: `on_world(host)`
-- End: `on_world_closed()`/`shutdown()`
-- Idempotent: yes
-
 ## Public API
 
 ```gdscript
@@ -39,23 +31,3 @@ and on body exit.
 The service is the only reader of `features.estrus_cycle`, `anatomy.wink_min_s`,
 `anatomy.wink_max_s` and `anatomy.heat_rest_open`. It snapshots them on world enter and on a
 settings change.
-
-## Dependencies
-
-### Uses
-
-| Kind | Target | Entry point | Purpose |
-|---|---|---|---|
-| service | anatomy | `anatomy/api.gd` | anatomy and tail seat |
-| service | settings | `settings/service.gd` | settings declarations and live values |
-| shared | cycle | `shared/cycle.gd` | estrus cycle |
-| shared | cycle_state | `shared/cycle_state.gd` | shared data |
-| shared | log | `shared/log.gd` | log sink |
-| shared | perf | `shared/perf.gd` | one profiler |
-| shared | pony_id | `shared/pony_id.gd` | shared data |
-| shared | settings_change | `shared/settings_change.gd` | settings change notification |
-
-## Tests
-
-`tests/estrus/test_estrus.gd` pins the phase order, the override, the schedule suppression and the
-one `estrus_tick` row.

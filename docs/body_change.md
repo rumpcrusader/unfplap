@@ -285,43 +285,6 @@ only authority: the mirror is write-only and no system reads a partial form back
 compatibility status of each key is the owning system's doc; the planned retirement is when every
 binding reads `BodyForm`.
 
-## Lifecycle
-
-- Scope: world
-- Constructed by: the entry's service list (`_build_services()`)
-- Begin: `setup()` and then `wire(anatomy, pantyhose, stock_smack)` in the same list; the providers
-  are registered after their own setup
-- End: world close; the service node, its forms and its registries are freed with the entry
-- Idempotent: yes
-
-A change runs as follows:
-
-1. The runtime (a live act) or the debug block (idle) asks the service for a named or own form.
-2. The provider accepts and creates a `BodyChange` in `REQUESTED`; the service adopts it.
-3. The provider prepares the next body and returns its `BodyForm`; the state becomes `PREPARING`.
-   This happens before anatomy, tail, camera and pose attach.
-4. The service applies the form and fans out `bind_body()` on the new body; the state becomes
-   `ADOPTED`.
-5. The provider settles its pack. If a late variant changed the descriptor, it bumps the revision
-   and notifies the body again; the service fans out `refresh_body()` on the same body. It then
-   marks the change `SETTLED` or `FAILED` and notifies the service.
-6. A live act resumes once through `body_change/act.gd:resume()`, after the watcher returns the
-   `RESUME` action; `act/swap.gd:resume()` is its only caller and ends the act through the one exit
-   when it fails. The act state, depth, climaxes, history and
-   event id survive.
-7. A failed change leaves the previous body and form in place (or restores them through the
-   provider) and leaves the runtime's offer logic to restore the player's offer.
-8. An idle change runs steps 2–5 without an act; the entry's normal `_on_pony` path may attach a
-   runtime to the new body.
-9. An in-place change (same node, new variant) keeps the presented body and bumps the revision;
-   bindings refresh instead of rebind. The runtime's refresh path also recomputes the visual frame:
-   it clears the smoothed shot and calls `act/frame.gd:refit()`, which re-solves Anon's placement and
-   stance for the revised form without replaying the entrance. A bed act re-reads the live body
-   scale in its view.
-
-The service does not own the act's suspension, adoption or resume. A suspended act's runtime
-ignores the runtime binding until the one resume; see `docs/runtime.md` (`## Body swap`).
-
 ## Bindings
 
 `body_change.wire()` constructs and registers the five body-bound systems from the facades the
@@ -477,53 +440,6 @@ suspension, adoption, resume and failure phases.
 | `body_change/act.gd` | the act's swap record and form request; it owns `release()`, `resume()`, `rebind()` and the offer/reveal timing, while `act/swap.gd` holds the typed release/resume seams and the one `resume()` caller, and the runtime node keeps only the reparent, `attach_to_body()` and `adopt_body()` |
 | `shared/settings_change.gd` | `apply_settings()` re-applies the handling source's tail wrapper for every live body after a settings edit |
 
-## Dependencies
-
-### Uses
-
-| Kind | Target | Entry point | Purpose |
-|---|---|---|---|
-| service | anatomy | `anatomy/api.gd` | anatomy and tail seat |
-| service | dialogue | `dialogue/service.gd` | act dialogue and prompt notes |
-| service | memory | `memory/service.gd` | act memory and witness pass |
-| service | ponies | `ponies/service.gd` | per-pony runtime registry |
-| service | world | `world/game.gd` | service dependency |
-| service | world | `world/service.gd` | live scene reads |
-| shared | act_state | `shared/act_state.gd` | shared data |
-| shared | body_binding | `shared/body_binding.gd` | shared data |
-| shared | body_change | `shared/body_change.gd` | shared data |
-| shared | body_change_policy | `shared/body_change_policy.gd` | shared data |
-| shared | body_form | `shared/body_form.gd` | shared data |
-| shared | log | `shared/log.gd` | log sink |
-| shared | settings_change | `shared/settings_change.gd` | settings change notification |
-
-### Used by
-
-| Kind | Target | Entry point | Purpose |
-|---|---|---|---|
-| host | ponies | `PONIES.body_change` | the runtime's, the anatomy editor's and the debug block's handle |
-| host | runtime | `act/build.gd` | act suspension, adoption and provider policy |
-| service | integrations | `integrations/changelings.gd` | the shipped provider base and policy |
-
-## Tests
-
-- `tests/body_change/test_service.gd` — the typed data, `RigProfile` mapping, the default form, the
-  legacy mirror (fit, marker, tail root, scale through the game setter), the form store, the
-  bind/refresh/unbind order, same-node revisions, the source/binding registries, the per-body
-  active-change read, provider-owned notification and request forwarding, the `wire()` construction
-  order, a missing facade as a quiet no-op, a binding added after the wire, and the runtime binding.
-- `tests/integrations/test_changelings.gd` — the shipped provider's forms, markers, per-body fit,
-  late revision and policy.
-- `tests/handover/test_body_swap.gd` — the act handover, one resume, the stable id, the presented
-  form name with the identity fallback, the late-revision eye and standing placement, auto
-  settings/state preserved across the swap, the freed vocal-cache prune, and the provider policy's
-  six act milestones in order.
-- `tests/test_runtime_teardown.gd` — the one exit and the body-change bind/refresh ordering.
-- `tests/anatomy/test_attach.gd`, `test_coat.gd`, `test_part.gd`, `test_placement.gd` — the anatomy
-  binding, form rig/fit, marker, appearance and tail row.
-- `scripts/architecture.py --check` — one body-change fan-out, one resume, one teardown, every
-  shipped `.gd` with an owner, no body binding in the entry and no provider vocabulary in the core.
-
 ## Verification / lab
 
 - During a standing and a missionary act, use **Form: next named shape** on a regular mare form:
@@ -538,13 +454,3 @@ suspension, adoption, resume and failure phases.
 - Force a failed shape or the watchdog: the old body and form survive, the offer behaves as before
   and no orphan anatomy or tail is left.
 - Turn the pack off: its forms and policy vanish and the base mechanism is inert for that body.
-
-## Related docs
-
-- `docs/README.md` — the service index.
-- `docs/runtime.md` — the act state, suspension, adoption and one resume.
-- `docs/anatomy.md` — anatomy, placement, appearance and tail seat.
-- `docs/camera.md`, `docs/poses.md` — the camera and pose refresh on a form.
-- `docs/integrations.md` — the shipped provider and its policy.
-- `docs/summary.md`, `docs/memory.md` — the reveal's summary and memory effects.
-- `docs/debug.md` — the Form debug actions.

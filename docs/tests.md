@@ -81,7 +81,6 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 
 const CLEARANCE := preload("res://mods/unfplap/shared/clearance.gd")
 
-
 func run() -> void:
 	check(CLEARANCE.evaluate(true, true, true).ok(), "Base clearance passes when every row holds")
 ```
@@ -299,10 +298,3 @@ The file-read allow-list, and the document each read is for:
 | `tests/integrations/test_pantyhose.gd` | the copied shader includes |
 
 A new read is a review of the checker's map, not a copy-paste in a suite.
-
-## Related docs
-
-- `docs/README.md` — the suite-to-service map, the doc template and the verification matrix.
-- `docs/quality.md` — the static gates and tooling policy.
-- `docs/debug.md` — the lab roster and keys.
-- `WORKFLOW.md` — the commands and the release flow.

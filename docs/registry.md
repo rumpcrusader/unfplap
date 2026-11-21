@@ -70,14 +70,6 @@ world teardown.
 
 No provider value is saved. Removing a provider leaves the player's saved differences in place.
 
-## Lifecycle
-
-- Scope: process
-- Constructed by: static initialization
-- Begin: none; the registry starts empty
-- End: `reset()` on world close or in tests
-- Idempotent: yes; `reset()` is safe to call repeatedly
-
 ## Settings
 
 No global settings. Provider `preferences`, `consent`, `eligible`, `profile.participation`,
@@ -90,28 +82,3 @@ prompt fields: `act_prompts` and `event_prompts` are unknown keys that warn and 
 
 No controls. `tests/test_api.gd` exercises registration, replacement and removal through the
 cross-mod API.
-
-## Dependencies
-
-### Uses
-
-| Kind | Target | Entry point | Purpose |
-|---|---|---|---|
-| shared | anatomy_placement | `shared/anatomy_placement.gd` | placement schema and merge |
-| shared | consent | `shared/consent.gd` | consent defaults |
-| shared | participation | `shared/participation.gd` | participation defaults |
-| shared | pose_catalog | `shared/pose_catalog.gd` | pose ids and schema |
-| shared | preferences | `shared/preferences.gd` | profile schema and math |
-
-## Tests
-
-- `tests/test_api.gd` — registration, replacement, owner removal, the stable id and the resolved
-  descriptor.
-- `tests/eligibility/` and `tests/anatomy/` cover the consumer layers that read the registry.
-
-## Related docs
-
-- `docs/api.md` — the stable cross-mod registration and read contract.
-- `docs/settings.md` — the player's per-character overrides.
-- `docs/eligibility.md` — the participation and consent resolution.
-- `docs/anatomy.md` — placement and tail-seat resolution.

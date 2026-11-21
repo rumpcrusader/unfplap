@@ -83,30 +83,3 @@ bad act or an upset mare leaves her standing.
 | `log` | the one debug gate (`Enable debug`) |
 
 The facade never preloads `runtime.gd` or `main.gd` and never reads their private fields.
-
-## Dependencies
-
-### Uses
-
-| Kind | Target | Entry point | Purpose |
-|---|---|---|---|
-| service | world | `world/game.gd` | service dependency |
-| service | world | `world/service.gd` | live scene reads |
-| shared | act_state | `shared/act_state.gd` | shared data |
-| shared | log | `shared/log.gd` | log sink |
-
-## Lifecycle
-
-- Scope: per-act
-- Constructed by: `act/build.gd` through `runtime._init()`
-- Begin: `bind()`
-- End: act teardown
-- Idempotent: yes
-
-
-## Tests
-
-`tests/rest/test_rest.gd` covers the rejoin decision, the bed anchor and shared rest lookup, the
-rest lookup, the note, the restore posture, the placement and the early rejoin exits. The lab
-covers the live rejoin: a good missionary act returns to the cuddle, a forced stop leaves her
-standing and a bad act does not invite.

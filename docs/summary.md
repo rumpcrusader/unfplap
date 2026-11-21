@@ -257,61 +257,13 @@ navigator and blocks nothing; the gates above do that.
   comfort=...` line per act. The **Reset act history** debug action clears the row; **Show data**
   prints it in its HISTORY section.
 
-## Lifecycle
-
-- Scope: per-act
-- Constructed by: `act/build.gd` through `runtime._init()`, with the world memory
-  (`_init(memory)`)
-- Begin: `reset_act()`
-- End: act teardown
-- Idempotent: yes
-
-
 ## Settings
 
 Act history always records. Its thresholds and weights are debug declarations, so stored values are
 never clamped; each one's `##` comment describes it. See `docs/settings.md`.
-
-## Dependencies
-
-### Uses
-
-| Kind | Target | Entry point | Purpose |
-|---|---|---|---|
-| service | dialogue | `dialogue/service.gd` | act dialogue and prompt notes |
-| service | memory | `memory/service.gd` | act memory and witness pass |
-| service | readiness | `readiness/service.gd` | readiness and auto stroke |
-| service | settings | `settings/service.gd` | settings declarations and live values |
-| service | world | `world/service.gd` | live scene reads |
-| shared | defaults_data | `shared/defaults_data.gd` | shipped settings and catalog documents |
-| shared | log | `shared/log.gd` | log sink |
-| shared | preferences | `shared/preferences.gd` | profile schema and math |
-| shared | prompt_text | `shared/prompt_text.gd` | shared data |
-| shared | relationship_cue | `shared/relationship_cue.gd` | relationship prompt note |
-| store | act_history | `shared/act_history.gd` | stored history rows |
-
-## Tests
-
-- `tests/summary/test_act_summary.gd` — score bands, silence for talk-seekers only, one-dislike
-  neutrality, severe handling, early end, stopped-by-her severe outcome, forced stop, short act,
-  motion and touch misses, and the reveal input carried into the outcome.
-- `tests/summary/test_act_history.gd` — points, tiers, offer weight/cooldown, decay, apology,
-  sanitising, pending lines, reset, the write revision and the reveal's extra comfort.
-- `tests/summary/test_act_flow.gd` — the summary input/context shape, the runtime snapshot, the
-  afterglow HUD summary and the peak-memory commit.
-- `tests/memory/test_memory_api.gd` — grade-aware impression and stay-close rewards.
-- `tests/memory/test_text.gd` — the event and witness wording and the id suffixes.
 
 ## Verification / lab
 
 - One act per grade: summary log once, history row and tier, peak memory, mood face.
 - Early end (holding the act key at 0 climaxes) and a forced stop (Debug → Force neglect stop).
 - Apology and time decay in the lab.
-
-## Related docs
-
-- `docs/readiness.md` — scoring inputs and the climax count.
-- `docs/memory.md` — the event, impression and witness channel.
-- `docs/eligibility.md` — the history gate and the stop cooldown.
-- `docs/face.md` — the post-act mood face.
-- `docs/afterglow.md` — the close window and its reward.

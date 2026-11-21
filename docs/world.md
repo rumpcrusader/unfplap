@@ -26,7 +26,6 @@ The facade is also the mod's one "is there a world" read: a pure guard is
 `is_instance_valid(WORLD.game)`. It replaces the entry handle every service used to hold for the
 same answer, so a service never names the entry to ask whether the scene is live.
 
-
 `world/service.gd` owns the bound scene handles:
 
 | Read | Why it is a read, not a rule |
@@ -392,14 +391,6 @@ instead of a crash.
 The facade stores no saved data. It holds the two bound handles and three resolved ones, all
 cleared on every bind and on unbind. Nothing is written to the settings file or `Mods.state`.
 
-## Lifecycle
-
-- Scope: world
-- Constructed by: static initialization
-- Begin: `bind_world()`/`bind_player()`
-- End: `unbind()`/world close
-- Idempotent: yes
-
 ## Settings
 
 No setting is declared or read here.
@@ -413,25 +404,3 @@ other consumer.
 
 The entry is the only writer: it calls `bind_world(host)`, `bind_player(body)` and `unbind()`. The
 facade never calls back into the entry.
-
-## Dependencies
-
-### Uses
-
-| Kind | Target | Entry point | Purpose |
-|---|---|---|---|
-
-## Tests
-
-- `tests/world/test_world.gd`: the camera cache and its fallback, the bed resolution and the
-  real-bed walk, bed occupancy and Anon's seat, the menu/paused/headset gates, the player body and
-  mare reads, the LOD rebuild and the act chat, the unbound and freed-handle answers, and every
-  `GAME` accessor's live and absent answer, including the chat hold's save and restore.
-- `tests/test_settings.gd`: the settings page's tab button, icon texture and redraw and the mods
-  data folder, live and absent, and the size preset through the setting accessor.
-
-## Related docs
-
-- `ARCHITECTURE.md` — the layer rules and the host boundary.
-- `docs/scene_gate.md` — the live scene rows a gate evaluates through this facade.
-- `docs/poses.md` — the bed pose that seats a pony on it.

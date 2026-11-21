@@ -14,7 +14,6 @@ and the frame schedule (`act/tick.gd`) calls the facade's `phase_tick()` while t
 facade's reward writes through its bound `face`, `reactions` and `readiness` and the act ids
 `set_act()` records.
 
-
 `afterglow/service.gd` is the facade and the only module another system calls. The private records
 are `afterglow/summary.gd` (the typed act summary the phase reads) and `afterglow/presentation.gd`
 (the typed presentation row); the phase has no other useful sub-module.
@@ -130,40 +129,3 @@ Hold the act key:
 - The afterglow lasts until the player holds the act key to end it; she never ends it herself. The
   live prompt note tells her whether Anon is caressing her or leaning in; leaning counts as staying
   close/hugging. A quiet moment adds no state sentence.
-
-## Dependencies
-
-### Uses
-
-| Kind | Target | Entry point | Purpose |
-|---|---|---|---|
-| service | face | `face/service.gd` | act face and mood |
-| service | memory | `memory/service.gd` | act memory and witness pass |
-| service | poses | `poses/service.gd` | pose and skeleton |
-| service | reactions | `reactions/service.gd` | jiggle, blush and hearts |
-| service | readiness | `readiness/service.gd` | readiness and auto stroke |
-| service | world | `world/game.gd` | service dependency |
-| service | world | `world/service.gd` | live scene reads |
-| shared | log | `shared/log.gd` | log sink |
-| store | act_history | `shared/act_history.gd` | stored history rows |
-
-## Lifecycle
-
-- Scope: per-act
-- Constructed by: `act/build.gd` through `runtime._init()`, with the HUD and memory
-  (`_init(hud, memory)`)
-- Begin: `begin()`
-- End: `reset()`
-- Idempotent: yes
-
-
-## Tests
-
-`tests/afterglow/test_afterglow.gd` builds the facade with fake callbacks and covers the close
-window's timing, caress count and single reward, the early cancel, the missionary, oral and
-face-sit holds,
-the presentation row (no pose mode/afterglow pose, the tail row following the view family, the
-held pose, the re-asserted weight and the view-less bed fallback) and the runtime forwards for the HUD
-and prompt note. Wing folding lives in
-`poses/wing_control.gd` and is covered in the same suite; the wing controller reads the typed act
-view (`facts.pony`, `facts.clock()`) and a `log` callback, never the runtime node.

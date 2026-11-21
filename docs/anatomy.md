@@ -771,15 +771,6 @@ the seat/attached/build/applied state. `_prepare()` returns a row or null. `row.
 is the one reference-plus-tail-trim math used by the tail write and the report, so the seat keeps
 one target rule.
 
-## Lifecycle
-
-- Scope: world + per-act handles
-- Constructed by: the entry's service list (`_build_services()`)
-- Begin: `on_world(host)`/`begin_act(pony, view, bed_frame)`
-- End: `on_world_closed()`/`shutdown()`, or the act handle's `end()`
-- Idempotent: yes
-
-
 ## Settings
 
 The declarations are in `settings/service.gd` and their values in `settings/settings.json`; each
@@ -842,85 +833,6 @@ settings change.
 - The mesh and material debug helpers (`body_coat_mesh()`, `body_coat_material()`,
   `body_outline_material()`, `body_coat_targets()`, `is_attached()`) exist so the runtime can
   re-add the patched rig and merged-near materials to the game's jiggle target list.
-
-## Dependencies
-
-### Uses
-
-| Kind | Target | Entry point | Purpose |
-|---|---|---|---|
-| service | eligibility | `eligibility/service.gd` | adult and consent gate |
-| service | settings | `settings/service.gd` | settings declarations and live values |
-| service | world | `world/game.gd` | service dependency |
-| shared | anatomy_placement | `shared/anatomy_placement.gd` | placement schema and merge |
-| shared | body_coat | `shared/body_coat.gd` | shared data |
-| shared | body_form | `shared/body_form.gd` | shared data |
-| shared | body_profile | `shared/body_profile.gd` | shared data |
-| shared | log | `shared/log.gd` | log sink |
-| shared | perf | `shared/perf.gd` | one profiler |
-| shared | pony_id | `shared/pony_id.gd` | shared data |
-| shared | preferences | `shared/preferences.gd` | profile schema and math |
-| shared | settings_change | `shared/settings_change.gd` | settings change notification |
-
-## Tests
-
-Current suites:
-
-- `tests/anatomy/test_identity.gd`: the legacy princess body profile accessors, the profile of the
-  body a pony is wearing, the body-fit key (metadata, then `character_id`, then the identity id)
-  and the off-roster list; the stable id is `tests/test_pony_id.gd`. The typed rig mapping and the
-  default form are `tests/body_change/test_service.gd`; the adult capability is tested with the
-  eligibility service in `tests/eligibility/`.
-- `tests/anatomy/test_teats.gd`: the generated teat size curve (monotonic and clamped), the build
-  guards, the mare-rest to her-rest fit (identity for the mare, Celestia's scale and 7.59 cm back
-  offset) and the body-profile key.
-- `tests/anatomy/test_geometry.gd`: the lip-radius rule, the body-local mapping, the still-zone
-  radius, the V2 anal ring weights/centre, the coat line targets/bend/frames and the shader
-  sample-count sync.
-- `tests/anatomy/test_shape_drive.gd`: the hole/oral mix, the shared shape drive and the wink
-  scheduler.
-- `tests/anatomy/test_oral_turn.gd`: the mouth/contact provider returns her mouth point and the
-  base opening, follows the player's size scale, holds and clears the `D` viseme, and carries no
-  turn, mix, facing or pose-key state.
-- `tests/anatomy/test_api.gd`: the public entry, the caller-owned read models, the safe absent
-  handles and the act target gates.
-- `tests/act_facts/test_act_facts.gd`: the `shared/act_facts.gd` read model, its host callbacks and
-  its defaults.
-- `tests/estrus/test_estrus.gd`: the phase override, the static read and the tracked schedule.
-- `tests/anatomy/test_afterglow_track.gd`: the afterglow keeps the attached part alignment and the
-  live opening aim, follows the pose view's mouth anchor while the contact holds, returns to the
-  opening once it is released, and clears the missionary inset outside the bed pose.
-- `tests/anatomy/test_placement.gd`: the placement resolution (player override → provider → shipped
-  row → default), the body-fit key, the stable id, the default/override save, the legacy migration,
-  the placement editor delegation, the tail-seat row integration, the form fit row refresh and the
-  debug tail collapse.
-- `tests/anatomy/test_part.gd`: the player part's prepare/encounter, the tip and root, the bed
-  holder, `reset_state`, the throb/girth/length shaping, the controller's part handle and track
-  forward, the face contact's parked part and restored opening, the act wink scheduler, the
-  anatomy rear as the authoritative outward normal, and the body-swap pelvis reset.
-- `tests/anatomy/test_coat.gd`: the refined winking mesh, the V2 anal keys, the rig and near-palette
-  shader patch, the base/cutout/occlusion hook injection, the drawn coat choice over a hidden game
-  body, the vulva cut, the still zone, the material rebuild after a mesh re-set, the form rig/fit
-  appearance refresh, the fold-colour scoping and the cached entrance point (one deformation per
-  body revision, the live transform, the live hole point's per-call deformation).
-- `tests/anatomy/test_heat.gd`: the rest shape, one idle wink burst and the act suppression; the
-  schedule half is `tests/estrus/test_estrus.gd`.
-- `tests/anatomy/test_attach.gd`: the stable id, the presented default form, one controller per
-  body, a revised form, and the withdraw path. The eligibility gates are in the roster and
-  `tests/ponies/test_service.gd`; the body binding chain is `tests/body_change/test_service.gd`;
-  the source-owned tail wrapper is `tests/integrations/test_changelings.gd`; the VR callables are
-  `tests/test_vr_act.gd`.
-- `tests/anatomy/test_dock_attach.gd`: the dock's two-bind skin and bind math.
-- `tests/anatomy/test_dock_seat.gd`: the dock base ring stays at or inside `rump_z - 4 mm`.
-- `tests/integrations/test_pantyhose.gd`: the garment hull builder, the transform mapping and the
-  world adapter's surface overrides and act-start undress.
-
-All anatomy suites live under `tests/anatomy/`. Pure tests must not instantiate a scene or read
-private controller state; facade tests use documented accessors and fakes. The internal act
-exposes read-only diagnostics for its own suite: `face_parted()`, `anal_turned()`,
-`contact_point()`, `contact_normal()`, `wink_left()` and `wink_beats()`. `heat.suppressed()`,
-`shapes.apply_anal_local()` and `shapes.state()` are the shape/heat diagnostics the pure modules
-keep for their suites.
 
 ## Known limits
 

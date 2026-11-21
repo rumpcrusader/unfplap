@@ -65,14 +65,6 @@ Both exclude the target. A missing world root fails closed to not-private.
 The provider stores no data. Everything is sampled from the live scene per call. `State` is a
 fresh value; a caller reads it immediately and never stores it.
 
-## Lifecycle
-
-- Scope: world
-- Constructed by: the entry's service list (`_build_services()`)
-- Begin: none; every read samples the live scene
-- End: freed with the entry
-- Idempotent: yes
-
 ## Settings
 
 No setting changes privacy. `features.act_public_offer` and `consent.public` no longer override
@@ -92,24 +84,3 @@ phase.
 The provider calls only plain values: `WORLD.player` and `WORLD.game`, and the main loop's tree
 for the house lookup. It never calls a service or a runtime, and with no world bound every
 answer is public.
-
-## Dependencies
-
-### Uses
-
-| Kind | Target | Entry point | Purpose |
-|---|---|---|---|
-| service | world | `world/service.gd` | live scene reads |
-| shared | pony_id | `shared/pony_id.gd` | shared data |
-| shared | privacy_rules | `shared/privacy_rules.gd` | shared data |
-
-## Tests
-
-- `tests/privacy/test_privacy.gd`: the house/outdoors states, target exclusion, the 30 m radius
-  boundary, the offer vs. cuddle difference, the pure formulas and the unbound provider.
-
-## Related docs
-
-- `docs/initiation.md` — the proactive offer's use of the provider.
-- `docs/eligibility.md` — public consent and heat as Context, not visibility.
-- `docs/scene_gate.md` — the live scene rows the act start evaluates.

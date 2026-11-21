@@ -250,56 +250,9 @@ Standing has no separate view, so the view leaves the player camera's base orien
 setting is live through `apply_live_settings`; the settings page pauses the world, so it takes
 effect when the panel closes.
 
-## Dependencies
-
-### Uses
-
-| Kind | Target | Entry point | Purpose |
-|---|---|---|---|
-| read model | act_facts | `shared/act_facts.gd` | typed act read model |
-| service | hands | `hands/service.gd` | hand contact and smack |
-| service | kiss | `kiss/service.gd` | kiss control |
-| service | poses | `poses/service.gd` | pose and skeleton |
-| service | settings | `settings/service.gd` | settings declarations and live values |
-| service | world | `world/game.gd` | service dependency |
-| service | world | `world/service.gd` | live scene reads |
-| shared | act_motion | `shared/act_motion.gd` | lean and travel math |
-| shared | act_state | `shared/act_state.gd` | shared data |
-| shared | body_form | `shared/body_form.gd` | shared data |
-| shared | body_profile | `shared/body_profile.gd` | shared data |
-| shared | log | `shared/log.gd` | log sink |
-| shared | perf | `shared/perf.gd` | one profiler |
-| shared | pose_view | `shared/pose_view.gd` | pose read model |
-
-## Lifecycle
-
-- Scope: per-act
-- Constructed by: `act/build.gd` through `runtime._init()`
-- Begin: `bind()`/`begin_act(family, player_pony, headset)`
-- End: `finish_act()` in the act teardown
-- Idempotent: yes
-
-## Tests
-
-- `tests/act_camera/test_camera.gd` — lean ramp/return, the reach action and its re-fire latch, the
-  oral lean lock, the pose-view facing override, the free camera, the missionary eye position, its
-  authored look path and head clearance, the global-rest eye line, the form entrance offsets, size
-  scales and the afterglow back-off.
-- `tests/poses/test_session.gd` — the pose camera targets, the render-time eye write and the bed
-  frame the view reads.
-- `tests/hands/test_actions.gd` — the camera amplitudes the caress uses.
-
 ## Verification / lab
 
 - Missionary: the view at Anon's eye with the authored look path, S/W/Q/E lean, the kiss lean-in,
   head clearance, free look and the restore.
 - Standing: lean, torso angle, hip depth, lean-time foot pin, glance, kiss yaw and the afterglow
   back-off.
-
-## Related docs
-
-- `docs/poses.md` — body pose, the player frame, standing stance, timing domains.
-- `docs/kiss.md` — the kiss paths and the shared mouth/lean values.
-- `docs/hands.md` — caress, reach and smack.
-- `docs/stool.md` — the standing reach gap and the footstool lift.
-- `docs/afterglow.md` — afterglow camera and wing return.

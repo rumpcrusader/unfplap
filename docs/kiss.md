@@ -96,15 +96,6 @@ turns her head across the mattress. Missionary always uses the custom head-aim p
 - The mouth kiss sound repeats at `KISS_SOUND_MIN = 2.0`–`KISS_SOUND_MAX = 3.4 s`.
 - The kiss's own lid layer is not overridden by the act stare.
 
-## Lifecycle
-
-- Scope: per-act
-- Constructed by: `act/build.gd`
-- Begin: `bind()`
-- End: act teardown
-- Idempotent: yes
-
-
 ## Settings
 
 The live standing values are the `presentation.standing.kiss.*` declarations, each described by its
@@ -114,40 +105,9 @@ missionary path and are not copies of `presentation.standing.kiss`. `KISS_LEAN_S
 pure side-geometry constant the hands suite pins. Heights scale with `Settings.anon_height_scale()`,
 matching `player/player_mouth.gd`. See `docs/settings.md` for the settings framework.
 
-## Dependencies
-
-### Uses
-
-| Kind | Target | Entry point | Purpose |
-|---|---|---|---|
-| read model | act_facts | `shared/act_facts.gd` | typed act read model |
-| service | poses | `poses/service.gd` | pose and skeleton |
-| service | world | `world/game.gd` | service dependency |
-| service | world | `world/service.gd` | live scene reads |
-| shared | act_motion | `shared/act_motion.gd` | lean and travel math |
-| shared | act_state | `shared/act_state.gd` | shared data |
-| shared | log | `shared/log.gd` | log sink |
-| shared | pose_view | `shared/pose_view.gd` | pose read model |
-
-## Tests
-
-- `tests/act_camera/test_kiss.gd` — the view config, the hook and a running kiss surviving a pose
-  change.
-- `tests/act_camera/test_camera.gd` — the kiss lean, camera yaw and the release hold.
-- `tests/face/test_runtime_face.gd` — the stare release while a kiss runs.
-- `tests/hands/test_actions.gd` — the `F` latch and the lean values the kiss shares with the hands.
-- `tests/poses/test_session.gd` — the `AffectionPose` order and the foreleg pin.
-
 ## Verification / lab
 
 - Standing: hold `F` at a full side lean, confirm the base-game face, mouth and deep-kiss audio,
   the foreleg pin, the camera yaw, release and the 500 ms cooldown.
 - Missionary: hold `F` + `W` at a full forward lean, confirm the head aim blends from eyes to
   mouth, the mouth expression and sound, and that the kiss lean-in stops at her face clearance.
-
-## Related docs
-
-- `docs/camera.md` — the act view, the lean and Anon's eye.
-- `docs/face.md` — the act face owner and the stare release.
-- `docs/hands.md` — caress, reach and smack.
-- `docs/poses.md` — the body pose and the standing stance.

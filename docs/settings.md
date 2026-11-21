@@ -22,7 +22,6 @@ its `characters` block holds the shipped per-mare profiles, and its `anatomy.pla
 the shipped placement rows. The prompts document is read by the modules listed in
 `docs/prompts.md` and is never part of a player file.
 
-
 The General, Anatomy, Poses and World panels are drawn from the declarations by `settings/ui.gd` in
 the settings page's own menu style: row cards, `Faint` help, switch plus state, Segment pills for a
 few short choices and the `Tab` look for a collapsible section heading. The tab pills, sidebar row,
@@ -389,15 +388,6 @@ the log sink joins the same list.
   `get`, `set`): a preloaded script constant resolves the built-in instead. `tests/test_settings.gd`
   guards this.
 
-## Lifecycle
-
-- Scope: world
-- Constructed by: static initialization; the entry's `_ready()` loads it
-- Begin: `SETTINGS.load_settings()` — registry, the shipped documents and both player files
-- End: process exit
-- Idempotent: yes
-
-
 ## Settings file shape
 
 Shipped settings: `res://mods/unfplap/settings/settings.json`. One nested block per dotted path and
@@ -613,54 +603,3 @@ carries one retired key, with `into()` moving the stored value and `mapped()` re
 | `save_anatomy_placement(id, values, fit_id)`, `save_anatomy_placement_default(values)` | `void` | store the row, or write the global default |
 | `reset_anatomy_placement_default()` | `void` | write the shipped default block |
 | `deprecated(path)` | `Rule` | one retired key; its converter is a field of the rule, never a public argument |
-
-## Dependencies
-
-### Uses
-
-| Kind | Target | Entry point | Purpose |
-|---|---|---|---|
-| service | world | `world/game.gd` | service dependency |
-| store | registry | `registry/service.gd` | provider layers and stable ids |
-| shared | act_keys | `shared/act_keys.gd` | shared data |
-| shared | anatomy_placement | `shared/anatomy_placement.gd` | placement schema and merge |
-| shared | character_preferences | `shared/character_preferences.gd` | roster and catalog templates |
-| shared | consent | `shared/consent.gd` | consent defaults |
-| shared | defaults_data | `shared/defaults_data.gd` | shipped settings and catalog documents |
-| shared | integrations | `shared/integrations.gd` | supported mod catalog |
-| shared | log | `shared/log.gd` | log sink |
-| shared | participation | `shared/participation.gd` | participation defaults |
-| shared | pose_catalog | `shared/pose_catalog.gd` | pose ids and schema |
-| shared | preferences | `shared/preferences.gd` | profile schema and math |
-| shared | settings_change | `shared/settings_change.gd` | settings change notification |
-
-## Tests
-
-- `tests/test_settings.gd` is the API contract, tested once: unique names and paths, a tab/group/
-  label/help on every declaration, the shipped settings document's schema (exact key set, types,
-  options, colour format and bounds; never values), the characters document (the global profile,
-  the roster templates and the placement keys), the split player documents, the schema-11 import,
-  the file round-trip, clamping and debug bypass, choice/list validation, section state, the panel
-  drawing every declaration in its tab (and the Debug block only in debug mode), built-in name
-  clashes, the per-mare merge, provider precedence for preferences/poses/placement and the consent
-  cache's detached copy/invalidation.
-- `tests/test_prompts.gd` is the prompt graph contract over `settings/prompts.json`; see
-  `docs/prompts.md`.
-- `tests/test_settings_change.gd` is the notification contract: registration order, one place per
-  callable, a released listener skipped, a mid-pass leave, and the last listener leaving the list.
-  `hud/test_caption.gd` proves a live service re-reads through `apply_live()` with no entry.
-- `scripts/architecture.py --check` enforces the single declaration module and the absent
-  per-service settings modules and root composition shims. The suite is a schema and API contract:
-  it never asserts a shipped value.
-- `tests/integrations/` covers the catalog and reaction bridge; the Settings panel check includes
-  the Integrations tab.
-- A new flag needs its declaration comment, not a row here: this file keeps no list of them.
-
-## Related docs
-
-- `docs/preferences.md` — the Characters form and the per-mare profiles.
-- `docs/prompts.md` — the shipped prompt document and its renderer.
-- `docs/eligibility.md` — consent and participation storage and gates.
-- `docs/debug.md` — the Debug actions, the console and the perf panel.
-- `docs/readiness.md`, `docs/poses.md`, `docs/camera.md`, `docs/hands.md`, `docs/anatomy.md` —
-  the behavior behind the rows.

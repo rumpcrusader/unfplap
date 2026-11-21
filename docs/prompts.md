@@ -163,25 +163,3 @@ call keeps a rendered string.
 
 A new id is a data change plus one consumer constant; a new consumer formatter is a review
 failure, because it would be a second prompt implementation.
-
-## Tests
-
-- `tests/test_prompts.gd` is the only suite that reads the document. It validates the shipped file,
-  checks that every id the code names exists, renders every composite, and plants each failure the
-  renderer must refuse (unknown reference, cycle, a name in both roles, unreachable part, unused
-  slot, missing `template` or `slots`, a placeholder in a plain string) plus a consumer-id typo.
-  It never asserts prose.
-- `tests/dialogue/`, `tests/initiation/`, `tests/negotiation/`, `tests/memory/` and
-  `tests/summary/` pin the behaviour around the text: which id is chosen, which values are passed
-  and what the parser accepts.
-- `scripts/architecture.py --check` allows only `tests/test_settings.gd` and `tests/test_prompts.gd`
-  to name a shipped data document; every reader goes through `shared/defaults_data.gd` or the
-  checker's file-read allow-list.
-
-## Related docs
-
-- `docs/settings.md` — the shipped and player documents, the merge and the schema test.
-- `docs/dialogue.md` — the act lines and the normal note assembly.
-- `docs/initiation.md`, `docs/negotiation.md` — the ask, the classifier and the reasoning.
-- `docs/memory.md`, `docs/summary.md` — the history, beats and reaction lines.
-- `docs/api.md` — the retired per-mare prompt fields.

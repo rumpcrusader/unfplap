@@ -489,46 +489,6 @@ fan-out invariants:
 `owner_of()` treats every `act/**` file as the runtime's own orchestrator module: an act module may
 preload a service, and a service that preloads `act/` fails as a host import.
 
-## Tests
-
-- `tests/act/test_session.gd` — the one state writer and its scene-gate refresh, the phase timer
-  verdicts (`POSING_IN` → `ACTIVE`, `CLIMAX`, `RESTORE`), the clock and act-seconds reset rules and
-  the typed host/context no-op seam.
-- `tests/test_runtime_teardown.gd` — the one exit path, the ownership flags, the oral edge's
-  consent/feature refusals and its abort through the exit, the standing gap's princess entrance
-  shift, and the frame placement that leaves Anon at the gap with a stale Hips offset removed.
-- `tests/test_input.gd` — the act-key hold and the input protocol route: `cancel`, the afterglow
-  end and request, the auto layer, the mouse thrust and the free look all reach
-  `runtime.act.input`, and the shield and capture rules are unchanged.
-- `tests/test_runtime_notes.gd` — the prompt forwards through `runtime.act`.
-- `tests/offer/test_start.gd` — the typed offer, the Agreement/hotkey outcome table and the one
-  start path.
-- `tests/poses/test_start_setup.gd` — the closed setup vocabulary, the synthetic
-  `auto`/`bed_keep_lying` row and the `act/setup.gd` dispatch for both bed adapters.
-- `tests/readiness/test_runtime_thrust.gd` — the readiness integration: the axes, the one-axis
-  chunk, heat, the shared touch cooldown, the climax separation and the climax limit through
-  `runtime.act.max_pony_climaxes`.
-- `tests/readiness/test_oral_quiet.gd` — the oral contact: the plap and rump/tail jiggle skip, the
-  kept slide/vocal/wings/blush/ear, the climax-line skip and the regular-path regression.
-- `tests/handover/test_body_swap.gd` — the generic handover: suspend → adopt → resume through
-  `runtime.act.swap`, the state, depth, climaxes and event id survive, the old runtime is not
-  freed, the new body's anatomy and pose bind, adoption binds without resuming, a named form waits
-  for its target, the target completes as the form, a missing form restores the offer, the
-  watchdog with a body resumes as a failed form, a repeated change, a failed change, a provider
-  that goes inactive, the no-body watchdog, an ineligible body, a world close during the swap, the
-  debug form label, the player's offer surviving her own change, a late body adopted once, a change
-  during the restore, a held body's refusal, the presented form's name in the act facts and the
-  six generic milestones in order.
-- `tests/summary/test_act_flow.gd` — the state flow and the afterglow HUD summary.
-- `tests/afterglow/test_afterglow.gd` — the phase decisions, including the oral passive row.
-- `tests/face/test_runtime_face.gd` — the climax mode, the face beat and the idle face guard.
-- `tests/hands/test_actions.gd` — the gate report reason through the scene gate facade.
-- `tests/anatomy/test_attach.gd` — the action gates closed without an act.
-- `tests/stool/test_gate.gd` — the act handle's applies/required rule and the stool reads.
-- `scripts/architecture.py --check` — the host rules above and the schedule's
-  pose-before-view-before-fan-out order.
-- The service suites indexed in `docs/README.md`.
-
 ## Verification / lab
 
 - A full missionary act: start, pose, thrust, climax, afterglow, hold-act-key end, cuddle rejoin.
@@ -542,13 +502,3 @@ preload a service, and a service that preloads `act/` fails as a host import.
 
 The labs and the in-game perf checkpoint need a display and a person at the keyboard; they are not
 part of the headless gate.
-
-## Related docs
-
-- `docs/README.md` — the service index.
-- `docs/act_facts.md` — the typed act view.
-- `docs/eligibility.md`, `docs/scene_gate.md`, `docs/scene_hold.md` — the start gates and scene.
-- `docs/poses.md`, `docs/camera.md` — the tick-time pose and camera.
-- `docs/input.md` — the input owner and the act key.
-- `docs/integrations.md` — optional mod reactions during the act.
-- `docs/afterglow.md`, `docs/face.md`, `docs/summary.md` — the post-act phases.

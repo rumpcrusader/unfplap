@@ -83,15 +83,6 @@ The carry and the cuddle are released, not flagged: both are idempotent and read
 `act/session.gd` owns the act state, the pose, the serial and the teardown ledger. The service fields stay
 cleared on every act end, so a failed start releases the same ownership as a normal end.
 
-## Lifecycle
-
-- Scope: per-pony
-- Constructed by: `act/build.gd` through `runtime._init()`
-- Begin: `bind()` / `claim_nav()` / `claim_negotiation()`
-- End: act teardown or `release_negotiation()`
-- Idempotent: yes
-
-
 ## Settings
 
 No settings. The service is a control path, not a tuning surface.
@@ -101,31 +92,6 @@ No settings. The service is a control path, not a tuning surface.
 No controls. The debug log reports the ownership state on the `debug_line` call and the act exit
 teardown. A failed start leaves the same ownership as a failed release today.
 
-## Dependencies
-
-- `pony` — the `Navigator`, `face_turn_rate`, `CuddleSession`, `set_conversation_target`.
-- `WORLD.game.get("kisser")` — the game's kisser.
-- `WORLD.player` — the `kiss_hold` meta, `seat`, `_q_held` and the conversation target.
-- `WORLD.interactor()` — the reach node the carry release clears.
-- The runtime — the caller, the state and the live pose family.
-
-### Uses
-
-| Kind | Target | Entry point | Purpose |
-|---|---|---|---|
-| service | world | `world/game.gd` | service dependency |
-| service | world | `world/service.gd` | live scene reads |
-| shared | act_state | `shared/act_state.gd` | shared data |
-
-## Tests
-
-`tests/scene_hold/` covers the claim/keep/release, the negotiation lease in `IDLE`, the token the
-scene gate accepts, the attention-only cuddle hold, keep-target and the attention reassignment,
-the affection hold, the transfer/adoption handoff, the idempotent release, the face-turn
-ownership, the player lock, the attention clear, the carry release and the cuddle end with fake
-navigator, player and cuddle nodes.
-The teardown suite (`tests/test_runtime_teardown.gd`) is retargeted to the facade.
-
 ## Verification / lab
 
 - Start failure: the navigator, player hold, face turn, attention, carry and cuddle are released in
@@ -134,10 +100,3 @@ The teardown suite (`tests/test_runtime_teardown.gd`) is retargeted to the facad
   and the kisser is restored.
 - Forced stop: the same release, no cuddle rejoin.
 - Cuddle start: the cuddle is ended before the act starts and the session is not re-entered.
-
-## Related docs
-
-- `docs/scene_gate.md` — the live scene rows.
-- `docs/eligibility.md` — the policy and consent gates.
-- `docs/rest.md` — the bed anchor, the cuddle rejoin and the restore posture.
-- `docs/runtime.md` — the one teardown ledger and the call order.

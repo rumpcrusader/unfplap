@@ -220,38 +220,3 @@ live act key never bucks, and no act-gate verdict carries a refusal.
 `debug_context` callback (`debug/pony.gd`'s gather plus the runtime's act values), the
 row/verdict assembly, and the policy row reads. The offer handle's `debug_line()` is a thin forward. No
 scene row is recomputed twice in different ways.
-
-## Dependencies
-
-### Uses
-
-| Kind | Target | Entry point | Purpose |
-|---|---|---|---|
-| service | act_gate | `act_gate/service.gd` | dynamic act gate |
-| service | poses | `poses/service.gd` | pose and skeleton |
-| service | settings | `settings/service.gd` | settings declarations and live values |
-| service | world | `world/game.gd` | service dependency |
-| service | world | `world/service.gd` | live scene reads |
-| shared | act_state | `shared/act_state.gd` | shared data |
-| shared | pose_specs | `shared/pose_specs.gd` | pose capability table |
-
-## Lifecycle
-
-- Scope: per-pony
-- Constructed by: `act/build.gd` through `runtime._init()`
-- Begin: `bind()`/`configure()`
-- End: act teardown
-- Idempotent: yes
-
-
-## Tests
-
-`tests/scene_gate/test_scene_gate.gd` covers the conversation, cuddle, affection, navigator,
-player, bed and row sets, the structural rows, the policy/scene merge (including a supplied
-`verdict_in` snapshot), the start/offer verdicts, the scene-only verdict (the aftercare removal,
-the frozen pose rows, the hold exemption and the transient/hard split), the small checks and the
-matrix that pins `hotkey_ready()` equal to `scene_only_verdict().ok`, the debug line, the reason
-list, the buck/push and the auto-cuddle suppression with fake scene nodes.
-`tests/act_gate/` keeps the pure policy suites. The runtime suite
-(`tests/test_runtime_teardown.gd`) and the stool suite (`tests/stool/test_gate.gd`) drive the
-public forwards and the gate's hotkey readiness; the history stop suite drives the history row.

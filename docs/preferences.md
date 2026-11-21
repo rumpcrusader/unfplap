@@ -165,22 +165,3 @@ character profiles.
 Dislikes are shown in the settings editor and stay in the `preferences` block. They are used only
 where the character's temperament supports them; the main cast uses `smack` and/or `dirty` for
 Rarity, Octavia, Maud and Zecora, and the wider roster follows the same rule.
-
-## Tests
-
-- The Characters form is the only per-mare editor; it writes only on **Save preset**.
-- The debug `Show data` action prints the resolved prompt note, relationship line, cycle note,
-  history note and recent events in its PROMPT section.
-- `tests/readiness/test_preferences.gd` covers profile merge, likes/dislikes and classification,
-  and the teat size's display order, case handling and `auto` fallback.
-- `tests/test_character_preferences.gd` covers the roster, display names and the shipped
-  profiles.
-- `tests/test_settings.gd` covers the per-mare merge, provider precedence and the Characters form
-  contract, including the teat size row's place and the saved difference.
-
-## Related docs
-
-- `docs/readiness.md` — the scoring loop and the auto stroke.
-- `docs/eligibility.md` — consent, participation and the per-mare gates.
-- `docs/summary.md` — the act summary, tolerance and the history tiers.
-- `docs/settings.md` — the settings framework and the Characters tab.

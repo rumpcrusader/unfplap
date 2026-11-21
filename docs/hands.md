@@ -231,20 +231,6 @@ An authored area farther than `MAX_DISTANCE_M = 0.06 m` from its body is a miss.
 may snap up to `REMAPPED_DISTANCE_M = 0.12 m`; the fit line reports that distance as `snap`. Head
 areas are never rig-mapped: the loose heads are the shared native head.
 
-## Lifecycle
-
-- Scope: per-act
-- Constructed by: `act/build.gd`
-- Begin: `bind()`/`begin()`
-- End: act teardown
-- Idempotent: yes
-- Warm-up: once the act is actionable, `anchors.prefit_tick()` fits one authored area per physics
-  tick from the pony's body and head meshes, and the controller builds each hand's path one hand
-  per tick once that queue drains, so neither the coat fit nor the marked-area scan lands on the
-  first `A`/`D`. The warm frame is not applied and no caress is latched, and a fresh `A`/`D` still
-  resets that hand through the normal start. A `hands.path` change arms the warm again.
-
-
 ## Settings
 
 The caress declarations live in `settings/service.gd`, and each one's `##` comment describes its
@@ -322,32 +308,6 @@ pose-specific target and starts the swing.
   briefly sets `overwhelmed`.
 - The standing afterglow close window counts active caress time. 2.5 s or more of caress grants
   the full reward; after a bad act it repairs one point of history hurt.
-
-## Dependencies
-
-### Uses
-
-| Kind | Target | Entry point | Purpose |
-|---|---|---|---|
-| service | settings | `settings/service.gd` | settings declarations and live values |
-| service | world | `world/game.gd` | service dependency |
-| service | world | `world/service.gd` | live scene reads |
-| shared | act_state | `shared/act_state.gd` | shared data |
-| shared | body_coat | `shared/body_coat.gd` | shared data |
-| shared | body_profile | `shared/body_profile.gd` | shared data |
-| shared | hands_caress | `shared/hands_caress.gd` | shared data |
-| shared | log | `shared/log.gd` | log sink |
-| shared | perf | `shared/perf.gd` | one profiler |
-| shared | pose_view | `shared/pose_view.gd` | pose read model |
-
-## Tests
-
-- `tests/hands/test_caress.gd`: the coat fit, its cache and its miss, authored paths, marked area
-  path, side mapping, standing path and its procedural fallback, oral head node and side inversion,
-  the exact node without a head fit, contact blend, sphere projection and smoothing, the background
-  fit queue and the path warm, and reach geometry.
-- `tests/hands/test_actions.gd`: pure act-action helpers, the smack hand choice, the reach cancel
-  and smack geometry.
 
 ## Known limits
 

@@ -117,34 +117,3 @@ and the `_left`/`face`/`mood` reads for the debug row.
 `start_upset()` starts the same node with the refusal face and no blush. `end_mood_face()` calls
 `_finish("replaced")` and clears the warm note. A new act clears the held face. The node receives
 the main handle and the `log` callback from the facade; it never reads the runtime node.
-
-## Dependencies
-
-### Uses
-
-| Kind | Target | Entry point | Purpose |
-|---|---|---|---|
-| service | readiness | `readiness/service.gd` | readiness and auto stroke |
-| service | settings | `settings/service.gd` | settings declarations and live values |
-| service | world | `world/game.gd` | service dependency |
-| service | world | `world/service.gd` | live scene reads |
-| shared | act_face | `shared/act_face.gd` | face beat data |
-| shared | act_state | `shared/act_state.gd` | shared data |
-| shared | log | `shared/log.gd` | log sink |
-| shared | preferences | `shared/preferences.gd` | profile schema and math |
-
-## Lifecycle
-
-- Scope: per-act
-- Constructed by: `act/build.gd` through `runtime._init()`, with the world memory
-  (`_init(memory)`)
-- Begin: `bind()`
-- End: `shutdown()`
-- Idempotent: yes
-
-
-## Tests
-
-`tests/face/test_runtime_face.gd` covers the beat table, the line-face owner, the stare release,
-the lids and the smile hold, the climax quality shape, the mood face and the warm note with a fake
-expressions node. `tests/face/test_act_face.gd` covers the pure plans and the held mood-face node.

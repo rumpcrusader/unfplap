@@ -160,14 +160,6 @@ pair, the two logged keys, the one-shot toast flag, the player's last seat, the 
 and prompt row and the auto-start clock live for one world; `on_world_closed()` clears all but the
 clock, which is a frame timer that self-corrects on the next poll.
 
-## Lifecycle
-
-- Scope: world
-- Constructed by: the entry's service list (`_build_services()`)
-- Begin: `on_world(host)`
-- End: `on_world_closed()` on a world enter or close
-- Idempotent: yes
-
 ## Settings
 
 No setting is declared here. The hint's key cap comes from `controls.act_key` through
@@ -211,64 +203,3 @@ the `offer_sensor_read` child), its `fan_discover` and `fan_hash` children at th
 preloaded `PONIES` facade; a missing registry reads as no runtime, no act target and no act, so an
 unbound service reads no fan and starts nothing. A missing privacy provider reads as public, so a
 private Agreement does not start on a stale answer.
-
-## Dependencies
-
-### Uses
-
-| Kind | Target | Entry point | Purpose |
-|---|---|---|---|
-| service | hud | `hud/service.gd` | act HUD card |
-| service | negotiation | `negotiation/service.gd` | service dependency |
-| service | ponies | `ponies/service.gd` | per-pony runtime registry |
-| service | poses | `poses/service.gd` | pose and skeleton |
-| service | privacy | `privacy/service.gd` | service dependency |
-| service | settings | `settings/service.gd` | settings declarations and live values |
-| service | world | `world/game.gd` | service dependency |
-| service | world | `world/service.gd` | live scene reads |
-| shared | act_keys | `shared/act_keys.gd` | shared data |
-| shared | log | `shared/log.gd` | log sink |
-| shared | perf | `shared/perf.gd` | one profiler |
-| shared | pony_id | `shared/pony_id.gd` | shared data |
-| shared | pose_catalog | `shared/pose_catalog.gd` | pose ids and schema |
-| shared | pose_offer | `shared/pose_offer.gd` | typed act offer |
-| shared | pose_options | `shared/pose_options.gd` | shared data |
-| shared | pose_specs | `shared/pose_specs.gd` | pose capability table |
-| shared | rump_cone | `shared/rump_cone.gd` | standing offer zone |
-| shared | settings_change | `shared/settings_change.gd` | settings change notification |
-
-### Used by
-
-| Kind | Target | Entry point | Purpose |
-|---|---|---|---|
-| service | input | `offer.try_start()` | the act key's press |
-| service | initiation | `offer.offer_target()` | the cuddle offer's target check |
-
-## Tests
-
-- `tests/offer/test_fan_sensor.gd`: the fan boundary and half-plane, the candidate distance order,
-  the lying candidate, a state change inside the fan against a far mare's silence, the rotation
-  budget, the poll cadence with its forced press read, the reset and the act-inert state.
-- `tests/offer/test_offer.gd`: the fan transition on the same frame, the nearest act target in the
-  fan with a nearer non-target, walking out and back, the scene fingerprint's no-op frames,
-  `offer_target()` as a pure read, the footstool block with its one log line and its one toast, the
-  hint unit in the game's prompt row with the act key's cap, the HUD fallback, the live Agreement
-  offer through `ready_offer()` and the offer cleared while an act is live.
-- `tests/offer/test_start.gd`: the act key's act-live guard, the empty-scene toast, the blocked
-  toast, the hotkey attempt and its exact match, the Agreement wait/start/fail answers and the
-  report, the interrupted negotiation, the auto-start clock with its act and menu guards, the fresh
-  private and cuddle samples, and the agreement between the offer's and the runtime's answers.
-- `tests/poses/test_pose_offer.gd`: the typed offer's fields and validity.
-- `tests/test_input.gd`: the act key's route into `try_start()`.
-- `tests/initiation/test_initiation_api.gd`: the Proactive cuddle gate reading the offer's current
-  target on a non-forced read.
-
-## Related docs
-
-- `docs/runtime.md` — the start sequence both start paths share and the Agreement answers.
-- `docs/scene_gate.md` — the scene rows the standing gate and the starts run.
-- `docs/stool.md` — the reach rule and the footstool block.
-- `docs/hud.md` — the prompt row style and the HUD fallback.
-- `docs/negotiation.md` — the Agreement package, its close reasons and the start report.
-- `docs/input.md` — the act key and the input shield.
-- `docs/poses.md` — the authored assets warmed at world ready.

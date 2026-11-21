@@ -228,15 +228,6 @@ testing.
   still begins from the settings defaults.
 - The auto readout is `Auto · 20–80% · 1.50/s · Normal` (see `docs/hud.md`).
 
-## Lifecycle
-
-- Scope: per-act
-- Constructed by: `act/build.gd` through `runtime._init()`
-- Begin: `configure()`
-- End: `reset()`
-- Idempotent: yes
-
-
 ## Settings
 
 The thrust, auto-thrust, cooldown, receptive-window and cue-pacing declarations are in
@@ -246,46 +237,9 @@ The per-mare neglect-tolerance tier is a preference field, not a global setting:
 **Characters**. The thresholds, like relief, decay and stop cooldowns, are the `tolerance.*` debug
 declarations.
 
-## Dependencies
-
-### Uses
-
-| Kind | Target | Entry point | Purpose |
-|---|---|---|---|
-| service | settings | `settings/service.gd` | settings declarations and live values |
-| shared | act_state | `shared/act_state.gd` | shared data |
-| shared | log | `shared/log.gd` | log sink |
-| shared | preferences | `shared/preferences.gd` | profile schema and math |
-
-## Tests
-
-- `tests/readiness/test_readiness.gd` — facade: stroke scoring, both/one/neither axes, rated
-  limit, touch/talk, receptive window, overwhelmed, climax count, the tolerance meter and reset.
-- `tests/readiness/test_act_tolerance.gd` — tier thresholds, every-event counting, like relief,
-  25 s decay, warning monotonicity and stop cooldowns.
-- `tests/readiness/test_act_stop.gd` — neutral/strict stop teardown, history cooldown, no/yes buck
-  and request space.
-- `tests/test_thrust.gd` — reversal hysteresis, impact stall, travel, speed, strength, contact and
-  jiggle amount.
-- `tests/readiness/test_preferences.gd` — profile merge, likes/dislikes, classification.
-- `tests/readiness/test_auto_thrust.gd` — every waveform, pace, band, inverse phase and reset.
-- `tests/handover/test_body_swap.gd` — the requested reveal's one-off spike, the neutral
-  named-shape path and the auto settings/state preserved across a body swap.
-- `tests/readiness/test_readiness_auto.gd` — the facade: defaults, toggle, step, wheel, the panel
-  actions and the reset.
-
 ## Verification / lab
 
 - Manual stroke: slow/fast, shallow/deep, the intensity and pattern axes, the readiness line and
   the climax limit.
 - Auto: tap X, hold X, the four rows, the wheel, shape cycle, mouse lockout and reset between acts.
 - Touch/talk: liked/disliked, the cap, the receptive window and the overwhelmed beat.
-
-## Related docs
-
-- `docs/dialogue.md` — cue admission, prompt assembly, reactions.
-- `docs/prompts.md` — the prompt text the assembly renders.
-- `docs/hud.md` — cue, readiness and auto text.
-- `docs/preferences.md` — the per-mare profile and the two axes.
-- `docs/summary.md` — the act summary and the long-term history.
-- `docs/afterglow.md` — the post-act phase.

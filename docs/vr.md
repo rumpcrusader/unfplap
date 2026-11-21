@@ -65,33 +65,3 @@ controller.
   adult test mare. `--vr-lab-autostart` qualifies the nearest mare, starts the standing act and
   turns the stroke on for a scripted smoke run. The log prints state, thrust count, readiness and
   both preference axes once a second.
-
-## Dependencies
-
-### Uses
-
-| Kind | Target | Entry point | Purpose |
-|---|---|---|---|
-| service | world | `world/game.gd` | service dependency |
-| shared | act_commands | `shared/act_commands.gd` | act command vocabulary |
-
-## Lifecycle
-
-- Scope: per-act
-- Constructed by: `anatomy` act bridge
-- Begin: act start
-- End: act end
-- Idempotent: yes
-
-
-## Tests
-
-- `tests/test_vr_act.gd` — tracker selection, depth clamping, hand action routing, the start
-  hooks and the base-game accessors' absent answers.
-
-## Related docs
-
-- `docs/anatomy.md` — the anatomy action hooks and the act bridge.
-- `docs/poses.md` — the standing pose and placement.
-- `docs/camera.md` — the desktop shot; VR keeps the stock camera.
-- `docs/eligibility.md` — the headset view exception in the start gate.

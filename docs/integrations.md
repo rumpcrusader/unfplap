@@ -408,20 +408,6 @@ the world adapter on the same settings edit. Its cached flags, hull width/height
 margins are fields with no code default: `apply_live_settings()` fills them before the hull or an
 overlay reads them.
 
-## Lifecycle
-
-- Scope: per-act service + world adapters/providers
-- Constructed by: `act/build.gd` for the per-pony act facade
-  (`runtime.act.context.integrations`); the entry's service list for the body-change provider and
-  each world adapter
-- Begin: `begin()` at `State.POSING_IN`; `on_world(host)` on world entry; the provider refreshes
-  its pack and registration on world entry; the changelings adapter registers its provider layer
-  in `_ready()` and on `refresh()`
-- End: `reset()` in `act/exit.gd:free_pose()`; `on_world_closed()` on world close and `shutdown()` in the
-  entry's process exit; the changelings layer leaves with its owner, and its shutdown clears the
-  observation state and wrapper map while the wrapper node is freed with the body
-- Idempotent: yes. A world adapter is inert when its pack is absent.
-
 ## Host boundary
 
 | Host call | Purpose |
@@ -450,81 +436,6 @@ overlay reads them.
 | `runtime.act.request_form_change()` | the act-side start of a body change; the watcher owns the suspension and the player flag marks the player's change, with only a true form exceptional |
 | `runtime.adopt_body()` / `attach_to_body()` | moves the suspended act under the claimed body |
 | `Mods.is_active("changelings")` | the adapter's installation gate |
-
-## Dependencies
-
-### Uses
-
-| Kind | Target | Entry point | Purpose |
-|---|---|---|---|
-| service | anatomy | `anatomy/api.gd` | anatomy and tail seat |
-| service | body_change | `body_change/source.gd` | service dependency |
-| service | ponies | `ponies/service.gd` | per-pony runtime registry |
-| service | settings | `settings/service.gd` | settings declarations and live values |
-| service | world | `world/service.gd` | live scene reads |
-| shared | act_state | `shared/act_state.gd` | shared data |
-| shared | body_change_policy | `shared/body_change_policy.gd` | shared data |
-| shared | body_profile | `shared/body_profile.gd` | shared data |
-| shared | defaults_data | `shared/defaults_data.gd` | shipped settings and catalog documents |
-| shared | integrations | `shared/integrations.gd` | supported mod catalog |
-| shared | log | `shared/log.gd` | log sink |
-| shared | perf | `shared/perf.gd` | one profiler |
-| shared | prompt_text | `shared/prompt_text.gd` | shared data |
-| shared | settings_change | `shared/settings_change.gd` | settings change notification |
-
-### Used by
-
-| Kind | Target | Entry point | Purpose |
-|---|---|---|---|
-| host | runtime | `act/build.gd` | act lifecycle and typed facts |
-| host | the entry | the service list | world lifecycle and the debug Rebuild button |
-| service | settings | `settings/ui.gd` | Integrations tab catalog |
-
-## Tests
-
-- `tests/integrations/test_catalog.gd` — metadata completeness, feature/declaration agreement and
-  the world-only entry (no per-act bindings).
-- `tests/integrations/test_kissing.gd` — Kissing availability, the warming/close/climax ramp, the
-  bond cap, the pause fade, afterglow, an Affection kiss and the full-fidget restore/suppress.
-- `tests/integrations/test_pantyhose.gd` — the hull builder (fixture and real anatomy mesh), the
-  transform mapping, the surface overrides and restore, the shared mesh, multi-mare independence,
-  the cloth follower (the live coat material values over the decal and the raw fields, the visible,
-  then body, then first-pair target choice, the centre, normal and up mapping from a rotated body
-  and a trimmed garment, the target/garment scale ratio, a null or malformed field clearing the
-  cloth, the process order after `FlankTouch`, and the six jiggle plus ten hull uniforms at Godot's
-  sixteen with the rest-vertex-then-lift order in both copied shaders, two mares on one source
-  material, a finished wobble, the hidden-anatomy and lift-off paths, the flag off, and the
-  dropped-piece, world-close and shutdown clears),
-  the act-start undress (the `take_off` commit with the director's turn, the identity-id key, the
-  wardrobe's season, the direct fallback and the nothing-worn no-op), the feature/pack/wardrobe
-  guards and the debug rebuild/overlay.
-- `tests/integrations/test_service.gd` — binding resolution, save/restore, optional bindings,
-  the reaction cap, live feature edits, shared Beat ownership, the runtime's named Beat hold with
-  its teardown fallback and a missing-Beat scene, full fidgets, idempotent reset and the absence of
-  a per-act provider for the world integration.
-- `tests/integrations/test_changelings.gd` — the installed list and provider layer while the pack is
-  on, the approved profile and placement, the unchanged base roster, no entry when it is off, the
-  typed registration and observation arming, and the forms and marker for her own body, a disguise
-  and an unrelated pony: her own form's name, fit, princess rig, source marker and spring-tail root,
-  a regular borrowed form's ordinary rig and fit, a princess borrowed form's rig, and no own tail
-  root or borrowed placement for either. The `UnfplapTailPlacement` wrapper's creation, reuse,
-  baked default, saved-offset apply, reset and report, a late chain that arrives after an
-  identity-less first prepare, and the service's tail forwards are pinned too. The named change's
-  form is pinned before and after the variant: the new body takes the target form with no own tail
-  root or wrapper, the old body and an unrelated pony are untouched, a late descriptor change bumps
-  the revision, and the settled variant runs the late prepare and LOD rebuild once. The typed
-  change covers the actor/old/new/target state, the true-form and named requests, the claimed body,
-  the idle appear hook and the completion poll. An AI-started change is observed from a rising
-  `busy`, claimed by identity before the shape is known and completed from the new body's variant;
-  a `busy` on another body is ignored. The player hooks cover the reveal phrases (“true form”,
-  “real her” and the rest), whole adult base/live names, the imperative request phrases, negated
-  and descriptive lines, names inside other words, ambiguous names, the worn shape and self, a
-  population young or male body through the eligibility facade, and the population's copyable
-  check. The policy's offer gate, prompt and reveal/offer effect values are pinned here.
-- `tests/handover/test_body_swap.gd` — the generic handover the provider drives; `docs/runtime.md`
-  owns its rules.
-- `tests/test_settings.gd` — the Integrations tab draws every provider header, flag and the Debug
-  block's hull rows.
 
 ## Verification / lab
 
@@ -592,9 +503,3 @@ overlay reads them.
   one exit instead of leaving the body to be freed under the runtime.
 - With **Enable debug** on, check the run log's `form hint suppressed` line clears at the climax,
   afterglow and restore while the HUD row stays empty, and that a held body refuses the request.
-
-## Related docs
-
-- `docs/settings.md` — the declaration model and the Integrations tab.
-- `docs/runtime.md` — the act lifecycle and tick order.
-- `docs/act_facts.md` — the typed view the host passes.

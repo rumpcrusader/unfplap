@@ -197,15 +197,6 @@ idle hint and the act start.
 - The supply retries every `2 s` while no home is loaded, pauses with the tree and during an act,
   and logs once if no home is available or the briefcase is full.
 
-## Lifecycle
-
-- Scope: world + per-act handle
-- Constructed by: the entry's service list (`_build_services()`)
-- Begin: `setup()`/`new_act()`
-- End: `on_world_closed()`/`shutdown()`
-- Idempotent: yes
-
-
 ## Settings and debug
 
 - The footstool switch and its two standing values are declarations in `settings/service.gd`,
@@ -216,34 +207,14 @@ idle hint and the act start.
   and part heights, gap, threshold, step height, required count, case count, owned count, free
   slots and active count.
 
-## Dependencies
+## Lab and limits
 
-### Uses
-
-| Kind | Target | Entry point | Purpose |
-|---|---|---|---|
-| service | anatomy | `anatomy/api.gd` | anatomy and tail seat |
-| service | ponies | `ponies/service.gd` | per-pony runtime registry |
-| service | settings | `settings/service.gd` | settings declarations and live values |
-| service | world | `world/game.gd` | service dependency |
-| service | world | `world/service.gd` | live scene reads |
-| shared | log | `shared/log.gd` | log sink |
-| shared | pose_specs | `shared/pose_specs.gd` | pose capability table |
-
-## Tests and limits
-
-- `tests/stool/test_measure.gd`: level-ground, raised-floor, negative, threshold and 25/40/60 cm
   stack-count cases.
-- `tests/stool/test_item.gd`: case slot, case count, owned count, free slots, take/put and placed
   loans.
-- `tests/stool/test_gate.gd`: the facade's feature read, the act handle's `applies()`/`required()`,
   the runtime forwards' live gap, two-step requirement, case count, the hotkey readiness and the
   blocked hint's reuse of the first gate's pair.
-- `tests/stool/test_act.gd`: the per-act handle's rule over the cached entrance point, case loans,
   stack placement/release, reset and the missing-stool-only block.
-- `tests/stool/test_prop.gd`: the stacked visuals, total height, box top and both pony collision
   exceptions.
-- `tests/stool/test_placement.gd`: the player-root raise to the stack top, exception cleanup and
   floor release.
 - The lab covers the full act and supply: Canon and Same Height below the threshold, Celestia and
   Hoers against their live number, with and without enough case stools, early end, forced stop and

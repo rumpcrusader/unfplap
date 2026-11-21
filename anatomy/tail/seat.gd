@@ -8,11 +8,9 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 const IDENTITY := preload("res://mods/unfplap/anatomy/identity.gd")
-const DOCK_TAIL_MOUNT := preload("res://world/characters/hybrid_mare/dock_tail_mount.gd")
-const HYBRID_DOCK := preload("res://world/characters/hybrid_mare/hybrid_dock.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
 const DOCK_SEAT := preload("res://mods/unfplap/anatomy/tail/dock_seat.gd")
 const DOCK_ATTACH := preload("res://mods/unfplap/anatomy/tail/dock_attach.gd")
-const HYBRID_FAR_MESH := preload("res://world/characters/hybrid_mare/hybrid_far_mesh.gd")
 const ANATOMY_PLACEMENT := preload("res://mods/unfplap/shared/anatomy_placement.gd")
 const RIG := preload("res://mods/unfplap/anatomy/rig.gd")
 
@@ -51,7 +49,7 @@ class SeatRow:
 	var hips_rest := Transform3D.IDENTITY
 	var anchor := Vector3.ZERO
 	var cap_centre := NAN
-	var fit: Dictionary = {}
+	var fit: GAME.DockFit = null
 	var tail_y := 0.0
 	var tail_z := 0.0
 	var dock_y := 0.0
@@ -412,19 +410,14 @@ func _prepare(pony: Node, form: BODY_FORM.BodyForm = null) -> SeatRow:
 		LOG.debug("tail seat: no body anchor for %s", [pony.name])
 		return null
 	var hips := skeleton.find_bone("pony_hips")
-	var measured: Dictionary = DOCK_TAIL_MOUNT.measure(pony)
-	var raw: Variant = measured.get("anchor")
-	if hips < 0 or not raw is Array or (raw as Array).size() != 3:
+	var anchor := GAME.dock_tail_anchor(pony)
+	if hips < 0 or not anchor.is_finite():
 		LOG.debug("tail seat: no anchor for %s", [pony.name])
-		return null
-	var anchor := Vector3(float(raw[0]), float(raw[1]), float(raw[2]))
-	if not anchor.is_finite():
-		LOG.debug("tail seat: non-finite anchor for %s", [pony.name])
 		return null
 	# `effective_fit()` adds the game's seat shift for a seated tail; the seat delta below cancels
 	# it, so the dock keeps the player's fit.
-	var fit: Dictionary = HYBRID_DOCK.effective_fit(pony, HYBRID_DOCK.read_fit())
-	if fit.is_empty():
+	var fit: GAME.DockFit = GAME.dock_fit(pony)
+	if fit == null:
 		LOG.debug("tail seat: no dock fit for %s", [pony.name])
 		return null
 	var identity := rig.identity_of(pony)
@@ -460,7 +453,7 @@ func _prepare(pony: Node, form: BODY_FORM.BodyForm = null) -> SeatRow:
 	row.hips_rest = skeleton.get_bone_global_rest(hips)
 	row.anchor = anchor
 	row.cap_centre = _tail_cap_centre(pony)
-	row.fit = fit.duplicate(true)
+	row.fit = fit
 	row.tail_y = placement.num("tail_y")
 	row.tail_z = placement.num("tail_z")
 	row.dock_y = placement.num("dock_y")
@@ -625,7 +618,7 @@ func _move_dock(row: SeatRow, delta: Vector3) -> void:
 	var dock := row.dock
 	if not is_instance_valid(dock):
 		return
-	var fit: Dictionary = row.fit.duplicate(true)
+	var fit: Dictionary = row.fit.data.duplicate(true)
 	var dock_scale := maxf(row.dock_scale, 0.05)
 	if not is_equal_approx(dock_scale, 1.0):
 		fit["scale"] = float(fit.get("scale", 1.0)) * dock_scale
@@ -637,8 +630,10 @@ func _move_dock(row: SeatRow, delta: Vector3) -> void:
 		float(position[1]) + delta.y,
 		float(position[2]) + delta.z,
 	]
-	var fitted: ArrayMesh = HYBRID_DOCK.fitted_mesh(fit, false)
-	var mesh: ArrayMesh = HYBRID_DOCK.reach_rump(fitted, row.pony, false)
+	var nudged := GAME.DockFit.new()
+	nudged.data = fit
+	var fitted: ArrayMesh = GAME.dock_fitted_mesh(nudged)
+	var mesh: ArrayMesh = GAME.dock_reach_rump(fitted, row.pony)
 	if mesh == null:
 		return
 	mesh = DOCK_SEAT.snap_base(mesh, row.body)
@@ -751,10 +746,7 @@ func _clear_skin(row: SeatRow) -> void:
 func _invalidate_far(pony: Node) -> void:
 	if not is_instance_valid(pony):
 		return
-	var key := HYBRID_FAR_MESH._id(pony)
-	HYBRID_FAR_MESH.cache.erase(key)
-	HYBRID_FAR_MESH.shadow_cache.erase(key)
-	HYBRID_FAR_MESH.eyes_cache.erase(key)
+	GAME.forget_far_mesh(pony)
 	if rig.far_mesh_shown(pony) and pony.is_inside_tree():
 		rig.set_near_mesh(pony, true)
 

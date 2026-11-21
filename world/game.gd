@@ -11,6 +11,13 @@ const HOUSE := preload("res://world/buildings/house_interior.gd")
 const AI_CONFIG := preload("res://world/ai/ai_config.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const OUTLINE_EXCLUSION := preload("res://world/post_outline_exclusion.gd")
+const DOCK_TAIL_MOUNT := preload("res://world/characters/hybrid_mare/dock_tail_mount.gd")
+const HYBRID_DOCK := preload("res://world/characters/hybrid_mare/hybrid_dock.gd")
+
+
+## The game's dock-fit document; the tail seat owns a copy and nudges it before a rebuild.
+class DockFit extends RefCounted:
+	var data: Dictionary = {}
 
 
 ## The eye is in a headset; absent reads as false.
@@ -616,6 +623,48 @@ static func dock_of(pony: Node) -> MeshInstance3D:
 	if dock is MeshInstance3D and is_instance_valid(dock):
 		return dock
 	return null
+
+
+## The reference dock's anchor for a pony; `Vector3.INF` when the body cannot be measured.
+static func dock_tail_anchor(pony: Node) -> Vector3:
+	if not is_instance_valid(pony):
+		return Vector3.INF
+	var measured: Dictionary = DOCK_TAIL_MOUNT.measure(pony)
+	var raw: Variant = measured.get("anchor")
+	if not raw is Array or (raw as Array).size() != 3:
+		return Vector3.INF
+	var anchor := Vector3(float(raw[0]), float(raw[1]), float(raw[2]))
+	return anchor if anchor.is_finite() else Vector3.INF
+
+
+## The game's dock fit, including the seat shift; null when the pony is gone.
+static func dock_fit(pony: Node) -> DockFit:
+	if not is_instance_valid(pony):
+		return null
+	var fit := DockFit.new()
+	fit.data = HYBRID_DOCK.effective_fit(pony, HYBRID_DOCK.read_fit())
+	return null if fit.data.is_empty() else fit
+
+
+## The fitted dock mesh from one fit document; null when the fit is absent.
+static func dock_fitted_mesh(fit: DockFit) -> ArrayMesh:
+	if fit == null:
+		return null
+	return HYBRID_DOCK.fitted_mesh(fit.data, false)
+
+
+## The dock mesh pushed into the rump; the input mesh when the pony cannot answer.
+static func dock_reach_rump(mesh: ArrayMesh, pony: Node) -> ArrayMesh:
+	if mesh == null or not is_instance_valid(pony) or identity_of(pony) == null:
+		return mesh
+	return HYBRID_DOCK.reach_rump(mesh, pony, false)
+
+
+## The game's rump surface height for a body name; NAN for a name the table does not know.
+static func dock_rump_z(body_name: String, y: float) -> float:
+	if not HYBRID_DOCK.RUMP_Z.has(body_name):
+		return NAN
+	return HYBRID_DOCK.rump_z(body_name, y)
 
 
 ## Let the pony's FlankTouch copy its body materials before the anatomy patches them.
@@ -1744,6 +1793,16 @@ static func set_eye_height(body: Node3D, y: float) -> void:
 		body.set("_eye_height", y)
 
 
+## Drop the far-mesh caches for one body; a valid node with no identity uses the "default" key.
+static func forget_far_mesh(pony: Node) -> void:
+	if not is_instance_valid(pony):
+		return
+	var key: String = HYBRID_FAR_MESH._id(pony)
+	HYBRID_FAR_MESH.cache.erase(key)
+	HYBRID_FAR_MESH.shadow_cache.erase(key)
+	HYBRID_FAR_MESH.eyes_cache.erase(key)
+
+
 ## Drop the merged LOD caches for a body whose shape changed and re-arm its near mesh, so the
 ## visible body is rebuilt from the new rig instead of the old shape's gather.
 static func refresh_body_lod(pony: Node) -> void:
@@ -1753,10 +1812,7 @@ static func refresh_body_lod(pony: Node) -> void:
 	if identity_of(pony) == null:
 		return
 	HYBRID_NEAR_MESH.cache.erase(HYBRID_NEAR_MESH.key(pony))
-	var far_key: String = HYBRID_FAR_MESH._id(pony)
-	HYBRID_FAR_MESH.cache.erase(far_key)
-	HYBRID_FAR_MESH.shadow_cache.erase(far_key)
-	HYBRID_FAR_MESH.eyes_cache.erase(far_key)
+	forget_far_mesh(pony)
 	if not pony.has_method("set_near_mesh"):
 		return
 	var enabled: Variant = pony.get("near_mesh_enabled")

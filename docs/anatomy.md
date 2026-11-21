@@ -26,7 +26,7 @@ It does not cover eligibility, act readiness, thrust scoring, pose or camera rul
 | File | Role |
 |---|---|
 | `anatomy/api.gd` | the public entry and composition root: roster verbs, act presentation, Anon and garment handles, the `Rig` and the `Parts` |
-| `anatomy/rig.gd` | the game accessor every anatomy file reads through; every skeleton, body, hair, dock and mouth read |
+| `anatomy/rig.gd` | the scene accessor: skeletons, bodies, hair, the dock node and the mouth; the base-game form, outline and dock-class calls read `GAME` |
 | `anatomy/parts.gd` | per-pony registry: controllers, forms, tail rows, the player host and the placement editor |
 | `anatomy/player_host.gd` | the Anon part lifecycle: create, free, warm and resolve the player body |
 | `anatomy/placement_editor.gd` | the Anatomy Placement editor: the named pony's placement and reset actions and the report |
@@ -353,8 +353,8 @@ fade. The hull block is in the copied compatibility shaders under
 
 ## Rig contract
 
-`anatomy/rig.gd` reads the game through `GAME` and wraps every `world/game.gd` read and command
-anatomy makes. It is constructed by `anatomy/api.gd` and injected into the modules that need a
+`anatomy/rig.gd` reads the game through `GAME` and wraps the scene reads and commands anatomy
+makes. It is constructed by `anatomy/api.gd` and injected into the modules that need a
 skeleton, body, hair, dock or mouth. Every anatomy file reads the game through `GAME`.
 
 ## Act anatomy

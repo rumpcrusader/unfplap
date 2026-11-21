@@ -57,38 +57,6 @@
       "task": "B"
     },
     {
-      "from": "anatomy/tail/dock_seat.gd",
-      "to": "res://world/characters/hybrid_mare/hybrid_dock.gd",
-      "kind": "game-import",
-      "owner": "anatomy",
-      "reason": "base-game import; drain through the GAME accessor in Task B",
-      "task": "B"
-    },
-    {
-      "from": "anatomy/tail/seat.gd",
-      "to": "res://world/characters/hybrid_mare/dock_tail_mount.gd",
-      "kind": "game-import",
-      "owner": "anatomy",
-      "reason": "base-game import; drain through the GAME accessor in Task B",
-      "task": "B"
-    },
-    {
-      "from": "anatomy/tail/seat.gd",
-      "to": "res://world/characters/hybrid_mare/hybrid_dock.gd",
-      "kind": "game-import",
-      "owner": "anatomy",
-      "reason": "base-game import; drain through the GAME accessor in Task B",
-      "task": "B"
-    },
-    {
-      "from": "anatomy/tail/seat.gd",
-      "to": "res://world/characters/hybrid_mare/hybrid_far_mesh.gd",
-      "kind": "game-import",
-      "owner": "anatomy",
-      "reason": "base-game import; drain through the GAME accessor in Task B",
-      "task": "B"
-    },
-    {
       "from": "audio/voice_status.gd",
       "to": "res://world/ai/chatter_voice.gd",
       "kind": "game-import",

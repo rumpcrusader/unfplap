@@ -330,6 +330,12 @@ behaviour exactly, and a game update that renames one is a change here rather th
 | `GAME.exclude_from_outline(mesh)` | `post_outline_exclusion.apply_to` | — | no call |
 | `GAME.player_form_is_young(tree)` | `player_form.active` + `is_young` | `bool` | `false` |
 | `GAME.player_form_is_pony(tree)` | `player_form.active` + `is_pony` | `bool` | `false` |
+| `GAME.dock_tail_anchor(pony)` | `dock_tail_mount.measure` | `Vector3` | `Vector3.INF` |
+| `GAME.dock_fit(pony)` | `hybrid_dock.effective_fit` + `read_fit` | `DockFit` | `null` |
+| `GAME.dock_fitted_mesh(fit)` | `hybrid_dock.fitted_mesh` | `ArrayMesh` | `null` |
+| `GAME.dock_reach_rump(mesh, pony)` | `hybrid_dock.reach_rump` | `ArrayMesh` | the input |
+| `GAME.dock_rump_z(body, y)` | `hybrid_dock.rump_z` | `float` | `NAN` |
+| `GAME.forget_far_mesh(pony)` | the far-mesh caches | — | no drop |
 
 Only the accessors that hand back a typed copy or a typed view allocate — the mare, couch-seat,
 case and mods lists, the ladder, the bond record, the story rows, the world events, the mod state,

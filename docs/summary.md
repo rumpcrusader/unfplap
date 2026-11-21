@@ -78,7 +78,7 @@ An event line starts with the pair, `You and Anon `, so the profile can replace 
 carries at most one vague reason sentence (`Something about it stayed with her.`), never a
 specific miss, and the private thought names none.
 
-`MEMORY.instance.commit()` writes this to the game's impressions once. It also records the summary text as
+`memory.commit()` writes this to the game's impressions once. It also records the summary text as
 a `relationship` world-context event. The two lines have separate voices: the recorded `text` is the
 profile-safe world event, while `thought` is her private first-person impression (`He`/`I`) and is
 what the profile shows as **Last impression**. An early end is stated once, not repeated as a
@@ -101,9 +101,9 @@ caressing is a one-point hurt repair instead. The caress reward threshold is in 
 
 - **First pony climax:** one world-context event; every climax gets a generated reaction.
 - **Once at afterglow:** `summary/service.gd:commit_after_act()` scores the act,
-  `MEMORY.instance.commit()` writes the grade-aware romance and mood, and
-  `MEMORY.instance.witnesses()` follows.
-- **Standing close reward:** `MEMORY.instance.commit()` (the `STAY_CLOSE` slot) records a private
+  `memory.commit()` writes the grade-aware romance and mood, and
+  `memory.witnesses()` follows.
+- **Standing close reward:** `memory.commit()` (the `STAY_CLOSE` slot) records a private
   impression. On a good or non-early neutral act, staying and caressing adds a happy mood, a
   private thought and a small `romance` gain. After a bad act, staying and caressing repairs one
   point of history hurt instead. The caress time threshold is in `docs/hands.md`.
@@ -203,7 +203,7 @@ meter that triggers a stop is owned by readiness; its rules, tiers and settings 
 `docs/readiness.md`. A stop is a dedicated path, not `cancel()`:
 
 - it forces a severe bad summary (`stopped_by_her`, no romance, mood annoyed/angry) and `+2` hurt;
-- it records `MEMORY.instance.note(MEMORY.NoteKind.STOPPED, ..., MEMORY.StopReason.WITHDREW)`;
+- it records `memory.note(MEMORY.NoteKind.STOPPED, ..., MEMORY.StopReason.WITHDREW)`;
 - it ends through the forced path with no afterglow and no cuddle rejoin;
 - Normal: stern spoken line, no buck, no `request_space`, `tolerance.normal_cooldown_s` sex-only
   cooldown;
@@ -260,7 +260,8 @@ navigator and blocks nothing; the gates above do that.
 ## Lifecycle
 
 - Scope: per-act
-- Constructed by: `act/build.gd` through `runtime._init()`
+- Constructed by: `act/build.gd` through `runtime._init()`, with the world memory
+  (`_init(memory)`)
 - Begin: `reset_act()`
 - End: act teardown
 - Idempotent: yes

@@ -136,11 +136,12 @@ so a steady frame touches neither the tree nor the row.
 ## Toast and act-key notice
 
 `toast(text, seconds)` is the mod's only toast: a short line in the corner for four seconds unless
-the caller passes its own duration, replaced by the next one. It is a static sink on the facade, so
-a caller needs no HUD handle; with no HUD it is a quiet no-op. Callers: the Negotiation host's
-player feedback and the offer's block notes (four seconds), the wheel's one-line result (three),
-the runtime's form status (2.5) and `anatomy_status(text, seconds)`, the anatomy status line at two
-seconds, which falls back to the debug log when there is no HUD.
+the caller passes its own duration, replaced by the next one. It is an instance method; a caller
+holds the HUD and guards for its absence, so a bare runtime with no HUD is a quiet no-op. Callers:
+the Negotiation host's player feedback and the offer's block notes (four seconds), the wheel's
+one-line result (three), the runtime's form status (2.5) and `anatomy_status(text, seconds)`, the
+anatomy status line at two seconds, which falls back to the debug log on a HUD that is not in the
+tree.
 
 The act-key notice is one toast per world: when the bundled Dance Mod is active and the act key is
 not its `Y`, the HUD says so once, as soon as the player exists. The note is re-armed on every
@@ -181,14 +182,14 @@ world enter and never repeats inside one world.
 - Scope: world
 - Base: the one list service that is a `CanvasLayer`; it defines the four hooks itself instead of
   extending `shared/service.gd`
-- Constructed by: the entry's service list, before any player exists; the entry keeps it as `HUD.instance`
+- Constructed by: the entry's service list, before any player exists; the entry keeps it and passes
+  it to the runtime, `offer`, `negotiation`, `anatomy` and `debug/actions`
 - Begin: `_ready()` builds the card; `apply_settings()` applies the act key and the caption mode
 - World: `on_world(host)` and `on_world_closed()` (the notice is armed again and the card is hidden)
 - Player: `on_player(body)` shows the once-per-world key notice
 - Settings: `_ready()` joins the settings change notification, so `apply_settings()` runs on every
   edit without the entry; `_exit_tree()` leaves it
-- End: `_exit_tree()` unsubscribes from the game setting; the entry frees the node and clears
-  `HUD.instance`
+- End: `_exit_tree()` unsubscribes from the game setting; the entry frees the node
 - Idempotent: yes
 
 

@@ -204,7 +204,7 @@ the `offer_sensor_read` child), its `fan_discover` and `fan_hash` children at th
 |---|---|---|
 | `negotiation` | `negotiation/service.gd` | the Negotiation service; only its public `handle()`, `ready_offer()`, `is_locked()`, `hotkey_handle()`, `interrupt_for_hotkey()`, `cancel()` and `report()` reads are used |
 | `privacy` | `privacy/service.gd` | the live visibility provider, sampled fresh before a private Agreement auto-starts |
-| `hud` | `Node` | the desktop HUD, bound at construction; `show_prompt`/`hide_prompt` (toasts go through `HUD.toast()`) |
+| `hud` | `Node` | the desktop HUD, bound at construction; `show_prompt`/`hide_prompt` (toasts go through the bound `hud.toast()`) |
 
 `_ready()` joins the settings change notification and `_exit_tree()` leaves it, so an edit reaches
 `apply_settings()` with no entry path. The live runtime, act-target and act-running reads are the

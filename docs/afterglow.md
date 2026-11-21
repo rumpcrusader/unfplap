@@ -151,7 +151,8 @@ Hold the act key:
 ## Lifecycle
 
 - Scope: per-act
-- Constructed by: `act/build.gd` through `runtime._init()`
+- Constructed by: `act/build.gd` through `runtime._init()`, with the HUD and memory
+  (`_init(hud, memory)`)
 - Begin: `begin()`
 - End: `reset()`
 - Idempotent: yes

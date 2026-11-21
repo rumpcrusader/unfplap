@@ -137,7 +137,7 @@ func _build_services() -> void:
 	negotiation = _add(NEGOTIATION.new(), "UnfplapNegotiation")
 	# The HUD exists before the player does: it owns the act card, the toast line, the caption
 	# move and the one-time key notice, and it is the one sink the rest of the mod reaches
-	# through `HUD.toast()`.
+	# through the instance the entry passes to each caller.
 	hud = _add_hud(HUD.new(), "UnfplapHUD")
 	hud.apply_settings()
 	offer = _add(OFFER.new(), "UnfplapOffer")

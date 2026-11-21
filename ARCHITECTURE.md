@@ -169,7 +169,9 @@ grows. Removing a method from the debt is part of the change that types it.
 
 A service never reads another service's private fields and never calls its `_` helpers. It does
 not do this through `get("_...")`, `call("_...")`, a host dictionary, a raw scene node or a
-preloaded private file. The same applies to `runtime.gd` and `main.gd` from a service.
+preloaded private file. The same applies to `runtime.gd` and `main.gd` from a service. A service
+also never reaches another through a static `instance` handle: the entry passes the facade or the
+caller takes it as a host parameter.
 
 ## Service layout
 
@@ -459,6 +461,8 @@ The architecture gate is `scripts/architecture.py --check`, run from `scripts/te
   private;
 - checks that every service the entry adds extends `shared/service.gd`; the HUD is the allowed
   `CanvasLayer` and must define all four hooks;
+- rejects a static `instance` in a shipped service; world facades are injected or taken as host
+  parameters;
 - scans `preload`, `extends "res://..."` and `load()` for mod paths;
 - compares the source graph with the `### Uses` tables in the service docs;
 - rejects a private import, a service -> `runtime`/`main`/`api` import, a shared -> service import

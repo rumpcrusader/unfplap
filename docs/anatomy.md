@@ -1110,7 +1110,8 @@ The anatomy migration is complete:
   `act/state.gd` and `facts.gd` are pure.
   `shared/anatomy_placement.gd` stays a shared pure schema.
 - The player part and tail seating are under `anatomy/`; the entry keeps only thin debug/button
-  forwards. The status line goes through `HUD.anatomy_status()` (`docs/hud.md`); the player body,
+  forwards. The status line goes through the injected HUD's `anatomy_status()` (`docs/hud.md`);
+  the player body,
   the dock refresh and the debug logger are injected into the anatomy modules; the profiler is
   shared and read directly.
 - The bridge owns the one typed `anatomy/facts.gd` context; the act and the persistent controller

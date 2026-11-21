@@ -13,8 +13,8 @@ const LOG := preload("res://mods/unfplap/shared/log.gd")
 const SERVICE := preload("res://mods/unfplap/stool/service.gd")
 const PROP := preload("res://mods/unfplap/stool/prop.gd")
 
-## The global stool facade (`STOOL.instance`). It holds the settings reads and the pure/item
-## calls.
+## The world-scope stool facade the session creates this handle from. It holds the settings reads
+## and the pure/item calls.
 var facade: SERVICE = null
 var pony: Node3D = null
 var player: Node3D = null

@@ -32,14 +32,15 @@ in `docs/eligibility.md`, `docs/readiness.md`, `docs/poses.md`, `docs/camera.md`
 | `docs/stool.md` | this contract |
 | `tests/stool/` | pure measurement/item tests, prop/stack tests and the facade API test |
 
-The facade is the only non-test file outside `stool/` that may preload `stool/*`. `runtime.gd`
-reads it from `STOOL.instance`; the entry's service list creates it. `stool/measure.gd` stays pure:
+The facade is the only non-test file outside `stool/` that may preload `stool/*`. The entry's
+service list creates it and the runtime receives it in `act/context.gd` (`stool_service`);
+`act/session.gd` creates the per-act handle from it. `stool/measure.gd` stays pure:
 no `Node`, tree, time, file or game-scene access. `stool/item.gd` reads the case through the
 `world/game.gd` accessors and owns no scene state.
 
 ## Internal API
 
-`STOOL.instance`:
+The facade's calls:
 
 ```gdscript
 setup(), shutdown(), on_world(game), on_world_closed()
@@ -101,7 +102,8 @@ mesh transform, so a scan does not re-run the coat line. The part root comes fro
 `PONIES.anatomy.player_root_now()`, and `PONIES.anatomy.player_prepare()` builds the hidden part
 first. The part is normally warmed when the player part is created, so the first standing offer does
 not load it (`docs/anatomy.md`); `player_prepare()` remains the idempotent fallback. The handle reads
-`STOOL.instance` for the settings/item/measure calls and `PONIES.anatomy` for the player part.
+the injected world stool facade for the settings/item/measure calls and `PONIES.anatomy` for the
+player part.
 
 ## Rule
 

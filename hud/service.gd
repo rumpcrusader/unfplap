@@ -214,7 +214,7 @@ func caption_tick(act_state: int) -> void:
 	_caption_top_tick()
 
 
-## The one toast sink; a caller holds the HUD and guards for its absence.
+## Show one toast line; a caller without a live HUD never calls this.
 func toast(text: String, seconds := 4.0) -> void:
 	if text.is_empty():
 		return

@@ -41,7 +41,7 @@ face beats (`docs/face.md`).
 | `tests/dialogue/` | the pure scheduler and line-value suites and the facade suite |
 
 The facade reads no runtime field and preloads neither `runtime.gd` nor the entry. It reads the
-mod's line channel through `MEMORY.instance` and every act value through
+mod's line channel through the injected memory facade and every act value through
 `shared/act_facts.gd`. The director is a callable
 on the facts; the processed-time clock is a second callable, so line pacing freezes with a paused
 tree.
@@ -246,7 +246,8 @@ too-slow.
 ## Lifecycle
 
 - Scope: per-act
-- Constructed by: `act/build.gd`
+- Constructed by: `act/build.gd` with the facts view and the world memory
+  (`_init(facts, memory)`)
 - Begin: `setup()`/`configure()`
 - End: `reset()`/act end
 - Idempotent: yes

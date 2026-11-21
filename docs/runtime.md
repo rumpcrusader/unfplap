@@ -21,7 +21,9 @@ kiss, wings, integrations, scene gate, scene hold, rest) own their own state and
 
 - Scope: per-pony. Constructed by `ponies/service.gd` through the entry's one factory on the body's
   attach hook; parented under the pony and recorded in the registry.
-- `_init()` calls `ACT_BUILD.build(null, self)` once and stores the returned bundle.
+- `_init(hud, memory, stool)` calls `ACT_BUILD.build(null, self, hud, memory, stool)` once and
+  stores the returned bundle. The entry's factory passes the three world facades; a bare `new()`
+  leaves them null and the per-pony modules treat that as an absent HUD, memory or stool.
 - `_ready()` sets process and physics on at priority `100` (after locomotion, the navigator and
   attention), reads the identity, binds the pony through the bundle, caches the idle probe flag,
   binds the face, refreshes the persistent anatomy controller and retries the identity and anatomy
@@ -72,6 +74,7 @@ The node's public surface is exactly:
 | aftercare plan, satisfaction decay, close window | `afterglow/service.gd` |
 | face/eyes, reactions, dialogue, hands, kiss, wings, integrations, anatomy | their services |
 | act view | `shared/act_facts.gd`, filled by `act/view.gd` |
+| injected HUD, memory and stool | the entry's factory, passed to `RUNTIME.new()` and `act/context.gd` |
 
 No value is mirrored in two owners. The session is the one state writer: `act/session.gd:_set_state`
 is the only assignment to `state`, and it refreshes the scene gate's live state.
@@ -147,7 +150,7 @@ context and the render pose write. `act/context.gd` carries the live systems and
 plus `bind_pony(value)`, which the `pony` setter and `_ready()` call to rebind the pose session's
 body and id and the act host's pony. There is no second bind pass and no facade re-export.
 
-`build(pony, node)` constructs, in order:
+`build(pony, node, hud, memory, stool)` constructs, in order:
 
 1. the early modules (`input`, `swap`, `tick`, `phases`, the pose session, the scene gate, rest,
    the camera facade, readiness, summary, face, reactions, the act view, dialogue, afterglow, the
@@ -161,6 +164,12 @@ body and id and the act host's pony. There is no second bind pass and no facade 
 5. `_bind_pose_hosts()` and `_bind_facts()`: the pose, readiness, face, reactions, gate, rest,
    scene-hold, afterglow and act-view callbacks;
 6. the bridge's host bind, the scene gate's bind and its one configuration.
+
+The three world facades are injected, never static: `Bundle` holds `hud`, `memory` and `stool`;
+`act/context.gd` carries `hud`, `memory` and `stool_service`; `afterglow`, `summary`, `face`,
+`dialogue` and the handover receive memory through their constructor; `anatomy` receives the HUD in
+`setup(hud)`, `negotiation` and `debug/actions` in their `bind()`, and `offer` at construction. A
+null facade is an absent one: the act modules guard every call, and a bare runtime remains valid.
 
 Every callback names its owner rather than a runtime method:
 

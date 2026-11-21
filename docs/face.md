@@ -137,7 +137,8 @@ the main handle and the `log` callback from the facade; it never reads the runti
 ## Lifecycle
 
 - Scope: per-act
-- Constructed by: `act/build.gd` through `runtime._init()`
+- Constructed by: `act/build.gd` through `runtime._init()`, with the world memory
+  (`_init(memory)`)
 - Begin: `bind()`
 - End: `shutdown()`
 - Idempotent: yes

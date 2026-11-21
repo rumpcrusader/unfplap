@@ -424,11 +424,11 @@ func anatomy_set_mouth_viseme(letter: String) -> void:
 
 ## Begin the anatomy handle for this act. The pose view is the start row's view; the pose fan-out
 ## replaces it on every later change.
-func begin_anatomy(view: ANATOMY.PoseView, bed_frame: Variant) -> void:
+func begin_anatomy(view: ANATOMY.PoseView) -> void:
 	context.pose_view = view
 	context.stage = ANATOMY.ActStage.new()
-	context.anon = PONIES.anatomy.anon(host.pony as Node3D) if PONIES.anatomy != null else null
-	context.anatomy = PONIES.anatomy.begin_act(host.pony as Node3D, view, bed_frame) \
+	context.anon = PONIES.anatomy.anon() if PONIES.anatomy != null else null
+	context.anatomy = PONIES.anatomy.begin_act(host.pony as Node3D, view) \
 		if PONIES.anatomy != null else null
 	context.facts.anon = context.anon
 	if context.anon != null:

@@ -186,7 +186,7 @@ func prepare_anatomy_act() -> void:
 	wrap.contact_kind = str(view.contact_kind)
 	wrap.contact_target = view.contact_target if view.contact_target is Vector3 else Vector3.INF
 	wrap.bed_frame = context.pose._bed_frame_value()
-	session.begin_anatomy(wrap, wrap.bed_frame)
+	session.begin_anatomy(wrap)
 
 
 func apply_resume_settings() -> void:

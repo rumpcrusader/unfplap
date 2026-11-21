@@ -126,8 +126,8 @@ The Placement editor no longer selects a pony: `debug_placement(pony, op, value,
 
 `ActPresentation` stages the act with the caller-owned `PoseView` and `ActStage`. `act/tick.gd`
 calls `stage(delta, stage)` every frame from `POSING_IN` through `RESTORE`; `act/tick._fanout`
-updates the view and calls `pose(view)` on every change. `climax()` is one-shot: it sets the
-handle's `climaxed` flag, tells the internal act, clears the grip and releases the fluid.
+updates the view and calls `pose(view)` on every change. `climax()` tells the internal act, clears
+the grip and releases the fluid; the phase decides when a climax event calls it.
 
 ## Controls
 
@@ -140,12 +140,12 @@ handle's `climaxed` flag, tells the internal act, clears the grip and releases t
   for `N`. `act/input.gd:anatomy_hole_ready()` and `:anatomy_oral_ready()` read the act handle's
   `can_target_vulva()`/`can_target_mouth()`, so the input service only consumes a key when the
   anatomy offer is live.
-- `V` reads `target()`. From `VULVA`, if `can_target_anus()` and the per-mare `anal` consent from
+- `V` reads `target()`. From `VULVA`, if `can_target_vulva()` and the per-mare `anal` consent from
   `eligibility.consent(pony, "anal")` pass, it calls `target_anus()`; otherwise it calls
   `target_vulva()`. A refusal is the input's HUD line, not an anatomy signal.
 - `N` calls `can_target_mouth()`, requests the authored `standing ↔ standing_oral` edge through
   `poses/service.gd` with the per-mare `oral` consent, and shows the pose's refusal line. When
-  the new view reports `contact_kind == "mouth"`, the act fan-out calls `target_mouth()`.
+  the new view reports `contact_kind == "mouth"`, the fan-out's `pose()` selects the mouth target.
 - `pose(view)` clears a `MOUTH` target back to `VULVA` when the contact is no longer mouth, so the
   key cannot be locked out after the oral edge ends. A face contact overrides every target and
   parks the part.
@@ -359,7 +359,7 @@ skeleton, body, hair, dock or mouth. Every anatomy file reads the game through `
 
 ## Act anatomy
 
-`anatomy/api.gd:begin_act(pony, view, bed_frame)` creates the internal `anatomy/act.gd` and
+`anatomy/api.gd:begin_act(pony, view)` creates the internal `anatomy/act.gd` and
 returns an `ActPresentation`. The act keeps the caller-owned `PoseView` and `ActStage` by
 reference; it allocates nothing per frame. The controller's `part()` is the one player-part seam;
 the API's `PlayerHost` pushes the part to every controller on a player rebuild, and the act calls

@@ -70,7 +70,7 @@ func applies() -> bool:
 		return false
 	if anatomy == null:
 		return false
-	return anatomy.anon(pony).showing() or anatomy.entrance_point(pony).is_finite()
+	return anatomy.anon().showing() or anatomy.entrance_point(pony).is_finite()
 
 
 ## The live vertical gap: her opening above her hooves against his part above his feet.
@@ -78,7 +78,7 @@ func applies() -> bool:
 func gap_m() -> float:
 	if not applies():
 		return NAN
-	var anon := anatomy.anon(pony)
+	var anon := anatomy.anon()
 	if not anon.prepare():
 		return NAN
 	var opening := anatomy.entrance_point(pony)
@@ -161,7 +161,7 @@ func state_text() -> String:
 	var opening := Vector3.INF
 	if anatomy_ok:
 		opening = anatomy.entrance_point(pony)
-	var anon := anatomy.anon(pony) if anatomy != null else null
+	var anon := anatomy.anon() if anatomy != null else null
 	var part := Vector3.ZERO
 	var part_ok := false
 	if anon != null and anon.prepare():

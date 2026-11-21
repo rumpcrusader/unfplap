@@ -138,12 +138,6 @@ class FakePresentation extends RefCounted:
 	func can_target_vulva() -> bool:
 		return true
 
-	func can_target_anus() -> bool:
-		return true
-
-	func target_mouth() -> void:
-		pass
-
 	func target() -> int:
 		return 0
 

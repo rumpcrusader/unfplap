@@ -54,7 +54,7 @@ class FakeAnatomyHandle extends RefCounted:
 	var target_value := 0
 	var anus_calls := 0
 
-	func can_target_anus() -> bool:
+	func can_target_vulva() -> bool:
 		return true
 
 	func target() -> int:

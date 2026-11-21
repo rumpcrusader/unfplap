@@ -60,7 +60,7 @@ the step it used.
 a controller's private state. The live opening comes from the anatomy API's `entrance_point(pony)`:
 the deformed resting hole point, cached in local space and mapped by the live mesh transform, so a
 scan does not re-run the coat line. The part root and preparation come from
-`anatomy.anon(pony).root_now()` and `:prepare()`. The part is normally warmed when the player part
+`anatomy.anon().root_now()` and `:prepare()`. The part is normally warmed when the player part
 is created, so the first standing offer does not load it (`docs/anatomy.md`); `prepare()` remains
 the idempotent fallback. The handle reads the injected world stool facade for the
 settings/item/measure calls and the anatomy API for the cover.

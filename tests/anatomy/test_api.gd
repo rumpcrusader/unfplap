@@ -34,22 +34,22 @@ func run() -> void:
 
 	# An API node with no world still answers every verb as a safe no-op.
 	var api: ANATOMY = ANATOMY.new()
-	var handle := api.anon(null)
+	var handle := api.anon()
 	check(not handle.prepare() and not handle.showing(), "an absent part prepares and shows false")
 	check(handle.root_now() == Vector3.INF, "an absent part has no root")
 	check(is_zero_approx(handle.shaft_length_m()), "an absent part has no shaft")
 	handle.encounter(true)
 	handle.drive_hip(null)
 	check(api.entrance_point(null) == Vector3.INF, "an absent anatomy has no entrance")
-	check(api.debug_anon_scale(null) == Vector3.INF, "an absent part has no debug scale")
+	check(handle.debug_scale() == Vector3.INF, "an absent part has no debug scale")
 	check(api.garment(null).hull() == null, "an absent garment has no hull")
-	check(api.begin_act(null, view, null) == null, "no presented pony begins no act")
+	check(api.begin_act(null, view) == null, "no presented pony begins no act")
 	api.free()
 
 	# The target gates read the stage, the view and the feature switches; consent is not here.
 	var controller := FakeController.new()
 	var act: ACT = ACT.new()
-	var presentation := ANATOMY.ActPresentation.new(controller, act, view, null, Callable())
+	var presentation := ANATOMY.ActPresentation.new(controller, act, view)
 	var holes := SETTINGS.anatomy_holes.get_bool()
 	var oral := SETTINGS.anatomy_oral.get_bool()
 	SETTINGS.anatomy_holes.set_bool(true)
@@ -59,7 +59,6 @@ func run() -> void:
 	stage.phase = ANATOMY.Phase.ACTIVE
 	presentation.stage(0.0, stage)
 	check(presentation.can_target_vulva(), "an active opening can turn the vulva")
-	check(presentation.can_target_anus(), "an active opening can turn the anus")
 	check(presentation.can_target_mouth(), "an active standing pose can target the mouth")
 	presentation.target_anus()
 	check(presentation.target() == ANATOMY.Target.ANUS, "the target follows the anal choice")
@@ -67,8 +66,6 @@ func run() -> void:
 	presentation.pose(view)
 	check(presentation.target() == ANATOMY.Target.MOUTH,
 		"the mouth contact selects the mouth target")
-	presentation.target_mouth()
-	check(presentation.target() == ANATOMY.Target.MOUTH, "the mouth target stays selected")
 	view.contact_kind = "opening"
 	presentation.pose(view)
 	check(presentation.target() == ANATOMY.Target.VULVA,

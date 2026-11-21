@@ -44,23 +44,17 @@ class ActStage extends RefCounted:
 class ActPresentation extends RefCounted:
 	var _controller: CONTROLLER
 	var _act: ACT
-	var _pony: Node3D
-	var _ended_cb: Callable
 	var _view: Variant = null
 	var _stage: Variant = null
 	var _bed_frame: Variant = null
 	var _target := Target.VULVA
 	var _ended := false
-	var _climaxed := false
 
-	func _init(controller: CONTROLLER, act: ACT, view: Variant, bed_frame: Variant,
-			ended_cb: Callable) -> void:
+	func _init(controller: CONTROLLER, act: ACT, view: Variant) -> void:
 		_controller = controller
 		_act = act
-		_pony = controller.pony if is_instance_valid(controller) else null
 		_view = view
-		_bed_frame = bed_frame
-		_ended_cb = ended_cb
+		_bed_frame = view.bed_frame if view.bed_frame is Transform3D else null
 		if _act != null:
 			_act.set_view(view)
 
@@ -91,7 +85,6 @@ class ActPresentation extends RefCounted:
 	func climax() -> void:
 		if _ended or _act == null:
 			return
-		_climaxed = true
 		_act.set_climaxed(true)
 		_act.climax()
 
@@ -102,8 +95,6 @@ class ActPresentation extends RefCounted:
 		if is_instance_valid(_controller):
 			_controller.end_act()
 		_act = null
-		if _ended_cb.is_valid():
-			_ended_cb.call()
 
 	func _phase() -> int:
 		return int(_stage.phase) if _stage != null else -1
@@ -121,9 +112,6 @@ class ActPresentation extends RefCounted:
 			return false
 		return _contact() not in ["mouth", "face"]
 
-	func can_target_anus() -> bool:
-		return can_target_vulva()
-
 	func can_target_mouth() -> bool:
 		if _ended or _phase() != Phase.ACTIVE:
 			return false
@@ -139,16 +127,11 @@ class ActPresentation extends RefCounted:
 			_act.set_anal(false)
 
 	func target_anus() -> void:
-		if _ended or not can_target_anus():
+		if _ended or not can_target_vulva():
 			return
 		_target = Target.ANUS
 		if _act != null:
 			_act.set_anal(true)
-
-	func target_mouth() -> void:
-		if _ended or not can_target_mouth() or _contact() != "mouth":
-			return
-		_target = Target.MOUTH
 
 	func target() -> int:
 		return _target
@@ -258,7 +241,6 @@ class Garment extends RefCounted:
 
 var _rig: RIG
 var _parts: PARTS
-var _player: Node = null
 ## The identity gate the roster verbs ask; the entry binds it once.
 var _eligibility: ELIGIBILITY = null
 
@@ -305,23 +287,22 @@ func _assigned(pony: Node) -> bool:
 # --------------------------------------------------------------------------- act
 
 ## Null when the roster has not presented her; the returned handle owns its own close.
-func begin_act(pony: Node3D, view: PoseView, bed_frame: Variant) -> ActPresentation:
+func begin_act(pony: Node3D, view: PoseView) -> ActPresentation:
 	if _parts == null:
 		return null
 	var controller := _parts.controller(pony)
 	if not is_instance_valid(controller):
 		return null
-	var act := controller.begin_act(view, bed_frame)
+	var act := controller.begin_act(view, view.bed_frame)
 	if act == null:
 		return null
-	return ActPresentation.new(controller, act, view, bed_frame,
-		Callable(self, "_on_act_ended").bind(pony))
+	return ActPresentation.new(controller, act, view)
 
 
 # --------------------------------------------------------------------------- anon / stool
 
 ## Always returns a handle; its methods no-op when the part is absent.
-func anon(_pony: Node3D) -> AnonBody:
+func anon() -> AnonBody:
 	return AnonBody.new(_parts.player_host if _parts != null else null)
 
 
@@ -436,12 +417,6 @@ func debug_show(pony: Node3D) -> String:
 	return _parts.placement_editor.placement_show(pony)
 
 
-func debug_anon_scale(_pony: Node3D) -> Vector3:
-	if _parts == null:
-		return Vector3.INF
-	return _parts.player_host.debug_scale()
-
-
 # --------------------------------------------------------------------------- lifecycle
 
 func on_world(_host: Node) -> void:
@@ -455,11 +430,9 @@ func on_world_closed() -> void:
 	if _parts != null:
 		_parts.player_host.on_world_closed()
 		_parts.push_part()
-	_player = null
 
 
 func on_player(body: Node) -> void:
-	_player = body
 	if _parts == null:
 		return
 	_parts.player_host.on_player(body)
@@ -473,7 +446,6 @@ func shutdown() -> void:
 		_parts.player_host.on_world_closed()
 	_parts = null
 	_rig = null
-	_player = null
 
 
 func _on_settings_changed() -> void:
@@ -498,10 +470,6 @@ func _reconcile(pony: Node3D) -> void:
 		_parts.release(pony)
 	elif _parts.controller(pony) == null:
 		_parts.attach(pony, Callable(self, "_emit_status"))
-
-
-func _on_act_ended(_pony: Node3D) -> void:
-	pass
 
 
 func _emit_status(text: String, seconds := 2.0) -> void:

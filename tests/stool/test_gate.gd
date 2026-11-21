@@ -38,7 +38,7 @@ class FakeService extends ANATOMY:
 	func _init() -> void:
 		host.owner = self
 
-	func anon(_pony: Node3D) -> ANATOMY.AnonBody:
+	func anon() -> ANATOMY.AnonBody:
 		return ANATOMY.AnonBody.new(host)
 
 	func entrance_point(_pony: Node3D) -> Vector3:

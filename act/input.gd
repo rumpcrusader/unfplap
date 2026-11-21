@@ -200,7 +200,7 @@ func _toggle_hole() -> bool:
 	var anatomy = context.anatomy
 	if anatomy == null:
 		return false
-	if anatomy.target() == ANATOMY.Target.VULVA and anatomy.can_target_anus():
+	if anatomy.target() == ANATOMY.Target.VULVA and anatomy.can_target_vulva():
 		if not _consent("anal"):
 			_show_status("%s is not into that" % session.display_name)
 			return false

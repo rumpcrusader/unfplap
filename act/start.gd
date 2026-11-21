@@ -232,4 +232,5 @@ func _begin_anatomy(pose: String) -> void:
 	view.frame = str(POSE_SPECS.spec(pose).get("frame", ""))
 	view.contact_kind = "opening"
 	view.contact_target = Vector3.INF
-	session.begin_anatomy(view, context.pose._bed_frame_value())
+	view.bed_frame = context.pose._bed_frame_value()
+	session.begin_anatomy(view)

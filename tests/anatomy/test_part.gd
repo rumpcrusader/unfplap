@@ -422,7 +422,7 @@ func run() -> void:
 	# The facade's debug scale is typed: a Vector3, and infinite when no part is showing.
 	var facade: ANATOMY_API = ANATOMY_API.new()
 	root.add_child(facade)
-	var debug_scale: Vector3 = facade.debug_anon_scale(null)
+	var debug_scale: Vector3 = facade.anon().debug_scale()
 	check(debug_scale == Vector3.INF, "no player part answers an infinite debug scale")
 	facade.shutdown()
 	root.remove_child(facade)

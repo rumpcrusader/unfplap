@@ -348,8 +348,6 @@ func _process(delta: float) -> void:
 	_visibility_clock = ATTACH.VISIBILITY_POLL_S
 	_apply_place()
 	shapes.refresh_anal()
-	if appearance != null:
-		appearance.apply_strip_scale()
 	PERF.begin("anatomy_visibility")
 	attach.apply_visibility(_act_visible())
 	PERF.end("anatomy_visibility")

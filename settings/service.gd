@@ -478,16 +478,12 @@ static func anatomy_placement_has_override(id: String, fit_id: String = "") -> b
 ## The player-part placement. It is one global block, never per-mare.
 static func anon_placement() -> ROWS.Rows:
 	return ROWS.Rows.of(PLACEMENT.sanitize({
-		"offset_x": anon_offset_x.get_num(),
 		"offset_y": anon_offset_y.get_num(),
 		"offset_z": anon_offset_z.get_num(),
-		"pitch_deg": anon_pitch_deg.get_num(),
 		"scale": anon_scale.get_num(),
 	}, {
-		"offset_x": float(anon_offset_x.default),
 		"offset_y": float(anon_offset_y.default),
 		"offset_z": float(anon_offset_z.default),
-		"pitch_deg": float(anon_pitch_deg.default),
 		"scale": float(anon_scale.default),
 	}))
 
@@ -1381,7 +1377,7 @@ static var anatomy_mode := choice("anatomy_mode", "anatomy.anatomy_mode",
 static var dock_style := choice("dock_style", "anatomy.dock_style",
 	["hide", "coat", "genitals"], ["Hide", "Coat", "Genitals"], "Dock style",
 	"", ANATOMY, "Mare")
-## Draws the ventral midline strip; its width is Skin strip scale.
+## Draws the ventral midline strip.
 static var skin_strip := flag("skin_strip", "anatomy.skin_strip",
 	"Show ventral midline",
 	"Skin strip between teats and vulva.", ANATOMY, "Mare")
@@ -1411,11 +1407,6 @@ static var vulva_inner_color := color("vulva_inner_color", "anatomy.vulva_inner_
 ## missionary.
 static var clitoris_color := color("clitoris_color", "anatomy.clitoris_color", "Clitoris colour",
 	"", ANATOMY, "Mare")
-## Seats every mare's hair tail and dock at the reference position.
-static var reseat_tails := flag("reseat_tails", "anatomy.reseat_tails",
-	"Re-seat tails and docks",
-	"Seat every mare's hair tail at the reference dock and snap the dock base to her rump. Off restores the game's original tail mount and dock.",
-	ANATOMY, "Mare")
 ## Patches the rig coat shader at runtime so the area under the vulva stays still and the
 ## coat spreads; off leaves the game shader untouched.
 static var body_coat_deform := flag("body_coat_deform", "features.body_coat_deform",
@@ -1473,11 +1464,6 @@ static var dock_scale := num("dock_scale", "anatomy.placement.default.dock_scale
 static var tail_tilt_deg := num("tail_tilt_deg", "anatomy.placement.default.tail_tilt_deg",
 	"Default tail tilt", "Side tilt of the tail seat when a mare has no override.", ANATOMY, "Placement") \
 	.with_unit("°").with_step(1.0).as_debug().as_hidden()
-## Model-space X of the player part; the anatomy placement editor and the Debug rows both
-## write it.
-static var anon_offset_x := num("anon_offset_x", "anatomy.placement.anon.offset_x",
-	"Anon X", "Model-space placement of the player part.", ANATOMY, "Placement") \
-	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
 ## Model-space Y of the player part.
 static var anon_offset_y := num("anon_offset_y", "anatomy.placement.anon.offset_y",
 	"Anon Y", "Model-space placement of the player part.", ANATOMY, "Placement") \
@@ -1486,10 +1472,6 @@ static var anon_offset_y := num("anon_offset_y", "anatomy.placement.anon.offset_
 static var anon_offset_z := num("anon_offset_z", "anatomy.placement.anon.offset_z",
 	"Anon Z", "Model-space placement of the player part.", ANATOMY, "Placement") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
-## Pitch of the player part; the placement editor and the Debug rows both write it.
-static var anon_pitch_deg := num("anon_pitch_deg", "anatomy.placement.anon.pitch_deg",
-	"Anon pitch", "Pitch of the player part.", ANATOMY, "Placement") \
-	.with_unit("°").with_step(1.0).as_debug()
 ## Scale of the player part; Size scales the whole part relative to it.
 static var anon_scale := num("anon_scale", "anatomy.placement.anon.scale",
 	"Anon scale", "Scale of the player part.", ANATOMY, "Placement") \
@@ -1539,10 +1521,6 @@ static var pelvis_gap_m := num("pelvis_gap_m", "anatomy.pelvis_gap_m", "Pelvis g
 	"Keep the pelvis at least this far behind her rear surface; the depth gives way instead.", ANATOMY, "") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).with_range(0.0, 10.0) \
 	.as_debug()
-## Width of the midline strip around its centre; one is the modelled width.
-static var strip_scale := num("strip_scale", "anatomy.strip_scale", "Skin strip scale",
-	"Scale the midline skin strip under the vulva sideways around its centre. 1 is the modelled width.", ANATOMY, "") \
-	.with_unit("×").with_step(0.05).as_debug()
 ## Shows the vulva, anus and cock-tip markers during an act; it is a debug overlay.
 static var debug_aim_points := flag("debug_aim_points", "features.debug_aim_points",
 	"Show aim points", "Show the vulva, anus and cock-tip markers during an act.", ANATOMY, "") \
@@ -1620,30 +1598,19 @@ static var jiggle_still := num("jiggle_still", "anatomy.jiggle_still",
 	"Multiplier for the no-jiggle zone around the vulva. 0 turns the still zone off.", ANATOMY, "Holes") \
 	.with_unit("×").with_step(0.05) \
 	.as_debug()
-## Scales the no-jiggle zone around the visible ponut.
-static var anal_still := num("anal_still", "anatomy.anal_still",
-	"Anal still zone",
-	"Multiplier for the no-jiggle zone around the visible ponut. 0 turns the still zone off.", ANATOMY, "Holes") \
-	.with_unit("×").with_step(0.05) \
-	.as_debug()
-## Vertical half-axis of both still zones as a share of the lateral one;
+## Vertical half-axis of the still zone as a share of the lateral one;
 ## anatomy/coat.gd turns it into the ellipsoid rings.
 static var still_oval := num("still_oval", "anatomy.still_oval",
 	"Still zone oval",
-	"Vertical half-axis of both still zones as a share of the lateral one. Lower makes them flatter.", ANATOMY, "Holes") \
+	"Vertical half-axis of the still zone as a share of the lateral one. Lower makes it flatter.", ANATOMY, "Holes") \
 	.with_unit("×").with_step(0.05) \
 	.as_debug()
-## Share of each still zone that blends back to full jiggle at its rim; higher is softer.
+## Share of the still zone that blends back to full jiggle at its rim; higher is softer.
 static var still_fade := num("still_fade", "anatomy.still_fade",
 	"Still zone fade",
-	"Share of each still zone used to blend back to full jiggle at the rim. Higher is softer.", ANATOMY, "Holes") \
+	"Share of the still zone used to blend back to full jiggle at the rim. Higher is softer.", ANATOMY, "Holes") \
 	.with_unit("×").with_step(0.01) \
 	.as_debug()
-## Pushes the whole mesh outward along its own normal; placement caches it.
-static var vulva_out_mm := num("vulva_out_mm", "anatomy.vulva_out_mm",
-	"Vulva out",
-	"Push the whole anatomy mesh out of her coat along its own normal, so a pose that tucks it in does not clip her.",
-	ANATOMY, "Holes").with_unit("mm").with_step(1.0).as_debug()
 ## Vertical placement of the vulva still zone from its opening; the zone rides the coat's
 ## local frame, so a pose change moves it.
 static var still_height_mm := num("still_height_mm", "anatomy.still_height_mm",
@@ -1652,10 +1619,10 @@ static var still_height_mm := num("still_height_mm", "anatomy.still_height_mm",
 	ANATOMY, "Holes") \
 	.with_unit("mm").with_step(0.5) \
 	.as_debug()
-## Overlays the two still-zone ellipsoids on the body coat; `anatomy/coat.gd` draws them.
+## Overlays the still-zone ellipsoid on the body coat; `anatomy/coat.gd` draws it.
 static var draw_still_zones := flag("draw_still_zones", "anatomy.draw_still_zones",
 	"Draw still zones",
-	"Overlay the vulva and visible-ponut still-zone ellipsoids on the body coat.",
+	"Overlay the vulva still-zone ellipsoid on the body coat.",
 	ANATOMY, "Holes").as_debug()
 ## Draws nearby ponies' skeletons; `debug/actions.gd` owns the overlay.
 static var skeleton_overlay := flag("skeleton_overlay", "anatomy.skeleton_overlay",
@@ -3342,6 +3309,11 @@ static func _normalize_anatomy_placement(data: Dictionary) -> Dictionary:
 					_write_path(data, "anatomy.placement.anon", final_over)
 			_legacy_anon_placement_pending = true
 			_legacy_anon_placement_path = anon_path
+	# The player part has no X or pitch offset; drop keys an older save carried.
+	var anon: Variant = _read_path(data, "anatomy.placement.anon", null)
+	if anon is Dictionary:
+		(anon as Dictionary).erase("offset_x")
+		(anon as Dictionary).erase("pitch_deg")
 	return data
 
 
@@ -3402,7 +3374,11 @@ const RETIRED_PATHS := [
 	"features.thrust_tail_dock_jiggle",
 	"anatomy.anal_height_mm",
 	"anatomy.anal_ring",
+	"anatomy.anal_still",
+	"anatomy.reseat_tails",
+	"anatomy.strip_scale",
 	"anatomy.strip_width",
+	"anatomy.vulva_out_mm",
 	"presentation.lean_back_m",
 	"presentation.standing.idle_sway_side",
 	"presentation.standing.kiss.forelegs",

@@ -1,6 +1,6 @@
 extends "res://mods/unfplap/tests/support/suite.gd"
 ## The anatomy mesh and the body coat: the refined winking mesh, the V2 anal keys, the rig and
-## near-palette shader patch, the vulva cut and the still zones.
+## near-palette shader patch, the vulva cut and the still zone.
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/anatomy/test_coat.gd
 
@@ -185,22 +185,15 @@ func run() -> void:
 	var zones := STILL_ZONES.new()
 	root.add_child(zones)
 	zones.call("setup")
-	check(zones.get_child_count() == 4, "four debug rings are built")
-	zones.call("update", Transform3D.IDENTITY, Vector3.ZERO, Basis.IDENTITY, 0.1,
-		Vector3(0.0, 0.1, 0.0), 0.05, 0.7, 0.25, true)
+	check(zones.get_child_count() == 2, "two debug rings are built")
+	zones.call("update", Transform3D.IDENTITY, Vector3.ZERO, Basis.IDENTITY, 0.1, 0.7, 0.25, true)
 	check(zones.visible, "debug rings show when asked")
 	var outer: MeshInstance3D = zones.get_child(0)
 	check(outer.global_transform.basis.get_scale().is_equal_approx(Vector3(0.1, 0.07, 0.1)),
 		"the outer ring is the oval ellipsoid")
-	zones.call("update", Transform3D.IDENTITY, Vector3.ZERO, Basis.IDENTITY, 0.1,
-		Vector3(0.0, 0.1, 0.0), 0.05, 0.7, 0.25, false)
+	zones.call("update", Transform3D.IDENTITY, Vector3.ZERO, Basis.IDENTITY, 0.1, 0.7, 0.25, false)
 	check(not zones.visible, "debug rings hide when asked")
 	zones.free()
-	var expected_radius := maxf(0.022 * 2.2 * 1.3, 0.045 / 0.742)
-	check(near(GEOMETRY.anal_still_radius_for(0.022, 2.2, 0.742, 1.0, 0.0),
-		expected_radius), "anal still radius follows the cup's outer ring")
-	check(is_zero_approx(GEOMETRY.anal_still_radius_for(0.022, 2.2, 0.742, 0.0, 0.0)),
-		"anal still multiplier 0 disables the zone")
 	# The controller keeps the coat accessors the runtime uses for the jiggle handoff.
 	var coat_owner := ANATOMY.new()
 	for method: String in ["is_attached", "body_coat_mesh", "body_coat_material",

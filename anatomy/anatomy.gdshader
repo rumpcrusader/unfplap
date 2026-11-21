@@ -66,10 +66,8 @@ uniform float span_to = 2.0;
 uniform float span_fade = 0.01;
 uniform float gap_from = 2.0;
 uniform float gap_to = 2.0;
-// integration: the midline skin strip only. `strip_trim` marks it; `strip_scale` widens (or
-// narrows) its model-space X around the midline before skinning.
+// integration: the midline skin strip only; `strip_trim` marks it.
 uniform float strip_trim = 0.0;
-uniform float strip_scale = 1.0;
 uniform float contour_amount = 1.0;
 
 // integration: the anatomy follows a vertical line sampled on the body coat. Each sample holds a
@@ -120,9 +118,6 @@ void vertex() {
 		float weight = 1.0 - smoothstep(0.0, 0.06, length(spread.xy));
 		spread.y *= 1.0 + (vulva_height - 1.0) * weight;
 		VERTEX = vulva_centre + spread;
-	}
-	if (strip_trim > 0.5 && abs(strip_scale - 1.0) > 0.000001) {
-		VERTEX.x *= strip_scale;
 	}
 	apply_coat_line(VERTEX, NORMAL);
 	float sway_weight = sway_custom > 0.5 ? CUSTOM0.x : (1.0 - COLOR.b);

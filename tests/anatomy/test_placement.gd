@@ -25,6 +25,7 @@ class FakePony extends Node3D:
 	var identity: Resource
 	var rig: Node
 	var skeleton: Skeleton3D
+	var hair: Node
 	var hair_skeleton: Skeleton3D
 	var hair_link: Node
 	var head_width := 1.0
@@ -55,7 +56,7 @@ func _pony(id: String, filly := false, stallion := false) -> FakePony:
 
 
 ## A pony rigged enough for the tail seat's capability check: both skeletons, a hair link and a
-## dock. The seat never measures her while the setting is off, so no meshes are needed.
+## dock. It has no body model, so the seat cannot measure it.
 func _rigged_pony(id: String) -> FakePony:
 	var pony := _pony(id)
 	pony.skeleton = Skeleton3D.new()
@@ -145,60 +146,42 @@ func run() -> void:
 		"clearing the fit override returns to the provider placement")
 	MARE_REGISTRY.unregister(3, fit_owner)
 
-	# Tail seat: with Re-seat tails and docks off, attach only remembers her id. A disabled seat
-	# must not measure the tail or rebuild the dock, and a settings tick must not write either.
+	# Tail seat: an eligible pony with no measurable body gets no seat row, but still reports as
+	# seatable.
 	var seat := TAIL_SEAT.new()
 	root.add_child(seat)
 	seat.set("eligible", func(_node: Node) -> bool: return true)
 	var rigged := _rigged_pony("twilight_sparkle")
 	root.add_child(rigged)
-	var reseat_before := SETTINGS.reseat_tails.get_bool()
-	SETTINGS.reseat_tails.set_bool(false)
 	seat.call("attach", rigged)
-	var off_row: TAIL_SEAT.SeatRow = seat.row(rigged)
-	check(off_row != null, "the seat remembers a pony while it is off")
-	check(not off_row.seated, "the off row is not measured")
-	check(off_row.dock == null, "the off row caches no dock")
+	check(seat.row(rigged) == null, "an unmeasurable body gets no seat row")
 	check(bool(seat.call("can_seat", rigged)), "the seat still reports the pony as seatable")
 	seat.call("refresh_all")
-	check(seat.row(rigged) != null, "a settings tick with the seat off keeps the remembered pony")
-	check(seat.pending_rebuilds() == 0, "no dock rebuild is queued while off")
-	off_row.tail_y = 0.01
-	off_row.tail_z = -0.02
-	check(off_row.target(Vector3(0.1, 0.2, 0.3)).is_equal_approx(Vector3(0.1, 0.21, 0.28)),
+	check(seat.pending_rebuilds() == 0, "a settings tick queues no dock rebuild")
+	var seat_row := TAIL_SEAT.SeatRow.new()
+	seat_row.tail_y = 0.01
+	seat_row.tail_z = -0.02
+	check(seat_row.target(Vector3(0.1, 0.2, 0.3)).is_equal_approx(Vector3(0.1, 0.21, 0.28)),
 		"the row target adds its tail trims to the reference")
-	off_row.tail_y = 0.0
-	off_row.tail_z = 0.0
-	# The settle queue drains without rebuilding a row that was never measured.
-	seat.call("_mark_dirty", off_row)
+	seat.call("_mark_dirty", seat_row)
 	check(seat.pending_rebuilds() == 1, "a placement edit queues one dock rebuild")
 	seat.call("_flush_dirty")
 	check(seat.pending_rebuilds() == 0, "the settle pass drains the queue")
 
-	# A late form updates the remembered row's fit even while the seat is off, so turning it on
-	# measures the borrowed body rather than the identity's own row.
+	# A late form on a body with no row is a no-op; a source-owned tail root is never a row.
 	var borrowed := BODY_FORM.default_form(rigged)
 	borrowed.form_id = "borrowed_form"
 	borrowed.fit_id = "fluttershy"
 	seat.call("refresh_form", rigged, borrowed)
-	check(off_row.fit_id == "fluttershy", "a late form updates the tail row's fit")
-	check(off_row.form == borrowed, "the tail row keeps the form it was fitted for")
-
-	# Her own form's source tail root belongs to the provider's wrapper; the seat drops its row.
+	check(seat.row(rigged) == null, "a late form on an unseated body stays a no-op")
 	var source_form := BODY_FORM.default_form(rigged)
 	source_form.fit_id = "twilight_sparkle"
 	source_form.tail_root = Node3D.new()
 	seat.call("refresh_form", rigged, source_form)
-	check(seat.row(rigged) == null, "a source-owned tail root drops the seat row")
+	check(seat.row(rigged) == null, "a source-owned tail root is not a seat row")
 	source_form.tail_root.free()
-	# An explicit release drops the row for a body that stays in the tree; the tree-exiting hook
-	# alone would keep the old fit until the node is freed.
-	seat.call("attach", rigged)
-	check(seat.row(rigged) != null, "the seat remembers the body again")
 	seat.call("release", rigged)
-	check(seat.row(rigged) == null,
-		"an explicit release drops the row without a tree exit")
-	SETTINGS.reseat_tails.set_bool(reseat_before)
+	check(seat.row(rigged) == null, "release keeps an unseated body rowless")
 	rigged.free()
 	seat.free()
 

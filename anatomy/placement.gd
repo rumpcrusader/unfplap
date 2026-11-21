@@ -25,7 +25,6 @@ var _pitch: float
 var _scale: float
 var _place_revision := -1
 ## The placement trims, read on setup/live and never on the per-frame trim.
-var _vulva_out_mm := 0.0
 var _vulva_shift_mm := 0.0
 var _depth_shift_mm := 0.0
 var _vulva_pitch_deg := 0.0
@@ -38,7 +37,6 @@ func setup(pony_node: Node3D) -> void:
 
 ## Read the vulva trims once. A live edit applies on the next settings refresh, not mid-frame.
 func read_settings() -> void:
-	_vulva_out_mm = SETTINGS.vulva_out_mm.get_num()
 	var size := SETTINGS.pony_size_name()
 	_vulva_shift_mm = SETTINGS.vulva_shift_mm_for(size)
 	_depth_shift_mm = SETTINGS.vulva_depth_shift_mm_for(size)
@@ -90,10 +88,6 @@ func base_place() -> Transform3D:
 		place = Vector3(place.x * size, rig.rear_y + (place.y - WINKING_REAR_Y) * size,
 			rig.rear_z + (place.z - WINKING_REAR_Z) * size)
 		basis = basis.scaled(Vector3.ONE * size)
-	# The pose tucks the mesh into the coat; pushing along the normal keeps the vulva visible.
-	var out := _vulva_out_mm / 1000.0
-	if absf(out) > 0.00001:
-		place += basis.z.normalized() * out
 	return Transform3D(basis, place)
 
 

@@ -308,9 +308,8 @@ mirrors it. Her own body (the pack's own meshes or its spring tail) gets:
 `tail_tilt_deg` move and tilt that wrapper from the pack's modelled tail, the same absolute-offset
 rule the seat uses from its reference dock. Her provider placement bakes her own tail reference,
 so the global tail default stays a game-dock value and does not move her spring tail; a reset
-keeps her look. The act modifiers keep saving, rotating and restoring `Chain` itself. `Re-seat
-tails and docks` off returns the wrapper to identity; the dock keys do not apply. The chain is not
-a tail-seat row and has no dock.
+keeps her look. The act modifiers keep saving, rotating and restoring `Chain` itself. The dock
+keys do not apply. The chain is not a tail-seat row and has no dock.
 
 A disguise (`geometry_variant` `changeling=<pony id>` in 0.2.12) gets `pony_id chrysalis`,
 `form_id` and `fit_id` from the copied pony, that pony's rig from the shared profile table (the
@@ -563,10 +562,9 @@ overlay reads them.
 - Point at her own body in the Anatomy Debug block: **Placement tail** moves the
   `UnfplapTailPlacement` wrapper, **Placement tail tilt** turns it, and a dock action answers
   `no dock on this tail.` `Show placement` includes the `chrysalis custom tail offset=...` line.
-  Turn **Re-seat tails and docks** off and on: the wrapper returns to the modelled tail and then
-  reapplies the saved keys. Nudge her tail during a standing and a missionary act and confirm the
-  act's tail modifiers do not undo the wrapper. Check a body swap, the pack switched off, a
-  regular mare and Celestia/Luna are unchanged.
+  Nudge her tail during a standing and a missionary act and confirm the act's tail modifiers do
+  not undo the wrapper. Check a body swap, the pack switched off, a regular mare and
+  Celestia/Luna are unchanged.
 - In the World Debug block, **Form: bring her out** brings her out while idle; **Form: true form**
   and **Form: next named shape** drive the body-change service outside an act. During a standing
   and a missionary act the same two actions exercise the body handover: the flame plays, the act

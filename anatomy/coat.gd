@@ -1,6 +1,6 @@
 extends RefCounted
 ## The rig and merged-near coat's runtime deform: the duplicate-and-patch, the vulva/anal spread,
-## the vulva cut, the two no-jiggle zones and the debug overlay. It owns the coat material copies
+## the vulva cut, the vulva no-jiggle zone and the debug overlay. It owns the coat material copies
 ## and restores the game shaders exactly.
 ##
 ## See `docs/anatomy.md` (`## Body coat deform`).
@@ -36,10 +36,8 @@ var _body_coat_deform := false
 var _draw_still_zones := false
 var _zone_debug: STILL_ZONE_DEBUG
 var _zone_vulva_centre := Vector3.ZERO
-var _zone_anal_centre := Vector3.ZERO
 var _zone_axes := Basis.IDENTITY
 var _zone_vulva_radius := 0.0
-var _zone_anal_radius := 0.0
 var _zone_oval: float
 var _zone_fade: float
 var _near_state: Dictionary = {}
@@ -182,7 +180,7 @@ func restore() -> void:
 	_body_outline_original_shader = null
 
 
-## Advance the body-to-anatomy matrices used by the cut and the still zones. The static uniforms
+## Advance the body-to-anatomy matrices used by the cut and the still zone. The static uniforms
 ## are rewritten on the visibility poll; these two follow the pose and the act trims every frame.
 func tick() -> void:
 	if not _body_patched or not is_instance_valid(mesh) or _materials.is_empty():
@@ -200,7 +198,7 @@ func tick() -> void:
 			body_to_anatomy.affine_inverse())
 
 
-## Debug-only rings for the two still zones.
+## Debug-only rings for the still zone.
 func tick_debug() -> void:
 	if not is_instance_valid(_zone_debug):
 		_zone_debug = null
@@ -210,11 +208,10 @@ func tick_debug() -> void:
 	if not show:
 		_zone_debug.visible = false
 		return
-	# The zones are anatomy-local; the anatomy node carries the pose, the placement and the
+	# The zone is anatomy-local; the anatomy node carries the pose, the placement and the
 	# missionary trims, so the rings land on the same opening the shader tests.
 	_zone_debug.update(mesh.global_transform, _zone_vulva_centre, _zone_axes,
-		_zone_vulva_radius, _zone_anal_centre, _zone_anal_radius, _zone_oval,
-		_zone_fade, true)
+		_zone_vulva_radius, _zone_oval, _zone_fade, true)
 
 
 func _refresh_near() -> void:
@@ -400,12 +397,8 @@ func _apply_uniforms() -> void:
 	var anal_local: float = float(shapes.anal_local())
 	var anal_extreme := maxf(0.0, (anal_local - GEOMETRY.ANAL_OVER_R)
 		/ (GEOMETRY.ANAL_EXTREME_R - GEOMETRY.ANAL_OVER_R))
-	var anal_still_radius := GEOMETRY.anal_still_radius_for(GEOMETRY.ANAL_LIP,
-		GEOMETRY.ANAL_OUTER_FACTOR, scale, SETTINGS.anal_still.get_num(), anal_extreme)
 	_zone_vulva_centre = still_centre
-	_zone_anal_centre = anal_centre
 	_zone_vulva_radius = still_radius
-	_zone_anal_radius = anal_still_radius
 	_zone_axes = Basis(Vector3.RIGHT, Vector3.UP, Vector3.BACK)
 	_zone_oval = SETTINGS.still_oval.get_num()
 	_zone_fade = SETTINGS.still_fade.get_num()
@@ -438,8 +431,6 @@ func _apply_uniforms() -> void:
 		material.set_shader_parameter("body_coat_vulva_hole_open", hole_open)
 		material.set_shader_parameter("body_coat_still_centre", still_centre)
 		material.set_shader_parameter("body_coat_still_radius", still_radius)
-		material.set_shader_parameter("body_coat_anal_still_centre", anal_centre)
-		material.set_shader_parameter("body_coat_anal_still_radius", anal_still_radius)
 		material.set_shader_parameter("body_coat_still_right", Vector3.RIGHT)
 		material.set_shader_parameter("body_coat_still_up", Vector3.UP)
 		material.set_shader_parameter("body_coat_still_oval", SETTINGS.still_oval.get_num())

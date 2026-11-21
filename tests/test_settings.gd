@@ -562,6 +562,8 @@ func _check_placement() -> void:
 	var anon := SETTINGS.anon_placement().raw()
 	for key: String in ["offset_x", "offset_y", "offset_z", "pitch_deg", "scale"]:
 		check(anon.has(key), "the anon placement carries %s" % key)
+	check(near(float(anon["offset_x"]), 0.0) and near(float(anon["pitch_deg"]), 0.0),
+		"the anon placement has no X or pitch offset")
 	check(float(anon["scale"]) > 0.0, "the anon placement keeps a positive scale")
 
 

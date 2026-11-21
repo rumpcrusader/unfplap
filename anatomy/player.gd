@@ -57,7 +57,6 @@ var _mesh: MeshInstance3D
 var _skeleton: Skeleton3D
 var _bone_inverse := Transform3D.IDENTITY
 var _pos: Vector3
-var _pitch: float
 var _scale: float
 ## Missionary-only base slide along the shaft, set by `anatomy_act` from
 ## `presentation.missionary.part_inset_m`. Negative pulls the whole part back into the pelvis.
@@ -217,17 +216,13 @@ func _read_settings() -> void:
 
 
 ## integration: the user-facing scale sits on top of the saved placement.
-func _rotation_basis() -> Basis:
-	return Basis.from_euler(Vector3(deg_to_rad(_pitch), 0.0, 0.0))
-
-
 func _placed() -> Transform3D:
-	var basis := _rotation_basis().scaled(Vector3.ONE * _scale * _setting_scale)
+	var basis := Basis.IDENTITY.scaled(Vector3.ONE * _scale * _setting_scale)
 	# `Cock forward` slides the base out along the shaft, so it can sit on the front of the hips
 	# instead of inside the pelvis. The missionary inset moves the whole part back into the pelvis.
 	var front := _part_front_m + bed_inset_m
 	var axis := (TIP_POINT - PIVOT).normalized()
-	return _bone_inverse * Transform3D(basis, _pos + (_rotation_basis() * axis) * front)
+	return _bone_inverse * Transform3D(basis, _pos + axis * front)
 
 
 func _apply_place() -> void:
@@ -502,8 +497,7 @@ func _track_bed(target: Vector3, rear: Vector3, up: Vector3, penetration_m: floa
 		_home = _mesh.get_parent()
 		_mesh.reparent(_bed_holder, false)
 		_set_bend(Vector3.ZERO)
-		var straight := (_rotation_basis() * _straighten()).scaled(
-			Vector3.ONE * _scale * _setting_scale)
+		var straight := _straighten().scaled(Vector3.ONE * _scale * _setting_scale)
 		_mesh.transform = Transform3D(straight, -(straight * PIVOT))
 	var reach := shaft_length_m() - penetration_m
 	_bed_holder.global_transform = Transform3D(Basis.looking_at(rear, up), target + rear * reach)
@@ -708,7 +702,5 @@ func encounter(on: bool) -> void:
 
 func _load_place() -> void:
 	var placement := SETTINGS.anon_placement()
-	_pos = Vector3(placement.num("offset_x"), placement.num("offset_y"),
-		placement.num("offset_z"))
-	_pitch = placement.num("pitch_deg")
+	_pos = Vector3(0.0, placement.num("offset_y"), placement.num("offset_z"))
 	_scale = maxf(0.05, placement.num("scale"))

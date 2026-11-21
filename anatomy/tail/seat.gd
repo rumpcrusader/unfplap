@@ -2,8 +2,7 @@ extends Node
 ## Per-mare tail seat: each adult mare's hair tail moves to the game's reference dock, and the
 ## dock comes with it. One controller under the anatomy facade; it never touches the body,
 ## skeleton, mane or act systems.
-## Originals are cached up front, so switching the seat off restores the game tail and dock.
-## With the seat off the row holds only her id, so a disabled seat stays cheap.
+## Originals are cached up front, so a restore returns the game tail and dock.
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
@@ -35,7 +34,7 @@ class SeatRow:
 	var pony: Node
 	var id := ""
 	var fit_id := ""
-	## The presented form this row was fitted for; null on a legacy/off row with no form yet.
+	## The presented form this row was fitted for; null on a legacy row with no form yet.
 	var form: BODY_FORM.BodyForm = null
 	var body := "mare"
 	var link: Node
@@ -74,8 +73,7 @@ var eligible := Callable()
 
 ## pony -> cached original values, target and live state.
 var _rows: Dictionary[Node, SeatRow] = {}
-## Last applied values of Anatomy › Re-seat tails and docks, Dock style and the two debug offsets.
-var _enabled: bool
+## Last applied Dock style.
 var _dock_style := ""
 static var _reference := Vector3.INF
 static var _reference_loaded := false
@@ -86,7 +84,6 @@ var _settle: Timer
 
 
 func _ready() -> void:
-	_enabled = SETTINGS.reseat_tails.get_bool()
 	_settle = Timer.new()
 	_settle.name = "UnfplapTailSeatSettle"
 	_settle.one_shot = true
@@ -179,17 +176,6 @@ func attach(pony: Node, form: BODY_FORM.BodyForm = null) -> void:
 		return
 	if _source_tail(form):
 		return
-	if not SETTINGS.reseat_tails.get_bool():
-		# Off writes nothing: remember her so turning the setting on can seat her without a
-		# respawn, but never measure her tail or rebuild her dock for a disabled feature.
-		var off_row := SeatRow.new()
-		off_row.pony = pony
-		off_row.id = _id_for(pony)
-		off_row.fit_id = _fit_id(pony, form)
-		off_row.form = form
-		_rows[pony] = off_row
-		pony.tree_exiting.connect(func() -> void: _forget(pony))
-		return
 	PERF.begin("tail_attach")
 	var row := _prepare(pony, form)
 	if row == null:
@@ -230,7 +216,7 @@ func refresh_form(pony: Node, form: BODY_FORM.BodyForm) -> void:
 	var fit_id := _fit_id(pony, form)
 	row.form = form
 	row.fit_id = fit_id
-	if not _seated(row) or not SETTINGS.reseat_tails.get_bool():
+	if not _seated(row):
 		return
 	var placement := SETTINGS.anatomy_placement(row.id, fit_id)
 	var tail_moved := false
@@ -270,12 +256,9 @@ static func _fit_id(pony: Node, form: BODY_FORM.BodyForm) -> String:
 	return IDENTITY.body_fit_id(pony)
 
 
-## Re-apply or restore every live pony. Called on every settings edit; only the toggle, a
-## changed saved exception or a changed placement causes a write.
+## Re-apply every live pony. Called on every settings edit; a changed saved exception or a
+## changed placement causes a write.
 func refresh_all() -> void:
-	var enabled := SETTINGS.reseat_tails.get_bool()
-	var toggle_changed := enabled != _enabled
-	_enabled = enabled
 	var dock_style := SETTINGS.dock_style.get_choice()
 	var style_changed := dock_style != _dock_style
 	_dock_style = dock_style
@@ -286,31 +269,12 @@ func refresh_all() -> void:
 			_forget(pony)
 			continue
 		var row: SeatRow = _rows[pony]
-		if not enabled:
-			# Only the toggle restores anything; an off tick keeps the row for the next toggle.
-			if toggle_changed and _seated(row):
-				_restore(row)
-			continue
 		if not _eligible(pony):
 			if _seated(row):
 				_restore(row)
 			_forget(pony)
 			continue
-		if not _seated(row):
-			# She arrived while the seat was off; measure her now that it is on.
-			var prepared := _prepare(pony, row.form)
-			if prepared == null:
-				continue
-			_rows[pony] = prepared
-			_apply(prepared)
-			checked += 1
-			rebuilt += 1
-			continue
 		checked += 1
-		if toggle_changed:
-			_apply(row)
-			rebuilt += 1
-			continue
 		var placement := SETTINGS.anatomy_placement(row.id, row.fit_id)
 		var changed := false
 		var tail_moved := false
@@ -394,7 +358,7 @@ func pending_rebuilds() -> int:
 	return _dirty.size()
 
 
-## True for a measured row; an off row holds only her id until the next toggle.
+## True for a measured row.
 func _seated(row: SeatRow) -> bool:
 	return row != null and row.seated
 
@@ -424,7 +388,7 @@ func _id_for(pony: Node) -> String:
 	return PONY_ID.from(str(pony.get_meta("relationship_id", "")), GAME.identity_of(pony))
 
 
-## True when the tail/dock placement can ever move this pony, even while the seat is toggled off.
+## True when the tail/dock placement can ever move this pony.
 func can_seat(pony: Node) -> bool:
 	return is_instance_valid(pony) and _eligible(pony)
 
@@ -547,9 +511,6 @@ func _apply_tail(row: SeatRow) -> bool:
 	var pony := row.pony
 	if not is_instance_valid(pony) or not pony.is_inside_tree():
 		return false
-	if not SETTINGS.reseat_tails.get_bool():
-		_restore(row)
-		return false
 	var reference_anchor := reference(pony)
 	if not reference_anchor.is_finite():
 		return false
@@ -570,14 +531,11 @@ func _apply_tail(row: SeatRow) -> bool:
 	return true
 
 
-## Rebuild the dock mesh for the current fit and seat delta. Expensive: attach, toggle and one
-## pass per settled placement edit only.
+## Rebuild the dock mesh for the current fit and seat delta. Expensive: attach and one pass per
+## settled placement edit only.
 func _apply_dock(row: SeatRow) -> void:
 	var pony := row.pony
 	if not is_instance_valid(pony) or not pony.is_inside_tree():
-		return
-	if not SETTINGS.reseat_tails.get_bool():
-		_restore(row)
 		return
 	_move_dock(row, row.applied)
 
@@ -613,7 +571,7 @@ func _flush_dirty() -> void:
 		var pony: Node = row.pony
 		if not is_instance_valid(pony) or not _rows.has(pony) or not is_same(_rows[pony], row):
 			continue
-		if not row.seated or not SETTINGS.reseat_tails.get_bool():
+		if not row.seated:
 			continue
 		_apply_dock(row)
 
@@ -816,8 +774,6 @@ func _log_perf() -> void:
 
 
 func _source(row: SeatRow) -> String:
-	if not SETTINGS.reseat_tails.get_bool():
-		return "off"
 	if SETTINGS.anatomy_placement_has_override(row.id, row.fit_id):
 		return "override"
 	return "auto"

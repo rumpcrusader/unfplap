@@ -38,7 +38,7 @@ It does not cover eligibility, act readiness, thrust scoring, pose or camera rul
 | `anatomy/act/oral.gd` | the mouth/contact provider: mouth point, base opening, D viseme and clear |
 | `anatomy/act/debug.gd` | the three aim markers |
 | `anatomy/shapes.gd` | persistent closed/idle/fill/grip state, shaft mask and V2 anal keys |
-| `anatomy/coat.gd` | rig and merged-near coat patch, vulva/anal spread, the vulva cut and the still zones |
+| `anatomy/coat.gd` | rig and merged-near coat patch, vulva/anal spread, the vulva cut and the vulva still zone |
 | `anatomy/coat_line.gd` | bends the anatomy shell around a vertical line driven by the hind legs |
 | `anatomy/coat_line_debug.gd` | debug overlay for the rest/live coat line and its cross-sections |
 | `anatomy/garment_hull.gd` | the worn-garment rear-facing outer depth field, shared by every mare |
@@ -56,7 +56,7 @@ It does not cover eligibility, act readiness, thrust scoring, pose or camera rul
 | `anatomy/tail/visibility.gd` | debug controller: installs `anatomy/tail/hide.gd` on loaded AI characters |
 | `anatomy/fluid.gd` | droplets with gravity, sticking, creeping and ground pools |
 | `anatomy/teat_jiggle.gd` | teat spring sway |
-| `anatomy/still_zone_debug.gd` | debug overlay for the two no-jiggle zones |
+| `anatomy/still_zone_debug.gd` | debug overlay for the vulva no-jiggle zone |
 | `anatomy/body_coat_patch.gd` | runtime patch of the rig coat and the merged-near palette shaders; swaps the jiggle include and call and adds the vulva cut |
 | `anatomy/anatomy.gdshader` | the per-pony anatomy material |
 | `anatomy/body_coat_deform.gdshaderinc` | the coat deform include used by the patch |
@@ -306,7 +306,6 @@ resulting `view.contact_kind`/`view.contact_target`.
   travel and the spring.
 - The skin strip is `skin_bridge.scn`, also skinned to the mare. Its span is measured from the
   dock AABB and the teat strip end; its gap is measured from the hip bind and the authored slit.
-  `strip_scale` scales the strip in model-space X around the midline.
 - The dock style setting chooses the dock material: `genitals` copies the attached anatomy material
   with the skin tones, `coat` keeps the game's coat material, and `hide` removes the dock. With
   anatomy detached, the dock falls back to the coat.
@@ -366,8 +365,8 @@ fade. The hull block is in the copied compatibility shaders under
   - `anon.*` is the player part;
   - `<mare id>.*` is a partial per-mare override.
 - The ten anatomy/tail keys are `offset_x`, `offset_y`, `offset_z`, `pitch_deg`, `scale`,
-  `tail_y`, `tail_z`, `dock_y`, `dock_scale` and `tail_tilt_deg`. The player block uses the first
-  five only.
+  `tail_y`, `tail_z`, `dock_y`, `dock_scale` and `tail_tilt_deg`. The player block uses
+  `offset_y`, `offset_z` and `scale` only.
 - `shared/anatomy_placement.gd` owns the schema and the merge/sanitize/diff helpers. The shipped
   per-mare rows live in `settings/characters.json` under `anatomy.placement`; resolution is the
   player override (keyed by the stable pony id), then a provider layer, then the shipped row, then
@@ -379,10 +378,8 @@ fade. The hull block is in the copied compatibility shaders under
 - The anatomy mesh is placed at the saved offset plus the calibrated `0.03 m` lift, pitched and
   scaled, then mapped through the `pony_hips` bind. A princess profile scales the origin and basis
   about the body. `Dock style` is visibility/colour only and never moves the mesh.
-- `vulva_out_mm` pushes the whole mesh out along its own normal; it exists for a pose that tucks
-  the anatomy into the coat. `placement.read_settings()` caches `vulva_out_mm` and the per-size
-  trims on attach and `apply_live()`; a live edit applies at that refresh, not on the per-frame
-  trim.
+- The per-size vulva trims are cached on attach and `apply_live()`; a live edit applies at that
+  refresh, not on the per-frame trim.
 - Missionary adds the per-size vulva trims from `presentation.missionary.size.<preset>`:
   `vulva_shift_mm` (world up/down), `vulva_pitch_deg` (about the bed's lateral axis) and
   `vulva_depth_shift_mm` (starts at 20% depth and reaches its signed value at full thrust). They
@@ -654,20 +651,19 @@ The settled form also rebuilds the body's near/far LOD through `WORLD.refresh_bo
   the measured lip radius is radial while the lips reach further up and down. The cut is gated on
   the anatomy mesh being visible, so `act` mode leaves the coat whole while she is hidden. Either
   radius at 0 turns the cut off.
-- The patch drives the vulva spread, the V2 anal mound and hole, the vulva cut and two no-jiggle
-  ellipsoids: one around the vulva and one around the visible ponut. The uniforms are in the
-  anatomy mesh's local frame. A body-to-anatomy matrix, refreshed every frame, maps each
-  already-skinned coat vertex into that frame before the cut and the masks are evaluated, so the
-  cut and the zones follow the live pose, the saved placement and the missionary trims. The debug
-  rings use the anatomy mesh's own transform.
+- The patch drives the vulva spread, the V2 anal mound and hole, the vulva cut and one no-jiggle
+  ellipsoid around the vulva. The uniforms are in the anatomy mesh's local frame. A
+  body-to-anatomy matrix, refreshed every frame, maps each already-skinned coat vertex into that
+  frame before the cut and the mask are evaluated, so the cut and the zone follow the live pose,
+  the saved placement and the missionary trims. The debug rings use the anatomy mesh's own
+  transform.
 - `coat_spread` scales the vulva spread, `coat_hole` and `coat_hole_height` the cut's lateral and
-  vertical radii, `coat_hole_depth_mm` the cut depth, `jiggle_still` the vulva still zone,
-  `anal_still` the anal zone, `still_oval` the vertical half-axis, `still_fade` the rim fade,
-  `still_height_mm` the vulva zone's vertical placement and `vulva_out_mm` the mesh push.
-  `draw_still_zones` overlays the two ellipsoids and their fully-still cores. The coat reads the
-  oval and fade into its ring fields from the uniform pass; it holds no default for them. The
-  deform and draw-still-zone toggles are cached on the visibility poll; the per-frame ring check
-  reads the fields.
+  vertical radii, `coat_hole_depth_mm` the cut depth, `jiggle_still` the still-zone strength,
+  `still_oval` the vertical half-axis, `still_fade` the rim fade and `still_height_mm` the zone's
+  vertical placement. `draw_still_zones` overlays the ellipsoid and its fully-still core. The
+  coat reads the oval and fade into its ring fields from the uniform pass; it holds no default
+  for them. The deform and draw-still-zone toggles are cached on the visibility poll; the
+  per-frame ring check reads the fields.
 - The per-pony rig duplicate and its outline, plus the patched merged near materials, are added
   back to the game's jiggle target list after every `_start_jiggle()`. The anatomy also re-adds
   them on a stock flank smack through `physical_reaction("flank_smack")`.
@@ -796,8 +792,7 @@ sample of the body coat.
 
 ## Tail seating
 
-- `anatomy.reseat_tails` (Anatomy → **Re-seat tails and docks**) moves every adult
-  mare's hair tail base to the game's exact reference anchor from
+- The seat moves every adult mare's hair tail base to the game's exact reference anchor from
   `res://world/characters/hybrid_mare/dock_tail_mounts.json`. The reference is the game's
   canonical dock seat, derived from the body's own tail root (`pony_tail_01`). Mares added by
   other mods use the same seat: they are not gated by `SETTINGS.CHARACTER_ORDER`, and their
@@ -811,8 +806,7 @@ sample of the body coat.
   is `anatomy.placement` minus the game trim, and the placement therefore replaces the game's
   trim rather than stacking on it. The shipped row (`settings/characters.json` →
   `anatomy.placement.<id>`) is the mod's tuned seat and may differ from the stock
-  `tail_seat_trims.json` table; `tail_tilt_deg` is mod-only. Turning `reseat_tails` off restores
-  the game-seated tail, which is the stock result.
+  `tail_seat_trims.json` table; `tail_tilt_deg` is mod-only.
 - `profile.participation.tail` gates the seat. A `false` value skips the attach and restores the
   row if the seat was already applied; `refresh_all()` re-checks the row. A provider's `eligible`
   assertion applies to the tail seat too, so a provider can make a character an adult without
@@ -838,18 +832,14 @@ sample of the body coat.
 - The dock must stay parented under the hair skeleton: `hybrid_far_mesh.sources()` bakes every
   visible `_model` mesh with a skin into the far mesh, and a hair-bound skin there would be
   remapped onto body bones. Under `hair`, `_show_far_mesh()` hides the cuff with the hair and the
-  near/far bakes ignore it by name. Turning the setting off restores the original parent, local
-  transform, skeleton path, skin, mesh and material, and strips the game's `parked_skeleton` meta.
+  near/far bakes ignore it by name. A restore returns the original parent, local transform,
+  skeleton path, skin, mesh and material, and strips the game's `parked_skeleton` meta.
 - The seat is measured once on the live pony with `dock_tail_mount.measure()`. The original hair
   `pelvis_offset`, dock mesh, skin, material and tail material are cached before the first write,
-  so turning the setting off restores the game's tail and dock exactly. The far-mesh identity
-  cache is invalidated, and a currently shown far mesh is forced back to the near mesh for the
-  next bake.
-- Nothing is measured or written while the setting is off. `attach()` then stores only the mare's
-  id, so a disabled seat costs one dictionary entry per pony instead of a tail measurement and a
-  dock rebuild. Turning the setting on measures and seats every remembered mare from
-  `refresh_all()`; turning it off restores them, and a settings tick with the seat already off
-  writes nothing.
+  so a restore returns the game's tail and dock exactly. The far-mesh identity cache is
+  invalidated, and a currently shown far mesh is forced back to the near mesh for the next bake.
+- `attach()` measures and seats every eligible pony. A settings tick re-resolves each live row's
+  placement and dock style, and never re-measures her.
 - A placement edit writes the tail immediately and the skinned dock follows it. The dock mesh is
   rebuilt once `DOCK_SETTLE_S` after the last edit, because only the base-ring snap needs it, so a
   slider drag rebuilds each mare once instead of once per tick. A `dock_y` edit needs no rebuild
@@ -876,19 +866,18 @@ sample of the body coat.
   `UnfplapTailPlacement` wrapper above Queen Chrysalis's spring chain and applies the resolved
   `tail_y`/`tail_z`/`tail_tilt_deg` from the modelled root, the same rule the seat uses from its
   reference dock. Her provider placement carries her own tail reference, so the global tail
-  default does not move her spring tail. The wrapper is not a seat row and has no dock. `Re-seat
-  tails and docks` off returns it to identity. `docs/poses.md` owns how the act modifiers rotate and restore the
-  chain itself, so a placement edit and an act never overwrite each other. The Anatomy editor's
+  default does not move her spring tail. The wrapper is not a seat row and has no dock.
+  `docs/poses.md` owns how the act modifiers rotate and restore the chain itself, so a placement
+  edit and an act never overwrite each other. The Anatomy editor's
   tail actions accept a source-owned tail through `can_place_tail()` and forward
   `PONIES.body_change.apply_tail_placement()`; a dock action still answers `no dock on this tail.` The princesses'
   fitted bodies keep their body-rig tail and have no seat or wrapper.
 
 The per-pony seat state is the inner `SeatRow` class: the pony, the stable id, the presented form
 and its fit, the cached originals, the measured anchor and cap, the five live placement values and
-the seat/attached/build/applied state. `_prepare()` returns a row or null; a row created while the
-setting is off has `seated = false` and no dock. `row.target(reference)` is the one
-reference-plus-tail-trim math used by the tail write and the report, so the seat keeps one target
-rule.
+the seat/attached/build/applied state. `_prepare()` returns a row or null. `row.target(reference)`
+is the one reference-plus-tail-trim math used by the tail write and the report, so the seat keeps
+one target rule.
 
 ## Lifecycle
 
@@ -934,8 +923,8 @@ stay event-time reads.
 - **Hide tails** is the persisted Debug toggle that collapses every loaded AI character's hair
   and body tail roots through `anatomy/tail/hide.gd`; it touches no other body part. The facade
   pushes the switch to `anatomy/tail/visibility.gd`, which processes only while it is on.
-- `anatomy.draw_still_zones` (**Draw still zones**) overlays the two still-zone ellipsoids and
-  their fully-still cores on the body coat.
+- `anatomy.draw_still_zones` (**Draw still zones**) overlays the still-zone ellipsoid and its
+  fully-still core on the body coat.
 - `anatomy.coat_line` (**Coat line**) enables the hind-leg line bend. Off keeps the anatomy rigid
   and hides the debug overlay.
 - `anatomy.draw_coat_line` (**Draw coat line**) overlays the sampled rest and live coat lines and
@@ -1028,7 +1017,7 @@ Current suites:
   anatomy rear as the authoritative outward normal, and the body-swap pelvis reset.
 - `tests/anatomy/test_coat.gd`: the refined winking mesh, the V2 anal keys, the rig and near-palette
   shader patch, the base/cutout/occlusion hook injection, the drawn coat choice over a hidden game
-  body, the vulva cut, the still zones, the material rebuild after a mesh re-set, the form rig/fit
+  body, the vulva cut, the still zone, the material rebuild after a mesh re-set, the form rig/fit
   appearance refresh, the fold-colour scoping and the cached entrance point (one deformation per
   body revision, the live transform, the live hole point's per-call deformation).
 - `tests/anatomy/test_heat.gd`: the idle heat suppression, phase poll, rest shape and wink

@@ -46,11 +46,7 @@ uniform float body_coat_vulva_hole_open = 0.0;
 // limit keeps the cut from reaching the far side of the body.
 uniform vec3 body_coat_still_centre = vec3(0.0);
 uniform float body_coat_still_radius = 0.0;
-// The visible anal cup is a separate overlay from the body ponut; its own still zone keeps the
-// rump wave from pushing the coat through the cup while the vulva is stretched.
-uniform vec3 body_coat_anal_still_centre = vec3(0.0);
-uniform float body_coat_anal_still_radius = 0.0;
-// Both still zones are ellipsoids in the anatomy-local frame. `oval` is the vertical half-axis as
+// The still zone is an ellipsoid in the anatomy-local frame. `oval` is the vertical half-axis as
 // a share of the lateral one; `fade` is the fraction of the radius used to blend the mask back to
 // full jiggle at the rim.
 uniform vec3 body_coat_still_right = vec3(1.0, 0.0, 0.0);
@@ -119,10 +115,8 @@ vec3 body_coat_deform(vec3 posed) {
 			- out_axis * (body_coat_vulva_depth * weight);
 	}
 	vec3 offset = (body_coat_anatomy_to_body * vec4(offset_local, 0.0)).xyz;
-	float still_vulva = body_coat_still_mask(local, body_coat_still_centre,
+	float still = body_coat_still_mask(local, body_coat_still_centre,
 		body_coat_still_radius);
-	float still_anal = body_coat_still_mask(local, body_coat_anal_still_centre,
-		body_coat_anal_still_radius);
-	offset += flank_jiggle(posed) * min(still_vulva, still_anal);
+	offset += flank_jiggle(posed) * still;
 	return offset;
 }

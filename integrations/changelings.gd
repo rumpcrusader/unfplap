@@ -591,10 +591,6 @@ func _apply_tail_placement_now(pony: Node, root: Node3D) -> bool:
 	var wrapper := _ensure_tail_wrapper(pony, root)
 	if not is_instance_valid(wrapper) or not wrapper.is_inside_tree():
 		return false
-	if not SETTINGS.reseat_tails.get_bool():
-		wrapper.transform = Transform3D.IDENTITY
-		wrapper.set_meta("unfplap_tail_offset", Vector3.ZERO)
-		return true
 	# The keys are absolute from the pack's modelled tail; her placement bakes that reference.
 	var placement := SETTINGS.anatomy_placement(ID, ID)
 	var offset := Vector3(0.0, placement.num("tail_y"), placement.num("tail_z"))

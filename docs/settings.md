@@ -333,9 +333,8 @@ the log sink joins the same list.
   `anatomy_place.json` and `anon_place.json` import once and are renamed `.migrated`. The old
   `anatomy.tail_seat.<id>` rows and the tail/dock millimetre globals migrate into the same block on
   load.
-- `anatomy.reseat_tails`, `anatomy.dock_style` and the tail/dock placement behavior are in
-  `docs/anatomy.md`. The settings layer owns only their paths, defaults and the placement
-  migration above.
+- `anatomy.dock_style` and the tail/dock placement behavior are in `docs/anatomy.md`. The
+  settings layer owns only its path, default and the placement migration above.
 - `settings/service.gd` owns both player files. `SETTINGS.load_settings()` parses them once per
   process into `_cache` and writes the merged result; the typed getters only read the
   generation-cached flat table, so a per-frame read never touches the disk.

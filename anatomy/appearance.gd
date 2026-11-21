@@ -145,15 +145,6 @@ func attach_parts() -> void:
 		apply_teats_material(mesh.get_surface_override_material(0) as ShaderMaterial)
 
 
-func apply_strip_scale() -> void:
-	if not is_instance_valid(skin_strip):
-		return
-	var material := skin_strip.get_surface_override_material(0) as ShaderMaterial
-	if material == null:
-		return
-	material.set_shader_parameter("strip_scale", SETTINGS.strip_scale.get_num())
-
-
 ## Show or hide the teats and strip with the anatomy and their own switches.
 func apply_visibility(show: bool, teats_on: bool, strip_on: bool) -> void:
 	if is_instance_valid(teats_mesh):
@@ -195,7 +186,6 @@ func apply_teats_material(base: ShaderMaterial) -> void:
 		strip.set_shader_parameter("gap_from", _strip_gap.x)
 		strip.set_shader_parameter("gap_to", _strip_gap.y)
 		strip.set_shader_parameter("strip_trim", 1.0)
-		strip.set_shader_parameter("strip_scale", SETTINGS.strip_scale.get_num())
 		strip.set_shader_parameter("line_count", 0)
 		skin_strip.set_surface_override_material(0, strip)
 

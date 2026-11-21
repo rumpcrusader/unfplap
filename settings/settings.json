@@ -4,7 +4,6 @@
 		"anal_body_depth_mm": 20.0,
 		"anal_hug_mm": 2.0,
 		"anal_scale": 0.9,
-		"anal_still": 0.0,
 		"anatomy_mode": "never",
 		"clitoris_color": "d87690ff",
 		"coat_hole": 0.7,
@@ -31,10 +30,8 @@
 		"pelvis_gap_m": 0.025,
 		"placement": {
 			"anon": {
-				"offset_x": 0.0,
 				"offset_y": 0.74,
 				"offset_z": 0.085,
-				"pitch_deg": 0.0,
 				"scale": 0.2
 			},
 			"default": {
@@ -52,19 +49,16 @@
 		},
 		"placement_target": "mare",
 		"player_scale": 1.4,
-		"reseat_tails": true,
 		"skeleton_overlay": false,
 		"skin_strip": false,
 		"skin_tone": 0.6,
 		"still_fade": 0.3,
 		"still_height_mm": 25.0,
 		"still_oval": 1.5,
-		"strip_scale": 1.0,
 		"teats": false,
 		"vulva_height": 0.75,
 		"vulva_hug_mm": 2.0,
 		"vulva_inner_color": "cf577dff",
-		"vulva_out_mm": 0.0,
 		"wink_max_s": 24.0,
 		"wink_min_s": 12.0,
 		"wink_open_max": 0.9,

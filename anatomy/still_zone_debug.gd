@@ -1,17 +1,12 @@
 extends Node3D
-## Debug overlay for the two body-coat still zones. Four line rings: the outer ellipsoid and the
-## fully-still core of the vulva and visible anal cup zones. anatomy/coat.gd places them each frame
-## through the anatomy mesh transform; the rings are unshaded, no-depth-test overlays so they stay
-## visible through the coat.
+## Debug overlay for the body-coat still zone. Two line rings: the outer ellipsoid and the
+## fully-still core. anatomy/coat.gd places them each frame through the anatomy mesh transform;
+## the rings are unshaded, no-depth-test overlays so they stay visible through the coat.
 
 const SEGMENTS := 48
 const VULVA_COLOR := Color(1.0, 0.35, 0.60, 0.90)
-const ANAL_COLOR := Color(0.30, 0.85, 1.00, 0.90)
 const CORE_ALPHA := 0.45
 const RING_PRIORITY := 10
-
-const VULVA := 0
-const ANAL := 1
 
 static var _ring_mesh: ArrayMesh
 
@@ -22,12 +17,10 @@ var _core: Array[MeshInstance3D] = []
 func setup() -> void:
 	name = "UnfplapStillZones"
 	var mesh := _get_ring_mesh()
-	for i in 2:
-		var color := VULVA_COLOR if i == VULVA else ANAL_COLOR
-		_outer.append(_make_ring(mesh, color))
-		var core_color := color
-		core_color.a = CORE_ALPHA
-		_core.append(_make_ring(mesh, core_color))
+	_outer.append(_make_ring(mesh, VULVA_COLOR))
+	var core_color := VULVA_COLOR
+	core_color.a = CORE_ALPHA
+	_core.append(_make_ring(mesh, core_color))
 	visible = false
 
 
@@ -47,19 +40,16 @@ func _make_ring(mesh: ArrayMesh, color: Color) -> MeshInstance3D:
 	return ring
 
 
-## place the outer ellipsoid and its fully-still core. `axes` is the anatomy-local zone frame;
+## Place the outer ellipsoid and its fully-still core. `axes` is the anatomy-local zone frame;
 ## `body_to_world` is the anatomy mesh transform (anatomy local -> world).
-func update(body_to_world: Transform3D, vulva_centre: Vector3, vulva_axes: Basis,
-		vulva_radius: float, anal_centre: Vector3, anal_radius: float,
-		oval: float, fade: float, shown: bool) -> void:
-	if not shown or _outer.size() < 2:
+func update(body_to_world: Transform3D, centre: Vector3, axes: Basis,
+		radius: float, oval: float, fade: float, shown: bool) -> void:
+	if not shown or _outer.is_empty():
 		visible = false
 		return
 	visible = true
-	_place(_outer[VULVA], body_to_world, vulva_centre, vulva_axes, vulva_radius, oval, 1.0)
-	_place(_core[VULVA], body_to_world, vulva_centre, vulva_axes, vulva_radius, oval, 1.0 - fade)
-	_place(_outer[ANAL], body_to_world, anal_centre, vulva_axes, anal_radius, oval, 1.0)
-	_place(_core[ANAL], body_to_world, anal_centre, vulva_axes, anal_radius, oval, 1.0 - fade)
+	_place(_outer[0], body_to_world, centre, axes, radius, oval, 1.0)
+	_place(_core[0], body_to_world, centre, axes, radius, oval, 1.0 - fade)
 
 
 func _place(ring: MeshInstance3D, body_to_world: Transform3D, centre: Vector3,

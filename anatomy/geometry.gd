@@ -20,10 +20,6 @@ const LIP_OUTER_FACTOR := 3.0
 ## The authored anal centre the shader reads. The V2 ring below owns the act's live opening.
 const ANAL_SHADER_CENTRE := Vector3(0.0, 0.071, 0.019)
 
-## Anal rim fallback, in mesh units. The V2 mesh owns the anal opening.
-const ANAL_LIP := 0.022
-const ANAL_OUTER_FACTOR := 2.2
-
 ## V2 anal blend-shape radii, mesh-local. Each key starts where the previous one ends.
 const ANAL_OPEN_R := 0.008
 const ANAL_STRETCH_R := 0.020
@@ -101,13 +97,6 @@ static func body_local_point(bind: Transform3D, mesh_transform: Transform3D,
 static func body_local_direction(bind: Transform3D, mesh_transform: Transform3D,
 		direction: Vector3) -> Vector3:
 	return (bind.basis.inverse() * (mesh_transform.basis * direction)).normalized()
-
-
-## Body-local radius of the visible anal cup's still zone: the cup's outer ring × 1.3 reaches
-## the coat, floored so a small cup stays usable. The extreme key extrapolates the mound.
-static func anal_still_radius_for(lip: float, outer_factor: float, scale: float,
-		multiplier: float, extreme: float) -> float:
-	return maxf(lip * outer_factor * 1.3, 0.045 / scale) * multiplier * (1.0 + extreme)
 
 
 ## The line targets: `count` local points at x = 0, evenly spaced across the mesh's local Y range.

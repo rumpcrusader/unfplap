@@ -251,8 +251,6 @@ func run() -> void:
 
 	# The tail keys apply from the pack's modelled root, like the seat from its reference dock.
 	check(near(wrapper.position.y, 0.04), "her baked tail default is applied")
-	var reseat_before := SETTINGS.reseat_tails.get_bool()
-	SETTINGS.reseat_tails.set_bool(true)
 	var tail_values := SETTINGS.anatomy_placement("chrysalis", "chrysalis").raw()
 	tail_values["tail_y"] = 0.05
 	tail_values["tail_z"] = 0.02
@@ -267,19 +265,10 @@ func run() -> void:
 	check(tail_report.contains("chrysalis custom tail offset=(0.000,0.050,0.020)"),
 		"the report names the applied offset")
 
-	# Re-seat off returns the wrapper to the pack's modelled tail; on applies the saved keys.
-	SETTINGS.reseat_tails.set_bool(false)
-	adapter.call("apply_tail_placement", own)
-	check(wrapper.transform.is_equal_approx(Transform3D.IDENTITY),
-		"re-seat off returns the wrapper to identity")
-	SETTINGS.reseat_tails.set_bool(true)
-	adapter.call("apply_tail_placement", own)
-	check(near(wrapper.position.y, 0.05), "re-seat on applies the saved keys")
 	SETTINGS.save_anatomy_placement("chrysalis",
 		SETTINGS.anatomy_placement_default("chrysalis", "chrysalis"), "chrysalis")
 	adapter.call("apply_tail_placement", own)
 	check(near(wrapper.position.y, 0.04), "reset returns her tail to the baked default")
-	SETTINGS.reseat_tails.set_bool(reseat_before)
 
 	# Her hair can arrive after the first prepare, even before the body has an identity. The
 	# adapter-owned late check wraps the chain without the anatomy seat or `tail_ready()`.

@@ -810,8 +810,18 @@ func form_status(text: String) -> void:
 
 
 ## The roster's anatomy re-check at act start; the handle itself is created by the start ledger.
+## The stored form is re-presented, so a retry never resets a borrowed shape to the own form.
 func refresh_anatomy() -> void:
-	PONIES.ensure_anatomy(host.pony if is_instance_valid(host.pony) else null)
+	var pony: Node = host.pony if is_instance_valid(host.pony) else null
+	if not is_instance_valid(pony) or not is_instance_valid(PONIES.anatomy):
+		return
+	var body := pony as Node3D
+	if not is_instance_valid(body):
+		return
+	var form: Variant = null
+	if is_instance_valid(PONIES.body_change):
+		form = PONIES.body_change.form_for(body)
+	PONIES.anatomy.present(body, form)
 
 
 ## The adopted body's bind before the handover's one resume: the pose, face, identity name, view,

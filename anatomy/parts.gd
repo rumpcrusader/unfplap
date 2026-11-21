@@ -46,13 +46,21 @@ func controller(pony: Node) -> CONTROLLER:
 	return value if is_instance_valid(value) else null
 
 
-## Create or reuse the controller for a presented body. A revised form on the same body updates
-## the existing controller and tail row instead of creating a second one.
-func present(pony: Node3D, form: BODY_FORM.BodyForm, status: Callable) -> CONTROLLER:
+## Store the presented form; a null form resolves to the body's own.
+func remember(pony: Node, form: BODY_FORM.BodyForm) -> BODY_FORM.BodyForm:
 	if not is_instance_valid(pony):
 		return null
 	var stored: BODY_FORM.BodyForm = form if form != null else BODY_FORM.default_form(pony)
 	forms[pony] = stored
+	return stored
+
+
+## Create or reuse the controller and its tail seat from the remembered form. The identity gate
+## has already answered yes; a revised form on the same body updates both instead of adding one.
+func attach(pony: Node3D, status: Callable) -> CONTROLLER:
+	var stored := form_for(pony)
+	if stored == null:
+		return null
 	var existing := controller(pony)
 	if is_instance_valid(existing):
 		existing.refresh_form(stored)
@@ -69,19 +77,17 @@ func present(pony: Node3D, form: BODY_FORM.BodyForm, status: Callable) -> CONTRO
 	fresh.set_part(player_host.part())
 	if is_instance_valid(tail_seat):
 		tail_seat.attach(pony, stored)
-		# A mod may finish its hair or dock a frame after the pony is ready; attach is idempotent.
-		tail_seat.attach.call_deferred(pony, stored)
-	pony.tree_exiting.connect(func() -> void: withdraw(pony))
+		_retry_tail.call_deferred(pony)
+	pony.tree_exiting.connect(func() -> void: detach(pony))
 	return fresh
 
 
-## The body is leaving, or the roster withdrew it: release its tail row, form and controller.
-func withdraw(pony: Node3D) -> void:
+## The controller and the tail row go; the remembered form stays for the next decision.
+func release(pony: Node3D) -> void:
 	if not is_instance_valid(pony):
 		return
 	if is_instance_valid(tail_seat):
 		tail_seat.release(pony)
-	forms.erase(pony)
 	var handle := controller(pony)
 	controllers.erase(pony)
 	if is_instance_valid(handle):
@@ -89,19 +95,18 @@ func withdraw(pony: Node3D) -> void:
 		handle.queue_free()
 
 
-## Release only the tail row; the controller stays.
-func withdraw_tail(pony: Node3D) -> void:
-	if is_instance_valid(tail_seat):
-		tail_seat.release(pony)
+## The body is leaving, or the roster withdrew it: release everything and forget its form.
+func detach(pony: Node3D) -> void:
+	release(pony)
+	forms.erase(pony)
 
 
-func reseat_tail(pony: Node3D, form: BODY_FORM.BodyForm) -> void:
-	if not is_instance_valid(tail_seat) or not is_instance_valid(pony):
+## A mod may finish its hair or dock a frame after the pony is ready. The retry is idempotent and
+## does nothing once the body is no longer presented.
+func _retry_tail(pony: Node) -> void:
+	if not is_instance_valid(pony) or not is_instance_valid(tail_seat) or not controllers.has(pony):
 		return
-	var stored: BODY_FORM.BodyForm = form if form != null else BODY_FORM.default_form(pony)
-	tail_seat.attach(pony, stored)
-	# A mod may finish its hair or dock a frame after the pony is ready; attach is idempotent.
-	tail_seat.attach.call_deferred(pony, stored)
+	tail_seat.attach(pony, form_for(pony))
 
 
 func form_for(pony: Node) -> BODY_FORM.BodyForm:
@@ -162,10 +167,13 @@ func can_seat(pony: Node) -> bool:
 
 
 func clear() -> void:
+	var bodies: Array[Node] = []
 	for pony: Node in controllers.keys():
-		var handle: CONTROLLER = controllers.get(pony)
-		if is_instance_valid(handle):
-			handle.detach()
-			handle.queue_free()
+		bodies.append(pony)
+	for pony: Node in forms.keys():
+		if not bodies.has(pony):
+			bodies.append(pony)
+	for pony: Node in bodies:
+		detach(pony)
 	controllers.clear()
 	forms.clear()

@@ -843,6 +843,7 @@ settings change.
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
+| service | eligibility | `eligibility/service.gd` | adult and consent gate |
 | service | settings | `settings/service.gd` | settings declarations and live values |
 | service | world | `world/game.gd` | service dependency |
 | shared | anatomy_placement | `shared/anatomy_placement.gd` | placement schema and merge |

@@ -399,6 +399,8 @@ func _check_wire() -> void:
 	wired.bind_body(seated)
 	check(anatomy.parts.form_for(seated) != null,
 		"the wired anatomy binding forwards the form to its facade")
+	check(anatomy.parts.controller(seated) == null,
+		"the anatomy gate keeps a body with no identity answer out of the roster")
 
 	var garment_target := FakeGarments.new()
 	var smack_target := FakeSmack.new()

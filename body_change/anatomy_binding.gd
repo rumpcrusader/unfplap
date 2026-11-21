@@ -1,6 +1,6 @@
 extends "res://mods/unfplap/shared/body_binding.gd"
 ## Forwards the presented body's form to the anatomy API, so the controller and the tail seat
-## stay in step with it.
+## stay in step with it. The API gates the identity question itself.
 ## Scope: world. Never preloads `main.gd` or `runtime.gd`.
 ## See `docs/body_change.md` and `docs/anatomy.md` (`## Attachment and identity`).
 
@@ -24,7 +24,7 @@ func bind_body(body: Node3D, form: BODY_FORM.BodyForm) -> void:
 
 func refresh_body(body: Node3D, form: BODY_FORM.BodyForm) -> void:
 	if is_instance_valid(anatomy):
-		anatomy.body_changed(body, form)
+		anatomy.present(body, form)
 
 
 func unbind_body(body: Node3D) -> void:

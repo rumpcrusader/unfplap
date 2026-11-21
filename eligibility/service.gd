@@ -16,7 +16,7 @@ const MARE_REGISTRY := preload("res://mods/unfplap/registry/service.gd")
 
 ## Capability targets: a consumer names its own target and never reads identity.
 ## See `docs/eligibility.md` (`## Capability targets`).
-enum Target { ACT, ANATOMY, TAIL, CHARACTER }
+enum Target { ACT, ANATOMY, CHARACTER }
 ## Witness age categories.
 enum Age { NONE, YOUNG, ADULT }
 ## The provider's tri-state `eligible` assertion.
@@ -26,7 +26,6 @@ enum EligibilityAssertion { IDENTITY, ELIGIBLE, NOT_ELIGIBLE }
 const TARGET_KEYS := {
 	Target.ACT: "acts",
 	Target.ANATOMY: "anatomy",
-	Target.TAIL: "tail",
 	Target.CHARACTER: "",
 }
 

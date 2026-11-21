@@ -167,6 +167,7 @@ func _build_services() -> void:
 	estrus = _add(ESTRUS.new(), "UnfplapEstrus")
 	anatomy = _add(ANATOMY.new(), "UnfplapAnatomy")
 	anatomy.status.connect(Callable(hud, "anatomy_status"))
+	anatomy.bind_eligibility(eligibility)
 	estrus.bind(anatomy)
 	body_change = _add(BODY_CHANGE_SERVICE.new(), "UnfplapBodyChange")
 	body_change.setup()

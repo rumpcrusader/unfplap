@@ -6,6 +6,7 @@ extends "res://mods/unfplap/shared/service.gd"
 ## The anatomy presentation service: roster verbs, act presentation, tail seat and the player part.
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 const GARMENT_HULL := preload("res://mods/unfplap/anatomy/garment_hull.gd")
@@ -259,6 +260,8 @@ class Garment extends RefCounted:
 var rig: RIG
 var parts: PARTS
 var _player: Node = null
+## The identity gate the roster verbs ask; the entry binds it once.
+var _eligibility: ELIGIBILITY = null
 
 
 func _ready() -> void:
@@ -268,41 +271,35 @@ func _ready() -> void:
 	CHANGE.on_changed(Callable(self, "_on_settings_changed"))
 
 
+func bind_eligibility(service: ELIGIBILITY) -> void:
+	_eligibility = service
+
+
 # --------------------------------------------------------------------------- roster
 
-## Idempotent. A null form means the pony's own default form.
+## Idempotent. A null form means the pony's own default form. The identity gate lives here, so no
+## caller can attach a controller or a tail to a body that is not an anatomy target.
 func present(pony: Node3D, form: BODY_FORM.BodyForm = null) -> void:
 	if not is_instance_valid(pony) or parts == null:
 		return
-	parts.present(pony, form, Callable(self, "_emit_status"))
+	parts.remember(pony, form)
+	if not assigned(pony):
+		parts.release(pony)
+		return
+	parts.attach(pony, Callable(self, "_emit_status"))
 	parts.push_part()
 
 
 ## Idempotent. Releases the controller, tail row and form.
 func withdraw(pony: Node3D) -> void:
 	if is_instance_valid(pony) and parts != null:
-		parts.withdraw(pony)
+		parts.detach(pony)
 
 
-## A revised form on the same body: refresh what already exists, never add a controller.
-func body_changed(pony: Node3D, form: BODY_FORM.BodyForm = null) -> void:
-	if not is_instance_valid(pony) or parts == null:
-		return
-	if not is_instance_valid(parts.controller(pony)):
-		return
-	parts.present(pony, form, Callable(self, "_emit_status"))
-
-
-## Idempotent. A null form means the pony's own default.
-func reseat_tail(pony: Node3D, form: BODY_FORM.BodyForm = null) -> void:
-	if is_instance_valid(pony) and parts != null:
-		parts.reseat_tail(pony, form)
-
-
-## Idempotent. Releases only the tail row.
-func withdraw_tail(pony: Node3D) -> void:
-	if is_instance_valid(pony) and parts != null:
-		parts.withdraw_tail(pony)
+## The one identity question these roster verbs ask.
+func assigned(pony: Node) -> bool:
+	return _eligibility != null and is_instance_valid(_eligibility) \
+		and _eligibility.eligible(pony, ELIGIBILITY.Target.ANATOMY)
 
 
 # --------------------------------------------------------------------------- act

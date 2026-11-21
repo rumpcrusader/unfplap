@@ -358,9 +358,6 @@ static func bind(anatomy_service: ANATOMY, body_change_service: Node, offer_serv
 ## A settings edit: also the swapped act the registry no longer holds.
 static func _on_settings_changed() -> void:
 	apply_live_settings()
-	for pony: Variant in _runtimes.keys():
-		if is_instance_valid(pony):
-			_recheck_anatomy(pony)
 	if is_instance_valid(_active) and not _runtimes.has(_active.get("pony")):
 		var session: Variant = _active.get("act")
 		if session != null:
@@ -412,7 +409,7 @@ static func shutdown() -> void:
 static func _prepare(pony: Node) -> void:
 	if is_instance_valid(body_change):
 		body_change.notify_body_ready(pony)
-	_recheck_anatomy(pony)
+	_present_anatomy(pony)
 	if is_instance_valid(estrus):
 		estrus.track(pony)
 	if is_instance_valid(stock_smack):
@@ -423,32 +420,15 @@ static func _prepare(pony: Node) -> void:
 		act_gate.warm(pony)
 
 
-## The roster's anatomy gate. There is no eligibility-changed event, so attach, act start and a
-## settings edit each re-check the two capabilities and withdraw what no longer passes.
-static func _recheck_anatomy(pony: Node) -> void:
+## The one anatomy assignment, with the provider's stored form; the API gates the identity.
+static func _present_anatomy(pony: Node) -> void:
 	if not is_instance_valid(pony) or not is_instance_valid(anatomy):
 		return
 	var body := pony as Node3D
 	if not is_instance_valid(body):
 		return
 	var form: Variant = body_change.form_for(body) if is_instance_valid(body_change) else null
-	var anatomy_ok: bool = is_instance_valid(eligibility) \
-		and eligibility.eligible(pony, ELIGIBILITY.Target.ANATOMY)
-	if anatomy_ok:
-		anatomy.present(body, form)
-	else:
-		anatomy.withdraw(body)
-	var tail_ok: bool = is_instance_valid(eligibility) \
-		and eligibility.eligible(pony, ELIGIBILITY.Target.TAIL)
-	if tail_ok:
-		anatomy.reseat_tail(body, form)
-	else:
-		anatomy.withdraw_tail(body)
-
-
-## Re-check one pony before an act binds her presentation.
-static func ensure_anatomy(pony: Node) -> void:
-	_recheck_anatomy(pony)
+	anatomy.present(body, form)
 
 
 ## Adopt the suspended act onto a newly spawned body. Runs after the adapter fitted it but before
@@ -485,7 +465,7 @@ static func _adopt_pending(pony: Node) -> bool:
 	if is_instance_valid(old_pony) and _runtimes.get(old_pony) == runtime:
 		_runtimes.erase(old_pony)
 	_runtimes[pony] = runtime
-	_recheck_anatomy(pony)
+	_present_anatomy(pony)
 	if runtime.get_parent() != pony:
 		runtime.attach_to_body(pony)
 	pony.tree_exiting.connect(func() -> void: _on_body_exit(pony))

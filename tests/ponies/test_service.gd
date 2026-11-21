@@ -92,15 +92,9 @@ class FakeAnatomy extends ANATOMY:
 		presented[pony] = true
 		journal.append("present:" + str(pony.name))
 
-	func reseat_tail(pony: Node3D, _form: BODY_FORM.BodyForm = null) -> void:
-		journal.append("tail:" + str(pony.name))
-
 	func withdraw(pony: Node3D) -> void:
 		presented.erase(pony)
 		journal.append("withdraw:" + str(pony.name))
-
-	func withdraw_tail(pony: Node3D) -> void:
-		journal.append("untail:" + str(pony.name))
 
 
 class FakeBodyChange extends Node:
@@ -289,8 +283,8 @@ func _check_attach() -> void:
 	check(is_instance_valid(runtime), "an attached body gets one runtime")
 	check(runtime.get_parent() == pony, "the runtime lives under its body")
 	check(runtime.get("pony") == pony, "the factory hands the runtime its body")
-	check(anatomy.journal == ["present:FluttershyBody", "tail:FluttershyBody"],
-		"the prepare presents the body and seats its tail, in that order")
+	check(anatomy.journal == ["present:FluttershyBody"],
+		"the prepare presents the body once")
 	check(body_change.journal == ["form:FluttershyBody"], "the body is prepared once")
 	check(smack.journal == ["ready:FluttershyBody"], "the smack layer is told about the body")
 	PONIES.attach(pony)
@@ -399,17 +393,17 @@ func _check_prepare() -> void:
 	var pony := _pony("applejack", "ApplejackBody")
 	root.add_child(pony)
 	PONIES.prepare_late(pony)
-	check(anatomy.journal == ["present:ApplejackBody", "tail:ApplejackBody"],
-		"the late prepare presents the body and seats the tail")
+	check(anatomy.journal == ["present:ApplejackBody"],
+		"the late prepare presents the body once")
 	check(body_change.journal == ["form:ApplejackBody"], "the late prepare fits the body")
 	check(smack.journal == ["ready:ApplejackBody"], "the late prepare arms the smack layer")
 	PONIES.prepare_late(pony)
-	check(anatomy.journal.size() == 3, "a second late prepare seats the tail again")
+	check(anatomy.journal.size() == 1, "a second late prepare presents nothing new")
 	check(PONIES.runtime_for(pony) == null, "a prepare never creates a runtime")
 	var host: Node = f["host"]
 	WORLD.unbind()
 	PONIES.prepare_late(pony)
-	check(anatomy.journal.size() == 3, "a prepare without the entry does nothing")
+	check(anatomy.journal.size() == 1, "a prepare without the entry does nothing")
 	WORLD.bind_world(host)
 	PONIES.shutdown()
 	root.remove_child(pony)

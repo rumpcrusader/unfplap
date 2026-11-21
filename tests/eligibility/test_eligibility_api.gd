@@ -138,9 +138,8 @@ func run() -> void:
 	# Capability targets keep identity private: the act-side targets accept an adult mare,
 	# the character target has no participation veto, and an opt-out stays editable.
 	check(main.eligibility.eligible(pony, ELIGIBILITY.Target.ACT)
-		and main.eligibility.eligible(pony, ELIGIBILITY.Target.ANATOMY)
-		and main.eligibility.eligible(pony, ELIGIBILITY.Target.TAIL),
-		"the act, anatomy and tail targets accept an adult mare")
+		and main.eligibility.eligible(pony, ELIGIBILITY.Target.ANATOMY),
+		"the act and anatomy targets accept an adult mare")
 	check(main.eligibility.eligible(pony, ELIGIBILITY.Target.CHARACTER),
 		"the character target accepts an adult mare")
 	SETTINGS.save_participation("rarity", ROWS.Rows.of({"acts": false}))

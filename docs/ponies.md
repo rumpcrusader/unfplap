@@ -192,6 +192,7 @@ The Debug block builds its own `Host` from the `PONIES` facade in `debug/actions
 |---|---|---|---|
 | service | anatomy | `anatomy/api.gd` | anatomy and tail seat |
 | service | eligibility | `eligibility/service.gd` | adult and consent gate |
+| service | act_gate | `act_gate/service.gd` | dynamic act gate |
 | service | settings | `settings/service.gd` | settings declarations and live values |
 | service | world | `world/game.gd` | service dependency |
 | service | world | `world/service.gd` | live scene reads |

@@ -8,6 +8,7 @@ const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const SERVICE := preload("res://mods/unfplap/shared/service.gd")
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
+const ACT_GATE := preload("res://mods/unfplap/act_gate/service.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const HUD := preload("res://mods/unfplap/hud/service.gd")
 const INPUT := preload("res://mods/unfplap/input/service.gd")
@@ -68,6 +69,8 @@ var privacy: PRIVACY
 var negotiation: NEGOTIATION
 ## Internal eligibility service; see docs/eligibility.md. Never part of the cross-mod API.
 var eligibility: ELIGIBILITY
+## The dynamic act gate: relationship, romance, cycle, history and consent. See docs/act_gate.md.
+var act_gate: ACT_GATE
 ## Internal memory service: act events, impressions, witnesses and the mod's own lines.
 ## See docs/memory.md. Never part of the cross-mod API.
 var memory: MEMORY
@@ -135,6 +138,10 @@ func _build_services() -> void:
 	eligibility = _add(ELIGIBILITY.new())
 	# The API can be discovered before the end of the build; `describe_mare` reads this service.
 	PONIES.eligibility = eligibility
+	# The dynamic gate asks the identity question and owns every "right now" row.
+	act_gate = _add(ACT_GATE.new())
+	act_gate.bind_eligibility(eligibility)
+	PONIES.act_gate = act_gate
 	memory = _add(MEMORY.new())
 	privacy = _add(PRIVACY.new())
 	negotiation = _add(NEGOTIATION.new(), "UnfplapNegotiation")
@@ -178,7 +185,7 @@ func _build_services() -> void:
 	debug_actions = _add(DEBUG_ACTIONS.new(), "UnfplapDebugActions")
 	debug_actions.bind(body_change, initiation, negotiation, anatomy, pantyhose, hud)
 	debug_actions.sync_skeleton_overlay()
-	PONIES.bind(anatomy, body_change, offer, stock_smack, eligibility, estrus, api)
+	PONIES.bind(anatomy, body_change, offer, stock_smack, eligibility, act_gate, estrus, api)
 	_assert_hooks()
 
 

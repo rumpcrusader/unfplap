@@ -12,6 +12,7 @@ const GAME := preload("res://mods/unfplap/world/game.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
+const ACT_GATE := preload("res://mods/unfplap/act_gate/service.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
@@ -27,6 +28,8 @@ static var body_change: Node = null
 static var stock_smack: Node = null
 static var offer: Node = null
 static var eligibility: ELIGIBILITY = null
+## The dynamic act gate, rebuilt on every world enter like eligibility.
+static var act_gate: ACT_GATE = null
 ## The cross-mod API facade, bound once by the entry. An integration registers its mare here.
 static var api: Node = null
 
@@ -166,8 +169,8 @@ static func act_target(pony: Node) -> bool:
 
 ## The Base clearance relationship row: live relationship, romance and the Promiscuity floor.
 static func relationship_ok(pony: Node) -> bool:
-	return is_instance_valid(pony) and is_instance_valid(eligibility) \
-		and eligibility.relationship_ok(pony)
+	return is_instance_valid(pony) and is_instance_valid(act_gate) \
+		and act_gate.relationship_ok(pony)
 
 
 ## The nearest act target whose rear fan holds the eye, or null.
@@ -340,14 +343,15 @@ static func bind_settings() -> void:
 ## Bind the services one attached body passes through.
 ## The entry binds at the end of its build, so a body spawned mid-build still reads a complete set.
 static func bind(anatomy_service: ANATOMY, body_change_service: Node, offer_service: Node,
-		stock_smack_service: Node, eligibility_service: ELIGIBILITY, estrus_service: Node,
-		api_service: Node) -> void:
+		stock_smack_service: Node, eligibility_service: ELIGIBILITY, gate_service: ACT_GATE,
+		estrus_service: Node, api_service: Node) -> void:
 	anatomy = anatomy_service
 	estrus = estrus_service
 	body_change = body_change_service
 	offer = offer_service
 	stock_smack = stock_smack_service
 	eligibility = eligibility_service
+	act_gate = gate_service
 	api = api_service
 
 
@@ -399,6 +403,7 @@ static func shutdown() -> void:
 	stock_smack = null
 	offer = null
 	eligibility = null
+	act_gate = null
 	api = null
 
 
@@ -414,6 +419,8 @@ static func _prepare(pony: Node) -> void:
 		stock_smack.pony_ready(pony)
 	if is_instance_valid(eligibility):
 		eligibility.warm(pony)
+	if is_instance_valid(act_gate):
+		act_gate.warm(pony)
 
 
 ## The roster's anatomy gate. There is no eligibility-changed event, so attach, act start and a

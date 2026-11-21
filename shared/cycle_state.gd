@@ -1,8 +1,6 @@
 extends RefCounted
-## One mare's cycle phase, derived for every consumer the same way.
-##
-## The debug override wins even with the feature off, so the lab can force heat. A pony that has
-## only just spawned has no relationship runtime yet, so that reads as normal.
+## Shared derivation of one mare's phase: the debug override, the feature switch, then her bond
+## day. Estrus and the act gate both read it here, so the two cannot disagree.
 
 const CYCLE := preload("res://mods/unfplap/shared/cycle.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")

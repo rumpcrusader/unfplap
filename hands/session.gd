@@ -9,27 +9,6 @@ const CAESS := preload("res://mods/unfplap/shared/hands_caress.gd")
 func hand_driver() -> Node:
 	return null
 
-func caress_active(_side: String) -> bool:
-	return false
-
-func caress_latched(_side: String) -> bool:
-	return false
-
-func caress_set_hand(_side: String, _apply := true) -> Transform3D:
-	return Transform3D.IDENTITY
-
-func caress_begin_return(_caress_side: String, _from: Transform3D) -> void:
-	pass
-
-func caress_finish_keep(_caress_side: String) -> void:
-	pass
-
-func caress_reset_hand(_side: String) -> void:
-	pass
-
-func caress_return_seconds() -> float:
-	return 0.12
-
 func smack_body_scale() -> float:
 	return 1.0
 

@@ -175,6 +175,15 @@ func run() -> void:
 	check(SMACK.side_index(0.4) == 0, "right lean smacks left cheek")
 	check(SMACK.side_index(-0.4) == 1, "left lean smacks right cheek")
 	check(SMACK.side_index(0.0) == -1, "centered smack is random")
+	check(HANDS.smack_hand(true, false, 0.0) == "right",
+		"the free hand smacks while the left hand caresses")
+	check(HANDS.smack_hand(false, true, 0.0) == "left",
+		"the free hand smacks while the right hand caresses")
+	check(HANDS.smack_hand(true, true, 0.1) == "left"
+		and HANDS.smack_hand(true, true, 0.9) == "right",
+		"both hands busy picks one hand at random")
+	check(HANDS.smack_hand(false, false, 0.0) == "",
+		"no busy hand leaves the choice to the lean")
 	var up_offset: Vector3 = HANDS.smack_query_offset(0.05, 0.02, 1.0,
 		Vector3.UP, Vector3.BACK)
 	check(near(up_offset.y, 0.05) and near(up_offset.z, 0.02),
@@ -270,6 +279,14 @@ func run() -> void:
 		"closest flank clamps outside the patch")
 	check(not HANDS.closest_flank_hit(PackedVector3Array(), PackedVector3Array(),
 		Vector3.ZERO).hit, "empty flank patch has no hit")
+	var reach_hands: RefCounted = HANDS.new(ACT_FACTS.new())
+	reach_hands.set("_reach_shoulder", "R")
+	reach_hands.set("_reach_holding", true)
+	check(bool(reach_hands.call("reach_active")), "a held shoulder reach owns its hand")
+	reach_hands.call("_cancel_reach", "R")
+	check(not bool(reach_hands.call("reach_active"))
+		and str(reach_hands.get("_reach_shoulder")).is_empty(),
+		"a taken reach hand drops the shoulder hold")
 
 	check(near(MOTION.lean_distance(1.0), 0.24), "forward lean distance")
 	check(near(MOTION.lean_distance(-1.0), 0.0), "backward lean has no travel")

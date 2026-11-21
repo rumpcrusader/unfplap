@@ -1,6 +1,6 @@
 extends RefCounted
-## Smack action for the act hands. The coordinator supplies the target frame and mode; this
-## controller owns the swing phases, native impact audio and the return to the live caress.
+## Smack action for the act hands. The coordinator supplies the target frame; this controller runs
+## the swing, the impact audio and the hand's easing back.
 
 const SMACK_AUDIO := preload("res://mods/unfplap/audio/smack_cues.gd")
 const SESSION := preload("res://mods/unfplap/hands/session.gd")
@@ -47,7 +47,7 @@ var _rest := Transform3D.IDENTITY
 var _outward := Vector3.UP
 var _raise_seconds := SMACK_RAISE_MIN_S
 var _strike_seconds := 0.10
-var _caress := false
+var _from_coat := false
 var _standing := false
 var _last_ms := -10000
 var _streams: Array[AudioStream] = []
@@ -151,7 +151,7 @@ func owns_hand(hand_side: String) -> bool:
 
 
 func begin(hand_side: String, index: int, at: Vector3, from_frame: Transform3D,
-		target: Transform3D, outward: Vector3, caressing: bool, standing: bool,
+		target: Transform3D, outward: Vector3, from_coat: bool, standing: bool,
 		now: int) -> void:
 	_index = index
 	_at = at
@@ -160,7 +160,7 @@ func begin(hand_side: String, index: int, at: Vector3, from_frame: Transform3D,
 	_contact = target
 	_outward = outward.normalized()
 	_rest = from_frame
-	_caress = caressing
+	_from_coat = from_coat
 	_standing = standing
 	_started = now
 	_last_ms = now
@@ -212,7 +212,7 @@ func reset() -> void:
 
 func _start_standing() -> void:
 	_rest = _from
-	if _caress:
+	if _from_coat:
 		var scale := float(hand.smack_body_scale())
 		_raised = raise_frame(_contact, _outward, _raise_m(),
 			SMACK_RAISE_BACK_M * scale, _back_dir(), _pitch_deg())
@@ -253,43 +253,22 @@ func _phase_tick(driver: Node) -> void:
 			if elapsed >= SMACK_CONTACT_HOLD_SECONDS:
 				_phase = SMACK_PHASE_RECOVER
 				_phase_started = now
-				hand.caress_reset_hand(_side)
 		SMACK_PHASE_RECOVER:
-			var target := _recover_target()
-			var duration := float(hand.caress_return_seconds()) \
-				if _keep_caress() else SMACK_REST_RETURN_SECONDS
-			var t := clampf(elapsed / maxf(duration, 0.001), 0.0, 1.0)
-			var frame := recover_blend(_contact, target, t)
+			var t := clampf(elapsed / maxf(SMACK_REST_RETURN_SECONDS, 0.001), 0.0, 1.0)
+			var frame := recover_blend(_contact, _rest, t)
 			GAME.set_hold_target(driver, _side, frame, "rub")
 			if t >= 1.0:
 				_finish(driver)
 
 
-func _recover_target() -> Transform3D:
-	var caress_side := "L" if _side == "left" else "R"
-	if _keep_caress():
-		var target: Transform3D = hand.caress_set_hand(caress_side, false)
-		if not target.is_equal_approx(Transform3D.IDENTITY):
-			return target
-	return _rest
-
-
-func _keep_caress() -> bool:
-	var caress_side := "L" if _side == "left" else "R"
-	return _caress and bool(hand.caress_latched(caress_side))
-
-
 func _finish(driver: Node) -> void:
-	var caress_side := "L" if _side == "left" else "R"
-	if _keep_caress():
-		hand.caress_finish_keep(caress_side)
-	elif is_instance_valid(driver) and driver.has_method("clear_hold_target"):
+	if is_instance_valid(driver) and driver.has_method("clear_hold_target"):
 		GAME.clear_hold_target(driver, _side)
 	_active = false
 	_side = ""
 	_at = Vector3.INF
 	_phase = SMACK_PHASE_NONE
-	_caress = false
+	_from_coat = false
 
 
 func _end_swing() -> void:
@@ -297,22 +276,14 @@ func _end_swing() -> void:
 		return
 	if not _side.is_empty():
 		var driver: Node = hand.hand_driver() if is_instance_valid(hand) else null
-		var caress_side := "L" if _side == "left" else "R"
-		if bool(hand.caress_active(caress_side)):
-			var from := _contact if _phase != SMACK_PHASE_NONE else _to
-			if is_instance_valid(driver) and driver.has_method("hand_frame"):
-				var current := GAME.hand_frame(driver, _side)
-				if current.is_finite():
-					from = current
-			hand.caress_begin_return(caress_side, from)
-		elif is_instance_valid(driver) and driver.has_method("clear_hold_target"):
+		if is_instance_valid(driver) and driver.has_method("clear_hold_target"):
 			GAME.clear_hold_target(driver, _side)
 	_active = false
 	_side = ""
 	_at = Vector3.INF
 	_impact_done = false
 	_phase = SMACK_PHASE_NONE
-	_caress = false
+	_from_coat = false
 	_contact = Transform3D.IDENTITY
 	_raised = Transform3D.IDENTITY
 	_rest = Transform3D.IDENTITY

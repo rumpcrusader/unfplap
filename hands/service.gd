@@ -28,9 +28,6 @@ const CARESS_SPEED_RAD_S := 3.6
 ## A caress is one continuous action, not a per-frame sample: five seconds of contact count as
 ## one liked or disliked touch. The runtime's scoring and tolerance paths see discrete events.
 const CAESS_TOUCH_SECONDS := 5.0
-## A smack swings the caress hand to the cheek and back; ease the return so the contact reset
-## does not read as a teleport.
-const CARESS_RETURN_SECONDS := 0.12
 ## Per-preset caress-point offsets in metres, before the body scale reaches the oval radius only.
 ## `out` moves each hand off the flank, so both hands together gain twice it.
 const CARESS_PROFILES := {
@@ -106,6 +103,18 @@ static func smack_side_index(side: float) -> int:
 	if side < 0.0:
 		return 1
 	return -1
+
+
+## The smack hand: the free hand while one is busy, a random one while both are, and no
+## preference (the lean picks a cheek) while neither is.
+static func smack_hand(busy_left: bool, busy_right: bool, pick: float) -> String:
+	if busy_left and busy_right:
+		return "left" if pick < 0.5 else "right"
+	if busy_left:
+		return "right"
+	if busy_right:
+		return "left"
+	return ""
 
 
 ## Roll about the coat normal, in degrees. The right hand turns counter-clockwise and the left
@@ -230,8 +239,6 @@ var _caress_move_key_down := {"L": false, "R": false}
 var _caress_phase := {"L": 0.0, "R": 0.0}
 var _caress_touch_seconds := 0.0
 var _caress_logged := {"L": false, "R": false}
-var _caress_return_from := {"L": Transform3D.IDENTITY, "R": Transform3D.IDENTITY}
-var _caress_return_started := {"L": 0, "R": 0}
 var _caress_engine: PLACEMENT
 var _smack_ctl: SMACK
 var _flank_path: FLANK_PATH
@@ -368,12 +375,8 @@ func _caress_tick(delta: float) -> void:
 				LOG.debug("caress movement side=%s %s", [
 					side, "on" if bool(_caress_moving[side]) else "off"])
 		var hand_side := "left" if side == "L" else "right"
-		# The slapping hand owns the hold target during its swing. Keep the oval phase moving
-		# so the hand can return to the current caress point instead of the one it left.
+		# The slapping hand owns the hold target during its swing; a re-press starts after it.
 		if _smack_controller().owns_hand(hand_side):
-			if bool(_caress_active[side]) and bool(_caress_moving[side]):
-				_caress_phase[side] = caress_phase_step(
-					float(_caress_phase[side]), true, delta)
 			continue
 		var want := bool(_caress_latched[side])
 		if want:
@@ -381,7 +384,6 @@ func _caress_tick(delta: float) -> void:
 				_caress_active[side] = true
 				_caress_phase[side] = 0.0
 				_caress_logged[side] = false
-				_caress_return_started[side] = 0
 				_engine().reset_hand(hand_side)
 				LOG.debug("caress start side=%s", [side])
 			_caress_phase[side] = caress_phase_step(
@@ -436,7 +438,6 @@ func _end_caress_side(side: String) -> void:
 	_caress_latched[side] = false
 	_caress_phase[side] = 0.0
 	_caress_logged[side] = false
-	_caress_return_started[side] = 0
 	_caress_oral_started[side] = 0
 
 
@@ -487,15 +488,6 @@ func _set_caress_hand(side: String, apply := true) -> Transform3D:
 		return Transform3D.IDENTITY
 	if not apply:
 		return target
-	var return_started := int(_caress_return_started.get(side, 0))
-	if return_started > 0:
-		var elapsed := float(Time.get_ticks_msec() - return_started) / 1000.0
-		if elapsed >= CARESS_RETURN_SECONDS:
-			_caress_return_started[side] = 0
-		else:
-			var t := smoothstep(0.0, 1.0, elapsed / CARESS_RETURN_SECONDS)
-			var from: Transform3D = _caress_return_from[side]
-			target = from.interpolate_with(target, t)
 	var oral_started := int(_caress_oral_started.get(side, 0))
 	if oral_started > 0:
 		var oral_elapsed := float(Time.get_ticks_msec() - oral_started) / 1000.0
@@ -928,15 +920,10 @@ func _smack() -> void:
 		_flank = pony.get_node_or_null("FlankTouch") if is_instance_valid(pony) else null
 	if not is_instance_valid(_flank) or not _flank.has_method("impact"):
 		return
-	# If a hand is already resting on the flank, slap with that hand. Both on the flank: pick
-	# one at random. Otherwise keep the lean-based cheek/hand mapping.
-	var hand_side := ""
-	if _caress_active["L"] and _caress_active["R"]:
-		hand_side = "left" if randf() < 0.5 else "right"
-	elif _caress_active["L"]:
-		hand_side = "left"
-	elif _caress_active["R"]:
-		hand_side = "right"
+	# A reaching hand is not free: only a hand with neither action can take the swing.
+	var busy_left := bool(_caress_active["L"]) or _reach_holds("L")
+	var busy_right := bool(_caress_active["R"]) or _reach_holds("R")
+	var hand_side := smack_hand(busy_left, busy_right, randf())
 	var index := 0 if hand_side == "left" else (1 if hand_side == "right" else smack_side_index(float(facts.lean_side)))
 	if index < 0:
 		index = 0 if randf() < 0.5 else 1
@@ -945,8 +932,9 @@ func _smack() -> void:
 		hand_side = "left" if index == 0 else "right"
 	var caress_side := "L" if hand_side == "left" else "R"
 	var caressing := bool(_caress_active[caress_side])
+	var reaching := _reach_holds(caress_side)
 	var driver: Node = _hand_driver()
-	var from_frame := Transform3D.IDENTITY
+	var from_frame := Transform3D(Basis(), Vector3.INF)
 	if is_instance_valid(driver) and driver.has_method("hand_frame"):
 		var current := GAME.hand_frame(driver, hand_side)
 		if current.is_finite():
@@ -988,8 +976,14 @@ func _smack() -> void:
 				_smack_finger_hint(caressing), _palm_clearance(), false, 0.0, [], true, [],
 				0.0, "smack:" + hand_side)
 			var standing := _pose_family() == "standing"
+			# End the hold before the swing starts, so nothing is left to resume.
+			if caressing:
+				_end_caress_side(caress_side)
+			if reaching:
+				_cancel_reach(caress_side)
 			_smack_controller().begin(hand_side, index, at, from_frame, target, normal,
-				caressing, standing, now)
+				caressing or reaching, standing, now)
+			GAME.set_hold_target(driver, hand_side, from_frame, "rub")
 			return
 	_smack_controller().instant(index, at)
 
@@ -1083,6 +1077,25 @@ func end_reach() -> void:
 	_begin_reach_release()
 
 
+## True while a shoulder reach holds a hand; the camera's lean action polls this.
+func reach_active() -> bool:
+	return _reach_holding
+
+
+## The smack took the reaching hand: drop the shoulder hold so it does not come back.
+func _cancel_reach(side: String) -> void:
+	if not _reach_holds(side):
+		return
+	_reach_holding = false
+	_clear_reach_hand()
+	_reach_shoulder = ""
+
+
+## True while the reach owns that hand's shoulder hold.
+func _reach_holds(side: String) -> bool:
+	return _reach_holding and _reach_shoulder == side
+
+
 func reset() -> void:
 	_end_caress()
 	_smack_controller().reset()
@@ -1151,36 +1164,8 @@ func caress_active(side: String) -> bool:
 	return bool(_caress_active.get(side, false))
 
 
-func caress_latched(side: String) -> bool:
-	return bool(_caress_latched.get(side, false))
-
-
 func caress_phase(side: String) -> float:
 	return float(_caress_phase.get(side, 0.0))
-
-
-func caress_set_hand(side: String, apply := true) -> Transform3D:
-	return _set_caress_hand(side, apply)
-
-
-func caress_begin_return(caress_side: String, from: Transform3D) -> void:
-	var side := "left" if caress_side == "L" else "right"
-	_engine().reset_hand(side)
-	_caress_return_from[caress_side] = from
-	_caress_return_started[caress_side] = Time.get_ticks_msec()
-	_set_caress_hand(caress_side)
-
-
-func caress_finish_keep(caress_side: String) -> void:
-	_caress_return_started[caress_side] = 0
-
-
-func caress_reset_hand(side: String) -> void:
-	_engine().reset_hand(side)
-
-
-func caress_return_seconds() -> float:
-	return CARESS_RETURN_SECONDS
 
 
 func hand_driver() -> Node:

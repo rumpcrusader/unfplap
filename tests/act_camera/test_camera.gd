@@ -81,6 +81,7 @@ class FakePlayer extends Node3D:
 
 class FakeHands extends HANDS:
 	var calls: Array[String] = []
+	var reach := ""
 
 	func return_tick() -> void:
 		calls.append("return_tick")
@@ -92,13 +93,19 @@ class FakeHands extends HANDS:
 		calls.append("tick")
 
 	func reset() -> void:
+		reach = ""
 		calls.append("reset")
 
 	func start_reach(side: String) -> void:
+		reach = side
 		calls.append("start_reach:" + side)
 
 	func end_reach() -> void:
+		reach = ""
 		calls.append("end_reach")
+
+	func reach_active() -> bool:
+		return not reach.is_empty()
 
 
 class FakeKiss extends KISS:
@@ -597,6 +604,30 @@ func _check_lean() -> void:
 	camera.call("tick_lean_action")
 	check(hands.calls.has("end_reach") and view.calls.has("clear_glance"),
 		"releasing the reach clears the glance")
+
+	# A smack that takes the reaching hand ends the hold and the action, and the reach does not
+	# fire again until the lean leaves the release band.
+	hands.calls.clear()
+	view.calls.clear()
+	camera.lean_side = 0.8
+	camera.call("tick_lean_action")
+	check(hands.calls.has("start_reach:R"), "a fresh lean starts the reach again")
+	hands.reach = ""
+	camera.call("tick_lean_action")
+	check(not camera.lean_action_active and hands.calls.has("end_reach")
+		and view.calls.has("clear_glance"),
+		"a taken reach hand ends the lean action and its glance")
+	var reach_starts := hands.calls.count("start_reach:R")
+	camera.call("tick_lean_action")
+	check(not camera.lean_action_active
+		and hands.calls.count("start_reach:R") == reach_starts,
+		"a taken reach does not re-fire while the lean holds")
+	camera.lean_side = 0.0
+	camera.call("tick_lean_action")
+	camera.lean_side = 0.8
+	camera.call("tick_lean_action")
+	check(hands.calls.count("start_reach:R") == reach_starts + 1,
+		"leaving the release band re-arms the reach")
 
 	# A fresh lean state drops the hands and the kiss.
 	hands.calls.clear()

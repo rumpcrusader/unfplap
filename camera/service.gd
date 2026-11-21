@@ -75,6 +75,8 @@ var hold_rock_clock := 0.0
 var lean_action_active := false
 var lean_action_side := 0.0
 var lean_action_kind := ""
+## An action retired ahead of its lean stays down until the input drops back to rest.
+var lean_action_spent := false
 
 ## The shot's smoothing state and the afterglow back-off.
 var bob := 0.0
@@ -448,8 +450,15 @@ func tick_lean_action() -> void:
 		return
 	var side := lean_side
 	if not lean_action_active:
-		if absf(side) >= MOTION.LEAN_FIRE:
+		if absf(side) <= MOTION.LEAN_RELEASE:
+			lean_action_spent = false
+		if absf(side) >= MOTION.LEAN_FIRE and not lean_action_spent:
 			start_lean_action(side)
+		return
+	if lean_action_kind == "reach" and hands != null and not hands.reach_active():
+		# The hands dropped the shoulder hold (a smack took that hand): the glance goes with it.
+		lean_action_spent = true
+		end_lean_action()
 		return
 	if absf(side) <= MOTION.LEAN_RELEASE or signf(side) != signf(lean_action_side):
 		end_lean_action()
@@ -460,6 +469,7 @@ func tick_lean_action() -> void:
 
 func start_lean_action(side: float) -> void:
 	lean_action_active = true
+	lean_action_spent = false
 	lean_action_side = side
 	lean_action_kind = MOTION.lean_action_kind(lean_profile(), side)
 	var shoulder := ""
@@ -495,6 +505,7 @@ func reset_lean_state() -> void:
 		hands.reset()
 	if kiss != null:
 		kiss.reset()
+	lean_action_spent = false
 	lean_forward = 0.0
 	lean_side = 0.0
 	lean_view_forward = 0.0

@@ -53,6 +53,7 @@ func run() -> void:
 	var stored: BODY_FORM.BodyForm = api._parts.form_for(pony)
 	check(stored != null and stored.is_own() and stored.pony_id == "twilight_sparkle",
 		"a null form presents the body's own default")
+	check(api.garment(pony) == api.garment(pony), "the garment handle is cached per pony")
 
 	# The same body with a revised form updates the existing controller instead of adding one.
 	var revised := BODY_FORM.default_form(pony)

@@ -119,6 +119,8 @@ verbs are `remember` (store the form), `attach` (build or refresh the controller
 with `pony`, `form`, the `Rig`, a status callback and a dock-colour callback. The controller never
 reads the runtime node or eligibility; the facade owns the gate. `PlayerHost`
 resolves the Anon body through `Rig.anon_body_of()` and owns the hidden warm mesh.
+`anon()` and `garment(pony)` reuse a facade handle; a handle is a live view of the current part or
+controller, not a snapshot.
 
 The Placement editor no longer selects a pony: `debug_placement(pony, op, value, tail_owned)` and
 `debug_show(pony)` take the body the debug caller aimed at. A source-owned tail is passed as

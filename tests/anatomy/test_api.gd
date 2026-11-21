@@ -35,6 +35,7 @@ func run() -> void:
 	# An API node with no world still answers every verb as a safe no-op.
 	var api: ANATOMY = ANATOMY.new()
 	var handle := api.anon()
+	check(api.anon() == api.anon(), "the anon handle is shared")
 	check(not handle.prepare() and not handle.showing(), "an absent part prepares and shows false")
 	check(handle.root_now() == Vector3.INF, "an absent part has no root")
 	check(is_zero_approx(handle.shaft_length_m()), "an absent part has no shaft")

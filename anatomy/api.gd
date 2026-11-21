@@ -175,6 +175,10 @@ class AnonBody extends RefCounted:
 	func _init(host: PLAYER_HOST) -> void:
 		_host = host
 
+	## Repoint the shared handle at the live host; the handle is a view, not a snapshot.
+	func _bind(host: PLAYER_HOST) -> void:
+		_host = host
+
 	func prepare() -> bool:
 		return _host.prepare() if _host != null else false
 
@@ -219,6 +223,10 @@ class Garment extends RefCounted:
 	func _init(controller: CONTROLLER) -> void:
 		_controller = controller
 
+	## Repoint the handle at the controller now presented for its pony.
+	func _bind(controller: CONTROLLER) -> void:
+		_controller = controller
+
 	func hull() -> RefCounted:
 		if not is_instance_valid(_controller):
 			return null
@@ -243,6 +251,9 @@ var _rig: RIG
 var _parts: PARTS
 ## The identity gate the roster verbs ask; the entry binds it once.
 var _eligibility: ELIGIBILITY = null
+var _anon: AnonBody = null
+## pony -> its cached handle; a retained handle keeps its pony.
+var _garments: Dictionary = {}
 
 
 func _ready() -> void:
@@ -269,13 +280,13 @@ func present(pony: Node3D, form: BODY_FORM.BodyForm = null) -> void:
 		_parts.release(pony)
 		return
 	_parts.attach(pony, Callable(self, "_emit_status"))
-	_parts.push_part()
 
 
 ## Idempotent. Releases the controller, tail row and form.
 func withdraw(pony: Node3D) -> void:
 	if is_instance_valid(pony) and _parts != null:
 		_parts.detach(pony)
+		_garments.erase(pony)
 
 
 ## The one identity question these roster verbs ask.
@@ -303,7 +314,10 @@ func begin_act(pony: Node3D, view: PoseView) -> ActPresentation:
 
 ## Always returns a handle; its methods no-op when the part is absent.
 func anon() -> AnonBody:
-	return AnonBody.new(_parts.player_host if _parts != null else null)
+	if _anon == null:
+		_anon = AnonBody.new(null)
+	_anon._bind(_parts.player_host if _parts != null else null)
+	return _anon
 
 
 ## World-space vulva point at hole mix 0; INF when absent.
@@ -343,7 +357,16 @@ func rest(pony: Node3D, open: float) -> void:
 
 ## Always returns a handle; a detached controller answers null, identity, null and false.
 func garment(pony: Node3D) -> Garment:
-	return Garment.new(_parts.controller(pony) if _parts != null else null)
+	if not is_instance_valid(pony):
+		return Garment.new(null)
+	var controller := _parts.controller(pony) if _parts != null else null
+	var handle: Garment = _garments.get(pony) as Garment
+	if handle == null:
+		handle = Garment.new(controller)
+		_garments[pony] = handle
+	else:
+		handle._bind(controller)
+	return handle
 
 
 ## Clear the shared hull cache; the next `hull()` rebuilds once.
@@ -430,6 +453,8 @@ func on_world_closed() -> void:
 	if _parts != null:
 		_parts.player_host.on_world_closed()
 		_parts.push_part()
+	_garments.clear()
+	_anon = null
 
 
 func on_player(body: Node) -> void:
@@ -446,6 +471,8 @@ func shutdown() -> void:
 		_parts.player_host.on_world_closed()
 	_parts = null
 	_rig = null
+	_garments.clear()
+	_anon = null
 
 
 func _on_settings_changed() -> void:

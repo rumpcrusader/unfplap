@@ -44,9 +44,7 @@ DOC_LINE_RE = re.compile(r"^\s*##")
 DECLARATION_RE = re.compile(r"^(?:extends\b|@tool\b|class_name\b)")
 BODY_RE = re.compile(r"^\s*#+ ?")
 POINTER_RE = re.compile(r"`(docs/[A-Za-z0-9_./-]+\.md)`")
-HEADING_SPAN_RE = re.compile(r"`(#{1,6}\s+[^`]+)`")
 PRIVATE_SPAN_RE = re.compile(r"`(_[a-z][a-z0-9_]*(?:\(\))?)`")
-DOC_HEADING_RE = re.compile(r"^#{1,6}\s+(.+?)\s*#*\s*$")
 SENTENCE_RE = re.compile(r"(?<=[.!?])\s+")
 CODE_SPAN_RE = re.compile(r"`[^`]*`")
 NON_WORD_RE = re.compile(r"[^a-z0-9]+")
@@ -72,7 +70,6 @@ class Block:
 @dataclass(frozen=True)
 class Docs:
     texts: dict[str, str]
-    headings: dict[str, set[str]]
     gram_docs: dict[str, set[str]]
 
 
@@ -87,10 +84,6 @@ def read_text(path: Path) -> str:
         return ""
 
 
-def normalise_heading(text: str) -> str:
-    return " ".join(text.lower().split())
-
-
 def normalise_words(text: str) -> list[str]:
     # Code spans become one token so identifiers neither match nor dominate word counts.
     text = CODE_SPAN_RE.sub(" x ", text.lower())
@@ -102,18 +95,11 @@ def grams_of(tokens: list[str]) -> set[str]:
 
 
 def docs_from_texts(texts: dict[str, str]) -> Docs:
-    headings: dict[str, set[str]] = {}
     gram_docs: dict[str, set[str]] = {}
     for name, content in texts.items():
-        found = set()
-        for line in content.splitlines():
-            match = DOC_HEADING_RE.match(line)
-            if match:
-                found.add(normalise_heading(match.group(1)))
-        headings[name] = found
         for gram in grams_of(normalise_words(content)):
             gram_docs.setdefault(gram, set()).add(name)
-    return Docs(texts, headings, gram_docs)
+    return Docs(texts, gram_docs)
 
 
 def load_docs(root: Path) -> Docs:
@@ -181,24 +167,10 @@ def private_name_in(block: Block) -> bool:
 
 
 def pointer_broken(block: Block, docs: Docs) -> bool:
+    """A `docs/...md` pointer must name a doc that exists. A heading in the same span is prose."""
     text = "\n".join(block.lines)
     pointers = POINTER_RE.findall(text)
-    if not pointers:
-        return False
-    if any(relative not in docs.texts for relative in pointers):
-        return True
-    spans = {
-        normalise_heading(match.group(1).lstrip("#"))
-        for match in HEADING_SPAN_RE.finditer(text)
-    }
-    if not spans:
-        return False
-    # A block may name several docs; its heading belongs to whichever one owns it.
-    return not any(
-        span in docs.headings.get(relative, set())
-        for span in spans
-        for relative in pointers
-    )
+    return any(relative not in docs.texts for relative in pointers)
 
 
 def duplicate_of_docs(block: Block, docs: Docs) -> bool:
@@ -311,23 +283,18 @@ def self_test() -> int:
         ("R4", "public name passes", named_comment("public_name"), set()),
         ("R4", "bare underscore passes", named_comment("_"), set()),
         ("R5", "missing doc fires", pointer_comment("see `docs/missing.md` for more"), {"R5"}),
+        ("R5", "existing doc passes", pointer_comment("see `docs/face.md` for more"), set()),
         (
             "R5",
-            "doc and heading pass",
-            pointer_comment("see `docs/face.md` `## Some Heading`"),
-            set(),
-        ),
-        (
-            "R5",
-            "missing heading fires",
+            "heading-shaped span is prose",
             pointer_comment("see `docs/face.md` `## No Such Heading`"),
-            {"R5"},
+            set(),
         ),
         (
             "R5",
-            "heading in the second doc passes",
-            pointer_comment("see `docs/face.md` and `docs/extra.md` `## Other Section`"),
-            set(),
+            "one missing doc among several fires",
+            pointer_comment("see `docs/face.md` and `docs/missing.md`"),
+            {"R5"},
         ),
         ("R6", "copied sentence fires", f"extends Node\n# {copied}\n", {"R6"}),
         ("R6", "distinct sentence passes", f"extends Node\n# {distinct}\n", set()),

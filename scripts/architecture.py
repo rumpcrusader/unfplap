@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """Architecture gate for unfplap.
 
-The service docs are the dependency manifest. This script compares each service's
-``### Uses`` table with the preload graph, enforces the layer, owner and privacy
-rules, and tracks temporary boundary/typing debt.
+This script scans the preload graph, enforces the layer, owner and privacy rules, checks the
+documentation index, and tracks temporary boundary/typing debt.
 
 Every shipped ``.gd`` must resolve to an owner — a service, ``shared/`` or one of the
 three orchestrators — so a directory without a ``service.gd`` cannot add code whose
@@ -12,7 +11,6 @@ edges the boundary rules would classify as external and allow.
 Usage:
     scripts/architecture.py --check
     scripts/architecture.py --graph
-    scripts/architecture.py --write-docs
     scripts/architecture.py --write-exceptions
     scripts/architecture.py --write-debt
     scripts/architecture.py --write-duck-typing
@@ -280,7 +278,10 @@ SHARED_KINDS = {
     "act_history.gd": "store",
     "act_facts.gd": "read model",
 }
-DOC_REQUIRED = ["## Lifecycle", "## Dependencies", "## Tests"]
+# The index's service table is the one router: a row names the contract and the tests. The table
+# row is parsed, not a section in the contract.
+SERVICE_INDEX = "## Services"
+TABLE_ROW = re.compile(r"^\|(.*)\|\s*$", re.MULTILINE)
 SERVICE_IGNORE_DOCS = {"README.md", "api.md", "runtime.md"}
 
 
@@ -521,289 +522,80 @@ def doc_path(sid: str) -> Path:
     return DOCS / f"{sid}.md"
 
 
-def parse_uses(text: str) -> set[tuple[str, str]]:
-    stack = re.search(r"^## Dependencies\s*$", text, re.MULTILINE)
-    if not stack:
-        return set()
-    section = text[stack.end():]
-    next_h = re.search(r"^## ", section, re.MULTILINE)
-    if next_h:
-        section = section[:next_h.start()]
-    uses = re.search(r"^### Uses\s*$", section, re.MULTILINE)
-    if not uses:
-        return set()
-    table = section[uses.end():]
-    next_sub = re.search(r"^### ", table, re.MULTILINE)
-    if next_sub:
-        table = table[:next_sub.start()]
-    rows: set[tuple[str, str]] = set()
-    for line in table.splitlines():
-        line = line.strip()
-        if not line.startswith("|"):
+def parse_service_index(text: str) -> dict[str, list[dict[str, str]]]:
+    """The docs/README.md Services table, keyed by service id.
+
+    A row's Contract cell names the service's ``docs/<sid>.md``; its Tests cell is the router to
+    the live suites. The table is the one index row a service owns.
+    """
+    heading = re.search(r"^%s\s*$" % re.escape(SERVICE_INDEX), text, re.MULTILINE)
+    if not heading:
+        return {}
+    section = text[heading.end():]
+    next_heading = re.search(r"^## ", section, re.MULTILINE)
+    if next_heading:
+        section = section[:next_heading.start()]
+    rows: dict[str, list[dict[str, str]]] = {}
+    for match in TABLE_ROW.finditer(section):
+        cells = [cell.strip() for cell in match.group(1).split("|")]
+        if len(cells) < 4 or set(cells[0]) <= {"-", ":"}:
             continue
-        cells = [c.strip() for c in line.strip("|").split("|")]
-        if len(cells) < 3:
+        contract = cells[2].strip("`")
+        found = re.fullmatch(r"docs/([a-z0-9_]+)\.md", contract)
+        if not found:
             continue
-        if cells[0].lower() == "kind" or set(cells[0]) <= {"-", ":"}:
-            continue
-        kind = cells[0].strip("`").lower()
-        if kind not in ("service", "shared", "store", "read model"):
-            continue
-        entry = cells[2].strip().strip("`")
-        if not entry:
-            target = cells[1].strip().strip("`").split("|")[0].strip()
-            if kind == "service" and target in SERVICES:
-                entry = f"{target}/service.gd"
-            elif target.startswith("shared/"):
-                entry = target
-        if entry.endswith(".gd"):
-            rows.add((kind, entry))
+        rows.setdefault(found.group(1), []).append({
+            "contract": contract,
+            "tests": cells[3].strip("`"),
+        })
     return rows
 
 
-def allowed_service_edges() -> dict[str, set[tuple[str, str]]]:
-    result: dict[str, set[tuple[str, str]]] = {sid: set() for sid in SERVICES}
-    for src, tgt in scan_edges():
-        so = owner_of(src)
-        to = owner_of(tgt)
-        if so is None or so.kind not in ("service", "store") or so.path.startswith("shared/"):
+def check_service_index(failure: Failure, text: str, docs: Path, services: list[str]) -> None:
+    """Every service owns exactly one index row whose contract and tests resolve."""
+    rows = parse_service_index(text)
+    for sid in services:
+        found = rows.get(sid, [])
+        if not found:
+            failure.add("docs/README.md has no Services row for %s" % sid)
             continue
-        if tgt == SERVICE_BASE:
+        if len(found) > 1:
+            failure.add("docs/README.md has %d Services rows for %s" % (len(found), sid))
             continue
-        ok, kind, _, _ = is_allowed(src, tgt)
-        if not ok or so.id == (to.id if to else ""):
-            continue
-        if kind not in ("service", "shared", "store", "read model"):
-            continue
-        result[so.id].add(("service" if kind == "service" else kind, tgt))
-    return result
+        row = found[0]
+        if not (docs / row["contract"].removeprefix("docs/")).is_file():
+            failure.add("docs/README.md row for %s names a missing contract: %s" % (
+                sid, row["contract"]))
+        paths = [path.strip(" `") for path in row["tests"].split(",")]
+        if not any((docs.parent / path).exists() for path in paths if path):
+            failure.add("docs/README.md row for %s names no test path that exists" % sid)
+    for sid in sorted(set(rows) - set(services)):
+        failure.add("docs/README.md indexes a Services row for an unknown service: %s" % sid)
 
 
-def check_docs(failure: Failure) -> int:
+def check_docs(failure: Failure, docs: Path = DOCS, services: list[str] | None = None) -> int:
     failures = 0
-    index = (DOCS / "README.md").read_text(encoding="utf-8")
-    for path in sorted(DOCS.glob("*.md")):
+    services = SERVICES if services is None else services
+    index = (docs / "README.md").read_text(encoding="utf-8")
+    for path in sorted(docs.glob("*.md")):
         if path.name == "README.md":
             continue
         if path.name not in index:
             failure.add("docs/README.md does not index docs/%s" % path.name)
             failures += 1
-    expected = allowed_service_edges()
-    for sid in SERVICES:
-        path = doc_path(sid)
+    check_service_index(failure, index, docs, services)
+    for sid in services:
+        path = docs / f"{sid}.md"
         if not path.exists():
             failure.add("missing service contract: docs/%s.md" % sid)
             failures += 1
             continue
         text = path.read_text(encoding="utf-8")
-        for heading in DOC_REQUIRED:
-            if heading not in text:
-                failure.add("docs/%s.md is missing %s" % (sid, heading))
-                failures += 1
         if "## Ownership" not in text and "## Ownership and boundary" not in text \
                 and "## Scope" not in text:
             failure.add("docs/%s.md is missing ## Ownership" % sid)
             failures += 1
-        actual = parse_uses(text)
-        want = expected.get(sid, set())
-        for kind, target in sorted(want - actual):
-            failure.add("%s doc is missing dependency: %s %s" % (sid, kind, target))
-            failures += 1
-        for kind, target in sorted(actual - want):
-            failure.add("%s doc lists a dependency not in the code graph: %s %s" % (
-                sid, kind, target))
-            failures += 1
     return failures
-
-
-PURPOSE = {
-    "world/service.gd": "live scene reads",
-    "offer/service.gd": "idle act offer and hint",
-    "ponies/service.gd": "per-pony runtime registry",
-    "settings/service.gd": "settings declarations and live values",
-    "registry/service.gd": "provider layers and stable ids",
-    "eligibility/service.gd": "adult and consent gate",
-    "memory/service.gd": "act memory and witness pass",
-    "dialogue/service.gd": "act dialogue and prompt notes",
-    "face/service.gd": "act face and mood",
-    "rest/service.gd": "bed anchor and cuddle rejoin",
-    "scene_gate/service.gd": "live scene gate rows",
-    "scene_hold/service.gd": "navigator, player and attention ownership",
-    "summary/service.gd": "act grade and history rows",
-    "afterglow/service.gd": "afterglow timers and close window",
-    "readiness/service.gd": "readiness and auto stroke",
-    "poses/service.gd": "pose and skeleton",
-    "camera/service.gd": "act camera and shot",
-    "hands/service.gd": "hand contact and smack",
-    "kiss/service.gd": "kiss control",
-    "integrations/service.gd": "optional mod reaction bridge",
-    "anatomy/api.gd": "anatomy and tail seat",
-    "estrus/service.gd": "estrus cycle and idle heat",
-    "vr/service.gd": "VR act controls",
-    "initiation/service.gd": "proactive offers",
-    "reactions/service.gd": "jiggle, blush and hearts",
-    "audio/service.gd": "act audio layers",
-    "hud/service.gd": "act HUD card",
-    "stool/service.gd": "footstool supply",
-    "debug/service.gd": "debug action registry",
-    "input/service.gd": "act input policy",
-    "shared/preferences.gd": "profile schema and math",
-    "shared/character_preferences.gd": "roster and catalog templates",
-    "shared/act_history.gd": "stored history rows",
-    "shared/log.gd": "log sink",
-    "shared/act_face.gd": "face beat data",
-    "shared/act_facts.gd": "typed act read model",
-    "shared/act_commands.gd": "act command vocabulary",
-    "shared/act_motion.gd": "lean and travel math",
-    "shared/anatomy_placement.gd": "placement schema and merge",
-    "shared/defaults_data.gd": "shipped settings and catalog documents",
-    "shared/integrations.gd": "supported mod catalog",
-    "shared/consent.gd": "consent defaults",
-    "shared/cycle.gd": "estrus cycle",
-    "shared/hands_reach_plan.gd": "reach planning math",
-    "shared/hands_scale.gd": "palm scale",
-    "shared/participation.gd": "participation defaults",
-    "shared/perf.gd": "one profiler",
-    "shared/pose_catalog.gd": "pose ids and schema",
-    "shared/pose_offer.gd": "typed act offer",
-    "shared/pose_specs.gd": "pose capability table",
-    "shared/pose_view.gd": "pose read model",
-    "shared/relationship_cue.gd": "relationship prompt note",
-    "shared/rump_cone.gd": "standing offer zone",
-    "shared/settings_change.gd": "settings change notification",
-}
-
-
-def target_label(kind: str, path: str) -> str:
-    if kind == "service":
-        return path.split("/")[0]
-    return path.split("/")[-1].removesuffix(".gd")
-
-
-def purpose_for(path: str) -> str:
-    if path in PURPOSE:
-        return PURPOSE[path]
-    if path.startswith("shared/"):
-        return "shared data"
-    return "service dependency"
-
-
-def render_uses(edges: set[tuple[str, str]]) -> str:
-    lines = [
-        "### Uses",
-        "",
-        "| Kind | Target | Entry point | Purpose |",
-        "|---|---|---|---|",
-    ]
-    for kind, path in sorted(edges, key=lambda e: (e[0], e[1])):
-        lines.append("| %s | %s | `%s` | %s |" % (
-            kind, target_label(kind, path), path, purpose_for(path)))
-    return "\n".join(lines) + "\n"
-
-
-def replace_uses(text: str, block: str) -> str:
-    deps = re.search(r"^## Dependencies\s*$", text, re.MULTILINE)
-    if not deps:
-        insert = text.find("\n## Tests")
-        if insert < 0:
-            insert = text.find("\n## Related docs")
-        if insert < 0:
-            insert = len(text)
-        return text[:insert] + "\n## Dependencies\n\n" + block + "\n" + text[insert:]
-    section_start = deps.end()
-    next_h = re.search(r"^## ", text[section_start:], re.MULTILINE)
-    section_end = section_start + next_h.start() if next_h else len(text)
-    section = text[section_start:section_end]
-    uses = re.search(r"^### Uses\s*$", section, re.MULTILINE)
-    if not uses:
-        return text[:section_end].rstrip() + "\n\n" + block + "\n" + text[section_end:]
-    uses_start = section_start + uses.start()
-    tail_start = section_start + uses.end()
-    while True:
-        next_sub = re.search(r"^### ", text[tail_start:], re.MULTILINE)
-        if not next_sub:
-            uses_end = section_end
-            break
-        heading_line = text[tail_start + next_sub.start():].splitlines()[0].strip()
-        if heading_line == "### Uses":
-            tail_start = tail_start + next_sub.end()
-            continue
-        uses_end = tail_start + next_sub.start()
-        break
-    return text[:uses_start] + block + "\n" + text[uses_end:]
-
-
-LIFECYCLES = {
-    "world": ("world", "static initialization", "`bind_world()`/`bind_player()`", "`unbind()`/world close", "yes"),
-    "offer": ("world", "the entry's service list", "`on_world(host)`", "`on_world_closed()`", "yes"),
-    "ponies": ("world", "static initialization", "the entry binds its factory and services", "`shutdown()`", "yes"),
-    "settings": ("world", "static initialization", "registry load", "process exit", "yes"),
-    "registry": ("process", "static initialization", "none", "`reset()`", "yes"),
-    "eligibility": ("world", "the entry's service list", "`on_world(host)`", "`shutdown()`", "yes"),
-    "scene_gate": ("per-pony", "`runtime._init()`", "`bind()`/`configure()`", "act teardown", "yes"),
-    "scene_hold": ("per-pony", "`runtime._init()`", "`bind()`/`claim_nav()`", "runtime free", "yes"),
-    "rest": ("per-act", "`runtime._init()`", "`bind()`", "act teardown", "yes"),
-    "hands": ("per-act", "`runtime`", "`bind()`/`begin()`", "act teardown", "yes"),
-    "anatomy": ("world + per-act handles", "the entry's service list", "`on_world()`/`begin_act()`", "`on_world_closed()`/`shutdown()`", "yes"),
-    "estrus": ("world", "the entry's service list", "`on_world(host)`", "`on_world_closed()`/`shutdown()`", "yes"),
-    "vr": ("per-act", "`anatomy` act bridge", "act start", "act end", "yes"),
-    "initiation": ("world", "the entry's service list", "`setup()`", "`on_world_closed()`", "yes"),
-    "negotiation": ("world", "the entry's service list", "`bind()`/`on_world(host)`", "`on_world_closed()`", "yes"),
-    "memory": ("world", "the entry's service list", "none", "freed with the entry", "yes"),
-    "dialogue": ("per-act", "`runtime`", "`setup()`/`configure()`", "`reset()`/act end", "yes"),
-    "readiness": ("per-act", "`runtime._init()`", "`configure()`", "`reset()`", "yes"),
-    "poses": ("per-act", "`runtime._init()`", "`bind()`/`begin()`", "`release_pose()`", "yes"),
-    "camera": ("per-act", "`runtime._init()`", "`bind()`/`begin_act()`", "`finish_act()`/act teardown", "yes"),
-    "kiss": ("per-act", "`runtime`", "`bind()`", "act teardown", "yes"),
-    "integrations": ("per-act", "`runtime._integrations_controller()`", "`begin()`", "`reset()`", "yes"),
-    "summary": ("per-act", "`runtime._init()`", "`reset_act()`", "act teardown", "yes"),
-    "afterglow": ("per-act", "`runtime._init()`", "`begin()`", "`reset()`", "yes"),
-    "face": ("per-act", "`runtime._init()`", "`bind()`", "`shutdown()`", "yes"),
-    "reactions": ("per-act", "`runtime._init()`", "`bind_scene()`/`begin_act()`", "`end_act()`", "yes"),
-    "stool": ("world + per-act handle", "the entry's service list", "`setup()`/`new_act()`", "`on_world_closed()`/`shutdown()`", "yes"),
-    "audio": ("per-pony", "`runtime`", "`begin()`", "`end()`", "yes"),
-    "hud": ("world", "the entry's service list", "`on_world(host)`", "`on_world_closed()`; freed with the entry", "yes"),
-    "input": ("world", "the entry's service list", "`_ready()`", "freed with the entry", "yes"),
-    "debug": ("process", "static initialization", "none", "none", "yes"),
-}
-
-
-def render_lifecycle(sid: str) -> str:
-    scope, constructed, begin, end, idem = LIFECYCLES.get(
-        sid, ("world", "the entry's service list", "none", "world close", "yes"))
-    return (
-        "## Lifecycle\n\n"
-        f"- Scope: {scope}\n"
-        f"- Constructed by: {constructed}\n"
-        f"- Begin: {begin}\n"
-        f"- End: {end}\n"
-        f"- Idempotent: {idem}\n"
-    )
-
-
-def insert_lifecycle(text: str, sid: str) -> str:
-    if "## Lifecycle" in text:
-        return text
-    block = render_lifecycle(sid)
-    for needle in ("\n## Settings", "\n## Tests", "\n## Related docs"):
-        pos = text.find(needle)
-        if pos >= 0:
-            return text[:pos] + "\n" + block + "\n" + text[pos:]
-    return text.rstrip() + "\n\n" + block
-
-
-def write_docs() -> None:
-    expected = allowed_service_edges()
-    for sid in SERVICES:
-        path = doc_path(sid)
-        if not path.exists():
-            print("missing doc, skipped: docs/%s.md" % sid, file=sys.stderr)
-            continue
-        text = path.read_text(encoding="utf-8")
-        text = replace_uses(text, render_uses(expected.get(sid, set())))
-        text = insert_lifecycle(text, sid)
-        path.write_text(text, encoding="utf-8")
-    print("ARCH_DOCS_WRITTEN services=%d" % len(SERVICES))
 
 
 def file_public_functions(service: str, path: Path) -> list[dict[str, str]]:
@@ -1127,15 +919,6 @@ def enclosing_function(offsets: list[tuple[int, str]], at: int) -> str:
             break
         name = function
     return name
-
-
-def doc_tests_section(text: str) -> str | None:
-    heading = re.search(r"^## Tests[^\n]*\n", text, re.MULTILINE)
-    if not heading:
-        return None
-    rest = text[heading.end():]
-    next_heading = re.search(r"^## ", rest, re.MULTILINE)
-    return rest[:next_heading.start()] if next_heading else rest
 
 
 def project_game_version() -> str:
@@ -1517,8 +1300,7 @@ def check_sources(failure: Failure) -> None:
         if (ROOT / name).exists():
             failure.add("no root settings composition file: %s" % name)
 
-    # A service contract names its facade and at least one test path that exists. Indexing and the
-    # remaining headings are check_docs()' job.
+    # A service contract names its facade. The index row owns the contract and test router.
     for sid in SERVICES:
         path = doc_path(sid)
         if not path.exists():
@@ -1526,15 +1308,6 @@ def check_sources(failure: Failure) -> None:
         text = path.read_text(encoding="utf-8")
         if f"{sid}/{facade_for(sid)}" not in text:
             failure.add("docs/%s.md does not name %s/%s" % (sid, sid, facade_for(sid)))
-        section = doc_tests_section(text)
-        if section is None:
-            failure.add("docs/%s.md has no ## Tests section" % sid)
-            continue
-        paths = {
-            p.rstrip(".,;:)") for p in re.findall(r"tests/[A-Za-z0-9_./*-]+", section)
-        }
-        if not any((ROOT / path).exists() for path in paths if "*" not in path):
-            failure.add("docs/%s.md names no test path that exists" % sid)
 
 
 def check_owners(failure: Failure) -> None:
@@ -1900,14 +1673,10 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--graph", action="store_true")
-    parser.add_argument("--write-docs", action="store_true")
     parser.add_argument("--write-exceptions", action="store_true")
     parser.add_argument("--write-debt", action="store_true")
     parser.add_argument("--write-duck-typing", action="store_true")
     args = parser.parse_args()
-    if args.write_docs:
-        write_docs()
-        return 0
     if args.write_exceptions:
         write_exceptions()
         return 0

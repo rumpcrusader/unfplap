@@ -1,4 +1,6 @@
 extends "res://mods/unfplap/tests/support/suite.gd"
+const ACT_HOST := preload("res://mods/unfplap/anatomy/act_host.gd")
+const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 ## The standing oral segment's quiet gate: the impact keeps the slide, vocal, wings, blush and ear
 ## twitch but drops the plap and the rump/tail jiggle; her act line, voice and climax line stop
 ## while the base game's soft kiss plays on the idle timer. Regular standing is unchanged.
@@ -32,7 +34,8 @@ class FakeBridge extends "res://mods/unfplap/anatomy/act_bridge.gd":
 	var mouth := Vector3(0.2, 1.3, 0.5)
 	var point := Vector3(0.9, 0.0, 1.1)
 
-	func bind(_host: Variant) -> void:
+	func bind(_host: ACT_HOST, _service: Node = null,
+			_eligibility: ELIGIBILITY = null) -> void:
 		pass
 
 	func refresh() -> void:

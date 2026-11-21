@@ -188,9 +188,9 @@ func unbind_body(pony_node: Node3D) -> void:
 
 
 ## One act's anatomy bridge. The runtime creates one per act and binds the host callbacks.
-static func new_act(host: ACT_HOST) -> ACT_BRIDGE:
+static func new_act(host: ACT_HOST, service: Node = null) -> ACT_BRIDGE:
 	var bridge := ACT_BRIDGE.new()
-	bridge.bind(host)
+	bridge.bind(host, service, PONIES.eligibility)
 	return bridge
 
 

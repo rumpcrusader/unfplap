@@ -116,6 +116,104 @@ class Bundle extends RefCounted:
 			host.pony = value
 
 
+## The runtime's implementation of the anatomy bridge's host contract: each method names the
+## bundle owner it reads, and a call is only made once the act frame exists.
+class AnatomyHost extends "res://mods/unfplap/anatomy/act_host.gd":
+	var b: Bundle = null
+
+	func _init(bundle: Bundle) -> void:
+		b = bundle
+
+	func pony() -> Node:
+		return b.pony if is_instance_valid(b.pony) else null
+
+	func runtime() -> Node:
+		return b.node if is_instance_valid(b.node) else null
+
+	func reactions() -> Variant:
+		return b.reactions if is_instance_valid(b.reactions) else null
+
+	func anatomy_service() -> Variant:
+		return PONIES.anatomy if is_instance_valid(PONIES.anatomy) else null
+
+	func eligibility_service() -> Variant:
+		return PONIES.eligibility if is_instance_valid(PONIES.eligibility) else null
+
+	func state() -> int:
+		return b.act.state_value()
+
+	func pose_view() -> Variant:
+		return b.act.pose_view()
+
+	func depth() -> float:
+		return b.readiness.depth_value()
+
+	func penetration_m() -> float:
+		return b.readiness.penetration_m_value()
+
+	func penetration_reach() -> float:
+		return b.readiness.reach()
+
+	func climaxes() -> int:
+		return b.readiness.climax_count()
+
+	func size_scale() -> float:
+		return b.camera.size_scale()
+
+	func auto_pace() -> float:
+		return b.readiness.auto_pace()
+
+	func fluid_ground_y() -> float:
+		return b.phases.fluid_ground_y()
+
+	func cycle_phase() -> String:
+		return b.act.cycle_phase()
+
+	func bed_frame() -> Variant:
+		return b.pose._bed_frame_value()
+
+	func body_coat_smack() -> Callable:
+		return Callable(b.reactions, "body_coat_target")
+
+	func status() -> Callable:
+		if is_instance_valid(b.hud):
+			return Callable(b.hud, "anatomy_status")
+		return Callable()
+
+	func command() -> Callable:
+		return Callable(b.input, "command")
+
+	func missionary_camera() -> Variant:
+		return b.camera.view_controller()
+
+	func kiss_controller() -> Variant:
+		return b.act.kiss_service()
+
+	func pose() -> Variant:
+		return b.pose.self_handle()
+
+	func thrust_move() -> Callable:
+		return Callable(b.impact, "move")
+
+	func now_s() -> float:
+		return b.act.clock_s()
+
+	func set_penetration_m() -> Callable:
+		return Callable(b.impact, "set_depth")
+
+	func align() -> Callable:
+		return Callable(b.act, "apply_anon_align")
+
+	func touch() -> Callable:
+		return Callable(b.readiness, "touch")
+
+	func vr_scene() -> Variant:
+		return b.host.vr_scene()
+
+	func pony_callable() -> Callable:
+		return Callable(b.host, "pony_value")
+
+
 ## Build the bundle once. `pony` is null at `_init()` because the registry assigns the body after
 ## the node is built; `bind_pony()` carries it then.
 static func build(pony: Node, node: Node, hud: Node = null, memory: Node = null,
@@ -144,16 +242,14 @@ static func build(pony: Node, node: Node, hud: Node = null, memory: Node = null,
 	b.dialogue = ACT_DIALOGUE.new(b.facts, b.memory)
 	b.afterglow = AFTERGLOW.new(b.hud, b.memory)
 	b.hold = SCENE_HOLD.new()
-	# The anatomy bridge and its host exist before the act context can hold them; both hosts are
-	# filled after the act frame exists, because their callbacks read the session and the modules.
-	b.anatomy_host = ACT_HOST.new()
-	b.anatomy_bridge = ANATOMY.new_act(b.anatomy_host)
+	# The anatomy bridge and its host exist before the act context can hold them; the host reads
+	# the bundle at call time, so it is complete before the act frame exists.
+	b.anatomy_host = AnatomyHost.new(b)
+	b.anatomy_bridge = ANATOMY.new_act(b.anatomy_host, PONIES.anatomy as ANATOMY)
 	_build_systems(node, b)
 	_bind_act_frame(node, b)
-	_bind_anatomy_host(b)
 	_bind_handover_host(b)
 	_bind_pose_hosts(node, b)
-	b.anatomy_bridge.bind(b.anatomy_host)
 	_bind_facts(node, b)
 	b.gate.bind(b.pony, b.pose, PONIES.eligibility)
 	b.gate.configure(b.act.state, b.act.pony_id,
@@ -333,41 +429,6 @@ static func _bind_facts(node: Node, b: Bundle) -> void:
 	b.facts.on_touch = Callable(b.readiness, "touch")
 	b.facts.on_smack = Callable(b.reactions, "smack")
 	b.facts.pose_host = Callable(b.host, "runtime")
-
-
-## The typed host for the per-act anatomy bridge; its callbacks name their owners, never the
-## runtime node.
-static func _bind_anatomy_host(b: Bundle) -> void:
-	var host: ACT_HOST = b.anatomy_host
-	host.pony_cb = Callable(b.host, "pony_value")
-	host.runtime_cb = Callable(b.host, "runtime")
-	host.reactions_cb = Callable(b.act, "reactions_service")
-	host.anatomy_service_cb = Callable(PONIES, "anatomy_service")
-	host.eligibility_service_cb = Callable(PONIES, "eligibility_service")
-	host.state_cb = Callable(b.act, "state_value")
-	host.pose_view_cb = Callable(b.act, "pose_view")
-	host.depth_cb = Callable(b.readiness, "depth_value")
-	host.penetration_m_cb = Callable(b.readiness, "penetration_m_value")
-	host.penetration_reach_cb = Callable(b.readiness, "reach")
-	host.climaxes_cb = Callable(b.readiness, "climax_count")
-	host.size_scale_cb = Callable(b.camera, "size_scale")
-	host.auto_pace_cb = Callable(b.readiness, "auto_pace")
-	host.fluid_ground_y_cb = Callable(b.phases, "fluid_ground_y")
-	host.cycle_phase_cb = Callable(b.act, "cycle_phase")
-	host.bed_frame_cb = Callable(b.pose, "_bed_frame_value")
-	host.body_coat_smack_cb = Callable(b.reactions, "body_coat_target")
-	if is_instance_valid(b.hud):
-		host.status_cb = Callable(b.hud, "anatomy_status")
-	host.command_cb = Callable(b.input, "command")
-	host.missionary_camera_cb = Callable(b.camera, "view_controller")
-	host.kiss_controller_cb = Callable(b.act, "kiss_service")
-	host.pose_cb = Callable(b.pose, "self_handle")
-	host.thrust_move_cb = Callable(b.impact, "move")
-	host.now_s_cb = Callable(b.act, "clock_s")
-	host.set_penetration_m_cb = Callable(b.impact, "set_depth")
-	host.align_cb = Callable(b.act, "apply_anon_align")
-	host.touch_cb = Callable(b.readiness, "touch")
-	host.vr_scene_cb = Callable(b.host, "vr_scene")
 
 
 ## The typed host for the act's body-change handover, filled once the act frame exists.

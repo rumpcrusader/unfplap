@@ -207,39 +207,111 @@ func _view(family: String) -> RefCounted:
 	return view
 
 
+## The runtime-side port the production builder implements; the suite fills only what a case uses.
+class HostAdapter extends "res://mods/unfplap/anatomy/act_host.gd":
+	var data: FakeHost = null
+	var extra: Dictionary = {}
+
+	func _init(host: FakeHost, extra_in: Dictionary = {}) -> void:
+		data = host
+		extra = extra_in
+
+	func _extra(key: String, fallback: Variant = null) -> Variant:
+		var callback: Callable = extra.get(key, Callable())
+		return callback.call() if callback.is_valid() else fallback
+
+	func pony() -> Node:
+		var value: Variant = _extra("pony")
+		return value as Node if is_instance_valid(value) else null
+
+	func runtime() -> Node:
+		var value: Variant = _extra("runtime")
+		return value as Node if is_instance_valid(value) else null
+
+	func reactions() -> Variant:
+		return _extra("reactions")
+
+	func anatomy_service() -> Variant:
+		return _extra("anatomy_service")
+
+	func eligibility_service() -> Variant:
+		return _extra("eligibility_service")
+
+	func state() -> int:
+		return int(data.call_host("state"))
+
+	func pose_view() -> Variant:
+		return data.call_host("pose_view")
+
+	func depth() -> float:
+		return float(data.call_host("depth"))
+
+	func penetration_m() -> float:
+		return float(data.call_host("penetration_m"))
+
+	func penetration_reach() -> float:
+		return float(data.call_host("penetration_reach"))
+
+	func climaxes() -> int:
+		return int(data.call_host("climaxes"))
+
+	func size_scale() -> float:
+		return float(data.call_host("size_scale"))
+
+	func auto_pace() -> float:
+		return float(data.call_host("auto_pace"))
+
+	func fluid_ground_y() -> float:
+		return float(data.call_host("fluid_ground_y"))
+
+	func cycle_phase() -> String:
+		return str(data.call_host("cycle_phase"))
+
+	func bed_frame() -> Variant:
+		return data.call_host("bed_frame")
+
+	func body_coat_smack() -> Callable:
+		return Callable()
+
+	func status() -> Callable:
+		return Callable(data, "anatomy_status")
+
+	func command() -> Callable:
+		return Callable()
+
+	func missionary_camera() -> Variant:
+		return data.camera()
+
+	func kiss_controller() -> Variant:
+		return null
+
+	func pose() -> Variant:
+		return null
+
+	func thrust_move() -> Callable:
+		return Callable(data, "thrust_move")
+
+	func now_s() -> float:
+		return data.now_s()
+
+	func set_penetration_m() -> Callable:
+		return Callable(data, "set_penetration_m")
+
+	func align() -> Callable:
+		return Callable()
+
+	func touch() -> Callable:
+		return Callable()
+
+	func vr_scene() -> Variant:
+		return _extra("vr_scene")
+
+	func pony_callable() -> Callable:
+		return Callable()
+
+
 func _host(host: FakeHost, extra: Dictionary = {}) -> ACT_HOST:
-	var out := ACT_HOST.new()
-	out.state_cb = Callable(host, "call_host").bind("state")
-	out.pose_view_cb = Callable(host, "call_host").bind("pose_view")
-	out.depth_cb = Callable(host, "call_host").bind("depth")
-	out.penetration_m_cb = Callable(host, "call_host").bind("penetration_m")
-	out.penetration_reach_cb = Callable(host, "call_host").bind("penetration_reach")
-	out.climaxes_cb = Callable(host, "call_host").bind("climaxes")
-	out.size_scale_cb = Callable(host, "call_host").bind("size_scale")
-	out.auto_pace_cb = Callable(host, "call_host").bind("auto_pace")
-	out.fluid_ground_y_cb = Callable(host, "call_host").bind("fluid_ground_y")
-	out.cycle_phase_cb = Callable(host, "call_host").bind("cycle_phase")
-	out.bed_frame_cb = Callable(host, "call_host").bind("bed_frame")
-	out.status_cb = Callable(host, "anatomy_status")
-	out.thrust_move_cb = Callable(host, "thrust_move")
-	out.set_penetration_m_cb = Callable(host, "set_penetration_m")
-	out.missionary_camera_cb = Callable(host, "camera")
-	out.now_s_cb = Callable(host, "now_s")
-	for key: String in extra:
-		match key:
-			"pony":
-				out.pony_cb = extra[key]
-			"runtime":
-				out.runtime_cb = extra[key]
-			"reactions":
-				out.reactions_cb = extra[key]
-			"anatomy_service":
-				out.anatomy_service_cb = extra[key]
-			"eligibility_service":
-				out.eligibility_service_cb = extra[key]
-			"vr_scene":
-				out.vr_scene_cb = extra[key]
-	return out
+	return HostAdapter.new(host, extra)
 
 
 func run() -> void:

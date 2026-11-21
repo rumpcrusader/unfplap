@@ -1,4 +1,6 @@
 extends "res://mods/unfplap/tests/support/suite.gd"
+const ACT_HOST := preload("res://mods/unfplap/anatomy/act_host.gd")
+const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 ## The bed face-sit debug action and its runtime refusal helper: the pair toggle, every refusal
 ## reason in order and the ready case. Pure fakes; no game scene.
 ##   godot --headless --xr-mode off --path <project> \
@@ -19,7 +21,8 @@ const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 
 ## The real bridge's shape, with the lifecycle calls stubbed so a bare Node handle is enough.
 class FakeBridge extends "res://mods/unfplap/anatomy/act_bridge.gd":
-	func bind(_host: Variant) -> void:
+	func bind(_host: ACT_HOST, _service: Node = null,
+			_eligibility: ELIGIBILITY = null) -> void:
 		pass
 
 	func refresh() -> void:

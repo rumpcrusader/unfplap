@@ -20,8 +20,11 @@ const STATE_CLIMAX := ACT_STATE.State.CLIMAX
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const PERF := preload("res://mods/unfplap/shared/perf.gd")
 
-## The typed host; every callback is optional.
+## The typed host; the runtime implements every read and command.
 var host: ACT_HOST = null
+## The anatomy facade and the eligibility facade the bridge asks; the service passes both once.
+var service: SERVICE = null
+var eligibility_service: ELIGIBILITY = null
 ## The typed per-act context. The persistent controller reads it; the act writes it.
 var facts: FACTS = FACTS.new()
 ## The persistent anatomy controller, the per-act handle and the act's own bodies.
@@ -39,8 +42,13 @@ var _contact_seen := false
 
 ## Bind the host callbacks. The bridge is created once per act; the runtime re-binds it on every
 ## access so a suite can build a runtime without entering the tree.
-func bind(host_in: ACT_HOST) -> void:
+func bind(host_in: ACT_HOST, service_in: Node = null,
+		eligibility_in: ELIGIBILITY = null) -> void:
 	host = host_in
+	service = service_in as SERVICE if service_in != null \
+		else host_in.anatomy_service() as SERVICE
+	eligibility_service = eligibility_in if eligibility_in != null \
+		else host_in.eligibility_service() as ELIGIBILITY
 	facts.body_coat_smack = host.body_coat_smack()
 
 
@@ -51,8 +59,6 @@ func refresh() -> void:
 	if not is_instance_valid(pony):
 		_bind_reactions(pony, null)
 		return
-	var service := host.anatomy_service()
-	var eligibility_service := host.eligibility_service()
 	var target_ok: bool = eligibility_service != null \
 		and eligibility_service.eligible(pony, ELIGIBILITY.Target.ANATOMY)
 	if not SETTINGS.anatomy_on() or not target_ok:
@@ -199,7 +205,6 @@ func apply_live() -> void:
 ## Detach the persistent controller. The world's anatomy service owns the detach.
 func detach() -> void:
 	var pony := host.pony()
-	var service := host.anatomy_service()
 	if service != null:
 		service.detach_controller(pony)
 	elif is_instance_valid(controller):
@@ -265,7 +270,6 @@ func toggle_oral(pose: Variant, display_name: String, features_block: Dictionary
 	var target := CATALOG.STANDING_ORAL if from_id == CATALOG.STANDING else CATALOG.STANDING
 	var request := POSE_SESSION.PoseRequest.new()
 	var consent := false
-	var service := host.anatomy_service()
 	if service != null and target == CATALOG.STANDING_ORAL:
 		consent = service.consent(host.pony(), "oral")
 		if consent:

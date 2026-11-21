@@ -448,7 +448,7 @@ func _end_caress() -> void:
 	_caress_touch_seconds = 0.0
 
 
-## Regions the smack's hull contact query skips. The caress always uses the coat surface.
+## Regions the smack's hull contact query skips. The caress places on its fitted spheres.
 func _smack_ignore() -> Array:
 	return SETTINGS.ignore.get_list()
 

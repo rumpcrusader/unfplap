@@ -59,6 +59,8 @@ func _authored_candidates(hand_side: String, _context: Dictionary, lean: float) 
 	_last_world[hand_side] = world
 	return [{
 		"point": sample["point"],
+		"center": sample.get("center", sample["point"]),
+		"radius": float(sample.get("radius", 0.0)),
 		"normal": normal,
 		"oval_x": across,
 		"oval_y": up,
@@ -135,6 +137,8 @@ func _procedural_candidate(hand_side: String, context: Dictionary) -> Dictionary
 	_last_normals[hand_side] = normal
 	return {
 		"point": centre_world,
+		"center": centre_world,
+		"radius": 0.0,
 		"normal": normal,
 		"oval_x": across,
 		"oval_y": up,

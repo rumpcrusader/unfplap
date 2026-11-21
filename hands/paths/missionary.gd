@@ -1,5 +1,5 @@
 extends "res://mods/unfplap/hands/path_base.gd"
-## Missionary caress path: the authored surface chain in `hands/paths/anchors.gd`.
+## Missionary caress path: the authored area chain in `hands/paths/anchors.gd`.
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
@@ -98,8 +98,11 @@ func _precise_candidate(sample: Dictionary, hand_side: String, scale: float,
 		body_axis: Vector3) -> Dictionary:
 	var normal: Vector3 = sample["normal"]
 	var centre: Vector3 = sample["point"]
+	var center: Vector3 = sample.get("center", centre)
 	var lateral: Vector3 = sample["side"]
-	centre += lateral * (MISSIONARY_CARESS_LATERAL_M * scale * float(sample["lateral"]))
+	var offset := lateral * (MISSIONARY_CARESS_LATERAL_M * scale * float(sample["lateral"]))
+	centre += offset
+	center += offset
 	var along := body_axis - normal * body_axis.dot(normal)
 	if along.length_squared() < 0.0001:
 		along = sample["finger"]
@@ -115,6 +118,8 @@ func _precise_candidate(sample: Dictionary, hand_side: String, scale: float,
 	var roll := missionary_palm_roll_deg(hand_side) * float(sample["roll"])
 	return {
 		"point": centre,
+		"center": center,
+		"radius": float(sample.get("radius", 0.0)),
 		"normal": normal,
 		"oval_x": along,
 		"oval_y": across,

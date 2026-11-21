@@ -45,6 +45,8 @@ func candidates(hand_side: String, _context: Dictionary) -> Array:
 	across = across.normalized()
 	return [{
 		"point": anchor.get("position", Vector3.ZERO),
+		"center": anchor.get("center", Vector3.ZERO),
+		"radius": float(anchor.get("radius", 0.0)),
 		"normal": normal,
 		"oval_x": along,
 		"oval_y": across,

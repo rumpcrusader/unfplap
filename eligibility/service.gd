@@ -53,7 +53,7 @@ class Participation extends RefCounted:
 
 	func to_dict() -> Dictionary:
 		var out: Dictionary = {}
-		for key: String in PARTICIPATION.KEYS:
+		for key: String in PARTICIPATION.all_keys():
 			out[key] = bool(get(key))
 		return out
 
@@ -635,7 +635,7 @@ func _typed_participation(raw: Variant) -> Participation:
 	if not raw is Dictionary:
 		return out
 	var data: Dictionary = raw
-	for key: String in PARTICIPATION.KEYS:
+	for key: String in PARTICIPATION.all_keys():
 		out.set(key, bool(data.get(key, true)))
 	return out
 

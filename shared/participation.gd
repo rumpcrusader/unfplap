@@ -4,19 +4,28 @@ extends RefCounted
 ## It is subtractive: a `true` value means "does not veto", never "grants". The block lives in the
 ## character template, beside a provider's `eligible` assertion. See `docs/eligibility.md`.
 
-## The capability keys. One table drives validation, the Characters form and the API.
-const KEYS := ["acts", "anatomy", "tail"]
+## The capability keys. One table drives the capability reads and the Characters form.
+const KEYS := ["acts", "anatomy"]
+## Accepted, validated and returned, but no capability reads them: retired keys stay in the API.
+const DEPRECATED_KEYS := ["tail"]
 const LABELS := {
 	"acts": "Acts",
 	"anatomy": "Anatomy",
-	"tail": "Tail",
 }
+
+
+## Every key a profile may carry, capability and deprecated.
+static func all_keys() -> Array[String]:
+	var out: Array[String] = []
+	out.append_array(KEYS)
+	out.append_array(DEPRECATED_KEYS)
+	return out
 
 
 ## The built-in default: every capability is allowed.
 static func defaults() -> Dictionary:
 	var out: Dictionary = {}
-	for key: String in KEYS:
+	for key: String in all_keys():
 		out[key] = true
 	return out
 
@@ -25,7 +34,7 @@ static func defaults() -> Dictionary:
 static func resolve(over: Variant) -> Dictionary:
 	var out := defaults()
 	if over is Dictionary:
-		for key: String in KEYS:
+		for key: String in all_keys():
 			if (over as Dictionary).has(key):
 				var value: Variant = (over as Dictionary)[key]
 				if value is bool:
@@ -37,7 +46,7 @@ static func resolve(over: Variant) -> Dictionary:
 static func clean(values: Variant) -> Dictionary:
 	var out: Dictionary = {}
 	if values is Dictionary:
-		for key: String in KEYS:
+		for key: String in all_keys():
 			if (values as Dictionary).has(key):
 				var value: Variant = (values as Dictionary)[key]
 				if value is bool:

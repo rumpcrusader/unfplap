@@ -268,11 +268,11 @@ func run() -> void:
 	# The snapshots and target vetoes follow the shared key tables, so a new key cannot drift.
 	check(profile.consent.to_dict().keys() == CONSENT.KEYS,
 		"the consent snapshot covers the shared consent keys")
-	check(profile.participation.to_dict().keys() == PARTICIPATION.KEYS,
+	check(profile.participation.to_dict().keys() == PARTICIPATION.all_keys(),
 		"the participation snapshot covers the shared participation keys")
 	for target: Variant in ELIGIBILITY.TARGET_KEYS:
 		var key := str(ELIGIBILITY.TARGET_KEYS[target])
-		check(key.is_empty() or key in PARTICIPATION.KEYS,
+		check(key.is_empty() or key in PARTICIPATION.all_keys(),
 			"every target veto is a participation key: %s" % key)
 
 	# The provider layer: set_profile writes the identity half, and the capability reads it.

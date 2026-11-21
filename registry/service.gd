@@ -542,7 +542,7 @@ static func _validate_profile(raw: Variant, warnings: Array[String], errors: Arr
 		var participation: Dictionary = {}
 		for part_key: Variant in (raw_participation as Dictionary).keys():
 			var part_name := str(part_key)
-			if not part_name in PARTICIPATION.KEYS:
+			if not part_name in PARTICIPATION.all_keys():
 				warnings.append("profile.participation.%s: unknown key" % part_name)
 				continue
 			var value: Variant = (raw_participation as Dictionary)[part_key]

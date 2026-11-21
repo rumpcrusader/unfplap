@@ -106,9 +106,9 @@ Non-code tasks: a release is `.opencode/skills/release/SKILL.md`; syncing shippe
 
 Read `WORKFLOW.md` before any task. Commit in small, testable units; never push.
 
-- **Code first, docs second.** Land the behavior and its tests, plus only the doc text a gate
-  reads, run every gate, and commit the code. Then update the owning `.md` prose and the comments
-  the change made false in one separate `docs:` commit, after the task's last code commit.
+- **Docs follow the code, same commit.** Land the behavior and its tests with the doc text the
+  change makes false, run every gate, and commit them together. A standalone `docs:` commit is only
+  for docs no code change touched: a new contract, an index row, a sweep.
 - Settle the design before touching files. Once it is settled, apply every code edit first, then
   check the change. Gate the code once per task, not per commit: `scripts/test.sh <touched>`,
   `scripts/check.sh` and `scripts/lint.sh` before each commit, `scripts/test_all.sh` once when the
@@ -128,15 +128,14 @@ Read `WORKFLOW.md` before any task. Commit in small, testable units; never push.
 
 ## Definition of done
 
-1. The code and its tests are committed, with only gate-read doc text, before the documentation
-   commit.
-2. The owning doc is updated in a separate `docs:` commit; a new doc is indexed in
-   `docs/README.md`.
+1. The code, its tests and the doc text the change makes false are one code commit. A standalone
+   `docs:` commit is only for docs no code change touched.
+2. A new doc is indexed in `docs/README.md` in the same commit; an index row is gate-read text.
 3. Suites are added or retargeted; `scripts/test.sh <touched>` passes, `scripts/check.sh --all` is
-   clean and `scripts/lint.sh` is clean before the code commit.
+   clean and `scripts/lint.sh` is clean before the commit.
 4. `scripts/test_all.sh` passes once, at the end of the code phase.
-5. The docs commit passes `scripts/check.sh --all`, `scripts/lint.sh` and every suite that reads an
-   edited doc.
+5. A standalone `docs:` commit passes `scripts/check.sh --all`, `scripts/lint.sh` and every suite
+   that reads an edited doc.
 6. New `.gd` files are tracked before a build; the pack manifest reads `git ls-files`.
 7. `mod.json.version` and `changelog.txt` change only through the release skill.
 8. `README.md` was not edited; a needed change is reported with exact replacement text.
@@ -187,15 +186,18 @@ Read `WORKFLOW.md` before any task. Commit in small, testable units; never push.
 
 ## Documentation
 
-- Every service has exactly one doc under `docs/`, indexed by `docs/README.md`, and that doc is the
-  single source of truth for its purpose, ownership, API, state, settings, controls, debug actions,
-  dependencies and tests; no other doc restates them. Update it in the `docs:` commit that follows
-  the code commit, and remove obsolete claims instead of keeping historical notes.
-- **Docs follow the code.** Documentation means both `.md` files and code comments. A task that
-  changes documentation has one `docs:` commit, after its last code commit; never mix
-  documentation into a code commit. The only exception is the minimum doc text a test or checker
-  reads to stay green — a new service's contract stub and index row, a `Uses` row, the public
-  names in `docs/api.md` — which the code commit may carry for the docs commit to complete. A
+- Every service has exactly one doc under `docs/`, indexed by `docs/README.md`. A doc owns its
+  responsibility and boundary, the decisions behind them, invariants, ordering constraints, traps
+  and extension points. It never enumerates what a script, a declaration or the index already
+  carries: no API signature dumps, no dependency edges, no setting rows, no debug-action rosters,
+  no test lists, no numeric defaults, no call counts. Point at the owner instead. A doc names
+  another system in at most one clause; anything more is a link.
+- A facade's non-underscore members are its surface; `_` marks internals. A `##` note above a
+  public type or an `api.gd` member states the rule the signature cannot. The facade public
+  functions without a note stay advisory; `--audit-surface` prints them.
+- **Docs follow the code, same commit.** Documentation means both `.md` files and code comments. A
+  sentence a change makes false is fixed in the commit that makes it false. A standalone `docs:`
+  commit is only for docs no code change touched: a new contract, an index row, a sweep. A
   `docs:` commit fixes only the comments the change made false; a comment that is still true is
   never reworded.
 - **Comments state what the code cannot.** A `##` block is at most two lines: the promise, then one

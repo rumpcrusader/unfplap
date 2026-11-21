@@ -5,7 +5,8 @@ what it may depend on, where state lives, how lifecycle is owned and how the rul
 
 It does not document individual services. The service index is `docs/README.md`; the technical
 contract for each service is `docs/<service>.md`. A service doc is the single source of truth for
-that service's purpose, API, state, settings, controls, debug actions, dependencies and tests.
+that service's responsibility and boundary, its decisions, invariants, ordering constraints, traps
+and extension points.
 
 ## What the mod is made of
 
@@ -399,7 +400,7 @@ lab keys.
 |---|---|
 | `ARCHITECTURE.md` | concepts, layers, service definition, lifecycle, dependency policy, enforcement, migration policy |
 | `docs/README.md` | the service/shared/orchestrator index, the doc template and the verification matrix |
-| `docs/<service>.md` | the service contract: scope, ownership, API, data, settings, controls, dependencies, tests |
+| `docs/<service>.md` | the service contract: responsibility and boundary, decisions, invariants, ordering constraints, traps and extension points |
 | `AGENTS.md` | agent rules, the path router and the workflow pointers |
 | `WORKFLOW.md` | commands, labs and release flow |
 | `README.md` | the player-facing summary; human-owned, do not edit |
@@ -409,8 +410,8 @@ lab keys.
 
 Rules:
 
-- The service doc is the single source of truth for that service.
-- No other doc restates its API, state, settings, controls, tests or debug actions.
+- The service doc is the single source of truth for its responsibility and boundary.
+- No other doc restates its decisions, invariants or extension points.
 - A cross-system fact is a link, not a copy.
 - `AGENTS.md` does not duplicate the service index; it links to `docs/README.md`.
 - Root-level docs are for players and agents. Service contracts live under `docs/`.
@@ -422,38 +423,17 @@ Rules:
 
 ## Scope
 ## Ownership
-## Internal API
 ## Data ownership
-## Lifecycle
+## <behaviour sections>
 ## Settings
-## Controls and debug
-## Dependencies
-## Tests
 ## Verification / lab
-## Related docs
 ```
 
-`## Dependencies` has a normative `### Uses` table and an optional `### Used by` table:
-
-```markdown
-### Uses
-
-| Kind | Target | Entry point | Purpose |
-|---|---|---|---|
-| service | memory | `memory/service.gd` | cue facts and witness pass |
-| shared | preferences | `shared/preferences.gd` | tolerance tier |
-| store | act_history | `shared/act_history.gd` | stored history rows |
-| read model | act_view | `shared/act_view.gd` | act state for presentation |
-| host | runtime | `bind(SummaryHost)` | clock, idle state, scene callbacks |
-| game | pony_director | `res://world/ai/...` | speak one line |
-```
-
-`Kind` is one of `service`, `shared`, `store`, `read model`, `host`, `game`. The checker parses
-this table and compares it with the preload graph. `### Used by` is optional; the checker derives
-the reverse graph and fails if a hand-written table disagrees.
-
-`## Lifecycle` names the scope, constructor, begin/end and idempotency. `## Host boundary` has a
-callback table where the service has a host.
+A service may use `## Ownership` in place of `## Scope`. `## Data ownership` is the save-schema and
+single-writer map; `## Settings` names settings and behaviour without copying defaults or bounds.
+Every other section is a behaviour section named after its responsibility. The preload graph is the
+dependency record; do not mirror it in a table. `## Host boundary` has a callback table where the
+service has a host.
 
 ## Enforcement
 
@@ -465,15 +445,18 @@ The architecture gate is `scripts/architecture.py --check`, run from `scripts/te
   `CanvasLayer` and must define all four hooks;
 - rejects a static `instance` in a shipped service; world facades are injected or taken as host
   parameters;
-- scans `preload`, `extends "res://..."` and `load()` for mod paths;
-- compares the source graph with the `### Uses` tables in the service docs;
+- scans `preload`, `extends "res://..."` and `load()` for mod paths and base-game paths;
+- rejects a base-game import outside `world/game.gd`; every other module reads the game through
+  `GAME`;
+- rejects a cross-module preload-const reach-through; enums, nested classes and plain constants
+  stay reachable, and `GAME.X` is the one allowed re-export;
 - rejects a private import, a service -> `runtime`/`main`/`api` import, a shared -> service import
   and a service cycle;
 - rejects any shipped file outside `main.gd` that names the entry (`main.<member>`, `var main`, a
   `main.gd` preload or `main` as an argument); `tests/` is exempt;
 - checks that every service has a facade, doc, test directory and index row;
-- checks that every service doc has the required sections and that no other doc names its private
-  files;
+- checks that every service doc has an ownership heading and names its facade, and that every
+  facade's public type carries a `##` note;
 - reads `architecture/exceptions.json` and fails on a new violation or a stale exception;
 - reads `architecture/typing_debt.json` and fails when the weak-signature debt grows;
 - reads `architecture/duck_typing.json` and fails when a shipped file outside the accessor
@@ -518,7 +501,8 @@ block in an act and one outside it before and after, with **Enable debug** + **P
 2. Create `<id>/service.gd` with the facade header, a narrow typed API and the ownership fields.
 3. Keep every helper under `<id>/`; move a genuinely shared pure module to `shared/` instead of
    making the facade a namespace.
-4. Add `docs/<id>.md` with the standard sections, `## Lifecycle` and `## Dependencies`.
+4. Add `docs/<id>.md` with the ownership heading and the behaviour sections; the index row owns the
+   contract and test router.
 5. Add `tests/<id>/`; keep pure-core tests separate from facade/API tests.
 6. Contribute the service's settings as declarations in `settings/service.gd` and its debug
    actions to `debug/service.gd`; document the behavior in the service contract.

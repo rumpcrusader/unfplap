@@ -57,17 +57,16 @@ wanted.
 
 ## Architecture gate
 
-`scripts/architecture.py --check` compares each service's `docs/` `### Uses` table with the preload
-graph and enforces the layer and privacy rules. These rules exist so code cannot grow back outside
-the gate:
+`scripts/architecture.py --check` scans the preload graph and enforces the layer, owner,
+game-boundary and re-export rules. These rules exist so code cannot grow back outside the gate:
 
 - **Every mod path has an owner.** A shipped `.gd` must resolve through `owner_of()` to a service
   (`<id>/service.gd`, or `anatomy/api.gd` for the anatomy package, and everything under
   `<id>/`), `shared/`, or one of the three orchestrators `main.gd`, `runtime.gd` and `api.gd`. Any other path has no owner, so every edge to and from it
   is classified external and allowed; the mod root's former `runtime/` grew a file that way.
-- **Anatomy is a leaf.** `anatomy/rig.gd` is the only anatomy file that may preload
-  `world/game.gd`; no anatomy file may preload another mod service except `settings/service.gd`;
-  and no outside file may preload an anatomy file except `anatomy/api.gd`. The two directions are
+- **Every anatomy file reads the game through `GAME`.** No anatomy file may preload a base-game
+  module; no anatomy file may preload another mod service except `settings/service.gd`; and no
+  outside file may preload an anatomy file except `anatomy/api.gd`. The two directions are
   synthetic fixtures in `scripts/test_architecture.py`, run by `scripts/test.sh`.
 - **The entry builds no binding.** `main.gd` may not name a `*_binding.gd` or call
   `register_binding`: the body-change service constructs and registers its chain from the facades
@@ -142,8 +141,3 @@ missing and extra entries; `--strict` fails on drift and `--no-manifest` skips t
 broken parser fails in seconds. The build job runs the pck report between `Build` and `Release` and
 appends it to the run's job summary, so every run, release or not, shows the composition of the
 pack it produced.
-
-## Related docs
-
-- `docs/tests.md` — the behavioural suites and the runner.
-- `WORKFLOW.md` — the commands and the commit flow.

@@ -262,7 +262,7 @@ RUNTIME_RAW_INPUT = (
 # contract the body-change service constructs from the anatomy facade it is handed.
 PUBLIC_SERVICE_FILES = {"body_change/source.gd", "world/game.gd"}
 # The lifecycle base is a no-behaviour contract: every world service extends it, so it is not a
-# dependency edge and needs no `### Uses` row in 16 contracts.
+# dependency edge.
 SERVICE_BASE = "shared/service.gd"
 HUD_FACADE = "hud/service.gd"
 # A public accessor module outside a `service.gd` facade joins the weak-signature scan.

@@ -2,7 +2,8 @@
 
 This is the index for the mod's documentation. `ARCHITECTURE.md` owns the concepts and rules; each
 service owns exactly one contract under `docs/`, and that contract is the single source of truth
-for the service's purpose, API, state, settings, controls, debug actions, dependencies and tests.
+for the service's responsibility and boundary, its decisions, invariants, ordering constraints,
+traps and extension points.
 
 `AGENTS.md` holds the project-wide agent rules and links here.
 
@@ -78,8 +79,8 @@ the idle block; `act/build.gd` constructs and binds them once per pony.
 | Input | `input/service.gd` | `docs/input.md` | `tests/test_input.gd` |
 | Debug tooling | `debug/service.gd`, `debug/actions.gd` | `docs/debug.md` | `tests/test_debug_wheel.gd`, `tests/test_debug_pony.gd`, `tests/test_deep_stretch.gd` |
 
-Scope and lifecycle are declared in each contract's `## Lifecycle`. A facade is internal API; the
-only stable external surface is `docs/api.md`.
+Scope and ownership are declared in each contract's `## Scope` or `## Ownership` heading. A facade
+is internal API; the only stable external surface is `docs/api.md`.
 
 ## Shared modules and read models
 
@@ -135,70 +136,35 @@ the lifecycle base every world-list service extends, not a service. The layer ru
 
 Every service doc uses the same shape. A service may add a section named after its own
 responsibility (for example `## Missionary`, `## Standing`, `## Admission`), and it may use
-`## Ownership` in place of `## Ownership and boundary`:
+`## Ownership` in place of `## Scope`:
 
 ```markdown
 # <Service>
 ## Scope
 ## Ownership
-## Internal API
 ## Data ownership
-## Lifecycle
+## <behaviour sections>
 ## Settings
-## Controls and debug
-## Host boundary
-## Dependencies
-## Tests
 ## Verification / lab
-## Related docs
 ```
 
-`## Lifecycle` declares the scope and ownership:
-
-```markdown
-## Lifecycle
-
-- Scope: world | per-pony | per-act | pure
-- Constructed by: ...
-- Begin: ...
-- End: ...
-- Idempotent: yes/no
-```
-
-`## Dependencies` has a normative `### Uses` table and an optional `### Used by` table. The
-checker parses `Uses` and compares it with the preload graph. `Kind` is one of `service`, `shared`,
-`store`, `read model`, `host`, `game`.
-
-```markdown
-## Dependencies
-
-### Uses
-
-| Kind | Target | Entry point | Purpose |
-|---|---|---|---|
-| service | memory | `memory/service.gd` | cue facts and witness pass |
-| shared | preferences | `shared/preferences.gd` | tolerance tier |
-| store | act_history | `shared/act_history.gd` | stored history rows |
-| read model | act_facts | `runtime.act.facts()` | act state for presentation |
-| host | runtime | `bind(SummaryHost)` | clock, idle state, scene callbacks |
-| game | pony_director | `res://world/ai/...` | speak one line |
-```
-
-`### Used by` is optional; the checker derives the reverse graph and fails if a hand-written table
-disagrees. `## Host boundary` has a callback table where the service has a host.
+`## Data ownership` is the save-schema and single-writer map; `## Settings` names settings and
+behaviour without copying defaults or bounds. Every other section is a behaviour section named
+after its responsibility. The preload graph is the dependency record; do not mirror it in a table.
+`## Host boundary` has a callback table where the service has a host.
 
 Rules:
 
-- the doc is the single source of truth for the service;
-- no other doc restates its API, state, settings, controls, tests or debug actions;
+- the doc owns the service's responsibility and boundary, its decisions, invariants, ordering
+  constraints, traps and extension points;
+- it never enumerates what a script, a declaration or the index already carries: no API signature
+  dumps, no dependency edges, no setting rows, no debug-action rosters, no test lists, no numeric
+  defaults, no call counts;
 - settings are named and described here, but defaults stay in `settings/settings.json` and bounds
   in the owning declaration;
-- tests are listed by path; do not copy pass counts;
-- lab checks are described as steps, not as historical results;
-- cross-system facts are links, not copies;
-- no historical notes, no "used to be" sections;
-- a behaviour, setting, control, debug action or test change updates the doc in the separate
-  `docs:` commit after the code commit.
+- a doc names another system in at most one clause; anything more is a link;
+- no historical notes; remove an obsolete claim instead of keeping it;
+- a behaviour, setting, control or debug change updates the doc in the same commit as the code.
 
 ## Verification matrix
 
@@ -218,17 +184,14 @@ Rules:
 `scripts/architecture.py --check` enforces this section:
 
 - every doc under `docs/` is linked from this index;
-- every service has a facade, a contract and a test path;
-- each contract has the headings and sections the template requires;
-- every `Uses` edge matches the code, and no service imports another service's private files.
+- every service has a facade, a contract and exactly one index row whose contract and tests resolve;
+- each contract has an ownership heading and names its facade;
+- every facade's public type carries a `##` note; `api.gd`'s public surface carries one and every
+  public `api.gd` function is named in `docs/api.md`;
+- no service imports another service's private files, no module preloads a base-game module except
+  `world/game.gd`, and no module reaches another module's preload const except `GAME`.
 
 The typed act view boundary is a review rule, not a gate check: `docs/act_facts.md` owns it.
 
 The manual lab is the only check the gate cannot run: it needs a live world and a person at the
 keyboard. Record its result in the phase notes instead of assuming it passed.
-
-## Related
-
-- `../ARCHITECTURE.md` — the service model, layers, lifecycle and enforcement.
-- `../AGENTS.md` — the path router and the cross-cutting rules.
-- `../WORKFLOW.md` — the commands and the release flow.

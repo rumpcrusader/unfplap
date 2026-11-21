@@ -216,13 +216,5 @@ The Debug block builds its own `Host` from the `PONIES` facade in `debug/actions
 - `tests/handover/test_body_swap.gd` — suspend, adopt and resume against the real service, with
   only the runtime's host handle and the body-change service faked.
 - `tests/body_change/test_service.gd` — the runtime binding's lookup through the registry.
-- `scripts/architecture.py --check` — the service contract, its Uses rows and the `ponies` import
-  policy (never `runtime.gd`, `main.gd` or `api.gd`).
-
-## Related docs
-
-- `docs/runtime.md` — the act the registry builds and the body swap on the act side.
-- `docs/anatomy.md` — what the attach-time bind and the tail seat do.
-- `docs/body_change.md` — the providers that ask for a new body.
-- `docs/eligibility.md` — the adult capability the character target asks.
-- `docs/offer.md` — the idle offer the act start drops.
+- `scripts/architecture.py --check` — the service contract, the preload graph and the `ponies`
+  import policy (never `runtime.gd`, `main.gd` or `api.gd`).

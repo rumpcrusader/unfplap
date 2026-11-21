@@ -26,7 +26,7 @@ It does not cover eligibility, act readiness, thrust scoring, pose or camera rul
 | File | Role |
 |---|---|
 | `anatomy/api.gd` | the public entry and composition root: roster verbs, act presentation, Anon and garment handles, the `Rig` and the `Parts` |
-| `anatomy/rig.gd` | the one `world/game.gd` boundary; every skeleton, body, hair, dock and mouth read |
+| `anatomy/rig.gd` | the game accessor every anatomy file reads through; every skeleton, body, hair, dock and mouth read |
 | `anatomy/parts.gd` | per-pony registry: controllers, forms, tail rows, the player host and the placement editor |
 | `anatomy/player_host.gd` | the Anon part lifecycle: create, free, warm and resolve the player body |
 | `anatomy/placement_editor.gd` | the Anatomy Placement editor: the named pony's placement and reset actions and the report |
@@ -363,9 +363,9 @@ fade. The hull block is in the copied compatibility shaders under
 
 ## Rig contract
 
-`anatomy/rig.gd` is the anatomy package's one game boundary: it wraps every `world/game.gd` read
-and command anatomy makes. It is constructed by `anatomy/api.gd` and injected into the modules
-that need a skeleton, body, hair, dock or mouth. No other anatomy file calls `GAME`.
+`anatomy/rig.gd` reads the game through `GAME` and wraps every `world/game.gd` read and command
+anatomy makes. It is constructed by `anatomy/api.gd` and injected into the modules that need a
+skeleton, body, hair, dock or mouth. Every anatomy file reads the game through `GAME`.
 
 ## Act anatomy
 
@@ -962,7 +962,7 @@ keep for their suites.
 
 ## Boundary
 
-- `anatomy/rig.gd` is the only anatomy file that preloads `world/game.gd`.
+- Every anatomy file reads the game through `GAME`; no anatomy file preloads a base-game module.
 - No anatomy file preloads a mod service except `settings/service.gd`; no outside file preloads
   an anatomy file except `anatomy/api.gd`.
 - `scripts/architecture.py --check` enforces both rules, and `scripts/test_architecture.py` pins

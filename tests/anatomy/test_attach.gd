@@ -83,14 +83,18 @@ func run() -> void:
 	# A live capability edit re-asks the gate for every remembered body: the listener withdraws
 	# and re-attaches without another roster pass.
 	var kept: BODY_FORM.BodyForm = api.parts.form_for(pony)
+	var before := eligibility.calls
 	eligibility.allow = false
 	api._on_settings_changed()
+	check(eligibility.calls == before + 1, "the listener asks the gate once per remembered body")
 	check(api.parts.controller(pony) == null, "a settings edit withdraws a now-ineligible body")
 	check(api.parts.form_for(pony) == kept, "the listener keeps the remembered form")
 	check(not (api.parts.tail_seat.get("_rows") as Dictionary).has(pony),
 		"the listener releases the tail")
+	before = eligibility.calls
 	eligibility.allow = true
 	api._on_settings_changed()
+	check(eligibility.calls == before + 1, "the second edit asks once more")
 	check(is_instance_valid(api.parts.controller(pony)),
 		"a settings edit re-presents an eligible body")
 
@@ -114,6 +118,8 @@ func run() -> void:
 	unbound.present(body)
 	check(unbound.parts.controller(body) == null, "an unbound anatomy creates no controller")
 	check(unbound.parts.form_for(body) != null, "an unbound anatomy still stores the form")
+	check(not (unbound.parts.tail_seat.get("_rows") as Dictionary).has(body),
+		"an unbound anatomy seats no tail")
 	unbound.shutdown()
 	root.remove_child(unbound)
 	unbound.free()

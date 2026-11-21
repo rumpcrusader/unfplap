@@ -271,6 +271,7 @@ func _ready() -> void:
 	CHANGE.on_changed(Callable(self, "_on_settings_changed"))
 
 
+## The entry binds the identity gate once; an unbound facade presents nothing.
 func bind_eligibility(service: ELIGIBILITY) -> void:
 	_eligibility = service
 
@@ -283,7 +284,7 @@ func present(pony: Node3D, form: BODY_FORM.BodyForm = null) -> void:
 	if not is_instance_valid(pony) or parts == null:
 		return
 	parts.remember(pony, form)
-	if not assigned(pony):
+	if not _assigned(pony):
 		parts.release(pony)
 		return
 	parts.attach(pony, Callable(self, "_emit_status"))
@@ -297,7 +298,7 @@ func withdraw(pony: Node3D) -> void:
 
 
 ## The one identity question these roster verbs ask.
-func assigned(pony: Node) -> bool:
+func _assigned(pony: Node) -> bool:
 	return _eligibility != null and is_instance_valid(_eligibility) \
 		and _eligibility.eligible(pony, ELIGIBILITY.Target.ANATOMY)
 
@@ -484,12 +485,20 @@ func _on_settings_changed() -> void:
 	var ponies: Array = parts.forms.keys()
 	for value: Variant in ponies:
 		if value is Node3D and is_instance_valid(value):
-			present(value as Node3D, parts.form_for(value))
+			_reconcile(value as Node3D)
 	parts.player_host.refresh()
 	parts.push_part()
 	parts.refresh_all()
 	parts.apply_live()
 	parts.refresh_tails()
+
+
+## Re-attach or release one remembered body; the listener's single refresh pass covers survivors.
+func _reconcile(pony: Node3D) -> void:
+	if not _assigned(pony):
+		parts.release(pony)
+	elif parts.controller(pony) == null:
+		parts.attach(pony, Callable(self, "_emit_status"))
 
 
 func _on_act_ended(_pony: Node3D) -> void:

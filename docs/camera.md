@@ -67,6 +67,9 @@ and caches it by settings group and pose id, so a held debug pair does not snap.
   are not read, an active `Q`/`E` shoulder reach ends, an active `F` lean kiss releases, and
   `lean_forward`, `lean_side`, the displayed lean and the sway return to rest. The caress hands
   still tick and the standing look response still runs; the oral head path is `docs/hands.md`.
+- A reach the hands have dropped (a smack took that hand) ends the lean action and its glance, and
+  the action does not fire again until the lean leaves the release band. `docs/hands.md` owns the
+  reach.
 - The standing facing lock reads `view.facing`/`facing_amount` every physics tick. The pose-owned
   oral turn writes them; amount 0 clears the override and the normal `_facing_basis` resumes. The
   view keeps one facing path and no service carries a facing copy.
@@ -278,10 +281,10 @@ effect when the panel closes.
 
 ## Tests
 
-- `tests/act_camera/test_camera.gd` — lean ramp/return, the oral lean lock, the pose-view facing
-  override, the free camera, the missionary eye position, its authored look path and head
-  clearance, the global-rest eye line, the form entrance offsets, size scales and the afterglow
-  back-off.
+- `tests/act_camera/test_camera.gd` — lean ramp/return, the reach action and its re-fire latch, the
+  oral lean lock, the pose-view facing override, the free camera, the missionary eye position, its
+  authored look path and head clearance, the global-rest eye line, the form entrance offsets, size
+  scales and the afterglow back-off.
 - `tests/poses/test_session.gd` — the pose camera targets, the render-time eye write and the bed
   frame the view reads.
 - `tests/hands/test_actions.gd` — the camera amplitudes the caress uses.

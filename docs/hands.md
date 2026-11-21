@@ -32,14 +32,15 @@ This contract covers:
   keeps scoring, but the keys are ignored.
 - Lean and A/D caress stay live in `AFTERGLOW`. The standing afterglow counts active caress time
   for its close window.
-- A smack with both hands caressing chooses one hand at random; the other keeps caressing. The
-  caress oval keeps moving through the smack, so the hand returns to the live point.
+- A smack uses the free hand while one hand caresses; the caress keeps running. A reaching hand
+  is not free. With both hands busy (caressing or reaching), one hand is picked at random and its
+  caress or reach ends: it does not come back after the swing.
 
 ## Architecture
 
 | File | Role |
 |---|---|
-| `hands/service.gd` | act hand coordinator: A/D/Z/C latches, five-second touch meter, shoulder reach, smack target selection and palm-holder/path wiring |
+| `hands/service.gd` | act hand coordinator: A/D/Z/C latches, five-second touch meter, shoulder reach, smack hand and target selection and palm-holder/path wiring |
 | `hands/session.gd` | typed coordinator interface used by the smack action |
 | `hands/placement.gd` | pose-free placement engine: oval, fitted-sphere contact, smoothing, palm frame, last-good target |
 | `hands/path_base.gd` | path contract: ordered candidates, debug anchors, reset |
@@ -53,7 +54,7 @@ This contract covers:
 | `shared/hands_scale.gd` | shared per-preset hand-bone scale |
 | `shared/hands_reach_plan.gd` | pure two-bone reach plan for the missionary hand |
 | `hands/contact.gd` | FlankSurface/PonyTouchBody hull queries and touch-hull sync |
-| `hands/smack.gd` | smack phases, impact audio and return to the live caress |
+| `hands/smack.gd` | smack phases, impact audio and the return to the frame the swing started from |
 | `hands/paths/anchors.json` | authored path one: shared belly, per-hand lower/belly/chest/neck/cheek |
 | `hands/paths/anchors2.json` | authored path two: per-hand flank/shoulder/neck |
 | `hands/areas/areas.json` | marked caress areas from the Blender vertex groups; standing chain and the single oral head-side node |
@@ -285,23 +286,28 @@ The rub centre is lifted `CARESS_UP_BIAS_M = 0.05` above the profile's `up` poin
 The standing `Q`/`E` side lean can send Anon's same-side hand to her shoulder. It uses the same
 palm holder as the caress but a hull contact, blends from the current rest hand over 0.35 s, and
 blends back over 0.35 s. While held, the forced glance looks over that shoulder. Missionary has
-no shoulder reach.
+no shoulder reach. A smack that takes the reach hand ends the reach and the lean action with it;
+the reach does not fire again until the lean leaves the release band.
 
 ## Smack
 
-The smack action lives in `hands/smack.gd`; `hands/service.gd` keeps the pose-specific target
-selection and starts the swing.
+The smack action lives in `hands/smack.gd`; `hands/service.gd` chooses the hand and the
+pose-specific target and starts the swing.
 
-- A live caress hand is used when possible; otherwise the lean chooses a cheek.
-- Standing targets the flank patch. The live caress point is used when that hand's contact
+- The free hand is used while one hand caresses; a reaching hand is not free. With both hands
+  busy one is picked at random. With neither busy the lean chooses a cheek.
+- The picked hand's caress or reach ends before the swing, so the smack never resumes it; a fresh
+  `A`/`D` press or a new side lean is needed.
+- Standing targets the flank patch. The live caress point is used when the picked hand's contact
   source is `flank`; a free-hand smack queries the chosen cheek, offset by
   `smack.height_m` (signed) and `smack.hind_m`, then snaps
   to the nearest `FlankSurface` point and jitters within `smack_zone_radius`.
 - Missionary keeps the decal-centre target shifted `0.08 m` up and `0.08 m` back.
 - Every smack offset and the raise scale with the pony's body size.
-- Standing runs raise -> strike -> contact -> recover. A caress raise lifts off the coat; a
-  free-hand raise is a backswing from behind and below. The strike is cubic, CONTACT holds the
-  exact frame for `0.03 s`, and RECOVER returns to the live caress or the captured rest hand.
+- Standing runs raise -> strike -> contact -> recover. A hand on the coat (caressing or reaching)
+  raises off it; a free-hand raise is a backswing from behind and below. The strike is cubic,
+  CONTACT holds the exact frame for `0.03 s`, and RECOVER returns to the frame the swing started
+  from.
 - Missionary uses the hidden-hand `0.20 s` swing, impacting at phase `0.45`.
 - A `200 ms` cooldown gates a new smack.
 - The native `FlankTouch.impact` keeps its decal, blush and jiggle; the pony's game reaction
@@ -339,7 +345,8 @@ selection and starts the swing.
   path, side mapping, standing path and its procedural fallback, oral head node and side inversion,
   the exact node without a head fit, contact blend, sphere projection and smoothing, the background
   fit queue and the path warm, and reach geometry.
-- `tests/hands/test_actions.gd`: pure act-action helpers and smack geometry.
+- `tests/hands/test_actions.gd`: pure act-action helpers, the smack hand choice, the reach cancel
+  and smack geometry.
 
 ## Known limits
 

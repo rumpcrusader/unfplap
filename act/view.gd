@@ -17,7 +17,6 @@ const READINESS := preload("res://mods/unfplap/readiness/service.gd")
 const SUMMARY := preload("res://mods/unfplap/summary/service.gd")
 const DEBUG_PONY := preload("res://mods/unfplap/debug/pony.gd")
 const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
-const HUD := preload("res://mods/unfplap/hud/service.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 const State := ACT_STATE.State
@@ -182,10 +181,10 @@ func apply_live(session: ACT_SESSION) -> void:
 		session.preferences = live_preferences
 	settings.apply_act_live(session.pose_family(), session.pony_id,
 		previous_mute != settings.muted())
-	if is_instance_valid(HUD.instance):
+	if is_instance_valid(context.hud):
 		sync_hud(context.facts, session, settings.max_pony_climaxes, session.cycle_heat,
 			session.pose_family())
-		HUD.instance.update_from(context.facts)
+		context.hud.update_from(context.facts)
 
 
 func reset_act_state(session: ACT_SESSION) -> void:

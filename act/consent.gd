@@ -96,8 +96,8 @@ func _face_context() -> FACE.BEAT:
 func queue_warning(level: int) -> void:
 	if not is_instance_valid(WORLD.game):
 		return
-	if not warning_key.is_empty():
-		MEMORY.instance.cancel_line(warning_key)
+	if not warning_key.is_empty() and context.memory != null:
+		context.memory.cancel_line(warning_key)
 	var act_id := session.event_id
 	var event_id := "%s:tolerance_warning:%d" % [session.event_id, Time.get_ticks_usec()]
 	var valid := DIALOGUE.Validity.of(func() -> bool:
@@ -111,8 +111,8 @@ func queue_warning(level: int) -> void:
 
 ## The line a stop supersedes must not speak after it.
 func cancel_warning() -> void:
-	if not warning_key.is_empty() and is_instance_valid(WORLD.game):
-		MEMORY.instance.cancel_line(warning_key)
+	if not warning_key.is_empty() and is_instance_valid(WORLD.game) and context.memory != null:
+		context.memory.cancel_line(warning_key)
 	warning_key = ""
 
 
@@ -152,8 +152,8 @@ func stop_with_her(reason: String) -> void:
 	session.commit_summary(false)
 	# The stopped summary already says why. The basic event is the fallback when the summary was
 	# skipped, so one partner stop is never two memories.
-	if context.summary.summary.is_empty() and is_instance_valid(WORLD.game):
-		MEMORY.instance.note(MEMORY.NoteKind.STOPPED, session.pony_id, session.event_id,
+	if context.summary.summary.is_empty() and is_instance_valid(WORLD.game) and context.memory != null:
+		context.memory.note(MEMORY.NoteKind.STOPPED, session.pony_id, session.event_id,
 			MEMORY.StopReason.WITHDREW)
 	if session.pose_family() == "bed":
 		REST.release_managed(host.pony)

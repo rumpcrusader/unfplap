@@ -360,7 +360,7 @@ No setting is read directly. The bridge's `relationship_ok` reads the Promiscuit
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
 | service | eligibility | `eligibility/service.gd` | the act target, the relationship row and the Context facts |
-| service | hud | `hud/service.gd` | the one toast sink |
+| host | the entry | `bind(..., hud)` | the one toast sink |
 | service | memory | `memory/service.gd` | the relationship note in Context |
 | service | ponies | `ponies/service.gd` | the runtime of the outcome, the Agreement and the mare the watch asks |
 | service | privacy | `privacy/service.gd` | live offer and cuddle privacy |

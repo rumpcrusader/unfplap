@@ -108,13 +108,12 @@ func run() -> void:
 	main.stool = STOOL.new()
 	PONIES.anatomy = main.anatomy
 	PONIES.eligibility = fake_eligibility
-	STOOL.instance = main.stool
 	root.add_child(main)
 	root.add_child(pony)
 	root.add_child(player)
 	root.add_child(game)
 	root.add_child(inventory)
-	var runtime: Node = RUNTIME.new()
+	var runtime: Node = RUNTIME.new(null, null, main.stool)
 	runtime.pony = pony
 	# The scene gate gets its body from the runtime's own refresh, as it does on the idle frame.
 	runtime.act.refresh_gate()

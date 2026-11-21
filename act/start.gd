@@ -17,11 +17,9 @@ const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/service.gd")
-const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const REST := preload("res://mods/unfplap/rest/control.gd")
-const HUD := preload("res://mods/unfplap/hud/service.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 var host: ACT_HOST = null
@@ -99,7 +97,8 @@ func run(pose: String, bed_in: Variant, act_source: String, skip_presentation :=
 	context.face.set_face(0.45, context.face.ACT_LIDS)
 	session.serial = PONIES.allocate_serial()
 	session.event_id = "intimacy_%s_%d" % [session.pony_id, session.serial]
-	session.first_time = MEMORY.instance.first_time(session.pony_id, session.event_id)
+	session.first_time = context.memory.first_time(session.pony_id, session.event_id) \
+		if context.memory != null else false
 	context.readiness.satisfaction = 0.0
 	context.readiness.mood = "warming"
 	context.readiness.cue = ""
@@ -169,8 +168,8 @@ func run(pose: String, bed_in: Variant, act_source: String, skip_presentation :=
 		context.anatomy.vr_start()
 	context.audio.start(host.pony, session.pony_id, session.bed)
 	context.audio.apply_voice_policy(session.feature("mute_ponese_audio"), host.pony, session.pony_id)
-	if is_instance_valid(HUD.instance):
-		HUD.instance.set_inventory_hidden(true)
+	if is_instance_valid(context.hud):
+		context.hud.set_inventory_hidden(true)
 	# integration: show the player part for the encounter.
 	var service := PONIES.anatomy as ANATOMY
 	if service != null:
@@ -185,10 +184,10 @@ func run(pose: String, bed_in: Variant, act_source: String, skip_presentation :=
 	# integration: act-only visibility updates at the state change, not on the next poll.
 	context.anatomy.apply_live()
 	PONIES.set_active(host.node)
-	if is_instance_valid(HUD.instance):
+	if is_instance_valid(context.hud):
 		session.sync_hud()
-		HUD.instance.show_act(context.facts)
-		HUD.instance.hide_prompt()
+		context.hud.show_act(context.facts)
+		context.hud.hide_prompt()
 	LOG.debug("started pose=%s setup=%s source=%s pony=%s eye=%.2f", [
 		pose, setup_name, act_source, host.pony_name(),
 		float(frame_plan.eye) if frame_plan != null else 0.0])

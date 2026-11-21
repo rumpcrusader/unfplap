@@ -59,10 +59,13 @@ var talk_turn := -1
 var form_hint_log := ""
 ## Debug mode at the act's settings snapshot: only then may the log name the form state.
 var form_hint_debug := false
+## The world memory a form effect writes; the runtime's builder passes it once.
+var memory: Node = null
 
 
-func _init(act_host: ACT_HOST) -> void:
+func _init(act_host: ACT_HOST, memory_in: Node = null) -> void:
 	host = act_host
+	memory = memory_in
 
 
 ## One watcher or suspended-act tick; it only returns the action the runtime applies.
@@ -654,7 +657,6 @@ func _apply_form_effects(effects: BODY_CHANGE_POLICY.BodyChangeEffects) -> void:
 			host.set_cue_override(effects.cue)
 	if effects.memory_kind.is_empty() and effects.peak <= 0.0:
 		return
-	var memory: Variant = MEMORY.instance
 	if memory == null:
 		return
 	if effects.memory_kind == FORM_REVEAL_MEMORY:

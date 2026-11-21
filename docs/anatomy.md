@@ -966,7 +966,7 @@ stay event-time reads.
 |---|---|---|---|
 | service | debug | `debug/service.gd` | the aimed-mare target rule |
 | service | eligibility | `eligibility/service.gd` | adult and consent gate |
-| service | hud | `hud/service.gd` | the anatomy status line |
+| host | the entry | `setup(hud)` | the anatomy status line |
 | service | ponies | `ponies/service.gd` | the eligibility and body-change handles |
 | service | poses | `poses/service.gd` | the pose request record and its verdict |
 | service | settings | `settings/service.gd` | settings declarations and live values |

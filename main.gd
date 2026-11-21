@@ -133,14 +133,12 @@ func _build_services() -> void:
 	# The API can be discovered before the end of the build; `describe_mare` reads this service.
 	PONIES.eligibility = eligibility
 	memory = _add(MEMORY.new())
-	MEMORY.instance = memory
 	privacy = _add(PRIVACY.new())
 	negotiation = _add(NEGOTIATION.new(), "UnfplapNegotiation")
 	# The HUD exists before the player does: it owns the act card, the toast line, the caption
 	# move and the one-time key notice, and it is the one sink the rest of the mod reaches
 	# through `HUD.toast()`.
 	hud = _add_hud(HUD.new(), "UnfplapHUD")
-	HUD.instance = hud
 	hud.apply_settings()
 	offer = _add(OFFER.new(), "UnfplapOffer")
 	offer.bind(negotiation, privacy, hud)
@@ -155,16 +153,15 @@ func _build_services() -> void:
 	initiation = _add(INITIATION.new(), "UnfplapInitiation")
 	initiation.bind(eligibility)
 	initiation.setup(privacy, negotiation, offer)
-	negotiation.bind(eligibility, memory, privacy, initiation, offer)
+	negotiation.bind(eligibility, memory, privacy, initiation, offer, hud)
 	anatomy = _add(ANATOMY.new(), "UnfplapAnatomy")
-	anatomy.setup()
+	anatomy.setup(hud)
 	body_change = _add(BODY_CHANGE_SERVICE.new(), "UnfplapBodyChange")
 	body_change.setup()
 	pantyhose = _add(PANTYHOSE.new(), "UnfplapPantyhose")
 	pantyhose.setup()
 	stool = _add(STOOL.new(), "UnfplapStool")
 	stool.setup()
-	STOOL.instance = stool
 	stock_smack = _add(STOCK_SMACK.new(), "UnfplapStockSmack")
 	body_change.wire(anatomy, pantyhose, stock_smack)
 	changelings = _add(CHANGELINGS.new(), "UnfplapChangelings")
@@ -174,7 +171,7 @@ func _build_services() -> void:
 	# The debug actions run against the services above, so they are built last. They read the live
 	# act through the facades themselves; the entry hands them only the services they act through.
 	debug_actions = _add(DEBUG_ACTIONS.new(), "UnfplapDebugActions")
-	debug_actions.bind(body_change, initiation, negotiation, anatomy, pantyhose)
+	debug_actions.bind(body_change, initiation, negotiation, anatomy, pantyhose, hud)
 	debug_actions.sync_skeleton_overlay()
 	PONIES.bind(anatomy, body_change, offer, stock_smack, eligibility, api)
 	_assert_hooks()
@@ -257,7 +254,7 @@ func _on_pony(pony: Node) -> void:
 ## The entry's one runtime construction, called once per attached body. The runtime file is the
 ## entry's preload, so the registry never imports it.
 func _new_runtime(pony: Node) -> Node:
-	var runtime: RUNTIME = RUNTIME.new()
+	var runtime: RUNTIME = RUNTIME.new(hud, memory, stool)
 	runtime.name = "UnfplapRuntime"
 	runtime.pony = pony
 	return runtime
@@ -326,6 +323,3 @@ func _shutdown() -> void:
 		service.queue_free()
 	_services.clear()
 	SETTINGS_UI.clear_pages()
-	MEMORY.instance = null
-	HUD.instance = null
-	STOOL.instance = null

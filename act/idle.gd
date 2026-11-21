@@ -4,7 +4,6 @@ extends RefCounted
 ##
 ## See `docs/runtime.md`.
 
-const HUD := preload("res://mods/unfplap/hud/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const ACT_NODE := preload("res://mods/unfplap/act/host.gd")
 const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")
@@ -25,8 +24,8 @@ func bind(host_in: ACT_NODE, context_in: ACT_CONTEXT, session_in: ACT_SESSION) -
 ## One idle physics tick: the standing presentation, then the history scan.
 func tick(delta: float) -> void:
 	# Last-resort safety: a missed exit path must not leave the quick slots hidden.
-	if is_instance_valid(HUD.instance):
-		HUD.instance.ensure_act_inventory_visible(PONIES.active())
+	if is_instance_valid(context.hud):
+		context.hud.ensure_act_inventory_visible(PONIES.active())
 	PERF.begin("runtime_presentation")
 	context.presentation.physics(delta)
 	PERF.end("runtime_presentation")

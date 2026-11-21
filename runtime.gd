@@ -41,8 +41,10 @@ var gate: ACT_GATE:
 var _swapping_parent := false
 
 
-func _init() -> void:
-	_bundle = ACT_BUILD.build(null, self)
+## The entry's factory passes the world services the per-pony modules read; a bare `new()` leaves
+## them null, which the modules treat as an absent HUD, memory or stool facade.
+func _init(hud: Node = null, memory: Node = null, stool: Node = null) -> void:
+	_bundle = ACT_BUILD.build(null, self, hud, memory, stool)
 
 
 func _ready() -> void:

@@ -106,8 +106,8 @@ func cancel() -> void:
 		session.commit_summary(false)
 		# The early summary already records this end. Keep the basic event only when the summary
 		# was skipped, so the story never holds the same end twice.
-		if context.summary.summary.is_empty():
-			MEMORY.instance.note(MEMORY.NoteKind.CANCELLED, session.pony_id, session.event_id)
+		if context.summary.summary.is_empty() and context.memory != null:
+			context.memory.note(MEMORY.NoteKind.CANCELLED, session.pony_id, session.event_id)
 		context.dialogue.end_act(session.event_id, true)
 		exit.restore_begin()
 		# Half the time she says nothing at all. When she does speak, it is a moment, not a
@@ -121,7 +121,8 @@ func cancel() -> void:
 					return false
 				if session.clock_s() <= expires:
 					return true
-				return MEMORY.instance.line_state(end_early_key) == MEMORY.LineState.SPEAKING)
+				return context.memory != null \
+					and context.memory.line_state(end_early_key) == MEMORY.LineState.SPEAKING)
 			var key: String = context.dialogue.reaction_line(MEMORY.Reaction.END_EARLY, act_id,
 				ACT_SUMMARY.early_end_prompt(context.summary.summary), valid)
 			end_early_key = key

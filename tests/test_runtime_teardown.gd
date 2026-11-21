@@ -90,7 +90,7 @@ class FakeGame extends Node:
 	var headset_view := false
 
 
-class FakeMemory extends RefCounted:
+class FakeMemory extends Node:
 	func cancel_act(_event_id: Variant = null, _keep_speaking: Variant = null) -> int:
 		return 0
 
@@ -139,7 +139,10 @@ class FakeAnatomyService extends "res://mods/unfplap/anatomy/service.gd":
 
 
 func _fixture() -> Dictionary:
-	var runtime: Node = RUNTIME.new()
+	var memory := FakeMemory.new()
+	var hud: CanvasLayer = HUD.new()
+	hud.name = "UnfplapHUD"
+	var runtime: Node = RUNTIME.new(hud, memory)
 	var pony: FakePony = FakePony.new()
 	pony.posture = Node.new()
 	pony.add_child(pony.posture)
@@ -155,16 +158,12 @@ func _fixture() -> Dictionary:
 	WORLD.bind_player(main.player)
 	main.game = game
 	WORLD.bind_world(main.game)
-	MEMORY.instance = FakeMemory.new()
 	runtime.add_child(pony)
 	runtime.add_child(nav)
 	runtime.add_child(main)
 	main.add_child(player)
 	main.add_child(game)
-	var hud: CanvasLayer = HUD.new()
-	hud.name = "UnfplapHUD"
 	main.add_child(hud)
-	HUD.instance = hud
 	runtime.pony = pony
 	runtime.act.pony_id = "test_mare"
 	runtime.act.pony_id = "test_mare"

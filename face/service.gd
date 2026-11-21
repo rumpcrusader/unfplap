@@ -10,8 +10,14 @@ const MOOD_FACE := preload("res://mods/unfplap/face/mood_face.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
 const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
 const READINESS := preload("res://mods/unfplap/readiness/service.gd")
-const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
+
+## The world memory the cue mood reads; the runtime's builder passes it once.
+var memory: Node = null
+
+
+func _init(memory_in: Node = null) -> void:
+	memory = memory_in
 
 ## The act values one face moment reads. The session fills one instance per pony; this facade
 ## owns the beat table and the shape it is given.
@@ -192,7 +198,7 @@ func quality_for(readiness: READINESS) -> BEAT.ClimaxQuality:
 func act_rows(values: ActValues, readiness: READINESS) -> Array[String]:
 	var base_mood := ""
 	if is_instance_valid(WORLD.game) and not values.pony_id.is_empty():
-		base_mood = MEMORY.instance.cue_facts(values.pony_id, values.event_id).mood
+		base_mood = memory.cue_facts(values.pony_id, values.event_id).mood
 	var context := BEAT.new()
 	context.state = values.state
 	context.hud_mood = readiness.mood

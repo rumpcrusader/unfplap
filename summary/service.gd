@@ -13,6 +13,13 @@ const READINESS := preload("res://mods/unfplap/readiness/service.gd")
 const DIALOGUE := preload("res://mods/unfplap/dialogue/service.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
+## The world memory the summary commits to; the runtime's builder passes it once.
+var memory: Node = null
+
+
+func _init(memory_in: Node = null) -> void:
+	memory = memory_in
+
 ## The scorer's input for one act. The readiness meter owns the counters; `from_dict` is the edge
 ## that reads the flat snapshot and `to_dict` is the pure scorer's own shape.
 class Inputs extends RefCounted:
@@ -225,7 +232,7 @@ func commit_after_act(values: ActInput, readiness: READINESS, dialogue: DIALOGUE
 	record_act_peak(values, readiness, dialogue)
 	if not is_instance_valid(WORLD.game):
 		return
-	for row: MEMORY.Witness in MEMORY.instance.witnesses(values.pony_id, pony_name, serial, pony):
+	for row: MEMORY.Witness in memory.witnesses(values.pony_id, pony_name, serial, pony):
 		LOG.debug("witness %s", [row.to_dict()])
 
 
@@ -258,7 +265,7 @@ func commit_summary(real_act: bool, context: Context) -> void:
 	impression.romance = int(outcome.get("romance", 0))
 	impression.thought = str(outcome.get("thought", ""))
 	impression.event_text = str(outcome.get("text", ""))
-	MEMORY.instance.commit(impression)
+	memory.commit(impression)
 	var row: Dictionary = result.get("row", {})
 	var events: PackedStringArray = []
 	var raw_events: Variant = result.get("events", [])
@@ -309,7 +316,7 @@ func record_peak_memory(context: Context, act_spoken_at: float) -> void:
 	peak.event_id = context.event_id
 	peak.text = text
 	peak.score = score
-	MEMORY.instance.record_peak(peak)
+	memory.record_peak(peak)
 
 
 func _reasons(outcome: Dictionary) -> String:

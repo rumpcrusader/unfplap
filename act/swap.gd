@@ -13,7 +13,6 @@ const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
-const HUD := preload("res://mods/unfplap/hud/service.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 const State := ACT_STATE.State
@@ -269,9 +268,9 @@ func begin_integrations() -> void:
 
 
 func sync_hud() -> void:
-	if is_instance_valid(HUD.instance):
+	if is_instance_valid(context.hud):
 		session.sync_hud()
-		HUD.instance.update_from(context.facts)
+		context.hud.update_from(context.facts)
 
 
 func resume_auto() -> void:

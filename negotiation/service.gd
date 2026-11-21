@@ -155,6 +155,7 @@ var _privacy_clock := 0.0
 var eligibility: ELIGIBILITY = null
 var memory: MEMORY = null
 var privacy: PRIVACY = null
+var hud: Node = null
 var initiation: Node = null
 var offer: Node = null
 
@@ -162,12 +163,13 @@ var offer: Node = null
 ## The entry's one call: the services the bridge reads. The adapter and the bridge are built here
 ## and nowhere else, so the entry never assembles a `Host`.
 func bind(eligibility_service: ELIGIBILITY, memory_service: MEMORY, privacy_service: PRIVACY,
-		initiation_service: Node, offer_service: Node) -> void:
+		initiation_service: Node, offer_service: Node, hud_service: Node = null) -> void:
 	eligibility = eligibility_service
 	memory = memory_service
 	privacy = privacy_service
 	initiation = initiation_service
 	offer = offer_service
+	hud = hud_service
 	if not is_instance_valid(_adapter):
 		_adapter = ADAPTER.new()
 		_adapter.name = "UnfplapNegotiationAdapter"
@@ -180,6 +182,7 @@ func bind(eligibility_service: ELIGIBILITY, memory_service: MEMORY, privacy_serv
 	_bridge.eligibility = eligibility
 	_bridge.memory = memory
 	_bridge.privacy = privacy
+	_bridge.hud = hud
 	_bridge.initiation = initiation
 	_bridge.offer = offer
 	_bind_host()

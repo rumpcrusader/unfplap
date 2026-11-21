@@ -11,8 +11,6 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 
 const ID := ITEM.ID
 
-## The one footstool facade the entry built.
-static var instance: Node = null
 var _supply: SUPPLY = null
 
 

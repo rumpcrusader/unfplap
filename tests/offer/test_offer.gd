@@ -447,7 +447,6 @@ func _fixture(with_row := true) -> Dictionary:
 	service.name = "UnfplapOffer"
 	service.bind(negotiation, null, hud)
 	PONIES.offer = service
-	HUD.instance = hud
 	root.add_child(game)
 	root.add_child(hud)
 	root.add_child(negotiation)
@@ -476,7 +475,6 @@ func _free(made: Dictionary) -> void:
 	PONIES.eligibility = null
 	PONIES.offer = null
 	WORLD.unbind()
-	HUD.instance = null
 	var nodes: Array[Node] = [made["negotiation"], made["hud"], made["player"], made["game"],
 		made["far"], made["stallion"], made["near"]]
 	for node: Node in nodes:

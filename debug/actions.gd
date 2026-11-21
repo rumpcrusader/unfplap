@@ -28,7 +28,6 @@ const DEBUG_STRETCH := preload("res://mods/unfplap/debug/idle_stretch.gd")
 const DEBUG_SKELETON := preload("res://mods/unfplap/debug/skeleton.gd")
 const DEBUG_WHEEL := preload("res://mods/unfplap/debug/wheel.gd")
 const DEBUG_UI := preload("res://mods/unfplap/debug/ui.gd")
-const HUD := preload("res://mods/unfplap/hud/service.gd")
 ## The debug name action cycles these shipped adult mares, so the lab can test more than one fit
 ## without a text prompt. Player-named shapes belong to the dialogue path.
 const FORM_DEBUG_SHAPES := ["fluttershy", "rarity", "applejack", "pinkie_pie", "twilight_sparkle"]
@@ -68,6 +67,7 @@ var negotiation: NEGOTIATION = null
 ## a bound Callable so this node never imports a pack file.
 var anatomy: ANATOMY = null
 var pantyhose: Node = null
+var hud: Node = null
 ## The pack's one hull rebuild, bound once so this node never imports a pack file.
 var _pantyhose_rebuild: Callable = Callable()
 
@@ -89,12 +89,13 @@ func _ready() -> void:
 ## Set by the entry: the services the buttons act through.
 func bind(body_change_service: BODY_CHANGE_SERVICE, initiation_service: INITIATION,
 		negotiation_service: NEGOTIATION, anatomy_service: ANATOMY,
-		pantyhose_service: Node) -> void:
+		pantyhose_service: Node, hud_service: Node = null) -> void:
 	body_change = body_change_service
 	initiation = initiation_service
 	negotiation = negotiation_service
 	anatomy = anatomy_service
 	pantyhose = pantyhose_service
+	hud = hud_service
 	_pantyhose_rebuild = Callable(pantyhose_service, "rebuild_hull")
 
 
@@ -922,8 +923,8 @@ func debug_wheel_context() -> Dictionary:
 func debug_wheel_action(name: String) -> String:
 	var result := DEBUG_ACTIONS.run_action(name, self)
 	LOG.debug("wheel %s: %s", [name, result])
-	if not result.is_empty():
-		HUD.toast(result, 3.0)
+	if not result.is_empty() and is_instance_valid(hud):
+		hud.toast(result, 3.0)
 	return result
 
 

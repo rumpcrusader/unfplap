@@ -15,7 +15,6 @@ const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/service.gd")
 const REST := preload("res://mods/unfplap/rest/service.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
-const HUD := preload("res://mods/unfplap/hud/service.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 const State := ACT_STATE.State
@@ -55,8 +54,8 @@ func run(rejoin_cuddle: bool) -> void:
 	context.anatomy.end()
 	# The oral turn's facing override must not outlive the act, even on a direct forced stop.
 	context.view.reset_facing()
-	if is_instance_valid(HUD.instance):
-		HUD.instance.set_inventory_hidden(false)
+	if is_instance_valid(context.hud):
+		context.hud.set_inventory_hidden(false)
 	context.kiss.restore_forelegs()
 	context.hold.restore_face_turn()
 	context.frame.end()
@@ -83,8 +82,8 @@ func run(rejoin_cuddle: bool) -> void:
 	context.pose.restore_bones()
 	context.audio.stop()
 	if is_instance_valid(WORLD.game):
-		if is_instance_valid(HUD.instance):
-			HUD.instance.hide_all()
+		if is_instance_valid(context.hud):
+			context.hud.hide_all()
 		PONIES.clear_active(host.node)
 	session.finish_restore()
 	session.pose_id = ""
@@ -220,8 +219,8 @@ func restore_begin() -> void:
 	context.audio.stop_breath()
 	context.camera.release_back()
 	context.view.reset_facing()
-	if is_instance_valid(HUD.instance):
-		HUD.instance.hide_act()
+	if is_instance_valid(context.hud):
+		context.hud.hide_act()
 
 
 ## The RESTORE timer's end: the normal act end, then the one finalize.
@@ -252,7 +251,7 @@ func force_stop() -> void:
 ## A forced stop from a scene verdict. The gate returned the reason; this applies the one stop.
 func stop(reason: String) -> void:
 	LOG.debug("stop reason=%s state=%d pony=%s", [reason, session.state, host.pony_name()])
-	if session.state in [State.POSING_IN, State.ACTIVE, State.CLIMAX]:
-		MEMORY.instance.note(MEMORY.NoteKind.STOPPED, session.pony_id, session.event_id,
+	if session.state in [State.POSING_IN, State.ACTIVE, State.CLIMAX] and context.memory != null:
+		context.memory.note(MEMORY.NoteKind.STOPPED, session.pony_id, session.event_id,
 			MEMORY.stop_reason(reason))
 	restore_begin()

@@ -115,6 +115,24 @@ class FakeHUD extends Node:
 	func hide_prompt() -> void:
 		pass
 
+	func set_inventory_hidden(_on: bool) -> void:
+		pass
+
+	func set_state(_state: String) -> void:
+		pass
+
+	func show_act(_facts: Variant) -> void:
+		pass
+
+	func update_from(_facts: Variant) -> void:
+		pass
+
+	func hide_act() -> void:
+		pass
+
+	func ensure_act_inventory_visible(_runtime: Variant) -> void:
+		pass
+
 
 class FakeMain extends Node:
 	var player: Variant = null
@@ -136,7 +154,9 @@ func fixture(kind: String) -> Dictionary:
 		existing.name = "ModsTestHidden"
 	mods.name = "Mods"
 	root.add_child(mods)
-	var runtime: Node = RUNTIME.new()
+	var hud := FakeHUD.new()
+	var memory := MEMORY.new()
+	var runtime: Node = RUNTIME.new(hud, memory)
 	var pony := FakePony.new()
 	pony.posture = Node.new()
 	pony.add_child(pony.posture)
@@ -149,7 +169,6 @@ func fixture(kind: String) -> Dictionary:
 	game.world_context = context
 	game.inventory = FakeInventory.new()
 	var player := FakePlayer.new()
-	var hud := FakeHUD.new()
 	var bonds := FakeBonds.new()
 	var relation := FakeRelation.new()
 	relation.bonds = bonds
@@ -162,8 +181,6 @@ func fixture(kind: String) -> Dictionary:
 	main.game = game
 	WORLD.bind_world(main.game)
 	main.hud = hud
-	var memory := MEMORY.new()
-	MEMORY.instance = memory
 	main.memory = memory
 	runtime.add_child(pony)
 	runtime.add_child(nav)

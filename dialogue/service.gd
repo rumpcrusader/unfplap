@@ -98,6 +98,8 @@ const STATE_CLIMAX := ACT_STATE.State.CLIMAX
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 var facts: ACT_FACTS = null
+## The world memory the line channel writes; the runtime's builder passes it once.
+var memory: Node = null
 
 var _scheduler: UTTERANCE_SCHEDULER = null
 var _serial := 0
@@ -116,8 +118,9 @@ var _last_cue_log_reason := ""
 var _climax_key := ""
 
 
-func _init(facts_context: ACT_FACTS = null) -> void:
+func _init(facts_context: ACT_FACTS = null, memory_in: Node = null) -> void:
 	facts = facts_context
+	memory = memory_in
 
 
 ## Push the debug talk/cue pacing settings into the pure scheduler. `reset()` keeps these fields.
@@ -198,7 +201,7 @@ func tick() -> void:
 	var at := _now()
 	var line: int = MEMORY.LineState.UNKNOWN
 	if _game_ok():
-		line = MEMORY.instance.line_state(key)
+		line = memory.line_state(key)
 	if line == MEMORY.LineState.ABSENT:
 		LOG.debug("utterance absent key=%s", [key])
 		lines.drop_pending()
@@ -238,7 +241,7 @@ func bystander_tick(delta: float) -> void:
 	_bystander_wait = BYSTANDER_GAP_S
 	if randf() > BYSTANDER_CHANCE:
 		return
-	var seen: Array = MEMORY.instance.observers(facts.pony) \
+	var seen: Array = memory.observers(facts.pony) \
 		.filter(func(row: MEMORY.Observer) -> bool:
 			return not str(row.id) in _bystander_spoken and str(row.id) != facts.pony_id)
 	if seen.is_empty():
@@ -289,7 +292,7 @@ func history_tick(delta: float, pony: Node3D, pony_id: String, event_id: String,
 				and (target == WORLD.player or target == body):
 			if ACT_HISTORY.apology_repair(ACT_HISTORY.section(), pony_id, ACT_HISTORY.day_now()):
 				ACT_HISTORY.save()
-				MEMORY.instance.note(MEMORY.NoteKind.APOLOGY, pony_id, event_id)
+				memory.note(MEMORY.NoteKind.APOLOGY, pony_id, event_id)
 				LOG.debug("history apology id=%s", [pony_id])
 	_history_scan += delta
 	if _history_scan < 1.0:
@@ -352,7 +355,7 @@ func _queue_utterance(kind: String, prompt_key: String, key_suffix: String) -> S
 	}
 	var memory_id := ""
 	if kind == "cue":
-		var mem: Variant = MEMORY.instance
+		var mem: Variant = memory
 		var cue_facts: MEMORY.CueFacts = mem.cue_facts(facts.pony_id, facts.event_id)
 		var facts_dict := cue_facts.to_dict()
 		var tone_name := RELATIONSHIP_CUE.tone(facts_dict)
@@ -427,7 +430,7 @@ func _cancel_pending_utterance(reason := "") -> void:
 	var age: float = maxf(0.0, _now() - float(lines.pending_since()))
 	var line: int = MEMORY.LineState.UNKNOWN
 	if not key.is_empty() and _game_ok():
-		line = MEMORY.instance.line_state(key)
+		line = memory.line_state(key)
 	var director := _director()
 	var director_state := str(director.get("state")) if director != null else "?"
 	lines.drop_pending()
@@ -437,14 +440,14 @@ func _cancel_pending_utterance(reason := "") -> void:
 		reason if not reason.is_empty() else "manual", key, pending_cue, age,
 		_line_state_name(line), director_state, str(_speech_busy())])
 	if _game_ok():
-		MEMORY.instance.cancel_line(key)
+		memory.cancel_line(key)
 
 
 ## Cancel the act's queued and generating lines; a line already speaking may finish, so a
 ## delayed line cannot start after the boundary.
 func end_act(event_id: String, keep_speaking := true) -> void:
 	if _game_ok():
-		var cancelled: int = MEMORY.instance.cancel_act(event_id, keep_speaking)
+		var cancelled: int = memory.cancel_act(event_id, keep_speaking)
 		if cancelled > 0:
 			LOG.debug("act lines cancelled=%d", [cancelled])
 	scheduler().drop_pending()
@@ -461,7 +464,7 @@ func reaction_line(reaction: int, event_id: String, fallback: String, valid: Val
 	request.purpose = fallback
 	request.reaction = reaction
 	request.valid = valid.test if valid != null else Callable()
-	var line: MEMORY.Line = MEMORY.instance.line(request)
+	var line: MEMORY.Line = memory.line(request)
 	return line.key if line.queued else ""
 
 
@@ -483,7 +486,7 @@ func climax_line(mouth_busy: bool, cue: String, act_id: String, count: int, max_
 			return false
 		if _now() <= expires:
 			return true
-		return MEMORY.instance.line_state(_climax_key) == MEMORY.LineState.SPEAKING)
+		return memory.line_state(_climax_key) == MEMORY.LineState.SPEAKING)
 	var prompt := PROMPT_TEXT.render(DEFAULTS_DATA.prompts_block("act.climax"), {})
 	_climax_key = reaction_line(MEMORY.Reaction.CLIMAX, climax_id, prompt, valid)
 	if _climax_key.is_empty():
@@ -515,7 +518,7 @@ func history_note(pony_id: String) -> String:
 func relationship_note(pony_id: String, event_id: String) -> String:
 	if not _game_ok():
 		return ""
-	return RELATIONSHIP_CUE.note(MEMORY.instance.cue_facts(pony_id, event_id).to_dict())
+	return RELATIONSHIP_CUE.note(memory.cue_facts(pony_id, event_id).to_dict())
 
 
 ## The facade entry for the pure note assembly; the wording and precedence stay in the prompts
@@ -608,7 +611,7 @@ func _utterance_line(event_id: String, suffix: String, purpose: String,
 	request.purpose = purpose
 	request.valid = valid
 	request.finished = finished
-	var line: MEMORY.Line = MEMORY.instance.line(request)
+	var line: MEMORY.Line = memory.line(request)
 	return line.key if line.queued else ""
 
 
@@ -623,7 +626,7 @@ func _bystander_line(id: String, event_id: String, purpose: String,
 	request.event_id = event_id
 	request.purpose = purpose
 	request.valid = valid.test
-	return MEMORY.instance.line(request).queued
+	return memory.line(request).queued
 
 
 ## The shipped prompt node for that line kind, or the utterance node when the id is absent.

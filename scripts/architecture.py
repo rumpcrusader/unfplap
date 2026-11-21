@@ -114,7 +114,7 @@ START_LEDGER_ORDER = (
     "context.camera.begin_act(",
     "context.audio.start(",
     "session.begin_pose_in()",
-    "HUD.instance.show_act(context.facts)",
+    "context.hud.show_act(context.facts)",
 )
 # The pose ledger's callers: the one act exit, the new-act prep and the body-swap suspension.
 # A new caller is a design decision, so the set is exact and compared both ways.
@@ -1724,6 +1724,14 @@ def check_entry_shape(failure: Failure) -> None:
             % line_of(text, match.start()))
 
 
+def check_static_instances(failure: Failure) -> None:
+    """A service is injected, never reached through a static `instance` handle."""
+    pattern = re.compile(r"^\s*static var\s+instance\b", re.MULTILINE)
+    for path in shipped_sources():
+        if pattern.search(path.read_text(encoding="utf-8")):
+            failure.add("%s declares a static service instance; pass the facade instead" % rel(path))
+
+
 def check_service_bases(failure: Failure) -> None:
     """Every service the entry adds is a `shared/service.gd` descendant; the HUD is the exception."""
     main_path = ROOT / "main.gd"
@@ -1797,6 +1805,7 @@ def check() -> int:
     check_runtime_shape(failure)
     check_entry_shape(failure)
     check_service_bases(failure)
+    check_static_instances(failure)
     check_log_bleed(failure)
     check_act_owners(failure)
     check_owners(failure)

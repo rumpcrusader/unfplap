@@ -281,7 +281,7 @@ class FakePolicy extends "res://mods/unfplap/shared/body_change_policy.gd":
 		}
 
 
-class FakeMemory extends RefCounted:
+class FakeMemory extends Node:
 	var impressions: Array = []
 	var peaks: Array = []
 	var notes: Array = []
@@ -405,6 +405,17 @@ func _pony(display_name: String, node_name := "Pony") -> FakePony:
 ## A live act without the start sequence: the handover is the code under test, not the gate. The
 ## old body joins the registry through the real attach path, before the body-change service exists,
 ## so the fixture keeps the act's form store empty like a running world does at spawn.
+## Point the runtime's memory consumers at the suite's fake after the fixture built it.
+func _set_memory(runtime: Node, memory: Node) -> void:
+	runtime._bundle.memory = memory
+	runtime._bundle.context.memory = memory
+	runtime._bundle.handover.memory = memory
+	runtime._bundle.dialogue.memory = memory
+	runtime._bundle.summary.memory = memory
+	runtime._bundle.face.memory = memory
+	runtime._bundle.afterglow.memory = memory
+
+
 func _fixture() -> Dictionary:
 	PONIES.shutdown()
 	var host := FakeHost.new()
@@ -412,7 +423,9 @@ func _fixture() -> Dictionary:
 	root.add_child(host)
 	var old_pony := _pony("Test Mare", "OldBody")
 	root.add_child(old_pony)
-	var runtime: Node = RUNTIME.new()
+	var memory := FakeMemory.new()
+	host.memory = memory
+	var runtime: Node = RUNTIME.new(null, memory)
 	runtime.name = "UnfplapRuntime"
 	runtime.pony = old_pony
 	old_pony.add_child(runtime)
@@ -432,7 +445,6 @@ func _fixture() -> Dictionary:
 	runtime.act.features = {}
 	runtime._bundle.handover.set_form_hint_debug(true)
 	WORLD.bind_world(host)
-	MEMORY.instance = FakeMemory.new()
 	PONIES.factory = func(_pony_node: Node) -> Node: return runtime
 	PONIES.attach(old_pony)
 	PONIES.set_active(runtime)
@@ -708,7 +720,7 @@ func _check_policy_events() -> void:
 	var source: FakeSource = f["source"]
 	var policy: FakePolicy = f["policy"]
 	host.memory = FakeMemory.new()
-	MEMORY.instance = host.memory
+	_set_memory(runtime, host.memory)
 	runtime.act._set_state(ACT_STATE.State.POSING_IN)
 	runtime.act.enter_active_act()
 	runtime.act._set_state(ACT_STATE.State.CLIMAX)
@@ -764,7 +776,7 @@ func _check_ai_change() -> void:
 	var old_pony: FakePony = f["old"]
 	var source: FakeSource = f["source"]
 	host.memory = FakeMemory.new()
-	MEMORY.instance = host.memory
+	_set_memory(runtime, host.memory)
 	source.shape = "fluttershy"
 	# Nothing called request_form: the source is already changing, as her own AI leaves it.
 	source.changing = true
@@ -893,7 +905,7 @@ func _check_form_reveal() -> void:
 	var source: FakeSource = f["source"]
 	var policy: FakePolicy = f["policy"]
 	host.memory = FakeMemory.new()
-	MEMORY.instance = host.memory
+	_set_memory(runtime, host.memory)
 	var director := FakeDirector.new()
 	director.name = "FakeDirector"
 	root.add_child(director)
@@ -968,7 +980,7 @@ func _check_shape_offer() -> void:
 	var source: FakeSource = f["source"]
 	var policy: FakePolicy = f["policy"]
 	host.memory = FakeMemory.new()
-	MEMORY.instance = host.memory
+	_set_memory(runtime, host.memory)
 	source.shape = ""
 	runtime._bundle.handover.offer_tick()
 	check(runtime._bundle.handover.offer_done and runtime._bundle.handover.offer_pending,
@@ -1246,7 +1258,7 @@ func _check_named_without_shape() -> void:
 	var runtime: Node = f["runtime"]
 	var source: FakeSource = f["source"]
 	host.memory = FakeMemory.new()
-	MEMORY.instance = host.memory
+	_set_memory(runtime, host.memory)
 	source.shape = ""
 	runtime._bundle.handover.offer_tick()
 	var director := FakeDirector.new()

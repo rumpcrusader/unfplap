@@ -19,7 +19,6 @@ const PLACEMENT_EDITOR := preload("res://mods/unfplap/anatomy/placement_editor.g
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const GARMENT_HULL := preload("res://mods/unfplap/anatomy/garment_hull.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
-const HUD := preload("res://mods/unfplap/hud/service.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
 
 ## A per-act handle was built; a world integration can undress on it.
@@ -39,9 +38,12 @@ var _player_part: PLAYER
 ## The part whose hidden mesh is already built, and whether a deferred warm is queued.
 var _player_warm_part: PLAYER = null
 var _player_warm_queued := false
+## The world HUD the status line reports to; the entry passes it at setup.
+var _hud: Node = null
 
 
-func setup() -> void:
+func setup(hud: Node = null) -> void:
+	_hud = hud
 	placement_editor = PLACEMENT_EDITOR.new()
 	placement_editor.setup(self)
 	tail_visibility = TAIL_VISIBILITY.new()
@@ -81,7 +83,8 @@ func consent(pony_node: Node, key: String) -> bool:
 
 ## HUD status line for the anatomy actions.
 func status(text: String) -> void:
-	HUD.anatomy_status(text, 2.0)
+	if is_instance_valid(_hud):
+		_hud.anatomy_status(text, 2.0)
 
 
 ## Host capability lookup. The eligibility service owns the rule; anatomy only names its target

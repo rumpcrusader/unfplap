@@ -10,7 +10,6 @@ const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const PRIVACY := preload("res://mods/unfplap/privacy/service.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
-const HUD := preload("res://mods/unfplap/hud/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
@@ -41,6 +40,7 @@ var adapter: ADAPTER = null
 var eligibility: ELIGIBILITY = null
 var memory: MEMORY = null
 var privacy: PRIVACY = null
+var hud: Node = null
 var initiation: Node = null
 var offer: Node = null
 ## True while the adapter's global Anon-offer watch is armed.
@@ -123,7 +123,8 @@ func cancel_scope(scope: String) -> void:
 
 
 func toast(text: String) -> void:
-	HUD.toast(text)
+	if is_instance_valid(hud):
+		hud.toast(text)
 
 
 # ------------------------------------------------------------------------- facts

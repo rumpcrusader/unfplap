@@ -29,7 +29,7 @@ const AFTERGLOW := preload("res://mods/unfplap/afterglow/service.gd")
 const FACE := preload("res://mods/unfplap/face/service.gd")
 const REACTIONS := preload("res://mods/unfplap/reactions/service.gd")
 const AUDIO_ACT := preload("res://mods/unfplap/audio/act.gd")
-const HUD := preload("res://mods/unfplap/hud/service.gd")
+const STOOL := preload("res://mods/unfplap/stool/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const ACT_NODE := preload("res://mods/unfplap/act/host.gd")
@@ -57,6 +57,10 @@ class Bundle extends RefCounted:
 	var node: Node = null
 	## The presented body, kept in step by `bind_pony()`.
 	var pony: Node = null
+	## The world services the per-pony modules receive; null outside the entry's factory.
+	var hud: Node = null
+	var memory: Node = null
+	var stool: STOOL = null
 	## The act modules' node operations.
 	var host: ACT_NODE = null
 	## The typed collaborators the view, idle and act modules read.
@@ -116,10 +120,14 @@ class Bundle extends RefCounted:
 
 ## Build the bundle once. `pony` is null at `_init()` because the registry assigns the body after
 ## the node is built; `bind_pony()` carries it then.
-static func build(pony: Node, node: Node) -> Bundle:
+static func build(pony: Node, node: Node, hud: Node = null, memory: Node = null,
+		stool: Node = null) -> Bundle:
 	var b := Bundle.new()
 	b.node = node
 	b.pony = pony if is_instance_valid(pony) else null
+	b.hud = hud
+	b.memory = memory
+	b.stool = stool as STOOL
 	# The early modules, in construction order. They exist before the act frame binds them because
 	# the anatomy bridge and the handover are built against these instances.
 	b.input = ACT_INPUT.new()
@@ -131,12 +139,12 @@ static func build(pony: Node, node: Node) -> Bundle:
 	b.rest = REST_REJOIN.new()
 	b.camera = ACT_CAMERA.new()
 	b.readiness = READINESS.new()
-	b.summary = SUMMARY.new()
-	b.face = FACE.new()
+	b.summary = SUMMARY.new(b.memory)
+	b.face = FACE.new(b.memory)
 	b.reactions = REACTIONS.new()
 	b.facts = ACT_FACTS.new()
-	b.dialogue = ACT_DIALOGUE.new(b.facts)
-	b.afterglow = AFTERGLOW.new()
+	b.dialogue = ACT_DIALOGUE.new(b.facts, b.memory)
+	b.afterglow = AFTERGLOW.new(b.hud, b.memory)
 	b.hold = SCENE_HOLD.new()
 	# The anatomy bridge and its host exist before the act context can hold them; both hosts are
 	# filled after the act frame exists, because their callbacks read the session and the modules.
@@ -158,7 +166,7 @@ static func build(pony: Node, node: Node) -> Bundle:
 ## The per-act systems, in construction order.
 static func _build_systems(node: Node, b: Bundle) -> void:
 	b.handover_host = BODY_CHANGE_ACT_HOST.new()
-	b.handover = BODY_CHANGE_ACT.new(b.handover_host)
+	b.handover = BODY_CHANGE_ACT.new(b.handover_host, b.memory)
 	b.wings = WING.new(b.facts)
 	b.hands = HANDS.new(b.facts)
 	b.kiss = KISS.new(b.facts)
@@ -246,6 +254,9 @@ static func _build_act_context(b: Bundle) -> ACT_CONTEXT:
 	context.hold = b.hold
 	context.rest = b.rest
 	context.anatomy_host = b.anatomy_host
+	context.hud = b.hud
+	context.memory = b.memory
+	context.stool_service = b.stool
 	return context
 
 
@@ -262,7 +273,8 @@ static func _bind_pose_hosts(node: Node, b: Bundle) -> void:
 	b.pose.oral_kiss = Callable(b.audio, "oral_kiss")
 	b.pose.oral_speech_stop = Callable(b.phases, "oral_speech_stop")
 	b.pose.oral_viseme = Callable(b.anatomy_bridge, "set_oral_viseme")
-	b.pose.oral_status = Callable(HUD, "anatomy_status")
+	if is_instance_valid(b.hud):
+		b.pose.oral_status = Callable(b.hud, "anatomy_status")
 
 
 ## The act view, readiness, afterglow, face, scene gate, rest, scene hold and controller bindings.
@@ -348,7 +360,8 @@ static func _bind_anatomy_host(b: Bundle) -> void:
 	host.cycle_phase_cb = Callable(b.act, "cycle_phase")
 	host.bed_frame_cb = Callable(b.pose, "_bed_frame_value")
 	host.body_coat_smack_cb = Callable(b.reactions, "body_coat_target")
-	host.status_cb = Callable(HUD, "anatomy_status")
+	if is_instance_valid(b.hud):
+		host.status_cb = Callable(b.hud, "anatomy_status")
 	host.command_cb = Callable(b.input, "command")
 	host.missionary_camera_cb = Callable(b.camera, "view_controller")
 	host.kiss_controller_cb = Callable(b.act, "kiss_service")

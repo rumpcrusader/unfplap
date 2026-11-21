@@ -49,6 +49,11 @@ var gate: SCENE_GATE = null
 var hold: SCENE_HOLD = null
 ## The per-act footstool handle, bound by the start ledger and released by the exit.
 var stool: STOOL.ACT = null
+## The world-scope stool facade that creates the per-act handle above.
+var stool_service: STOOL = null
+## The world HUD and memory the act modules read; null outside a runtime built with them.
+var hud: Node = null
+var memory: Node = null
 ## The act's consent response: the tolerance warning, its line and the stop presentation.
 var consent: RefCounted = null
 ## The act's stroke presentation and its one post-move path.

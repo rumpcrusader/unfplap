@@ -12,7 +12,6 @@ const REACTIONS := preload("res://mods/unfplap/reactions/service.gd")
 const READINESS := preload("res://mods/unfplap/readiness/service.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
-const HUD := preload("res://mods/unfplap/hud/service.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
 
 ## The close window only exists in the standing afterglow.
@@ -70,6 +69,9 @@ var write_satisfaction := Callable()
 var face: FACE = null
 var reactions: REACTIONS = null
 var readiness: READINESS = null
+## The world HUD and memory the phase reports to; the runtime's builder passes them once.
+var hud: Node = null
+var memory: Node = null
 ## The act the reward records. The session sets both at the phase start.
 var pony_id := ""
 var event_id := ""
@@ -78,6 +80,11 @@ var event_id := ""
 var aftercare: AFTERCARE = null
 ## The satisfaction decay tween the runtime's node created for the facade.
 var _decay: Tween = null
+
+
+func _init(hud_in: Node = null, memory_in: Node = null) -> void:
+	hud = hud_in
+	memory = memory_in
 
 
 ## Bind the phase's act collaborators once. The runtime composes; the session sets the ids.
@@ -138,8 +145,8 @@ func apply_presentation(pose: POSE_SESSION) -> bool:
 	pose.set_tail_target(row.tail_target)
 	if row.tail_flicks > 0:
 		pose.flick_tail(row.tail_flicks)
-	if is_instance_valid(HUD.instance):
-		HUD.instance.set_state(row.hud_state)
+	if is_instance_valid(hud):
+		hud.set_state(row.hud_state)
 	return row.wings
 
 
@@ -255,7 +262,8 @@ func _reward(caressed: bool, reward: bool) -> void:
 		impression.slot = MEMORY.ImpressionSlot.STAY_CLOSE
 		impression.mood = "happy" if reward else ""
 		impression.romance = 1 if reward and caressed else 0
-		MEMORY.instance.commit(impression)
+		if memory != null:
+			memory.commit(impression)
 	if not reward and caressed:
 		if ACT_HISTORY.repair(ACT_HISTORY.section(), pony_id, 1, ACT_HISTORY.day_now()):
 			ACT_HISTORY.save()

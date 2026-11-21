@@ -312,9 +312,9 @@ func _clear_offer_hint() -> void:
 
 
 func _toast(text: String) -> void:
-	if text.is_empty():
+	if text.is_empty() or not is_instance_valid(hud):
 		return
-	HUD.toast(text, 4.0)
+	hud.toast(text, 4.0)
 
 
 ## A settings edit: drop the hint row, forget the sensor's senses and let the next idle frame
@@ -623,7 +623,8 @@ func _log_blocked_offer(runtime: Node, target: Node, need: int) -> void:
 		str(target.name), gap_text, need, have])
 	if not _stool_hint_toast_shown:
 		_stool_hint_toast_shown = true
-		HUD.toast(_stool_find_hint(need), 4.0)
+		if is_instance_valid(hud):
+			hud.toast(_stool_find_hint(need), 4.0)
 
 
 ## A live Agreement typed as a press offer; no rump fan or policy snapshot is needed.

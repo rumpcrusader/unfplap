@@ -138,7 +138,7 @@ Hold the act key:
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
 | service | face | `face/service.gd` | the close reward's content face |
-| service | hud | `hud/service.gd` | the held HUD state |
+| host | the entry | `_init(hud, memory)` | the held HUD state |
 | service | memory | `memory/service.gd` | the `STAY_CLOSE` impression |
 | service | poses | `poses/service.gd` | the held pose, tail and tail flicks |
 | service | readiness | `readiness/service.gd` | the reward's cue clear |

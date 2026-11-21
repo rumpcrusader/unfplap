@@ -18,7 +18,6 @@ const BODY_CHANGE_POLICY := preload("res://mods/unfplap/shared/body_change_polic
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
-const HUD := preload("res://mods/unfplap/hud/service.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const STOOL := preload("res://mods/unfplap/stool/service.gd")
 const SCENE_GATE := preload("res://mods/unfplap/scene_gate/service.gd")
@@ -203,7 +202,7 @@ func sync_hud() -> void:
 func stool() -> STOOL.ACT:
 	if not is_instance_valid(WORLD.game) or not is_instance_valid(host.pony):
 		return null
-	var service := STOOL.instance as STOOL
+	var service: STOOL = context.stool_service
 	if service == null:
 		return null
 	if context.stool == null:
@@ -552,14 +551,15 @@ func climax() -> void:
 	context.face.set_face(0.3, context.face.CLIMAX_LIDS)
 	face_beat("climax")
 	context.dialogue.end_act(event_id, true)
-	if is_instance_valid(WORLD.game) and context.readiness.pony_climaxes == 1:
-		MEMORY.instance.note(MEMORY.NoteKind.CLIMAXED, pony_id, event_id)
+	if is_instance_valid(WORLD.game) and context.memory != null \
+			and context.readiness.pony_climaxes == 1:
+		context.memory.note(MEMORY.NoteKind.CLIMAXED, pony_id, event_id)
 	view.climax_line(self)
 	context.audio.play_climax()
 	# integration: her fluid hook.
 	context.anatomy.on_climax()
-	if is_instance_valid(HUD.instance):
-		HUD.instance.set_state("CLIMAX")
+	if is_instance_valid(context.hud):
+		context.hud.set_state("CLIMAX")
 
 func finish_climax() -> void:
 	context.handover.dispatch_event(BODY_CHANGE_POLICY.ActEvent.CLIMAX_END)
@@ -672,7 +672,8 @@ func form_set_face(smile: float) -> void:
 
 
 func form_status(text: String) -> void:
-	HUD.toast(text, 2.5)
+	if is_instance_valid(context.hud):
+		context.hud.toast(text, 2.5)
 
 
 ## The anatomy bridge's persistent refresh: bind its host and let the controller re-resolve.

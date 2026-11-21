@@ -450,7 +450,6 @@ func _fixture(with_world := true) -> Dictionary:
 	service.name = "UnfplapOffer"
 	service.bind(negotiation, privacy, hud)
 	PONIES.offer = service
-	HUD.instance = hud
 	root.add_child(service)
 	return {"service": service, "pony": pony, "runtime": runtime, "game": game, "menu": menu,
 		"negotiation": negotiation, "hud": hud, "privacy": privacy, "nodes": world_nodes}
@@ -490,7 +489,6 @@ func _free(made: Dictionary) -> void:
 	PONIES.eligibility = null
 	PONIES.offer = null
 	WORLD.unbind()
-	HUD.instance = null
 	var nodes: Array[Node] = [made["game"], made["negotiation"], made["hud"], made["pony"],
 		made["runtime"]]
 	nodes.append_array(made["nodes"])

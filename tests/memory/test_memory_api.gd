@@ -58,7 +58,6 @@ func run() -> void:
 	WORLD.bind_world(main.game)
 	root.add_child(main)
 	var memory := MEMORY.new()
-	MEMORY.instance = memory
 
 	var good := MEMORY.Impression.new()
 	good.id = "rarity"
@@ -167,7 +166,6 @@ func run() -> void:
 	mods.queue_free()
 	if existing != null and is_instance_valid(existing):
 		existing.name = "Mods"
-	MEMORY.instance = null
 	main.queue_free()
 
 	if failures == 0:

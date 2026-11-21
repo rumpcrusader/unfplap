@@ -32,11 +32,6 @@ const MemoryHit = FACTS.MemoryHit
 const Line = FACTS.Line
 const LineRequest = FACTS.LineRequest
 
-## The one memory service the entry built. A null instance makes every read a quiet no-op
-## and lets a suite bind its own.
-static var instance: Variant = null
-
-
 ## The act's typed stop reason for one stop text. The enum is the game-facing memory vocabulary;
 ## `runtime._stop()` reads this rather than owning the mapping.
 static func stop_reason(text: String) -> int:

@@ -124,7 +124,7 @@ the main handle and the `log` callback from the facade; it never reads the runti
 
 | Kind | Target | Entry point | Purpose |
 |---|---|---|---|
-| service | memory | `memory/service.gd` | the game's cue mood |
+| host | runtime | `_init(memory)` | the game's cue mood |
 | service | readiness | `readiness/service.gd` | the climax shape's counters |
 | service | settings | `settings/service.gd` | settings declarations and live values |
 | service | world | `world/service.gd` | the live world root |

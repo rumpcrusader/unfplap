@@ -50,6 +50,14 @@ class ToastSink extends Node:
 		shown.append([text, seconds])
 
 
+## A real HUD with its toast label replaced by the same recorder, for the duration defaults.
+class SinkHud extends "res://mods/unfplap/hud/service.gd":
+	var shown: Array = []
+
+	func _show_toast(text: String, seconds := 2.0) -> void:
+		shown.append([text, seconds])
+
+
 ## The game's quick-slot inventory and its bar, for the HUD's borrowed-card accessors.
 class FakeInventory extends Node:
 	var hud_hidden := false
@@ -90,7 +98,6 @@ func _check_caption_conditions() -> void:
 	root.add_child(game)
 	var hud: CanvasLayer = HUD.new()
 	root.add_child(hud)
-	HUD.instance = hud
 	hud.set("_captions_on_top", true)
 	var caption := FakeCaption.new()
 	caption.name = "SpeechCaption"
@@ -153,7 +160,6 @@ func _check_caption_conditions() -> void:
 	check((hud.get("_captions") as Dictionary).size() == before - 1,
 		"a freed caption is dropped from the tracking")
 
-	HUD.instance = null
 	root.remove_child(caption)
 	caption.free()
 	root.remove_child(hud)
@@ -221,22 +227,17 @@ func _check_caption_scale() -> void:
 
 ## The sink's two defaults: four seconds for the toast, two for an anatomy status line.
 func _check_toast_duration() -> void:
-	var sink := ToastSink.new()
-	root.add_child(sink)
-	HUD.instance = sink
-	HUD.toast("blocked")
-	HUD.toast("short", 1.5)
-	HUD.toast("")
-	HUD.anatomy_status("status")
-	HUD.anatomy_status("long", 3.0)
-	check(sink.shown == [["blocked", 4.0], ["short", 1.5], ["status", 2.0], ["long", 3.0]],
+	var hud := SinkHud.new()
+	root.add_child(hud)
+	hud.toast("blocked")
+	hud.toast("short", 1.5)
+	hud.toast("")
+	hud.anatomy_status("status")
+	hud.anatomy_status("long", 3.0)
+	check(hud.shown == [["blocked", 4.0], ["short", 1.5], ["status", 2.0], ["long", 3.0]],
 		"the toast lasts 4 s and the anatomy status 2 s unless the caller says otherwise")
-	HUD.instance = null
-	HUD.toast("no hud")
-	HUD.anatomy_status("no hud")
-	check(sink.shown.size() == 4, "a toast with no HUD is a quiet no-op")
-	root.remove_child(sink)
-	sink.free()
+	root.remove_child(hud)
+	hud.free()
 
 
 ## The base-game accessors the HUD now routes through: the live answer and the absent one.
@@ -303,15 +304,13 @@ func _check_accessors() -> void:
 func _check_toast_line() -> void:
 	var hud: CanvasLayer = HUD.new()
 	root.add_child(hud)
-	HUD.instance = hud
-	HUD.toast("Find a footstool in a house.", 0.1)
+	hud.toast("Find a footstool in a house.", 0.1)
 	var label := hud.get("_toast_label") as Label
 	check(label != null and label.visible, "the toast shows the moment it is set")
 	check(label != null and label.text == "Find a footstool in a house.",
 		"the toast carries the caller's line")
 	await create_timer(0.25).timeout
 	check(label != null and not label.visible, "the toast hides when its duration runs out")
-	HUD.instance = null
 	root.remove_child(hud)
 	hud.free()
 

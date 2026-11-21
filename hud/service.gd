@@ -40,10 +40,6 @@ const PROMPT_ICON_EDGE := 52.0
 const PROMPT_FONT := 30
 const PROMPT_OUTLINE := 10
 
-## The one HUD the entry built. Every other part of the mod reaches the toast line through
-## `toast()` and `anatomy_status()`, and a nullable instance makes both a quiet no-op.
-static var instance: Node = null
-
 var _prompt: CenterContainer
 var _prompt_row: HBoxContainer
 var _prompt_key := ""
@@ -218,18 +214,18 @@ func caption_tick(act_state: int) -> void:
 	_caption_top_tick()
 
 
-## The one toast sink; harmless when no HUD exists.
-static func toast(text: String, seconds := 4.0) -> void:
-	if text.is_empty() or not is_instance_valid(instance):
+## The one toast sink; a caller holds the HUD and guards for its absence.
+func toast(text: String, seconds := 4.0) -> void:
+	if text.is_empty():
 		return
-	GAME.show_toast(instance, text, seconds)
+	GAME.show_toast(self, text, seconds)
 
 
-## integration: the anatomy status line, two seconds unless the caller says otherwise. The act's
-## own debug logger carries it when there is no HUD to show it.
-static func anatomy_status(text: String, seconds := 2.0) -> void:
-	if is_instance_valid(instance):
-		GAME.show_toast(instance, text, seconds)
+## integration: the anatomy status line, two seconds unless the caller says otherwise. An
+## out-of-tree HUD has no toast line, so the act's own debug logger carries it.
+func anatomy_status(text: String, seconds := 2.0) -> void:
+	if is_inside_tree():
+		GAME.show_toast(self, text, seconds)
 	else:
 		LOG.debug(text)
 

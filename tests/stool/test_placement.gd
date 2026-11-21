@@ -63,11 +63,10 @@ func run() -> void:
 	WORLD.bind_world(game)
 	main.stool = STOOL.new()
 	main.stool.call("setup")
-	STOOL.instance = main.stool
 	root.add_child(main)
 	root.add_child(main.stool)
 
-	var runtime: Node = RUNTIME.new()
+	var runtime: Node = RUNTIME.new(null, null, main.stool)
 	runtime.pony = pony
 	root.add_child(runtime)
 	var act: Variant = runtime.act.stool()

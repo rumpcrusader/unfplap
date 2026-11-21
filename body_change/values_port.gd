@@ -1,7 +1,7 @@
 @abstract
 extends RefCounted
-## The body-change handover's read contract: the act values, the dialogue channel and the scene
-## reads. The runtime implements it; `body_change/act.gd` reads it.
+## The handover's read side: act values, dialogue calls and scene reads. The runtime implements it,
+## and the handover only calls it.
 
 const DIALOGUE := preload("res://mods/unfplap/dialogue/service.gd")
 

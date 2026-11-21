@@ -162,8 +162,8 @@ body and id and the act host's pony. There is no second bind pass and no facade 
 3. `_bind_act_frame()`: `act/host.gd` (node operations), `act/context.gd`, `act/settings.gd`,
    `act/session.gd`, consent, impact, view, idle, exit, input, swap, phases, tick, setup, start,
    agreement and their sibling handles;
-4. `_bind_handover_host()`, now that the session and every module exist; the anatomy host is the
-   `AnatomyHost` port implementation built with the bundle;
+4. the two service-owned hosts: `AnatomyHost` and `BodyChangeHost` implement their ports from the
+   bundle, so there is no callback pass;
 5. `_bind_pose_hosts()` and `_bind_facts()`: the pose, readiness, face, reactions, gate, rest,
    scene-hold, afterglow and act-view callbacks;
 6. the bridge's host bind, the scene gate's bind and its one configuration.

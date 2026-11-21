@@ -4,8 +4,8 @@ extends RefCounted
 ##
 ## See `docs/anatomy.md` (`## Appearance`).
 
+const GAME := preload("res://mods/unfplap/world/game.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
-const OUTLINE_EXCLUSION := preload("res://world/post_outline_exclusion.gd")
 const TEAT_JIGGLE := preload("res://mods/unfplap/anatomy/teat_jiggle.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 const BODY_PROFILE := preload("res://mods/unfplap/shared/body_profile.gd")
@@ -133,7 +133,7 @@ func apply_material(missionary: bool) -> void:
 	material.set_shader_parameter("hole_target", shapes.wide() / world_scale)
 	mesh.set_surface_override_material(0, material)
 	mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	OUTLINE_EXCLUSION.apply_to(mesh)
+	GAME.exclude_from_outline(mesh)
 	shapes.refresh_winking()
 	apply_teats_material(material)
 	if dock_refresh.is_valid():
@@ -240,7 +240,7 @@ func _attach_teats() -> void:
 			teats_mesh.skin = body.skin
 			teats_mesh.skeleton = teats_mesh.get_path_to(skeleton)
 			teats_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			OUTLINE_EXCLUSION.apply_to(teats_mesh)
+			GAME.exclude_from_outline(teats_mesh)
 			generated_teats = true
 	if not generated_teats:
 		teats_mesh = _skinned_part(TEATS_PATH, "UnfplapAnatomyTeats")
@@ -355,5 +355,5 @@ func _skinned_part(path: String, part_name: String) -> MeshInstance3D:
 	mesh_node.skin = skin
 	mesh_node.skeleton = mesh_node.get_path_to(skeleton)
 	mesh_node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	OUTLINE_EXCLUSION.apply_to(mesh_node)
+	GAME.exclude_from_outline(mesh_node)
 	return mesh_node

@@ -327,6 +327,9 @@ behaviour exactly, and a game update that renames one is a change here rather th
 | `GAME.set_desktop_pose_driver(avatar, driver)` | the Anon body's `desktop_pose_driver` | — | no write |
 | `GAME.awareness_forward(pony)` | the body's `awareness_forward` | `Vector3` | zero vector |
 | `GAME.joint_constrain(limits, bone, basis)` | the pony's `joint_limits.constrain` | `Basis` | the input basis |
+| `GAME.exclude_from_outline(mesh)` | `post_outline_exclusion.apply_to` | — | no call |
+| `GAME.player_form_is_young(tree)` | `player_form.active` + `is_young` | `bool` | `false` |
+| `GAME.player_form_is_pony(tree)` | `player_form.active` + `is_pony` | `bool` | `false` |
 
 Only the accessors that hand back a typed copy or a typed view allocate — the mare, couch-seat,
 case and mods lists, the ladder, the bond record, the story rows, the world events, the mod state,

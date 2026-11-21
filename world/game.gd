@@ -9,6 +9,8 @@ const HYBRID_FAR_MESH := preload("res://world/characters/hybrid_mare/hybrid_far_
 const SHOP_ITEMS := preload("res://world/shop/shop_items.gd")
 const HOUSE := preload("res://world/buildings/house_interior.gd")
 const AI_CONFIG := preload("res://world/ai/ai_config.gd")
+const PLAYER_FORM := preload("res://world/life/player_form.gd")
+const OUTLINE_EXCLUSION := preload("res://world/post_outline_exclusion.gd")
 
 
 ## The eye is in a headset; absent reads as false.
@@ -1010,6 +1012,23 @@ static func form_of(player: Node3D) -> Node:
 	if form is Node and is_instance_valid(form):
 		return form
 	return null
+
+
+## The live player form's age; the human default when no form driver is live.
+static func player_form_is_young(tree: SceneTree) -> bool:
+	return PLAYER_FORM.is_young(PLAYER_FORM.active(tree))
+
+
+## The live player form's kind; false for the human default.
+static func player_form_is_pony(tree: SceneTree) -> bool:
+	return PLAYER_FORM.is_pony(PLAYER_FORM.active(tree))
+
+
+## The post-outline exclusion the anatomy mesh and teats install; an absent mesh is a no-op.
+static func exclude_from_outline(mesh: MeshInstance3D) -> void:
+	if not is_instance_valid(mesh):
+		return
+	OUTLINE_EXCLUSION.apply_to(mesh)
 
 
 ## Let a form driver apply its own view limit; a body without one keeps the camera as it is.

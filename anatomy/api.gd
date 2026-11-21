@@ -44,42 +44,37 @@ class ActStage extends RefCounted:
 class ActPresentation extends RefCounted:
 	var _controller: CONTROLLER
 	var _act: ACT
-	var _view: Variant = null
-	var _stage: Variant = null
-	var _bed_frame: Variant = null
+	var _view: PoseView = null
+	var _stage: ActStage = null
 	var _target := Target.VULVA
 	var _ended := false
 
-	func _init(controller: CONTROLLER, act: ACT, view: Variant) -> void:
+	func _init(controller: CONTROLLER, act: ACT, view: PoseView) -> void:
 		_controller = controller
 		_act = act
 		_view = view
-		_bed_frame = view.bed_frame if view.bed_frame is Transform3D else null
 		if _act != null:
 			_act.set_view(view)
 
-	func pose(view: Variant) -> void:
+	func pose(view: PoseView) -> void:
 		if _ended or view == null:
 			return
 		_view = view
-		_bed_frame = view.bed_frame if view.bed_frame is Transform3D else _bed_frame
 		if _act != null:
 			_act.set_view(view)
-		_controller.set_act_view(view, _stage, _bed_frame)
+		_controller.set_act_view(view, _stage, view.bed_frame)
 		if str(view.contact_kind) == "mouth":
 			if can_target_mouth():
 				_target = Target.MOUTH
 		elif _target == Target.MOUTH:
 			_target = Target.VULVA
 
-	func stage(delta: float, stage: Variant) -> void:
+	func stage(delta: float, stage: ActStage) -> void:
 		if _ended or _act == null:
 			return
 		_stage = stage
-		if _view != null and _view.bed_frame is Transform3D:
-			_bed_frame = _view.bed_frame
 		_act.set_stage(stage)
-		_controller.set_act_view(_view, stage, _bed_frame)
+		_controller.set_act_view(_view, stage, _view.bed_frame if _view != null else null)
 		_act.stage(delta, stage)
 
 	func climax() -> void:
@@ -97,7 +92,7 @@ class ActPresentation extends RefCounted:
 		_act = null
 
 	func _phase() -> int:
-		return int(_stage.phase) if _stage != null else -1
+		return _stage.phase if _stage != null else -1
 
 	func _contact() -> String:
 		return str(_view.contact_kind) if _view != null else ""

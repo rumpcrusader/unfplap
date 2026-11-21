@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Fast parse check for the mod's scripts. Compiles every changed .gd in parallel and reports the
-# files that fail to parse. Seconds instead of a full game boot.
+# Fast parse check for the mod's scripts. Loads every changed .gd in one headless engine boot through
+# tools/parse_all.gd and reports the files that fail. A run that ends without the tool's PARSED line
+# is a failure, so a timeout or a crash never reads as a pass.
 # Usage: scripts/check.sh            # changed files only (git)
 #        scripts/check.sh --all      # every mod script
 # Godot 4.5 must be on PATH.
@@ -10,7 +11,6 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MOD_DIR="$(dirname "$SCRIPT_DIR")"
 PROJECT_ROOT="$(cd "$MOD_DIR/../.." && pwd)"
-JOBS="${CHECK_JOBS:-8}"
 
 if ! command -v godot >/dev/null 2>&1; then
 	printf 'Godot not found on PATH (need the Godot 4.5 executable).\n' >&2
@@ -35,33 +35,34 @@ if [[ "${#files[@]}" -eq 0 ]]; then
 	exit 0
 fi
 
+paths=()
+for file in "${files[@]}"; do
+	paths+=("res://mods/unfplap/$file")
+done
+
 out_dir="$(mktemp -d "${TMPDIR:-/tmp}/unfplap-check.XXXXXX")"
 trap 'rm -rf "$out_dir"' EXIT
+log="$out_dir/check.log"
 
-export PROJECT_ROOT out_dir
-check_one() {
-	local file="$1"
-	local log="$out_dir/$(printf '%s' "$file" | tr '/' '_').log"
-	timeout 60 godot --headless --xr-mode off --path "$PROJECT_ROOT" \
-		--check-only --script "res://mods/unfplap/$file" >"$log" 2>&1 || true
-	# Only parse failures matter here; a compile error about a game autoload (Mods, Settings…)
-	# just means the file cannot be resolved standalone.
-	# A missing game autoload (Mods, Settings) is a standalone-resolution artefact, not a bug.
-	if grep -E 'Parse Error' "$log" | grep -qv 'Unicode parsing'; then
-		printf 'FAIL %s\n' "$file"
-		grep -E 'Parse Error|SCRIPT ERROR' "$log" | head -n 3
-	elif grep -q 'Compile Error' "$log" && ! grep -q 'Identifier not found: \(Mods\|Settings\|AI_CONFIG\)' "$log"; then
-		printf 'FAIL %s\n' "$file"
-		grep -E 'Compile Error' "$log" | head -n 3
+if timeout 180 godot --headless --xr-mode off --path "$PROJECT_ROOT" \
+		--script res://mods/unfplap/tools/parse_all.gd -- "${paths[@]}" >"$log" 2>&1; then
+	status=0
+else
+	status=$?
+fi
+
+mapfile -t failures < <(grep '^FAIL ' "$log" || true)
+mapfile -t errors < <(
+	grep -E 'Parse Error|Compile Error|SCRIPT ERROR|Failed loading|Failed to load' "$log" || true
+)
+
+if [[ "$status" -ne 0 ]] || [[ "${#failures[@]}" -gt 0 ]] || ! grep -q '^PARSED ' "$log"; then
+	if [[ "${#failures[@]}" -gt 0 ]]; then
+		printf '%s\n' "${failures[@]}"
 	fi
-}
-export -f check_one
-
-printf '%s\n' "${files[@]}" \
-	| xargs -P "$JOBS" -I{} bash -c 'check_one "$@"' _ {} >"$out_dir/report.txt"
-
-if [[ -s "$out_dir/report.txt" ]]; then
-	cat "$out_dir/report.txt"
+	if [[ "${#errors[@]}" -gt 0 ]]; then
+		printf '%s\n' "${errors[@]:0:20}"
+	fi
 	printf 'CHECK_FAIL\n'
 	exit 1
 fi

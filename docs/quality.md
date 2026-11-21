@@ -3,6 +3,13 @@
 The source-only gates that run outside the game project. The behavioural suites are `docs/tests.md`;
 the commands are `WORKFLOW.md`.
 
+## Parse check
+
+`scripts/check.sh` loads every `.gd` file — tests and tools included — once, in one headless engine
+boot through `tools/parse_all.gd`, and reports the files that do not load. The cost is that boot
+plus each script's preload closure once, so it must not return to one boot per file. A run that ends
+without the tool's `PARSED` line is a failure, never a pass.
+
 ## Formatting
 
 Formatting. No formatter is run. gdformat is intentionally not adopted: it is configurable only by
@@ -106,8 +113,8 @@ Every bash entry point starts with `set -euo pipefail`; `scripts/architecture.py
 prelude for every root and `scripts/*.sh`. Rely on the options instead of probing dependencies: a
 script that needs `godot` or `python3` calls it; `set -e` stops at the failing command and the shell
 or tool prints the reason. A `command -v` guard is only for a failure that would otherwise continue
-or act unsafely: the parallel gate keeps its Godot probe so a missing interpreter cannot report a
-false pass with empty logs, and `lab-vr.sh` keeps its Monado-service and runtime-manifest guards
+or act unsafely: the parse gate keeps its Godot probe so a missing interpreter cannot report a
+false pass with an empty log, and `lab-vr.sh` keeps its Monado-service and runtime-manifest guards
 because it starts that service itself and would otherwise run a VR lab without a runtime.
 
 A script that must observe a failure captures the status at that call (`if cmd; then ...; else

@@ -19,7 +19,7 @@ const ACT_AGREEMENT := preload("res://mods/unfplap/act/agreement.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const POSE_OFFER := preload("res://mods/unfplap/shared/pose_offer.gd")
 const POSE_OPTIONS := preload("res://mods/unfplap/shared/pose_options.gd")
-const AGREEMENT := preload("res://mods/unfplap/negotiation/agreement.gd")
+const AGREEMENT := preload("res://mods/unfplap/shared/agreement.gd")
 const NEGOTIATION := preload("res://mods/unfplap/negotiation/service.gd")
 
 

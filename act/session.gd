@@ -6,7 +6,7 @@ extends "res://mods/unfplap/shared/presentation_port.gd"
 ## See `docs/runtime.md`.
 
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
-const AFTERGLOW := preload("res://mods/unfplap/afterglow/service.gd")
+const AFTERGLOW_SUMMARY := preload("res://mods/unfplap/afterglow/summary.gd")
 const ACT_NODE := preload("res://mods/unfplap/act/host.gd")
 const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")
 const ACT_SETTINGS := preload("res://mods/unfplap/act/settings.gd")
@@ -20,6 +20,7 @@ const WORLD := preload("res://mods/unfplap/world/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const STOOL := preload("res://mods/unfplap/stool/service.gd")
+const STOOL_ACT := preload("res://mods/unfplap/stool/act.gd")
 const SCENE_GATE := preload("res://mods/unfplap/scene_gate/service.gd")
 const CYCLE := preload("res://mods/unfplap/shared/cycle.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
@@ -203,7 +204,7 @@ func refresh_view() -> void:
 func sync_hud() -> void:
 	view.sync_hud(context.facts, self, max_pony_climaxes, cycle_heat, pose_family())
 
-func stool() -> STOOL.ACT:
+func stool() -> STOOL_ACT:
 	if not is_instance_valid(WORLD.game) or not is_instance_valid(host.pony):
 		return null
 	var service: STOOL = context.stool_service
@@ -615,7 +616,7 @@ func begin_afterglow() -> void:
 	context.integrations.afterglow()
 	context.afterglow.set_act(pony_id, event_id)
 	context.afterglow.bind_view(context.pose.view())
-	var summary := AFTERGLOW.SUMMARY.new()
+	var summary := AFTERGLOW_SUMMARY.new()
 	summary.fill(context.summary.summary)
 	context.afterglow.begin(summary)
 	context.readiness.clear_cues()

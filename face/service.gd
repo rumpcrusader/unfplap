@@ -5,7 +5,7 @@ extends RefCounted
 ## Contract: `docs/face.md`.
 
 const ACT_FACE := preload("res://mods/unfplap/shared/act_face.gd")
-const BEAT := preload("res://mods/unfplap/face/beat.gd")
+const BEAT := preload("res://mods/unfplap/shared/face_beat.gd")
 const MOOD_FACE := preload("res://mods/unfplap/face/mood_face.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
 const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")

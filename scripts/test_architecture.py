@@ -2,8 +2,8 @@
 """Fixture checks for the rules in :mod:`architecture`.
 
 The real tree is checked by ``architecture.py --check``; this file pins the two directions of the
-anatomy boundary rules and the doc index rows with synthetic fixtures, so the gate still fails when
-a rule silently disappears.
+anatomy boundary rules, the game boundary, the re-export scan, the facade note rules and the doc
+index rows with synthetic fixtures, so the gate still fails when a rule silently disappears.
 """
 from __future__ import annotations
 
@@ -45,6 +45,26 @@ FORBIDDEN = (
     ("act_gate/service.gd", "anatomy/api.gd"),
     ("act_gate/service.gd", "estrus/service.gd"),
     ("settings/service.gd", "summary/service.gd"),
+    ("act/start.gd", "res://world/life/player_form.gd"),
+)
+GAME_ALLOWED = (
+    ("world/game.gd", "res://world/life/player_form.gd"),
+)
+REEXPORTS = (
+    ("camera/service.gd", "poses/skeleton_pose.gd"),
+    ("initiation/service.gd", "negotiation/adapter.gd"),
+    ("kiss/service.gd", "poses/missionary_anon.gd"),
+    ("stool/supply.gd", "res://world/buildings/house_interior.gd"),
+)
+NOTE_CASES = (
+    ("noted type", "## A note.\nclass Noted:\n\tpass\n", 0),
+    ("unnoted type", "class Unnoted:\n\tpass\n", 1),
+    ("underscore type", "class _Private:\n\tpass\n", 0),
+)
+MEMBER_CASES = (
+    ("noted member", "## A note.\nconst PUBLIC := 1\n", 0),
+    ("unnoted member", "const PUBLIC := 1\n", 1),
+    ("preload const", "const SCRIPT := preload(\"res://a.gd\")\n", 0),
 )
 
 
@@ -107,6 +127,39 @@ def index_cases() -> int:
     return failures
 
 
+def rule_cases() -> int:
+    failures = 0
+    for src, tgt in GAME_ALLOWED:
+        ok, _kind, _so, _to = architecture.is_allowed(src, tgt)
+        if ok:
+            print("ok game allowed %s -> %s" % (src, tgt))
+        else:
+            print("FAIL game allowed edge refused: %s -> %s" % (src, tgt))
+            failures += 1
+    found = {(row["from"], row["to"]) for row in architecture.scan_reexports()}
+    for src, to in REEXPORTS:
+        if (src, to) in found:
+            print("ok re-export %s -> %s" % (src, to))
+        else:
+            print("FAIL re-export not detected: %s -> %s" % (src, to))
+            failures += 1
+    for label, text, wanted in NOTE_CASES:
+        actual = len(architecture.type_note_failures("fixture.gd", text))
+        if actual == wanted:
+            print("ok note %s" % label)
+        else:
+            print("FAIL note %s: wanted %d findings, got %d" % (label, wanted, actual))
+            failures += 1
+    for label, text, wanted in MEMBER_CASES:
+        actual = len(architecture.member_note_failures("fixture.gd", text))
+        if actual == wanted:
+            print("ok member %s" % label)
+        else:
+            print("FAIL member %s: wanted %d findings, got %d" % (label, wanted, actual))
+            failures += 1
+    return failures
+
+
 def main() -> int:
     failures = 0
     for src, tgt in ALLOWED:
@@ -124,10 +177,13 @@ def main() -> int:
             print("FAIL forbidden edge allowed: %s -> %s" % (src, tgt))
             failures += 1
     failures += index_cases()
+    failures += rule_cases()
     if failures:
         print("ARCH_RULES_FAIL %d" % failures)
         return 1
-    print("ARCH_RULES_PASS %d" % (len(ALLOWED) + len(FORBIDDEN) + 6))
+    print("ARCH_RULES_PASS %d" % (
+        len(ALLOWED) + len(FORBIDDEN) + len(GAME_ALLOWED) + len(REEXPORTS)
+        + len(NOTE_CASES) + len(MEMBER_CASES) + 6))
     return 0
 
 

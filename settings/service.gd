@@ -86,6 +86,7 @@ class Setting:
 		return self
 
 
+## A boolean setting; `get_bool()` reads the stored value without a Variant cast.
 class FlagSetting extends Setting:
 	func get_bool() -> bool:
 		return bool(get_value())
@@ -98,6 +99,7 @@ class FlagSetting extends Setting:
 		return self
 
 
+## A numeric setting; `get_num()` clamps to its declared bounds unless debug.
 class NumSetting extends Setting:
 	func as_hidden() -> NumSetting:
 		hidden = true
@@ -150,6 +152,7 @@ class NumSetting extends Setting:
 		return self
 
 
+## A one-of setting; a stored value outside `options` falls back to the default.
 class ChoiceSetting extends Setting:
 	var options: Array[String] = []
 	var labels: Array[String] = []
@@ -171,6 +174,7 @@ class ChoiceSetting extends Setting:
 		return self
 
 
+## A multi-select setting; `get_list()` keeps only the declared options.
 class ListSetting extends Setting:
 	var options: Array[String] = []
 
@@ -203,6 +207,7 @@ class ListSetting extends Setting:
 		return self
 
 
+## A colour setting; a malformed stored value falls back to the default.
 class ColorSetting extends Setting:
 	func get_color() -> Color:
 		var value: Variant = get_value()

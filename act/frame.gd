@@ -17,6 +17,7 @@ const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
 const STOOL := preload("res://mods/unfplap/stool/service.gd")
+const STOOL_ACT := preload("res://mods/unfplap/stool/act.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 ## Her neck line in the authored standing stance: the closed rule the aim uses when no live bone is
@@ -62,7 +63,7 @@ class Rig:
 	var pony: Node3D = null
 	var player: Node3D = null
 	var bed: Node3D = null
-	var stool: STOOL.ACT = null
+	var stool: STOOL_ACT = null
 	var form: Variant = null
 	var player_pony := false
 	var headset_view := false
@@ -261,7 +262,7 @@ func scene_rig(_pose_input: PoseInput, form: Variant = null) -> Rig:
 	rig.pony = host.pony if is_instance_valid(host.pony) else null
 	rig.player = WORLD.player if is_instance_valid(WORLD.player) else null
 	rig.bed = session.bed
-	rig.stool = context.stool as STOOL.ACT
+	rig.stool = context.stool as STOOL_ACT
 	rig.form = form if form != null else context.handover.form()
 	rig.player_pony = session.player_pony
 	rig.headset_view = WORLD.headset_view()

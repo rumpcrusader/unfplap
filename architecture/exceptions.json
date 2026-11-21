@@ -39,6 +39,342 @@
       "owner": "readiness",
       "reason": "migration baseline; fix in the boundary-cleanup phase",
       "expires": "phase-2"
+    },
+    {
+      "from": "act/start.gd",
+      "to": "res://world/life/player_form.gd",
+      "kind": "game-import",
+      "owner": "runtime",
+      "reason": "base-game import; drain through the GAME accessor in Task B",
+      "task": "B"
+    },
+    {
+      "from": "act_gate/service.gd",
+      "to": "res://world/life/player_form.gd",
+      "kind": "game-import",
+      "owner": "act_gate",
+      "reason": "base-game import; drain through the GAME accessor in Task B",
+      "task": "B"
+    },
+    {
+      "from": "anatomy/appearance.gd",
+      "to": "res://world/post_outline_exclusion.gd",
+      "kind": "game-import",
+      "owner": "anatomy",
+      "reason": "base-game import; drain through the GAME accessor in Task B",
+      "task": "B"
+    },
+    {
+      "from": "anatomy/player.gd",
+      "to": "res://world/life/player_form.gd",
+      "kind": "game-import",
+      "owner": "anatomy",
+      "reason": "base-game import; drain through the GAME accessor in Task B",
+      "task": "B"
+    },
+    {
+      "from": "anatomy/player.gd",
+      "to": "res://world/post_outline_exclusion.gd",
+      "kind": "game-import",
+      "owner": "anatomy",
+      "reason": "base-game import; drain through the GAME accessor in Task B",
+      "task": "B"
+    },
+    {
+      "from": "anatomy/tail/dock_seat.gd",
+      "to": "res://world/characters/hybrid_mare/hybrid_dock.gd",
+      "kind": "game-import",
+      "owner": "anatomy",
+      "reason": "base-game import; drain through the GAME accessor in Task B",
+      "task": "B"
+    },
+    {
+      "from": "anatomy/tail/seat.gd",
+      "to": "res://world/characters/hybrid_mare/dock_tail_mount.gd",
+      "kind": "game-import",
+      "owner": "anatomy",
+      "reason": "base-game import; drain through the GAME accessor in Task B",
+      "task": "B"
+    },
+    {
+      "from": "anatomy/tail/seat.gd",
+      "to": "res://world/characters/hybrid_mare/hybrid_dock.gd",
+      "kind": "game-import",
+      "owner": "anatomy",
+      "reason": "base-game import; drain through the GAME accessor in Task B",
+      "task": "B"
+    },
+    {
+      "from": "anatomy/tail/seat.gd",
+      "to": "res://world/characters/hybrid_mare/hybrid_far_mesh.gd",
+      "kind": "game-import",
+      "owner": "anatomy",
+      "reason": "base-game import; drain through the GAME accessor in Task B",
+      "task": "B"
+    },
+    {
+      "from": "audio/voice_status.gd",
+      "to": "res://world/ai/chatter_voice.gd",
+      "kind": "game-import",
+      "owner": "audio",
+      "reason": "base-game import; drain through the GAME accessor in Task B",
+      "task": "B"
+    },
+    {
+      "from": "camera/view.gd",
+      "to": "res://world/life/couch/mattress.gd",
+      "kind": "game-import",
+      "owner": "camera",
+      "reason": "base-game import; drain through the GAME accessor in Task B",
+      "task": "B"
+    },
+    {
+      "from": "debug/bed.gd",
+      "to": "res://world/buildings/house_interior.gd",
+      "kind": "game-import",
+      "owner": "debug",
+      "reason": "base-game import; drain through the GAME accessor in Task B",
+      "task": "B"
+    },
+    {
+      "from": "debug/bed.gd",
+      "to": "res://world/relationships/shared_bed.gd",
+      "kind": "game-import",
+      "owner": "debug",
+      "reason": "base-game import; drain through the GAME accessor in Task B",
+      "task": "B"
+    },
+    {
+      "from": "debug/service.gd",
+      "to": "res://world/life/player_form.gd",
+      "kind": "game-import",
+      "owner": "debug",
+      "reason": "base-game import; drain through the GAME accessor in Task B",
+      "task": "B"
+    },
+    {
+      "from": "debug/ui.gd",
+      "to": "res://world/ui/menu_style.gd",
+      "kind": "game-import",
+      "owner": "debug",
+      "reason": "base-game import; drain through the GAME accessor in Task B",
+      "task": "B"
+    },
+    {
+      "from": "debug/wheel.gd",
+      "to": "res://world/audio/interaction_sounds.gd",
+      "kind": "game-import",
+      "owner": "debug",
+      "reason": "base-game import; drain through the GAME accessor in Task B",
+      "task": "B"
+    },
+    {
+      "from": "dialogue/service.gd",
+      "to": "res://world/buildings/house_interior.gd",
+      "kind": "game-import",
+      "owner": "dialogue",
+      "reason": "base-game import; drain through the GAME accessor in Task B",
+      "task": "B"
+    },
+    {
+      "from": "initiation/classifier.gd",
+      "to": "res://world/ai/llm_client.gd",
+      "kind": "game-import",
+      "owner": "initiation",
+      "reason": "base-game import; drain through the GAME accessor in Task B",
+      "task": "B"
+    },
+    {
+      "from": "initiation/venue.gd",
+      "to": "res://world/relationships/shared_bed.gd",
+      "kind": "game-import",
+      "owner": "initiation",
+      "reason": "base-game import; drain through the GAME accessor in Task B",
+      "task": "B"
+    },
+    {
+      "from": "kiss/service.gd",
+      "to": "res://world/relationships/affection_pose.gd",
+      "kind": "game-import",
+      "owner": "kiss",
+      "reason": "base-game import; drain through the GAME accessor in Task B",
+      "task": "B"
+    },
+    {
+      "from": "memory/perception.gd",
+      "to": "res://world/ai/pony_awareness.gd",
+      "kind": "game-import",
+      "owner": "memory",
+      "reason": "base-game import; drain through the GAME accessor in Task B",
+      "task": "B"
+    },
+    {
+      "from": "memory/perception.gd",
+      "to": "res://world/buildings/house_interior.gd",
+      "kind": "game-import",
+      "owner": "memory",
+      "reason": "base-game import; drain through the GAME accessor in Task B",
+      "task": "B"
+    },
+    {
+      "from": "memory/perception.gd",
+      "to": "res://world/life/player_form.gd",
+      "kind": "game-import",
+      "owner": "memory",
+      "reason": "base-game import; drain through the GAME accessor in Task B",
+      "task": "B"
+    },
+    {
+      "from": "negotiation/adapter.gd",
+      "to": "res://world/ai/ai_config.gd",
+      "kind": "game-import",
+      "owner": "negotiation",
+      "reason": "base-game import; drain through the GAME accessor in Task B",
+      "task": "B"
+    },
+    {
+      "from": "negotiation/service.gd",
+      "to": "res://world/life/player_form.gd",
+      "kind": "game-import",
+      "owner": "negotiation",
+      "reason": "base-game import; drain through the GAME accessor in Task B",
+      "task": "B"
+    },
+    {
+      "from": "poses/service.gd",
+      "to": "res://world/life/couch/mattress.gd",
+      "kind": "game-import",
+      "owner": "poses",
+      "reason": "base-game import; drain through the GAME accessor in Task B",
+      "task": "B"
+    },
+    {
+      "from": "privacy/service.gd",
+      "to": "res://world/buildings/house_interior.gd",
+      "kind": "game-import",
+      "owner": "privacy",
+      "reason": "base-game import; drain through the GAME accessor in Task B",
+      "task": "B"
+    },
+    {
+      "from": "reactions/service.gd",
+      "to": "res://world/characters/hybrid_mare/pony_flank_touch.gd",
+      "kind": "game-import",
+      "owner": "reactions",
+      "reason": "base-game import; drain through the GAME accessor in Task B",
+      "task": "B"
+    },
+    {
+      "from": "rest/service.gd",
+      "to": "res://world/life/couch/exit_space.gd",
+      "kind": "game-import",
+      "owner": "rest",
+      "reason": "base-game import; drain through the GAME accessor in Task B",
+      "task": "B"
+    },
+    {
+      "from": "rest/service.gd",
+      "to": "res://world/life/couch/mattress.gd",
+      "kind": "game-import",
+      "owner": "rest",
+      "reason": "base-game import; drain through the GAME accessor in Task B",
+      "task": "B"
+    },
+    {
+      "from": "scene_gate/service.gd",
+      "to": "res://world/life/player_form.gd",
+      "kind": "game-import",
+      "owner": "scene_gate",
+      "reason": "base-game import; drain through the GAME accessor in Task B",
+      "task": "B"
+    },
+    {
+      "from": "settings/characters_ui.gd",
+      "to": "res://world/ui/menu_picker.gd",
+      "kind": "game-import",
+      "owner": "settings",
+      "reason": "base-game import; drain through the GAME accessor in Task B",
+      "task": "B"
+    },
+    {
+      "from": "settings/characters_ui.gd",
+      "to": "res://world/ui/menu_style.gd",
+      "kind": "game-import",
+      "owner": "settings",
+      "reason": "base-game import; drain through the GAME accessor in Task B",
+      "task": "B"
+    },
+    {
+      "from": "settings/ui.gd",
+      "to": "res://world/ui/menu_style.gd",
+      "kind": "game-import",
+      "owner": "settings",
+      "reason": "base-game import; drain through the GAME accessor in Task B",
+      "task": "B"
+    },
+    {
+      "from": "shared/act_face.gd",
+      "to": "res://world/ai/pony_dialogue_tags.gd",
+      "kind": "game-import",
+      "owner": "shared:act_face.gd",
+      "reason": "base-game import; drain through the GAME accessor in Task B",
+      "task": "B"
+    },
+    {
+      "from": "shared/act_face.gd",
+      "to": "res://world/characters/hybrid_mare/face_poses.gd",
+      "kind": "game-import",
+      "owner": "shared:act_face.gd",
+      "reason": "base-game import; drain through the GAME accessor in Task B",
+      "task": "B"
+    },
+    {
+      "from": "stool/act.gd",
+      "to": "res://world/life/player_form.gd",
+      "kind": "game-import",
+      "owner": "stool",
+      "reason": "base-game import; drain through the GAME accessor in Task B",
+      "task": "B"
+    },
+    {
+      "from": "world/service.gd",
+      "to": "res://world/life/player_form.gd",
+      "kind": "game-import",
+      "owner": "world",
+      "reason": "base-game import; drain through the GAME accessor in Task B",
+      "task": "B"
+    },
+    {
+      "from": "camera/service.gd",
+      "to": "poses/skeleton_pose.gd",
+      "kind": "re-export",
+      "owner": "camera",
+      "reason": "the pose type is a separation-of-concerns reach-in; fix when the camera takes a pose handle",
+      "expires": "phase-2"
+    },
+    {
+      "from": "initiation/service.gd",
+      "to": "negotiation/adapter.gd",
+      "kind": "re-export",
+      "owner": "initiation",
+      "reason": "the adapter field is a separation-of-concerns reach-in; fix when the negotiation facade hands the adapter",
+      "expires": "phase-2"
+    },
+    {
+      "from": "kiss/service.gd",
+      "to": "poses/missionary_anon.gd",
+      "kind": "re-export",
+      "owner": "kiss",
+      "reason": "the missionary pose cast is a separation-of-concerns reach-in; fix when the kiss takes a pose handle",
+      "expires": "phase-2"
+    },
+    {
+      "from": "stool/supply.gd",
+      "to": "res://world/buildings/house_interior.gd",
+      "kind": "re-export",
+      "owner": "stool",
+      "reason": "the GAME handle is the one allowed game re-export; keep",
+      "expires": "phase-2"
     }
   ]
 }

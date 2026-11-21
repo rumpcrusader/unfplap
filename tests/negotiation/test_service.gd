@@ -6,7 +6,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/negotiation/test_service.gd
 
 const NEGOTIATION := preload("res://mods/unfplap/negotiation/service.gd")
-const AGREEMENT := preload("res://mods/unfplap/negotiation/agreement.gd")
+const AGREEMENT := preload("res://mods/unfplap/shared/agreement.gd")
 const PROMPTS := preload("res://mods/unfplap/negotiation/prompts.gd")
 const CLEARANCE := preload("res://mods/unfplap/shared/clearance.gd")
 const POSE_OPTIONS := preload("res://mods/unfplap/shared/pose_options.gd")

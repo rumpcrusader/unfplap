@@ -14,7 +14,7 @@ afterglow and stop moments; the runtime calls `eyes_for()` late in the tick, and
 ledgers call `set_face()`/`clear_face()`/`end_face()` at the transitions. The aftercare's
 `start_post_act()` and the upset face are the ledgers' calls.
 
-`face/service.gd` is the facade and the only module another system calls. `face/beat.gd` holds the
+`face/service.gd` is the facade and the only module another system calls. `shared/face_beat.gd` holds the
 typed beat context and its plan, summary and climax-quality records; `shared/act_face.gd` stays
 pure and `face/mood_face.gd` stays the held-face node.
 
@@ -23,7 +23,7 @@ pure and `face/mood_face.gd` stays the held-face node.
 | Piece | Owns |
 |---|---|
 | `face/service.gd` | the act face, the line-face owner, the stare release, the lids and smile with their timer, the climax quality shape, the mood-face lifetime and the warm note |
-| `face/beat.gd` | the typed beat context, the plan parser and the summary and climax-quality records |
+| `shared/face_beat.gd` | the typed beat context, the plan parser and the summary and climax-quality records |
 | `shared/act_face.gd` | pure: beat plans, climax style, blush, summary faces, prompt hints |
 | `face/mood_face.gd` | the 300 s held base-game face, its own `finished` signal and its blush |
 | `act/session.gd` | the act state and values the beats read |

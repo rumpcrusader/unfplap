@@ -30,6 +30,7 @@ const TARGET_KEYS := {
 }
 
 
+## The provider's participation flags; the gate reads them as vetoes.
 class Participation extends RefCounted:
 	var acts := true
 	var anatomy := true
@@ -43,6 +44,7 @@ class Participation extends RefCounted:
 		return out
 
 
+## The provider's consent flags; the gate reads them as vetoes.
 class Consent extends RefCounted:
 	var public := false
 	var anal := false

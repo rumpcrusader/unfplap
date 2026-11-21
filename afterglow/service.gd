@@ -8,6 +8,7 @@ const PRESENTATION := preload("res://mods/unfplap/afterglow/presentation.gd")
 const SUMMARY := preload("res://mods/unfplap/afterglow/summary.gd")
 const POSE_SESSION := preload("res://mods/unfplap/poses/service.gd")
 const FACE := preload("res://mods/unfplap/face/service.gd")
+const BEAT := preload("res://mods/unfplap/shared/face_beat.gd")
 const REACTIONS := preload("res://mods/unfplap/reactions/service.gd")
 const READINESS := preload("res://mods/unfplap/readiness/service.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
@@ -35,13 +36,13 @@ class PostAct extends RefCounted:
 
 	## The face facade's context for the post-act face. The summary is carried only when the act
 	## had one.
-	func face_context(summary: Dictionary) -> FACE.BEAT:
-		var context := FACE.BEAT.new()
+	func face_context(summary: Dictionary) -> BEAT:
+		var context := BEAT.new()
 		context.stopped = stopped
 		context.satisfied = satisfied
 		context.aftercare_min = aftercare_min
 		if has_summary:
-			context.summary = FACE.BEAT.Summary.from_dict(summary)
+			context.summary = BEAT.Summary.from_dict(summary)
 		return context
 
 ## The pose view the runtime carries into the next `begin()`; its `afterglow` profile owns the

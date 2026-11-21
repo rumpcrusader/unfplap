@@ -30,6 +30,7 @@ const MODE_NAMES := {
 }
 
 
+## The relationship's recent history: the flags and counts the gate reads.
 class History extends RefCounted:
 	var tier := "steady"
 	var hurt := 0
@@ -61,12 +62,14 @@ class Facts extends RefCounted:
 	var consent: ELIGIBILITY.Consent = ELIGIBILITY.Consent.new()
 
 
+## The action flags the consent gate reads for one row.
 class Actions extends RefCounted:
 	var public := false
 	var anal := false
 	var oral := false
 
 
+## The relationship facts the gate reads for one mare.
 class Relations extends RefCounted:
 	var id := ""
 	var stage := ""
@@ -78,6 +81,7 @@ class Relations extends RefCounted:
 	var base := false
 
 
+## One gate row's answer and the policy effect it carries.
 class Row extends RefCounted:
 	var key := ""
 	var ok := false
@@ -85,6 +89,7 @@ class Row extends RefCounted:
 	var effect: Effect = Effect.NONE
 
 
+## The gate's one answer for a pony and an act, built from its rows.
 class Verdict extends RefCounted:
 	var mode: Mode = Mode.START
 	var base := false

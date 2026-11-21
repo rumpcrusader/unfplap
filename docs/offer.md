@@ -135,7 +135,7 @@ func current() -> POSE_OFFER
 func blocked() -> POSE_OFFER
 func try_start() -> bool
 func start_pose_offer(offer: POSE_OFFER) -> bool
-func agreement_offer(handle: NEGOTIATION.AGREEMENT.Handle) -> POSE_OFFER
+func agreement_offer(handle: AGREEMENT.Handle) -> POSE_OFFER
 func clear_current() -> void
 func hide_hint() -> void
 func apply_settings() -> void

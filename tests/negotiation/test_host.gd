@@ -9,7 +9,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 const HOST := preload("res://mods/unfplap/negotiation/host.gd")
 const NEGOTIATION := preload("res://mods/unfplap/negotiation/service.gd")
 const ADAPTER := preload("res://mods/unfplap/negotiation/adapter.gd")
-const AGREEMENT := preload("res://mods/unfplap/negotiation/agreement.gd")
+const AGREEMENT := preload("res://mods/unfplap/shared/agreement.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")

@@ -3,7 +3,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ## match and the late-handle guard. Pure data; no service.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/negotiation/test_agreement.gd
 
-const AGREEMENT := preload("res://mods/unfplap/negotiation/agreement.gd")
+const AGREEMENT := preload("res://mods/unfplap/shared/agreement.gd")
 const POSE_OPTIONS := preload("res://mods/unfplap/shared/pose_options.gd")
 const CLEARANCE := preload("res://mods/unfplap/shared/clearance.gd")
 const CONTEXT := preload("res://mods/unfplap/shared/context.gd")

@@ -28,6 +28,7 @@ const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 const ACT_FRAME := preload("res://mods/unfplap/act/frame.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
 const STOOL := preload("res://mods/unfplap/stool/service.gd")
+const STOOL_ACT := preload("res://mods/unfplap/stool/act.gd")
 
 
 var pose: POSE_SESSION = null
@@ -50,7 +51,7 @@ var gate: SCENE_GATE = null
 ## The act's scene ownership: navigator, player lock and face turn.
 var hold: SCENE_HOLD = null
 ## The per-act footstool handle, bound by the start ledger and released by the exit.
-var stool: STOOL.ACT = null
+var stool: STOOL_ACT = null
 ## The world-scope stool facade that creates the per-act handle above.
 var stool_service: STOOL = null
 ## The world HUD and memory the act modules read; null outside a runtime built with them.

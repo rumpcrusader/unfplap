@@ -5,7 +5,7 @@ extends "res://mods/unfplap/shared/service.gd"
 ## Import: negotiation/service.gd only
 ## The Act Negotiation: one live offer or Agreement, its global lock and its terminal outcome.
 
-const AGREEMENT := preload("res://mods/unfplap/negotiation/agreement.gd")
+const AGREEMENT := preload("res://mods/unfplap/shared/agreement.gd")
 const PROMPTS := preload("res://mods/unfplap/negotiation/prompts.gd")
 const HOST := preload("res://mods/unfplap/negotiation/host.gd")
 const ADAPTER := preload("res://mods/unfplap/negotiation/adapter.gd")
@@ -26,7 +26,9 @@ const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 
+## The negotiation's position in its offer and agreement flow.
 enum Phase { NONE, OFFERED, AGREEMENT }
+## How an agreement ended, including the failures the caller reports.
 enum Outcome { ACCEPTED, REFUSED, EXPIRED, INTERRUPTED, START_FAILED, NO_OFFER, OCCUPIED, STARTED }
 
 ## The offer cooldown: only a plain decline or an acceptance.

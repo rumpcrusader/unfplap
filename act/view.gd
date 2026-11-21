@@ -12,6 +12,7 @@ const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")
 const ACT_SESSION := preload("res://mods/unfplap/act/session.gd")
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 const FACE := preload("res://mods/unfplap/face/service.gd")
+const BEAT := preload("res://mods/unfplap/shared/face_beat.gd")
 const DIALOGUE := preload("res://mods/unfplap/dialogue/service.gd")
 const READINESS := preload("res://mods/unfplap/readiness/service.gd")
 const SUMMARY := preload("res://mods/unfplap/summary/service.gd")
@@ -208,7 +209,7 @@ func _face_values(session: ACT_SESSION) -> FACE.ActValues:
 	values.first_time = session.first_time
 	values.tolerance = str(session.preferences.get("tolerance", "normal"))
 	values.climax_mode = session.climax_mode
-	values.summary = FACE.BEAT.Summary.from_dict(context.summary.summary)
+	values.summary = BEAT.Summary.from_dict(context.summary.summary)
 	values.blush_arc = session.feature("blush_arc")
 	return values
 

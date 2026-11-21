@@ -13,11 +13,17 @@ const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
+## The major version; a breaking change bumps it.
 const API_MAJOR := 1
+## The minor version; an additive change bumps it.
 const API_MINOR := 3
+## The dotted version string the contract reports.
 const API_VERSION := "1.3"
+## The descriptor schema version a consumer checks.
 const SCHEMA := 1
+## The schema version per named payload.
 const SCHEMAS := {"mare": 1}
+## The capability name -> version map a consumer checks.
 const CAPABILITIES := {"registry.mare": 1, "mare.read": 1, "profile.mare": 1}
 ## Methods that still work but should be replaced. The entry shape is part of the contract, so a
 ## deprecation is data, not a code change in every consumer.

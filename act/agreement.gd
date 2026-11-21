@@ -10,7 +10,7 @@ const ACT_SESSION := preload("res://mods/unfplap/act/session.gd")
 const ACT_START := preload("res://mods/unfplap/act/start.gd")
 const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const SCENE_GATE := preload("res://mods/unfplap/scene_gate/service.gd")
-const NEGOTIATION_HANDLE := preload("res://mods/unfplap/negotiation/agreement.gd")
+const NEGOTIATION_HANDLE := preload("res://mods/unfplap/shared/agreement.gd")
 const POSE_OPTIONS := preload("res://mods/unfplap/shared/pose_options.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 

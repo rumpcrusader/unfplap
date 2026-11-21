@@ -36,7 +36,7 @@ presentation, the act start, the scene rows or the pose placement gate. Those be
   model calls;
 - the Agreement handoff: the standing presentation, the one react line and the offer clear.
 
-`negotiation/agreement.gd` is the pure package and handle. The service is its only writer.
+`shared/agreement.gd` is the pure package and handle. The service is its only writer.
 `negotiation/prompts.gd` is the pure model request layer: the request kinds, the payload builders
 and the reply parsers (the instruction text is the prompt document's). `negotiation/host.gd` is the
 service's private bridge to the live world (see `## Bridge`). The bounded classifier belongs to the
@@ -237,7 +237,7 @@ The Proactive service builds the typed `MareOffer` from its decided values and c
 `begin_mare_offer`. The Proactive owns the ask line and the request lease until formation; the
 Negotiation service owns them after it.
 
-`negotiation/agreement.gd:Package` is the frozen package:
+`shared/agreement.gd:Package` is the frozen package:
 
 - id and generation, the mare (node and stable id);
 - the pose option `(pose, source, bed, cuddle)`;

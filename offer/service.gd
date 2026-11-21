@@ -14,6 +14,7 @@ const PERF := preload("res://mods/unfplap/shared/perf.gd")
 const HUD := preload("res://mods/unfplap/hud/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const NEGOTIATION := preload("res://mods/unfplap/negotiation/service.gd")
+const AGREEMENT := preload("res://mods/unfplap/shared/agreement.gd")
 const POSES := preload("res://mods/unfplap/poses/service.gd")
 const PRIVACY := preload("res://mods/unfplap/privacy/service.gd")
 const ACT_KEYS := preload("res://mods/unfplap/shared/act_keys.gd")
@@ -301,7 +302,7 @@ func _agreement_private_now(pony: Node, cuddle: bool) -> bool:
 
 
 ## The runtime's Agreement start result, forwarded to the Negotiation service.
-func _report_agreement(handle: NEGOTIATION.AGREEMENT.Handle, started: bool) -> void:
+func _report_agreement(handle: AGREEMENT.Handle, started: bool) -> void:
 	if is_instance_valid(negotiation):
 		negotiation.report(handle, started)
 
@@ -636,7 +637,7 @@ func _log_blocked_offer(runtime: Node, target: Node, need: int) -> void:
 
 ## A live Agreement typed as a press offer; no rump fan or policy snapshot is needed.
 ## Null while the world is not ready.
-func agreement_offer(handle: NEGOTIATION.AGREEMENT.Handle) -> POSE_OFFER:
+func agreement_offer(handle: AGREEMENT.Handle) -> POSE_OFFER:
 	if handle == null or not handle.valid():
 		return null
 	var option: Variant = handle.option

@@ -9,7 +9,7 @@ const ACT_HOST := preload("res://mods/unfplap/act/host.gd")
 const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")
 const ACT_SESSION := preload("res://mods/unfplap/act/session.gd")
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
-const FACE := preload("res://mods/unfplap/face/service.gd")
+const BEAT := preload("res://mods/unfplap/shared/face_beat.gd")
 const DIALOGUE := preload("res://mods/unfplap/dialogue/service.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const REST := preload("res://mods/unfplap/rest/control.gd")
@@ -85,8 +85,8 @@ func warn(level: int) -> void:
 
 
 ## The consent beat's act values: the same two the face table reads at every act moment.
-func _face_context() -> FACE.BEAT:
-	var values := FACE.BEAT.new()
+func _face_context() -> BEAT:
+	var values := BEAT.new()
 	values.first_time = session.first_time
 	values.tolerance = str(session.preferences.get("tolerance", "normal"))
 	return values

@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Architecture gate for unfplap.
 
-This script scans the preload graph, enforces the layer, owner and privacy rules, checks the
-documentation index, and tracks temporary boundary/typing debt.
+This script scans the preload graph, enforces the layer, owner, game-boundary and
+re-export rules, checks the documentation index and facade notes, and tracks
+temporary boundary/typing debt.
 
 Every shipped ``.gd`` must resolve to an owner — a service, ``shared/`` or one of the
 three orchestrators — so a directory without a ``service.gd`` cannot add code whose
@@ -11,6 +12,7 @@ edges the boundary rules would classify as external and allow.
 Usage:
     scripts/architecture.py --check
     scripts/architecture.py --graph
+    scripts/architecture.py --audit-surface
     scripts/architecture.py --write-exceptions
     scripts/architecture.py --write-debt
     scripts/architecture.py --write-duck-typing
@@ -283,6 +285,11 @@ SHARED_KINDS = {
 SERVICE_INDEX = "## Services"
 TABLE_ROW = re.compile(r"^\|(.*)\|\s*$", re.MULTILINE)
 SERVICE_IGNORE_DOCS = {"README.md", "api.md", "runtime.md"}
+# A facade's public types carry a `##` note; api.gd's public members are the strict surface.
+PUBLIC_TYPE = re.compile(r"^(?:class|enum)\s+([A-Za-z_]\w*)\b", re.MULTILINE)
+API_MEMBER = re.compile(
+    r"^(?:const\s+([A-Z][A-Z0-9_]*)|(?:static\s+)?func\s+([A-Za-z_]\w*)|var\s+([A-Za-z_]\w*))")
+GAME_SOURCE = "world/game.gd"
 
 
 class Failure:
@@ -366,6 +373,7 @@ def game_rel(path: str) -> str:
 def scan_edges() -> set[tuple[str, str]]:
     edges: set[tuple[str, str]] = set()
     preload = re.compile(r'(?:preload|load)\("(res://mods/unfplap/[^"]+\.gd)"\)')
+    game = re.compile(r'(?:preload|load)\("(res://(?:world|player)/[^"]+\.gd)"\)')
     extends = re.compile(r'^extends\s+"(res://[^"]+)"', re.MULTILINE)
     skip_dirs = {".git", "dist", "assets", "sources", "tests", "tools", "scripts", "docs", ".godot"}
     for path in ROOT.rglob("*.gd"):
@@ -377,10 +385,14 @@ def scan_edges() -> set[tuple[str, str]]:
         for match in preload.finditer(text):
             target = match.group(1).replace("res://mods/unfplap/", "")
             edges.add((src, target))
+        for match in game.finditer(text):
+            edges.add((src, match.group(1)))
         for match in extends.finditer(text):
             target = match.group(1)
             if target.startswith("res://mods/unfplap/"):
                 edges.add((src, target.replace("res://mods/unfplap/", "")))
+            elif target.startswith("res://world/") or target.startswith("res://player/"):
+                edges.add((src, target))
     return edges
 
 
@@ -411,6 +423,10 @@ ELIGIBILITY_SCENE = "eligibility/scene.gd"
 
 def is_allowed(src: str, tgt: str) -> tuple[bool, str, Owner | None, Owner | None]:
     kind, so, to = edge_kind(src, tgt)
+    # One game boundary: only the accessor preloads a base-game module; every other module reads
+    # the game through `GAME`.
+    if kind == "game" and src != GAME_SOURCE:
+        return False, kind, so, to
     if so is None or to is None:
         return True, kind, so, to
     if so.kind == "orchestrator":
@@ -421,8 +437,6 @@ def is_allowed(src: str, tgt: str) -> tuple[bool, str, Owner | None, Owner | Non
     if src.startswith("anatomy/"):
         if src == ANATOMY_RIG:
             return tgt == "world/game.gd", kind, so, to
-        if kind == "game":
-            return tgt != "world/game.gd", kind, so, to
         if kind in ("self", "shared", "store", "read model"):
             return True, kind, so, to
         if kind == "service" and to is not None:
@@ -480,20 +494,64 @@ def is_allowed(src: str, tgt: str) -> tuple[bool, str, Owner | None, Owner | Non
     return True, kind, so, to
 
 
+def scan_reexports() -> list[dict[str, str]]:
+    """Cross-module preload-const reach-throughs: ``ALIAS.CONST`` where CONST is a preload in ALIAS's target.
+
+    Enums, nested classes and plain consts stay reachable; only a preload const is a re-export.
+    ``GAME.HOUSE`` is the one allowed game handle and rides the exception ledger.
+    """
+    text_of: dict[str, str] = {}
+    aliases: dict[str, dict[str, str]] = {}
+    for path in shipped_sources():
+        name = rel(path)
+        text = _code_lines(path.read_text(encoding="utf-8"))
+        text_of[name] = text
+        aliases[name] = {match.group(1): match.group(2) for match in PRELOAD_CONST.finditer(text)}
+    found: dict[tuple[str, str, str], dict[str, str]] = {}
+    for src, consts in aliases.items():
+        for alias, target in consts.items():
+            if not target.startswith("res://mods/unfplap/"):
+                continue
+            target = target.removeprefix("res://mods/unfplap/")
+            for const, const_target in aliases.get(target, {}).items():
+                if not re.search(r"(?<![\w.])%s\.%s\b" % (re.escape(alias), re.escape(const)),
+                                 text_of[src]):
+                    continue
+                owner = owner_of(src)
+                to = const_target.removeprefix("res://mods/unfplap/")
+                found[(src, to, "re-export")] = {
+                    "from": src,
+                    "to": to,
+                    "kind": "re-export",
+                    "owner": owner.id if owner else "",
+                    "reason": "separation of concerns; deferred",
+                    "expires": "phase-2",
+                }
+    return [found[key] for key in sorted(found)]
+
+
 def scan_violations() -> list[dict[str, str]]:
     found: dict[tuple[str, str, str], dict[str, str]] = {}
     for src, tgt in sorted(scan_edges()):
         ok, kind, so, to = is_allowed(src, tgt)
         if ok:
             continue
-        found[(src, tgt, kind)] = {
+        row_kind = "game-import" if kind == "game" else kind
+        row = {
             "from": src,
             "to": tgt,
-            "kind": kind,
+            "kind": row_kind,
             "owner": so.id if so else "",
             "reason": "migration baseline; fix in the boundary-cleanup phase",
             "expires": "phase-2",
         }
+        if row_kind == "game-import":
+            row["reason"] = "base-game import; drain through the GAME accessor in Task B"
+            row.pop("expires", None)
+            row["task"] = "B"
+        found[(src, tgt, row_kind)] = row
+    for row in scan_reexports():
+        found[exception_key(row)] = row
     return [found[key] for key in sorted(found)]
 
 
@@ -596,6 +654,101 @@ def check_docs(failure: Failure, docs: Path = DOCS, services: list[str] | None =
             failure.add("docs/%s.md is missing ## Ownership" % sid)
             failures += 1
     return failures
+
+
+def has_doc_note(lines: list[str], index: int) -> bool:
+    """A `##` block directly above the declaration, blank lines ignored."""
+    cursor = index - 1
+    while cursor >= 0 and not lines[cursor].strip():
+        cursor -= 1
+    return cursor >= 0 and lines[cursor].lstrip().startswith("##")
+
+
+def public_members(path: Path) -> list[tuple[int, str]]:
+    """Top-level public declarations with their line number; preload consts are machinery."""
+    out: list[tuple[int, str]] = []
+    for index, line in enumerate(path.read_text(encoding="utf-8").splitlines()):
+        match = API_MEMBER.match(line)
+        if not match:
+            continue
+        name = next((group for group in match.groups() if group), "")
+        if not name or name.startswith("_") or "preload(" in line:
+            continue
+        out.append((index, name))
+    return out
+
+
+def type_note_failures(name: str, text: str) -> list[str]:
+    """A facade's public type needs a `##` note."""
+    lines = text.splitlines()
+    out: list[str] = []
+    for index, line in enumerate(lines):
+        match = PUBLIC_TYPE.match(line)
+        if not match or match.group(1).startswith("_"):
+            continue
+        if not has_doc_note(lines, index):
+            out.append("%s:%d declares a public type without a ## note: %s" % (
+                name, index + 1, match.group(1)))
+    return out
+
+
+def member_note_failures(name: str, text: str) -> list[str]:
+    """Every public member of a strict surface needs a `##` note."""
+    lines = text.splitlines()
+    out: list[str] = []
+    for index, line in enumerate(lines):
+        match = API_MEMBER.match(line)
+        if not match:
+            continue
+        member = next((group for group in match.groups() if group), "")
+        if not member or member.startswith("_") or "preload(" in line:
+            continue
+        if not has_doc_note(lines, index):
+            out.append("%s:%d declares a public member without a ## note: %s" % (
+                name, index + 1, member))
+    return out
+
+
+def check_facade_notes(failure: Failure) -> None:
+    """A facade's public type carries a `##` note; api.gd's public surface carries one too."""
+    for sid in SERVICES:
+        path = ROOT / sid / facade_for(sid)
+        if not path.is_file():
+            continue
+        failure.extend(type_note_failures(rel(path), path.read_text(encoding="utf-8")))
+    api = ROOT / "api.gd"
+    if api.is_file():
+        failure.extend(member_note_failures("api.gd", api.read_text(encoding="utf-8")))
+
+
+def check_api_docs(failure: Failure) -> None:
+    """Every public api.gd function is named in docs/api.md."""
+    api = ROOT / "api.gd"
+    doc = DOCS / "api.md"
+    if not api.is_file() or not doc.is_file():
+        return
+    text = doc.read_text(encoding="utf-8")
+    lines = api.read_text(encoding="utf-8").splitlines()
+    for index, name in public_members(api):
+        if not re.match(r"^(?:static\s+)?func\s", lines[index]):
+            continue
+        if name not in text:
+            failure.add("docs/api.md does not name api.gd's public function %s" % name)
+
+
+def audit_surface() -> None:
+    """Print the facade public functions without a `##` note; advisory, never a gate."""
+    for sid in SERVICES:
+        path = ROOT / sid / facade_for(sid)
+        if not path.is_file():
+            continue
+        lines = path.read_text(encoding="utf-8").splitlines()
+        for index, line in enumerate(lines):
+            match = re.match(r"^(?:static\s+)?func\s+([A-Za-z_]\w*)\(", line)
+            if not match or match.group(1).startswith("_"):
+                continue
+            if not has_doc_note(lines, index):
+                print("%s:%d %s" % (rel(path), index + 1, match.group(1)))
 
 
 def file_public_functions(service: str, path: Path) -> list[dict[str, str]]:
@@ -1638,6 +1791,8 @@ def check() -> int:
     violations = scan_violations()
     exceptions = check_exceptions(failure, violations)
     check_docs(failure)
+    check_facade_notes(failure)
+    check_api_docs(failure)
     check_typing(failure)
     check_duck_typing(failure)
     check_sources(failure)
@@ -1673,10 +1828,14 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--graph", action="store_true")
+    parser.add_argument("--audit-surface", action="store_true")
     parser.add_argument("--write-exceptions", action="store_true")
     parser.add_argument("--write-debt", action="store_true")
     parser.add_argument("--write-duck-typing", action="store_true")
     args = parser.parse_args()
+    if args.audit_surface:
+        audit_surface()
+        return 0
     if args.write_exceptions:
         write_exceptions()
         return 0

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Fast parse check for the mod's scripts. Loads every changed .gd in one headless engine boot through
-# tools/parse_all.gd and reports the files that fail. A run that ends without the tool's PARSED line
-# is a failure, so a timeout or a crash never reads as a pass.
-# Usage: scripts/check.sh            # changed files only (git)
+# Fast parse check for the mod's scripts. Loads the changed and untracked .gd in one headless engine
+# boot through tools/parse_all.gd and reports the files that fail. A run that ends without the
+# tool's PARSED line is a failure, so a timeout or a crash never reads as a pass.
+# Usage: scripts/check.sh            # changed and untracked files only (git)
 #        scripts/check.sh --all      # every mod script
 # Godot 4.5 must be on PATH.
 
@@ -25,8 +25,10 @@ mapfile -t files < <(
 	if [[ "${1:-}" == "--all" ]]; then
 		cd "$MOD_DIR" && find . -name '*.gd' -not -path './tests/_*' -printf '%P\n'
 	else
-		cd "$MOD_DIR" && git diff --name-only --diff-filter=ACMR HEAD -- '*.gd' \
-			| sed 's#^mods/unfplap/##'
+		cd "$MOD_DIR" && {
+			git diff --name-only --diff-filter=ACMR HEAD -- '*.gd'
+			git ls-files --others --exclude-standard -- '*.gd'
+		} | sed 's#^mods/unfplap/##'
 	fi | sort -u
 )
 

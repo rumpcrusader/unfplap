@@ -58,6 +58,7 @@ restate a contract.
 | `eligibility/**` | `docs/eligibility.md` |
 | `face/**` | `docs/face.md` |
 | `hands/**` | `docs/hands.md` |
+| `hud/game.gd` | `docs/hud.md` |
 | `hud/**` | `docs/hud.md` |
 | `initiation/**` | `docs/initiation.md` |
 | `input/**` | `docs/input.md` |

@@ -35,6 +35,7 @@ ALLOWED = (
     ("settings/ui.gd", "settings/game.gd"),
     ("settings/game.gd", "res://world/ui/menu_style.gd"),
     ("debug/ui.gd", "debug/game.gd"),
+    ("hud/service.gd", "hud/game.gd"),
 )
 FORBIDDEN = (
     ("anatomy/controller.gd", "ponies/service.gd"),

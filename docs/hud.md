@@ -11,6 +11,7 @@ close window is `docs/afterglow.md`.
 | File | Role |
 |---|---|
 | `hud/lines.gd` | pure text and tint: `cue_line`, `readiness_line`, `auto_text`, `y_pink`, `auto_panel_label` |
+| `hud/game.gd` | the game's speech caption node internals: the preview check, its card and scale, and the one write that places the card |
 | `hud/service.gd` | the facade and the scene card: rows, key caps, prompt row, visibility, the act wiring, the borrowed quick-slot card, the toast line and the caption tracking and move |
 | `docs/hud.md` | this contract |
 
@@ -32,6 +33,13 @@ entry calls `runtime.act.facts()` once per rendered frame and passes that object
 `hud/service.gd`, which reads fields and never probes the runtime for a method. The control visibility reads `view.pose_view.family` (`bed` for missionary, `standing` for
 standing) instead of a raw pose id. The pure module has no Node, tree, `Settings` or game access,
 so the formats are testable without a scene.
+
+## Base-game access
+
+`hud/game.gd` is the HUD's one base-game accessor: the caption's preview flag, its card, its own
+scale and the one write that places the card. A handle is an argument, and the move in
+`hud/service.gd` names no caption field itself; the speech-mode setting stays
+`SETTINGS.caption_mode()` through the settings channel.
 
 ## Lines
 

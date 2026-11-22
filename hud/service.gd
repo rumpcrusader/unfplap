@@ -10,6 +10,7 @@ const LOG := preload("res://mods/unfplap/shared/log.gd")
 const ACT_KEYS := preload("res://mods/unfplap/shared/act_keys.gd")
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const HUD_LINES := preload("res://mods/unfplap/hud/lines.gd")
+const GAME := preload("res://mods/unfplap/hud/game.gd")
 
 const STATE_IDLE := ACT_STATE.State.IDLE
 const STATE_POSING_IN := ACT_STATE.State.POSING_IN
@@ -478,14 +479,12 @@ func _caption_top_tick() -> void:
 		if not is_instance_valid(node):
 			_captions.erase(id)
 			continue
-		if bool(node.get("preview")):
+		if GAME.caption_preview(node):
 			continue
-		var card: Variant = node.get("_card")
-		if not card is Control:
+		var card := GAME.caption_card(node)
+		if card == null:
 			continue
-		var scale_value: Variant = node.get("_scale")
-		var scale := float(scale_value) if scale_value != null else 1.0
-		(card as Control).position.y = roundf(CAPTION_TOP_MARGIN * maxf(scale, 0.01))
+		GAME.place_caption(card, CAPTION_TOP_MARGIN, GAME.caption_scale(node))
 
 
 ## Re-read the mode the player chose, then place the captions it allows.

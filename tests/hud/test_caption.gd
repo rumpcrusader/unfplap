@@ -8,6 +8,7 @@ const WORLD := preload("res://mods/unfplap/world/api.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 const ACT_KEYS := preload("res://mods/unfplap/shared/act_keys.gd")
+const GAME := preload("res://mods/unfplap/hud/game.gd")
 
 ## Where the suite leaves the caption card before a move: any place but the top margin.
 const BOTTOM_Y := 640.0
@@ -82,6 +83,7 @@ class FakeWorld extends Node:
 
 
 func run() -> void:
+	_check_caption_access()
 	# The caption reads the game's own speech setting through the settings facade, so a world is
 	# bound for the whole run; `_check_accessors()` rebinds its own and drops it.
 	var host := FakeWorld.new()
@@ -101,6 +103,31 @@ func run() -> void:
 	if failures == 0:
 		print("CAPTION_PASS")
 	finish()
+
+
+## The accessor's typed answers: the live fields, the preview copy and the absent node.
+func _check_caption_access() -> void:
+	check(not GAME.caption_preview(null), "a null caption is not the preview")
+	check(GAME.caption_card(null) == null, "a null caption has no card")
+	check(GAME.caption_scale(null) == 1.0, "a null caption keeps the unit scale")
+	GAME.place_caption(null, 26.0, 1.0)
+	var plain := Node.new()
+	check(not GAME.caption_preview(plain), "a node without the flag is not the preview")
+	check(GAME.caption_card(plain) == null, "a node without a card has none")
+	check(GAME.caption_scale(plain) == 1.0, "a node without a scale keeps the unit scale")
+	var caption := FakeCaption.new()
+	var card := GAME.caption_card(caption)
+	check(card != null and card == caption.get("_card"), "the live caption answers its card")
+	check(GAME.caption_scale(caption) == 1.0, "the live caption answers its own scale")
+	caption.preview = true
+	check(GAME.caption_preview(caption), "the preview copy answers true")
+	caption.preview = false
+	caption._scale = 1.5
+	if card != null:
+		GAME.place_caption(card, 26.0, GAME.caption_scale(caption))
+		check(card.position.y == 39.0, "the accessor rounds the margin at the caption's scale")
+	caption.free()
+	plain.free()
 
 
 ## The five conditions: the player's mode, an act in POSING_IN/ACTIVE/CLIMAX, the game's explicit

@@ -265,7 +265,7 @@ PUBLIC_SERVICE_FILES = {"body_change/source.gd", "world/game.gd"}
 SERVICE_BASE = "shared/service.gd"
 HUD_FACADE = "hud/service.gd"
 # A public accessor module outside a `service.gd` facade joins the weak-signature scan.
-TYPING_EXTRA = ("world/game.gd", "settings/game.gd", "debug/game.gd")
+TYPING_EXTRA = ("world/game.gd", "settings/game.gd", "debug/game.gd", "hud/game.gd")
 # The five body-bound systems `body_change.wire()` builds and registers. The entry names none of
 # them: a new binding adds a preload to the service, not to the composition root.
 BODY_BINDINGS = (

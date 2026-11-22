@@ -67,6 +67,10 @@ MEMBER_CASES = (
     ("unnoted member", "const PUBLIC := 1\n", 1),
     ("preload const", "const SCRIPT := preload(\"res://a.gd\")\n", 0),
 )
+SUITE_RESULT_CASES = (
+    ("quiet suite", "func run() -> void:\n\tcheck(1 == 1, \"x\")\n", 0),
+    ("printed result line", "func run() -> void:\n\tprint(\"X_RESULT checks=1 failures=0\")\n", 1),
+)
 PRELOAD_CASES = (
     ("preload block", "extends RefCounted\n## Header.\n\n"
      "const A := preload(\"res://a.gd\")\nconst B := preload(\"res://b.gd\")\n\nvar x := 1\n", 0),
@@ -178,6 +182,11 @@ def rule_cases() -> int:
         if actual != wanted:
             print("FAIL member %s: wanted %d findings, got %d" % (label, wanted, actual))
             failures += 1
+    for label, text, wanted in SUITE_RESULT_CASES:
+        actual = len(architecture.suite_result_failures("fixture.gd", text))
+        if actual != wanted:
+            print("FAIL suite result %s: wanted %d findings, got %d" % (label, wanted, actual))
+            failures += 1
     return failures
 
 
@@ -201,7 +210,8 @@ def main() -> int:
         return 1
     print("ARCH_RULES_PASS %d" % (
         len(ALLOWED) + len(FORBIDDEN) + len(GAME_ALLOWED) + len(REEXPORTS)
-        + len(NOTE_CASES) + len(MEMBER_CASES) + len(PRELOAD_CASES) + 6))
+        + len(NOTE_CASES) + len(MEMBER_CASES) + len(SUITE_RESULT_CASES) + len(PRELOAD_CASES)
+        + 6))
     return 0
 
 

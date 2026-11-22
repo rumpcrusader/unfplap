@@ -97,7 +97,11 @@ defers `_run_and_finish()`, which calls `before()`, then `run()`, then `finish()
   the end of `run()`, and the private `X_PASS` line many suites print, are cosmetic for a direct
   run and are not part of the contract.
 - `finish()` runs `teardown()` once, fails the suite when no assertion ran, prints the final
-  `…_RESULT checks=%d failures=%d` line and quits. The runner reads that line as its result input.
+  `…_RESULT checks=%d failures=%d` line and quits. The printed line is the direct-run form; the
+  runner reads the file the base writes when `UNFPLAP_SUITE_RESULT` names a path.
+- The result file holds one `key=value` line: the suite path, its label, both counts, the elapsed
+  seconds and what ended the run. A path the base cannot write leaves the printed line as the
+  runner's fallback.
 - `before()` returns, then a watchdog starts: a `run()` that never returns fails the suite and still
   tears down once. `scripts/test.sh --self-test` proves it with a fixture that hangs on purpose.
 - The runner also scans the suite log for `SCRIPT ERROR` and `Parse Error`; a suite that logs one
@@ -138,8 +142,8 @@ The base derives the result label from the suite's path: a top-level `tests/test
 equals the directory or begins with `<dir>_`; a topic that is only a suffix keeps the directory
 prefix, so the two act-audio suites stay distinct: `privacy/privacy` → `PRIVACY`,
 `readiness/readiness_auto` → `READINESS_AUTO`, `act_audio/audio` → `ACT_AUDIO_AUDIO`,
-`act_audio/act_audio` → `ACT_AUDIO`. The label is cosmetic; the runner only greps
-`_RESULT checks=`.
+`act_audio/act_audio` → `ACT_AUDIO`. The label is cosmetic: the runner reports it and never
+parses it.
 
 ## Isolation
 
@@ -282,6 +286,7 @@ sync in `act/tick.gd` is a static rule in `scripts/architecture.py --check`.
 - a suite does not define a base-owned helper (`check`, `check_eq`, `check_ne`, `check_approx`,
   `check_contains`, `check_empty`, `check_size`, `check_same`, `check_null`, `check_not_null`,
   `fail`, `near`, `_initialize`, `finish`, `_result_prefix`) and does not call `quit(`;
+- a suite does not print the result line (`_RESULT`): the base owns it;
 - no suite calls `check(true, …)`;
 - only `tests/test_settings.gd` and `tests/test_prompts.gd` name a shipped data document
   (`settings.json`, `characters.json`, `prompts.json`, or a loader's path constant); every other

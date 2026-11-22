@@ -1269,6 +1269,12 @@ def check_calls(text: str) -> list[tuple[int, str]]:
     return calls
 
 
+def suite_result_failures(name: str, text: str) -> list[str]:
+    """A suite never prints the result line: the base owns it."""
+    return ["%s:%d prints the result line: the base owns it" % (name, line_of(text, match.start()))
+            for match in TEST_SUITE_RESULT.finditer(text)]
+
+
 def check_tests(failure: Failure) -> None:
     # The base owns the helpers, the lifecycle, the result line and the exit: a suite only
     # extends it, implements run() and asserts.
@@ -1281,6 +1287,7 @@ def check_tests(failure: Failure) -> None:
             failure.add("%s:1 must implement run()" % name)
         if not TEST_SUITE_ASSERTION.search(text):
             failure.add("%s:1 must call an assertion helper" % name)
+        failure.extend(suite_result_failures(name, text))
         for match in TEST_SUITE_LOCAL.finditer(text):
             failure.add("%s:%d defines a base-owned helper: %s" % (
                 name, line_of(text, match.start()), match.group(0).removesuffix("(")))

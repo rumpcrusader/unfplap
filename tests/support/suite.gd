@@ -7,9 +7,12 @@ var checks := 0
 ## The deadline for run(); only the harness self-test lowers it in before().
 var watchdog_seconds := 60.0
 var _finished := false
+var _start_ms := 0
+var _end := "run"
 
 
 func _initialize() -> void:
+	_start_ms = Time.get_ticks_msec()
 	_run_and_finish.call_deferred()
 
 
@@ -25,6 +28,7 @@ func _run_and_finish() -> void:
 func _on_watchdog_timeout() -> void:
 	if _finished:
 		return
+	_end = "watchdog"
 	fail("run() did not finish")
 	finish()
 
@@ -168,9 +172,33 @@ func finish() -> void:
 	_finished = true
 	teardown()
 	if checks == 0:
+		_end = "no-checks"
 		fail("suite has no checks")
 	print("%s_RESULT checks=%d failures=%d" % [_result_prefix(), checks, failures])
+	_write_result()
 	quit(0 if failures == 0 else 1)
+
+
+func _write_result() -> void:
+	# The runner's input: one line, and an absent or unwritable path leaves the print as the fallback.
+	var path := OS.get_environment("UNFPLAP_SUITE_RESULT")
+	if path.is_empty():
+		return
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	if file == null:
+		return
+	var seconds := float(Time.get_ticks_msec() - _start_ms) / 1000.0
+	file.store_line("suite=%s label=%s checks=%d failures=%d seconds=%.3f end=%s" % [
+		_suite_path(), _result_prefix(), checks, failures, seconds, _end])
+
+
+func _suite_path() -> String:
+	var script: Script = get_script()
+	var path: String = script.resource_path
+	var prefix := "res://mods/unfplap/tests/"
+	if not path.begins_with(prefix):
+		return path.get_file().get_basename()
+	return path.trim_prefix(prefix).trim_suffix(".gd")
 
 
 func _result_prefix() -> String:

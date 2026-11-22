@@ -282,6 +282,30 @@ func _check_shaft_mask() -> void:
 	host.free()
 
 
+## The body coat's vulva spread reads the solved hole target, not the raw grip, so the solve must
+## land even when the anatomy mesh carries no material yet.
+func _check_hole_target() -> void:
+	var pony := _pony("twilight_sparkle")
+	var host := Node3D.new()
+	var mesh := MeshInstance3D.new()
+	mesh.mesh = BoxMesh.new()
+	root.add_child(pony)
+	root.add_child(host)
+	host.add_child(mesh)
+	var shapes := SHAPES.new()
+	shapes.setup(pony, host)
+	shapes.set_mesh(mesh)
+	shapes.set_grip(0.02, false)
+	check(shapes.hole_target() > 0.0, "the grip solves the hole target with no material")
+	shapes.clear_part()
+	check(is_zero_approx(shapes.hole_target()), "the part reset clears the hole target")
+
+	root.remove_child(pony)
+	pony.free()
+	root.remove_child(host)
+	host.free()
+
+
 ## The anatomy mesh's own +Z is the outward normal. It must not be flipped by the hips sign: a
 ## body fit or a shape can put the opening in front of the hip bone as the measurement sees it.
 func _check_normal_source() -> void:
@@ -335,6 +359,7 @@ func run() -> void:
 	_check_normal_source()
 	_check_pelvis_reset()
 	_check_shaft_mask()
+	_check_hole_target()
 
 	# Climax clears the shape once and arms the wink pulses; the tick keeps driving the hug so
 	# the lips stay on the shaft through the climax instead of closing on nothing.

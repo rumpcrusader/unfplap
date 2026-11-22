@@ -271,15 +271,17 @@ func wink_burst(count: int, discharge_count: int, rest_open: float,
 func set_grip(shaft_radius: float, missionary: bool) -> void:
 	_wide = maxf(shaft_radius, 0.0)
 	if not is_instance_valid(mesh):
-		return
-	var material := mesh.get_surface_override_material(0) as ShaderMaterial
-	if material == null:
+		_hole_target = 0.0
 		return
 	var scale := maxf(mesh.global_transform.basis.get_scale().x, 0.0001)
 	var hug := (_vulva_hug_mm_missionary if missionary else _vulva_hug_mm) / 1000.0 \
 		if shaft_radius > 0.0 else 0.0
 	var local := maxf(shaft_radius + hug, 0.0) / scale
+	# The coat spread reads this, so it clears even when the material is not there yet.
 	_hole_target = local
+	var material := mesh.get_surface_override_material(0) as ShaderMaterial
+	if material == null:
+		return
 	_log_grip(shaft_radius, local, scale)
 	# No blend shape at all: it scales the whole mesh. The shader opens the hole by translating
 	# the rim band outward to the measured shaft radius.

@@ -7,7 +7,7 @@ policy.
 
 | Module | Role |
 |---|---|
-| `audio/act.gd` | the per-act handle the act session and exit call: node lifetime, cues, voice policy and the shared excitement Beat holds |
+| `audio/act.gd` | the per-act handle the act session and exit call: node lifetime, cues, voice policy and the base-game sound child |
 | `audio/service.gd` | the per-runtime audio facade: the pack layer, the base-game sound child, and the Ponese mute policy |
 | `audio/sound.gd` | base-game breath and `squee_*` climax players and their timing |
 | `audio/cues.gd` | the pure pack cue table (groups, variants, volume, cooldowns, pitch) |
@@ -17,10 +17,9 @@ policy.
 binds it once and it creates its node lazily, keeping it for the process; `start()` opens an act's layer and `stop()`
 closes it. It never preloads `runtime.gd` or `main.gd`; the builder passes the node and the act
 passes the pony, the id and
-the classified voice info as arguments. The shared game excitement Beat is held by owner name
-(`hold_excitement(owner)`/`release_excitement(owner)`); the last release restores the saved pause
-state, and `reset_excitement_hold()` is the teardown fallback. The outside-act flank smack is its
-own world service; see `docs/stock_smack.md`.
+the classified voice info as arguments. The outside-act flank smack is its own world service and
+the shared game excitement Beat is the scene hold's; see `docs/stock_smack.md` and
+`docs/scene_hold.md`.
 
 ## Bridge
 
@@ -37,7 +36,6 @@ The act modules call one typed handle, never a private field or a raw player:
 | `stop_breath()` | the restore begin |
 | `impact(...)`, `crossed(...)`, `withdraw(...)` | the impact path |
 | `play_vocal()`, `tick_vocal()`, `oral_kiss()`, `play_mouth_kiss()` | the vocal and oral paths |
-| `hold_excitement(owner)`, `release_excitement(owner)`, `reset_excitement_hold()` | the shared game excitement Beat |
 
 The runtime keeps the call sites and the director/vocal prepare.
 

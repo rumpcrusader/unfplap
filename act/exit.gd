@@ -118,7 +118,7 @@ func free_pose() -> void:
 	context.hands.reset()
 	context.kiss.reset()
 	context.integrations.reset()
-	context.audio.reset_excitement_hold()
+	context.hold.release_all_beats()
 	context.standing_anon.remove()
 	context.pose.leave_pose_body()
 	context.audio.restore_voice_policy()

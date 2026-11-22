@@ -1,7 +1,7 @@
 extends RefCounted
 ## One runtime's act audio. It owns the lazy audio node, the act's bind/open/close, the generated
-## vocal cooldown, the voice policy, the breath and the shared excitement Beat holds. The runtime
-## only parents the node and calls in; every act call is a no-op before the node exists.
+## vocal cooldown, the voice policy and the breath. The runtime only parents the node and calls in;
+## every act call is a no-op before the node exists.
 ##
 ## See `docs/audio.md`.
 
@@ -12,11 +12,6 @@ const AUDIO := preload("res://mods/unfplap/audio/service.gd")
 var node: Variant = null
 ## The runtime node: the one parent of the audio node.
 var host: Node = null
-## Named holds on the game's excitement Beat, one per owner that asked for it.
-var _holders: Array[String] = []
-var _beat: Timer = null
-var _beat_saved := false
-var _beat_paused := false
 
 
 func bind(host_node: Node) -> void:
@@ -117,57 +112,3 @@ func crossed(before: float, now: float) -> bool:
 func withdraw(before: float, now: float, strength: float, point: Vector3) -> void:
 	if is_instance_valid(node):
 		node.withdraw(before, now, strength, point)
-
-
-## Acquire a named hold on the game's excitement Beat. The first successful holder saves the
-## current pause state; every holder keeps the Beat paused. Repeating an owner is idempotent.
-func hold_excitement(owner: String) -> void:
-	if owner.is_empty() or _holders.has(owner):
-		return
-	if not is_instance_valid(_beat):
-		_beat = null
-		_beat_saved = false
-	if not _beat_saved:
-		_resolve_beat()
-	_holders.append(owner)
-	if is_instance_valid(_beat):
-		_beat.paused = true
-
-
-## Release a named hold. The saved state comes back only when the last holder has released.
-func release_excitement(owner: String) -> void:
-	var index := _holders.find(owner)
-	if index >= 0:
-		_holders.remove_at(index)
-	if not _holders.is_empty():
-		return
-	_restore_beat()
-
-
-## Act teardown fallback: drop every hold and restore the Beat once.
-func reset_excitement_hold() -> void:
-	_holders.clear()
-	_restore_beat()
-
-
-func _resolve_beat() -> void:
-	var pony: Variant = host.get("pony") if is_instance_valid(host) else null
-	if not is_instance_valid(pony):
-		return
-	var excitement: Variant = pony.get("excitement")
-	if not excitement is Node:
-		return
-	var beat: Variant = (excitement as Node).get_node_or_null("Beat")
-	if not beat is Timer:
-		return
-	_beat = beat as Timer
-	_beat_paused = _beat.paused
-	_beat_saved = true
-
-
-func _restore_beat() -> void:
-	if _beat_saved and is_instance_valid(_beat):
-		_beat.paused = _beat_paused
-	_beat = null
-	_beat_saved = false
-	_beat_paused = false

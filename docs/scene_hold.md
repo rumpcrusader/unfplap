@@ -2,9 +2,9 @@
 
 The scene ownership the act borrows while it runs, and the negotiation hold that reserves the
 same mare before the act starts: the navigator lease, the physical affection hold, the player's
-movement hold, the face-turn rate, the conversation attention, the carry and the cuddle session.
-This is ownership, not eligibility: whether the act may start is `docs/scene_gate.md` and
-`docs/eligibility.md`; what the act and the negotiation take over is here.
+movement hold, the face-turn rate, the conversation attention, the carry, the cuddle session and
+the game's shared excitement Beat. This is ownership, not eligibility: whether the act may start is
+`docs/scene_gate.md` and `docs/eligibility.md`; what the act and the negotiation take over is here.
 
 ## Purpose
 
@@ -19,6 +19,11 @@ which ownership is taken, which is held, and in which order it is released.
 `scene_hold/service.gd` is the facade. It owns the ownership flags and the per-flag release. The
 act exit ledger (`act/exit.gd`), the start ledger, the frame schedule (`act/tick.gd`) and the
 body-swap seams (`act/swap.gd`) call it; the service never touches the act's state.
+
+The game's excitement Beat is held by owner name: the first holder saves the Beat's pause state,
+every holder keeps it paused, and only the last release restores the saved state. The
+mod-integration bridge and the kiss take their holds through the act's facts, so a service never
+writes `Beat.paused` itself. The act teardown drops every hold and restores the Beat once.
 
 The act modules read `context.hold` directly for the ordered steps (`keep_nav`, `keep_attention`,
 `pause_face_turn`, `release_nav`, `restore_face_turn`, `release_carry`), and the start ledger
@@ -41,7 +46,8 @@ The service owns the flags:
 
 - `nav`, `token`, `nav_old_wander`, `negotiation`, `affection_owned`;
 - `face_turn_rate_owned`, `face_turn_rate_saved`;
-- `locked_player`, `kisser`, `kisser_processing`, `had_kiss_hold`.
+- `locked_player`, `kisser`, `kisser_processing`, `had_kiss_hold`;
+- the Beat holders and the saved pause state.
 
 The carry and the cuddle are released, not flagged: both are idempotent and read the scene. The
 `act/session.gd` owns the act state, the pose, the serial and the teardown ledger. The service fields stay
@@ -64,3 +70,5 @@ teardown. A failed start leaves the same ownership as a failed release today.
   and the kisser is restored.
 - Forced stop: the same release, no cuddle rejoin.
 - Cuddle start: the cuddle is ended before the act starts and the session is not re-entered.
+- Beat: a repeated owner releases once, the last of several restores, an already-paused Beat stays
+  paused, and the act teardown restores it with owners left.

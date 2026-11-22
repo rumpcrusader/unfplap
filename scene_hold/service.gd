@@ -29,6 +29,11 @@ var locked_player := false
 var had_kiss_hold := false
 var kisser: Node = null
 var kisser_processing := false
+## Named holds on the game's excitement Beat, one per owner that asked for it.
+var _beat_holders: Array[String] = []
+var _beat: Timer = null
+var _beat_saved := false
+var _beat_paused := false
 
 ## The live values the ledger reads. The composition root keeps each read current.
 class Host extends RefCounted:
@@ -357,3 +362,57 @@ func end_cuddle() -> void:
 		GAME.cuddle_end(session)
 	if pony.has_meta("cuddle_active"):
 		pony.remove_meta("cuddle_active")
+
+
+## Acquire a named hold on the game's excitement Beat: the first holder saves the current
+## pause state and every holder keeps it paused. Repeating an owner is idempotent.
+func hold_beat(owner: String) -> void:
+	if owner.is_empty() or _beat_holders.has(owner):
+		return
+	if not is_instance_valid(_beat):
+		_beat = null
+		_beat_saved = false
+	if not _beat_saved:
+		_resolve_beat()
+	_beat_holders.append(owner)
+	if is_instance_valid(_beat):
+		_beat.paused = true
+
+
+## Release a named hold; only the last release gives the saved pause state back.
+func release_beat(owner: String) -> void:
+	var index := _beat_holders.find(owner)
+	if index >= 0:
+		_beat_holders.remove_at(index)
+	if not _beat_holders.is_empty():
+		return
+	_restore_beat()
+
+
+## Act teardown fallback: drop every hold and restore the Beat once.
+func release_all_beats() -> void:
+	_beat_holders.clear()
+	_restore_beat()
+
+
+func _resolve_beat() -> void:
+	var pony: Node = host.pony_node() if host != null else null
+	if not is_instance_valid(pony):
+		return
+	var excitement: Variant = pony.get("excitement")
+	if not excitement is Node:
+		return
+	var beat: Variant = (excitement as Node).get_node_or_null("Beat")
+	if not beat is Timer:
+		return
+	_beat = beat as Timer
+	_beat_paused = _beat.paused
+	_beat_saved = true
+
+
+func _restore_beat() -> void:
+	if _beat_saved and is_instance_valid(_beat):
+		_beat.paused = _beat_paused
+	_beat = null
+	_beat_saved = false
+	_beat_paused = false

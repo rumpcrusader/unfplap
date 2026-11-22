@@ -409,7 +409,7 @@ static func skeleton_click() -> bool:
 ## The aimed mare: the mare closest to the camera's aim ray, or a cradled prop in Anon's arms
 ## while he is not in pony form. `debug/actions.gd` and the placement editor share this rule.
 static func aimed_pony(view: Camera3D) -> Node:
-	if not is_instance_valid(WORLD.player) or not is_instance_valid(WORLD.game):
+	if not is_instance_valid(WORLD.player_rig()) or not WORLD.ready():
 		return null
 	if not WORLD.anon().form_is_pony():
 		var reach: Node = WORLD.interactor()

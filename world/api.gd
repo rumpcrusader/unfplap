@@ -97,10 +97,10 @@ class Affection extends AFFECTION_VIEW:
 		super(n)
 
 
-## The live world root; null outside a world.
-static var game: Node = null
+## The live world root; null outside a world. Only the binds write it.
+static var _game: Node = null
 ## Anon's body; null before the player rig arrives and after a world close.
-static var player: Node3D = null
+static var _player: Node3D = null
 ## Handles resolved once for the current world and player.
 static var _interactor: Node = null
 static var _desktop: Node = null
@@ -125,26 +125,26 @@ static var _affection_view: Affection = null
 
 ## The world entered. The resolved handles belong to the old one.
 static func bind_world(host: Node) -> void:
-	game = host
+	_game = host
 	_clear_handles()
 
 
 ## The player rig arrived.
 static func bind_player(body: Node3D) -> void:
-	player = body
+	_player = body
 	_clear_handles()
 
 
 ## The world closed: every read falls back to the unbound answers.
 static func unbind() -> void:
-	game = null
-	player = null
+	_game = null
+	_player = null
 	_clear_handles()
 
 
 ## True while both bound handles are live; false outside a world and after a close.
 static func ready() -> bool:
-	return is_instance_valid(game) and is_instance_valid(player)
+	return is_instance_valid(_game) and is_instance_valid(_player)
 
 
 static func _clear_handles() -> void:
@@ -180,15 +180,15 @@ static func _root_viewport() -> Viewport:
 ## Anon's view camera: his own handle, else the game's found camera (cached for a second), else the
 ## active 3D camera. Every scan and frame reads it, so the lookup is cached.
 static func camera() -> Camera3D:
-	if not is_instance_valid(player):
+	if not is_instance_valid(_player):
 		return null
-	var direct := GAME.player_camera(player)
+	var direct := GAME.player_camera(_player)
 	if direct != null:
 		return direct
 	var now := Time.get_ticks_msec() * 0.001
 	if is_instance_valid(_camera_cache) and now - _camera_cache_at < 1.0:
 		return _camera_cache
-	var found := GAME.find_camera(game, player) if is_instance_valid(game) else null
+	var found := GAME.find_camera(_game, _player) if is_instance_valid(_game) else null
 	if found != null:
 		_camera_cache = found
 		_camera_cache_at = now
@@ -204,9 +204,9 @@ static func camera() -> Camera3D:
 static func interactor() -> Node:
 	if is_instance_valid(_interactor):
 		return _interactor
-	if not is_instance_valid(player):
+	if not is_instance_valid(_player):
 		return null
-	for node: Node in player.find_children("*", "", true, false):
+	for node: Node in _player.find_children("*", "", true, false):
 		var script: Variant = node.get_script()
 		if script != null and str(script.resource_path) == INTERACTOR_PATH:
 			_interactor = node
@@ -224,35 +224,47 @@ static func desktop() -> Node:
 
 ## The rig body the game shows: the AnonPony avatar, else the rig's Body child, else the rig.
 static func player_body() -> Node3D:
-	if not is_instance_valid(player):
+	if not is_instance_valid(_player):
 		return null
-	var avatar := GAME.player_avatar(player)
+	var avatar := GAME.player_avatar(_player)
 	if avatar != null:
 		return avatar
-	var body := GAME.player_body_node(player)
+	var body := GAME.player_body_node(_player)
 	if body != null:
 		return body
-	return player
+	return _player
+
+
+## The game's desktop presentation node, or null; the act parks it while it poses Anon's body.
+static func presentation() -> Node:
+	if not is_instance_valid(_game):
+		return null
+	return GAME.desktop_presentation(_game)
 
 
 ## The game's player property, read defensively so a rename returns null.
 ## The entry uses this when the rig arrives before `bind_player()`.
 static func game_player() -> Node3D:
-	if not is_instance_valid(game):
+	if not is_instance_valid(_game):
 		return null
-	return GAME.game_player(game)
+	return GAME.game_player(_game)
 
 
 ## The bound rig itself, not the body the game shows for him.
 static func player_rig() -> Node3D:
-	return player
+	return _player
+
+
+## The bound world root, for the body-swap reparent; null outside a world.
+static func world_root() -> Node:
+	return _game if is_instance_valid(_game) else null
 
 
 ## The mares as node handles, rebuilt on every read; scan cadence only.
 static func mares() -> Array[Node3D]:
-	if not is_instance_valid(game):
+	if not is_instance_valid(_game):
 		return []
-	return GAME.mares(game)
+	return GAME.mares(_game)
 
 
 ## One world point's house, resolved through GAME.
@@ -280,8 +292,8 @@ static func player_is_pony() -> bool:
 ## The bed or couch under a point, from the world's own support collision.
 static func bed_under(point: Vector3, exclude: RID = RID()) -> Node3D:
 	var world: World3D = null
-	if is_instance_valid(player):
-		world = player.get_world_3d()
+	if is_instance_valid(_player):
+		world = _player.get_world_3d()
 	if world == null:
 		var viewport := _root_viewport()
 		world = viewport.world_3d if viewport != null else null
@@ -373,9 +385,9 @@ static func bed_occupied(bed: Node3D, target: Node) -> bool:
 
 ## True while Anon is seated on the bed or couch.
 static func player_beside_bed(bed: Node3D) -> bool:
-	if not is_instance_valid(player):
+	if not is_instance_valid(_player):
 		return false
-	var seat := GAME.seat_of(player)
+	var seat := GAME.seat_of(_player)
 	if seat == null:
 		return true
 	if not is_instance_valid(bed):
@@ -403,19 +415,34 @@ static func shop_item(id: String) -> PackedScene:
 	return inventory().item_scene(id)
 
 
+## The shape ids the changelings note and the offline identity lookup walk; a copy, never the
+## game's own map.
+static func shape_ids() -> Array[String]:
+	if not is_instance_valid(_game):
+		return []
+	return GAME.shape_ids(_game)
+
+
+## Loads the catalogue's scene for one shape id; null when it has no entry.
+static func shape_scene(id: String) -> PackedScene:
+	if not is_instance_valid(_game):
+		return null
+	return GAME.shape_scene(_game, id)
+
+
 ## True while a menu or panel owns the mouse: the tree paused or a known panel open.
 ## "Mouse is visible" is deliberately excluded: a closed menu would leave input dead.
 static func menu_panel_open() -> bool:
 	var tree := _tree()
 	if tree != null and tree.paused:
 		return true
-	if not is_instance_valid(game):
+	if not is_instance_valid(_game):
 		return false
 	for key: String in ["save_menu", "settings_menu", "pause_menu"]:
 		var panel := menu().panel(key)
 		if is_instance_valid(panel) and bool(panel.get("opened")):
 			return true
-	var inventory := GAME.inventory(game)
+	var inventory := GAME.inventory(_game)
 	if inventory == null:
 		return false
 	if GAME.map_open(inventory):
@@ -435,22 +462,45 @@ static func menu_open() -> bool:
 	return Input.mouse_mode != Input.MOUSE_MODE_CAPTURED
 
 
+## Only a live world answers; the idle scans read it before queuing a line.
+static func paused() -> bool:
+	if not is_instance_valid(_game):
+		return false
+	var tree := _tree()
+	return tree != null and tree.paused
+
+
 ## The eye is in a headset. There is no desktop cursor to capture, and the stock game leaves the
 ## mouse visible, so the "cursor is visible" gates must not read that as a menu owning the input.
 static func headset_view() -> bool:
-	if not is_instance_valid(game):
+	if not is_instance_valid(_game):
 		return false
-	return GAME.headset_view(game)
+	return GAME.headset_view(_game)
+
+
+## Resolved by child name from the bound root; null when the scene lacks it.
+static func interaction_hints() -> Node:
+	if not is_instance_valid(_game):
+		return null
+	return GAME.interaction_hints(_game)
 
 
 ## The game's own setting by its dotted key; empty when no settings node is reachable.
 static func game_setting(key: String) -> String:
-	if not is_instance_valid(game):
+	if not is_instance_valid(_game):
 		return ""
 	var tree := _tree()
 	if tree == null:
 		return ""
 	return GAME.setting_string(tree.root.get_node_or_null("Settings"), key)
+
+
+## The game's per-pony love level from the world context, with the cache's own -1 kept distinct
+## from a row the cache does not hold.
+static func bond_level(id: String) -> GAME.BondLevel:
+	if not is_instance_valid(_game):
+		return GAME.BondLevel.new()
+	return GAME.bond_level(_game, id)
 
 
 ## Drop the merged LOD caches for a body whose shape changed and re-arm its near mesh, so the
@@ -467,17 +517,17 @@ static func set_velocity(body: Node, value: Vector3) -> void:
 
 ## The chat box refuses while the act holds the controls; open it past that lock.
 static func open_chat() -> bool:
-	if not is_instance_valid(game) or not is_instance_valid(player):
+	if not is_instance_valid(_game) or not is_instance_valid(_player):
 		return false
-	return GAME.open_chat(game, player)
+	return GAME.open_chat(_game, _player)
 
 
 ## Anon's rig view, cached for the bound player; an unbound facade answers the typed zeroes.
 static func anon() -> Anon:
-	var live := is_instance_valid(player)
-	if _anon is Anon and (not live or _anon._bound() == player):
+	var live := is_instance_valid(_player)
+	if _anon is Anon and (not live or _anon._bound() == _player):
 		return _anon
-	_anon = Anon.new(player if live else null)
+	_anon = Anon.new(_player if live else null)
 	return _anon
 
 
@@ -562,14 +612,14 @@ static func director() -> Director:
 	var found: Variant = _directors.get(key)
 	if found is Director and (not live or found._bound() == node):
 		return found
-	var view := Director.new(node if live else null, game if is_instance_valid(game) else null)
+	var view := Director.new(node if live else null, _game if is_instance_valid(_game) else null)
 	_directors[key] = view
 	return view
 
 
 ## The world context's story journal, cached per bound context node.
 static func story() -> Story:
-	var context: Node = GAME.world_context(game) if is_instance_valid(game) else null
+	var context: Node = GAME.world_context(_game) if is_instance_valid(_game) else null
 	var live := is_instance_valid(context)
 	var key := context.get_instance_id() if live else 0
 	var found: Variant = _stories.get(key)
@@ -582,7 +632,7 @@ static func story() -> Story:
 
 ## The inventory node's briefcase and quick-slot HUD, resolved from the bound world and cached.
 static func inventory() -> Inventory:
-	var node: Node = GAME.inventory(game) if is_instance_valid(game) else null
+	var node: Node = GAME.inventory(_game) if is_instance_valid(_game) else null
 	var live := is_instance_valid(node)
 	if _inventory_view is Inventory and (not live or _inventory_view._bound() == node):
 		return _inventory_view
@@ -592,16 +642,16 @@ static func inventory() -> Inventory:
 
 ## The bound world root's menu and toast surface, cached for that root.
 static func menu() -> Menu:
-	var live := is_instance_valid(game)
-	if _menu_view is Menu and (not live or _menu_view._bound() == game):
+	var live := is_instance_valid(_game)
+	if _menu_view is Menu and (not live or _menu_view._bound() == _game):
 		return _menu_view
-	_menu_view = Menu.new(game if live else null)
+	_menu_view = Menu.new(_game if live else null)
 	return _menu_view
 
 
 ## The scene's relationship runtime, resolved from the bound world and cached for it.
 static func relationship() -> Relationship:
-	var node: Node = GAME.relationship_runtime(game) if is_instance_valid(game) else null
+	var node: Node = GAME.relationship_runtime(_game) if is_instance_valid(_game) else null
 	var live := is_instance_valid(node)
 	if _relationship_view is Relationship and (not live or _relationship_view._bound() == node):
 		return _relationship_view
@@ -621,7 +671,7 @@ static func mods() -> ModRegistry:
 
 ## The scene's stock kisser, resolved from the bound world and cached for it.
 static func affection() -> Affection:
-	var node: Node = GAME.kisser_of(game) if is_instance_valid(game) else null
+	var node: Node = GAME.kisser_of(_game) if is_instance_valid(_game) else null
 	var live := is_instance_valid(node)
 	if _affection_view is Affection and (not live or _affection_view._bound() == node):
 		return _affection_view

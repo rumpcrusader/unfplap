@@ -73,7 +73,7 @@ func _tick(delta: float) -> void:
 	if session.state == State.IDLE:
 		idle.tick(delta)
 		return
-	if not is_instance_valid(host.pony) or not is_instance_valid(WORLD.game):
+	if not is_instance_valid(host.pony) or not is_instance_valid(WORLD.world_root()):
 		exit.force_stop()
 		return
 	session.refresh_identity()

@@ -90,9 +90,9 @@ var _palm_scale: PALM_SCALE
 
 func install(context: ACT_FACTS) -> bool:
 	facts = context
-	if not is_instance_valid(WORLD.game) or not is_instance_valid(WORLD.player):
+	if not WORLD.ready() or not is_instance_valid(WORLD.player_rig()):
 		return false
-	avatar = WORLD.player.find_child("AnonBody", true, false) as Node3D
+	avatar = WORLD.player_rig().find_child("AnonBody", true, false) as Node3D
 	if not is_instance_valid(avatar):
 		return false
 	skeleton = avatar.find_child("Skeleton3D", true, false) as Skeleton3D

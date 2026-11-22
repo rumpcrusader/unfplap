@@ -208,7 +208,7 @@ func run() -> void:
 	finish()
 
 
-## The standing cone scan: one live pass over the game's mares, eligibility only for the winner.
+## The standing cone scan: one pass over a copy of the live mares, eligibility only for the winner.
 func _check_cone_target() -> void:
 	var game := FakeGame.new()
 	game.name = "ConeGame"
@@ -241,14 +241,14 @@ func _check_cone_target() -> void:
 		"the nearer allowed standing mare wins over a lying or out-of-fan one")
 	check(targets.calls == 1, "the winner's eligibility is read once")
 
-	# The scan walks the game's own array: a mare appended during the pass is seen by it.
+	# The scan walks the mare copy taken at the call: a mare appended during the pass is not seen.
 	var grower := _cone_mare(Vector3(0.0, 0.0, 2.0), "Grower")
 	var newcomer := _cone_mare(Vector3(0.0, 0.0, 2.6), "Newcomer")
 	game.mares = [grower]
 	targets.allowed = [grower, newcomer]
 	grower.hook = func() -> void: game.mares.append(newcomer)
-	check(PONIES.cone_target(eye) == newcomer,
-		"the scan walks the game's live mare array, not a copy")
+	check(PONIES.cone_target(eye) == grower,
+		"the scan walks the mare copy taken at the call")
 	grower.hook = Callable()
 	game.mares = []
 

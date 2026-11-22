@@ -158,8 +158,8 @@ func _start_base_kiss() -> bool:
 	# turns her head across it, so missionary uses the act's own head aim instead.
 	if _pose_family() == "bed":
 		return false
-	if not is_instance_valid(pony) or not is_instance_valid(WORLD.game) \
-			or not is_instance_valid(WORLD.player):
+	if not is_instance_valid(pony) or not WORLD.ready() \
+			or not is_instance_valid(WORLD.player_rig()):
 		return false
 	var affection := pony.get_node_or_null("Affection")
 	var affection_view := WORLD.affection()
@@ -206,11 +206,11 @@ func _end_base_kiss() -> void:
 			affection_view.end(affection)
 		# Even if the affection already ended itself, clear its 60 s stare afterglow.
 		affection_view.cancel_afterglow(affection)
-	if is_instance_valid(WORLD.game):
+	if is_instance_valid(WORLD.world_root()):
 		WORLD.affection().clear_kisser()
-	if is_instance_valid(WORLD.player) \
+	if is_instance_valid(WORLD.player_rig()) \
 			and int(facts.state) in [STATE_ACTIVE, STATE_CLIMAX]:
-		WORLD.player.set_meta("kiss_hold", true)
+		WORLD.player_rig().set_meta("kiss_hold", true)
 	_base_kiss_releasing = is_instance_valid(_base_kiss_pose)
 	if not _base_kiss_releasing:
 		_base_kiss_affection = null
@@ -504,7 +504,7 @@ func _target(view: Camera3D) -> Vector3:
 ## Anon's actual mouth camera. Missionary frames the shot through a separate view, so using that as
 ## the kiss target aimed her at the camera instead of at him.
 func _mouth_view() -> Camera3D:
-	if is_instance_valid(WORLD.game):
+	if is_instance_valid(WORLD.world_root()):
 		var view: Camera3D = WORLD.camera()
 		if is_instance_valid(view):
 			return view

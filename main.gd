@@ -301,7 +301,7 @@ func _process_entry(delta: float) -> void:
 	# and the HUD's process priority keeps the move after the caption's own _process.
 	var active: RUNTIME = PONIES.active() as RUNTIME
 	hud.caption_tick(active.act.state if is_instance_valid(active) else ACT_STATE.State.IDLE)
-	if not is_instance_valid(WORLD.player) and is_instance_valid(WORLD.game):
+	if not is_instance_valid(WORLD.player_rig()) and is_instance_valid(WORLD.world_root()):
 		var body: Variant = WORLD.game_player()
 		if is_instance_valid(body):
 			_on_player(body)

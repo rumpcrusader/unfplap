@@ -93,7 +93,7 @@ func _face_context() -> BEAT:
 
 ## Queue the warning line. A previous one is cancelled first, so one warning owns one line.
 func queue_warning(level: int) -> void:
-	if not is_instance_valid(WORLD.game):
+	if not is_instance_valid(WORLD.world_root()):
 		return
 	if not warning_key.is_empty() and context.memory != null:
 		context.memory.cancel_line(warning_key)
@@ -110,7 +110,7 @@ func queue_warning(level: int) -> void:
 
 ## The line a stop supersedes must not speak after it.
 func cancel_warning() -> void:
-	if not warning_key.is_empty() and is_instance_valid(WORLD.game) and context.memory != null:
+	if not warning_key.is_empty() and is_instance_valid(WORLD.world_root()) and context.memory != null:
 		context.memory.cancel_line(warning_key)
 	warning_key = ""
 
@@ -151,7 +151,7 @@ func stop_with_her(reason: String) -> void:
 	session.commit_summary(false)
 	# The stopped summary already says why. The basic event is the fallback when the summary was
 	# skipped, so one partner stop is never two memories.
-	if context.summary.summary.is_empty() and is_instance_valid(WORLD.game) and context.memory != null:
+	if context.summary.summary.is_empty() and is_instance_valid(WORLD.world_root()) and context.memory != null:
 		context.memory.note(MEMORY.NoteKind.STOPPED, session.pony_id, session.event_id,
 			MEMORY.StopReason.WITHDREW)
 	if session.pose_family() == "bed":
@@ -174,7 +174,7 @@ func request_space() -> void:
 
 ## One post-act line, presented once the act is IDLE. The summary already says why she stopped.
 func queue_stop_line(strict: bool) -> void:
-	if not is_instance_valid(WORLD.game):
+	if not is_instance_valid(WORLD.world_root()):
 		return
 	var fallback := "Stop. I don't want to continue. Not now. Begin with [angry] or [sad]."
 	if strict:

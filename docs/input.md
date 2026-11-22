@@ -65,7 +65,7 @@ label.
 ## Data ownership
 
 Nothing is saved. The service reads `PONIES.active()`, the debug facade's `wheel_open()`,
-`WORLD.player`, `WORLD.menu_panel_open()` and the viewport focus owner, plus the `act_key` and
+`WORLD.player_rig()`, `WORLD.menu_panel_open()` and the viewport focus owner, plus the `act_key` and
 `act_input_shield` settings. Its seated guard and movement hold read and write the rig's private
 members through the world facade. It does not store runtime state.
 

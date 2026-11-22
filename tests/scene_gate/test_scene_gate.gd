@@ -56,7 +56,7 @@ class FakePlayer extends Node3D:
 	var knockdown: Variant = null
 
 
-class FakeInventory extends RefCounted:
+class FakeInventory extends Node:
 	var held: Variant = {}
 	var holding_case := ""
 

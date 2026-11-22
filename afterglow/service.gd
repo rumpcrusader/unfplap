@@ -251,7 +251,7 @@ func _finish_close() -> void:
 ## The close window's reward. The facade decided it; the bound face, reactions and meter present
 ## it, and the memory and history write one impression and one repair.
 func _reward(caressed: bool, reward: bool) -> void:
-	if is_instance_valid(WORLD.game):
+	if is_instance_valid(WORLD.world_root()):
 		var impression := MEMORY.Impression.new()
 		impression.id = pony_id
 		impression.event_id = event_id

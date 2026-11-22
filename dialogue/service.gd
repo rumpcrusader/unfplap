@@ -270,7 +270,7 @@ func bystander_tick(delta: float) -> void:
 func history_tick(delta: float, pony: Node3D, pony_id: String, event_id: String, now: float) -> void:
 	if facts == null:
 		return
-	if not is_instance_valid(WORLD.game) or not is_instance_valid(WORLD.player):
+	if not WORLD.ready() or not is_instance_valid(WORLD.player_rig()):
 		return
 	if not is_instance_valid(pony):
 		return
@@ -288,7 +288,7 @@ func history_tick(delta: float, pony: Node3D, pony_id: String, event_id: String,
 		var body: Variant = WORLD.player_body()
 		var target: Variant = pony.get("conversation_target")
 		if not text.is_empty() and PREFERENCES.apology_intent(text) \
-				and (target == WORLD.player or target == body):
+				and (target == WORLD.player_rig() or target == body):
 			if ACT_HISTORY.apology_repair(WORLD.mods().state(ACT_HISTORY.MOD_ID).rows,
 					pony_id, ACT_HISTORY.day_now()):
 				WORLD.mods().save()
@@ -302,7 +302,7 @@ func history_tick(delta: float, pony: Node3D, pony_id: String, event_id: String,
 		return
 	if str(director.get("state")) != "idle":
 		return
-	if WORLD.player.global_position.distance_to(pony.global_position) > 5.0:
+	if WORLD.player_rig().global_position.distance_to(pony.global_position) > 5.0:
 		return
 	var current := ACT_HISTORY.effective_row(WORLD.mods().state(ACT_HISTORY.MOD_ID).rows,
 		pony_id, ACT_HISTORY.day_now())
@@ -720,15 +720,12 @@ func _speech_busy() -> bool:
 
 
 func _game_ok() -> bool:
-	return is_instance_valid(WORLD.game)
+	return is_instance_valid(WORLD.world_root())
 
 
 ## True while the game's tree is paused; the idle scan queues no line into a menu.
 func _paused() -> bool:
-	if not is_instance_valid(WORLD.game):
-		return false
-	var tree := WORLD.game.get_tree()
-	return tree != null and tree.paused
+	return WORLD.paused()
 
 
 func _now() -> float:

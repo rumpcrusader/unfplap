@@ -260,7 +260,7 @@ static func neck_for(rig: Rig) -> Vector3:
 func scene_rig(_pose_input: PoseInput, form: Variant = null) -> Rig:
 	var rig := Rig.new()
 	rig.pony = host.pony if is_instance_valid(host.pony) else null
-	rig.player = WORLD.player if is_instance_valid(WORLD.player) else null
+	rig.player = WORLD.player_rig() if is_instance_valid(WORLD.player_rig()) else null
 	rig.bed = session.bed
 	rig.stool = context.stool as STOOL_ACT
 	rig.form = form if form != null else context.handover.form()
@@ -461,7 +461,7 @@ func reset_pelvis() -> void:
 ## The replacement body must still clear the adult-mare gate. A host without the service (a suite
 ## or a lab) reads as allowed, so the handover can be driven without the world's eligibility graph.
 func new_body_is_adult() -> bool:
-	if not is_instance_valid(WORLD.game):
+	if not is_instance_valid(WORLD.world_root()):
 		return true
 	var service: ELIGIBILITY = PONIES.eligibility
 	if service == null:
@@ -576,7 +576,7 @@ func _restore_player() -> void:
 func _lock_player(rig: Rig) -> void:
 	if rig.player_pony or rig.headset_view:
 		return
-	var body: Node3D = WORLD.player
+	var body: Node3D = WORLD.player_rig()
 	if not is_instance_valid(body):
 		return
 	if not _controls_by_frame:
@@ -590,7 +590,7 @@ func _unlock_player() -> void:
 	if not _controls_by_frame:
 		return
 	_controls_by_frame = false
-	var body: Node3D = WORLD.player
+	var body: Node3D = WORLD.player_rig()
 	if is_instance_valid(body):
 		WORLD.anon().set_controls_locked(_controls_saved)
 
@@ -598,13 +598,13 @@ func _unlock_player() -> void:
 ## Park the game's desktop presentation for a bed act: it would otherwise show and drive his body
 ## from the player rig, and the act's own body is posed over it.
 func _park_avatar() -> void:
-	if not is_instance_valid(WORLD.game) or not is_instance_valid(WORLD.player):
+	if not WORLD.ready() or not is_instance_valid(WORLD.player_rig()):
 		return
 	if is_instance_valid(_presentation):
 		if _presentation_enabled and bool(_presentation.get("_enabled")) == true:
 			WORLD.anon().set_presentation_enabled(_presentation, false)
 		return
-	var presentation: Variant = WORLD.game.get("desktop_presentation")
+	var presentation: Variant = WORLD.presentation()
 	if not is_instance_valid(presentation):
 		return
 	_presentation = presentation as Node
@@ -640,12 +640,12 @@ func _snapshot_scene(pose_input: PoseInput, rig: Rig) -> void:
 func snapshot_scene() -> void:
 	_scene_saved = false
 	_start_bed_saved = false
-	if not is_instance_valid(host.pony) or not is_instance_valid(WORLD.player):
+	if not is_instance_valid(host.pony) or not is_instance_valid(WORLD.player_rig()):
 		return
 	_start_camera = WORLD.camera()
 	if is_instance_valid(_start_camera):
 		_start_camera_transform = _start_camera.global_transform
-	_start_player = WORLD.player.global_transform
+	_start_player = WORLD.player_rig().global_transform
 	_start_pony = host.pony.global_transform
 	_start_bed_saved = is_instance_valid(session.bed)
 	if _start_bed_saved:
@@ -656,9 +656,9 @@ func snapshot_scene() -> void:
 ## Refresh the token once the act is fully posed: `begin()` captures while Anon is still standing up
 ## from the bed, so his eye height is the reclined one.
 func resnapshot() -> void:
-	if not is_instance_valid(host.pony) or not is_instance_valid(WORLD.player):
+	if not is_instance_valid(host.pony) or not is_instance_valid(WORLD.player_rig()):
 		return
-	_start_player = WORLD.player.global_transform
+	_start_player = WORLD.player_rig().global_transform
 	_start_camera = WORLD.camera()
 	if is_instance_valid(_start_camera):
 		_start_camera_transform = _start_camera.global_transform
@@ -673,7 +673,7 @@ func resnapshot() -> void:
 ## bed cuddle rejoin starts from this restored standing spot.
 func restore_scene() -> void:
 	if not _scene_saved or not is_instance_valid(host.pony) \
-			or not is_instance_valid(WORLD.player):
+			or not is_instance_valid(WORLD.player_rig()):
 		return
 	var delta := Transform3D.IDENTITY
 	var bed_shift := 0.0
@@ -682,7 +682,7 @@ func restore_scene() -> void:
 		bed_shift = (session.bed as Node3D).global_position.distance_to(_start_bed.origin)
 	# Player/pony first, camera last: setting the player yaw rotates a child camera, so the snapshot
 	# camera transform must be applied after the rig is back in place.
-	WORLD.player.global_transform = delta * _start_player
+	WORLD.player_rig().global_transform = delta * _start_player
 	host.pony.global_transform = delta * _start_pony
 	host.pony.reset_physics_interpolation()
 	if is_instance_valid(_start_camera):

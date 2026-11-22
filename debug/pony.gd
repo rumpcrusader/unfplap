@@ -34,7 +34,7 @@ static func context(pony: Node, id: String, act: Dictionary) -> Dictionary:
 	if is_instance_valid(pony):
 		love_name = WORLD.relationship().love_name(pony, pony_id)
 	var mood := "?"
-	if is_instance_valid(WORLD.game):
+	if is_instance_valid(WORLD.world_root()):
 		var committed := WORLD.director().impression_mood(pony_id, "?")
 		if not committed.is_empty():
 			mood = committed
@@ -43,7 +43,7 @@ static func context(pony: Node, id: String, act: Dictionary) -> Dictionary:
 	var owner := lease.owner()
 	var target := lease.has_target()
 	var reserved := lease.reserved()
-	var body: Variant = WORLD.player if is_instance_valid(WORLD.game) else null
+	var body: Variant = WORLD.player_rig() if is_instance_valid(WORLD.world_root()) else null
 	var out := act.duplicate()
 	out.merge({
 		"id": pony_id, "display": display, "stage": relations.stage,
@@ -216,8 +216,7 @@ static func _neutral_mood(host: Node, pony: Node3D, id: String) -> String:
 		return "no pony"
 	if not is_instance_valid(host):
 		return "no game"
-	var game: Variant = WORLD.game
-	if not is_instance_valid(game):
+	if not is_instance_valid(WORLD.world_root()):
 		return "no game"
 	if WORLD.director().world_context() == null:
 		return "no world context"

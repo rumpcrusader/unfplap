@@ -50,10 +50,11 @@ func tween() -> Tween:
 
 
 ## Move the runtime node under the world before a freed body is dropped. The runtime owns the
-## reparent and its swap flag; the host only names the world.
+## reparent and its swap flag; the host only asks the world facade for the root.
 func attach_to_world() -> void:
-	if _attach.is_valid() and is_instance_valid(WORLD.game):
-		_attach.call(WORLD.game)
+	var root := WORLD.world_root()
+	if _attach.is_valid() and is_instance_valid(root):
+		_attach.call(root)
 
 
 ## The presented body as a value, for a host callback that needs it rather than a field read.
@@ -83,9 +84,9 @@ func mod_enabled(id: String) -> bool:
 ## The VR scene handles the anatomy bridge wires into the VR act: the player, the avatar and the
 ## two XR nodes. A desktop launch returns null.
 func vr_scene() -> Variant:
-	if not is_instance_valid(WORLD.game) or not is_instance_valid(WORLD.player):
+	if not WORLD.ready() or not is_instance_valid(WORLD.player_rig()):
 		return null
-	var player: Node = WORLD.player
+	var player: Node = WORLD.player_rig()
 	var avatar := player.find_child("AnonBody", true, false) as Node3D
 	if not is_instance_valid(avatar):
 		return null

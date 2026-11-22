@@ -285,9 +285,9 @@ func _apply_standing_lean_look() -> void:
 	if not bool(facts.free_camera_active) or _pose_family() != "standing" \
 			or bool(facts.player_pony) or bool(facts.headset_view):
 		return
-	if not is_instance_valid(WORLD.game) or not is_instance_valid(WORLD.player) or kiss == null:
+	if not WORLD.ready() or not is_instance_valid(WORLD.player_rig()) or kiss == null:
 		return
-	var body: Node3D = WORLD.player
+	var body: Node3D = WORLD.player_rig()
 	var lean_scale := float(facts.standing_lean_scale)
 	var yaw := float(facts.look_yaw) + deg_to_rad(MOTION.LEAN_SIDE_YAW_DEG) \
 		* float(facts.lean_view_side) * lean_scale
@@ -448,7 +448,7 @@ func _aim_eyes_at_player() -> void:
 func _glance_angles() -> Vector3:
 	var head := WORLD.pony(pony).listen_point()
 	var target: Vector3 = head
-	if is_instance_valid(WORLD.player):
+	if is_instance_valid(WORLD.player_rig()):
 		var view: Camera3D = WORLD.camera()
 		if is_instance_valid(view):
 			target = view.global_position
@@ -474,9 +474,9 @@ func _clamp_look() -> void:
 	if _pose_family() == "bed":
 		# Missionary uses the mod-owned view; the player's body look is left alone.
 		return
-	if not is_instance_valid(WORLD.game) or not is_instance_valid(WORLD.player):
+	if not WORLD.ready() or not is_instance_valid(WORLD.player_rig()):
 		return
-	var body: Node3D = WORLD.player
+	var body: Node3D = WORLD.player_rig()
 	var anon := WORLD.anon()
 	var form := anon.form()
 	# AnonPony lying/sitting has her own body-yaw limit; never widen it.
@@ -798,7 +798,7 @@ func _free_missionary_view() -> void:
 			_missionary_prev_camera.fov, _missionary_prev_camera.near,
 			_missionary_prev_camera.far])
 	_missionary_prev_camera = null
-	if is_instance_valid(WORLD.player):
+	if is_instance_valid(WORLD.player_rig()):
 		var source: Camera3D = WORLD.camera()
 		if _missionary_player_rot_saved and is_instance_valid(source):
 			source.rotation = _missionary_player_rotation

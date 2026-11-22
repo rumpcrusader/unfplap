@@ -113,7 +113,7 @@ func smack() -> void:
 	var target := _target.target(_caress.active(MODEL.Side.LEFT),
 		_caress.active(MODEL.Side.RIGHT), _reach.owns(MODEL.Side.LEFT),
 		_reach.owns(MODEL.Side.RIGHT), float(facts.lean_side), _pose_family() == "standing")
-	if target.valid and is_instance_valid(WORLD.player):
+	if target.valid and is_instance_valid(WORLD.player_rig()):
 		# End the hold before the swing starts, so nothing is left to resume.
 		if target.caressing:
 			_caress.end_side(target.side)

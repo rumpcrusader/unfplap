@@ -797,17 +797,9 @@ func _shape_candidates() -> Array[String]:
 ## let the note recognize a young or male name; a real choice still passes the adult gate.
 func _all_shape_ids(candidates: Array[String]) -> Array[String]:
 	var out := candidates.duplicate()
-	if is_instance_valid(WORLD.game):
-		var game: Variant = WORLD.game
-		if game is Node and is_instance_valid(game):
-			var population: Variant = (game as Node).get("population")
-			if population != null and is_instance_valid(population):
-				var available: Variant = (population as Node).get("available")
-				if available is Dictionary:
-					for raw: Variant in (available as Dictionary).keys():
-						var id := str(raw).strip_edges()
-						if not id.is_empty() and not out.has(id):
-							out.append(id)
+	for id: String in WORLD.shape_ids():
+		if not out.has(id):
+			out.append(id)
 	return out
 
 
@@ -824,18 +816,10 @@ func _is_adult_shape(id: String, candidates: Array[String]) -> bool:
 ## The pack copies a shape by the game's population entry. Without a population (the lab's
 ## `--character` starts) the adult roster is still a valid choice.
 func _copyable(shape_id: String) -> bool:
-	if not is_instance_valid(WORLD.game):
+	var ids := WORLD.shape_ids()
+	if ids.is_empty():
 		return true
-	var game: Variant = WORLD.game
-	if not game is Node or not is_instance_valid(game):
-		return true
-	var population: Variant = (game as Node).get("population")
-	if population == null:
-		return true
-	var available: Variant = population.get("available")
-	if not available is Dictionary:
-		return true
-	return not str((available as Dictionary).get(shape_id, "")).is_empty()
+	return ids.has(shape_id)
 
 
 ## 0 for no match. A whole name beats the id's words, which beat one distinctive word; a name
@@ -951,7 +935,7 @@ func _notify_body_ready(pony: Node) -> void:
 ## The new body's shape is on it now: fit it as the target and let the anatomy, tail and LOD
 ## rebuild against the body that is actually rendered.
 func _prepare_change_body(pony: Node) -> void:
-	if not is_instance_valid(WORLD.game) or not is_instance_valid(pony):
+	if not is_instance_valid(WORLD.world_root()) or not is_instance_valid(pony):
 		return
 	PONIES.prepare_late(pony)
 	SETTINGS.apply_live()

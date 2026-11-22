@@ -22,9 +22,9 @@ func region_of(at: Vector3) -> String:
 
 ## The flat direction Anon faces: the view first, his body as the fallback.
 func camera_forward() -> Vector3:
-	var node: Node3D = WORLD.player
+	var node: Node3D = WORLD.player_rig()
 	var forward := Vector3.FORWARD
-	if is_instance_valid(WORLD.game):
+	if is_instance_valid(WORLD.world_root()):
 		var view: Variant = WORLD.camera()
 		if is_instance_valid(view) and view is Camera3D:
 			forward = -(view as Camera3D).global_basis.z
@@ -36,7 +36,7 @@ func camera_forward() -> Vector3:
 
 ## A standing offer needs a navigator free near Anon, in his region.
 func can_approach(pony: Node3D) -> bool:
-	var node: Node3D = WORLD.player
+	var node: Node3D = WORLD.player_rig()
 	if not is_instance_valid(node):
 		return false
 	if not is_instance_valid(GAME.navigator_of(pony)):
@@ -119,7 +119,7 @@ func release_nav(pony: Node, token: String, prev_owner: String, prev_wander: boo
 
 ## The nearest free bed within reach, as `{bed, rest, front, distance}` or `{}`.
 func find_bed_for(pony: Node3D) -> Dictionary:
-	var node: Node3D = WORLD.player
+	var node: Node3D = WORLD.player_rig()
 	if not is_instance_valid(node) or not is_instance_valid(pony):
 		return {}
 	var own := player_bed_node()
@@ -218,7 +218,7 @@ func placement_for(runtime: Node) -> POSE_OPTIONS.Placement:
 	var pony: Variant = runtime.get("pony") if is_instance_valid(runtime) else null
 	if not is_instance_valid(pony):
 		return out
-	var node: Node3D = WORLD.player
+	var node: Node3D = WORLD.player_rig()
 	var gate: Variant = PONIES.scene_of(runtime)
 	var cuddle := bool(gate.cuddle_active()) if gate != null else false
 	if cuddle:

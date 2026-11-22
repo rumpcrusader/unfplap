@@ -34,10 +34,17 @@ class FakeGame extends Node:
 	var kisser: Variant = null
 	var world_context: Variant = null
 	var relationship_runtime: Variant = null
+	var desktop_presentation: Variant = null
+	var population: Variant = null
 
 	func _find_camera(_body: Variant) -> Variant:
 		find_calls += 1
 		return found_camera
+
+
+## The population catalogue: one scene path per shape id.
+class FakePopulation extends Node:
+	var available: Dictionary = {}
 
 
 ## The same world without `_find_camera`: the viewport camera is the fallback.
@@ -66,6 +73,8 @@ class FakeInventory extends Node:
 	var case: Variant = null
 	var customizer: Variant = null
 	var inspector: Variant = null
+	var held: Dictionary = {}
+	var holding_case := ""
 
 
 class FakeMapInventory extends FakeInventory:
@@ -104,6 +113,8 @@ class FakeInventoryNode extends Node:
 	var inventory: Variant = null
 	var hotbar: Variant = null
 	var hud_hidden := false
+	var held: Dictionary = {}
+	var holding_case := ""
 	var placed := 0
 	var dropped: Array = []
 
@@ -726,6 +737,7 @@ class FakeContext extends Node:
 	var impressions: Variant = null
 	var events: Array = []
 	var records: Array = []
+	var state: Dictionary = {}
 
 	func record(kind: String, text: String, witnesses: Array, subjects: Array, event_id: String,
 			place := "") -> void:
@@ -904,7 +916,7 @@ func run() -> void:
 	await _check_bed_under()
 	_check_freed_handles()
 	WORLD.unbind()
-	check(WORLD.game == null and WORLD.player == null, "unbind clears the bound handles")
+	check(WORLD.world_root() == null and WORLD.player_rig() == null, "unbind clears the bound handles")
 
 	finish()
 
@@ -930,7 +942,7 @@ func _check_freed_handles() -> void:
 
 func _check_unbound() -> void:
 	WORLD.unbind()
-	check(WORLD.game == null and WORLD.player == null, "an unbound facade has no world")
+	check(WORLD.world_root() == null and WORLD.player_rig() == null, "an unbound facade has no world")
 	check(WORLD.camera() == null, "an unbound facade has no camera")
 	check(WORLD.interactor() == null, "an unbound facade has no interactor")
 	check(WORLD.player_body() == null, "an unbound facade has no player body")
@@ -944,6 +956,12 @@ func _check_unbound() -> void:
 	check(not WORLD.open_chat(), "no world opens no chat")
 	check(not WORLD.ready(), "an unbound facade is not ready")
 	check(WORLD.player_rig() == null, "an unbound facade has no rig")
+	check(WORLD.world_root() == null, "an unbound facade has no world root")
+	check(WORLD.interaction_hints() == null, "an unbound facade has no hints node")
+	check(WORLD.presentation() == null, "an unbound facade has no presentation")
+	check(WORLD.shape_ids().is_empty(), "an unbound facade has no shape catalogue")
+	check(not WORLD.bond_level("rarity").found, "an unbound facade has no bond level")
+	check(not WORLD.paused(), "an unbound facade is not paused")
 	check(WORLD.game_setting("ponies/size") == "", "an unbound facade reads no game setting")
 	WORLD.refresh_body_lod(null)
 
@@ -954,21 +972,21 @@ func _check_binding() -> void:
 	var list: Array = [FakeMare.new(), FakeMare.new()]
 	game.mares = list
 	WORLD.bind_world(game)
-	check(WORLD.game == game, "bind_world stores the world root")
+	check(WORLD.world_root() == game, "bind_world stores the world root")
 	check(not is_same(WORLD.mares(), list), "the facade answers with a copy, not the game array")
 	check(WORLD.mares().size() == list.size(), "the copy holds every mare")
 	var player := FakePlayer.new()
 	WORLD.bind_player(player)
-	check(WORLD.player != null, "bind_player stores Anon's body")
+	check(WORLD.player_rig() != null, "bind_player stores Anon's body")
 	check(WORLD.player_rig() == player, "the facade hands back the bound rig")
 	check(WORLD.ready(), "a bound world and rig are ready")
 	WORLD.bind_world(null)
-	check(WORLD.player != null, "a world bind keeps the player")
-	check(WORLD.game == null, "a null world bind clears the world")
+	check(WORLD.player_rig() != null, "a world bind keeps the player")
+	check(WORLD.world_root() == null, "a null world bind clears the world")
 	check(not WORLD.ready(), "a missing world is not ready")
 	WORLD.bind_world(game)
 	WORLD.bind_player(null)
-	check(WORLD.game == game and WORLD.player == null, "the player leaves on its own")
+	check(WORLD.world_root() == game and WORLD.player_rig() == null, "the player leaves on its own")
 	game.queue_free()
 	WORLD.unbind()
 
@@ -1419,10 +1437,27 @@ func _check_menu_and_headset() -> void:
 	game.headset_view = true
 	check(WORLD.headset_view(), "the world's headset flag is the headset view")
 	paused = true
+	check(WORLD.paused(), "the live world's paused tree is the paused read")
 	check(WORLD.menu_panel_open(), "a paused tree is an open panel")
 	paused = false
+	check(not WORLD.paused(), "an unpaused tree is not paused")
+	var hints := Node.new()
+	hints.name = "InteractionHints"
+	game.add_child(hints)
+	var presentation := Node.new()
+	game.desktop_presentation = presentation
+	check(WORLD.interaction_hints() == hints, "the world's own hints node is read")
+	check(WORLD.presentation() == presentation, "the game's desktop presentation is read")
+	var population := FakePopulation.new()
+	population.available = {"rarity": "res://rarity.tscn", "": "res://skip.tscn"}
+	root.add_child(population)
+	game.population = population
+	check(WORLD.shape_ids() == ["rarity"],
+		"the population catalogue is copied by non-empty shape id")
+	check(WORLD.shape_scene("missing") == null, "a shape the catalogue does not hold has no scene")
 	game.queue_free()
 	inventory.queue_free()
+	population.queue_free()
 	WORLD.unbind()
 
 
@@ -2255,6 +2290,7 @@ func _check_director_and_story() -> void:
 	context.story = journal
 	context.impressions = impressions
 	context.events = [{"id": "e1", "kind": "intimacy", "text": "one"}]
+	context.state = {"bond_levels": {"rarity": {"friendship": 3, "love": 0}}}
 	root.add_child(context)
 	root.add_child(impressions)
 
@@ -2275,6 +2311,10 @@ func _check_director_and_story() -> void:
 	var boop := FakeKissBoop.new()
 	root.add_child(boop)
 	WORLD.bind_world(game)
+	check(WORLD.bond_level("rarity").found and WORLD.bond_level("rarity").love == 0,
+		"the facade reads the world's cached bond level")
+	check(not WORLD.bond_level("fluttershy").found,
+		"a pony the cache does not hold reads unfound")
 
 	var view := WORLD.director()
 	check(view == WORLD.director(), "a director view is cached per bound director")
@@ -2419,6 +2459,10 @@ func _check_inventory_and_menu() -> void:
 	check(view == WORLD.inventory(), "an inventory view is cached for the bound world")
 	check(view.store() == store, "the view reads the briefcase store")
 	check(view.slots(store).size() == 2, "the view copies the store's slot rows")
+	inventory.held = {"right": "goods:footstool"}
+	inventory.holding_case = "goods:footstool"
+	check(view.held_count() == 1, "the view counts the held item rows")
+	check(view.holding_case() == "goods:footstool", "the view reads the held case id")
 	check(view.loans(store).is_empty(), "a store with no loans answers empty")
 	check(view.available(store, 0) == 2, "the view reads a slot's availability")
 	check(view.writable(store), "the view reads the store's writable flag")
@@ -2469,6 +2513,8 @@ func _check_inventory_and_menu() -> void:
 	check(gone.store() == null and gone.hotbar() == null, "an unbound inventory has no store or bar")
 	check(not gone.hud_hidden() and gone.slots(store).size() == 2,
 		"an unbound inventory answers the store's own rows")
+	check(gone.held_count() == 0 and gone.holding_case().is_empty(),
+		"an unbound inventory holds nothing")
 	var gone_menu := WORLD.menu()
 	check(gone_menu.panel("pause_menu") == null, "an unbound menu has no panel")
 

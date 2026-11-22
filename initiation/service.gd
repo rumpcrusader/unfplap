@@ -149,7 +149,7 @@ func classifier_available() -> bool:
 
 
 func tick(delta: float) -> void:
-	if not is_instance_valid(WORLD.game):
+	if not is_instance_valid(WORLD.world_root()):
 		return
 	if _episode != null:
 		_tick_episode()
@@ -194,7 +194,7 @@ func on_world_closed() -> void:
 ## A pre-ask route failure comes back in `reject`.
 func force(runtime: Node, pose := "") -> ForceResult:
 	var out := ForceResult.new()
-	if not is_instance_valid(WORLD.game) or not is_instance_valid(runtime):
+	if not is_instance_valid(WORLD.world_root()) or not is_instance_valid(runtime):
 		out.reject = "no_runtime"
 		return out
 	if _episode != null:
@@ -302,7 +302,7 @@ func _consider_start() -> void:
 			LOG.debug("request scan quiet reason=%s", [quiet])
 		return
 	_quiet_reason = ""
-	var player: Node3D = WORLD.player
+	var player: Node3D = WORLD.player_rig()
 	if not is_instance_valid(player):
 		return
 	var candidates: Array = []
@@ -334,7 +334,7 @@ func _consider_start() -> void:
 ## list, the cuddle target and the scene-only formation rows; the reasoning is the caller's.
 func _candidate_for(runtime: Node, forced: bool, pose_request := "",
 		reasons: Array = []) -> Candidate:
-	if not is_instance_valid(WORLD.game) or not is_instance_valid(runtime):
+	if not is_instance_valid(WORLD.world_root()) or not is_instance_valid(runtime):
 		reasons.append("no_world")
 		return null
 	var pony: Variant = runtime.get("pony")
@@ -475,7 +475,7 @@ func _on_reasoning(candidate: Candidate, serial: int, reply: String, error: Stri
 ## The single route entry: cuddle asks from bed, bed walks to its front, standing walks to Anon.
 ## Returns `""` on a started route or formed ask, else the close reason.
 func _begin_route(candidate: Candidate) -> String:
-	var player: Node3D = WORLD.player
+	var player: Node3D = WORLD.player_rig()
 	if not is_instance_valid(player) or not is_instance_valid(candidate.pony):
 		return "route lost"
 	_serial += 1
@@ -579,7 +579,7 @@ func _tick_approach() -> void:
 			and not _adapter.quiet(POLICY.QUIET_CHAT_GAP_S):
 		_close_episode("approach quiet")
 		return
-	var player: Node3D = WORLD.player
+	var player: Node3D = WORLD.player_rig()
 	if not is_instance_valid(player):
 		_close_episode("approach player lost")
 		return
@@ -615,7 +615,7 @@ func _tick_arrive() -> void:
 	if not is_instance_valid(pony) or not is_instance_valid(runtime):
 		_close_episode("arrive pony lost")
 		return
-	var player: Node3D = WORLD.player
+	var player: Node3D = WORLD.player_rig()
 	if not is_instance_valid(player) \
 			or player.global_position.distance_to(pony.global_position) \
 			> POLICY.ARRIVE_RANGE_M + 0.75:

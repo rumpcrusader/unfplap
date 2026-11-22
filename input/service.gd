@@ -211,7 +211,7 @@ func _headset() -> bool:
 
 
 func _suppress_seated_q() -> void:
-	var body: Variant = WORLD.player
+	var body: Variant = WORLD.player_rig()
 	if not is_instance_valid(body):
 		return
 	if body.get("seat") != null:
@@ -224,14 +224,14 @@ func _suppress_seated_q() -> void:
 func _restore_seated_q() -> void:
 	if not _suppress_q:
 		return
-	var body: Variant = WORLD.player
+	var body: Variant = WORLD.player_rig()
 	if is_instance_valid(body):
 		WORLD.anon().set_q_held(_old_q)
 	_suppress_q = false
 
 
 func _hold_movement() -> void:
-	var body: Variant = WORLD.player
+	var body: Variant = WORLD.player_rig()
 	if not is_instance_valid(body):
 		return
 	# Keep the camera free but stop walking, jumping, and couch-sleep toggles.

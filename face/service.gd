@@ -196,7 +196,7 @@ func quality_for(readiness: READINESS) -> BEAT.ClimaxQuality:
 ## the HUD mood and the flags come from the session and the meter.
 func act_rows(values: ActValues, readiness: READINESS) -> Array[String]:
 	var base_mood := ""
-	if is_instance_valid(WORLD.game) and not values.pony_id.is_empty():
+	if is_instance_valid(WORLD.world_root()) and not values.pony_id.is_empty():
 		base_mood = memory.cue_facts(values.pony_id, values.event_id).mood
 	var context := BEAT.new()
 	context.state = values.state

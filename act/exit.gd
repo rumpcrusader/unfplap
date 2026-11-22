@@ -75,7 +75,7 @@ func run(rejoin_cuddle: bool) -> void:
 	free_pose()
 	context.pose.restore_bones()
 	context.audio.end_act()
-	if is_instance_valid(WORLD.game):
+	if is_instance_valid(WORLD.world_root()):
 		if is_instance_valid(context.hud):
 			context.hud.hide_all()
 		PONIES.clear_active(host.node)

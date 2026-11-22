@@ -17,15 +17,9 @@ func clear() -> void:
 ## The live body for a shape id, when one is loaded. It is the authority for a provider mod's
 ## off-roster mare.
 func live_pony(id: String) -> Node:
-	var game: Variant = WORLD.game
-	if game == null or not is_instance_valid(game):
-		return null
-	var mares: Variant = (game as Node).get("mares")
-	if not mares is Array:
-		return null
-	for pony: Variant in mares:
-		if is_instance_valid(pony) and PONY_ID.of(pony as Node) == id:
-			return pony as Node
+	for pony: Node3D in WORLD.mares():
+		if PONY_ID.of(pony) == id:
+			return pony
 	return null
 
 
@@ -35,23 +29,7 @@ func shape_identity(id: String) -> Resource:
 	if _shape_identities.has(id):
 		return _shape_identities[id] as Resource
 	var identity: Resource = null
-	var game: Variant = WORLD.game
-	if game == null or not is_instance_valid(game):
-		_shape_identities[id] = identity
-		return null
-	var population: Variant = (game as Node).get("population")
-	if population == null or not is_instance_valid(population):
-		_shape_identities[id] = identity
-		return null
-	var available: Variant = (population as Node).get("available")
-	if not available is Dictionary:
-		_shape_identities[id] = identity
-		return null
-	var path := str((available as Dictionary).get(id, ""))
-	if path.is_empty():
-		_shape_identities[id] = identity
-		return null
-	var scene := load(path) as PackedScene
+	var scene := WORLD.shape_scene(id)
 	if scene == null:
 		_shape_identities[id] = identity
 		return null

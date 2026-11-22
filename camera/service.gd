@@ -159,7 +159,7 @@ func pose_changed(pose_view: POSE_VIEW) -> void:
 ## Aim the pose's look point for this rendered frame, after the pose write but before the shot, so
 ## the head solve follows this frame's lean.
 func write_look_target(pose: POSES.POSE) -> void:
-	if not is_instance_valid(pose) or facts == null or not is_instance_valid(WORLD.player):
+	if not is_instance_valid(pose) or facts == null or not is_instance_valid(WORLD.player_rig()):
 		return
 	if kiss == null:
 		return
@@ -247,7 +247,7 @@ func begin_act(family: String, player_pony: bool, headset: bool) -> bool:
 		return true
 	if player_pony or headset:
 		return false
-	if not is_instance_valid(WORLD.game) or not is_instance_valid(WORLD.player):
+	if not WORLD.ready() or not is_instance_valid(WORLD.player_rig()):
 		return false
 	free_camera_active = true
 	camera = main_camera()
@@ -760,7 +760,7 @@ func invert_y() -> bool:
 func player_body() -> Node3D:
 	if facts == null:
 		return null
-	return WORLD.player
+	return WORLD.player_rig()
 
 
 ## The player's eye camera, or null.

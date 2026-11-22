@@ -74,7 +74,7 @@ func present_standing() -> bool:
 	_sync()
 	if _presenting or _present_turning:
 		return true
-	if int(facts.state) != STATE_IDLE or not is_instance_valid(pony) or not is_instance_valid(WORLD.game):
+	if int(facts.state) != STATE_IDLE or not is_instance_valid(pony) or not is_instance_valid(WORLD.world_root()):
 		return false
 	if pony.is_held() or pony.sleeping or bool(facts.call_value(facts.cuddle_active, false)):
 		return false
@@ -88,7 +88,7 @@ func present_standing() -> bool:
 	# the turn, once she is in position.
 	if not _present_hold:
 		_set_presentation_hold(true)
-	var player: Variant = WORLD.player
+	var player: Variant = WORLD.player_rig()
 	var view: Camera3D = WORLD.camera()
 	var target: Vector3 = pony.global_position - Vector3.FORWARD
 	if is_instance_valid(view):
@@ -320,7 +320,7 @@ func clear_presentation() -> void:
 func _presentation_valid() -> bool:
 	if not _presenting or int(facts.state) != STATE_IDLE:
 		return false
-	if not is_instance_valid(pony) or not is_instance_valid(WORLD.game):
+	if not is_instance_valid(pony) or not is_instance_valid(WORLD.world_root()):
 		return false
 	if pony.is_held() or pony.sleeping or pony.has_meta("seated"):
 		return false
@@ -333,7 +333,7 @@ func _presentation_valid() -> bool:
 		return false
 	if float(pony.actual_speed) > 0.10:
 		return false
-	var player: Variant = WORLD.player
+	var player: Variant = WORLD.player_rig()
 	if is_instance_valid(player) and player.global_position.distance_to(pony.global_position) > 8.0:
 		return false
 	return true
@@ -397,7 +397,7 @@ func _presentation_turn_physics(delta: float) -> void:
 func _presentation_turn_valid() -> bool:
 	if not _present_turning or int(facts.state) != STATE_IDLE:
 		return false
-	if not is_instance_valid(pony) or not is_instance_valid(WORLD.game):
+	if not is_instance_valid(pony) or not is_instance_valid(WORLD.world_root()):
 		return false
 	if pony.is_held() or pony.sleeping or pony.has_meta("seated"):
 		return false
@@ -408,7 +408,7 @@ func _presentation_turn_valid() -> bool:
 	var status: Dictionary = pony.posture_status()
 	if str(status.get("requested", "")) != "stand":
 		return false
-	var player: Variant = WORLD.player
+	var player: Variant = WORLD.player_rig()
 	if is_instance_valid(player) and player.global_position.distance_to(pony.global_position) > 8.0:
 		return false
 	return true
@@ -494,7 +494,7 @@ func _presentation_process() -> void:
 	if not _presentation_valid():
 		clear_presentation()
 		return
-	var view: Camera3D = WORLD.camera() if is_instance_valid(WORLD.game) else null
+	var view: Camera3D = WORLD.camera() if is_instance_valid(WORLD.world_root()) else null
 	if is_instance_valid(_present_pose) and is_instance_valid(view):
 		_present_pose.look_point = view.global_position
 		_present_pose.head_back = 0.0
@@ -510,7 +510,7 @@ func _presentation_process() -> void:
 func _present_glance_angles() -> Vector3:
 	var head: Vector3 = WORLD.pony(pony).listen_point()
 	var target: Vector3 = head
-	if is_instance_valid(WORLD.player):
+	if is_instance_valid(WORLD.player_rig()):
 		var view: Camera3D = WORLD.camera()
 		if is_instance_valid(view):
 			target = view.global_position
@@ -532,7 +532,7 @@ func _present_glance_angles() -> Vector3:
 func _present_aim_eyes() -> void:
 	if not is_instance_valid(pony):
 		return
-	var view: Camera3D = WORLD.camera() if is_instance_valid(WORLD.game) else null
+	var view: Camera3D = WORLD.camera() if is_instance_valid(WORLD.world_root()) else null
 	var target: Vector3 = view.global_position if is_instance_valid(view) else pony.global_position
 	WORLD.pony(pony).aim_eyes(target)
 

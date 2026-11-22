@@ -25,23 +25,23 @@ class StandIn extends "res://mods/unfplap/shared/service.gd":
 
 	func on_world(_host: Node) -> void:
 		sink.append("%s.on_world" % id)
-		seen_world.append(WORLD.game)
-		seen_player.append(WORLD.player)
+		seen_world.append(WORLD.world_root())
+		seen_player.append(WORLD.player_rig())
 
 	func on_world_closed() -> void:
 		sink.append("%s.on_world_closed" % id)
-		seen_world.append(WORLD.game)
-		seen_player.append(WORLD.player)
+		seen_world.append(WORLD.world_root())
+		seen_player.append(WORLD.player_rig())
 
 	func on_player(_body: Node) -> void:
 		sink.append("%s.on_player" % id)
-		seen_world.append(WORLD.game)
-		seen_player.append(WORLD.player)
+		seen_world.append(WORLD.world_root())
+		seen_player.append(WORLD.player_rig())
 
 	func shutdown() -> void:
 		sink.append("%s.shutdown" % id)
-		seen_world.append(WORLD.game)
-		seen_player.append(WORLD.player)
+		seen_world.append(WORLD.world_root())
+		seen_player.append(WORLD.player_rig())
 
 
 func _stand_in(id: String) -> StandIn:
@@ -117,7 +117,7 @@ func _check_close(entry: Variant, first: StandIn, last: StandIn, host: Node) -> 
 		"the entry broadcasts on_world_closed in list order")
 	check(first.seen_world.back() == host and last.seen_world.back() == host,
 		"the scene facade stays bound until the last service has closed")
-	check(WORLD.game == null, "the unbind follows the whole list")
+	check(WORLD.world_root() == null, "the unbind follows the whole list")
 
 
 ## `_exit_tree`: the same release sequence a world close runs, then every `shutdown()` in reverse

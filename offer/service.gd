@@ -98,11 +98,11 @@ func tick(delta: float) -> void:
 ## Tick the sensor; true when a transition needs a fresh evaluation.
 ## The act key forces it, so the press never uses a stale result.
 func _sense(delta: float, force := false) -> bool:
-	if not is_instance_valid(WORLD.player) or not is_instance_valid(WORLD.game):
+	if not is_instance_valid(WORLD.player_rig()) or not WORLD.ready():
 		return false
 	if not WORLD.can_interact():
 		return false
-	var seat: Variant = WORLD.player.get("seat")
+	var seat: Variant = WORLD.player_rig().get("seat")
 	var seat_changed: bool = seat != _seat
 	if seat_changed:
 		_seat = seat
@@ -360,7 +360,7 @@ func reconsider() -> void:
 ## One full evaluation: the Agreement, the two bed candidates, then the standing fan. Each
 ## business check is one call, and no row list is built on this path.
 func _reconsider() -> void:
-	if not is_instance_valid(WORLD.player) or not is_instance_valid(WORLD.game):
+	if not is_instance_valid(WORLD.player_rig()) or not WORLD.ready():
 		_offer = null
 		_offer_blocked = null
 		_sensor.focus(null)
@@ -529,9 +529,7 @@ func _native_row() -> HBoxContainer:
 	if is_instance_valid(_native_hint_row) and _native_hint_row.is_inside_tree():
 		return _native_hint_row
 	_native_hint_row = null
-	if not is_instance_valid(_native_hints_node) or _native_hints_node.get_parent() != WORLD.game:
-		_native_hints_node = WORLD.game.get_node_or_null("InteractionHints") \
-			if is_instance_valid(WORLD.game) else null
+	_native_hints_node = WORLD.interaction_hints()
 	if not is_instance_valid(_native_hints_node):
 		return null
 	# VR uses the world-space prompt row; the act-key hint falls back to the HUD prompt there.

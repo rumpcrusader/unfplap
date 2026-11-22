@@ -150,9 +150,9 @@ func _lower_body_of(hip: Node3D) -> Node:
 
 func _install_anon_thrust() -> void:
 	_remove_anon_thrust()
-	if not _standing_family() or bool(facts.player_pony) or not is_instance_valid(WORLD.game) or not is_instance_valid(WORLD.player):
+	if not _standing_family() or bool(facts.player_pony) or not WORLD.ready() or not is_instance_valid(WORLD.player_rig()):
 		return
-	var avatar := WORLD.player.find_child("AnonBody", true, false) as Node3D
+	var avatar := WORLD.player_rig().find_child("AnonBody", true, false) as Node3D
 	if not is_instance_valid(avatar):
 		return
 	var original := WORLD.anon().pose_driver()
@@ -162,7 +162,7 @@ func _install_anon_thrust() -> void:
 	driver.name = "UnfplapAnonThrust"
 	driver.original = original
 	driver.runtime = facts.driver_host()
-	WORLD.player.add_child(driver)
+	WORLD.player_rig().add_child(driver)
 	WORLD.anon().set_pose_driver(driver)
 	_anon_thrust_driver = driver
 	_anon_thrust_original = original
@@ -175,7 +175,7 @@ func _install_anon_thrust() -> void:
 		skeleton.add_child(_hip_thrust)
 		_chest_back = CHEST_BACK.new()
 		_chest_back.name = "UnfplapChestBack"
-		_chest_back.player = WORLD.player
+		_chest_back.player = WORLD.player_rig()
 		_chest_back.process_priority = 30
 		skeleton.add_child(_chest_back)
 	_install_palm_scale(avatar)
@@ -249,9 +249,9 @@ func _remove_anon_thrust() -> void:
 func _desktop_pose_driver() -> Node:
 	if is_instance_valid(_anon_thrust_driver):
 		return _anon_thrust_driver
-	if not is_instance_valid(WORLD.game) or not is_instance_valid(WORLD.player):
+	if not WORLD.ready() or not is_instance_valid(WORLD.player_rig()):
 		return null
-	var avatar: Node = WORLD.player.find_child("AnonBody", true, false)
+	var avatar: Node = WORLD.player_rig().find_child("AnonBody", true, false)
 	if not is_instance_valid(avatar):
 		return null
 	return WORLD.anon().pose_driver()

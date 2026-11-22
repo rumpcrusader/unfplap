@@ -341,31 +341,15 @@ func _read_history(id: String, out: Dictionary) -> void:
 ## Her love level in one read, from the level cache the game keeps current.
 ## A player-form change is invisible here, so the romance row gates it first.
 func _love_level(rel: Node, id: String) -> int:
-	var cached: Variant = _bond_levels().get(id)
-	if cached is Dictionary:
-		return int((cached as Dictionary).get("love", -1))
+	var cached := WORLD.bond_level(id)
+	if cached.found:
+		return cached.love
 	if rel != null and is_instance_valid(rel):
 		var ladder := WORLD.relationship().ladder(id)
 		if ladder.love_found:
 			return ladder.love_level
 	return -1
 
-
-## The game's per-pony level cache, or an empty dictionary outside a live world.
-func _bond_levels() -> Dictionary:
-	if not _live:
-		return {}
-	var game: Variant = WORLD.game
-	if game == null or not is_instance_valid(game):
-		return {}
-	var context: Variant = game.get("world_context")
-	if context == null or not is_instance_valid(context):
-		return {}
-	var state: Variant = context.get("state")
-	if not state is Dictionary:
-		return {}
-	var levels: Variant = (state as Dictionary).get("bond_levels")
-	return levels if levels is Dictionary else {}
 
 
 func _typed_facts(data: Dictionary) -> Facts:

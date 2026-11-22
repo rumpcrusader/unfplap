@@ -46,8 +46,8 @@ The world adapter owns its every-frame hull update, its cloth-jiggle pass and it
 node discovery, the per-node material overrides, its cached feature/debug values and the act-start
 undress. The undress is the game's own `take_off` action when her executor exists, with the direct
 wardrobe calls as its fallback. It reads the anatomy through `PONIES.anatomy` and the game
-through
-`WORLD.game`; it never preloads either host and never edits the pack.
+through the root the entry hands it on `on_world`; it never preloads either host and never edits
+the pack.
 
 The changelings adapter owns its provider layer registration, the installed-mare list, the typed
 body form it returns for each of the pack's bodies, the `UnfplapTailPlacement` wrapper above her
@@ -421,7 +421,7 @@ overlay reads them.
 | `shared/act_facts.gd` | typed read model passed to the constructor; no per-frame settings read |
 | `hold_beat(owner)` / `release_beat(owner)` | acquire or release the runtime's shared excitement Beat hold |
 | `PONIES.anatomy` | `garment(pony)` and its `hull()`, `transform()`, `parent()` and `visible()`, plus `rebuild_garment()` |
-| `WORLD.game.mares` | the loaded mares the world adapter scans |
+| `_game.mares` | the loaded mares the world adapter scans |
 | `pony_wardrobe` group | the wardrobe's `wanted()`, `_season()`, `set_worn()` and `dress()` for the act undress |
 | `conversation_director.actions` | the action coordinator's `commit()` and `executors`, so the undress is a `take_off` action when her executor exists |
 | `shared/settings_change.gd` | calls the world adapter's `apply_live_settings()` after a settings edit, and the body-change service's per-body tail pass |

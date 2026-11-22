@@ -68,6 +68,16 @@ func item_scene(id: String) -> PackedScene:
 	return GAME.shop_item_scene(id)
 
 
+## How many item rows the inventory holds; 0 without one.
+func held_count() -> int:
+	return GAME.inventory_held_count(_inventory)
+
+
+## The item id the inventory holds as a case; empty when it holds none.
+func holding_case() -> String:
+	return GAME.inventory_holding_case(_inventory)
+
+
 ## The inventory's quick-slot bar; null without one.
 func hotbar() -> Node:
 	return GAME.hotbar(_inventory)

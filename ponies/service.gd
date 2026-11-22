@@ -95,7 +95,7 @@ static func _on_body_exit(pony: Node) -> void:
 ## A mod that adds a node the first prepare needed, such as the changelings tail chain, calls this
 ## once it exists. Every prepare hook is idempotent, and this never creates a runtime.
 static func prepare_late(pony: Node) -> void:
-	if not is_instance_valid(pony) or not is_instance_valid(WORLD.game):
+	if not is_instance_valid(pony) or not is_instance_valid(WORLD.world_root()):
 		return
 	_prepare(pony)
 
@@ -173,18 +173,12 @@ static func relationship_ok(pony: Node) -> bool:
 
 
 ## The nearest act target whose rear fan holds the eye, or null.
-## One pass over the game's own mare array: no copy, and the target read runs in distance order.
+## One pass over the live mares; the target read runs in distance order.
 static func cone_target(eye: Vector3) -> Node3D:
-	if not eye.is_finite() or not is_instance_valid(WORLD.game):
-		return null
-	var mares: Variant = WORLD.game.get("mares")
-	if not mares is Array:
+	if not eye.is_finite() or not is_instance_valid(WORLD.world_root()):
 		return null
 	var found: Array = []
-	for node: Variant in mares as Array:
-		if not node is Node3D or not is_instance_valid(node):
-			continue
-		var actor := node as Node3D
+	for actor: Node3D in WORLD.mares():
 		if not actor.has_method("posture_status"):
 			continue
 		var rump := RUMP_CONE.approx_point(actor)

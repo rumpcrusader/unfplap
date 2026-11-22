@@ -16,7 +16,7 @@ const TRANSPORT_FLOOR_M := 0.5
 static func find_bed(host: Node) -> Node3D:
 	if not is_instance_valid(host):
 		return null
-	var body: Variant = WORLD.player
+	var body: Variant = WORLD.player_rig()
 	if not is_instance_valid(body) or not body is Node3D:
 		return null
 	var seat: Variant = body.get("seat")
@@ -46,7 +46,7 @@ static func rows(host: Node, target: Node) -> Array[String]:
 	if not is_instance_valid(bed):
 		out.append("bed=none")
 		return out
-	var body: Variant = WORLD.player
+	var body: Variant = WORLD.player_rig()
 	var seat: Variant = body.get("seat") if is_instance_valid(body) else null
 	out.append("bed=%s at=%s" % [str(bed.name), str(bed.global_position)])
 	out.append("player seat=%s lying=%s" % [_node_name(seat), str(_player_lying(host))])
@@ -135,7 +135,7 @@ static func _existing_rest(bed: Node3D) -> Node3D:
 static func _player_lying(host: Node) -> bool:
 	if not is_instance_valid(host):
 		return false
-	var body: Variant = WORLD.player
+	var body: Variant = WORLD.player_rig()
 	return is_instance_valid(body) and bool((body as Node).get_meta("couch_sleeping", false))
 
 
@@ -144,7 +144,7 @@ static func _player_lying(host: Node) -> bool:
 static func _ensure_player_lying(host: Node, rest: Node3D) -> String:
 	if _player_lying(host):
 		return "already lying"
-	var body: Variant = WORLD.player
+	var body: Variant = WORLD.player_rig()
 	if not is_instance_valid(body):
 		return "no player"
 	var seats: Variant = rest.get("seats") if rest != null else null

@@ -109,7 +109,7 @@ func quiet_reason(chat_gap_s: float) -> String:
 		return "mouse"
 	if WORLD.menu_panel_open():
 		return "menu"
-	var player: Variant = WORLD.player
+	var player: Variant = WORLD.player_rig()
 	if not is_instance_valid(player):
 		return "no_player"
 	if player.get("controls_locked") == true:
@@ -229,7 +229,7 @@ func cancel_keys(keys: Array) -> void:
 ## Record a situation event for the director's world context: `ids` is the subject list and `key`
 ## the replaceable event key.
 func record_situation(text: String, ids: Array, key: String) -> void:
-	if not is_instance_valid(WORLD.game):
+	if not is_instance_valid(WORLD.world_root()):
 		return
 	var subjects: Array[String] = []
 	subjects.assign(ids)

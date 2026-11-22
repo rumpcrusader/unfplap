@@ -4,7 +4,6 @@ extends RefCounted
 
 const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
-const GAME := preload("res://mods/unfplap/world/game.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
@@ -58,13 +57,13 @@ func applies() -> bool:
 		return false
 	if not SETTINGS.anatomy_on():
 		return false
-	if not is_instance_valid(WORLD.game) or not is_instance_valid(pony):
+	if not WORLD.ready() or not is_instance_valid(pony):
 		return false
 	if not is_instance_valid(player):
 		return false
 	if WORLD.anon().form_is_pony():
 		return false
-	if GAME.headset_view(WORLD.game):
+	if WORLD.headset_view():
 		return false
 	if anatomy == null:
 		return false

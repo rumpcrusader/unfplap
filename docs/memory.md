@@ -25,7 +25,7 @@ writes the facts those systems read.
 
 | File | Role |
 |---|---|
-| `memory/service.gd` | facade: the typed internal API, the three writes, the four line-channel calls and the four reads; composes the adapters and reads `WORLD.game` and `PONIES.eligibility` per call |
+| `memory/service.gd` | facade: the typed internal API, the three writes, the four line-channel calls and the four reads; composes the adapters and reads `WORLD.world_root()` and `PONIES.eligibility` per call |
 | `memory/facts.gd` | pure typed boundary data: `LineState`, `LineKind`, `Reaction`, `NoteKind`, `StopReason`, `ImpressionSlot`, `Sense`, and the `Impression`, `Peak`, `Witness`, `Observer`, `CueFacts`, `MemoryHit`, `Line`, `LineRequest` types |
 | `memory/text.gd` | pure wording and ids: the director key and its prefix, the keep-active rule, the impression/event suffixes, the event kinds, the stop names, the event texts, the witness texts |
 | `memory/world.gd` | scene adapter: the builder of the private cue facts and the shared-memory hit, and the only memory reader of the world context, the impressions and the story journal |
@@ -54,7 +54,7 @@ The purity boundary is deliberate:
   `memory/` preloads `memory/*`.
 - The entry creates the service and passes the instance to the per-pony consumers: `dialogue`,
   `summary`, `face`, `afterglow` and the handover receive it in their constructor through the
-  runtime's builder. There is no static handle. The facade reads `WORLD.game` and
+  runtime's builder. There is no static handle. The facade reads `WORLD.world_root()` and
   `PONIES.eligibility` per call and stores nothing. It is a world-list service, so it extends
   `shared/service.gd` and lives until the entry's shutdown.
 

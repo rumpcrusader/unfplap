@@ -140,7 +140,7 @@ func action_standing_offer() -> String:
 
 ## Debug: form an Anon offer without typing the line; the classifier still decides the answer.
 func action_anon_offer() -> String:
-	if not is_instance_valid(negotiation) or not is_instance_valid(WORLD.player):
+	if not is_instance_valid(negotiation) or not is_instance_valid(WORLD.player_rig()):
 		return "Act system not ready."
 	var target: Node = _aim()
 	if not is_instance_valid(target):
@@ -158,7 +158,7 @@ func action_anon_offer() -> String:
 ## Wheel-only: start the stock bed cuddle. The bed, recline and invite sequence runs after this
 ## returns, so the wheel closes immediately and the debug log carries the detailed result.
 func action_bed_cuddle() -> String:
-	if not is_instance_valid(WORLD.player):
+	if not is_instance_valid(WORLD.player_rig()):
 		return "Player not ready."
 	var target: Node = _aim()
 	if not is_instance_valid(target):
@@ -211,7 +211,7 @@ func action_cycle_auto() -> String:
 
 
 func _debug_cycle_toggle(phase_name: String) -> String:
-	if not is_instance_valid(WORLD.player):
+	if not is_instance_valid(WORLD.player_rig()):
 		return "Player not ready."
 	var target: Node = _aim()
 	if not is_instance_valid(target):
@@ -232,7 +232,7 @@ func _debug_cycle_toggle(phase_name: String) -> String:
 
 ## The aimed mare's effective estrus phase, or "" when there is no target.
 func debug_cycle_phase() -> String:
-	if not is_instance_valid(WORLD.player):
+	if not is_instance_valid(WORLD.player_rig()):
 		return ""
 	var target: Node = _aim()
 	if not is_instance_valid(target):
@@ -245,7 +245,7 @@ func debug_cycle_phase() -> String:
 
 
 func _debug_cycle_request(phase_name: String) -> String:
-	if not is_instance_valid(WORLD.player):
+	if not is_instance_valid(WORLD.player_rig()):
 		return "Player not ready."
 	var target: Node = _aim()
 	if not is_instance_valid(target):
@@ -339,7 +339,7 @@ func _form_source() -> Variant:
 
 ## Shared by the Debug actions.
 func _debug_offer_request(pose := "") -> String:
-	if not is_instance_valid(initiation) or not is_instance_valid(WORLD.player):
+	if not is_instance_valid(initiation) or not is_instance_valid(WORLD.player_rig()):
 		return "Act system not ready."
 	var target: Node = _aim()
 	if not is_instance_valid(target):
@@ -431,7 +431,7 @@ func action_facesit_variant() -> String:
 
 ## Debug: the Show data action: one tab-indented log block for the aimed mare.
 func action_show_data() -> String:
-	if not is_instance_valid(WORLD.player):
+	if not is_instance_valid(WORLD.player_rig()):
 		return "Player not ready."
 	var target: Node = _aim()
 	if not is_instance_valid(target):
@@ -561,7 +561,7 @@ func _debug_stool_rows(runtime: Variant) -> Array[String]:
 
 ## Debug: cycle the game's expression faces on the active act or the aimed mare.
 func action_force_act_face() -> String:
-	if not is_instance_valid(WORLD.player):
+	if not is_instance_valid(WORLD.player_rig()):
 		return "Player not ready."
 	var target: Node = _aim()
 	if not is_instance_valid(target):
@@ -594,7 +594,7 @@ func action_clear_cooldown() -> String:
 
 ## Debug: clear the aimed mare's long-term act history.
 func action_reset_act_history() -> String:
-	if not is_instance_valid(WORLD.player):
+	if not is_instance_valid(WORLD.player_rig()):
 		return "Act system not ready."
 	var target: Node = _aim()
 	if not is_instance_valid(target):
@@ -694,7 +694,7 @@ func _debug_prompt_rows(target: Node) -> Array[String]:
 
 
 func action_give_stool() -> String:
-	if not is_instance_valid(WORLD.game):
+	if not is_instance_valid(WORLD.world_root()):
 		return "Act system not ready."
 	var briefcase := WORLD.inventory()
 	var store := briefcase.store()
@@ -908,7 +908,7 @@ func debug_wheel_allowed() -> bool:
 	var focus: Control = viewport.gui_get_focus_owner() if viewport != null else null
 	return DEBUG_ACTIONS.wheel_gate(LOG.enabled,
 		DisplayServer.get_name() == "headless",
-		is_instance_valid(WORLD.player) and is_instance_valid(WORLD.game),
+		WORLD.ready(),
 		tree != null and tree.paused, WORLD.headset_view(), DisplayServer.window_is_focused(),
 		Input.mouse_mode == Input.MOUSE_MODE_CAPTURED, WORLD.menu_open(),
 		focus is LineEdit or focus is TextEdit,

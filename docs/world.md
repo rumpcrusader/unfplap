@@ -28,25 +28,29 @@ service facade and no runtime.
 
 ## Ownership
 
-The facade is also the mod's one "is there a world" read: `ready()` answers it for the bound pair.
-It replaces the entry handle every service used to hold for the same answer, so a service never
-names the entry to ask whether the scene is live.
+The facade is also the mod's one "is there a world" read: `ready()` answers it for the bound pair, and
+`world_root()` is the world-only half for a caller that needs the scene but not Anon. It replaces
+the entry handle every service used to hold for the same answer, so a service never names the entry
+to ask whether the scene is live.
 
 `world/api.gd` owns the bound scene handles:
 
 | Read | Why it is a read, not a rule |
 |---|---|
 | `ready()` | both bound handles are live |
-| `game` | the live world root; the caller decides what to do with it |
-| `player` | Anon's body; the caller decides whether he may act |
+| `world_root()` | the live world root, for a caller that must parent or hand off the scene root |
 | `camera()` | which camera the eye looks through, with the one-second lookup cache |
 | `interactor()` | the player rig's reach node, resolved once per body |
 | `desktop()` | the desktop interactions node in the world |
 | `player_body()` | the rig body the game shows for Anon |
+| `presentation()` | the game's desktop presentation node |
 | `player_rig()` | Anon's rig as the entry bound it |
 | `player_is_pony()` | Anon's live form is a pony |
 | `game_player()` | the game's own player property, read defensively; null when absent or not a `Node3D` |
 | `mares()` | a typed copy of the world's live mare list |
+| `shop_item(id)` | the shop's packed item scene |
+| `shape_ids()` | a typed copy of the population catalogue's shape ids |
+| `shape_scene(id)` | a shape's packed scene from the population catalogue |
 | `house_at(at)` | the house interior at a world point |
 | `bed_under(point, exclude)` | the bed a downward probe finds under a point |
 | `real_bed(node)` | the bed behind a mattress or temporary support hit |
@@ -54,12 +58,14 @@ names the entry to ask whether the scene is live.
 | `bed_occupied(bed, target)` | another mare already lying on the mattress top |
 | `player_beside_bed(bed)` | Anon's seat is the bed or its couch |
 | `ensure_bed(house, kind)` | a house's bed through the house's own builder |
-| `shop_item(id)` | the shop's packed item scene |
 | `can_interact()` | the tree is not paused and a desktop cursor is captured or the eye is in a headset |
+| `paused()` | the live world's tree is paused |
 | `menu_panel_open()` | a tree pause or a known UI panel owns the mouse |
 | `menu_open()` | the panel test plus "the cursor is visible" |
 | `headset_view()` | the eye is in a headset |
+| `interaction_hints()` | the world's own interaction-hints node |
 | `game_setting(key)` | one of the game's own settings by its dotted key |
+| `bond_level(id)` | her cached love level, with `found` telling the ladder fallback whether the cache held her |
 | `refresh_body_lod(pony)` | drop the merged LOD caches and re-arm the near mesh |
 | `set_velocity(body, value)` | a body's velocity |
 | `open_chat()` | open the chat box past the act's controls lock |
@@ -96,7 +102,7 @@ not the receiver.
 | `Bed` | a bed, the couch/rest that owns it, a seat on it or the seating system | `couch_pony_transform`, `couch_seats`, `couch_open`, `couch_invite`, `couch_approach`, `couch_mare_fits`, `couch_cooldown_until`, `couch_partner`, `rest_word`, `rest_bed`, `refresh`, `fits`, `has_guest`, `sleeper`, `front`, `accepts`, `willing`, `eligible`, `seat_free_for`, `seating_phase`, `release_seat`, `finish_guest`, `release_pony`, `surface_top`, `exit_point`, `stock_rest` |
 | `Director` | the scene's conversation director, found by the facade, and the world root it belongs to | `speaking`, `interrupt`, `clock`, `subsystem_active`, `lines`, `llm_config`, `prepare_vocal`, `record_event`, `record_situation`, `tts_enabled`, `tts`, `tts_running`, `play_vocal`, `play_kiss`, `world_context`, `impressions`, `impression_mood`, `set_impression_mood`, `commit_impression`, `standing_line`, `voice_facts` |
 | `Story` | the world-context node, resolved by the facade from the bound world | `journal`, `store`, `open`, `last_line_id`, `search`, `witnessed`, `line_text`, `events` |
-| `Inventory` | the game's inventory node, resolved by the facade from the bound world | `store`, `slots`, `loans`, `writable`, `available`, `take`, `put`, `grant`, `spawn_drop`, `item_scene`, `hotbar`, `hotbar_visible`, `set_hotbar_visible`, `hotbar_layer`, `set_hotbar_layer_visible`, `place_hotbar`, `hud_hidden`, `set_hud_hidden` |
+| `Inventory` | the game's inventory node, resolved by the facade from the bound world | `store`, `slots`, `loans`, `writable`, `available`, `take`, `put`, `grant`, `spawn_drop`, `item_scene`, `held_count`, `holding_case`, `hotbar`, `hotbar_visible`, `set_hotbar_visible`, `hotbar_layer`, `set_hotbar_layer_visible`, `place_hotbar`, `hud_hidden`, `set_hud_hidden` |
 | `Menu` | the bound world root | `panel`, `show_toast`, `sound` |
 | `Relationship` | the scene's relationship runtime | `love_name`, `runtime`, `bonds`, `ladder`, `bonds_of`, `record`, `eligible_for_romance`, `welcomes`, `day`, `mark_met`, `request_space` |
 | `ModRegistry` | the game's mods registry autoload | `state`, `active`, `save`, `list`, `data_folder` |
@@ -165,8 +171,12 @@ behaviour exactly, and a game update that renames one is a change here rather th
 | Accessor | Member | Returns | Absent answer |
 |---|---|---|---|
 | `GAME.headset_view(game)` | `headset_view` | `bool` | `false` |
+| `GAME.desktop_presentation(game)` | `desktop_presentation` | `Node` | `null` |
 | `GAME.game_player(game)` | `player` | `Node3D` | `null` |
 | `GAME.mares(game)` | `mares` | `Array[Node3D]`, a copy | empty |
+| `GAME.shape_ids(game)` | the population's `available` keys | `Array[String]`, a copy | empty |
+| `GAME.shape_scene(game, id)` | the population's `available` path, loaded | `PackedScene` | `null` |
+| `GAME.bond_level(game, id)` | the world context's `state.bond_levels` row | `BondLevel` | unfound |
 | `GAME.player_camera(player)` | the rig's `camera` | `Camera3D` | `null` |
 | `GAME.find_camera(game, player)` | `_find_camera` (private) | `Camera3D` | `null` |
 | `GAME.player_avatar(player)` | the rig's `form_driver.avatar` | `Node3D` | `null` |
@@ -183,6 +193,9 @@ behaviour exactly, and a game update that renames one is a change here rather th
 | `GAME.set_menu_icon_kind(icon, kind)` | a menu icon's `kind` | — | no write |
 | `GAME.menu_picker()` | `menu_picker.gd`'s `new` | a new `Control` | — |
 | `GAME.inventory(game)` | `inventory` | `Node` | `null` |
+| `GAME.interaction_hints(game)` | the world's `InteractionHints` child | `Node` | `null` |
+| `GAME.inventory_held_count(inventory)` | the inventory's `held` row count | `int` | `0` |
+| `GAME.inventory_holding_case(inventory)` | the inventory's `holding_case` | `String` | empty |
 | `GAME.case_store(inventory)` | the inventory's `inventory` briefcase store | `Object` | `null` |
 | `GAME.case_slots(store)` | the store's `slots`, one row per slot | `Array[Dictionary]`, a copy | empty |
 | `GAME.case_loans(store)` | the store's `loans` | `Array[Dictionary]`, a copy | empty |
@@ -443,8 +456,9 @@ behaviour exactly, and a game update that renames one is a change here rather th
 | `GAME.forget_far_mesh(pony)` | the far-mesh caches | — | no drop |
 
 Only the accessors that hand back a typed copy or a typed view allocate — the mare, couch-seat,
-case and mods lists, the ladder, the bond record, the story rows, the world events, the mod state,
-the director's line host and the model config — plus `GAME.refresh_body_lod`, the settings page's tab
+case, shape-id and mods lists, the ladder, the bond record, the story rows, the world events, the
+mod state, the director's line host and the model config — plus `GAME.refresh_body_lod`, the
+settings page's tab
 button and icon, the menu's in-page dropdown and the stock cue, which rebuild through the game's own
 code. The per-frame accessors copy nothing.
 
@@ -461,14 +475,15 @@ seated space and rest holds, and the VR touch bridge's caress event.
 
 `WORLD.mares()` answers a typed copy of the game's live list, so a caller may keep it across a
 scan but never expects the game's own array. `GAME` is the raw layer: every function takes the
-scene handle it needs and answers the typed zero, so a consumer that already holds `game` or
-`player` calls it directly instead of reaching through the facade.
+scene handle it needs and answers the typed zero, so a consumer that already holds a body, a bed
+or a world-context node calls it directly instead of reaching through the facade.
 
 `Bind` runs in this order from the entry: `bind_world()` on world ready (it clears the resolved
-handles), `bind_player()` when the player rig arrives, `unbind()` on world close. An unbound
-facade answers `null` and `false`; that is the "no world yet" answer, not a rule. `game_player()`
-reads the game's own `player` property through `GAME`, so a renamed or missing property is null
-instead of a crash.
+handles), `bind_player()` when the player rig arrives, `unbind()` on world close. The two binds and
+`unbind()` are the only writers of the private `_game` and `_player` handles; `ready()` and
+`player_rig()` are the reads every other file uses. An unbound facade answers `null` and `false`;
+that is the "no world yet" answer, not a rule. `game_player()` reads the game's own `player`
+property through `GAME`, so a renamed or missing property is null instead of a crash.
 
 The views of a pony's body, navigator, face, wings and flank, of Anon's rig, a bed, the scene's
 director and world context, the inventory and menu surfaces, the mods registry, the relationship
@@ -477,8 +492,8 @@ node calls `GAME` directly only for an accessor no view owns.
 
 ## Data ownership
 
-The facade stores no saved data. It holds the two bound handles, three resolved ones and the view
-caches, all cleared on every bind and on unbind. Nothing is written to the settings file or
+The facade stores no saved data. It holds the two private bound handles, three resolved ones and
+the view caches, all cleared on every bind and on unbind. Nothing is written to the settings file or
 `Mods.state`.
 
 ## Settings

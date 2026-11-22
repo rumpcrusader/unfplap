@@ -50,15 +50,14 @@ func _process(delta: float) -> void:
 
 
 func _tick() -> void:
-	var game: Node = WORLD.game
-	if not is_instance_valid(game):
+	if not WORLD.ready():
 		return
 	var tree := get_tree()
 	if tree == null or tree.paused:
 		return
 	if PONIES.act_running():
 		return
-	var player := GAME.game_player(game)
+	var player := WORLD.game_player()
 	if not is_instance_valid(player):
 		return
 	var briefcase := WORLD.inventory()

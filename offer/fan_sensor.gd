@@ -57,7 +57,7 @@ var _pending := true
 func update(delta: float, eye: Vector3, forward: Vector3, pony_form: bool,
 		force := false) -> bool:
 	_clock += delta
-	if PONIES.act_running() or not is_instance_valid(WORLD.game) or not eye.is_finite():
+	if PONIES.act_running() or not is_instance_valid(WORLD.world_root()) or not eye.is_finite():
 		return _clear()
 	var mode_changed := pony_form != _pony_form
 	if not (force or _pending or mode_changed or _clock >= SENSOR_POLL_S):
@@ -118,8 +118,8 @@ func update(delta: float, eye: Vector3, forward: Vector3, pony_form: bool,
 	return changed
 
 
-## The full fan read: every mare in the game's array, with the distance reject first. It runs at
-## the poll cadence, so a crowd costs the whole array ten times a second.
+## The full fan read: every live mare, with the distance reject first. It runs at the poll cadence,
+## so a crowd costs the whole list ten times a second.
 func _discover(eye: Vector3, forward: Vector3, pony_form: bool) -> void:
 	_previous.clear()
 	_previous.assign(_candidates)
@@ -131,47 +131,42 @@ func _discover(eye: Vector3, forward: Vector3, pony_form: bool) -> void:
 	_beside = null
 	var near_sq := LYING_NEAR_SQ if pony_form else NEAR_SQ
 	var lying_dot := LYING_DOT
-	var mares: Variant = WORLD.game.get("mares")
-	if mares is Array:
-		for node: Variant in mares as Array:
-			if not node is Node3D or not is_instance_valid(node):
+	for actor: Node3D in WORLD.mares():
+		if not actor.has_method("posture_status"):
+			continue
+		var dx := actor.global_position.x - eye.x
+		var dz := actor.global_position.z - eye.z
+		if dx * dx + dz * dz > near_sq:
+			continue
+		var status: Dictionary = actor.posture_status()
+		var posture := str(status.get("requested", ""))
+		if posture == "stand":
+			var rump := RUMP_CONE.approx_point(actor)
+			var rx := eye.x - rump.x
+			var rz := eye.z - rump.z
+			var distance := rx * rx + rz * rz
+			if distance > RUMP_CONE.REACH_SQ:
 				continue
-			var actor := node as Node3D
-			if not actor.has_method("posture_status"):
+			if not RUMP_CONE.contains(actor.global_basis.z, rump, eye):
 				continue
-			var dx := actor.global_position.x - eye.x
-			var dz := actor.global_position.z - eye.z
-			if dx * dx + dz * dz > near_sq:
+			_insert(actor, distance)
+		elif pony_form and posture == "lie_down":
+			var at := actor.global_position + Vector3.UP * 0.5
+			var to := at - eye
+			var reach := to.length_squared()
+			if reach > LYING_REACH_SQ or reach < 0.000001:
 				continue
-			var status: Dictionary = actor.posture_status()
-			var posture := str(status.get("requested", ""))
-			if posture == "stand":
-				var rump := RUMP_CONE.approx_point(actor)
-				var rx := eye.x - rump.x
-				var rz := eye.z - rump.z
-				var distance := rx * rx + rz * rz
-				if distance > RUMP_CONE.REACH_SQ:
-					continue
-				if not RUMP_CONE.contains(actor.global_basis.z, rump, eye):
-					continue
-				_insert(actor, distance)
-			elif pony_form and posture == "lie_down":
-				var at := actor.global_position + Vector3.UP * 0.5
-				var to := at - eye
-				var reach := to.length_squared()
-				if reach > LYING_REACH_SQ or reach < 0.000001:
-					continue
-				var dot := forward.dot(to * (1.0 / sqrt(reach)))
-				if dot > lying_dot:
-					lying_dot = dot
-					_lying = actor
+			var dot := forward.dot(to * (1.0 / sqrt(reach)))
+			if dot > lying_dot:
+				lying_dot = dot
+				_lying = actor
 	if not pony_form:
 		_beside = _seat_partner()
 
 
 ## The pony in the seat beside a seated human Anon; null without an occupied seat.
 static func _seat_partner() -> Node3D:
-	var body: Node3D = WORLD.player
+	var body: Node3D = WORLD.player_rig()
 	if not is_instance_valid(body):
 		return null
 	var seat: Node = WORLD.anon().seat()
@@ -336,7 +331,7 @@ func _scene_hash(pony: Node3D, player_value: int) -> int:
 
 ## The player's half of the fingerprint: everything the press guards read.
 func _player_hash() -> int:
-	var body: Node3D = WORLD.player
+	var body: Node3D = WORLD.player_rig()
 	if not is_instance_valid(body):
 		return 0
 	var value := 0
@@ -356,12 +351,9 @@ func _player_hash() -> int:
 	if rest is Object and is_instance_valid(rest):
 		var amount: Variant = rest.get("amount")
 		value = _mix(value, 1 if amount != null and float(amount) < 0.99 else 0)
-	if is_instance_valid(WORLD.game):
-		var inventory: Variant = WORLD.game.get("inventory")
-		if inventory is Object and is_instance_valid(inventory):
-			var held: Variant = inventory.get("held")
-			value = _mix(value, (held as Dictionary).size() if held is Dictionary else 0)
-			value = _mix(value, hash(str(inventory.get("holding_case"))))
+	var inventory := WORLD.inventory()
+	value = _mix(value, inventory.held_count())
+	value = _mix(value, hash(inventory.holding_case()))
 	value = _mix(value, 1 if WORLD.player_is_pony() else 0)
 	value = _mix(value, 1 if WORLD.headset_view() else 0)
 	value = _mix(value, int(Input.mouse_mode))

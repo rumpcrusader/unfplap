@@ -207,7 +207,7 @@ func rejoin_bed_cuddle(bed_node: Node3D, act_serial: int) -> void:
 	if ctx.serial != act_serial:
 		return
 	var player: Node3D = player_node()
-	if not is_instance_valid(WORLD.game) or not is_instance_valid(player):
+	if not WORLD.ready() or not is_instance_valid(player):
 		return
 	if not player.has_method("sit_on") or not player.has_method("toggle_couch_sleep"):
 		LOG.debug("cuddle rejoin skipped reason=no_player_rest")
@@ -323,7 +323,7 @@ func rejoin_note(rest: RestState) -> String:
 func rejoin_wanted(values: Context) -> bool:
 	if values.player_pony or values.headset:
 		return false
-	if not is_instance_valid(WORLD.game) or not is_instance_valid(player_node()):
+	if not WORLD.ready() or not is_instance_valid(player_node()):
 		return false
 	if values.summary_known:
 		return values.summary_grade != "bad"
@@ -344,7 +344,7 @@ func restore_posture(frame: String, _rejoin_cuddle: bool) -> void:
 
 
 func player_node() -> Node3D:
-	return WORLD.player
+	return WORLD.player_rig()
 
 
 func context_values() -> Context:

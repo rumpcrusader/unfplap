@@ -230,7 +230,7 @@ func commit_after_act(values: ActInput, readiness: READINESS, dialogue: DIALOGUE
 		pony_name: String, serial: int, pony: Node) -> void:
 	commit_act(values, readiness, true)
 	record_act_peak(values, readiness, dialogue)
-	if not is_instance_valid(WORLD.game):
+	if not is_instance_valid(WORLD.world_root()):
 		return
 	for row: MEMORY.Witness in memory.witnesses(values.pony_id, pony_name, serial, pony):
 		LOG.debug("witness %s", [row.to_dict()])
@@ -329,6 +329,6 @@ func _reasons(outcome: Dictionary) -> String:
 
 
 func _game_ok() -> bool:
-	return is_instance_valid(WORLD.game)
+	return is_instance_valid(WORLD.world_root())
 
 

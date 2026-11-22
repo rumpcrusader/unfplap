@@ -205,14 +205,14 @@ func sync_hud() -> void:
 	view.sync_hud(context.facts, self, max_pony_climaxes, cycle_heat, pose_family())
 
 func stool() -> STOOL_ACT:
-	if not is_instance_valid(WORLD.game) or not is_instance_valid(host.pony):
+	if not WORLD.ready() or not is_instance_valid(host.pony):
 		return null
 	var service: STOOL = context.stool_service
 	if service == null:
 		return null
 	if context.stool == null:
 		context.stool = service.new_act()
-	context.stool.bind(service, host.pony as Node3D, WORLD.player, PONIES.anatomy as ANATOMY)
+	context.stool.bind(service, host.pony as Node3D, WORLD.player_rig(), PONIES.anatomy as ANATOMY)
 	return context.stool
 
 func release_stool() -> void:
@@ -462,7 +462,7 @@ func release_anatomy() -> void:
 ## Build the optional VR controller; the VR service owns the scene lookup and the node.
 func begin_vr() -> void:
 	stop_vr()
-	vr = VR_ACT.attach(host.node, WORLD.player)
+	vr = VR_ACT.attach(host.node, WORLD.player_rig())
 	if vr == null:
 		return
 	vr.forward = Callable(self, "vr_forward")
@@ -632,7 +632,7 @@ func climax() -> void:
 	context.face.set_face(0.3, context.face.CLIMAX_LIDS)
 	face_beat("climax")
 	context.dialogue.end_act(event_id, true)
-	if is_instance_valid(WORLD.game) and context.memory != null \
+	if is_instance_valid(WORLD.world_root()) and context.memory != null \
 			and context.readiness.pony_climaxes == 1:
 		context.memory.note(MEMORY.NoteKind.CLIMAXED, pony_id, event_id)
 	view.climax_line(self)

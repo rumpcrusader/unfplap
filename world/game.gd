@@ -25,11 +25,27 @@ class DockFit extends RefCounted:
 	var data: Dictionary = {}
 
 
+## One cached world-context bond row: whether the cache holds her, and its love level.
+class BondLevel extends RefCounted:
+	var found := false
+	var love := -1
+
+
 ## The eye is in a headset; absent reads as false.
 static func headset_view(game: Node) -> bool:
 	if not is_instance_valid(game):
 		return false
 	return game.get("headset_view") == true
+
+
+## The game's desktop presentation node; null when absent.
+static func desktop_presentation(game: Node) -> Node:
+	if not is_instance_valid(game):
+		return null
+	var node: Variant = game.get("desktop_presentation")
+	if node is Node and is_instance_valid(node):
+		return node
+	return null
 
 
 ## The game's player property; null when absent or not a body.
@@ -54,6 +70,38 @@ static func mares(game: Node) -> Array[Node3D]:
 		if node is Node3D and is_instance_valid(node):
 			copy.append(node)
 	return copy
+
+
+## Only catalogue entries with a non-empty scene path are kept.
+static func shape_ids(game: Node) -> Array[String]:
+	var ids: Array[String] = []
+	if not is_instance_valid(game):
+		return ids
+	var population: Variant = game.get("population")
+	if not population is Node or not is_instance_valid(population):
+		return ids
+	var available: Variant = (population as Node).get("available")
+	if not available is Dictionary:
+		return ids
+	for raw: Variant in (available as Dictionary).keys():
+		var id := str(raw).strip_edges()
+		if not id.is_empty() and not str((available as Dictionary).get(raw, "")).is_empty():
+			ids.append(id)
+	return ids
+
+
+## Loads the catalogue entry's scene; null when there is no entry.
+static func shape_scene(game: Node, id: String) -> PackedScene:
+	if not is_instance_valid(game) or id.is_empty():
+		return null
+	var population: Variant = game.get("population")
+	if not population is Node or not is_instance_valid(population):
+		return null
+	var available: Variant = (population as Node).get("available")
+	if not available is Dictionary:
+		return null
+	var path := str((available as Dictionary).get(id, ""))
+	return load(path) as PackedScene if not path.is_empty() else null
 
 
 ## The scene's own camera search, read only while the scene still exposes it.
@@ -246,6 +294,32 @@ static func inventory(game: Node) -> Node:
 	if node is Node and is_instance_valid(node):
 		return node
 	return null
+
+
+## Read from the world child by name; null when the scene has no such child.
+static func interaction_hints(game: Node) -> Node:
+	if not is_instance_valid(game):
+		return null
+	var node: Variant = game.get_node_or_null("InteractionHints")
+	if node is Node and is_instance_valid(node):
+		return node
+	return null
+
+
+## How many item rows the inventory holds; 0 without an inventory.
+static func inventory_held_count(inventory: Object) -> int:
+	if not is_instance_valid(inventory):
+		return 0
+	var held: Variant = inventory.get("held")
+	return (held as Dictionary).size() if held is Dictionary else 0
+
+
+## The item id the inventory holds as a case; empty when it holds none.
+static func inventory_holding_case(inventory: Object) -> String:
+	if not is_instance_valid(inventory):
+		return ""
+	var id: Variant = inventory.get("holding_case")
+	return str(id) if id != null else ""
 
 
 ## Whether the inventory has its map open; its own private test when it has one.
@@ -960,6 +1034,26 @@ static func world_context(game: Node) -> Node:
 	if context is Node and is_instance_valid(context):
 		return context
 	return null
+
+
+## Her cached bond row in the world context; an absent row reads unfound, so a caller can fall
+## back to the ladder without losing the cache's own -1.
+static func bond_level(game: Node, id: String) -> BondLevel:
+	var out := BondLevel.new()
+	var context: Node = world_context(game)
+	if not is_instance_valid(context) or id.is_empty():
+		return out
+	var state: Variant = context.get("state")
+	if not state is Dictionary:
+		return out
+	var levels: Variant = (state as Dictionary).get("bond_levels")
+	if not levels is Dictionary:
+		return out
+	var cached: Variant = (levels as Dictionary).get(id)
+	if cached is Dictionary:
+		out.found = true
+		out.love = int((cached as Dictionary).get("love", -1))
+	return out
 
 
 ## The world context's story journal; null when it has none.

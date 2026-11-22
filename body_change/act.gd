@@ -294,7 +294,7 @@ func source() -> BODY_CHANGE_SOURCE:
 
 ## The world body-change service, or null on a host without it (a suite or a lab harness).
 func service() -> BODY_CHANGE_SERVICE:
-	if not is_instance_valid(WORLD.game):
+	if not is_instance_valid(WORLD.world_root()):
 		return null
 	var value: Variant = PONIES.body_change
 	if value is BODY_CHANGE_SERVICE:
@@ -543,7 +543,7 @@ func offer_tick() -> void:
 	offer_pending = true
 	hint_tick()
 	LOG.debug("form shape offer id=%s climaxes=%d", [host.id(), host.climaxes()])
-	if not is_instance_valid(WORLD.game):
+	if not is_instance_valid(WORLD.world_root()):
 		return
 	var act_id := host.event_id()
 	var valid := host.validity(func() -> bool:

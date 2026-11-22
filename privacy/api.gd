@@ -36,7 +36,7 @@ func is_private(target: Node, kind: Kind = Kind.OFFER) -> bool:
 ## The live privacy facts for `target`. The target itself is excluded from the other-mare checks.
 func _state_for(target: Node) -> _State:
 	var out := _State.new()
-	var node: Node3D = WORLD.player
+	var node: Node3D = WORLD.player_rig()
 	if not is_instance_valid(node):
 		return out
 	var house := WORLD.house_at(node.global_position)

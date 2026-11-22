@@ -234,10 +234,7 @@ func witnesses(partner_id: String, name: String, serial: int,
 
 ## The game node for the current world, or null outside one.
 func _game() -> Node:
-	var node: Variant = WORLD.game
-	if node is Node and is_instance_valid(node):
-		return node
-	return null
+	return WORLD.world_root()
 
 
 ## The eligibility service, or null before it exists. This is the one-way capability read.
@@ -248,6 +245,6 @@ func _eligibility() -> ELIGIBILITY:
 
 ## True when this is her first act with the player.
 func first_time(pony_id: String, event_id: String) -> bool:
-	if not is_instance_valid(WORLD.game) or pony_id.is_empty():
+	if not is_instance_valid(WORLD.world_root()) or pony_id.is_empty():
 		return false
 	return cue_facts(pony_id, event_id).first_time

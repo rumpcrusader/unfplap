@@ -156,14 +156,14 @@ func context_facts(pony: Node) -> Dictionary:
 
 ## The world-context impression mood for one id, or "".
 func _world_mood(id: String) -> String:
-	if id.is_empty() or not is_instance_valid(WORLD.game):
+	if id.is_empty() or not is_instance_valid(WORLD.world_root()):
 		return ""
 	return WORLD.director().impression_mood(id, "")
 
 
 ## The relationship prompt note for one id, or "".
 func _relation_note(id: String) -> String:
-	if id.is_empty() or not is_instance_valid(memory) or not is_instance_valid(WORLD.game):
+	if id.is_empty() or not is_instance_valid(memory) or not is_instance_valid(WORLD.world_root()):
 		return ""
 	var facts: MEMORY.CueFacts = memory.cue_facts(id, "")
 	var facts_dict := facts.to_dict()
@@ -246,7 +246,7 @@ func _classifier_ready() -> bool:
 ## The mare whose conversation target is Anon, nearest first. The game's own target decides; the
 ## classifiers never reroute the director.
 func _conversation_mare() -> Node:
-	if not is_instance_valid(WORLD.player):
+	if not is_instance_valid(WORLD.player_rig()):
 		return null
 	var best: Node = null
 	var best_distance := INF
@@ -256,12 +256,12 @@ func _conversation_mare() -> Node:
 		var target: Variant = node.get("conversation_target")
 		if not is_instance_valid(target):
 			continue
-		var bound: bool = target == WORLD.player \
-			or (WORLD.player is Node and (WORLD.player as Node).is_ancestor_of(target))
+		var bound: bool = target == WORLD.player_rig() \
+			or (WORLD.player_rig() is Node and (WORLD.player_rig() as Node).is_ancestor_of(target))
 		if not bound:
 			continue
 		var actor := node as Node3D
-		var distance := actor.global_position.distance_to(WORLD.player.global_position)
+		var distance := actor.global_position.distance_to(WORLD.player_rig().global_position)
 		if distance < best_distance:
 			best_distance = distance
 			best = node

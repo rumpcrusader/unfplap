@@ -193,12 +193,12 @@ func scene_only_verdict(pose: String, act_source: String, bed: Node3D = null,
 		frozen: FrozenPose = null, stool_need: int = -1, stool_have: int = -1) -> SceneVerdict:
 	var rows_out: Array[ACT_GATE.Row] = []
 	_gate_row(rows_out, "invalid_pony", is_instance_valid(pony), "invalid_pony")
-	_gate_row(rows_out, "no_world", is_instance_valid(WORLD.game), "no_world")
-	_gate_row(rows_out, "no_player", is_instance_valid(WORLD.player),
+	_gate_row(rows_out, "no_world", is_instance_valid(WORLD.world_root()), "no_world")
+	_gate_row(rows_out, "no_player", is_instance_valid(WORLD.player_rig()),
 		"no_player")
-	_gate_row(rows_out, "no_game", is_instance_valid(WORLD.game),
+	_gate_row(rows_out, "no_game", is_instance_valid(WORLD.world_root()),
 		"no_game")
-	if not is_instance_valid(pony) or not is_instance_valid(WORLD.game):
+	if not is_instance_valid(pony) or not is_instance_valid(WORLD.world_root()):
 		return _scene_only_result(rows_out)
 	var tree: SceneTree = pony.get_tree()
 	_gate_row(rows_out, "state", state == STATE_IDLE, "state=%d" % state)
@@ -289,9 +289,9 @@ func hotkey_ready(pose: String, act_source: String, bed_in: Node3D = null,
 
 ## The runtime state and the standing scene rows that do not depend on a pose.
 func available() -> bool:
-	if not is_instance_valid(pony) or not is_instance_valid(WORLD.game):
+	if not is_instance_valid(pony) or not WORLD.ready():
 		return false
-	if not is_instance_valid(WORLD.player):
+	if not is_instance_valid(WORLD.player_rig()):
 		return false
 	var tree: SceneTree = pony.get_tree()
 	if state != STATE_IDLE or (tree != null and tree.paused):
@@ -396,16 +396,16 @@ func _gate_data(pose: String, act_source: String, bed_in: Node3D, mode: String,
 	if not is_instance_valid(pony):
 		out.rows = structural
 		return out
-	_gate_row(structural, "no_world", is_instance_valid(WORLD.game), "no_world")
-	if not is_instance_valid(WORLD.game):
+	_gate_row(structural, "no_world", is_instance_valid(WORLD.world_root()), "no_world")
+	if not is_instance_valid(WORLD.world_root()):
 		out.rows = structural
 		return out
-	_gate_row(structural, "no_player", is_instance_valid(WORLD.player), "no_player")
-	if not is_instance_valid(WORLD.player):
+	_gate_row(structural, "no_player", is_instance_valid(WORLD.player_rig()), "no_player")
+	if not is_instance_valid(WORLD.player_rig()):
 		out.rows = structural
 		return out
-	_gate_row(structural, "no_game", is_instance_valid(WORLD.game), "no_game")
-	if not is_instance_valid(WORLD.game):
+	_gate_row(structural, "no_game", is_instance_valid(WORLD.world_root()), "no_game")
+	if not is_instance_valid(WORLD.world_root()):
 		out.rows = structural
 		return out
 	var policy_mode: ACT_GATE.Mode = ACT_GATE.Mode.OFFER if mode == "offer" \
@@ -430,7 +430,7 @@ func policy_verdict_for(mode: ACT_GATE.Mode,
 		return verdict_in
 	if policy_verdict.is_valid():
 		return policy_verdict.call(mode, verdict_in)
-	if not is_instance_valid(WORLD.game):
+	if not is_instance_valid(WORLD.world_root()):
 		return null
 	var service: ACT_GATE = gate_service
 	if service == null:
@@ -553,13 +553,13 @@ func rig_reason(missing: Array[String]) -> String:
 
 
 func buck_or_push() -> bool:
-	if not is_instance_valid(pony) or not is_instance_valid(WORLD.game):
+	if not is_instance_valid(pony) or not is_instance_valid(WORLD.world_root()):
 		return false
 	var affection: Node = pony.get_node_or_null("Affection")
 	if affection != null:
 		if WORLD.affection().buck(affection, WORLD.player_body()):
 			return true
-	var body: Node3D = WORLD.player
+	var body: Node3D = WORLD.player_rig()
 	if not is_instance_valid(body):
 		return false
 	var anon := WORLD.anon()
@@ -574,17 +574,17 @@ func buck_or_push() -> bool:
 
 
 func conversation_ok() -> bool:
-	if not is_instance_valid(pony) or not is_instance_valid(WORLD.game):
+	if not is_instance_valid(pony) or not is_instance_valid(WORLD.world_root()):
 		return false
 	var target: Variant = pony.get("conversation_target")
 	if target == null or not is_instance_valid(target):
 		return true
 	var body: Node3D = WORLD.player_body()
-	if target == WORLD.player or target == body:
+	if target == WORLD.player_rig() or target == body:
 		return true
 	# The player's body/avatar is under the rig; another pony's is not.
-	if is_instance_valid(WORLD.player) and WORLD.player is Node \
-			and (WORLD.player as Node).is_ancestor_of(target as Node):
+	if is_instance_valid(WORLD.player_rig()) and WORLD.player_rig() is Node \
+			and (WORLD.player_rig() as Node).is_ancestor_of(target as Node):
 		return true
 	return false
 
@@ -752,7 +752,7 @@ func nav_pose_gate(pose: String, act_source: String, hold_exempt := false) -> bo
 func bed_gate(pose: String, act_source: String, found: Node3D) -> bool:
 	if not _is_bed_pose(pose):
 		return true
-	if not is_instance_valid(pony) or not is_instance_valid(WORLD.game):
+	if not is_instance_valid(pony) or not is_instance_valid(WORLD.world_root()):
 		return false
 	var rest: Node = pony.get_node_or_null("CradleRest")
 	if rest != null:
@@ -784,7 +784,7 @@ func bed_gate(pose: String, act_source: String, found: Node3D) -> bool:
 
 
 func resolve_bed(pose: String, act_source: String, bed_in: Node3D) -> Node3D:
-	if not _is_bed_pose(pose) or not is_instance_valid(WORLD.game):
+	if not _is_bed_pose(pose) or not is_instance_valid(WORLD.world_root()):
 		return null
 	if bed_in is Node3D and is_instance_valid(bed_in):
 		var real := WORLD.real_bed(bed_in)
@@ -796,16 +796,16 @@ func resolve_bed(pose: String, act_source: String, bed_in: Node3D) -> Node3D:
 
 
 func find_bed_under() -> Node3D:
-	if not is_instance_valid(pony) or not is_instance_valid(WORLD.game):
+	if not is_instance_valid(pony) or not is_instance_valid(WORLD.world_root()):
 		return null
 	var exclude: RID = pony.get_rid() if pony is CollisionObject3D else RID()
 	return WORLD.bed_under(pony.global_position, exclude)
 
 
 func player_ready_for(pose: String, act_source: String, bed_in: Node3D) -> bool:
-	if not is_instance_valid(WORLD.game):
+	if not WORLD.ready():
 		return false
-	var body: Variant = WORLD.player
+	var body: Variant = WORLD.player_rig()
 	if not is_instance_valid(body):
 		return false
 	# A headset rig is a plain Node3D: it has neither desktop `controls_locked` nor `flying`, and
@@ -825,14 +825,11 @@ func player_ready_for(pose: String, act_source: String, bed_in: Node3D) -> bool:
 	if DisplayServer.get_name() != "headless" and not headset_view() \
 			and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		return false
-	var inventory: Variant = WORLD.game.get("inventory") \
-		if is_instance_valid(WORLD.game) else null
-	if inventory != null:
-		var held: Variant = inventory.get("held")
-		if held is Dictionary and not (held as Dictionary).is_empty():
-			return false
-		if str(inventory.get("holding_case")) != "":
-			return false
+	var inventory := WORLD.inventory()
+	if inventory.held_count() > 0:
+		return false
+	if not inventory.holding_case().is_empty():
+		return false
 	if not POSE_SPECS.is_public(pose) or not _source_allowed(pose, act_source):
 		return false
 	var seat: Variant = body.get("seat")
@@ -900,8 +897,7 @@ func _view_id() -> String:
 
 
 func headset_view() -> bool:
-	return is_instance_valid(WORLD.game) \
-		and WORLD.game.get("headset_view") == true
+	return WORLD.headset_view()
 
 
 func _row(rows_out: Array[ACT_GATE.Row], key: String, ok: bool, reason := "") -> void:

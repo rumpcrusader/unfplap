@@ -14,7 +14,7 @@ const BOTTOM_Y := 640.0
 
 
 
-## The game's settings autoload: one speech setting and the change signal the HUD subscribes to.
+## The game's settings autoload: one speech setting and the change signal the settings bridge reads.
 class FakeGameSettings extends Node:
 	signal changed(key: String)
 	var speech := "caption"
@@ -82,7 +82,7 @@ class FakeWorld extends Node:
 
 
 func run() -> void:
-	# The caption reads the game's own speech setting through the world facade, so a world is
+	# The caption reads the game's own speech setting through the settings facade, so a world is
 	# bound for the whole run; `_check_accessors()` rebinds its own and drops it.
 	var host := FakeWorld.new()
 	root.add_child(host)
@@ -110,8 +110,13 @@ func _check_caption_conditions() -> void:
 	var game := FakeGameSettings.new()
 	game.name = "Settings"
 	root.add_child(game)
+	# The settings service caches the autoload for its game channel; point it at this fake.
+	SETTINGS._game_settings = null
+	var game_base := CHANGE.game_listener_count()
 	var hud: CanvasLayer = HUD.new()
 	root.add_child(hud)
+	check(CHANGE.game_listener_count() == game_base + 1,
+		"the HUD joins the game-setting channel")
 	hud.set("_captions_on_top", true)
 	var caption := FakeCaption.new()
 	caption.name = "SpeechCaption"
@@ -178,6 +183,8 @@ func _check_caption_conditions() -> void:
 	caption.free()
 	root.remove_child(hud)
 	hud.free()
+	check(CHANGE.game_listener_count() == game_base,
+		"a freed HUD leaves the game-setting channel")
 	root.remove_child(game)
 	game.free()
 	_restore(real_settings, "Settings")

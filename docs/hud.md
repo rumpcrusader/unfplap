@@ -115,8 +115,9 @@ control card off, the cue, readiness line and close prompt remain.
   decides whether anything moves. It sets the caption's private `_card` position to
   `CAPTION_TOP_MARGIN` rounded, scaled by the caption's own `_scale`, which lands after the
   caption's own `_process` because the entry runs at process priority 100. It leaves the
-  settings-page preview alone and does nothing if the card fields disappear. The HUD owns the
-  game `Settings.changed` subscription: only `access/speech_text` re-applies the mode.
+  settings-page preview alone and does nothing if the card fields disappear. The HUD never
+  subscribes to the game autoload: it listens on the settings service's game channel, and only
+  `access/speech_text` re-applies the mode.
 - **Enable debug** gates the detailed overlay and the mod's logging, not the HUD.
   **Print perf logs** separately gates the per-second performance block and needs it on too.
 

@@ -155,17 +155,15 @@ func _ready() -> void:
 	_hint.move_child(_hint_form, 2)
 	_hint.move_child(_hint_auto, 3)
 	_hint.move_child(_hint_gap, 4)
-	# The game setting arrives as one subscription the HUD owns: only the speech setting concerns
-	# the caption move. The autoload is looked up, never assumed.
-	var settings := get_node_or_null("/root/Settings")
-	if settings != null and settings.has_signal("changed") \
-			and not settings.changed.is_connected(_on_game_setting_changed):
-		settings.changed.connect(_on_game_setting_changed)
+	# The HUD reacts to the settings service's game channel, never the autoload: only the speech
+	# setting concerns the caption move.
+	CHANGE.on_game_changed(Callable(self, "_on_game_setting_changed"))
 	CHANGE.on_changed(Callable(self, "apply_settings"))
 
 
 func _exit_tree() -> void:
 	CHANGE.off_changed(Callable(self, "apply_settings"))
+	CHANGE.off_game_changed(Callable(self, "_on_game_setting_changed"))
 
 
 ## Refresh the two settings the HUD caches.

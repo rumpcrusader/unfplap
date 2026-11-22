@@ -1131,6 +1131,7 @@ static var gaze_offset_mm_hoers := num("gaze_offset_mm_hoers",
 ## The size preset the game is currently set to. The game's Settings autoload is cached; the preset
 ## is the same for every pony of that size (a stallion is 1.2x the preset, not a preset of its own).
 static var _game_settings: Node = null
+static var _game_change := Callable()
 
 static func pony_size_name() -> String:
 	var settings := _game_settings_node()
@@ -1147,7 +1148,17 @@ static func _game_settings_node() -> Node:
 	if not is_instance_valid(_game_settings):
 		var loop := Engine.get_main_loop() as SceneTree
 		_game_settings = GAME.settings_node(loop.root) if loop != null and loop.root != null else null
+		_hook_game_changed()
 	return _game_settings
+
+## The game's one change signal joins the game channel; a replaced node is connected once, never twice.
+static func _hook_game_changed() -> void:
+	if not is_instance_valid(_game_settings) or not _game_settings.has_signal("changed"):
+		return
+	if not _game_change.is_valid():
+		_game_change = func(key: String) -> void: CHANGE.notify_game(key)
+	if not _game_settings.is_connected("changed", _game_change):
+		_game_settings.changed.connect(_game_change)
 
 static func vulva_shift_mm_for(size: String) -> float:
 	match size:

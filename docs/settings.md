@@ -237,8 +237,9 @@ prefixes pre-emptively.
 ## Change notification
 
 Every edit ends in one pass, and that pass is the only way a settings change reaches a service.
-`shared/settings_change.gd` holds one static listener list — GDScript has no static signals — and
-`SETTINGS.apply_live()` notifies it:
+`shared/settings_change.gd` holds two static listener lists — GDScript has no static signals — one
+for the mod's own settings edits and one for the game's own settings. `SETTINGS.apply_live()`
+notifies the mod channel:
 
 ```gdscript
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
@@ -257,13 +258,19 @@ SETTINGS.apply_live()                                  # one pass, after the val
 | A release is free | `off_changed()` drops the place; a listener that is freed without leaving is dropped on the next pass instead of called |
 | Safe mid-pass | a listener that leaves during the pass is not called in that pass |
 
+The game channel carries the key the game changed. The settings service connects the game's own
+`Settings.changed` once, `CHANGE.notify_game(key)` calls every live game listener in registration
+order, and a listener re-reads only what that key affects. The two channels never merge: a mod edit
+is a full re-read and a game key is not forwarded to the mod channel.
+
 The subscribers, in construction order: `log` (the two debug switches, through the reads the entry
-binds), `hud` (the act-key cap and the caption mode), `offer`, `input` (the act action and the
-shield), `anatomy` (the player part, every live controller and the tail seats), `body_change` (the
-source's tail wrapper for every live body), `pantyhose`, `audio` (the Ponese mute), `stock_smack`,
-`ponies` (every runtime, and the act a pending body swap has taken out of the registry), the debug
-actions (the wheel and the skeleton overlay) and the settings UI (the Debug blocks). `stool`,
-`initiation` and `negotiation` read their settings live and subscribe to nothing.
+binds), `hud` (the act-key cap and the caption mode; also the game channel's one listener), `offer`,
+`input` (the act action and the shield), `anatomy` (the player part, every live controller and the
+tail seats), `body_change` (the source's tail wrapper for every live body), `pantyhose`, `audio`
+(the Ponese mute), `stock_smack`, `ponies` (every runtime, and the act a pending body swap has taken
+out of the registry), the debug actions (the wheel and the skeleton overlay) and the settings UI
+(the Debug blocks). `stool`, `initiation` and `negotiation` read their settings live and subscribe
+to nothing.
 
 `api.gd`, `eligibility.set_profile()` and a provider's settled body change call
 `SETTINGS.apply_live()` too: a provider layer is a live input like a panel edit. The list lives in

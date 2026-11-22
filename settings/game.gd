@@ -3,7 +3,7 @@ extends RefCounted
 ## Contract: docs/settings.md `## Base-game access`
 ## Scope: settings
 ## Import: base-game modules only
-## Typed reads and writes of the game's settings node, page, menu style and mods folder.
+## Base-game boundary for the settings autoload, its page and the menu chrome.
 
 const MENU_STYLE := preload("res://world/ui/menu_style.gd")
 const MENU_PICKER := preload("res://world/ui/menu_picker.gd")

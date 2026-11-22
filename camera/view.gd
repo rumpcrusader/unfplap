@@ -6,7 +6,6 @@ extends RefCounted
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
 const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
-const MATTRESS := preload("res://world/life/couch/mattress.gd")
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
@@ -669,7 +668,7 @@ func bed_surface_top() -> float:
 		return INF
 	var fallback: float = float(bed.get_meta("mattress_top", 0.6)) + float(bed.global_position.y)
 	var points: Array[Vector3] = [bed.global_position]
-	return MATTRESS.visible_top(bed, points, fallback)
+	return WORLD.bed(bed).surface_top(points, fallback)
 
 
 ## Push the eye out of her skull sphere and muzzle capsule. The surfaces move as she turns, so a

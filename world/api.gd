@@ -12,6 +12,7 @@ const FACE_VIEW := preload("res://mods/unfplap/world/views/face.gd")
 const WINGS_VIEW := preload("res://mods/unfplap/world/views/wings.gd")
 const FLANK_VIEW := preload("res://mods/unfplap/world/views/flank.gd")
 const ANON_VIEW := preload("res://mods/unfplap/world/views/anon.gd")
+const BED_VIEW := preload("res://mods/unfplap/world/views/bed.gd")
 const INTERACTOR_PATH := "res://player/interactor.gd"
 
 ## One pony's body reads and writes, bound to her node; every member answers typed zeroes when the
@@ -45,6 +46,11 @@ class Anon extends ANON_VIEW:
 	func _init(n: Node3D) -> void:
 		super(n)
 
+## A bed, its couch/rest, one of its seats or the seating system: the rest family's rows, bound.
+class Bed extends BED_VIEW:
+	func _init(n: Node) -> void:
+		super(n)
+
 
 ## The live world root; null outside a world.
 static var game: Node = null
@@ -61,6 +67,7 @@ static var _navigators: Dictionary = {}
 static var _faces: Dictionary = {}
 static var _wings: Dictionary = {}
 static var _flanks: Dictionary = {}
+static var _beds: Dictionary = {}
 static var _anon: Anon = null
 
 
@@ -98,6 +105,7 @@ static func _clear_handles() -> void:
 	_faces.clear()
 	_wings.clear()
 	_flanks.clear()
+	_beds.clear()
 	_anon = null
 
 
@@ -473,3 +481,14 @@ static func flank(n: Node) -> Flank:
 	_flanks[key] = view
 	return view
 
+
+## A bed, its couch/rest, one of its seats or the seating system, cached per bound node.
+static func bed(n: Node) -> Bed:
+	var live := is_instance_valid(n)
+	var key := n.get_instance_id() if live else 0
+	var found: Variant = _beds.get(key)
+	if found is Bed and (not live or found._bound() == n):
+		return found
+	var view := Bed.new(n if live else null)
+	_beds[key] = view
+	return view

@@ -28,7 +28,6 @@ const SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const REGISTRY := preload("res://mods/unfplap/poses/registry.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
-const MATTRESS := preload("res://world/life/couch/mattress.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 ## The empty sets the reconcile and the anon channel read, so a steady tick allocates nothing.
@@ -1146,7 +1145,7 @@ func missionary_pose_frame() -> Transform3D:
 		return NO_FRAME
 	var fallback: float = float(bed_node.get_meta("mattress_top", 0.6)) + float(bed_node.global_position.y)
 	var points: Array[Vector3] = [bed_node.global_position]
-	var top: float = MATTRESS.visible_top(bed_node, points, fallback)
+	var top: float = WORLD.bed(bed_node).surface_top(points, fallback)
 	if not is_finite(top):
 		return NO_FRAME
 	var at: Vector3 = bed_node.global_position

@@ -3,9 +3,6 @@ extends RefCounted
 ## Contract: `docs/rest.md`
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
-const GAME := preload("res://mods/unfplap/world/game.gd")
-const MATTRESS := preload("res://world/life/couch/mattress.gd")
-const COUCH_EXIT := preload("res://world/life/couch/exit_space.gd")
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
@@ -76,22 +73,22 @@ class RestState extends RefCounted:
 		return guest.origin.is_finite() and guest.origin.length_squared() > 0.0
 
 	func seats() -> Array[Node3D]:
-		return GAME.couch_seats(node)
+		return WORLD.bed(node).couch_seats()
 
 	func open() -> bool:
-		return GAME.couch_open(node)
+		return WORLD.bed(node).couch_open()
 
 	func invite(target: Node3D, seat: Node3D) -> bool:
-		return GAME.couch_invite(node, target, seat)
+		return WORLD.bed(node).couch_invite(target, seat)
 
 	func approach(seat: Node3D) -> Vector3:
-		return GAME.couch_approach(node, seat)
+		return WORLD.bed(node).couch_approach(seat)
 
 	func mare_fits() -> bool:
-		return GAME.couch_mare_fits(node)
+		return WORLD.bed(node).couch_mare_fits()
 
 	func cooldown_until(target: Node3D) -> int:
-		return GAME.couch_cooldown_until(node, target)
+		return WORLD.bed(node).couch_cooldown_until(target)
 
 
 func bind(pony_node: Node3D, bed_node: Node3D) -> void:
@@ -143,7 +140,7 @@ func bed_anchor() -> Transform3D:
 	if is_instance_valid(bed):
 		var points: Array[Vector3] = [bed.to_global(Vector3(0.18, 0.0, 0.0)),
 			bed.to_global(Vector3(-0.18, 0.0, 0.0))]
-		top = MATTRESS.visible_top(bed, points, bed.to_global(Vector3(0.0, fallback, 0.0)).y)
+		top = WORLD.bed(bed).surface_top(points, bed.to_global(Vector3(0.0, fallback, 0.0)).y)
 		center = Vector3(bed.global_position.x, top, bed.global_position.z)
 	var player: Node3D = player_node()
 	var player_at: Vector3 = player.global_position if is_instance_valid(player) else pony.global_position
@@ -184,10 +181,11 @@ func shared_bed_rest(bed_node: Node3D) -> RestState:
 			continue
 		if not node.has_method("pony_transform"):
 			continue
-		var seats := GAME.couch_seats(node)
+		var couch := WORLD.bed(node)
+		var seats := couch.couch_seats()
 		if seats.size() < 2:
 			continue
-		var rest := GAME.couch_pony_transform(node, seats[1])
+		var rest := couch.couch_pony_transform(seats[1])
 		if not rest.origin.is_finite():
 			continue
 		if rest.origin.length_squared() < 0.01 \
@@ -269,7 +267,7 @@ func bed_rest_for(bed_node: Node3D) -> RestState:
 			continue
 		if node.get("_bed") != bed_node and node.get("bed_node") != bed_node:
 			continue
-		if GAME.couch_seats(node).size() >= 2:
+		if WORLD.bed(node).couch_seats().size() >= 2:
 			return RestState.of_node(node)
 	return null
 
@@ -285,7 +283,7 @@ func stand_beside_bed(rest: RestState, seat: Node3D) -> void:
 	var fallback: Vector3 = seat.global_position
 	if front.is_finite():
 		fallback = front
-	var at: Vector3 = COUCH_EXIT.find_exit(pony, seat, fallback, clearance, radius)
+	var at: Vector3 = WORLD.bed(seat).exit_point(pony, fallback, clearance, radius)
 	if not at.is_finite():
 		LOG.debug("cuddle rejoin floor=no_space")
 		return
@@ -297,7 +295,7 @@ func stand_beside_bed(rest: RestState, seat: Node3D) -> void:
 		pose.basis = Basis(Vector3.UP, euler.y) * Basis.from_scale(pose.basis.get_scale())
 	pony.reset_motion(pose)
 	if pony.get("velocity") != null:
-		GAME.set_velocity(pony, Vector3.ZERO)
+		WORLD.set_velocity(pony, Vector3.ZERO)
 	pony.reset_physics_interpolation()
 	LOG.debug("cuddle rejoin floor=%s", [str(at)])
 

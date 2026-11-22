@@ -4,7 +4,6 @@ extends Node
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
-const BED_REST := preload("res://world/relationships/shared_bed.gd")
 const POLICY := preload("res://mods/unfplap/initiation/policy.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const POSE_OPTIONS := preload("res://mods/unfplap/shared/pose_options.gd")
@@ -148,7 +147,7 @@ func player_bed_node() -> Node3D:
 	var couch: Variant = seat.get_meta("couch")
 	if not is_instance_valid(couch):
 		return null
-	return GAME.rest_bed_of(couch)
+	return WORLD.bed(couch).rest_bed()
 
 
 ## Every loaded bed near Anon: the `couches` group beds and the house's mattress tops.
@@ -159,9 +158,9 @@ func beds_near(node: Node3D) -> Array:
 		for item: Variant in get_tree().get_nodes_in_group("couches"):
 			if not is_instance_valid(item) or not (item as Node).has_method("rest_word"):
 				continue
-			if GAME.rest_word(item) != "bed":
+			if WORLD.bed(item).rest_word() != "bed":
 				continue
-			var bed := GAME.rest_bed_of(item)
+			var bed := WORLD.bed(item).rest_bed()
 			if bed != null and not seen.has(bed.get_instance_id()):
 				seen[bed.get_instance_id()] = true
 				found.append(bed)
@@ -190,19 +189,20 @@ func bed_row(bed: Node3D, pony: Node3D, node: Node3D) -> Dictionary:
 		return {}
 	var rest: Variant = bed.get_meta("bed_rest") if bed.has_meta("bed_rest") else null
 	if not is_instance_valid(rest):
-		rest = BED_REST.for_bed(bed)
+		rest = WORLD.bed(bed).stock_rest()
 	if not is_instance_valid(rest):
 		return {}
-	GAME.bed_rest_refresh(rest)
-	if not GAME.bed_rest_fits(rest):
+	var view := WORLD.bed(rest)
+	view.refresh()
+	if not view.fits():
 		return {}
-	if GAME.bed_rest_has_guest(rest):
+	if view.has_guest():
 		return {}
-	if GAME.bed_rest_sleeper(rest) != null:
+	if view.sleeper() != null:
 		return {}
 	if bool(WORLD.bed_occupied(bed, pony)):
 		return {}
-	var front := GAME.bed_rest_front(rest, pony)
+	var front := view.front(pony)
 	if not front.is_finite():
 		return {}
 	return {

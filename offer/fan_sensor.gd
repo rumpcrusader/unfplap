@@ -181,7 +181,7 @@ static func _seat_partner() -> Node3D:
 	var couch: Variant = seat.get_meta("couch")
 	if not is_instance_valid(couch):
 		return null
-	var partner: Node = GAME.couch_partner(couch, seat)
+	var partner: Node = WORLD.bed(couch).couch_partner(seat)
 	return partner as Node3D if is_instance_valid(partner) else null
 
 

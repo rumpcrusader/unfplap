@@ -18,8 +18,8 @@ This contract covers:
   game's own settings;
 - the three scene writes a service cannot do itself: the merged LOD rebuild after a shape change,
   the act chat open past the controls lock and a body's velocity;
-- the bound views of a pony's body, navigator, face, wings and flank, Anon's rig, and the handle
-  cache behind them.
+- the bound views of a pony's body, navigator, face, wings and flank, Anon's rig, a bed and the
+  handle cache behind them.
 
 It does not cover an offer, a pose, an act start, a gate verdict or any act state. It preloads no
 service facade and no runtime.
@@ -65,15 +65,21 @@ names the entry to ask whether the scene is live.
 ## Views
 
 A view is a base-game object with its receiver already bound: `pony(n)`, `navigator(n)`, `face(n)`,
-`wings(n)`, `flank(n)` and `anon()` answer a handle whose members take no scene argument. The
-factory caches one handle per bound node (one for the player), so a per-frame read costs a lookup
-rather than an allocation, and every bind and `unbind()` drops the cache so a swapped body can
-never answer through the old one. A view built on `null` answers the accessors' typed zeroes; a
+`wings(n)`, `flank(n)`, `bed(n)` and `anon()` answer a handle whose members take no scene argument.
+The factory caches one handle per bound node (one for the player), so a per-frame read costs a
+lookup rather than an allocation, and every bind and `unbind()` drops the cache so a swapped body
+can never answer through the old one. A view built on `null` answers the accessors' typed zeroes; a
 caller that keeps one across a despawn therefore reads those zeroes rather than crashing.
 
 `Anon` is bound by the facade to its player handle, so its player members take no node. The
 presentation and the hand or torso driver it acts on are still passed, because a caller may hold a
 different one. `height` reads the game's own settings node, so no caller resolves it.
+
+`Bed` binds whichever of the four rest-family nodes holds the row a member reads: the bed itself for
+the bedding and the stock rest, the couch/rest that owns it for the seats and the guest entries, one
+of its seats for the exit floor, and the seating system for a pony's seating phase. A member takes
+the other nodes it needs — the seat it asks about, the pony, the body stepping off — because they are
+not the receiver.
 
 | View | Binds | Members |
 |---|---|---|
@@ -83,6 +89,7 @@ different one. `height` reads the game's own settings node, so no caller resolve
 | `Wings` | her excitement Beat, or the wing node it owns | `node`, `hold`, `release_hold`, `set_open`, `spread`, `flutter`, `opened`, `set_opened`, `set_tuck`, `set_half` |
 | `Flank` | her `FlankTouch` node, or the touch body whose hulls need syncing | `sync`, `update_surface`, `impact`, `wake_tick`, `start_jiggle`, `process`, `jiggle_amount`, `set_jiggle_amount` |
 | `Anon` | the player rig, bound by the facade | `seat`, `controls_locked`, `set_controls_locked`, `set_presentation_enabled`, `force_stand_up`, `height`, `eye_height`, `set_eye_y`, `set_stand_eye`, `set_eye_height`, `pitch`, `set_pitch`, `form`, `clamp_view`, `form_is_young`, `form_is_pony`, `body`, `q_held`, `set_q_held`, `set_space_hold`, `set_rest_held`, `sit_on`, `toggle_couch_sleep`, `set_hold_target`, `clear_hold_target`, `hand_frame`, `apply_torso_pose`, `set_rest_hand_targets`, `clear_rest_hand_targets`, `pose_driver`, `set_pose_driver`, `knockdown`, `start_knockdown` |
+| `Bed` | a bed, the couch/rest that owns it, a seat on it or the seating system | `couch_pony_transform`, `couch_seats`, `couch_open`, `couch_invite`, `couch_approach`, `couch_mare_fits`, `couch_cooldown_until`, `couch_partner`, `rest_word`, `rest_bed`, `refresh`, `fits`, `has_guest`, `sleeper`, `front`, `accepts`, `willing`, `eligible`, `seat_free_for`, `seating_phase`, `release_seat`, `finish_guest`, `release_pony`, `surface_top`, `exit_point`, `stock_rest` |
 
 `Pony` resolves the parts it can reach from the body it holds — her identity, head, mouth, blush
 sustainer and gaze controller — so a call names only the extra value it needs. The members that
@@ -207,6 +214,8 @@ behaviour exactly, and a game update that renames one is a change here rather th
 | `GAME.set_hair_link_pelvis(pony, value)` | the hair link's `pelvis_offset` | — | no write |
 | `GAME.notify_hair_link(pony)` | the hair link's `_body_updated` (private) | — | no call |
 | `GAME.bed_of(collider)` | the mattress `bed_of` lookup | `Node3D` | `null` |
+| `GAME.visible_top(bed, points, fallback)` | the mattress `visible_top` lookup | `float` | `fallback` |
+| `GAME.stock_bed_rest(bed)` | `SharedBed.for_bed`, installed on first use | `Node3D` | `null` |
 | `GAME.navigator_of(pony)` | the `Navigator` child | `Node` | `null` |
 | `GAME.navigator_owner(nav)` | the navigator's `command_owner` | `String` | empty |
 | `GAME.navigator_reserved(nav)` | the navigator's `reserved_by` | `String` | empty |
@@ -320,6 +329,7 @@ behaviour exactly, and a game update that renames one is a change here rather th
 | `GAME.couch_approach(node, seat)` | a couch's `approach` | `Vector3` | `Vector3.INF` |
 | `GAME.couch_mare_fits(node)` | a couch's `_mare_fits` (private) | `bool` | `false` |
 | `GAME.couch_cooldown_until(node, pony)` | a couch's `_cooldowns` (private) | `int` | `0` |
+| `GAME.couch_exit(body, seat, fallback, height, radius)` | the exit-space `find_exit` probe | `Vector3` | `Vector3.INF` |
 | `GAME.carry_ours(reach, pony)` | the reach's `held` and `cradled` | `bool` | `false` |
 | `GAME.carry_actions(reach)` | the reach's `desktop_actions` | `Node` | `null` |
 | `GAME.clear_carry(reach)` | the reach's carry flags | — | no write |
@@ -417,10 +427,10 @@ facade answers `null` and `false`; that is the "no world yet" answer, not a rule
 reads the game's own `player` property through `GAME`, so a renamed or missing property is null
 instead of a crash.
 
-The views of a pony's body, navigator, face, wings and flank, and of Anon's rig, exist in this
-revision. The rest of the base-game objects this facade hands back — the bed, the director, the
-story journal, the inventory, the menu, the mods registry, the relationship runtime and the
-affection scene — are still reached by taking the node to the facade member or to `GAME`.
+The views of a pony's body, navigator, face, wings and flank, of Anon's rig and of a bed exist in
+this revision. The rest of the base-game objects this facade hands back — the director, the story
+journal, the inventory, the menu, the mods registry, the relationship runtime and the affection
+scene — are still reached by taking the node to the facade member or to `GAME`.
 
 ## Data ownership
 

@@ -41,30 +41,6 @@
       "task": "B"
     },
     {
-      "from": "camera/view.gd",
-      "to": "res://world/life/couch/mattress.gd",
-      "kind": "game-import",
-      "owner": "camera",
-      "reason": "base-game import; drain through the GAME accessor in Task B",
-      "task": "B"
-    },
-    {
-      "from": "debug/bed.gd",
-      "to": "res://world/buildings/house_interior.gd",
-      "kind": "game-import",
-      "owner": "debug",
-      "reason": "base-game import; drain through the GAME accessor in Task B",
-      "task": "B"
-    },
-    {
-      "from": "debug/bed.gd",
-      "to": "res://world/relationships/shared_bed.gd",
-      "kind": "game-import",
-      "owner": "debug",
-      "reason": "base-game import; drain through the GAME accessor in Task B",
-      "task": "B"
-    },
-    {
       "from": "debug/ui.gd",
       "to": "res://world/ui/menu_style.gd",
       "kind": "game-import",
@@ -91,14 +67,6 @@
     {
       "from": "initiation/classifier.gd",
       "to": "res://world/ai/llm_client.gd",
-      "kind": "game-import",
-      "owner": "initiation",
-      "reason": "base-game import; drain through the GAME accessor in Task B",
-      "task": "B"
-    },
-    {
-      "from": "initiation/venue.gd",
-      "to": "res://world/relationships/shared_bed.gd",
       "kind": "game-import",
       "owner": "initiation",
       "reason": "base-game import; drain through the GAME accessor in Task B",
@@ -137,34 +105,10 @@
       "task": "B"
     },
     {
-      "from": "poses/service.gd",
-      "to": "res://world/life/couch/mattress.gd",
-      "kind": "game-import",
-      "owner": "poses",
-      "reason": "base-game import; drain through the GAME accessor in Task B",
-      "task": "B"
-    },
-    {
       "from": "reactions/service.gd",
       "to": "res://world/characters/hybrid_mare/pony_flank_touch.gd",
       "kind": "game-import",
       "owner": "reactions",
-      "reason": "base-game import; drain through the GAME accessor in Task B",
-      "task": "B"
-    },
-    {
-      "from": "rest/service.gd",
-      "to": "res://world/life/couch/exit_space.gd",
-      "kind": "game-import",
-      "owner": "rest",
-      "reason": "base-game import; drain through the GAME accessor in Task B",
-      "task": "B"
-    },
-    {
-      "from": "rest/service.gd",
-      "to": "res://world/life/couch/mattress.gd",
-      "kind": "game-import",
-      "owner": "rest",
       "reason": "base-game import; drain through the GAME accessor in Task B",
       "task": "B"
     },

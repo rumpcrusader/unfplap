@@ -14,7 +14,7 @@ floor beside the bed and the restore posture.
 - `shared_bed_rest` / `bed_rest_for`: a typed `RestState`, either the guest-seat transform the
   live couch reports or the couch in the `couches` group that owns this bed;
 - `rejoin_bed_cuddle`: the deferred stock recline and guest invite loop;
-- `stand_beside_bed`: the safe floor beside the bed via `exit_space.gd`;
+- `stand_beside_bed`: the safe floor beside the bed through the `Bed` view's exit probe;
 - `rejoin_note`: the timeout diagnostic;
 - `rejoin_wanted`: the desktop-human, good-act decision over a typed `Context`;
 - `restore_posture`: the bed-frame scene restore and the `stand` request.
@@ -34,8 +34,8 @@ acting on stale values.
 
 `bed_anchor()` prefers `shared_bed_rest(bed)`: the `couches` node whose `bed_node` matches, with a
 `pony_transform(seats[1])` that is finite and within 4 m of the bed. Without it, the anchor is the
-mattress top (the drawn bedding via `mattress.visible_top()` or the `mattress_top` meta) shifted
-0.25 m toward Anon's side, facing along the bed's `-Z` (or toward Anon when the bed is gone).
+mattress top (the drawn bedding through the `Bed` view's surface read, or the `mattress_top` meta)
+shifted 0.25 m toward Anon's side, facing along the bed's `-Z` (or toward Anon when the bed is gone).
 
 ## Stock accept path
 

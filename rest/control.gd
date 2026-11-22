@@ -3,7 +3,7 @@ extends RefCounted
 ## Order matters: the pony_seating entry must go first, or a seated entry whose owner no longer
 ## matches the navigator calls request_posture("stand") on the next tick.
 
-const GAME := preload("res://mods/unfplap/world/game.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 
 
 static func release_managed(pony: Node3D) -> bool:
@@ -21,12 +21,13 @@ static func release_managed(pony: Node3D) -> bool:
 		var id := pony.get_instance_id()
 		var users: Variant = seating.get("_users")
 		if users is Dictionary and (users as Dictionary).has(id):
-			var phase := GAME.seating_phase(seating, id)
+			var view := WORLD.bed(seating)
+			var phase := view.seating_phase(id)
 			if phase == "climbing":
 				return false
 			if phase == "approach":
 				return false
-			GAME.seating_release_entry(seating, id)
+			view.release_seat(id)
 
 	# 2. The shared bed guest or couch occupant entry.
 	for node: Variant in tree.get_nodes_in_group("couches"):
@@ -36,7 +37,7 @@ static func release_managed(pony: Node3D) -> bool:
 		if guest is Dictionary and not (guest as Dictionary).is_empty():
 			var actor: Variant = (guest as Dictionary).get("actor")
 			if actor == pony:
-				GAME.couch_finish_guest(node)
+				WORLD.bed(node).finish_guest()
 				return true
 	for node: Variant in tree.get_nodes_in_group("couches"):
 		if not is_instance_valid(node):
@@ -44,7 +45,7 @@ static func release_managed(pony: Node3D) -> bool:
 		var id := pony.get_instance_id()
 		var ponies: Variant = node.get("_ponies")
 		if ponies is Dictionary and (ponies as Dictionary).has(id):
-			GAME.couch_release_pony(node, id)
+			WORLD.bed(node).release_pony(id)
 			return true
 	return true
 

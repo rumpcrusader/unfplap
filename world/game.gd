@@ -4,6 +4,8 @@ extends RefCounted
 ## Stateless readers for the base-game and presentation members; the scene root is an argument.
 
 const MATTRESS := preload("res://world/life/couch/mattress.gd")
+const COUCH_EXIT := preload("res://world/life/couch/exit_space.gd")
+const SHARED_BED := preload("res://world/relationships/shared_bed.gd")
 const HYBRID_NEAR_MESH := preload("res://world/characters/hybrid_mare/hybrid_near_mesh.gd")
 const HYBRID_FAR_MESH := preload("res://world/characters/hybrid_mare/hybrid_far_mesh.gd")
 const SHOP_ITEMS := preload("res://world/shop/shop_items.gd")
@@ -1568,6 +1570,14 @@ static func couch_cooldown_until(node: Node3D, pony: Node3D) -> int:
 	return int((cooldowns as Dictionary).get(pony.get_instance_id(), 0))
 
 
+## The clear floor to step off a seat; `Vector3.INF` without a body in a physics space.
+static func couch_exit(body: Node, seat: Node3D, fallback: Vector3, height: float,
+		radius: float) -> Vector3:
+	if not body is CharacterBody3D or not (body as Node).is_inside_tree():
+		return Vector3.INF
+	return COUCH_EXIT.find_exit(body as CharacterBody3D, seat, fallback, height, radius)
+
+
 ## Take the carry the reach holds; false when it is not this pony or not cradled.
 static func carry_ours(reach: Node, pony: Node3D) -> bool:
 	if not is_instance_valid(reach) or not is_instance_valid(pony):
@@ -1633,6 +1643,14 @@ static func ensure_bed(house: Node3D, kind: String) -> Node3D:
 		return null
 	var bed: Variant = house.call("ensure_bed", kind)
 	return bed as Node3D if bed is Node3D and is_instance_valid(bed) else null
+
+
+## The stock bed rest that owns a bed, installed on first use; null when it cannot answer.
+static func stock_bed_rest(bed: Node) -> Node3D:
+	if not is_instance_valid(bed) or not bed is Node3D or not (bed as Node).is_inside_tree():
+		return null
+	var rest: Variant = SHARED_BED.for_bed(bed as Node3D)
+	return rest as Node3D if rest is Node3D and is_instance_valid(rest) else null
 
 
 ## Whether the bed rest accepts this pony through its own gate; false without the op.
@@ -1835,6 +1853,13 @@ static func bed_of(collider: Object) -> Node3D:
 	if bed is Node3D and is_instance_valid(bed):
 		return bed
 	return null
+
+
+## Mean drawn bedding height (world y) under `points`; the caller's physics top when nothing is drawn.
+static func visible_top(bed: Node, points: Array[Vector3], fallback: float) -> float:
+	if not is_instance_valid(bed) or not bed is Node3D:
+		return fallback
+	return MATTRESS.visible_top(bed as Node3D, points, fallback)
 
 
 ## A couch or rest node's `rest_word` answer; empty when it has no op.

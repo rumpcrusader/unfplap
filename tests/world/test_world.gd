@@ -83,7 +83,10 @@ class FakeChat extends Node:
 
 
 class FakeSeat extends Node3D:
-	pass
+	var free_for_pony: Variant = null
+
+	func free_for(pony: Variant) -> bool:
+		return pony == free_for_pony
 
 
 class FakeIdentity extends Resource:
@@ -143,6 +146,75 @@ class FakeHouse extends Node3D:
 ## A body the facade's velocity write reaches.
 class FakeMoving extends Node3D:
 	var velocity := Vector3.ZERO
+
+
+## A couch rest: the seats, the guest entry and the partner one seat reads.
+class FakeCouch extends Node3D:
+	var seats: Array = []
+	var _mare_fits := false
+	var _cooldowns := {}
+	var invites: Array = []
+	var finishes := 0
+	var releases: Array = []
+
+	func pony_transform(seat: Node3D) -> Transform3D:
+		return Transform3D(Basis.IDENTITY, seat.global_position)
+
+	func open() -> bool:
+		return true
+
+	func invite(pony: Node3D, seat: Node3D) -> bool:
+		invites.append([pony, seat])
+		return true
+
+	func approach(_seat: Node3D) -> Vector3:
+		return Vector3(2.0, 0.0, 0.0)
+
+	func partner(seat: Node) -> Variant:
+		return seats[0] if seat != seats[0] else null
+
+	func rest_word() -> String:
+		return "bed"
+
+	func _finish_guest() -> void:
+		finishes += 1
+
+	func _release_pony(id: int, _force: bool) -> void:
+		releases.append(id)
+
+
+## The stock bed rest: the fit, guest and sleeper rows the bed consumers gate on.
+class FakeRest extends Node:
+	var _bed: Variant = null
+	var _mare_fits := false
+	var _guest := {}
+	var _sleeper: Variant = null
+	var _front := Vector3.ONE
+	var refreshes := 0
+
+	func refresh() -> void:
+		refreshes += 1
+
+	func accept(_pony: Node3D) -> bool:
+		return _mare_fits
+
+	func _willing(_pony: Node3D) -> bool:
+		return true
+
+	func eligible(_pony: Node3D) -> bool:
+		return _mare_fits
+
+	func _front_for(_pony: Node3D) -> Vector3:
+		return _front
+
+
+## The pony seating system: one entry per pony and the release the rest helper takes.
+class FakeSeating extends Node:
+	var _users := {}
+	var released: Array = []
+
+	func _release(entry: Dictionary) -> void:
+		released.append(entry.get("id"))
 
 
 ## The game's pony kisser: one latch per kiss.
@@ -514,6 +586,7 @@ func run() -> void:
 	_check_pose_accessors()
 	_check_views()
 	_check_anon_view()
+	_check_bed_view()
 	_check_body_lod()
 	_check_desktop()
 	await _check_bed_under()
@@ -1745,3 +1818,109 @@ func _check_anon_view() -> void:
 	driver.queue_free()
 	left.queue_free()
 	right.queue_free()
+
+
+## The bed view: the couch, rest and seating members behind the facade's cached handle, the typed
+## zero on an absent node, and the cache dropped by a bind.
+func _check_bed_view() -> void:
+	WORLD.unbind()
+	var bed := FakeCouch.new()
+	root.add_child(bed)
+	var player_seat := FakeSeat.new()
+	var guest_seat := FakeSeat.new()
+	root.add_child(player_seat)
+	root.add_child(guest_seat)
+	bed.seats = [player_seat, guest_seat]
+	var pony := FakeBody.new()
+	root.add_child(pony)
+
+	var view := WORLD.bed(bed)
+	check(view == WORLD.bed(bed), "a bed view is cached per bound node")
+	var seats := view.couch_seats()
+	check(seats.size() == 2 and seats[1] == guest_seat, "the view reads the couch's seats")
+	check(view.couch_open(), "the view opens the couch rest")
+	check(view.couch_invite(pony, guest_seat) and bed.invites.size() == 1,
+		"the guest invite reaches the couch rest")
+	check(view.couch_approach(guest_seat) == Vector3(2.0, 0.0, 0.0),
+		"the approach point is the couch's own")
+	check(view.couch_pony_transform(guest_seat).origin == guest_seat.global_position,
+		"the guest transform is the couch's own")
+	check(not view.couch_mare_fits(), "an unmeasured couch does not fit a mare")
+	check(view.couch_cooldown_until(pony) == 0, "a pony with no guest cooldown reads zero")
+	bed._cooldowns[pony.get_instance_id()] = 4200
+	check(view.couch_cooldown_until(pony) == 4200, "the view reads the pony's own cooldown")
+	check(view.couch_partner(guest_seat) == player_seat, "the partner of one seat is the other")
+	check(view.rest_word() == "bed", "the view reads the rest's own word")
+	view.finish_guest()
+	view.release_pony(7)
+	check(bed.finishes == 1 and bed.releases == [7],
+		"the guest end and the pony release reach the couch")
+
+	var rest := FakeRest.new()
+	root.add_child(rest)
+	rest._bed = bed
+	var rest_view := WORLD.bed(rest)
+	check(rest_view == WORLD.bed(rest) and rest_view != view, "the rest gets its own view")
+	check(rest_view.rest_bed() == bed, "the view reads the bed a rest resolves to")
+	rest_view.refresh()
+	check(rest.refreshes == 1, "the refresh reaches the stock rest")
+	check(not rest_view.fits() and not rest_view.has_guest() and rest_view.sleeper() == null,
+		"a free rest fits nobody and holds no guest")
+	rest._mare_fits = true
+	rest._guest = {"state": "resting"}
+	rest._sleeper = pony
+	check(rest_view.fits() and rest_view.has_guest() and rest_view.sleeper() == pony,
+		"the view reads the rest's fit, guest row and sleeper")
+	check(rest_view.front(pony) == Vector3.ONE, "the front point is the rest's own")
+	check(rest_view.accepts(pony) and rest_view.willing(pony) and rest_view.eligible(pony),
+		"the rest's own gates answer through the view")
+	check(not rest_view.seat_free_for(player_seat, pony), "a seat held by nobody is not his")
+	guest_seat.free_for_pony = pony
+	check(rest_view.seat_free_for(guest_seat, pony), "the seat's own free test answers")
+
+	var seating := FakeSeating.new()
+	root.add_child(seating)
+	seating._users[pony.get_instance_id()] = {"phase": "approach", "id": 7}
+	var seat_view := WORLD.bed(seating)
+	check(seat_view == WORLD.bed(seating), "the seating system gets its own cached view")
+	check(seat_view.seating_phase(pony.get_instance_id()) == "approach",
+		"the view reads the seating phase")
+	seat_view.release_seat(pony.get_instance_id())
+	check(seating.released == [7], "the seat release reaches the seating system")
+
+	check(is_equal_approx(view.surface_top([bed.global_position], 0.75), 0.75),
+		"a bed with no drawn bedding answers the measured top")
+	check(not view.exit_point(null, Vector3.ZERO, 1.0, 0.3).is_finite(),
+		"a body in no physics space has no exit floor")
+	var loose := FakeCouch.new()
+	check(WORLD.bed(loose).stock_rest() == null, "a bed outside the tree has no stock rest")
+	loose.free()
+
+	check(WORLD.bed(null).couch_seats().is_empty(), "no bed has no seats")
+	check(not WORLD.bed(null).couch_open(), "no bed opens nothing")
+	check(WORLD.bed(null).rest_word() == "" and WORLD.bed(null).rest_bed() == null,
+		"no node resolves to no bed")
+	check(not WORLD.bed(null).fits() and not WORLD.bed(null).has_guest()
+		and WORLD.bed(null).sleeper() == null, "no rest fits nobody and holds no guest")
+	check(not WORLD.bed(null).accepts(pony) and not WORLD.bed(null).willing(pony)
+		and not WORLD.bed(null).eligible(pony), "no rest accepts no pony")
+	check(not WORLD.bed(null).couch_pony_transform(null).origin.is_finite(),
+		"no couch answers an infinite guest transform")
+	check(not WORLD.bed(null).front(pony).is_finite(), "no rest answers no front point")
+	check(WORLD.bed(null).seating_phase(1) == "", "no seating system has no phase")
+	check(WORLD.bed(null).stock_rest() == null, "no bed has no stock rest")
+
+	var game := FakeGame.new()
+	root.add_child(game)
+	WORLD.bind_world(game)
+	check(WORLD.bed(bed) != view, "a bind drops the cached bed views")
+	check(WORLD.bed(bed) == WORLD.bed(bed), "the new bind caches its own bed view")
+	WORLD.unbind()
+
+	bed.queue_free()
+	rest.queue_free()
+	seating.queue_free()
+	player_seat.queue_free()
+	guest_seat.queue_free()
+	pony.queue_free()
+	game.queue_free()

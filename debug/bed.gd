@@ -3,8 +3,6 @@ extends RefCounted
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
-const BED_REST := preload("res://world/relationships/shared_bed.gd")
-const HOUSE := preload("res://world/buildings/house_interior.gd")
 const PONY := preload("res://mods/unfplap/debug/pony.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
@@ -26,11 +24,11 @@ static func find_bed(host: Node) -> Node3D:
 		var from_seat := _bed_from_seat(seat)
 		if is_instance_valid(from_seat):
 			return from_seat
-	var home: Node3D = HOUSE.at(host.get_tree(), (body as Node3D).global_position)
+	var home: Node3D = WORLD.house_at((body as Node3D).global_position)
 	if is_instance_valid(home):
-		var bed := GAME.ensure_bed(home, "guest")
+		var bed := WORLD.ensure_bed(home, "guest")
 		if bed == null:
-			bed = GAME.ensure_bed(home, "")
+			bed = WORLD.ensure_bed(home, "")
 		if bed != null:
 			return bed
 	var under: Variant = WORLD.bed_under((body as Node3D).global_position)
@@ -56,7 +54,7 @@ static func rows(host: Node, target: Node) -> Array[String]:
 	if not is_instance_valid(rest):
 		out.append("stock rest=not installed")
 		return out
-	var partner: Node = GAME.couch_partner(rest, seat) if seat is Node3D else null
+	var partner: Node = WORLD.bed(rest).couch_partner(seat) if seat is Node3D else null
 	out.append("partner=%s" % _node_name(partner))
 	if is_instance_valid(target) and target is Node3D:
 		var pony := target as Node3D
@@ -76,10 +74,10 @@ static func invite(host: Node, target: Node) -> String:
 	var bed := find_bed(host)
 	if not is_instance_valid(bed):
 		return "No bed found in this house."
-	var rest: Node3D = BED_REST.for_bed(bed)
+	var rest: Node3D = WORLD.bed(bed).stock_rest()
 	if not is_instance_valid(rest):
 		return "The bed has no stock rest."
-	GAME.bed_rest_refresh(rest)
+	WORLD.bed(rest).refresh()
 	var notes: Array[String] = []
 	notes.append("idle=" + PONY.idle(pony))
 	if _needs_transport(pony, bed):
@@ -102,7 +100,7 @@ static func invite(host: Node, target: Node) -> String:
 	if not _player_lying(host):
 		notes.append("Anon must be lying on the bed to cuddle")
 		return _report(host, pony, false, notes)
-	var accepted := GAME.bed_rest_accept(rest, pony)
+	var accepted := WORLD.bed(rest).accepts(pony)
 	notes.append("invite=" + str(accepted))
 	return _report(host, pony, accepted, notes)
 
@@ -176,7 +174,7 @@ static func _needs_transport(pony: Node3D, bed: Node3D) -> bool:
 ## Move her to the bed approach and clear her navigator command, matching the lab's old Mouse4
 ## transport. Her capsule still owns the floor ray; this is a debug teleport, not a game path.
 static func _bring_to_bed(pony: Node3D, rest: Node3D) -> String:
-	var front := GAME.bed_rest_front(rest, pony)
+	var front := WORLD.bed(rest).front(pony)
 	if not front.is_finite():
 		var exit_at: Variant = rest.get("_exit")
 		if exit_at is Vector3:
@@ -214,7 +212,7 @@ static func state_text(host: Node, pony: Node3D, rest: Node3D) -> String:
 	var seat_free := false
 	if seats is Array and (seats as Array).size() > 1:
 		var seat: Variant = (seats as Array)[1]
-		seat_free = GAME.seat_free_for(seat, pony)
+		seat_free = WORLD.bed(rest).seat_free_for(seat, pony)
 	var dist := -1.0
 	if is_instance_valid(bed):
 		dist = pony.global_position.distance_to((bed as Node3D).global_position)
@@ -257,10 +255,10 @@ static func state_text(host: Node, pony: Node3D, rest: Node3D) -> String:
 			reasons.append("nav_target")
 		if not routine:
 			reasons.append("nav_owner=" + owner)
-	var willing := GAME.bed_rest_willing(rest, pony)
+	var willing := WORLD.bed(rest).willing(pony)
 	if not willing:
 		reasons.append("unwilling")
-	if not GAME.bed_rest_fits(rest):
+	if not WORLD.bed(rest).fits():
 		reasons.append("mare_fits")
 	if is_instance_valid(sleeper):
 		reasons.append("sleeper=" + str((sleeper as Node).name))
@@ -273,7 +271,7 @@ static func state_text(host: Node, pony: Node3D, rest: Node3D) -> String:
 	return ("pony=%s bed=%s dist=%.2f eligible=%s player_lying=%s willing=%s mare_fits=%s "
 		+ "seat_free=%s guest=%s sleeper=%s | nav owner=%s target=%s reserved=%s | reasons=%s") % [
 		id, _node_name(bed), dist,
-		str(GAME.bed_rest_eligible(rest, pony)) if rest != null else "no_rest",
+		str(WORLD.bed(rest).eligible(pony)) if rest != null else "no_rest",
 		str(_player_lying(host)), str(willing),
 		str(rest.get("_mare_fits")) if rest != null else "?",
 		str(seat_free),

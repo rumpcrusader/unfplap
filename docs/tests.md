@@ -167,12 +167,14 @@ parses it.
 | `scripts/test.sh <suite>...` | the named suites, or every suite under a directory (`scripts/test.sh poses`) |
 | `scripts/test.sh --list` | the discovered suites, then exits |
 | `scripts/test.sh --self-test` | the harness self-test: a hung fixture must fail from the watchdog, then exits |
+| `scripts/test.sh --quick <suite>...` | the same subset without the static prechecks: iteration only |
 | `scripts/test.sh --all` | every suite; this is what `scripts/test_all.sh` runs |
 | `scripts/test_all.sh` | the full gate: every suite, once per task |
 
 `scripts/test.sh` runs the same prechecks as the gate (Godot on `PATH`, the fetched asset set,
 `scripts/architecture.py --check`), uses the same discovery and the same per-suite invocation, so a
-subset cannot disagree with the full gate.
+subset cannot disagree with the full gate. `--quick` drops the static prechecks for iteration and
+is never the gate: `--all` and `scripts/test_all.sh` always run them.
 
 It prints only the suites that failed, each followed by its own failure lines, and ends in one
 status line: `TEST_PASS <n> suites, <n> checks` for a subset and `TEST_ALL_PASS <n> suites, <n>

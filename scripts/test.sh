@@ -5,6 +5,7 @@
 #        scripts/test.sh --all            # every suite (what test_all.sh runs)
 #        scripts/test.sh --list           # the discovered suites, then exit
 #        scripts/test.sh --self-test      # the harness self-test (a hung fixture must fail), then exit
+#        scripts/test.sh --quick ...      # skip the static prechecks: iteration only, never the gate
 #        scripts/test.sh --verbose ...    # also print one PASS line per suite
 # Godot 4.5 must be on PATH.
 # TEST_JOBS overrides the parallelism: the default is one job per core, capped at 12.
@@ -25,6 +26,7 @@ VERBOSE="${TEST_VERBOSE:-0}"
 ALL=0
 LIST=0
 SELF_TEST=0
+QUICK=0
 REQUESTED=()
 
 for arg in "$@"; do
@@ -32,10 +34,11 @@ for arg in "$@"; do
 		--all) ALL=1 ;;
 		--list) LIST=1 ;;
 		--self-test) SELF_TEST=1 ;;
+		--quick) QUICK=1 ;;
 		-v | --verbose) VERBOSE=1 ;;
 		--*)
 			printf 'Unknown option %s\n' "$arg" >&2
-			printf 'Usage: scripts/test.sh <suite|dir>... | --all | --list | --self-test [--verbose]\n' >&2
+			printf 'Usage: scripts/test.sh <suite|dir>... | --all | --list | --self-test [--quick] [--verbose]\n' >&2
 			exit 2
 			;;
 		*) REQUESTED+=("$arg") ;;
@@ -43,7 +46,7 @@ for arg in "$@"; do
 done
 
 if [[ "${#REQUESTED[@]}" -eq 0 && "$ALL" -eq 0 && "$LIST" -eq 0 && "$SELF_TEST" -eq 0 ]]; then
-	printf 'Usage: scripts/test.sh <suite|dir>... | --all | --list | --self-test [--verbose]\n' >&2
+	printf 'Usage: scripts/test.sh <suite|dir>... | --all | --list | --self-test [--quick] [--verbose]\n' >&2
 	exit 2
 fi
 if [[ "$ALL" -eq 1 && "${#REQUESTED[@]}" -gt 0 ]]; then
@@ -96,17 +99,25 @@ if [[ "$SELF_TEST" -eq 1 ]]; then
 	run_self_test || exit 1
 	exit 0
 fi
-if ! python3 "$MOD_DIR/scripts/asset_pack.py" verify --root "$MOD_DIR"; then
-	printf 'Run scripts/fetch_assets.sh once in this checkout.\n' >&2
-	exit 1
+# --quick keeps the Godot probe and discovery for the inner loop and skips the static gates; --all
+# and test_all.sh always run them.
+PRECHECK=1
+if [[ "$QUICK" -eq 1 && "$ALL" -eq 0 ]]; then
+	PRECHECK=0
 fi
-if ! python3 "$MOD_DIR/scripts/architecture.py" --check; then
-	printf 'ARCHITECTURE_FAIL\n' >&2
-	exit 1
-fi
-if ! python3 "$MOD_DIR/scripts/test_architecture.py"; then
-	printf 'ARCHITECTURE_RULES_FAIL\n' >&2
-	exit 1
+if [[ "$PRECHECK" -eq 1 ]]; then
+	if ! python3 "$MOD_DIR/scripts/asset_pack.py" verify --root "$MOD_DIR"; then
+		printf 'Run scripts/fetch_assets.sh once in this checkout.\n' >&2
+		exit 1
+	fi
+	if ! python3 "$MOD_DIR/scripts/architecture.py" --check; then
+		printf 'ARCHITECTURE_FAIL\n' >&2
+		exit 1
+	fi
+	if ! python3 "$MOD_DIR/scripts/test_architecture.py"; then
+		printf 'ARCHITECTURE_RULES_FAIL\n' >&2
+		exit 1
+	fi
 fi
 
 if [[ "$ALL" -eq 1 ]]; then

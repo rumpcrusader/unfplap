@@ -430,9 +430,6 @@ def owns_game_accessor(src: str, tgt: str) -> bool:
     owner = tgt.split("/")[0]
     if owner not in GAME_LAYER:
         return False
-    # The anatomy leaf still reads the world accessor until its own migration lands.
-    if src.startswith("anatomy/") and tgt == "world/game.gd":
-        return True
     return src.split("/")[0] == owner
 
 
@@ -450,15 +447,13 @@ def is_allowed(src: str, tgt: str) -> tuple[bool, str, Owner | None, Owner | Non
     if tgt.endswith("/game.gd") and not owns_game_accessor(src, tgt):
         return False, kind, so, to
 
-    # Anatomy is a presentation leaf: every anatomy file reads the game through `GAME`; only the
-    # facade asks eligibility or another mod service, and outside files may preload only api.gd.
+    # Anatomy is a presentation leaf: every file reads the world facade; only the facade asks
+    # eligibility or another mod service, and outside files may preload only api.gd.
     if src.startswith("anatomy/"):
-        if tgt in GAME_SOURCES:
-            return True, kind, so, to
         if kind in ("self", "shared", "store", "read model"):
             return True, kind, so, to
         if kind == "service" and to is not None:
-            if to.id in ("anatomy", "settings"):
+            if to.id in ("anatomy", "settings", "world"):
                 return True, kind, so, to
             if to.id == "eligibility" and src == ANATOMY_FACADE:
                 return True, kind, so, to

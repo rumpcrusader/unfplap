@@ -1,7 +1,7 @@
 extends Node
 ## The player part: the human player's mesh on his Hips, its placement, shaping and throb.
 
-const GAME := preload("res://mods/unfplap/world/game.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
@@ -103,7 +103,7 @@ var aim_opening := Vector3.ZERO
 
 
 func _ensure() -> bool:
-	if GAME.player_form_is_young(get_tree()) or GAME.player_form_is_pony(get_tree()):
+	if WORLD.anon().form_is_young() or WORLD.anon().form_is_pony():
 		return false
 	if is_instance_valid(_mesh) and not _mesh.is_inside_tree():
 		_drop_mesh()
@@ -195,7 +195,7 @@ func _apply_material() -> void:
 	mat.set_shader_parameter("normal_texture", load(NRM_PATH))
 	_mesh.set_surface_override_material(0, mat)
 	_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	GAME.exclude_from_outline(_mesh)
+	WORLD.anon().exclude_from_outline(_mesh)
 
 
 func _apply_ready() -> void:

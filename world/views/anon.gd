@@ -113,6 +113,11 @@ func body() -> Node3D:
 	return GAME.anon_body_of(_player)
 
 
+## Keep one of Anon's meshes out of the game's outline pass.
+func exclude_from_outline(mesh: MeshInstance3D) -> void:
+	GAME.exclude_from_outline(mesh)
+
+
 ## The seated player's Q hold; false when the rig has no such member.
 func q_held() -> bool:
 	return GAME.q_held(_player)

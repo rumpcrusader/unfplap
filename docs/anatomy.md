@@ -26,7 +26,7 @@ It does not cover eligibility, act readiness, thrust scoring, pose or camera rul
 | File | Role |
 |---|---|
 | `anatomy/api.gd` | the public entry and composition root: roster verbs, act presentation, Anon and garment handles, the `Rig` and the `Parts` |
-| `anatomy/rig.gd` | the scene accessor: skeletons, bodies, hair, the dock node and the mouth; the base-game form, outline and dock-class calls read `GAME` |
+| `anatomy/rig.gd` | the world seam: skeletons, bodies, hair, the dock node and the mouth, read through `world/api.gd` |
 | `anatomy/parts.gd` | per-pony registry: controllers, forms, tail rows, the player host and the placement editor |
 | `anatomy/player_host.gd` | the Anon part lifecycle: create, free, warm and resolve the player body |
 | `anatomy/placement_editor.gd` | the Anatomy Placement editor: the named pony's placement and reset actions and the report |
@@ -118,7 +118,7 @@ verbs are `remember` (store the form), `attach` (build or refresh the controller
 `release` (drop both and keep the form) and `detach` (drop everything). A controller is constructed
 with `pony`, `form`, the `Rig`, a status callback and a dock-colour callback. The controller never
 reads the runtime node or eligibility; the facade owns the gate. `PlayerHost`
-resolves the Anon body through `Rig.anon_body_of()` and owns the hidden warm mesh.
+resolves the Anon body through `Rig.anon_body()` and owns the hidden warm mesh.
 `anon()` and `garment(pony)` reuse a facade handle; a handle is a live view of the current part or
 controller, not a snapshot.
 
@@ -356,9 +356,10 @@ fade. The hull block is in the copied compatibility shaders under
 
 ## Rig contract
 
-`anatomy/rig.gd` reads the game through `GAME` and wraps the scene reads and commands anatomy
-makes. It is constructed by `anatomy/api.gd` and injected into the modules that need a
-skeleton, body, hair, dock or mouth. Every anatomy file reads the game through `GAME`.
+`anatomy/rig.gd` reads the world through `world/api.gd` and wraps the scene reads and commands
+anatomy makes. It is constructed by `anatomy/api.gd` and injected into the modules that need a
+skeleton, body, hair, dock or mouth. The dock-fit document it hands the tail seat is
+`shared/dock_fit.gd`.
 
 ## Act anatomy
 
@@ -868,9 +869,10 @@ settings change.
 
 ## Boundary
 
-- Every anatomy file reads the game through `GAME`; no anatomy file preloads a base-game module.
-- No anatomy file preloads a mod service except `settings/service.gd`; no outside file preloads
-  an anatomy file except `anatomy/api.gd`.
+- Every anatomy body read goes through `world/api.gd` and its views; no anatomy file preloads a
+  base-game module.
+- No anatomy file preloads a mod service except `settings/service.gd` and `world/api.gd`; no
+  outside file preloads an anatomy file except `anatomy/api.gd`.
 - `scripts/architecture.py --check` enforces both rules, and `scripts/test_architecture.py` pins
   an allowed and a forbidden synthetic edge.
 

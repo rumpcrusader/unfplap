@@ -8,7 +8,7 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 const IDENTITY := preload("res://mods/unfplap/anatomy/identity.gd")
-const GAME := preload("res://mods/unfplap/world/game.gd")
+const DOCK_FIT := preload("res://mods/unfplap/shared/dock_fit.gd")
 const DOCK_SEAT := preload("res://mods/unfplap/anatomy/tail/dock_seat.gd")
 const DOCK_ATTACH := preload("res://mods/unfplap/anatomy/tail/dock_attach.gd")
 const ANATOMY_PLACEMENT := preload("res://mods/unfplap/shared/anatomy_placement.gd")
@@ -49,7 +49,7 @@ class SeatRow:
 	var hips_rest := Transform3D.IDENTITY
 	var anchor := Vector3.ZERO
 	var cap_centre := NAN
-	var fit: GAME.DockFit = null
+	var fit: DOCK_FIT = null
 	var tail_y := 0.0
 	var tail_z := 0.0
 	var dock_y := 0.0
@@ -66,7 +66,7 @@ class SeatRow:
 		return reference_anchor + Vector3(0.0, tail_y, tail_z)
 
 
-## The world's game boundary, injected by the anatomy API.
+## The anatomy's world seam, injected by the anatomy API.
 var rig: RIG
 
 ## pony -> cached original values, target and live state.
@@ -410,13 +410,13 @@ func _prepare(pony: Node, form: BODY_FORM.BodyForm = null) -> SeatRow:
 		LOG.debug("tail seat: no body anchor for %s", [pony.name])
 		return null
 	var hips := skeleton.find_bone("pony_hips")
-	var anchor := GAME.dock_tail_anchor(pony)
+	var anchor := rig.dock_anchor(pony)
 	if hips < 0 or not anchor.is_finite():
 		LOG.debug("tail seat: no anchor for %s", [pony.name])
 		return null
 	# `effective_fit()` adds the game's seat shift for a seated tail; the seat delta below cancels
 	# it, so the dock keeps the player's fit.
-	var fit: GAME.DockFit = GAME.dock_fit(pony)
+	var fit: DOCK_FIT = rig.dock_fit(pony)
 	if fit == null:
 		LOG.debug("tail seat: no dock fit for %s", [pony.name])
 		return null
@@ -630,10 +630,10 @@ func _move_dock(row: SeatRow, delta: Vector3) -> void:
 		float(position[1]) + delta.y,
 		float(position[2]) + delta.z,
 	]
-	var nudged := GAME.DockFit.new()
+	var nudged := DOCK_FIT.new()
 	nudged.data = fit
-	var fitted: ArrayMesh = GAME.dock_fitted_mesh(nudged)
-	var mesh: ArrayMesh = GAME.dock_reach_rump(fitted, row.pony)
+	var fitted: ArrayMesh = rig.dock_fitted_mesh(row.pony, nudged)
+	var mesh: ArrayMesh = rig.dock_reach(row.pony, fitted)
 	if mesh == null:
 		return
 	mesh = DOCK_SEAT.snap_base(mesh, row.body)
@@ -746,7 +746,7 @@ func _clear_skin(row: SeatRow) -> void:
 func _invalidate_far(pony: Node) -> void:
 	if not is_instance_valid(pony):
 		return
-	GAME.forget_far_mesh(pony)
+	rig.forget_far_mesh(pony)
 	if rig.far_mesh_shown(pony) and pony.is_inside_tree():
 		rig.set_near_mesh(pony, true)
 

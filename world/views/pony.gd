@@ -6,6 +6,7 @@ extends RefCounted
 ## One pony's body reads and writes, bound to her node.
 
 const GAME := preload("res://mods/unfplap/world/game.gd")
+const DOCK_FIT := preload("res://mods/unfplap/shared/dock_fit.gd")
 
 var _pony: Node
 
@@ -67,12 +68,12 @@ func dock_anchor() -> Vector3:
 
 
 ## The live dock fit, or null while the game has none.
-func dock_fit() -> GAME.DockFit:
+func dock_fit() -> DOCK_FIT:
 	return GAME.dock_fit(_pony)
 
 
 ## The mesh a dock fit renders; the fit is a value the game hands out.
-func dock_fitted_mesh(fit: GAME.DockFit) -> ArrayMesh:
+func dock_fitted_mesh(fit: DOCK_FIT) -> ArrayMesh:
 	return GAME.dock_fitted_mesh(fit)
 
 

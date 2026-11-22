@@ -505,6 +505,11 @@ static func refresh_body_lod(pony: Node) -> void:
 		GAME.refresh_body_lod(pony)
 
 
+## The dock rump height for one body name and vertex height; NAN for an unknown body name.
+static func dock_rump_z(body_name: String, y: float) -> float:
+	return GAME.dock_rump_z(body_name, y)
+
+
 ## A body's velocity; anything that is not a live Node3D is left alone.
 static func set_velocity(body: Node, value: Vector3) -> void:
 	GAME.set_velocity(body as Node3D, value)

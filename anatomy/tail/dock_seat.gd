@@ -4,7 +4,7 @@ extends RefCounted
 ## The game's `reach_rump()` only pushes the frontmost vertices along Z, so most of the ring
 ## would otherwise stay behind the rump.
 
-const GAME := preload("res://mods/unfplap/world/game.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 
 const EMBED := 0.004
 const FALLOFF := 0.35
@@ -50,7 +50,7 @@ static func snap_base(mesh: ArrayMesh, body: String) -> ArrayMesh:
 	var ring_points: Array[Vector3] = []
 	for index: int in valid:
 		var vertex := vertices[index]
-		var surface_z: float = GAME.dock_rump_z(body_name, vertex.y)
+		var surface_z: float = WORLD.dock_rump_z(body_name, vertex.y)
 		corrections[index] = surface_z - EMBED - vertex.z
 		ring_points.append(vertex)
 

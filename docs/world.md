@@ -66,6 +66,7 @@ to ask whether the scene is live.
 | `interaction_hints()` | the world's own interaction-hints node |
 | `bond_level(id)` | her cached love level, with `found` telling the ladder fallback whether the cache held her |
 | `refresh_body_lod(pony)` | drop the merged LOD caches and re-arm the near mesh |
+| `dock_rump_z(body_name, y)` | the rump surface height of a dock body table entry |
 | `set_velocity(body, value)` | a body's velocity |
 | `open_chat()` | open the chat box past the act's controls lock |
 
@@ -97,7 +98,7 @@ not the receiver.
 | `Face` | a pony body | `controller`, `touch`, `release_touch`, `stare`, `fluster`, `fluster_amount`, `dialogue_face`, `set_dialogue`, `finish_dialogue`, `clear_dialogue`, `sustain_blush`, `celebrate`, `set_expression` |
 | `Wings` | her excitement Beat, or the wing node it owns | `node`, `hold`, `release_hold`, `set_open`, `spread`, `flutter`, `opened`, `set_opened`, `set_tuck`, `set_half` |
 | `Flank` | her `FlankTouch` node, or the touch body whose hulls need syncing | `sync`, `update_surface`, `surface_contact`, `touch_nearest`, `impact`, `wake_tick`, `start_jiggle`, `process`, `jiggle_amount`, `set_jiggle_amount` |
-| `Anon` | the player rig, bound by the facade | `seat`, `controls_locked`, `set_controls_locked`, `set_presentation_enabled`, `force_stand_up`, `height`, `eye_height`, `set_eye_y`, `set_stand_eye`, `set_eye_height`, `pitch`, `set_pitch`, `form`, `clamp_view`, `form_is_young`, `form_is_pony`, `body`, `q_held`, `set_q_held`, `set_space_hold`, `set_rest_held`, `sit_on`, `toggle_couch_sleep`, `set_hold_target`, `clear_hold_target`, `hand_frame`, `apply_torso_pose`, `set_rest_hand_targets`, `clear_rest_hand_targets`, `pose_driver`, `set_pose_driver`, `knockdown`, `start_knockdown` |
+| `Anon` | the player rig, bound by the facade | `seat`, `controls_locked`, `set_controls_locked`, `set_presentation_enabled`, `force_stand_up`, `height`, `eye_height`, `set_eye_y`, `set_stand_eye`, `set_eye_height`, `pitch`, `set_pitch`, `form`, `clamp_view`, `form_is_young`, `form_is_pony`, `body`, `exclude_from_outline`, `q_held`, `set_q_held`, `set_space_hold`, `set_rest_held`, `sit_on`, `toggle_couch_sleep`, `set_hold_target`, `clear_hold_target`, `hand_frame`, `apply_torso_pose`, `set_rest_hand_targets`, `clear_rest_hand_targets`, `pose_driver`, `set_pose_driver`, `knockdown`, `start_knockdown` |
 | `Bed` | a bed, the couch/rest that owns it, a seat on it or the seating system | `couch_pony_transform`, `couch_seats`, `couch_open`, `couch_invite`, `couch_approach`, `couch_mare_fits`, `couch_cooldown_until`, `couch_partner`, `rest_word`, `rest_bed`, `refresh`, `fits`, `has_guest`, `sleeper`, `front`, `accepts`, `willing`, `eligible`, `seat_free_for`, `seating_phase`, `release_seat`, `finish_guest`, `release_pony`, `surface_top`, `exit_point`, `stock_rest` |
 | `Director` | the scene's conversation director, found by the facade, and the world root it belongs to | `speaking`, `interrupt`, `clock`, `subsystem_active`, `lines`, `llm_config`, `prepare_vocal`, `record_event`, `record_situation`, `tts_enabled`, `tts`, `tts_running`, `play_vocal`, `play_kiss`, `world_context`, `impressions`, `impression_mood`, `set_impression_mood`, `commit_impression`, `standing_line`, `voice_facts` |
 | `Story` | the world-context node, resolved by the facade from the bound world | `journal`, `store`, `open`, `last_line_id`, `search`, `witnessed`, `line_text`, `events` |
@@ -446,7 +447,7 @@ behaviour exactly, and a game update that renames one is a change here rather th
 | `GAME.player_form_is_young(tree)` | `player_form.active` + `is_young` | `bool` | `false` |
 | `GAME.player_form_is_pony(tree)` | `player_form.active` + `is_pony` | `bool` | `false` |
 | `GAME.dock_tail_anchor(pony)` | `dock_tail_mount.measure` | `Vector3` | `Vector3.INF` |
-| `GAME.dock_fit(pony)` | `hybrid_dock.effective_fit` + `read_fit` | `DockFit` | `null` |
+| `GAME.dock_fit(pony)` | `hybrid_dock.effective_fit` + `read_fit` | `DOCK_FIT`, the shared document | `null` |
 | `GAME.dock_fitted_mesh(fit)` | `hybrid_dock.fitted_mesh` | `ArrayMesh` | `null` |
 | `GAME.dock_reach_rump(mesh, pony)` | `hybrid_dock.reach_rump` | `ArrayMesh` | the input |
 | `GAME.dock_rump_z(body, y)` | `hybrid_dock.rump_z` | `float` | `NAN` |
@@ -483,8 +484,8 @@ property through `GAME`, so a renamed or missing property is null instead of a c
 The views of a pony's body, navigator, face, wings and flank, of Anon's rig, a bed, the scene's
 director and world context, the inventory and menu surfaces, the mods registry, the relationship
 runtime and the scene's affection, kiss and carry are answered here. Every consumer outside the
-world service reads the game through the facade and one of these views; `anatomy/**` and the suites
-are the code that still names `GAME` directly.
+world service reads the game through the facade and one of these views; the suites are the code
+that still names `GAME` directly.
 
 ## Data ownership
 

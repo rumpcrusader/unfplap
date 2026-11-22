@@ -19,11 +19,7 @@ const HYBRID_DOCK := preload("res://world/characters/hybrid_mare/hybrid_dock.gd"
 const INTERACTION_SOUNDS := preload("res://world/audio/interaction_sounds.gd")
 const BOND_RECORD := preload("res://mods/unfplap/shared/bond_record.gd")
 const TOUCH_BRIDGE := preload("res://mods/unfplap/shared/touch_bridge.gd")
-
-
-## The game's dock-fit document; the tail seat owns a copy and nudges it before a rebuild.
-class DockFit extends RefCounted:
-	var data: Dictionary = {}
+const DOCK_FIT := preload("res://mods/unfplap/shared/dock_fit.gd")
 
 
 ## One cached world-context bond row: whether the cache holds her, and its love level.
@@ -735,16 +731,16 @@ static func dock_tail_anchor(pony: Node) -> Vector3:
 
 
 ## The game's dock fit, including the seat shift; null when the pony is gone.
-static func dock_fit(pony: Node) -> DockFit:
+static func dock_fit(pony: Node) -> DOCK_FIT:
 	if not is_instance_valid(pony):
 		return null
-	var fit := DockFit.new()
+	var fit := DOCK_FIT.new()
 	fit.data = HYBRID_DOCK.effective_fit(pony, HYBRID_DOCK.read_fit())
 	return null if fit.data.is_empty() else fit
 
 
 ## The fitted dock mesh from one fit document; null when the fit is absent.
-static func dock_fitted_mesh(fit: DockFit) -> ArrayMesh:
+static func dock_fitted_mesh(fit: DOCK_FIT) -> ArrayMesh:
 	if fit == null:
 		return null
 	return HYBRID_DOCK.fitted_mesh(fit.data, false)

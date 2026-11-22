@@ -61,7 +61,7 @@ func opening() -> Vector3:
 func set_viseme(letter: String) -> void:
 	_viseme = letter
 	if rig != null:
-		rig.set_viseme(_pony_mouth(), letter)
+		rig.set_viseme(pony, letter)
 
 
 ## Re-apply the current mouth shape after a speech stop. The base game restores its rest viseme
@@ -69,28 +69,23 @@ func set_viseme(letter: String) -> void:
 func hold_viseme() -> void:
 	if _viseme.is_empty() or rig == null:
 		return
-	rig.set_viseme(_pony_mouth(), _viseme)
+	rig.set_viseme(pony, _viseme)
 
 
 func clear() -> void:
 	_viseme = ""
 	if rig != null:
-		rig.clear_viseme(_pony_mouth())
+		rig.clear_viseme(pony)
 
 
 func _head_ends() -> Array:
 	if not is_instance_valid(pony) or rig == null:
 		return []
-	var boop := rig.boop_of(pony)
-	var skeleton := rig.head_skeleton_of(boop)
+	var skeleton := rig.head_skeleton_of(pony)
 	if skeleton == null:
 		return []
 	var bone := skeleton.find_bone("mHead")
 	if bone < 0:
 		return []
 	return [skeleton.global_transform * skeleton.get_bone_global_pose(bone).origin,
-		rig.nose_world(boop)]
-
-
-func _pony_mouth() -> Node:
-	return rig.mouth_of(rig.head_of(pony))
+		rig.nose_world(pony)]

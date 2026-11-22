@@ -80,7 +80,7 @@ func _warm_now() -> void:
 func _player_body() -> Node3D:
 	if not is_instance_valid(player):
 		return null
-	var anon := rig.anon_body_of(player)
+	var anon := rig.anon_body()
 	if anon != null:
 		return anon
 	return player as Node3D if player is Node3D else null

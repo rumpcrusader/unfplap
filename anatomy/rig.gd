@@ -1,110 +1,135 @@
 extends RefCounted
-## The single seam between the anatomy modules and the live game scene.
-## The API owns one and hands it to each module that reads the body.
+## The single seam between the anatomy modules and the live world: every read goes through
+## `world/api.gd` and its pony view. The API owns one and injects it into each module.
 ## Contract: `docs/anatomy.md` (`## Rig contract`).
 
-const GAME := preload("res://mods/unfplap/world/game.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
+const DOCK_FIT := preload("res://mods/unfplap/shared/dock_fit.gd")
 
 
 func identity_of(pony: Node) -> Resource:
-	return GAME.identity_of(pony)
+	return WORLD.pony(pony).identity()
 
 
 func skeleton_of(pony: Node) -> Skeleton3D:
-	return GAME.skeleton_of(pony)
+	return WORLD.pony(pony).skeleton()
 
 
 func body_of(pony: Node) -> MeshInstance3D:
-	return GAME.body_of(pony)
+	return WORLD.pony(pony).body()
 
 
 func body_scale_of(pony: Node) -> float:
-	return GAME.body_scale_of(pony)
+	return WORLD.pony(pony).body_scale()
 
 
 func model_of(pony: Node) -> Node:
-	return GAME.model_of(pony)
+	return WORLD.pony(pony).model()
 
 
 func hair_of(pony: Node) -> Node3D:
-	return GAME.hair_of(pony)
+	return WORLD.pony(pony).hair()
 
 
 func hair_skeleton_of(pony: Node) -> Skeleton3D:
-	return GAME.hair_skeleton_of(pony)
+	return WORLD.pony(pony).hair_skeleton()
 
 
 func hair_link_of(pony: Node) -> Node:
-	return GAME.hair_link_of(pony)
+	return WORLD.pony(pony).hair_link()
 
 
 func dock_of(pony: Node) -> MeshInstance3D:
-	return GAME.dock_of(pony)
+	return WORLD.pony(pony).dock()
+
+
+func dock_anchor(pony: Node) -> Vector3:
+	return WORLD.pony(pony).dock_anchor()
+
+
+func dock_fit(pony: Node) -> DOCK_FIT:
+	return WORLD.pony(pony).dock_fit()
+
+
+func dock_fitted_mesh(pony: Node, fit: DOCK_FIT) -> ArrayMesh:
+	return WORLD.pony(pony).dock_fitted_mesh(fit)
+
+
+func dock_reach(pony: Node, mesh: ArrayMesh) -> ArrayMesh:
+	return WORLD.pony(pony).dock_reach(mesh)
 
 
 func far_mesh_shown(pony: Node) -> bool:
-	return GAME.far_mesh_shown(pony)
+	return WORLD.pony(pony).far_mesh_shown()
+
+
+func forget_far_mesh(pony: Node) -> void:
+	WORLD.pony(pony).forget_far_mesh()
+
+
+func exclude_from_outline(pony: Node, mesh: MeshInstance3D) -> void:
+	WORLD.pony(pony).exclude_from_outline(mesh)
 
 
 func eye_motion_of(pony: Node) -> Node:
-	return GAME.eye_motion_of(pony)
+	return WORLD.pony(pony).eye_motion()
 
 
 func boop_of(pony: Node) -> Node:
-	return GAME.boop_of(pony)
+	return WORLD.pony(pony).boop()
 
 
 func head_of(pony: Node) -> Node:
-	return GAME.head_of(pony)
+	return WORLD.pony(pony).head()
 
 
-func mouth_of(head: Node) -> Node:
-	return GAME.mouth_of(head)
+func mouth_of(pony: Node) -> Node:
+	return WORLD.pony(pony).mouth()
 
 
-func head_skeleton_of(boop: Node) -> Skeleton3D:
-	return GAME.head_skeleton_of(boop)
+func head_skeleton_of(pony: Node) -> Skeleton3D:
+	return WORLD.pony(pony).head_skeleton()
 
 
-func nose_world(boop: Node) -> Vector3:
-	return GAME.nose_world(boop)
+func nose_world(pony: Node) -> Vector3:
+	return WORLD.pony(pony).nose_world()
 
 
-func anon_body_of(player: Node) -> Node3D:
-	return GAME.anon_body_of(player)
+func anon_body() -> Node3D:
+	return WORLD.anon().body()
 
 
 func hair_link_pelvis(pony: Node) -> Transform3D:
-	return GAME.hair_link_pelvis(pony)
+	return WORLD.pony(pony).hair_link_pelvis()
 
 
 func hair_link_ready(pony: Node) -> bool:
-	return GAME.hair_link_ready(pony)
+	return WORLD.pony(pony).hair_link_ready()
 
 
 func own_body_materials(pony: Node) -> void:
-	GAME.own_body_materials(pony)
+	WORLD.pony(pony).claim_body_materials()
 
 
-func set_viseme(mouth: Node, letter: String) -> void:
-	GAME.set_viseme(mouth, letter)
+func set_viseme(pony: Node, letter: String) -> void:
+	WORLD.pony(pony).set_viseme(letter)
 
 
-func clear_viseme(mouth: Node) -> void:
-	GAME.clear_viseme(mouth)
+func clear_viseme(pony: Node) -> void:
+	WORLD.pony(pony).clear_viseme()
 
 
-func aim_eyes(eye_motion: Node, target: Vector3) -> void:
-	GAME.aim_eyes(eye_motion, target)
+func aim_eyes(pony: Node, target: Vector3) -> void:
+	WORLD.pony(pony).aim_eyes(target)
 
 
 func notify_hair_link(pony: Node) -> void:
-	GAME.notify_hair_link(pony)
+	WORLD.pony(pony).notify_hair_link()
 
 
 func set_hair_link_pelvis(pony: Node, value: Transform3D) -> void:
-	GAME.set_hair_link_pelvis(pony, value)
+	WORLD.pony(pony).set_hair_link_pelvis(value)
 
 
 func set_near_mesh(pony: Node, on: bool) -> void:
-	GAME.set_near_mesh(pony, on)
+	WORLD.pony(pony).set_near_mesh(on)

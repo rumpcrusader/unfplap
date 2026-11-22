@@ -125,6 +125,7 @@ is internal API; the only stable external surface is `docs/api.md`.
 | Voice routing | `shared/voice_status.gd` | `docs/audio.md` | `tests/test_voice.gd`, `tests/act_audio/` |
 | Bond record | `shared/bond_record.gd` | `docs/world.md` | `tests/world/`, `tests/test_debug_pony.gd` |
 | VR touch bridge | `shared/touch_bridge.gd` | `docs/world.md` | `tests/test_vr_act.gd` |
+| Dock fit | `shared/dock_fit.gd` | `docs/world.md` | `tests/anatomy/`, `tests/world/` |
 
 Shared modules are not services. Pure modules have no scene, lifecycle or service dependency. A
 shared store may read `settings`; a read model is refreshed by its owner. `shared/service.gd` is

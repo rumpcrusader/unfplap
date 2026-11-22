@@ -27,7 +27,7 @@ const TEATS_PATH := ASSET_DIR + "teats.scn"
 const STRIP_PATH := ASSET_DIR + "skin_bridge.scn"
 
 var pony: Node3D
-## The world's game boundary, injected by the anatomy API.
+## The anatomy's world seam, injected by the anatomy API.
 var rig: RIG
 ## The presented body's form. Null keeps the default own form built from her identity.
 var _form: BODY_FORM.BodyForm = null

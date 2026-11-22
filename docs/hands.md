@@ -98,9 +98,9 @@ field and callback contract is `docs/act_facts.md`.
 The caress profile, touch step, flank hit, smack presentation and the context records are typed
 in `hands/model.gd`. The public side enum lives in `hands/api.gd`; `hands/model.gd` carries a
 private mirror because the controller cannot preload the facade without a cycle. The facade maps
-one to the other once. Base-game hand, flank and `PonyTouchBody` members go through the typed
-accessors in `world/game.gd`; the mod-owned `missionary_anon.caress_reach()` read stays a
-`Callable` because that body is not a base-game node.
+one to the other once. Base-game hand, flank and `PonyTouchBody` members go through the world
+facade's typed views and `world/game.gd` accessors; the mod-owned `missionary_anon.caress_reach()`
+read stays a `Callable` because that body is not a base-game node.
 
 The hands' `pose_changed(view)` hook retargets the contact path: it caches `view.hands.path` and
 `view.contact_kind`; a path change ends the live caress holds but keeps the controller, and a

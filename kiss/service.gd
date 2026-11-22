@@ -168,11 +168,11 @@ func _start_base_kiss() -> bool:
 		return false
 	if not str(affection.get("kind")).is_empty():
 		return false
-	var body := WORLD.player
-	var was_locked := GAME.controls_locked(body)
-	GAME.set_controls_locked(body, false)
+	var anon := WORLD.anon()
+	var was_locked := anon.controls_locked()
+	anon.set_controls_locked(false)
 	var begun := GAME.begin_from_pony(kisser, pony)
-	GAME.set_controls_locked(body, was_locked)
+	anon.set_controls_locked(was_locked)
 	if not begun:
 		return false
 	_apply_kiss_forelegs()

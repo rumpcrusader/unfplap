@@ -4,7 +4,6 @@ extends Node
 ## else on his rig wins; the asset carries every bone, and only this body is placed, not his node.
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
-const GAME := preload("res://mods/unfplap/world/game.gd")
 const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
 const HIP := preload("res://mods/unfplap/poses/anon_hip_thrust.gd")
@@ -120,8 +119,8 @@ func install(context: ACT_FACTS) -> bool:
 	_install_palm_scale()
 	# His own drivers: the desktop pose driver poses the torso and the body IK the limbs. Both are
 	# parked for the act; the pose we write is the only pose.
-	_driver = GAME.desktop_pose_driver(avatar)
-	GAME.set_desktop_pose_driver(avatar, null)
+	_driver = WORLD.anon().pose_driver()
+	WORLD.anon().set_pose_driver(null)
 	# Only the body IK is parked: it is the *pose driver* (it builds his body from the player camera
 	# markers, i.e. the standing body). Every hider stays on: they only hide parts.
 	var ik: Variant = avatar.get("_body_ik")
@@ -177,7 +176,7 @@ func remove() -> void:
 	_leg_hide = null
 	_body_ik = null
 	if is_instance_valid(avatar):
-		GAME.set_desktop_pose_driver(avatar, _driver)
+		WORLD.anon().set_pose_driver(_driver)
 		# The act wrote his world placement every frame; put the rig back exactly where the
 		# presentation left it, then hand it back.
 		avatar.transform = _avatar_transform

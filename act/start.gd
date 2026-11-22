@@ -18,7 +18,6 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
-const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const REST := preload("res://mods/unfplap/rest/control.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
@@ -88,7 +87,7 @@ func run(pose: String, bed_in: Variant, act_source: String, skip_presentation :=
 		session.source = ""
 		session.bed = null
 		return false
-	session.player_pony = PLAYER_FORM.is_pony(PLAYER_FORM.active(host.tree()))
+	session.player_pony = WORLD.anon().form_is_pony()
 	context.wings.reset()
 	session.reset_act()
 	context.reactions.begin_act()

@@ -300,8 +300,9 @@ func _apply_standing_lean_look() -> void:
 		+ deg_to_rad(float(_presentation_cfg["camera_pitch_deg"])),
 		-1.5, 1.5)
 	body.rotation.y = yaw
-	GAME.set_pitch(body, pitch)
-	if GAME.form_of(body) == null:
+	var anon := WORLD.anon()
+	anon.set_pitch(pitch)
+	if anon.form() == null:
 		var view: Camera3D = WORLD.camera()
 		if is_instance_valid(view):
 			view.rotation.x = pitch
@@ -310,7 +311,7 @@ func _apply_standing_lean_look() -> void:
 func _set_camera_offsets(vertical: float, forward: float, side: float = 0.0) -> void:
 	if not is_instance_valid(camera):
 		return
-	var seated := GAME.seat_of(WORLD.player) != null
+	var seated := WORLD.anon().seat() != null
 	var eye_height := _standing_eye_height()
 	if _standing_base_saved and not camera.top_level and not seated:
 		camera.position = Vector3(
@@ -477,20 +478,21 @@ func _clamp_look() -> void:
 	if not is_instance_valid(WORLD.game) or not is_instance_valid(WORLD.player):
 		return
 	var body: Node3D = WORLD.player
-	var form := GAME.form_of(body)
+	var anon := WORLD.anon()
+	var form := anon.form()
 	# AnonPony lying/sitting has her own body-yaw limit; never widen it.
-	GAME.clamp_view(form)
+	anon.clamp_view()
 	var yaw_delta := angle_difference(float(facts.look_yaw), float(body.rotation.y))
 	if absf(yaw_delta) > LOOK_YAW_LIMIT:
 		body.rotation.y = float(facts.look_yaw) + clampf(yaw_delta, -LOOK_YAW_LIMIT, LOOK_YAW_LIMIT)
 	if GAME.headset_view(body):
 		return
-	var pitch_now := GAME.pitch(body)
+	var pitch_now := anon.pitch()
 	if not is_finite(pitch_now):
 		return
 	var want := float(facts.look_pitch) + clampf(pitch_now - float(facts.look_pitch), -LOOK_PITCH_LIMIT, LOOK_PITCH_LIMIT)
 	if absf(pitch_now - want) > 0.00001:
-		GAME.set_pitch(body, want)
+		anon.set_pitch(want)
 	var view: Camera3D = WORLD.camera()
 	if form == null and is_instance_valid(view):
 		view.rotation.x = want

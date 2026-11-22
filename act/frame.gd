@@ -363,7 +363,7 @@ func stance_eye(rig: Rig) -> float:
 
 
 static func player_base_eye(player: Variant) -> float:
-	var reported := GAME.eye_height(player as Node3D)
+	var reported := WORLD.anon().eye_height()
 	if not is_nan(reported):
 		return reported
 	if is_instance_valid(player) and player.get("_stand_eye") != null:
@@ -508,12 +508,13 @@ func _write_stance(rig: Rig, eye: float, yaw: float, pitch: float) -> void:
 		return
 	_capture(rig)
 	body.rotation.y = yaw
+	var anon := WORLD.anon()
 	if body.get("_pitch") != null:
-		GAME.set_pitch(body, pitch)
+		anon.set_pitch(pitch)
 	if eye > 0.0:
-		GAME.set_stand_eye(body, eye)
-		GAME.set_eye_height(body, eye)
-		GAME.set_eye_y(body, eye)
+		anon.set_stand_eye(eye)
+		anon.set_eye_height(eye)
+		anon.set_eye_y(eye)
 	var view := WORLD.camera()
 	if body.get("form_driver") == null and is_instance_valid(view):
 		view.rotation.x = pitch
@@ -557,14 +558,15 @@ func _capture(rig: Rig, owns_eye := true) -> void:
 func _restore_player() -> void:
 	if _owns_eye and is_instance_valid(_player):
 		_owns_eye = false
-		GAME.set_stand_eye(_player, _saved_stand_eye)
-		GAME.set_eye_height(_player, _saved_eye_height)
-		GAME.set_eye_y(_player, _saved_stand_eye)
+		var anon := WORLD.anon()
+		anon.set_stand_eye(_saved_stand_eye)
+		anon.set_eye_height(_saved_eye_height)
+		anon.set_eye_y(_saved_stand_eye)
 	if context != null and context.camera != null:
 		context.camera.reset_lean_state()
 	if _pose != null and _pose.family != "standing" and is_instance_valid(_player):
 		_player.rotation.y = _saved_yaw
-		GAME.set_pitch(_player, _saved_pitch)
+		WORLD.anon().set_pitch(_saved_pitch)
 		var view := WORLD.camera()
 		if _player.get("form_driver") == null and is_instance_valid(view):
 			view.rotation.x = _saved_pitch
@@ -581,7 +583,7 @@ func _lock_player(rig: Rig) -> void:
 		var held: Variant = body.get("controls_locked")
 		_controls_saved = bool(held) if held != null else false
 		_controls_by_frame = true
-	GAME.set_controls_locked(body, true)
+	WORLD.anon().set_controls_locked(true)
 
 
 func _unlock_player() -> void:
@@ -590,7 +592,7 @@ func _unlock_player() -> void:
 	_controls_by_frame = false
 	var body: Node3D = WORLD.player
 	if is_instance_valid(body):
-		GAME.set_controls_locked(body, _controls_saved)
+		WORLD.anon().set_controls_locked(_controls_saved)
 
 
 ## Park the game's desktop presentation for a bed act: it would otherwise show and drive his body
@@ -600,7 +602,7 @@ func _park_avatar() -> void:
 		return
 	if is_instance_valid(_presentation):
 		if _presentation_enabled and bool(_presentation.get("_enabled")) == true:
-			GAME.set_presentation_enabled(_presentation, false)
+			WORLD.anon().set_presentation_enabled(_presentation, false)
 		return
 	var presentation: Variant = WORLD.game.get("desktop_presentation")
 	if not is_instance_valid(presentation):
@@ -609,7 +611,7 @@ func _park_avatar() -> void:
 	var enabled: Variant = presentation.get("_enabled")
 	_presentation_enabled = bool(enabled) if enabled != null else true
 	if _presentation_enabled:
-		GAME.set_presentation_enabled(_presentation, false)
+		WORLD.anon().set_presentation_enabled(_presentation, false)
 	# `set_enabled(false)` only hides his body; `advance()` keeps running and re-hides it every
 	# frame. Park the presentation's process too, so the act owns the avatar wholly.
 	_presentation_processing = presentation.is_processing()
@@ -620,7 +622,7 @@ func _release_avatar() -> void:
 	if is_instance_valid(_presentation):
 		_presentation.set_process(_presentation_processing)
 		if _presentation_enabled:
-			GAME.set_presentation_enabled(_presentation, true)
+			WORLD.anon().set_presentation_enabled(_presentation, true)
 	_presentation = null
 	_presentation_enabled = true
 	_presentation_processing = true

@@ -1,6 +1,6 @@
 extends "res://mods/unfplap/tests/support/suite.gd"
 ## The world facade: the bound scene handles, the camera cache, the bed resolution, the menu and
-## headset gates, the player body and mare reads, the LOD rebuild, the act chat and the four views.
+## headset gates, the player body and mare reads, the LOD rebuild, the act chat and its bound views.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/world/test_world.gd
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
@@ -360,6 +360,53 @@ class FakeAvatar extends Node3D:
 	var desktop_pose_driver: Variant = null
 
 
+## The player rig the Anon view binds: the private members it writes and the body it resolves.
+class FakeAnonPlayer extends FakePlayer:
+	var _pitch := 0.0
+	var _stand_eye := 1.5
+	var _eye_height := 1.5
+	var _q_held := false
+	var _space_hold := 0.0
+	var _rest_held := false
+	var knockdown: Variant = null
+	var stand_ups := 0
+	var sits: Array = []
+	var sleeps := 0
+	var eye_y := 0.0
+
+	func _set_eye_y(value: float) -> void:
+		eye_y = value
+
+	func force_stand_up() -> void:
+		stand_ups += 1
+
+	func sit_on(seat: Node3D) -> bool:
+		sits.append(seat)
+		return true
+
+	func toggle_couch_sleep() -> bool:
+		sleeps += 1
+		return true
+
+
+## The form driver the view clamps and whose kind the form readers report.
+class FakeFormDriver extends Node:
+	var form := {}
+	var clamps := 0
+
+	func clamp_view() -> void:
+		clamps += 1
+
+
+## The knockdown handle his body carries.
+class FakeKnockdown extends RefCounted:
+	var starts: Array = []
+
+	func start(body: Node3D, direction: Vector3) -> void:
+		starts.append([body, direction])
+
+
+
 ## Her own awareness facing, which the gaze fallback reads off the body.
 class FakeAwarePony extends Node3D:
 	var forward := Vector3.FORWARD
@@ -466,6 +513,7 @@ func run() -> void:
 	_check_turn_and_wing_accessors()
 	_check_pose_accessors()
 	_check_views()
+	_check_anon_view()
 	_check_body_lod()
 	_check_desktop()
 	await _check_bed_under()
@@ -1376,8 +1424,8 @@ func _check_pose_accessors() -> void:
 	plain.queue_free()
 
 
-## The five bound views: one cached handle per node, the accessor answer on the live node, the
-## typed zero on an absent one, and the cache dropped by every bind.
+## The bound views: one cached handle per node, the accessor answer on the live node, the typed
+## zero on an absent one, and the cache dropped by every bind.
 func _check_views() -> void:
 	WORLD.unbind()
 	var pony := FakeBody.new()
@@ -1567,3 +1615,133 @@ func _check_views() -> void:
 	excitement.queue_free()
 	flank.queue_free()
 	touch.queue_free()
+
+
+## Anon's bound view: the facade's player handle behind every player member, the cached handle, the
+## typed zero once unbound, and the form readers the facade and the act gates delegate to.
+func _check_anon_view() -> void:
+	WORLD.unbind()
+	var game := FakeGame.new()
+	root.add_child(game)
+	var player := FakeAnonPlayer.new()
+	root.add_child(player)
+	var avatar := FakeAvatar.new()
+	avatar.name = "AnonBody"
+	player.add_child(avatar)
+	var seat := FakeSeat.new()
+	root.add_child(seat)
+	player.seat = seat
+	var form := FakeFormDriver.new()
+	form.form = {"kind": "pony", "age": "young"}
+	root.add_child(form)
+	form.add_to_group("player_pony_form")
+	player.form_driver = form
+	var knockdown := FakeKnockdown.new()
+	player.knockdown = knockdown
+	WORLD.bind_world(game)
+	WORLD.bind_player(player)
+
+	var view := WORLD.anon()
+	check(view == WORLD.anon(), "an Anon view is cached for the bound rig")
+	check(view.seat() == seat, "the view reads his seat")
+	check(not view.controls_locked(), "a released rig reads unlocked")
+	view.set_controls_locked(true)
+	check(player.controls_locked, "the controls lock reaches his rig")
+	view.force_stand_up()
+	check(player.stand_ups == 1, "the stand-up reaches his rig")
+	check(is_equal_approx(view.eye_height(), player.eye_line), "the view reads his eye line")
+	view.set_eye_y(1.3)
+	view.set_stand_eye(1.4)
+	view.set_eye_height(1.45)
+	check(is_equal_approx(player.eye_y, 1.3) and is_equal_approx(player._stand_eye, 1.4)
+		and is_equal_approx(player._eye_height, 1.45), "the eye writes reach his rig")
+	view.set_pitch(0.4)
+	check(is_equal_approx(view.pitch(), 0.4), "the look pitch is written and read")
+	check(view.form() == form, "the view reads his form driver")
+	check(view.form_is_pony() and view.form_is_young(), "the live form is a pony and young")
+	check(WORLD.player_is_pony(), "the facade reads the same form through the view")
+	form.form = {"kind": "pony", "age": "adult"}
+	check(view.form_is_pony() and not view.form_is_young(), "an adult pony is not young")
+	form.form = {"kind": "human"}
+	check(not view.form_is_pony() and not WORLD.player_is_pony(), "a human form is not a pony")
+	view.clamp_view()
+	check(form.clamps == 1, "the form's own view limit takes the call")
+	check(view.body() == avatar, "the view reads his body under the rig")
+	check(not view.q_held(), "a rig with no Q hold reads false")
+	view.set_q_held(true)
+	check(view.q_held(), "the Q hold is written and read")
+	view.set_space_hold(0.25)
+	view.set_rest_held(true)
+	check(is_equal_approx(player._space_hold, 0.25) and player._rest_held,
+		"the seated holds reach his rig")
+
+	var rest := FakeSeat.new()
+	root.add_child(rest)
+	check(view.sit_on(rest) and player.sits == [rest], "the seat call reaches his rig")
+	check(view.toggle_couch_sleep() and player.sleeps == 1, "the recline reaches his rig")
+
+	var driver := FakePoseDriver.new()
+	root.add_child(driver)
+	var left := Node3D.new()
+	var right := Node3D.new()
+	root.add_child(left)
+	root.add_child(right)
+	check(view.hand_frame(driver, "right").origin.is_finite(), "the view reads a live palm frame")
+	view.set_hold_target(driver, "left", Transform3D(Basis.IDENTITY, Vector3.ONE), "rub")
+	check(driver.holds.size() == 1 and driver.holds[0][0] == "left",
+		"the palm hold reaches the driver")
+	view.clear_hold_target(driver, "left")
+	check(driver.releases == ["left"], "the palm release reaches the driver")
+	view.apply_torso_pose(driver, left, Basis.IDENTITY)
+	check(driver.torsos.size() == 1 and driver.torsos[0][0] == left,
+		"the torso pose reaches the driver")
+	view.set_rest_hand_targets(driver, left, right)
+	view.clear_rest_hand_targets(driver, left, right)
+	check(driver.rest.size() == 1 and driver.clears.size() == 1,
+		"the rest-hand pair and its release reach the driver")
+	check(view.pose_driver() == null, "a body with no driver answers null")
+	avatar.desktop_pose_driver = driver
+	check(view.pose_driver() == driver, "the view reads his body's pose driver")
+	view.set_pose_driver(null)
+	check(avatar.desktop_pose_driver == null, "the parked driver write lands on his body")
+	view.set_pose_driver(driver)
+	check(avatar.desktop_pose_driver == driver, "the restore write lands on his body")
+
+	check(view.knockdown() == knockdown, "the view reads his knockdown handle")
+	check(view.start_knockdown(Vector3.FORWARD), "the knockdown starts through the view")
+	check(knockdown.starts.size() == 1 and knockdown.starts[0][0] == player,
+		"the knockdown takes his body")
+
+	var settings := root.get_node_or_null("Settings")
+	if settings == null:
+		check(is_nan(view.height()), "a runtime without settings answers no height")
+	else:
+		check(is_equal_approx(view.height(), GAME.anon_height(settings)),
+			"the view reads the game's Anon height")
+
+	WORLD.bind_player(player)
+	check(WORLD.anon() != view, "a player bind drops the Anon view")
+	check(WORLD.anon() == WORLD.anon(), "the new bind caches its own Anon view")
+	WORLD.unbind()
+	var gone := WORLD.anon()
+	check(gone.seat() == null and gone.body() == null, "an unbound view answers no handle")
+	check(not gone.controls_locked() and not gone.q_held(), "an unbound view reads false")
+	check(gone.form() == null and gone.pose_driver() == null, "an unbound view has no form")
+	check(is_nan(gone.pitch()) and is_nan(gone.eye_height()), "an unbound view answers NAN")
+	check(not gone.sit_on(null) and not gone.toggle_couch_sleep(),
+		"an unbound view takes no seat or recline")
+	check(gone.knockdown() == null and not gone.start_knockdown(Vector3.UP),
+		"an unbound view takes no knockdown")
+	check(not gone.hand_frame(null, "right").origin.is_finite(),
+		"an unbound view answers an infinite palm frame")
+
+	form.remove_from_group("player_pony_form")
+	game.queue_free()
+	player.queue_free()
+	avatar.queue_free()
+	seat.queue_free()
+	rest.queue_free()
+	form.queue_free()
+	driver.queue_free()
+	left.queue_free()
+	right.queue_free()

@@ -6,7 +6,6 @@ extends RefCounted
 ## An action is one table entry that runs a one-off operation, never a setting.
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
-const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const ACTIONS_NODE := preload("res://mods/unfplap/debug/actions.gd")
 
 ## The aimed mare: the mare closest to the camera's aim ray, inside this tube and range.
@@ -412,8 +411,7 @@ static func skeleton_click() -> bool:
 static func aimed_pony(view: Camera3D) -> Node:
 	if not is_instance_valid(WORLD.player) or not is_instance_valid(WORLD.game):
 		return null
-	var tree := Engine.get_main_loop() as SceneTree
-	if not PLAYER_FORM.is_pony(PLAYER_FORM.active(tree)):
+	if not WORLD.anon().form_is_pony():
 		var reach: Node = WORLD.interactor()
 		if is_instance_valid(reach) and reach.get("cradled") == true:
 			var held: Variant = reach.get("held")

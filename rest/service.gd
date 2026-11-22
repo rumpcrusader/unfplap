@@ -225,11 +225,11 @@ func rejoin_bed_cuddle(bed_node: Node3D, act_serial: int) -> void:
 	var player_seat: Node3D = seats[0]
 	var guest_seat: Node3D = seats[1]
 	if player.get("seat") != player_seat:
-		if not GAME.player_sit_on(player, player_seat):
+		if not WORLD.anon().sit_on(player_seat):
 			LOG.debug("cuddle rejoin failed reason=sit")
 			return
 	if not bool(player.get_meta("couch_sleeping", false)):
-		if not GAME.player_toggle_couch_sleep(player):
+		if not WORLD.anon().toggle_couch_sleep():
 			LOG.debug("cuddle rejoin failed reason=recline")
 			return
 	# The front probe won't accept the mattress floor, so move her first.

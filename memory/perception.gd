@@ -3,7 +3,7 @@ extends RefCounted
 
 const HOUSE := preload("res://world/buildings/house_interior.gd")
 const AWARENESS := preload("res://world/ai/pony_awareness.gd")
-const PLAYER_FORM := preload("res://world/life/player_form.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const FACTS := preload("res://mods/unfplap/memory/facts.gd")
@@ -18,7 +18,7 @@ static func observers(game: Node, service: ELIGIBILITY, partner: Node3D) -> Arra
 		return out
 	if not partner.is_inside_tree():
 		return out
-	if PLAYER_FORM.is_young(PLAYER_FORM.active(partner.get_tree())):
+	if WORLD.anon().form_is_young():
 		return out
 	var list: Variant = game.get("mares")
 	if not list is Array:
@@ -59,7 +59,7 @@ static func witnesses(game: Node, service: ELIGIBILITY, partner_id: String,
 		return out
 	if not partner.is_inside_tree():
 		return out
-	if PLAYER_FORM.is_young(PLAYER_FORM.active(partner.get_tree())):
+	if WORLD.anon().form_is_young():
 		return out
 	var list: Variant = game.get("mares")
 	if not list is Array:

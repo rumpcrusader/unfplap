@@ -3,7 +3,6 @@ extends RefCounted
 ## owns readiness and scoring; this controller only poses the player rig.
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
-const GAME := preload("res://mods/unfplap/world/game.gd")
 const ANON_THRUST := preload("res://mods/unfplap/poses/anon_thrust.gd")
 const HIP_THRUST := preload("res://mods/unfplap/poses/anon_hip_thrust.gd")
 const PALM_SCALE := preload("res://mods/unfplap/shared/hands_scale.gd")
@@ -156,7 +155,7 @@ func _install_anon_thrust() -> void:
 	var avatar := WORLD.player.find_child("AnonBody", true, false) as Node3D
 	if not is_instance_valid(avatar):
 		return
-	var original := GAME.desktop_pose_driver(avatar)
+	var original := WORLD.anon().pose_driver()
 	if not is_instance_valid(original):
 		return
 	var driver := ANON_THRUST.new()
@@ -164,7 +163,7 @@ func _install_anon_thrust() -> void:
 	driver.original = original
 	driver.runtime = facts.driver_host()
 	WORLD.player.add_child(driver)
-	GAME.set_desktop_pose_driver(avatar, driver)
+	WORLD.anon().set_pose_driver(driver)
 	_anon_thrust_driver = driver
 	_anon_thrust_original = original
 	_anon_thrust_avatar = avatar
@@ -235,8 +234,8 @@ func _remove_anon_thrust() -> void:
 		_chest_back.queue_free()
 	_chest_back = null
 	if is_instance_valid(_anon_thrust_avatar) and is_instance_valid(_anon_thrust_original) \
-			and GAME.desktop_pose_driver(_anon_thrust_avatar) == _anon_thrust_driver:
-		GAME.set_desktop_pose_driver(_anon_thrust_avatar, _anon_thrust_original)
+			and WORLD.anon().pose_driver() == _anon_thrust_driver:
+		WORLD.anon().set_pose_driver(_anon_thrust_original)
 	if is_instance_valid(_anon_thrust_driver):
 		_anon_thrust_driver.queue_free()
 	_anon_thrust_driver = null
@@ -255,7 +254,7 @@ func _desktop_pose_driver() -> Node:
 	var avatar: Node = WORLD.player.find_child("AnonBody", true, false)
 	if not is_instance_valid(avatar):
 		return null
-	return GAME.desktop_pose_driver(avatar)
+	return WORLD.anon().pose_driver()
 
 
 ## Read the live scene handles from the typed act view. The runtime rewrites the view before

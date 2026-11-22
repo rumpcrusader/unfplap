@@ -158,11 +158,11 @@ static func _ensure_player_lying(host: Node, rest: Node3D) -> String:
 	if body.get("seat") != seat:
 		if not body.has_method("sit_on"):
 			return "player cannot sit"
-		if not GAME.player_sit_on(body as Node3D, seat as Node3D):
+		if not WORLD.anon().sit_on(seat as Node3D):
 			return "sit failed: move within 3 m of the bed"
 	if not body.has_method("toggle_couch_sleep"):
 		return "player cannot lie down"
-	if not GAME.player_toggle_couch_sleep(body as Node3D):
+	if not WORLD.anon().toggle_couch_sleep():
 		return "lie-down failed"
 	return "Anon sat and lay down"
 

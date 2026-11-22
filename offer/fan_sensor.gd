@@ -175,7 +175,7 @@ static func _seat_partner() -> Node3D:
 	var body: Node3D = WORLD.player
 	if not is_instance_valid(body):
 		return null
-	var seat: Node = GAME.seat_of(body)
+	var seat: Node = WORLD.anon().seat()
 	if not is_instance_valid(seat) or not seat.has_meta("couch"):
 		return null
 	var couch: Variant = seat.get_meta("couch")

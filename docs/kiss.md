@@ -15,7 +15,8 @@ controller reads `shared/act_facts.gd` (`pose_view` for the family and the prese
 profile, `state`, `lean_*`, `anon_height_scale`, `standing_lean_scale`, `camera`, the scene handles
 and the `kiss_controller()`, `touch()` and `write_forced_glance()` callbacks), never the runtime
 node; see `docs/act_facts.md`. The pose view is held typed, the act body is the poses facade's
-`MISSIONARY_ANON`, and every base-game member it reads or writes goes through `world/game.gd`.
+`MISSIONARY_ANON`, and every base-game member it reads or writes goes through `world/game.gd` or a
+`world/api.gd` view.
 
 The kiss's `pose_changed(view)` hook follows the view's family, presentation kiss profile and live
 `from_config`/`pose_config` without ending a running kiss or releasing its foreleg pin; it never

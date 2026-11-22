@@ -7,7 +7,6 @@ const WORLD := preload("res://mods/unfplap/world/api.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
-const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const SERVICE := preload("res://mods/unfplap/stool/service.gd")
 const PROP := preload("res://mods/unfplap/stool/prop.gd")
@@ -63,8 +62,7 @@ func applies() -> bool:
 		return false
 	if not is_instance_valid(player):
 		return false
-	var tree: SceneTree = pony.get_tree()
-	if PLAYER_FORM.is_pony(PLAYER_FORM.active(tree)):
+	if WORLD.anon().form_is_pony():
 		return false
 	if GAME.headset_view(WORLD.game):
 		return false

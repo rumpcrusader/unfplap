@@ -323,7 +323,7 @@ func lock_player() -> void:
 				kisser.set_physics_process(false)
 	locked_player = true
 	if body.get("seat") != null:
-		GAME.set_q_held(body, true)
+		WORLD.anon().set_q_held(true)
 
 
 func unlock_player() -> void:

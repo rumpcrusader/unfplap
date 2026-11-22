@@ -123,7 +123,7 @@ func find_bed_for(pony: Node3D) -> Dictionary:
 	var node: Node3D = WORLD.player
 	if not is_instance_valid(node) or not is_instance_valid(pony):
 		return {}
-	var own := player_bed_node(node)
+	var own := player_bed_node()
 	if own != null:
 		var own_row := bed_row(own, pony, node)
 		if not own_row.is_empty():
@@ -141,8 +141,8 @@ func find_bed_for(pony: Node3D) -> Dictionary:
 	return best
 
 
-func player_bed_node(node: Node3D) -> Node3D:
-	var seat := GAME.seat_of(node)
+func player_bed_node() -> Node3D:
+	var seat := WORLD.anon().seat()
 	if not is_instance_valid(seat) or not seat.has_meta("couch"):
 		return null
 	var couch: Variant = seat.get_meta("couch")

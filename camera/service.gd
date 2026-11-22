@@ -684,8 +684,7 @@ func size_scale() -> float:
 
 ## Anon's chosen height over the 6 ft rig every offset was tuned on (1.0 at default).
 func anon_height_scale() -> float:
-	var settings := settings_node()
-	var raw := GAME.anon_height(settings)
+	var raw := WORLD.anon().height()
 	if not is_nan(raw):
 		return clampf(raw, 0.6, 1.4)
 	return 1.0
@@ -705,7 +704,7 @@ func palm_scale_factor() -> float:
 func player_eye_height() -> float:
 	var body := player_body()
 	if is_instance_valid(body):
-		var eye := GAME.eye_height(body)
+		var eye := WORLD.anon().eye_height()
 		if not is_nan(eye):
 			return eye
 		if body.get("_stand_eye") != null:

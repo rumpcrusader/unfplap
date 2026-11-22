@@ -18,8 +18,8 @@ This contract covers:
   game's own settings;
 - the three scene writes a service cannot do itself: the merged LOD rebuild after a shape change,
   the act chat open past the controls lock and a body's velocity;
-- the bound views of a pony's body, navigator, face, wings and flank, and the handle cache behind
-  them.
+- the bound views of a pony's body, navigator, face, wings and flank, Anon's rig, and the handle
+  cache behind them.
 
 It does not cover an offer, a pose, an act start, a gate verdict or any act state. It preloads no
 service facade and no runtime.
@@ -65,11 +65,15 @@ names the entry to ask whether the scene is live.
 ## Views
 
 A view is a base-game object with its receiver already bound: `pony(n)`, `navigator(n)`, `face(n)`,
-`wings(n)` and `flank(n)` answer a handle whose members take no scene argument. The factory caches
-one handle per node, so a per-frame read costs a lookup rather than an allocation, and every bind
-and `unbind()` drops the cache so a swapped body can never answer through the old one. A view built
-on `null` answers the accessors' typed zeroes; a caller that keeps one across a despawn therefore
-reads those zeroes rather than crashing.
+`wings(n)`, `flank(n)` and `anon()` answer a handle whose members take no scene argument. The
+factory caches one handle per bound node (one for the player), so a per-frame read costs a lookup
+rather than an allocation, and every bind and `unbind()` drops the cache so a swapped body can
+never answer through the old one. A view built on `null` answers the accessors' typed zeroes; a
+caller that keeps one across a despawn therefore reads those zeroes rather than crashing.
+
+`Anon` is bound by the facade to its player handle, so its player members take no node. The
+presentation and the hand or torso driver it acts on are still passed, because a caller may hold a
+different one. `height` reads the game's own settings node, so no caller resolves it.
 
 | View | Binds | Members |
 |---|---|---|
@@ -78,6 +82,7 @@ reads those zeroes rather than crashing.
 | `Face` | a pony body | `controller`, `touch`, `release_touch`, `stare`, `fluster`, `fluster_amount`, `dialogue_face`, `set_dialogue`, `finish_dialogue`, `clear_dialogue`, `sustain_blush`, `celebrate`, `set_expression` |
 | `Wings` | her excitement Beat, or the wing node it owns | `node`, `hold`, `release_hold`, `set_open`, `spread`, `flutter`, `opened`, `set_opened`, `set_tuck`, `set_half` |
 | `Flank` | her `FlankTouch` node, or the touch body whose hulls need syncing | `sync`, `update_surface`, `impact`, `wake_tick`, `start_jiggle`, `process`, `jiggle_amount`, `set_jiggle_amount` |
+| `Anon` | the player rig, bound by the facade | `seat`, `controls_locked`, `set_controls_locked`, `set_presentation_enabled`, `force_stand_up`, `height`, `eye_height`, `set_eye_y`, `set_stand_eye`, `set_eye_height`, `pitch`, `set_pitch`, `form`, `clamp_view`, `form_is_young`, `form_is_pony`, `body`, `q_held`, `set_q_held`, `set_space_hold`, `set_rest_held`, `sit_on`, `toggle_couch_sleep`, `set_hold_target`, `clear_hold_target`, `hand_frame`, `apply_torso_pose`, `set_rest_hand_targets`, `clear_rest_hand_targets`, `pose_driver`, `set_pose_driver`, `knockdown`, `start_knockdown` |
 
 `Pony` resolves the parts it can reach from the body it holds — her identity, head, mouth, blush
 sustainer and gaze controller — so a call names only the extra value it needs. The members that
@@ -100,8 +105,8 @@ write surface over the accessor module, so a base-game rename stays a change in 
 ## Base-game access
 
 `world/game.gd` is the base-game and presentation accessor module: static functions with explicit
-arguments, no bound state and no service preload. `world/api.gd` delegates its raw reads to it,
-and the act calls it directly for the eye line and the blush sustainer. Every accessor answers with
+arguments, no bound state and no service preload. `world/api.gd` delegates its raw reads to it, and
+the act reads the eye line and the blush sustainer through the views. Every accessor answers with
 a typed zero when the member is absent or renamed — `null` for a handle, `false` for a flag, `NAN`
 for a measurement, a zero vector for a direction — and a clamp hands back the basis it was given.
 An argument that is not a live node is answered the same way, so a caller that
@@ -412,10 +417,10 @@ facade answers `null` and `false`; that is the "no world yet" answer, not a rule
 reads the game's own `player` property through `GAME`, so a renamed or missing property is null
 instead of a crash.
 
-The views of a pony's body, navigator, face, wings and flank exist in this revision. The rest of
-the base-game objects this facade hands back — Anon's rig, the bed, the director, the story
-journal, the inventory, the menu, the mods registry, the relationship runtime and the affection
-scene — are still reached by taking the node to the facade member or to `GAME`.
+The views of a pony's body, navigator, face, wings and flank, and of Anon's rig, exist in this
+revision. The rest of the base-game objects this facade hands back — the bed, the director, the
+story journal, the inventory, the menu, the mods registry, the relationship runtime and the
+affection scene — are still reached by taking the node to the facade member or to `GAME`.
 
 ## Data ownership
 

@@ -24,7 +24,6 @@ const POSE_OPTIONS := preload("res://mods/unfplap/shared/pose_options.gd")
 const POSE_PLACEMENT := preload("res://mods/unfplap/shared/pose_placement.gd")
 const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
-const PLAYER_FORM := preload("res://world/life/player_form.gd")
 
 ## The negotiation's position in its offer and agreement flow.
 enum Phase { NONE, OFFERED, AGREEMENT }
@@ -480,7 +479,7 @@ func form_view() -> FormView:
 
 func _form_view() -> FormView:
 	var out := FormView.new()
-	out.form = "pony" if PLAYER_FORM.is_pony(PLAYER_FORM.active(get_tree())) else "human"
+	out.form = "pony" if WORLD.anon().form_is_pony() else "human"
 	out.view = "vr" if WORLD.headset_view() else "desktop"
 	return out
 

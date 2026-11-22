@@ -6,7 +6,6 @@ extends "res://mods/unfplap/hands/port.gd"
 ## Composition root for the per-hand actions; it never places a palm.
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
-const GAME := preload("res://mods/unfplap/world/game.gd")
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const POSE_VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
@@ -194,21 +193,21 @@ func hand_frame(side: MODEL.Side) -> Transform3D:
 	var hand := _hand_driver()
 	if not is_instance_valid(hand) or not hand.has_method("hand_frame"):
 		return Transform3D(Basis(), Vector3.INF)
-	return GAME.hand_frame(hand, MODEL.side_key(side))
+	return WORLD.anon().hand_frame(hand, MODEL.side_key(side))
 
 
 func hold(side: MODEL.Side, frame: Transform3D) -> void:
 	var hand := _hand_driver()
 	if not is_instance_valid(hand) or not hand.has_method("set_hold_target"):
 		return
-	GAME.set_hold_target(hand, MODEL.side_key(side), frame, "rub")
+	WORLD.anon().set_hold_target(hand, MODEL.side_key(side), frame, "rub")
 
 
 func release_hold(side: MODEL.Side) -> void:
 	var hand := _hand_driver()
 	if not is_instance_valid(hand) or not hand.has_method("clear_hold_target"):
 		return
-	GAME.clear_hold_target(hand, MODEL.side_key(side))
+	WORLD.anon().clear_hold_target(hand, MODEL.side_key(side))
 
 
 func flank() -> Node:

@@ -17,7 +17,6 @@ const CLEARANCE := preload("res://mods/unfplap/shared/clearance.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
-const PLAYER_FORM := preload("res://world/life/player_form.gd")
 
 ## Verdict modes. The mode is recorded; every verdict field is always computed.
 enum Mode { START, OFFER }
@@ -309,9 +308,9 @@ func _read_settings(out: Dictionary) -> void:
 
 
 func _read_player(out: Dictionary) -> void:
-	var form: Dictionary = PLAYER_FORM.active(_tree())
-	out["player_young"] = PLAYER_FORM.is_young(form)
-	out["player_pony"] = PLAYER_FORM.is_pony(form)
+	var anon := WORLD.anon()
+	out["player_young"] = anon.form_is_young()
+	out["player_pony"] = anon.form_is_pony()
 
 
 func _read_cycle(pony: Node, out: Dictionary) -> void:

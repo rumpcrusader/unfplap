@@ -11,7 +11,7 @@ const NAVIGATOR_VIEW := preload("res://mods/unfplap/world/views/navigator.gd")
 const FACE_VIEW := preload("res://mods/unfplap/world/views/face.gd")
 const WINGS_VIEW := preload("res://mods/unfplap/world/views/wings.gd")
 const FLANK_VIEW := preload("res://mods/unfplap/world/views/flank.gd")
-const PLAYER_FORM := preload("res://world/life/player_form.gd")
+const ANON_VIEW := preload("res://mods/unfplap/world/views/anon.gd")
 const INTERACTOR_PATH := "res://player/interactor.gd"
 
 ## One pony's body reads and writes, bound to her node; every member answers typed zeroes when the
@@ -40,6 +40,11 @@ class Flank extends FLANK_VIEW:
 	func _init(n: Node) -> void:
 		super(n)
 
+## Anon's rig, form driver, controls, eye line and seated state, bound to the facade's player.
+class Anon extends ANON_VIEW:
+	func _init(n: Node3D) -> void:
+		super(n)
+
 
 ## The live world root; null outside a world.
 static var game: Node = null
@@ -56,6 +61,7 @@ static var _navigators: Dictionary = {}
 static var _faces: Dictionary = {}
 static var _wings: Dictionary = {}
 static var _flanks: Dictionary = {}
+static var _anon: Anon = null
 
 
 ## The world entered. The resolved handles belong to the old one.
@@ -92,6 +98,7 @@ static func _clear_handles() -> void:
 	_faces.clear()
 	_wings.clear()
 	_flanks.clear()
+	_anon = null
 
 
 static func _tree() -> SceneTree:
@@ -200,7 +207,7 @@ static func can_interact() -> bool:
 
 ## True when Anon currently presents as a pony; a scan reads it once.
 static func player_is_pony() -> bool:
-	return PLAYER_FORM.is_pony(PLAYER_FORM.active(_tree()))
+	return anon().form_is_pony()
 
 
 ## The bed or couch under a point, from the world's own support collision.
@@ -396,6 +403,15 @@ static func open_chat() -> bool:
 	if not is_instance_valid(game) or not is_instance_valid(player):
 		return false
 	return GAME.open_chat(game, player)
+
+
+## Anon's rig view, cached for the bound player; an unbound facade answers the typed zeroes.
+static func anon() -> Anon:
+	var live := is_instance_valid(player)
+	if _anon is Anon and (not live or _anon._bound() == player):
+		return _anon
+	_anon = Anon.new(player if live else null)
+	return _anon
 
 
 ## One pony's body, cached per bound node; an invalid node answers the accessors' typed zeroes.

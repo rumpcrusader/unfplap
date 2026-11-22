@@ -33,22 +33,6 @@
       "expires": "phase-2"
     },
     {
-      "from": "act/start.gd",
-      "to": "res://world/life/player_form.gd",
-      "kind": "game-import",
-      "owner": "runtime",
-      "reason": "base-game import; drain through the GAME accessor in Task B",
-      "task": "B"
-    },
-    {
-      "from": "act_gate/service.gd",
-      "to": "res://world/life/player_form.gd",
-      "kind": "game-import",
-      "owner": "act_gate",
-      "reason": "base-game import; drain through the GAME accessor in Task B",
-      "task": "B"
-    },
-    {
       "from": "shared/voice_status.gd",
       "to": "res://world/ai/chatter_voice.gd",
       "kind": "game-import",
@@ -75,14 +59,6 @@
     {
       "from": "debug/bed.gd",
       "to": "res://world/relationships/shared_bed.gd",
-      "kind": "game-import",
-      "owner": "debug",
-      "reason": "base-game import; drain through the GAME accessor in Task B",
-      "task": "B"
-    },
-    {
-      "from": "debug/service.gd",
-      "to": "res://world/life/player_form.gd",
       "kind": "game-import",
       "owner": "debug",
       "reason": "base-game import; drain through the GAME accessor in Task B",
@@ -153,24 +129,8 @@
       "task": "B"
     },
     {
-      "from": "memory/perception.gd",
-      "to": "res://world/life/player_form.gd",
-      "kind": "game-import",
-      "owner": "memory",
-      "reason": "base-game import; drain through the GAME accessor in Task B",
-      "task": "B"
-    },
-    {
       "from": "negotiation/adapter.gd",
       "to": "res://world/ai/ai_config.gd",
-      "kind": "game-import",
-      "owner": "negotiation",
-      "reason": "base-game import; drain through the GAME accessor in Task B",
-      "task": "B"
-    },
-    {
-      "from": "negotiation/service.gd",
-      "to": "res://world/life/player_form.gd",
       "kind": "game-import",
       "owner": "negotiation",
       "reason": "base-game import; drain through the GAME accessor in Task B",
@@ -205,14 +165,6 @@
       "to": "res://world/life/couch/mattress.gd",
       "kind": "game-import",
       "owner": "rest",
-      "reason": "base-game import; drain through the GAME accessor in Task B",
-      "task": "B"
-    },
-    {
-      "from": "scene_gate/service.gd",
-      "to": "res://world/life/player_form.gd",
-      "kind": "game-import",
-      "owner": "scene_gate",
       "reason": "base-game import; drain through the GAME accessor in Task B",
       "task": "B"
     },
@@ -253,22 +205,6 @@
       "to": "res://world/characters/hybrid_mare/face_poses.gd",
       "kind": "game-import",
       "owner": "shared:act_face.gd",
-      "reason": "base-game import; drain through the GAME accessor in Task B",
-      "task": "B"
-    },
-    {
-      "from": "stool/act.gd",
-      "to": "res://world/life/player_form.gd",
-      "kind": "game-import",
-      "owner": "stool",
-      "reason": "base-game import; drain through the GAME accessor in Task B",
-      "task": "B"
-    },
-    {
-      "from": "world/api.gd",
-      "to": "res://world/life/player_form.gd",
-      "kind": "game-import",
-      "owner": "world",
       "reason": "base-game import; drain through the GAME accessor in Task B",
       "task": "B"
     },

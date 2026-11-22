@@ -4,7 +4,6 @@ extends "res://mods/unfplap/shared/service.gd"
 ## game's own stand_up poll from force-standing a seated player.
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
-const GAME := preload("res://mods/unfplap/world/game.gd")
 const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/service.gd")
 const OFFER := preload("res://mods/unfplap/offer/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
@@ -218,8 +217,8 @@ func _suppress_seated_q() -> void:
 	if body.get("seat") != null:
 		if not _suppress_q:
 			_suppress_q = true
-			_old_q = GAME.q_held(body)
-		GAME.set_q_held(body, true)
+			_old_q = WORLD.anon().q_held()
+		WORLD.anon().set_q_held(true)
 
 
 func _restore_seated_q() -> void:
@@ -227,7 +226,7 @@ func _restore_seated_q() -> void:
 		return
 	var body: Variant = WORLD.player
 	if is_instance_valid(body):
-		GAME.set_q_held(body, _old_q)
+		WORLD.anon().set_q_held(_old_q)
 	_suppress_q = false
 
 
@@ -239,8 +238,8 @@ func _hold_movement() -> void:
 	if not body.has_meta("kiss_hold"):
 		body.set_meta("kiss_hold", true)
 	Input.action_release("move_jump")
-	GAME.set_space_hold(body, 0.0)
-	GAME.set_rest_held(body, true)
+	WORLD.anon().set_space_hold(0.0)
+	WORLD.anon().set_rest_held(true)
 
 
 func _input(event: InputEvent) -> void:

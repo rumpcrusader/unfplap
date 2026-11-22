@@ -8,7 +8,6 @@ const ACT_GATE := preload("res://mods/unfplap/act_gate/service.gd")
 const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const POSE_SESSION := preload("res://mods/unfplap/poses/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
-const PLAYER_FORM := preload("res://world/life/player_form.gd")
 
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const STATE_IDLE := ACT_STATE.State.IDLE
@@ -563,14 +562,15 @@ func buck_or_push() -> bool:
 	var body: Node3D = WORLD.player
 	if not is_instance_valid(body):
 		return false
-	var knockdown: Object = GAME.knockdown_of(body)
+	var anon := WORLD.anon()
+	var knockdown: Object = anon.knockdown()
 	if knockdown == null:
 		return false
 	var direction: Vector3 = pony.global_position - body.global_position
 	direction.y = 0.25
 	if direction.length_squared() < 0.0001:
 		direction = -body.global_basis.z
-	return GAME.start_knockdown(knockdown, body, direction.normalized() * 3.0)
+	return anon.start_knockdown(direction.normalized() * 3.0)
 
 
 func conversation_ok() -> bool:
@@ -662,7 +662,7 @@ func running_verdict(nav: Node, bed: Node3D, player_pony: bool, our_kiss: bool) 
 			and WORLD.bed_occupied(bed, pony):
 		return RunningVerdict.new(false, "interrupted")
 	if pony.is_inside_tree() \
-			and player_pony != PLAYER_FORM.is_pony(PLAYER_FORM.active(pony.get_tree())):
+			and player_pony != WORLD.anon().form_is_pony():
 		return RunningVerdict.new(false, "form change")
 	return RunningVerdict.new(true, "")
 
@@ -760,7 +760,6 @@ func bed_gate(pose: String, act_source: String, found: Node3D) -> bool:
 			return false
 		if act_source == "cradle" and float(rest.get("drowse")) >= 0.5:
 			return false
-	var tree: SceneTree = pony.get_tree()
 	if act_source == "cradle":
 		var reach: Node = WORLD.interactor()
 		if not is_instance_valid(reach):
@@ -768,7 +767,7 @@ func bed_gate(pose: String, act_source: String, found: Node3D) -> bool:
 		if reach.get("held") != pony or reach.get("cradled") != true:
 			return false
 		# The cradle path exists only for human Anon.
-		if PLAYER_FORM.is_pony(PLAYER_FORM.active(tree)):
+		if WORLD.anon().form_is_pony():
 			return false
 		return true
 	if act_source == "bed_side":
@@ -776,7 +775,7 @@ func bed_gate(pose: String, act_source: String, found: Node3D) -> bool:
 		if str(status.get("requested", "")) != "lie_down" or not bool(status.get("settled", false)):
 			return false
 		return WORLD.player_beside_bed(found)
-	if not PLAYER_FORM.is_pony(PLAYER_FORM.active(tree)):
+	if not WORLD.anon().form_is_pony():
 		return false
 	var status2: Dictionary = pony.posture_status()
 	if str(status2.get("requested", "")) != "lie_down" or not bool(status2.get("settled", false)):
@@ -891,8 +890,9 @@ func _supports(pose: String, key: String, value: String) -> bool:
 
 
 func _player_form_id() -> String:
-	var tree: SceneTree = pony.get_tree() if is_instance_valid(pony) else null
-	return "pony" if PLAYER_FORM.is_pony(PLAYER_FORM.active(tree)) else "human"
+	if not is_instance_valid(pony):
+		return "human"
+	return "pony" if WORLD.anon().form_is_pony() else "human"
 
 
 func _view_id() -> String:

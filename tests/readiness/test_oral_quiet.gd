@@ -19,7 +19,7 @@ const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const PREF := preload("res://mods/unfplap/shared/preferences.gd")
 const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 const FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
-const HANDS := preload("res://mods/unfplap/hands/service.gd")
+const HANDS := preload("res://mods/unfplap/hands/api.gd")
 const CAMERA_VIEW := preload("res://mods/unfplap/camera/view.gd")
 
 const STATE_ACTIVE := 2

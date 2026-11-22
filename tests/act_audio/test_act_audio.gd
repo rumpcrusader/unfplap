@@ -9,8 +9,18 @@ const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const POSE_VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
-const HANDS := preload("res://mods/unfplap/hands/service.gd")
-const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
+const SMACK_ACTION := preload("res://mods/unfplap/hands/smack.gd")
+const SMACK_PORT := preload("res://mods/unfplap/hands/port.gd")
+
+
+class FakeSmackPort extends SMACK_PORT:
+	var flank_node: Node = null
+
+	func _init(flank: Node) -> void:
+		flank_node = flank
+
+	func flank() -> Node:
+		return flank_node
 
 func run() -> void:
 	for value: float in [0.0, 0.1, 0.33, 0.5, 0.66, 0.9, 1.0]:
@@ -160,12 +170,8 @@ func run() -> void:
 	smack_player.volume_db = -10.0
 	smack_player.pitch_scale = 1.2
 	flank.add_child(smack_player)
-	var smack_facts: RefCounted = ACT_FACTS.new()
-	smack_facts.pony = smack_pony
-	var hands: RefCounted = HANDS.new(smack_facts)
-	hands.set("pony", smack_pony)
-	hands.set("_flank", flank)
-	var smack: RefCounted = hands.call("_smack_controller")
+	var port := FakeSmackPort.new(flank)
+	var smack: RefCounted = SMACK_ACTION.new(port)
 	smack.call("_install_sound")
 	check(smack_player.stream != stock_stream and smack_player.stream is AudioStream,
 		"the act installs a pack smack")
@@ -176,7 +182,7 @@ func run() -> void:
 	check(smack_player.stream == stock_stream, "smack restore puts the stock stream back")
 	check(near(smack_player.volume_db, -10.0) and near(smack_player.pitch_scale, 1.2),
 		"smack restore puts the stock level and pitch back")
-	hands = null
+	smack = null
 	root.remove_child(smack_pony)
 	smack_pony.free()
 

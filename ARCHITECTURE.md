@@ -50,7 +50,8 @@ main.gd / runtime.gd          entry and orchestration
 api.gd                        cross-mod facade
 world/service.gd              scene read facade
 world/game.gd                 base-game accessors
-<service>/service.gd          service facades
+<service>/api.gd              service facades (preferred)
+<service>/service.gd          legacy service facade
 <service>/**                  private service implementation
 shared/**                     pure modules, shared stores, read models
 res://world/..., res://player/...   game and engine
@@ -116,10 +117,11 @@ exposes idempotent begin/end or reset methods and never starts a second teardown
 
 ### Facade
 
-`<service>/service.gd` is the only file another part of the mod may import. It contains the public
-contract, state ownership and the scene adaptation for that service. A service that needs an
-internal base class may extend it, but the public API must remain readable in `service.gd`; prefer
-delegation over inherited public methods.
+`<service>/api.gd` is the preferred public entry and `<service>/service.gd` is the legacy name.
+The facade is the only file another part of the mod may import. It contains the public contract,
+state ownership and the scene adaptation for that service. A service that needs an internal base
+class may extend it, but the public API must remain readable in the facade; prefer delegation over
+inherited public methods.
 
 A world-list service extends `shared/service.gd` for the four no-op lifecycle hooks. A per-pony or
 per-act service is constructed inside the runtime and has no world broadcast, so it does not extend
@@ -132,7 +134,7 @@ The facade header names the service, its contract, its scope and the import rule
 ## Service: <id>
 ## Contract: docs/<id>.md
 ## Scope: world | per-pony | per-act | pure
-## Import: <id>/service.gd only
+## Import: <id>/api.gd only
 ```
 
 ### Typing
@@ -164,8 +166,9 @@ grows. Removing a method from the debt is part of the change that types it.
   settings service owns the file and the generic block storage, not the consent, preference,
   participation or pose semantics. In this pass the settings service still stores those blocks
   until a characters service owns them.
-- A per-act service receives its settings values once per act and receives them again on
-  `apply_live_settings()`. New code does not read `Settings` every frame.
+- A per-act service may read its typed settings handles at use, hot or cold. A bulk block uses
+  `SETTINGS.act_snapshot(group)`; there are no default copies, no private settings module and no
+  per-service cache. If a hot path regresses, improve the settings service.
 
 ### No reach-ins
 
@@ -179,7 +182,8 @@ caller takes it as a host parameter.
 
 ```text
 <service>/
-  service.gd       # public contract
+  api.gd           # public contract (preferred)
+  service.gd       # legacy public contract
   internal.gd      # private implementation
   ui.gd            # private scene adapter, if the service owns a panel
   data.json        # private data
@@ -376,8 +380,8 @@ There is no per-service `settings.gd` module and no registration manifest. A con
 another service's contributed handle because the catalog is public inside the mod. It is not part
 of the cross-mod API: other mods still only see `api.gd`.
 
-Panel order is declaration order. A per-act service receives its settings values once per act and
-receives them again on `apply_live_settings()`. There is one writer to the player files: the
+Panel order is declaration order. A per-act service may read its typed handles at use; a bulk
+block uses `SETTINGS.act_snapshot(group)` and receives it again on `apply_live_settings()`. There is one writer to the player files: the
 settings service. The per-mare profiles live in the player's `characters.json`, split out of the
 settings document by that writer, until a characters service owns them.
 
@@ -439,8 +443,8 @@ service has a host.
 
 The architecture gate is `scripts/architecture.py --check`, run from `scripts/test_all.sh`:
 
-- discovers services from `*/service.gd` outside `shared/` and treats the rest of the directory as
-  private;
+- discovers services from `*/service.gd` and `*/api.gd` outside `shared/`, preferring `api.gd`,
+  and treats the rest of the directory as private;
 - checks that every service the entry adds extends `shared/service.gd`; the HUD is the allowed
   `CanvasLayer` and must define all four hooks;
 - rejects a static `instance` in a shipped service; world facades are injected or taken as host
@@ -502,7 +506,7 @@ block in an act and one outside it before and after, with **Enable debug** + **P
 ## Adding a service
 
 1. Pick a stable snake_case id and one responsibility.
-2. Create `<id>/service.gd` with the facade header, a narrow typed API and the ownership fields.
+2. Create `<id>/api.gd` with the facade header, a narrow typed API and the ownership fields.
 3. Keep every helper under `<id>/`; move a genuinely shared pure module to `shared/` instead of
    making the facade a namespace.
 4. Add `docs/<id>.md` with the ownership heading and the behaviour sections; the index row owns the

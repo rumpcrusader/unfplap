@@ -1,9 +1,12 @@
 extends "res://mods/unfplap/hands/path_base.gd"
-## Standing caress path: the marked-area chain from `hands/areas/areas.json`, with the old
-## procedural flank/rump point as the fallback and the backward-lean reach.
+## Service: hands
+## Contract: docs/hands.md
+## Scope: pure
+## Import: hands/paths/standing.gd only
+## Standing caress path: the marked-area chain with the procedural flank/rump fallback.
 
 const PATH := preload("res://mods/unfplap/hands/paths/anchors.gd")
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const CONTACT := preload("res://mods/unfplap/hands/contact.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const PERF := preload("res://mods/unfplap/shared/perf.gd")
 
@@ -11,7 +14,7 @@ const CARESS_UP_BIAS_M := 0.05
 ## Backward lean reaches the rump top at this magnitude, not at a full -1 lean.
 const CARESS_RUMP_LEAN := 0.5
 
-var _flank: Node
+var _flank: Node = null
 var _paths: Dictionary = {}
 var _path_failed: Dictionary = {}
 var _path_pony_id := 0
@@ -20,34 +23,37 @@ var _last_centres: Dictionary = {}
 var _last_normals: Dictionary = {}
 
 
-func candidates(hand_side: String, context: Dictionary) -> Array:
+func candidates(hand_side: MODEL.Side,
+		context: MODEL.CaressContext) -> Array[MODEL.Candidate]:
+	var out: Array[MODEL.Candidate] = []
 	if not is_instance_valid(pony):
-		return []
-	var lean := clampf(float(context.get("lean", 0.0)), -1.0, 1.0)
+		return out
+	var lean := clampf(context.lean, -1.0, 1.0)
 	var authored := _authored_candidates(hand_side, context, lean)
 	if not authored.is_empty():
 		return authored
 	var candidate := _procedural_candidate(hand_side, context)
-	return [] if candidate.is_empty() else [candidate]
+	if candidate != null:
+		out.append(candidate)
+	return out
 
 
-## The marked-area path is the standing caress path. It moves from the flank at no lean through
-## the shoulder to the base of the neck at a full forward lean.
-func _authored_candidates(hand_side: String, _context: Dictionary, lean: float) -> Array:
-	var anchor_hand := hand_side
-	var path: Variant = _path_for(anchor_hand)
+## The marked-area path moves from the flank at no lean through the shoulder to the neck base.
+func _authored_candidates(hand_side: MODEL.Side, context: MODEL.CaressContext,
+		lean: float) -> Array[MODEL.Candidate]:
+	var out: Array[MODEL.Candidate] = []
+	var path := _path_for(hand_side, context)
 	if path == null:
-		return []
-	var world: Array = path.skinned()
+		return out
+	var world := path.skinned()
 	if world.size() < 3:
-		return []
+		return out
 	var body_right: Vector3 = pony.global_basis.x.normalized()
-	var length := PATH.path_length(world)
 	var u: float = PATH.u_for(lean, 0.0, path.belly_u)
-	var sample := PATH.sample_world(world, u, anchor_hand, body_right)
-	if sample.is_empty():
-		return []
-	var normal: Vector3 = sample["normal"]
+	var sample := PATH.sample_world(world, u, hand_side, body_right)
+	if sample == null:
+		return out
+	var normal: Vector3 = sample.normal
 	if normal.length_squared() < 0.5:
 		normal = Vector3.UP
 	normal = normal.normalized()
@@ -56,63 +62,65 @@ func _authored_candidates(hand_side: String, _context: Dictionary, lean: float) 
 		up = -pony.global_basis.z.slide(normal)
 	up = up.normalized()
 	var across := up.cross(normal).normalized()
-	_last_world[hand_side] = world
-	return [{
-		"point": sample["point"],
-		"center": sample.get("center", sample["point"]),
-		"radius": float(sample.get("radius", 0.0)),
-		"normal": normal,
-		"oval_x": across,
-		"oval_y": up,
-		"finger": -pony.global_basis.z.normalized(),
-		"mode": "palm",
-		"roll": 0.0,
-		"region": str(sample.get("region", "torso")),
-		"u": u,
-	}]
+	_last_world[MODEL.side_key(hand_side)] = world
+	var candidate := MODEL.Candidate.new()
+	candidate.point = sample.point
+	candidate.center = sample.center
+	candidate.radius = sample.radius
+	candidate.normal = normal
+	candidate.oval_x = across
+	candidate.oval_y = up
+	candidate.finger = -pony.global_basis.z.normalized()
+	candidate.mode = "palm"
+	candidate.roll = 0.0
+	candidate.region = sample.region
+	candidate.u = u
+	out.append(candidate)
+	return out
 
 
-func _procedural_candidate(hand_side: String, context: Dictionary) -> Dictionary:
+func _procedural_candidate(hand_side: MODEL.Side,
+		context: MODEL.CaressContext) -> MODEL.Candidate:
 	if not is_instance_valid(_flank):
 		_flank = pony.get_node_or_null("FlankTouch")
 	if not is_instance_valid(_flank):
-		return {}
-	var centers: Variant = _flank.get("centers")
-	var normals: Variant = _flank.get("normals")
-	var index := 0 if hand_side == "left" else 1
-	if not centers is Array or index >= (centers as Array).size() \
-			or not normals is Array or index >= (normals as Array).size():
-		return {}
-	var centre: Variant = (centers as Array)[index]
-	var normal_local: Variant = (normals as Array)[index]
-	if not centre is Vector3 or not normal_local is Vector3:
-		return {}
+		return null
+	var centers := CONTACT.flank_centers(_flank)
+	var normals := CONTACT.flank_normals(_flank)
+	var index := MODEL.side_index(hand_side)
+	if index < 0 or index >= centers.size() or index >= normals.size():
+		return null
 	var frame: Transform3D = _flank.global_transform
-	var centre_world: Vector3 = frame * (centre as Vector3)
-	var normal: Vector3 = (frame.basis.inverse().transposed() * (normal_local as Vector3)).normalized()
+	var centre_world: Vector3 = frame * centers[index]
+	var normal: Vector3 = (frame.basis.inverse().transposed() * normals[index]).normalized()
 	if normal.length_squared() < 0.001:
-		return {}
+		return null
 	# Keep the offset on the outside of the body even if the stored normal is inverted.
 	var outward: Vector3 = pony.global_basis.x.normalized()
-	if hand_side == "left":
+	if hand_side == MODEL.Side.LEFT:
 		outward = -outward
 	if normal.dot(outward) < 0.0:
 		normal = -normal
-	var size := maxf(float(context.get("size", 1.0)), 0.1)
-	var profile: Variant = context.get("profile", {})
-	if not profile is Dictionary:
-		profile = {}
+	var size := maxf(context.size, 0.1)
+	var profile: MODEL.CaressProfile = context.profile
+	var up := 0.16
+	var back := 0.08
+	var out_m := 0.0
+	if profile != null:
+		up = profile.up
+		back = profile.back
+		out_m = profile.out
 	var flank_world: Vector3 = centre_world \
-		+ Vector3.UP * (float((profile as Dictionary).get("up", 0.16)) + CARESS_UP_BIAS_M) \
-		+ pony.global_basis.z.normalized() * float((profile as Dictionary).get("back", 0.08)) \
-		+ outward * float((profile as Dictionary).get("out", 0.0))
+		+ Vector3.UP * (up + CARESS_UP_BIAS_M) \
+		+ pony.global_basis.z.normalized() * back \
+		+ outward * out_m
 	var shoulder_info := shoulder_point(hand_side)
 	var shoulder_world: Vector3 = flank_world
-	if not shoulder_info.is_empty():
-		shoulder_world = shoulder_info["palm"]
+	if shoulder_info != null:
+		shoulder_world = shoulder_info.palm
 	var side_world: Vector3 = flank_world.lerp(shoulder_world, 0.5) + Vector3.DOWN * (0.06 * size)
 	var rump_top: Vector3 = flank_world + Vector3.UP * (0.12 * size) + outward * (0.02 * size)
-	var lean := clampf(float(context.get("lean", 0.0)), -1.0, 1.0)
+	var lean := clampf(context.lean, -1.0, 1.0)
 	var target_normal := outward
 	if lean < 0.0:
 		var t := clampf(-lean / CARESS_RUMP_LEAN, 0.0, 1.0)
@@ -126,37 +134,37 @@ func _procedural_candidate(hand_side: String, context: Dictionary) -> Dictionary
 		var t := (lean - 0.5) * 2.0
 		centre_world = side_world.lerp(shoulder_world, t)
 	normal = target_normal
-	var up := Vector3.UP.slide(normal)
-	if up.length_squared() < 0.001:
+	var up_axis := Vector3.UP.slide(normal)
+	if up_axis.length_squared() < 0.001:
 		# On the rump top the world-up tangent collapses; use the body axis instead.
-		up = -pony.global_basis.z.slide(normal)
-	up = up.normalized()
-	var across := up.cross(normal).normalized()
-	_last_world.erase(hand_side)
-	_last_centres[hand_side] = centre_world
-	_last_normals[hand_side] = normal
-	return {
-		"point": centre_world,
-		"center": centre_world,
-		"radius": 0.0,
-		"normal": normal,
-		"oval_x": across,
-		"oval_y": up,
-		"finger": -pony.global_basis.z.normalized(),
-		"mode": "palm",
-		"roll": 0.0,
-		"region": "torso",
-	}
+		up_axis = -pony.global_basis.z.slide(normal)
+	up_axis = up_axis.normalized()
+	var across := up_axis.cross(normal).normalized()
+	_last_world.erase(MODEL.side_key(hand_side))
+	_last_centres[MODEL.side_key(hand_side)] = centre_world
+	_last_normals[MODEL.side_key(hand_side)] = normal
+	var candidate := MODEL.Candidate.new()
+	candidate.point = centre_world
+	candidate.center = centre_world
+	candidate.radius = 0.0
+	candidate.normal = normal
+	candidate.oval_x = across
+	candidate.oval_y = up_axis
+	candidate.finger = -pony.global_basis.z.normalized()
+	candidate.mode = "palm"
+	candidate.roll = 0.0
+	candidate.region = "torso"
+	return candidate
 
 
-func _path_for(hand_side: String) -> PATH:
+func _path_for(hand_side: MODEL.Side, context: MODEL.CaressContext) -> PATH:
 	var pony_id: int = int(pony.get_instance_id()) if is_instance_valid(pony) else 0
 	if pony_id != _path_pony_id:
 		_paths.clear()
 		_path_failed.clear()
 		_last_world.clear()
 		_path_pony_id = pony_id
-	var key := hand_side + "|areas"
+	var key := MODEL.side_key(hand_side) + "|areas"
 	if bool(_path_failed.get(key, false)):
 		return null
 	var path: PATH = _paths.get(key)
@@ -170,50 +178,56 @@ func _path_for(hand_side: String) -> PATH:
 		_path_failed[key] = true
 		return null
 	_paths[key] = path
-	if bool(SETTINGS.caress_debug.get_bool()):
-		LOG.debug("caress path side=%s path=areas anchors=%d", [hand_side,
-			path.anchors.size()])
-		for note: Variant in path.debug_notes:
+	if context.debug:
+		LOG.debug("caress path side=%s path=areas anchors=%d", [
+			MODEL.side_key(hand_side), path.anchors.size()])
+		for note: String in path.debug_notes:
 			LOG.debug("caress %s", [note])
-		var world: Array = path.skinned()
-		for anchor: Dictionary in world:
-			LOG.debug("caress anchor %s pos=%s normal=%s", [anchor["id"],
-				str(anchor["position"]), str(anchor["normal"])])
+		var world := path.skinned()
+		for anchor: MODEL.AnchorWorld in world:
+			LOG.debug("caress anchor %s pos=%s normal=%s", [anchor.id,
+				str(anchor.position), str(anchor.normal)])
 	return path
 
 
-func shoulder_point(side: String) -> Dictionary:
-	var is_left := side == "left" or side == "L"
-	var is_right := side == "right" or side == "R"
-	if not (is_left or is_right) or not is_instance_valid(pony):
-		return {}
+## The typed count of built per-hand area chains; the warm-up seam uses it.
+func built_hand_count() -> int:
+	return _paths.size()
+
+
+func shoulder_point(side: MODEL.Side) -> MODEL.ShoulderPoint:
+	if side == MODEL.Side.NONE or not is_instance_valid(pony):
+		return null
 	var sk: Variant = pony.get("skeleton")
 	if not sk is Skeleton3D:
-		return {}
+		return null
 	var skeleton := sk as Skeleton3D
-	var bone := skeleton.find_bone("pony_shoulder_" + ("L" if is_left else "R"))
+	var bone := skeleton.find_bone("pony_shoulder_" + MODEL.side_letter(side))
 	if bone < 0:
-		return {}
+		return null
 	var shoulder := skeleton.global_transform * skeleton.get_bone_global_pose(bone)
 	var outward: Vector3 = pony.global_basis.x.normalized()
-	if is_left:
+	if side == MODEL.Side.LEFT:
 		outward = -outward
-	return {"palm": shoulder.origin, "outward": outward}
+	return MODEL.ShoulderPoint.new(shoulder.origin, outward)
 
 
-func debug_world(hand_side: String) -> Array:
-	var world: Variant = _last_world.get(hand_side)
+func debug_world(hand_side: MODEL.Side) -> Array[MODEL.AnchorWorld]:
+	var out: Array[MODEL.AnchorWorld] = []
+	var world: Variant = _last_world.get(MODEL.side_key(hand_side))
 	if world is Array and not (world as Array).is_empty():
-		return world
-	var centre: Variant = _last_centres.get(hand_side)
+		for anchor: Variant in (world as Array):
+			if anchor is MODEL.AnchorWorld:
+				out.append(anchor)
+		return out
+	var centre: Variant = _last_centres.get(MODEL.side_key(hand_side))
 	if centre is Vector3 and (centre as Vector3).is_finite():
-		var normal: Variant = _last_normals.get(hand_side, Vector3.UP)
-		return [{
-			"id": "caress",
-			"position": centre,
-			"normal": normal if normal is Vector3 else Vector3.UP,
-		}]
-	return []
+		var normal: Variant = _last_normals.get(MODEL.side_key(hand_side), Vector3.UP)
+		out.append(MODEL.AnchorWorld.new())
+		out[0].id = "caress"
+		out[0].position = centre as Vector3
+		out[0].normal = normal if normal is Vector3 else Vector3.UP
+	return out
 
 
 func reset() -> void:
@@ -224,5 +238,3 @@ func reset() -> void:
 	_last_world.clear()
 	_last_centres.clear()
 	_last_normals.clear()
-
-

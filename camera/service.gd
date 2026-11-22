@@ -5,7 +5,7 @@ extends RefCounted
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
-const HANDS := preload("res://mods/unfplap/hands/service.gd")
+const HANDS := preload("res://mods/unfplap/hands/api.gd")
 const KISS := preload("res://mods/unfplap/kiss/service.gd")
 const CAMERA_VIEW := preload("res://mods/unfplap/camera/view.gd")
 const CAMERA_CONFIG := preload("res://mods/unfplap/camera/config.gd")
@@ -305,8 +305,6 @@ func at_actions_allowed() -> bool:
 ## The lean input: Q/E side, W/S forward/back, with Q/E also firing the pose reaction once the
 ## smoothed side lean crosses MOTION.LEAN_FIRE. `auto_open` freezes the shot in place.
 func tick_lean(delta: float, paused: bool, auto_open: bool) -> void:
-	if hands != null:
-		hands.return_tick()
 	if not at_actions_allowed():
 		lean_idle(delta)
 		return
@@ -332,7 +330,7 @@ func tick_lean(delta: float, paused: bool, auto_open: bool) -> void:
 			kiss.lean_kiss_tick()
 		PERF.begin("caress_tick")
 		if hands != null:
-			hands.tick(delta)
+			hands.tick(delta, true)
 		PERF.end("caress_tick")
 		apply_standing_lean_look()
 		return
@@ -375,7 +373,7 @@ func tick_lean(delta: float, paused: bool, auto_open: bool) -> void:
 			kiss.lean_kiss_tick()
 	PERF.begin("caress_tick")
 	if hands != null:
-		hands.tick(delta)
+		hands.tick(delta, true)
 	PERF.end("caress_tick")
 	apply_standing_lean_look()
 
@@ -395,7 +393,7 @@ func oral_lean_tick(delta: float) -> void:
 		kiss.end_lean_kiss()
 	PERF.begin("caress_tick")
 	if hands != null:
-		hands.tick(delta)
+		hands.tick(delta, true)
 	PERF.end("caress_tick")
 	apply_standing_lean_look()
 
@@ -403,7 +401,7 @@ func oral_lean_tick(delta: float) -> void:
 ## No input this frame: drop the hands, release the pose action and return the lean to rest.
 func lean_idle(delta: float) -> void:
 	if hands != null:
-		hands.stop_inputs()
+		hands.tick(delta, false)
 	end_lean_action()
 	lean_forward = move_toward(lean_forward, 0.0, delta / MOTION.LEAN_RETURN_SECONDS)
 	lean_side = move_toward(lean_side, 0.0, delta / MOTION.LEAN_RETURN_SECONDS)
@@ -511,7 +509,7 @@ func start_lean_action(side: float) -> void:
 		if view != null:
 			view.hold_glance()
 		if hands != null:
-			hands.start_reach(shoulder)
+			hands.set_reach(HANDS.Side.LEFT if shoulder == "L" else HANDS.Side.RIGHT)
 	LOG.debug("action fire lean=%s side=%.2f kind=%s shoulder=%s", [
 		lean_profile(), side, lean_action_kind, shoulder])
 
@@ -519,7 +517,7 @@ func start_lean_action(side: float) -> void:
 func end_lean_action() -> void:
 	if lean_action_kind == "reach":
 		if hands != null:
-			hands.end_reach()
+			hands.set_reach(HANDS.Side.NONE)
 		if facts != null:
 			facts.write_forced_glance("")
 		if view != null:

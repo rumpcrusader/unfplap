@@ -55,7 +55,7 @@ the idle block; `act/build.gd` constructs and binds them once per pony.
 | Act negotiation | `negotiation/service.gd` | `docs/negotiation.md` | `tests/negotiation/` |
 | Mod integrations | `integrations/service.gd`, `integrations/pantyhose.gd` | `docs/integrations.md` | `tests/integrations/` |
 | Bed rest and rejoin | `rest/service.gd` | `docs/rest.md` | `tests/rest/` |
-| Hands | `hands/service.gd` | `docs/hands.md` | `tests/hands/` |
+| Hands | `hands/api.gd` | `docs/hands.md` | `tests/hands/` |
 | Anatomy | `anatomy/api.gd` | `docs/anatomy.md` | `tests/anatomy/` |
 | Body change | `body_change/service.gd` | `docs/body_change.md` | `tests/body_change/` |
 | VR act | `vr/service.gd` | `docs/vr.md` | `tests/test_vr_act.gd` |

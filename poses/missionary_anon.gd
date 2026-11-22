@@ -72,7 +72,7 @@ var _index_skeleton := 0
 var _asset_indices: Dictionary = {}
 var _asset_index_skeleton := 0
 var _reach_log_state: Dictionary = {}
-## Caress hand holds, keyed "left"/"right". `hands/service.gd` supplies a world frame; the
+## Caress hand holds, keyed "left"/"right". `hands/api.gd` supplies a world frame; the
 ## start and release blends keep the arm from teleporting on and off the mattress.
 var _holds: Dictionary = {}
 var _hold_from: Dictionary = {}

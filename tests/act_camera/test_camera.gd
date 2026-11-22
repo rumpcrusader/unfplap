@@ -15,7 +15,7 @@ const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
 const CAMERA_VIEW := preload("res://mods/unfplap/camera/view.gd")
 const CAMERA_CONFIG := preload("res://mods/unfplap/camera/config.gd")
-const HANDS := preload("res://mods/unfplap/hands/service.gd")
+const HANDS := preload("res://mods/unfplap/hands/api.gd")
 const KISS := preload("res://mods/unfplap/kiss/service.gd")
 const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 const POSE := preload("res://mods/unfplap/poses/skeleton_pose.gd")
@@ -81,31 +81,28 @@ class FakePlayer extends Node3D:
 
 class FakeHands extends HANDS:
 	var calls: Array[String] = []
-	var reach := ""
+	var reach: HANDS.Side = HANDS.Side.NONE
 
-	func return_tick() -> void:
-		calls.append("return_tick")
-
-	func stop_inputs() -> void:
-		calls.append("stop_inputs")
-
-	func tick(_delta: float) -> void:
-		calls.append("tick")
+	func tick(_delta: float, actionable: bool) -> void:
+		calls.append("tick:true" if actionable else "tick:false")
 
 	func reset() -> void:
-		reach = ""
+		reach = HANDS.Side.NONE
 		calls.append("reset")
 
-	func start_reach(side: String) -> void:
+	func set_reach(side: HANDS.Side) -> void:
 		reach = side
-		calls.append("start_reach:" + side)
-
-	func end_reach() -> void:
-		reach = ""
-		calls.append("end_reach")
+		calls.append("set_reach:" + _side_name(side))
 
 	func reach_active() -> bool:
-		return not reach.is_empty()
+		return reach != HANDS.Side.NONE
+
+	func _side_name(side: HANDS.Side) -> String:
+		if side == HANDS.Side.LEFT:
+			return "LEFT"
+		if side == HANDS.Side.RIGHT:
+			return "RIGHT"
+		return "NONE"
 
 
 class FakeKiss extends KISS:
@@ -563,7 +560,7 @@ func _check_lean() -> void:
 	facts.state = STATE_IDLE
 	hands.calls.clear()
 	camera.call("tick_lean", 0.1, false, false)
-	check(hands.calls.has("stop_inputs"), "an idle state drops the caress input")
+	check(hands.calls.has("tick:false"), "an idle state drops the caress input")
 	check(near(camera.lean_view_forward, 0.0) and near(camera.lean_view_side, 0.0),
 		"an idle state holds the lean at rest")
 	check(not bool(camera.call("at_actions_allowed")), "idle allows no act actions")
@@ -598,11 +595,11 @@ func _check_lean() -> void:
 	camera.call("tick_lean_action")
 	check(camera.lean_action_active and camera.lean_action_kind == "reach",
 		"standing fires the shoulder reach")
-	check(hands.calls.has("start_reach:R"), "the reach starts on the lean side")
+	check(hands.calls.has("set_reach:RIGHT"), "the reach starts on the lean side")
 	check(view.calls.has("hold_glance"), "the reach holds the over-the-shoulder glance")
 	camera.lean_side = 0.0
 	camera.call("tick_lean_action")
-	check(hands.calls.has("end_reach") and view.calls.has("clear_glance"),
+	check(hands.calls.has("set_reach:NONE") and view.calls.has("clear_glance"),
 		"releasing the reach clears the glance")
 
 	# A smack that takes the reaching hand ends the hold and the action, and the reach does not
@@ -611,22 +608,22 @@ func _check_lean() -> void:
 	view.calls.clear()
 	camera.lean_side = 0.8
 	camera.call("tick_lean_action")
-	check(hands.calls.has("start_reach:R"), "a fresh lean starts the reach again")
-	hands.reach = ""
+	check(hands.calls.has("set_reach:RIGHT"), "a fresh lean starts the reach again")
+	hands.reach = HANDS.Side.NONE
 	camera.call("tick_lean_action")
-	check(not camera.lean_action_active and hands.calls.has("end_reach")
+	check(not camera.lean_action_active and hands.calls.has("set_reach:NONE")
 		and view.calls.has("clear_glance"),
 		"a taken reach hand ends the lean action and its glance")
-	var reach_starts := hands.calls.count("start_reach:R")
+	var reach_starts := hands.calls.count("set_reach:RIGHT")
 	camera.call("tick_lean_action")
 	check(not camera.lean_action_active
-		and hands.calls.count("start_reach:R") == reach_starts,
+		and hands.calls.count("set_reach:RIGHT") == reach_starts,
 		"a taken reach does not re-fire while the lean holds")
 	camera.lean_side = 0.0
 	camera.call("tick_lean_action")
 	camera.lean_side = 0.8
 	camera.call("tick_lean_action")
-	check(hands.calls.count("start_reach:R") == reach_starts + 1,
+	check(hands.calls.count("set_reach:RIGHT") == reach_starts + 1,
 		"leaving the release band re-arms the reach")
 
 	# A fresh lean state drops the hands and the kiss.
@@ -663,7 +660,7 @@ func _check_oral_lean() -> void:
 	view.calls.clear()
 	camera.call("oral_lean_tick", 0.1)
 	check(not camera.lean_action_active, "oral ends an active lean action")
-	check(hands.calls.has("end_reach"), "oral releases an active shoulder reach")
+	check(hands.calls.has("set_reach:NONE"), "oral releases an active shoulder reach")
 	check(view.calls.has("clear_glance"), "oral clears the reach glance")
 	check(camera.lean_forward < 0.7 and camera.lean_side > -0.6,
 		"oral returns the lean toward rest")
@@ -671,8 +668,8 @@ func _check_oral_lean() -> void:
 	check(not camera.side_return_armed, "oral drops the side return latch")
 	check(kiss.calls.has("end_lean_kiss"), "oral ends a running lean kiss")
 	check(not kiss.calls.has("lean_kiss_tick"), "oral never restarts the lean kiss")
-	check(hands.calls.has("tick"), "oral keeps ticking the caress hands")
-	check(not hands.calls.has("stop_inputs"), "oral never stops the caress input")
+	check(hands.calls.has("tick:true"), "oral keeps ticking the caress hands")
+	check(not hands.calls.has("tick:false"), "oral never stops the caress input")
 	check(view.calls.has("apply_lean_look"), "oral keeps the standing look response")
 	for _i in 200:
 		camera.call("oral_lean_tick", 0.05)

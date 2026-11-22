@@ -40,8 +40,16 @@ This contract covers:
 
 | File | Role |
 |---|---|
-| `hands/service.gd` | act hand coordinator: A/D/Z/C latches, five-second touch meter, shoulder reach, smack hand and target selection and palm-holder/path wiring |
-| `hands/session.gd` | typed coordinator interface used by the smack action |
+| `hands/api.gd` | the one facade: public `Side`, the per-pony handle and its eight actions |
+| `hands/controller.gd` | coordinator: composition, tick order, pose hook and smack policy |
+| `hands/port.gd` | typed host seam between the coordinator and the action modules |
+| `hands/model.gd` | private typed records, the side mirror and the pure caress math |
+| `hands/caress.gd` | two-hand caress state, input latch, touch meter, oral blend and warm-up |
+| `hands/reach.gd` | shoulder reach state, hold and release blend |
+| `hands/smack.gd` | swing, impact and the pack-sound swap |
+| `hands/smack_target.gd` | hand choice, pose target, flank/cheek query and jitter |
+| `hands/debug_draw.gd` | the debug overlay nodes and immediate-mesh drawing |
+| `hands/path_selector.gd` | pose view to the current path provider, cache and reset |
 | `hands/placement.gd` | pose-free placement engine: oval, fitted-sphere contact, smoothing, palm frame, last-good target |
 | `hands/path_base.gd` | path contract: ordered candidates, debug anchors, reset |
 | `hands/paths/standing.gd` | standing path: marked area chain, procedural flank/rump fallback |
@@ -50,61 +58,77 @@ This contract covers:
 | `hands/paths/anchors.gd` | sphere path builder: one fitted sphere per authored area, skinning, lean sampling, background fit |
 | `hands/coat_fit.gd` | the one coat reader: one sphere per authored area, fitted once per skin and cached |
 | `hands/palm.gd` | single-point palm frame: basis, placement and normal turn |
-| `shared/hands_caress.gd` | typed caress profile, touch step, flank hit and smack presentation records |
+| `hands/contact.gd` | FlankSurface/PonyTouchBody hull queries and typed helpers |
 | `shared/hands_scale.gd` | shared per-preset hand-bone scale |
 | `shared/hands_reach_plan.gd` | pure two-bone reach plan for the missionary hand |
-| `hands/contact.gd` | FlankSurface/PonyTouchBody hull queries and touch-hull sync |
-| `hands/smack.gd` | smack phases, impact audio and the return to the frame the swing started from |
 | `hands/paths/anchors.json` | authored path one: shared belly, per-hand lower/belly/chest/neck/cheek |
 | `hands/paths/anchors2.json` | authored path two: per-hand flank/shoulder/neck |
 | `hands/areas/areas.json` | marked caress areas from the Blender vertex groups; standing chain and the single oral head-side node |
 
-The pose boundary is deliberately small:
+`hands/api.gd` is the only file another part of the mod may import. The controller,
+port, model, action modules, engine, paths and the shared hand modules stay private to the
+service or to the poses.
 
-- `hands/service.gd` chooses the pose's path provider and palm holder, and supplies the
-  shared hover, oval and body scale.
-- `hands/placement.gd` never reads `pose_id`, `CATALOG`, the camera or the input. It receives a
-  pony, a path and the palm side.
-- The path providers contain all pose geometry.
-- `hands/contact.gd` is generic; only its comments mention the poses.
+## Ownership
 
-**The caress service and placement engine never read the pose; only the path does.** The caress
-always ends on the posed coat surface in the two base poses, at either quality level. Hull contact is not
-a caress: only the shoulder reach and the smack use `coat_frame()` / `hands/contact.gd`.
+The hands service owns the per-act caress, reach and smack state and the two debug overlay nodes.
+It keeps no saved data: the state is per act and `reset()` clears it on the existing exit, start
+and body-swap paths. The runtime owns scoring and the act state; hands reports through the typed
+act view.
+
+## Data ownership
+
+No hands data is saved. The act session owns the state, timers and scoring values the hands
+report into; the pose owns the body and the hold targets. The service has no persistent node or
+subscription, so it takes no world lifecycle hooks.
 
 ## Typed view
 
-`hands/service.gd` and every hands internal read `shared/act_facts.gd`, never the runtime node. The
-controller takes the view in `_init(facts)`, the engine and each path receive the same view, and
-they read `state`, `lean_forward`, `lean_side`, `size_name`, `size_scale`,
-`same_height_scale`, `physics_delta`, `presentation_config`, `profile` and `camera`, plus
-the `perf()`, `write_log()`, `feature()`, `pose_driver()`, `missionary_body()`, `touch()` and
-`smack_hit()` callbacks. The pose path and the contact come from `facts.pose_view`: the
-controller reads `view.hands.path` and `view.contact_kind`, not a start pose id or a contact mirror. The
-smack reports through `hand_on_touch()` / `hand_on_smack_impact()` on
-`hands/session.gd`, so `hands/smack.gd` needs no host node. The field and callback contract is
-`docs/act_facts.md`; a hands module that preloads `runtime.gd` or `main.gd` fails
-`scripts/architecture.py --check`.
+`hands/api.gd` is the facade; the controller and the action modules read `shared/act_facts.gd`,
+never the runtime node. The controller takes the view in `_init(facts)`, the caress and the reach
+receive the same view, and the path selector and path base hold it. They read `state`,
+`lean_forward`, `lean_side`, `size_name`, `size_scale`, `same_height_scale`, `physics_delta`,
+`presentation_config`, `profile`, `camera`, `pony`, `pose_view` and the
+`feature()`, `call_value()`, `pose_driver()`, `missionary_body()`, `touch()` and `smack_hit()`
+callbacks. The pose path and the contact come from `facts.pose_view`: the path selector reads
+`view.hands.path` and `view.contact_kind`, not a start pose id or a contact mirror. The smack
+reports through `PORT.touch()` and `PORT.impact()`, so `hands/smack.gd` needs no host node. The
+field and callback contract is `docs/act_facts.md`.
 
-The caress profile, the touch step and the flank hit are typed records from
-`shared/hands_caress.gd`, and `smack_presentation()` returns its smack record. The coordinator,
-placement engine, paths and smack phases hold those types and the path and fitted-sphere
-handles directly, so a renamed method fails at compile time. Base-game hand, flank and
-`PonyTouchBody` members go through the typed accessors in `world/game.gd`; the mod-owned
-`missionary_anon.caress_reach()` read stays a `Callable` because that body is not a base-game node.
+The caress profile, touch step, flank hit, smack presentation and the context records are typed
+in `hands/model.gd`. The public side enum lives in `hands/api.gd`; `hands/model.gd` carries a
+private mirror because the controller cannot preload the facade without a cycle. The facade maps
+one to the other once. Base-game hand, flank and `PonyTouchBody` members go through the typed
+accessors in `world/game.gd`; the mod-owned `missionary_anon.caress_reach()` read stays a
+`Callable` because that body is not a base-game node.
 
 The hands' `pose_changed(view)` hook retargets the contact path: it caches `view.hands.path` and
 `view.contact_kind`; a path change ends the live caress holds but keeps the controller, and a
 contact switch (opening -> mouth) keeps them so the oral blend captures the hand frames on the next
 tick. The bed face-sit reuses `hands.path = "missionary"`; a four-size reach failure is a focused
-path fix, never a pose-id branch. The standing ↔ oral path change is the one exception: the pair is one contact-driven path, so
-the holds survive the request and the mouth switch does the retarget. A path change to or from
-missionary still ends them. `tests/hands/test_caress.gd` and `tests/hands/test_actions.gd` pin both
-seams.
+path fix, never a pose-id branch. The standing ↔ oral path change is the one exception: the pair is
+one contact-driven path, so the holds survive the request and the mouth switch does the retarget. A
+path change to or from missionary still ends them. `tests/hands/test_caress.gd` and
+`tests/hands/test_actions.gd` pin both seams.
+
+## Pose boundary
+
+The pose boundary is deliberately small:
+
+- `hands/path_selector.gd` chooses the pose's path provider from the pose view.
+- `hands/placement.gd` never reads `pose_id`, `CATALOG`, the camera or the input. It receives a
+  pony, a path, a hand side and a resolved `CaressContext`.
+- The path providers contain all pose geometry and receive the same resolved context.
+- `hands/contact.gd` is generic; only its comments mention the poses.
+
+**The caress service and placement engine never read the pose; only the path does.** The caress
+always ends on the posed coat surface in the two base poses, at either quality level. Hull contact
+is not a caress: only the shoulder reach and the smack use `coat_frame()` /
+`hands/contact.gd`.
 
 ## Pose paths
 
-`_path_for_pose()` selects from `facts.pose_view.hands.path`: `missionary` is the chest/neck/cheek
+`path_selector.gd` selects from `facts.pose_view.hands.path`: `missionary` is the chest/neck/cheek
 path; `standing` and `oral` use the mouth contact (`view.contact_kind == "mouth"`) for the head
 path and the flank path otherwise. The contact is the switch, so the head path starts at the
 edge's contact time, not at the request.
@@ -125,7 +149,8 @@ edge's contact time, not at the request.
   tangent. The palm roll is 30 degrees, fading to 0 at the neck/cheek. The neck/cheek use the
   `fingertip` mode.
 - The path is reach-aware: the controller asks `missionary_anon.caress_reach()` for the world
-  shoulder and upper/lower/hand lengths, then walks the path back until the palm frame fits.
+  shoulder and upper/lower/hand lengths, then walks the path back until the palm frame fits. The
+  resolved lengths and the shoulder cap travel in the caress context.
 - Authored sides use the missionary facing: Anon faces her, so his left hand reaches her right
   side. The path data is used as exported.
 
@@ -147,8 +172,8 @@ edge's contact time, not at the request.
 
 ### Standing oral
 
-- While `view.contact_kind == "mouth"`, `hands/service.gd` selects `hands/paths/oral.gd` instead of
-  the standing chain. `A`/`D` still toggle each hand, `Z`/`C` keep the oval and the five-second
+- While `view.contact_kind == "mouth"`, the path selector returns `hands/paths/oral.gd` instead
+  of the standing chain. `A`/`D` still toggle each hand, `Z`/`C` keep the oval and the five-second
   caress meter keeps scoring.
 - The path holds one authored node per hand: the `head_side` area in `hands/areas/areas.json`,
   region `head`, mode `palm`, roll `1.0`. `hands/paths/anchors.gd:build_single_area()` fits one
@@ -236,8 +261,14 @@ areas are never rig-mapped: the loose heads are the shared native head.
 The caress declarations live in `settings/service.gd`, and each one's `##` comment describes its
 row.
 
+The service layers read their typed settings handles at use, including on the hot path; they keep
+no snapshot and no hands cache. `hands/caress.gd`, `hands/reach.gd` and `hands/smack_target.gd`
+resolve the values and fill the typed context; the placement engine and the paths receive the
+resolved values and never read settings. The `caress_tick` / `caress_precise` perf rows are the
+signal to improve `settings/service.gd`, not to add a hands cache.
+
 The three smoothing values apply to the two base poses. `0` restores the exact behaviour. The caress
-offsets are multiplied by `Settings.anon_height_scale()` for the Same Height preset; the other
+offsets are multiplied by `facts.same_height_scale` for the Same Height preset; the other
 presets keep their authored values. `Palm hover`, the oval radii and the contact smoothing are the
 contact knobs; the sphere fit itself is fixed and has no player row.
 
@@ -253,11 +284,13 @@ The rub centre is lifted `CARESS_UP_BIAS_M = 0.05` above the profile's `up` poin
 
 - `features.caress_debug` logs one `precise caress` line per hand per act with `u`, target,
   normal, finger, roll, hover and the fitted radius, plus each path build's anchors and their
-  world position/normal.
+  world position/normal. `PORT.debug()` resolves the feature; the engine and paths receive it in
+  their context.
 - Every coat fit logs `caress fit mesh=… region=… r=… err=…mm snap=…mm`, and a failed area logs
   `caress area miss region=… rig=… authored=… mapped=…`. Both use the normal debug log switch, not
   the caress feature.
-- The debug overlay draws the path anchors, the exact contact, the palm target and the actual hand.
+- `hands/debug_draw.gd` draws the path anchors, the exact contact, the palm target and the actual
+  hand.
 - `Print perf logs` reports `caress_tick`, `caress_precise`, `caress_path`, `caress_fit`,
   `caress_contact` and `caress_arm` chunks.
 - `caress_tick` covers the controller and the background fit; `caress_precise` covers the path plus
@@ -269,16 +302,17 @@ The rub centre is lifted `CARESS_UP_BIAS_M = 0.05` above the profile's `up` poin
 
 ## Reach
 
-The standing `Q`/`E` side lean can send Anon's same-side hand to her shoulder. It uses the same
-palm holder as the caress but a hull contact, blends from the current rest hand over 0.35 s, and
-blends back over 0.35 s. While held, the forced glance looks over that shoulder. Missionary has
-no shoulder reach. A smack that takes the reach hand ends the reach and the lean action with it;
-the reach does not fire again until the lean leaves the release band.
+`hands/reach.gd` owns the standing `Q`/`E` side lean hand. It uses the same palm holder as the
+caress but a hull contact, blends from the current rest hand over 0.35 s, and blends back over
+0.35 s. While held, the forced glance looks over that shoulder. Missionary has no shoulder reach.
+A smack that takes the reach hand ends the reach and the lean action with it; the reach does not
+fire again until the lean leaves the release band. The camera starts or holds the reach through
+`hands/api.gd:set_reach()`, and releases it with the `NONE` side.
 
 ## Smack
 
-The smack action lives in `hands/smack.gd`; `hands/service.gd` chooses the hand and the
-pose-specific target and starts the swing.
+`hands/smack_target.gd` chooses the hand and the pose-specific target; `hands/smack.gd` runs the
+swing.
 
 - The free hand is used while one hand caresses; a reaching hand is not free. With both hands
   busy one is picked at random. With neither busy the lean chooses a cheek.
@@ -302,12 +336,20 @@ pose-specific target and starts the swing.
 
 ## Scoring hooks
 
-- A held caress reports one `_on_touch("caress")` per `CAESS_TOUCH_SECONDS = 5 s` of contact, not
-  one per physics tick. A tap shorter than five seconds scores nothing.
+- A held caress reports one `PORT.touch("caress")` per `CARESS_TOUCH_SECONDS = 5 s` of contact,
+  not one per physics tick. A tap shorter than five seconds scores nothing.
 - Caress uses the normal touch cooldown and the `ASSIST_CAP`; a disliked caress subtracts and
   briefly sets `overwhelmed`.
 - The standing afterglow close window counts active caress time. 2.5 s or more of caress grants
   the full reward; after a bad act it repairs one point of history hurt.
+
+## Verification / lab
+
+`./lab.sh` is the manual pass: both base poses, standing oral, the shoulder reach, one smack, the
+standing afterglow, a body swap and a live settings edit, with the mod off and on. With **Enable
+debug** + **Print perf logs**, read one `perf` block in an act and one outside it and watch the
+caress rows. The automated seams are the two hands suites, the camera suite and the act-audio
+suite.
 
 ## Known limits
 
@@ -329,7 +371,6 @@ pose-specific target and starts the swing.
   point.
 - The area chain fits one sphere per marked group at its representative point; it does not roam the
   whole region, and the oval remains the local stroke.
-- `hands/service.gd` is the facade and the coordinator in one file. It reads the typed act view
-  (`facts.lean_forward`, `facts.size_scale`) and its own copies of the presentation config and the
-  per-mare profile, and calls the callbacks the runtime injects (`_on_touch`).
-  New hand code uses the coordinator's methods; do not add another host read.
+- The base-game hull, flank and JSON reads stay `Variant` at the query edge; each is parsed into a
+  typed record immediately. `hands/api.gd` is the only outside import; new hand code uses the
+  controller's modules, never a host read.

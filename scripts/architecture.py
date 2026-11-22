@@ -6,8 +6,9 @@ re-export rules, checks the documentation index and facade notes, and tracks
 temporary boundary/typing debt.
 
 Every shipped ``.gd`` must resolve to an owner — a service, ``shared/`` or one of the
-three orchestrators — so a directory without a ``service.gd`` cannot add code whose
-edges the boundary rules would classify as external and allow.
+three orchestrators — so a directory without a facade cannot add code whose
+edges the boundary rules would classify as external and allow. ``api.gd`` is the
+preferred public entry; ``service.gd`` is the legacy name.
 
 Usage:
     scripts/architecture.py --check
@@ -307,26 +308,29 @@ def rel(path: Path) -> str:
     return path.relative_to(ROOT).as_posix()
 
 
-# The anatomy package's public entry is `anatomy/api.gd`; every other service uses service.gd.
-FACADES = {"anatomy": "api.gd"}
+# A service facade is `api.gd` when present, otherwise the legacy `service.gd`. The preference
+# is explicit here so a non-facade `api.gd` is never mistaken for a service entry point.
+FACADE_NAMES = ("api.gd", "service.gd")
 # A store holds a resolved document another service reads directly, with no scene work of its
 # own. Its facade keeps the file name but its edges are store edges.
 STORE_SERVICES = {"registry"}
 
 
 def facade_for(sid: str) -> str:
-    return FACADES.get(sid, "service.gd")
+    for name in FACADE_NAMES:
+        if (ROOT / sid / name).is_file():
+            return name
+    return "service.gd"
 
 
 def service_ids() -> list[str]:
-    found = {
-        p.parent.name
-        for p in ROOT.glob("*/service.gd")
-        if not p.parent.name.startswith(".") and p.parent.name != "shared"
-    }
-    for sid, facade in FACADES.items():
-        if (ROOT / sid / facade).is_file():
-            found.add(sid)
+    found: set[str] = set()
+    for name in FACADE_NAMES:
+        found.update(
+            p.parent.name
+            for p in ROOT.glob(f"*/{name}")
+            if not p.parent.name.startswith(".") and p.parent.name != "shared"
+        )
     return sorted(found)
 
 
@@ -1626,7 +1630,7 @@ def check_owners(failure: Failure) -> None:
     """Every shipped `.gd` has an owner: a service, `shared/` or an orchestrator.
 
     `owner_of()` answers None for any other path, and every edge to or from an unowned file is
-    classified "external" and allowed. A directory without a `service.gd` therefore grows code
+    classified "external" and allowed. A directory without a facade therefore grows code
     outside the boundary rules; the mod root's former `runtime/` did exactly that.
     """
     orphans = [rel(path) for path in shipped_sources() if owner_of(rel(path)) is None]

@@ -18,8 +18,8 @@ the runtime orchestrator and the scene adapters.
   and the suites therefore read the view the phase boundary just wrote, not a per-getter rebind.
 - The consumers are `poses/missionary_anon.gd`, `camera/view.gd`, `poses/standing_anon.gd`,
   `poses/standing_presentation.gd`, `camera/service.gd`, `act/frame.gd`, `kiss/service.gd`,
-  `hands/service.gd`, the
-  hands internals (`hands/placement.gd`, `hands/coat_fit.gd`, `hands/path_base.gd` and its paths)
+  `hands/api.gd`, `hands/controller.gd`, `hands/caress.gd`, `hands/reach.gd`,
+  `hands/smack_target.gd`, `hands/path_selector.gd`, `hands/path_base.gd` and its paths,
   and the pose modifiers (`poses/skeleton_pose.gd`, plus
   `poses/tail_pose.gd`, `poses/tail_lay.gd`, `poses/body_sway.gd`, `poses/prone_sway.gd`, `poses/ear_twitch.gd`).
 

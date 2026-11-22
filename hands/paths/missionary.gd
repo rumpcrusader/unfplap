@@ -1,8 +1,11 @@
 extends "res://mods/unfplap/hands/path_base.gd"
-## Missionary caress path: the authored area chain in `hands/paths/anchors.gd`.
+## Service: hands
+## Contract: docs/hands.md
+## Scope: pure
+## Import: hands/paths/missionary.gd only
+## Missionary caress path: the authored area chain with the reach-aware walk back.
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const PATH := preload("res://mods/unfplap/hands/paths/anchors.gd")
 const HAND := preload("res://mods/unfplap/hands/palm.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
@@ -16,15 +19,21 @@ var _last_world: Dictionary = {}
 var _path_pony_id := 0
 
 
-func candidates(hand_side: String, context: Dictionary) -> Array:
+func candidates(hand_side: MODEL.Side,
+		context: MODEL.CaressContext) -> Array[MODEL.Candidate]:
 	if not is_instance_valid(pony):
 		return []
 	return _precise_candidates(hand_side, context)
 
 
-func debug_world(hand_side: String) -> Array:
-	var world: Variant = _last_world.get(hand_side)
-	return world if world is Array else []
+func debug_world(hand_side: MODEL.Side) -> Array[MODEL.AnchorWorld]:
+	var out: Array[MODEL.AnchorWorld] = []
+	var world: Variant = _last_world.get(MODEL.side_key(hand_side))
+	if world is Array:
+		for anchor: Variant in (world as Array):
+			if anchor is MODEL.AnchorWorld:
+				out.append(anchor)
+	return out
 
 
 func reset() -> void:
@@ -33,50 +42,47 @@ func reset() -> void:
 	_path_pony_id = 0
 
 
-func _precise_candidates(hand_side: String, context: Dictionary) -> Array:
-	var path: Variant = _path_for(hand_side)
+func _precise_candidates(hand_side: MODEL.Side,
+		context: MODEL.CaressContext) -> Array[MODEL.Candidate]:
+	var out: Array[MODEL.Candidate] = []
+	var path := _path_for(hand_side, context)
 	if path == null:
-		return []
-	var world: Array = path.skinned()
+		return out
+	var world := path.skinned()
 	if world.size() < 3:
-		return []
-	_last_world[hand_side] = world
+		return out
+	_last_world[MODEL.side_key(hand_side)] = world
 	var skeleton := _skeleton()
 	if not is_instance_valid(skeleton):
-		return []
-	var lean := clampf(float(context.get("lean", 0.0)), -1.0, 1.0)
-	var scale := maxf(float(context.get("scale", 1.0)), 0.1)
+		return out
+	var lean := clampf(context.lean, -1.0, 1.0)
+	var scale := maxf(context.scale, 0.1)
 	var body_right: Vector3 = pony.global_basis.x.normalized()
 	var body_axis := _body_axis(skeleton)
-	var length := PATH.path_length(world)
 	var u_wanted: float = PATH.u_for(lean, 0.0, path.belly_u)
-	var oval: Variant = context.get("oval", Vector2(0.01, 0.02))
-	var radii: Vector2 = oval if oval is Vector2 else Vector2(0.01, 0.02)
-	var hover := float(context.get("hover", 0.0))
-	var phase := float(context.get("phase", 0.0))
-	var reach: Variant = context.get("reach", {})
+	var radii := context.oval
+	var hover := context.hover
+	var phase := context.phase
 	var max_reach := 0.0
 	var shoulder := Vector3.ZERO
-	if reach is Dictionary and not (reach as Dictionary).is_empty():
-		max_reach = _max_reach(reach as Dictionary)
-		shoulder = (reach as Dictionary).get("origin", Vector3.ZERO)
-	var chosen: Dictionary = {}
-	var best: Dictionary = {}
+	if context.reach != null and context.reach.valid:
+		max_reach = _max_reach(context.reach, context.reach_shoulder_m)
+		shoulder = context.reach.origin
+	var chosen: MODEL.Candidate = null
+	var best: MODEL.Candidate = null
 	var best_distance := INF
 	var steps := 32
 	for i in steps:
 		var try_u := u_wanted * (1.0 - float(i) / float(steps - 1))
 		var sample := PATH.sample_world(world, try_u, hand_side, body_right)
-		if sample.is_empty():
+		if sample == null:
 			continue
 		var candidate := _precise_candidate(sample, hand_side, scale, body_axis)
-		var candidate_point: Vector3 = candidate["point"]
-		var candidate_normal: Vector3 = candidate["normal"]
-		var contact := candidate_point \
-			+ (candidate["oval_x"] as Vector3) * (cos(phase) * radii.x) \
-			+ (candidate["oval_y"] as Vector3) * (sin(phase) * radii.y)
-		var preview := HAND.place(contact, candidate_normal, candidate["finger"],
-			hand_side, str(candidate["mode"]), float(candidate["roll"]), hover)
+		var contact := candidate.point \
+			+ candidate.oval_x * (cos(phase) * radii.x) \
+			+ candidate.oval_y * (sin(phase) * radii.y)
+		var preview := HAND.place(contact, candidate.normal, candidate.finger,
+			MODEL.side_key(hand_side), candidate.mode, candidate.roll, hover)
 		if max_reach <= 0.0:
 			chosen = candidate
 			break
@@ -87,57 +93,57 @@ func _precise_candidates(hand_side: String, context: Dictionary) -> Array:
 		if distance <= max_reach:
 			chosen = candidate
 			break
-	if chosen.is_empty():
+	if chosen == null:
 		chosen = best
-	if chosen.is_empty():
-		return []
-	return [chosen]
+	if chosen == null:
+		return out
+	out.append(chosen)
+	return out
 
 
-func _precise_candidate(sample: Dictionary, hand_side: String, scale: float,
-		body_axis: Vector3) -> Dictionary:
-	var normal: Vector3 = sample["normal"]
-	var centre: Vector3 = sample["point"]
-	var center: Vector3 = sample.get("center", centre)
-	var lateral: Vector3 = sample["side"]
-	var offset := lateral * (MISSIONARY_CARESS_LATERAL_M * scale * float(sample["lateral"]))
+func _precise_candidate(sample: MODEL.Sample, hand_side: MODEL.Side, scale: float,
+		body_axis: Vector3) -> MODEL.Candidate:
+	var normal := sample.normal
+	var centre := sample.point
+	var center := sample.center
+	var lateral := sample.side
+	var offset := lateral * (MISSIONARY_CARESS_LATERAL_M * scale * sample.lateral)
 	centre += offset
 	center += offset
 	var along := body_axis - normal * body_axis.dot(normal)
 	if along.length_squared() < 0.0001:
-		along = sample["finger"]
+		along = sample.finger
 	if along.length_squared() < 0.0001:
-		along = sample["side"]
+		along = sample.side
 	along = along.normalized()
 	var across := lateral - normal * lateral.dot(normal)
 	if across.length_squared() < 0.0001:
 		across = normal.cross(along)
 	across = across.normalized()
-	var u := float(sample.get("u", 0.0))
+	var u := sample.u
 	var mode := "fingertip" if u >= 0.75 else "palm"
-	var roll := missionary_palm_roll_deg(hand_side) * float(sample["roll"])
-	return {
-		"point": centre,
-		"center": center,
-		"radius": float(sample.get("radius", 0.0)),
-		"normal": normal,
-		"oval_x": along,
-		"oval_y": across,
-		"finger": along,
-		"mode": mode,
-		"roll": roll,
-		"region": str(sample.get("region", "torso")),
-		"u": u,
-	}
+	var out := MODEL.Candidate.new()
+	out.point = centre
+	out.center = center
+	out.radius = sample.radius
+	out.normal = normal
+	out.oval_x = along
+	out.oval_y = across
+	out.finger = along
+	out.mode = mode
+	out.roll = missionary_palm_roll_deg(hand_side) * sample.roll
+	out.region = sample.region
+	out.u = u
+	return out
 
 
-func _path_for(hand_side: String) -> PATH:
-	var path_id := str(SETTINGS.path_id.get_choice())
+func _path_for(hand_side: MODEL.Side, context: MODEL.CaressContext) -> PATH:
+	var path_id := context.path_id
 	var pony_id: int = int(pony.get_instance_id()) if is_instance_valid(pony) else 0
 	if pony_id != _path_pony_id:
 		_paths.clear()
 		_path_pony_id = pony_id
-	var key := hand_side + "|" + path_id
+	var key := MODEL.side_key(hand_side) + "|" + path_id
 	var path: PATH = _paths.get(key)
 	if path != null and path.valid:
 		return path
@@ -148,15 +154,15 @@ func _path_for(hand_side: String) -> PATH:
 	if not built:
 		return null
 	_paths[key] = path
-	if bool(SETTINGS.caress_debug.get_bool()):
-		LOG.debug("caress path side=%s path=%s anchors=%d", [hand_side,
+	if context.debug:
+		LOG.debug("caress path side=%s path=%s anchors=%d", [MODEL.side_key(hand_side),
 			path_id, path.anchors.size()])
-		for note: Variant in path.debug_notes:
+		for note: String in path.debug_notes:
 			LOG.debug("caress %s", [note])
-		var world: Array = path.skinned()
-		for anchor: Dictionary in world:
-			LOG.debug("caress anchor %s pos=%s normal=%s", [anchor["id"],
-				str(anchor["position"]), str(anchor["normal"])])
+		var world := path.skinned()
+		for anchor: MODEL.AnchorWorld in world:
+			LOG.debug("caress anchor %s pos=%s normal=%s", [anchor.id,
+				str(anchor.position), str(anchor.normal)])
 	return path
 
 
@@ -191,17 +197,10 @@ func _body_axis(skeleton: Skeleton3D) -> Vector3:
 	return axis.normalized()
 
 
-func _max_reach(reach: Dictionary) -> float:
-	if reach.is_empty():
-		return 0.0
-	var total := float(reach.get("upper", 0.0)) + float(reach.get("lower", 0.0)) \
-		+ float(reach.get("hand", 0.0))
-	total += maxf(float(SETTINGS.caress_reach_shoulder_m.get_num()), 0.0)
-	return total
+func _max_reach(reach: MODEL.ReachInfo, reach_shoulder_m: float) -> float:
+	return reach.upper + reach.lower + reach.hand + maxf(reach_shoulder_m, 0.0)
 
 
-static func missionary_palm_roll_deg(side: String) -> float:
-	return MISSIONARY_CARESS_PALM_ROLL_DEG if side == "right" \
+static func missionary_palm_roll_deg(side: MODEL.Side) -> float:
+	return MISSIONARY_CARESS_PALM_ROLL_DEG if side == MODEL.Side.RIGHT \
 		else -MISSIONARY_CARESS_PALM_ROLL_DEG
-
-

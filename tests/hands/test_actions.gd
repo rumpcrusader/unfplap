@@ -12,7 +12,11 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const PALM_SCALE := preload("res://mods/unfplap/shared/hands_scale.gd")
 const WING := preload("res://mods/unfplap/poses/wing_control.gd")
 const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
-const HANDS := preload("res://mods/unfplap/hands/service.gd")
+const HANDS := preload("res://mods/unfplap/hands/api.gd")
+const MODEL := preload("res://mods/unfplap/hands/model.gd")
+const CONTROLLER := preload("res://mods/unfplap/hands/controller.gd")
+const SMACK_TARGET := preload("res://mods/unfplap/hands/smack_target.gd")
+const PLACEMENT := preload("res://mods/unfplap/hands/placement.gd")
 const SMACK := preload("res://mods/unfplap/hands/smack.gd")
 const COAT := preload("res://mods/unfplap/hands/contact.gd")
 const HAND := preload("res://mods/unfplap/hands/palm.gd")
@@ -172,32 +176,32 @@ func run() -> void:
 	check(MOTION.lean_action_kind(CATALOG.STANDING, -1.0) == "reach", "Q fires reach in standing")
 	check(MOTION.lean_action_kind(CATALOG.STANDING, 1.0) == "reach", "E fires reach in standing")
 
-	check(SMACK.side_index(0.4) == 0, "right lean smacks left cheek")
-	check(SMACK.side_index(-0.4) == 1, "left lean smacks right cheek")
-	check(SMACK.side_index(0.0) == -1, "centered smack is random")
-	check(HANDS.smack_hand(true, false, 0.0) == "right",
+	check(SMACK_TARGET.side_from_lean(0.4) == MODEL.Side.LEFT,
+		"right lean smacks left cheek")
+	check(SMACK_TARGET.side_from_lean(-0.4) == MODEL.Side.RIGHT,
+		"left lean smacks right cheek")
+	check(SMACK_TARGET.side_from_lean(0.0) == MODEL.Side.NONE, "centered smack is random")
+	check(SMACK_TARGET.choose_hand(true, false, 0.0) == MODEL.Side.RIGHT,
 		"the free hand smacks while the left hand caresses")
-	check(HANDS.smack_hand(false, true, 0.0) == "left",
+	check(SMACK_TARGET.choose_hand(false, true, 0.0) == MODEL.Side.LEFT,
 		"the free hand smacks while the right hand caresses")
-	check(HANDS.smack_hand(true, true, 0.1) == "left"
-		and HANDS.smack_hand(true, true, 0.9) == "right",
+	check(SMACK_TARGET.choose_hand(true, true, 0.1) == MODEL.Side.LEFT
+		and SMACK_TARGET.choose_hand(true, true, 0.9) == MODEL.Side.RIGHT,
 		"both hands busy picks one hand at random")
-	check(HANDS.smack_hand(false, false, 0.0) == "",
+	check(SMACK_TARGET.choose_hand(false, false, 0.0) == MODEL.Side.NONE,
 		"no busy hand leaves the choice to the lean")
-	var up_offset: Vector3 = HANDS.smack_query_offset(0.05, 0.02, 1.0,
+	var up_offset: Vector3 = SMACK_TARGET.query_offset(0.05, 0.02, 1.0,
 		Vector3.UP, Vector3.BACK)
 	check(near(up_offset.y, 0.05) and near(up_offset.z, 0.02),
 		"smack height and hind offsets use signed up and back")
-	var down_offset: Vector3 = HANDS.smack_query_offset(-0.03, 0.10, 2.0,
+	var down_offset: Vector3 = SMACK_TARGET.query_offset(-0.03, 0.10, 2.0,
 		Vector3.UP, Vector3.BACK)
 	check(near(down_offset.y, -0.06) and near(down_offset.z, 0.20),
 		"smack query offset scales with the pony")
-	var height_controller := HANDS.new()
-	height_controller.set("_presentation_cfg", {"smack": {"height_m": 0.12}})
-	check(near(float(height_controller.call("_smack_height_m")), 0.12),
+	var height_presentation := MODEL.SmackPresentation.from_dict({"height_m": 0.12})
+	check(near(height_presentation.height_m, 0.12),
 		"smack height reads the presentation setting")
-	var default_height := HANDS.new()
-	check(near(float(default_height.call("_smack_height_m")), -0.03),
+	check(near(MODEL.SmackPresentation.new().height_m, -0.03),
 		"smack height falls back to 3 cm below the mark")
 	var smack_contact := Transform3D(Basis.IDENTITY, Vector3(0.0, 1.0, 0.0))
 	var smack_raised: Transform3D = SMACK.raise_frame(
@@ -225,9 +229,9 @@ func run() -> void:
 		"left palm pitch keeps the palm normal")
 	check(SMACK.pitch_basis(straight_palm, 0.0).is_equal_approx(straight_palm),
 		"zero palm pitch keeps the basis")
-	check(SMACK.finger_hint(false, Vector3.FORWARD).is_equal_approx(Vector3.DOWN),
+	check(SMACK_TARGET.finger_hint(false, Vector3.FORWARD).is_equal_approx(Vector3.DOWN),
 		"non-caress smack points the fingers down")
-	check(SMACK.finger_hint(true, Vector3.FORWARD).is_equal_approx(Vector3.FORWARD),
+	check(SMACK_TARGET.finger_hint(true, Vector3.FORWARD).is_equal_approx(Vector3.FORWARD),
 		"caress smack keeps the fingers forward")
 	var swing_contact := Transform3D(Basis.IDENTITY, Vector3(0.0, 1.0, 0.0))
 	var swing := SMACK.swing_raise_frame(
@@ -267,25 +271,24 @@ func run() -> void:
 		Vector3.BACK, Vector3.BACK, Vector3.BACK,
 		Vector3.BACK, Vector3.BACK, Vector3.BACK,
 	])
-	var flank_hit: Variant = HANDS.closest_flank_hit(
+	var flank_hit: Variant = SMACK_TARGET.closest_flank_hit(
 		quad_faces, quad_normals, Vector3(0.5, 0.5, 1.0))
 	check(flank_hit.hit, "a posed flank face is hit")
 	check(near(flank_hit.distance, 1.0), "closest flank distance")
 	check(flank_hit.point.is_equal_approx(Vector3(0.5, 0.5, 0.0)), "closest flank point")
 	check(flank_hit.normal.dot(Vector3.BACK) > 0.99, "closest flank normal")
-	var edge_hit: Variant = HANDS.closest_flank_hit(
+	var edge_hit: Variant = SMACK_TARGET.closest_flank_hit(
 		quad_faces, quad_normals, Vector3(-1.0, 0.5, 0.0))
 	check(edge_hit.point.is_equal_approx(Vector3(0.0, 0.5, 0.0)),
 		"closest flank clamps outside the patch")
-	check(not HANDS.closest_flank_hit(PackedVector3Array(), PackedVector3Array(),
+	check(not SMACK_TARGET.closest_flank_hit(PackedVector3Array(), PackedVector3Array(),
 		Vector3.ZERO).hit, "empty flank patch has no hit")
-	var reach_hands: RefCounted = HANDS.new(ACT_FACTS.new())
-	reach_hands.set("_reach_shoulder", "R")
-	reach_hands.set("_reach_holding", true)
-	check(bool(reach_hands.call("reach_active")), "a held shoulder reach owns its hand")
-	reach_hands.call("_cancel_reach", "R")
-	check(not bool(reach_hands.call("reach_active"))
-		and str(reach_hands.get("_reach_shoulder")).is_empty(),
+	var reach_controller := CONTROLLER.new(ACT_FACTS.new())
+	reach_controller.reach().start(MODEL.Side.RIGHT)
+	check(reach_controller.reach().active(), "a held shoulder reach owns its hand")
+	reach_controller.reach().cancel(MODEL.Side.RIGHT)
+	check(not reach_controller.reach().active()
+		and not reach_controller.reach().owns(MODEL.Side.RIGHT),
 		"a taken reach hand drops the shoulder hold")
 
 	check(near(MOTION.lean_distance(1.0), 0.24), "forward lean distance")
@@ -341,7 +344,7 @@ func run() -> void:
 	lean_facts.kiss = Callable()
 	lean_kiss = null
 
-	check(near(HANDS.CARESS_SPEED_RAD_S, 3.6), "caress speed")
+	check(near(MODEL.CARESS_SPEED_RAD_S, 3.6), "caress speed")
 	var right_palm: Basis = HAND.palm_basis("right", Vector3.RIGHT, Vector3.FORWARD)
 	var left_palm: Basis = HAND.palm_basis("left", Vector3.RIGHT, Vector3.FORWARD)
 	check((-right_palm.x).dot(Vector3.LEFT) > 0.99 and (-right_palm.z).dot(Vector3.FORWARD) > 0.99,
@@ -351,58 +354,62 @@ func run() -> void:
 	check(right_palm.determinant() > 0.99 and left_palm.determinant() > 0.99,
 		"palm surface bases stay orthonormal")
 	check(near(FLANK.CARESS_UP_BIAS_M, 0.05), "caress rub lifted 5 cm above the mark")
-	check(near(HANDS.caress_phase_step(0.5, true, 0.25),
-		HANDS.CARESS_SPEED_RAD_S * 0.25 + 0.5), "caress phase advances while moving")
-	check(near(HANDS.caress_phase_step(0.5, false, 0.25), 0.5),
+	check(near(MODEL.caress_phase_step(0.5, true, 0.25),
+		MODEL.CARESS_SPEED_RAD_S * 0.25 + 0.5), "caress phase advances while moving")
+	check(near(MODEL.caress_phase_step(0.5, false, 0.25), 0.5),
 		"caress phase holds while movement is off")
-	check(near(HANDS.CAESS_TOUCH_SECONDS, 5.0), "a caress action is five seconds of contact")
-	var short: Variant = HANDS.caress_touch_step(0.0, true, 4.9)
+	check(near(MODEL.CARESS_TOUCH_SECONDS, 5.0), "a caress action is five seconds of contact")
+	var short: Variant = MODEL.caress_touch_step(0.0, true, 4.9)
 	check(near(short.seconds, 4.9) and short.events == 0, "a short caress scores nothing")
-	var full: Variant = HANDS.caress_touch_step(short.seconds, true, 0.1)
+	var full: Variant = MODEL.caress_touch_step(short.seconds, true, 0.1)
 	check(near(full.seconds, 0.0) and full.events == 1, "five seconds of caress score once")
-	var long: Variant = HANDS.caress_touch_step(1.0, true, 10.0)
+	var long: Variant = MODEL.caress_touch_step(1.0, true, 10.0)
 	check(long.events == 2 and near(long.seconds, 1.0), "ten more seconds score twice")
-	var stopped: Variant = HANDS.caress_touch_step(3.0, false, 2.0)
+	var stopped: Variant = MODEL.caress_touch_step(3.0, false, 2.0)
 	check(near(stopped.seconds, 0.0) and stopped.events == 0,
 		"a stopped caress keeps no partial credit")
-	check(near(HANDS.palm_clearance_for(0.66), 0.0132), "Canon palm clearance scales down")
-	check(near(HANDS.palm_clearance_for(1.10), 0.022), "Hoers palm clearance scales up")
-	check(near(HANDS.palm_clearance_for(1.0, 0.07), 0.07),
+	check(near(PLACEMENT.palm_clearance_for(0.66), 0.0132), "Canon palm clearance scales down")
+	check(near(PLACEMENT.palm_clearance_for(1.10), 0.022), "Hoers palm clearance scales up")
+	check(near(PLACEMENT.palm_clearance_for(1.0, 0.07), 0.07),
 		"caress palm distance overrides the default")
-	check(COAT.region_ignored("tail", ["tail"]), "caress ignores the tail hull")
-	check(not COAT.region_ignored("flank", ["tail"]), "caress keeps the flank hull")
+	var tail_ignore: Array[String] = ["tail"]
+	check(COAT.region_ignored("tail", tail_ignore), "caress ignores the tail hull")
+	check(not COAT.region_ignored("flank", tail_ignore), "caress keeps the flank hull")
 	check(SETTINGS.normal_deg_s.get_num() > 0.0, "palm normal turns at a bounded rate")
 	var capped: Vector3 = HAND.rotate_normal_toward(Vector3.UP, Vector3.RIGHT, deg_to_rad(10.0))
 	check(near(rad_to_deg(capped.angle_to(Vector3.UP)), 10.0), "normal rate caps a large turn")
 	check(HAND.rotate_normal_toward(Vector3.UP, Vector3.RIGHT, PI).is_equal_approx(Vector3.RIGHT),
 		"normal rate reaches the target")
-	var canon_caress: Variant = HANDS.caress_profile_for("canon")
-	var mounting_caress: Variant = HANDS.caress_profile_for("mounting")
+	var canon_caress: Variant = MODEL.caress_profile_for("canon")
+	var mounting_caress: Variant = MODEL.caress_profile_for("mounting")
 	check(canon_caress.up < mounting_caress.up, "Canon caress sits lower")
 	check(near(mounting_caress.out * 2.0, 0.04), "JRHNBR caress points 4 cm wider")
-	var fallback_caress: Variant = HANDS.caress_profile_for("")
+	var fallback_caress: Variant = MODEL.caress_profile_for("")
 	check(near(fallback_caress.up, mounting_caress.up)
 		and near(fallback_caress.back, mounting_caress.back)
 		and near(fallback_caress.out, mounting_caress.out),
 		"unknown size falls back to JRHNBR caress")
 	check(near(MISSIONARY_PATH.MISSIONARY_CARESS_PALM_ROLL_DEG, 30.0),
 		"missionary caress rolls the palm 30 degrees")
-	check(near(MISSIONARY_PATH.missionary_palm_roll_deg("right"), 30.0),
+	check(near(MISSIONARY_PATH.missionary_palm_roll_deg(MODEL.Side.RIGHT), 30.0),
 		"the right palm rolls counter-clockwise")
-	check(near(MISSIONARY_PATH.missionary_palm_roll_deg("left"), -30.0),
+	check(near(MISSIONARY_PATH.missionary_palm_roll_deg(MODEL.Side.LEFT), -30.0),
 		"the left palm rolls clockwise")
-	check(COAT.region_allowed("head_Ears1", ["head"]),
+	var head_regions: Array[String] = ["head"]
+	check(COAT.region_allowed("head_Ears1", head_regions),
 		"the cheek path accepts a head hull")
-	check(not COAT.region_allowed("neck", ["head"]),
+	check(not COAT.region_allowed("neck", head_regions),
 		"the cheek filter does not take a neck hull")
-	var torso_regions := ["back", "shoulder"]
+	var torso_regions: Array[String] = ["back", "shoulder"]
 	check(COAT.region_allowed("back", torso_regions),
 		"a torso region filter accepts a barrel hull")
 	check(not COAT.region_allowed("leg", torso_regions),
 		"a torso region filter ignores a leg hull")
 	check(not COAT.region_allowed("head_Ears1", torso_regions),
 		"a torso region filter ignores a head hull")
-	check(COAT.region_allowed("anything", []), "an empty region filter allows every hull")
+	var no_regions: Array[String] = []
+	check(COAT.region_allowed("anything", no_regions),
+		"an empty region filter allows every hull")
 	var hand_offset := Transform3D(Basis.IDENTITY, Vector3(0.0, 0.0, 0.07))
 	var palm_frame := Transform3D(Basis.IDENTITY, Vector3(1.0, 2.0, 3.0))
 	var bone_frame: Transform3D = MISSIONARY_ANON.palm_to_bone(palm_frame, hand_offset)
@@ -798,41 +805,44 @@ func _check_pose_retarget() -> void:
 	view.contact_kind = "opening"
 	view.hands = {"path": "standing"}
 	facts.pose_view = view
-	var hands := HANDS.new(facts)
-	hands.pose_changed(view)
-	check(str(hands._hook_path) == "standing", "the hands hook caches the standing path")
-	hands._caress_active["L"] = true
-	hands._caress_latched["L"] = true
+	var facade := HANDS.new(facts)
+	facade.pose_changed(view)
+	check(not facade.any_active(), "the facade accepts a pose change")
+	var controller := CONTROLLER.new(facts)
+	var caress := controller.caress()
+	controller.pose_changed(view)
+	check(controller.hook_path() == "standing", "the hands hook caches the standing path")
+	caress.start(MODEL.Side.LEFT)
 	view.hands = {"path": "missionary"}
-	hands.pose_changed(view)
-	check(str(hands._hook_path) == "missionary", "the path change is carried")
-	check(not hands.caress_active("L"), "a path change ends the live holds")
+	controller.pose_changed(view)
+	check(controller.hook_path() == "missionary", "the path change is carried")
+	check(not caress.active(MODEL.Side.LEFT), "a path change ends the live holds")
 	view.contact_kind = "mouth"
-	hands.pose_changed(view)
-	check(str(hands._hook_contact) == "mouth", "a contact switch is carried for the oral blend")
-	check(not hands.caress_active("L"), "a contact switch does not restore a released hold")
+	controller.pose_changed(view)
+	check(controller.hook_contact() == "mouth", "a contact switch is carried for the oral blend")
+	check(not caress.active(MODEL.Side.LEFT),
+		"a contact switch does not restore a released hold")
 
 	# The standing ↔ oral pair keeps the live caress: the contact switch, not the request path,
 	# moves the hand, so the blend can capture its live frame.
 	view.hands = {"path": "standing"}
 	view.contact_kind = "opening"
-	hands.pose_changed(view)
-	hands._caress_active["L"] = true
-	hands._caress_latched["L"] = true
+	controller.pose_changed(view)
+	caress.start(MODEL.Side.LEFT)
 	view.hands = {"path": "oral"}
 	view.contact_kind = "opening"
-	hands.pose_changed(view)
-	check(hands.caress_active("L"),
+	controller.pose_changed(view)
+	check(caress.active(MODEL.Side.LEFT),
 		"the standing to oral path keeps the caress for the contact blend")
 	view.contact_kind = "mouth"
-	hands.pose_changed(view)
-	check(str(hands._hook_contact) == "mouth", "the oral contact switch is carried")
-	check(hands.caress_active("L"), "the oral contact switch keeps the caress")
+	controller.pose_changed(view)
+	check(controller.hook_contact() == "mouth", "the oral contact switch is carried")
+	check(caress.active(MODEL.Side.LEFT), "the oral contact switch keeps the caress")
 	view.hands = {"path": "standing"}
 	view.contact_kind = "opening"
-	hands.pose_changed(view)
-	check(str(hands._hook_path) == "standing", "the return path is carried")
-	check(hands.caress_active("L"),
+	controller.pose_changed(view)
+	check(controller.hook_path() == "standing", "the return path is carried")
+	check(caress.active(MODEL.Side.LEFT),
 		"the oral to standing path keeps the caress for the return blend")
 
 

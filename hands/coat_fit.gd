@@ -1,9 +1,12 @@
 extends RefCounted
-## The caress coat approximation: one sphere per authored caress area, fitted in rest space once
-## per mesh and skinned at runtime. The caress reads no mesh after the fit; the contact is
-## analytic, so the normal is smooth and the palm never pays for a triangle query.
+## Service: hands
+## Contract: docs/hands.md
+## Scope: pure
+## Import: hands/coat_fit.gd only
+## The one coat reader: one fitted sphere per authored area, skinned at runtime.
 
 const BODY_COAT := preload("res://mods/unfplap/shared/body_coat.gd")
+const MODEL := preload("res://mods/unfplap/hands/model.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const PERF := preload("res://mods/unfplap/shared/perf.gd")
 
@@ -18,62 +21,57 @@ const REFINE_STEPS := 8
 const MIN_NORMAL_DOT := 0.5
 ## An authored area farther than this from the coat is a miss for this body, not a fit elsewhere.
 const MAX_DISTANCE_M := 0.06
-## How far a point can miss once it has been mapped onto a body these areas did not come from.
+## How far a point can miss once mapped onto a body these areas did not come from.
 const REMAPPED_DISTANCE_M := 0.12
 const CACHE_LIMIT := 32
 
 static var _cache: Dictionary = {}
 static var _order: Array = []
 
-## One area's rest-space sphere. Its centre sits `radius` under the authored coat point, so the
-## surface always passes through that point; the runtime skins the centre and derives the rest.
-class Primitive extends RefCounted:
-	var center := Vector3.ZERO
-	var normal := Vector3.UP
-	var radius := 0.0
-	var influences: Array = []
-	var residual_mm := 0.0
-	## How far the authored point was from the coat vertex the fit chose; 0 for an exact area.
-	var snap_mm := 0.0
 
-
-## The mesh and skeleton the caress reads for one coat region. Mirrors the body coat resolution.
-static func find_mesh(pony: Variant, region: String) -> Dictionary:
+## The mesh and skeleton the caress reads for one coat region.
+static func find_mesh(pony: Node3D, region: String) -> MODEL.CoatMesh:
 	if region == "head":
 		var head: Variant = pony.get("head")
 		if head == null:
-			return {}
-		var model: Node = head.get("model")
+			return null
+		var model: Variant = head.get("model")
 		var sk: Variant = head.get("skeleton")
 		if not is_instance_valid(model) or not sk is Skeleton3D:
-			return {}
-		var mesh := model.find_child("Head", true, false) as MeshInstance3D
+			return null
+		var mesh := (model as Node).find_child("Head", true, false) as MeshInstance3D
 		if mesh == null:
-			return {}
-		return {"mesh": mesh, "skeleton": sk, "surface": -1}
+			return null
+		var out := MODEL.CoatMesh.new()
+		out.mesh = mesh
+		out.skeleton = sk
+		out.surface = -1
+		return out
 	return _found_mesh(BODY_COAT.resolve(pony))
 
 
-static func _found_mesh(found: Dictionary) -> Dictionary:
+static func _found_mesh(found: Dictionary) -> MODEL.CoatMesh:
 	if found.is_empty():
-		return {}
-	return {"mesh": found["mesh"], "skeleton": found["skeleton"],
-		"surface": int(found.get("surface", 0))}
+		return null
+	var out := MODEL.CoatMesh.new()
+	out.mesh = found["mesh"]
+	out.skeleton = found["skeleton"]
+	out.surface = int(found.get("surface", 0))
+	return out
 
 
-## The fitted sphere for one authored coat point, cached per skin/mesh. Null when the mesh, its
-## skin or the neighbourhood is unavailable.
-static func primitive(pony: Variant, region: String, position: Vector3,
-		max_distance := MAX_DISTANCE_M) -> Primitive:
+## The fitted sphere for one authored coat point, cached per skin/mesh.
+static func primitive(pony: Node3D, region: String, position: Vector3,
+		max_distance := MAX_DISTANCE_M) -> MODEL.CoatPrimitive:
 	if not is_instance_valid(pony):
 		return null
 	var found := find_mesh(pony, region)
-	if found.is_empty():
+	if found == null:
 		return null
-	var mesh: MeshInstance3D = found["mesh"]
-	var sk: Variant = found["skeleton"]
+	var mesh: MeshInstance3D = found.mesh
+	var sk: Skeleton3D = found.skeleton
 	if not is_instance_valid(mesh) or mesh.mesh == null or mesh.skin == null \
-			or not sk is Skeleton3D:
+			or not is_instance_valid(sk):
 		return null
 	# The skin carries the bind poses, so a fit serves one pony, not every pony sharing the mesh.
 	var key := "%d|%s|%d|%d|%d" % [mesh.skin.get_instance_id(), region,
@@ -82,8 +80,7 @@ static func primitive(pony: Variant, region: String, position: Vector3,
 	if _cache.has(key):
 		return _cache[key]
 	PERF.begin("caress_fit")
-	var fitted := _fit(mesh, found["skeleton"], position, int(found.get("surface", -1)),
-		max_distance)
+	var fitted := _fit(mesh, sk, position, found.surface, max_distance)
 	PERF.end("caress_fit")
 	if fitted == null:
 		return null
@@ -97,10 +94,9 @@ static func primitive(pony: Variant, region: String, position: Vector3,
 	return fitted
 
 
-## Fit one sphere to the coat around `position`. The nearest vertex fixes the coat normal and
-## the skin influences; the radius is a 1D scan under that normal, then a local refine.
+## Fit one sphere to the coat around `position`; the nearest vertex fixes the normal and skin.
 static func _fit(mesh: MeshInstance3D, skeleton: Skeleton3D, position: Vector3,
-		surface_index: int, max_distance: float) -> Primitive:
+		surface_index: int, max_distance: float) -> MODEL.CoatPrimitive:
 	var skin: Skin = mesh.skin
 	var best_surface := -1
 	var best_vertex := -1
@@ -139,22 +135,23 @@ static func _fit(mesh: MeshInstance3D, skeleton: Skeleton3D, position: Vector3,
 		if vertex_normal.dot(normal) < MIN_NORMAL_DOT:
 			continue
 		near.append(vs[i])
-	var fitted := Primitive.new()
+	var fitted := MODEL.CoatPrimitive.new()
 	fitted.normal = normal
 	fitted.radius = _fit_radius(point, normal, near)
 	fitted.center = point - normal * fitted.radius
 	fitted.residual_mm = sqrt(_radius_error(point, normal, near, fitted.radius)
 		/ maxf(float(near.size()), 1.0)) * 1000.0
-	fitted.snap_mm = sqrt(best_distance) * 1000.0 if best_distance > MAX_DISTANCE_M * MAX_DISTANCE_M else 0.0
+	fitted.snap_mm = sqrt(best_distance) * 1000.0 \
+		if best_distance > MAX_DISTANCE_M * MAX_DISTANCE_M else 0.0
 	fitted.influences = _influences(skin, skeleton, ab, aw, vs.size(), best_vertex)
 	if fitted.influences.is_empty():
 		return null
 	return fitted
 
 
-## The radius whose centre `point - normal * r` best fits the neighbourhood; the cap is the
-## plane limit, used when the local coat is too flat to bend a sphere.
-static func _fit_radius(point: Vector3, normal: Vector3, near: PackedVector3Array) -> float:
+## The radius whose centre `point - normal * r` best fits the neighbourhood.
+static func _fit_radius(point: Vector3, normal: Vector3,
+		near: PackedVector3Array) -> float:
 	if near.size() < 4:
 		return MAX_RADIUS_M
 	var best := MAX_RADIUS_M
@@ -187,11 +184,10 @@ static func _radius_error(point: Vector3, normal: Vector3, near: PackedVector3Ar
 	return error
 
 
-## The skin influences of one vertex, with the bone name kept so a cached fit serves any pony
-## that shares the mesh.
+## The skin influences of one vertex, with the bone name kept so a cache serves any pony.
 static func _influences(skin: Skin, skeleton: Skeleton3D, ab: PackedInt32Array,
-		aw: PackedFloat32Array, vertex_count: int, vertex: int) -> Array:
-	var out: Array = []
+		aw: PackedFloat32Array, vertex_count: int, vertex: int) -> Array[MODEL.CoatInfluence]:
+	var out: Array[MODEL.CoatInfluence] = []
 	var stride := ab.size() / vertex_count if vertex_count > 0 else 0
 	for k in stride:
 		var at := vertex * stride + k
@@ -209,9 +205,5 @@ static func _influences(skin: Skin, skeleton: Skeleton3D, ab: PackedInt32Array,
 			bone_name = skeleton.get_bone_name(bone) if bone >= 0 else ""
 		if bone_name.is_empty():
 			continue
-		out.append({
-			"bone_name": bone_name,
-			"bind": skin.get_bind_pose(bind),
-			"weight": weight,
-		})
+		out.append(MODEL.CoatInfluence.new(bone_name, skin.get_bind_pose(bind), weight))
 	return out

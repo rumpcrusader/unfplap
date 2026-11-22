@@ -9,6 +9,8 @@ const AFTERGLOW := preload("res://mods/unfplap/afterglow/service.gd")
 const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 const WING := preload("res://mods/unfplap/poses/wing_control.gd")
 const PREF := preload("res://mods/unfplap/shared/preferences.gd")
+const HANDS := preload("res://mods/unfplap/hands/api.gd")
+const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 
 
 class Host extends RefCounted:
@@ -20,6 +22,16 @@ class Host extends RefCounted:
 
 class HostNode extends Node:
 	pass
+
+
+class FakeHands extends HANDS:
+	var active := false
+
+	func _init(facts: ACT_FACTS = null) -> void:
+		super(facts)
+
+	func any_active() -> bool:
+		return active
 
 
 func _view(pose: String) -> RefCounted:
@@ -59,10 +71,13 @@ func run() -> void:
 	check(idle_note.contains("afterglow") and idle_note.contains("still close"),
 		"afterglow prompt note carries the live state")
 	check(not idle_note.contains("[stay:"), "afterglow prompt note does not advertise a stay tag")
-	var note_caress: Variant = note_runtime._bundle.hands
-	note_caress._caress_active = {"L": true, "R": false}
+	var note_context: Variant = note_runtime._bundle.context
+	var note_caress := FakeHands.new(ACT_FACTS.new())
+	note_context.hands = note_caress
+	note_caress.active = true
 	check(note_runtime.act.prompt_note().contains("caressing your flank"), "caress note")
-	note_caress._caress_active = {"L": false, "R": false}
+	note_caress.active = false
+	note_context.hands = note_runtime._bundle.hands
 	note_runtime._bundle.camera.lean_forward = 0.8
 	check(note_runtime.act.prompt_note().contains("leaning in close"), "lean note")
 	note_runtime.act._set_state(2) # ACTIVE

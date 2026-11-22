@@ -113,10 +113,12 @@ pacing, jiggle, camera thrust, the presentation block for that settings group an
 The act session takes it in `act/session.gd:snapshot_settings()` with the start spec's
 `settings_group` and re-runs it in `apply_live_settings()`. An internal pose (`standing_test`,
 `standing_oral`) shares the standing group and has no `presentation` block or `default.poses` row
-of its own. There is no path-keyed read outside the settings service and no second cache. The
-session owns the snapshot and consumers read `snapshot.<value>` at the use site: `snapshot_settings()`
-is its only writer, a consumer indexes the complete snapshot block, and no second field copies a
-snapshot scalar.
+of its own. The snapshot is the bulk read for an act-wide block, not a mandatory copy for every
+consumer: a service may read its typed handle at use, including on a hot path, and the settings
+service is the one source and must be fast enough. A service never adds a private settings cache
+to compensate. The session owns the snapshot and consumers read `snapshot.<value>` at the use
+site: `snapshot_settings()` is its only writer, a consumer indexes the complete snapshot block,
+and no second field copies a snapshot scalar.
 
 ## Adding a setting: one declaration, one shipped value, one read
 
@@ -482,8 +484,9 @@ Unknown settings keys are ignored.
 - Contribute the setting from its owning service: add the declaration and its description, add its
   shipped value, and depend on the settings facade. Do not add a private settings module, and do
   not describe the row in the owning doc.
-- `SETTINGS.act_snapshot(group)` is the one bulk read. There is no path-keyed gameplay read and
-  no second cache; a new per-act value belongs on `ActSnapshot`, not in a new `SETTINGS.block`.
+- `SETTINGS.act_snapshot(group)` is the bulk read for an act-wide block. A service may read its
+  typed handle at use, hot or cold. Do not add a private settings module or a per-service cache;
+  if a hot path is slow, improve the settings service.
 - **A consumer carries no default.** Do not declare a field, constant or argument default with a
   value the setting also ships; the declaration and `settings/settings.json` are the only source.
   Where a fallback is genuinely needed, read `SETTINGS.<name>.default` or the shipped block

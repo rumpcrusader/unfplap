@@ -1,11 +1,13 @@
 extends RefCounted
-## Smack action for the act hands. The coordinator supplies the target frame; this controller runs
-## the swing, the impact audio and the hand's easing back.
+## Service: hands
+## Contract: docs/hands.md
+## Scope: per-act
+## Import: hands/smack.gd only
+## The smack swing, impact and pack-sound swap; the target comes from `smack_target.gd`.
 
 const SMACK_AUDIO := preload("res://mods/unfplap/audio/smack_cues.gd")
-const SESSION := preload("res://mods/unfplap/hands/session.gd")
-const CAESS := preload("res://mods/unfplap/shared/hands_caress.gd")
-const GAME := preload("res://mods/unfplap/world/game.gd")
+const MODEL := preload("res://mods/unfplap/hands/model.gd")
+const PORT := preload("res://mods/unfplap/hands/port.gd")
 
 const SMACK_COOLDOWN_MS := 200
 const SMACK_SWING_SECONDS := 0.20
@@ -29,12 +31,19 @@ const SMACK_PHASE_STRIKE := 2
 const SMACK_PHASE_CONTACT := 3
 const SMACK_PHASE_RECOVER := 4
 
-var hand: SESSION
 
+## The stock player state restored when the act ends.
+class SoundState extends RefCounted:
+	var stream: AudioStream = null
+	var volume_db := 0.0
+	var pitch_scale := 1.0
+
+
+var _port: PORT = null
 var _active := false
 var _index := 0
 var _at := Vector3.INF
-var _side := ""
+var _side: MODEL.Side = MODEL.Side.NONE
 var _from := Transform3D.IDENTITY
 var _to := Transform3D.IDENTITY
 var _started := 0
@@ -52,20 +61,12 @@ var _standing := false
 var _last_ms := -10000
 var _streams: Array[AudioStream] = []
 var _stream_last := -1
-var _sound_restore: Dictionary = {}
+var _sound_restore: SoundState = null
 var _sound_installed := false
 
 
-func _init(hand_node: SESSION = null) -> void:
-	hand = hand_node
-
-
-static func side_index(side: float) -> int:
-	if side > 0.0:
-		return 0
-	if side < 0.0:
-		return 1
-	return -1
+func _init(port: PORT = null) -> void:
+	_port = port
 
 
 static func pitch_basis(straight: Basis, pitch_deg: float) -> Basis:
@@ -94,15 +95,6 @@ static func raise_frame(contact: Transform3D, outward: Vector3, raise_m: float,
 		rear = contact.basis.z
 	return Transform3D(pitch_basis(contact.basis, pitch_deg),
 		contact.origin + normal * raise_m + rear * back_m)
-
-
-static func finger_hint(caressing: bool, forward: Vector3) -> Vector3:
-	if caressing:
-		var hint := forward.normalized()
-		if hint.length_squared() > 0.5:
-			return hint
-		return Vector3.FORWARD
-	return Vector3.DOWN
 
 
 static func swing_raise_frame(contact: Transform3D, outward: Vector3, back: Vector3,
@@ -146,16 +138,16 @@ func active() -> bool:
 	return _active
 
 
-func owns_hand(hand_side: String) -> bool:
-	return _active and _side == hand_side
+func owns_hand(side: MODEL.Side) -> bool:
+	return _active and _side == side
 
 
-func begin(hand_side: String, index: int, at: Vector3, from_frame: Transform3D,
+func begin(side: MODEL.Side, index: int, at: Vector3, from_frame: Transform3D,
 		target: Transform3D, outward: Vector3, from_coat: bool, standing: bool,
 		now: int) -> void:
 	_index = index
 	_at = at
-	_side = hand_side
+	_side = side
 	_from = from_frame
 	_contact = target
 	_outward = outward.normalized()
@@ -175,21 +167,21 @@ func begin(hand_side: String, index: int, at: Vector3, from_frame: Transform3D,
 func tick(_delta: float) -> void:
 	if not _active:
 		return
-	if _side.is_empty():
+	if _side == MODEL.Side.NONE:
 		_active = false
 		return
-	var driver: Node = hand.hand_driver() if is_instance_valid(hand) else null
-	if not is_instance_valid(driver) or not driver.has_method("set_hold_target"):
+	var driver := _port.driver() if _port != null else null
+	if not is_instance_valid(driver):
 		_end_swing()
 		return
 	if _standing:
-		_phase_tick(driver)
+		_phase_tick()
 		return
 	var phase := clampf(float(Time.get_ticks_msec() - _started)
 		/ (SMACK_SWING_SECONDS * 1000.0), 0.0, 1.0)
 	var arc := sin(phase * PI)
 	var frame := _from.interpolate_with(_to, arc)
-	GAME.set_hold_target(driver, _side, frame, "rub")
+	_port.hold(_side, frame)
 	if not _impact_done and phase >= SMACK_CONTACT_PHASE:
 		_impact_done = true
 		_impact()
@@ -213,7 +205,7 @@ func reset() -> void:
 func _start_standing() -> void:
 	_rest = _from
 	if _from_coat:
-		var scale := float(hand.smack_body_scale())
+		var scale := _port.body_scale()
 		_raised = raise_frame(_contact, _outward, _raise_m(),
 			SMACK_RAISE_BACK_M * scale, _back_dir(), _pitch_deg())
 	else:
@@ -227,45 +219,44 @@ func _start_standing() -> void:
 	_phase_started = Time.get_ticks_msec()
 
 
-func _phase_tick(driver: Node) -> void:
+func _phase_tick() -> void:
 	var now := Time.get_ticks_msec()
 	var elapsed := float(now - _phase_started) / 1000.0
 	match _phase:
 		SMACK_PHASE_RAISE:
 			var t := clampf(elapsed / maxf(_raise_seconds, 0.001), 0.0, 1.0)
 			var frame := raise_blend(_from, _raised, _back_dir(), t)
-			GAME.set_hold_target(driver, _side, frame, "rub")
+			_port.hold(_side, frame)
 			if t >= 1.0:
 				_phase = SMACK_PHASE_STRIKE
 				_phase_started = now
 		SMACK_PHASE_STRIKE:
 			var t := clampf(elapsed / maxf(_strike_seconds, 0.001), 0.0, 1.0)
 			var frame := strike_blend(_raised, _contact, t)
-			GAME.set_hold_target(driver, _side, frame, "rub")
+			_port.hold(_side, frame)
 			if t >= 1.0:
-				GAME.set_hold_target(driver, _side, _contact, "rub")
+				_port.hold(_side, _contact)
 				_impact()
 				_impact_done = true
 				_phase = SMACK_PHASE_CONTACT
 				_phase_started = now
 		SMACK_PHASE_CONTACT:
-			GAME.set_hold_target(driver, _side, _contact, "rub")
+			_port.hold(_side, _contact)
 			if elapsed >= SMACK_CONTACT_HOLD_SECONDS:
 				_phase = SMACK_PHASE_RECOVER
 				_phase_started = now
 		SMACK_PHASE_RECOVER:
 			var t := clampf(elapsed / maxf(SMACK_REST_RETURN_SECONDS, 0.001), 0.0, 1.0)
 			var frame := recover_blend(_contact, _rest, t)
-			GAME.set_hold_target(driver, _side, frame, "rub")
+			_port.hold(_side, frame)
 			if t >= 1.0:
-				_finish(driver)
+				_finish()
 
 
-func _finish(driver: Node) -> void:
-	if is_instance_valid(driver) and driver.has_method("clear_hold_target"):
-		GAME.clear_hold_target(driver, _side)
+func _finish() -> void:
+	_port.release_hold(_side)
 	_active = false
-	_side = ""
+	_side = MODEL.Side.NONE
 	_at = Vector3.INF
 	_phase = SMACK_PHASE_NONE
 	_from_coat = false
@@ -274,12 +265,10 @@ func _finish(driver: Node) -> void:
 func _end_swing() -> void:
 	if not _active:
 		return
-	if not _side.is_empty():
-		var driver: Node = hand.hand_driver() if is_instance_valid(hand) else null
-		if is_instance_valid(driver) and driver.has_method("clear_hold_target"):
-			GAME.clear_hold_target(driver, _side)
+	if _side != MODEL.Side.NONE:
+		_port.release_hold(_side)
 	_active = false
-	_side = ""
+	_side = MODEL.Side.NONE
 	_at = Vector3.INF
 	_impact_done = false
 	_phase = SMACK_PHASE_NONE
@@ -299,9 +288,9 @@ func _impact_at(index: int, at: Vector3) -> void:
 	if not is_instance_valid(flank):
 		return
 	_install_sound()
-	var pony: Variant = hand.smack_pony() if is_instance_valid(hand) else null
+	var pony := _port.pony() if _port != null else null
 	if not is_instance_valid(pony) or not pony.has_signal("physical_reaction"):
-		GAME.flank_impact(flank, index, at, SMACK_IMPACT_STRENGTH)
+		_port.flank_impact(index, at, SMACK_IMPACT_STRENGTH)
 		_notify_jiggle()
 		return
 	var sig: Signal = pony.physical_reaction
@@ -311,28 +300,26 @@ func _impact_at(index: int, at: Vector3) -> void:
 		var callable: Variant = entry.get("callable")
 		if callable is Callable and sig.is_connected(callable):
 			sig.disconnect(callable)
-	GAME.flank_impact(flank, index, at, SMACK_IMPACT_STRENGTH)
+	_port.flank_impact(index, at, SMACK_IMPACT_STRENGTH)
 	for link: Variant in links:
 		var entry: Dictionary = link
 		var callable: Variant = entry.get("callable")
 		if callable is Callable and not sig.is_connected(callable):
 			sig.connect(callable)
 	_notify_jiggle()
-	if is_instance_valid(hand):
-		hand.hand_on_touch("smack")
+	_port.touch("smack")
 
 
 func _notify_jiggle() -> void:
-	if is_instance_valid(hand):
-		hand.hand_on_smack_impact(SMACK_IMPACT_STRENGTH)
+	_port.impact(SMACK_IMPACT_STRENGTH)
 
 
 func _flank() -> Node:
-	return hand.smack_flank() if is_instance_valid(hand) else null
+	return _port.flank() if _port != null else null
 
 
 func _back_dir() -> Vector3:
-	var pony: Variant = hand.smack_pony() if is_instance_valid(hand) else null
+	var pony := _port.pony() if _port != null else null
 	if not is_instance_valid(pony):
 		return Vector3.BACK
 	var back: Vector3 = pony.global_basis.z.normalized()
@@ -342,12 +329,12 @@ func _back_dir() -> Vector3:
 	return back.normalized()
 
 
-func _presentation() -> CAESS.SmackPresentation:
-	return hand.smack_presentation() if is_instance_valid(hand) else CAESS.SmackPresentation.new()
+func _presentation() -> MODEL.SmackPresentation:
+	return _port.presentation() if _port != null else MODEL.SmackPresentation.new()
 
 
 func _raise_m() -> float:
-	return maxf(0.0, _presentation().raise_m) * float(hand.smack_body_scale())
+	return maxf(0.0, _presentation().raise_m) * _port.body_scale()
 
 
 func _pitch_deg() -> float:
@@ -400,11 +387,10 @@ func _install_sound() -> void:
 		_restore_sound()
 		return
 	if not _sound_installed:
-		_sound_restore = {
-			"stream": player.stream,
-			"volume_db": player.volume_db,
-			"pitch_scale": player.pitch_scale,
-		}
+		_sound_restore = SoundState.new()
+		_sound_restore.stream = player.stream
+		_sound_restore.volume_db = player.volume_db
+		_sound_restore.pitch_scale = player.pitch_scale
 		_sound_installed = true
 	var index := _next_stream(_streams.size())
 	player.stream = _streams[index]
@@ -417,9 +403,8 @@ func _restore_sound() -> void:
 		return
 	_sound_installed = false
 	var player := _sound_player()
-	if player != null and not _sound_restore.is_empty():
-		var stock: Variant = _sound_restore.get("stream")
-		player.stream = stock if stock is AudioStream else null
-		player.volume_db = float(_sound_restore.get("volume_db", player.volume_db))
-		player.pitch_scale = float(_sound_restore.get("pitch_scale", player.pitch_scale))
-	_sound_restore.clear()
+	if player != null and _sound_restore != null:
+		player.stream = _sound_restore.stream
+		player.volume_db = _sound_restore.volume_db
+		player.pitch_scale = _sound_restore.pitch_scale
+	_sound_restore = null

@@ -141,8 +141,9 @@ Read `WORKFLOW.md` before any task. Commit in small, testable units; never push.
 
 ## Service API
 
-Every service facade, and every public handle it returns, follows these. The mechanics — facade,
-typing, state and reach-in rules — are in `ARCHITECTURE.md` (`## The service contract`).
+Every service facade — `<service>/api.gd` preferred, `<service>/service.gd` legacy — and every
+public handle it returns follows these. The mechanics — facade, typing, state and reach-in rules —
+are in `ARCHITECTURE.md` (`## The service contract`).
 
 - **The surface is defined by the consumer, and the service adapts to it.** A member exists only
   because a caller's job needs it and is traceable to that caller; when a consumer needs something,
@@ -189,9 +190,11 @@ typing, state and reach-in rules — are in `ARCHITECTURE.md` (`## The service c
   `const … := preload(...)` in the contiguous block directly below the doc header, in every `.gd`
   including `tests/` and `tools/`. A late or nested preload and a `load()` of a script are gate
   failures; a runtime asset `load(path)` stays allowed.
-- **Settings snapshot.** Values arrive once per act and again on `apply_live_settings()`; no
-  per-frame `Settings` reads. One declaration in `settings/service.gd`, one shipped value in
-  `settings/settings.json`, one typed read; the framework is `docs/settings.md`.
+- **Settings reads.** A service may read its typed handles at use, hot or cold; a bulk block uses
+  `SETTINGS.act_snapshot(group)`. No default copies, no private settings module, no per-service
+  cache; if a hot path regresses, improve the settings service. One declaration in
+  `settings/service.gd`, one shipped value in `settings/settings.json`, one typed read; the
+  framework is `docs/settings.md`.
 - **No game-file edits and no JSON merges.** Everything lives under `res://mods/unfplap/`.
 - **The cross-mod API is frozen.** `api.gd`, `docs/api.md` and `tests/test_api.gd` are edited only
   with the user's explicit approval; that approval starts the task and the edit follows the

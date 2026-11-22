@@ -5,7 +5,6 @@ extends CanvasLayer
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/service.gd")
 const ACTIONS_NODE := preload("res://mods/unfplap/debug/actions.gd")
-const SOUNDS := preload("res://world/audio/interaction_sounds.gd")
 
 ## The `debug/actions.gd` node that owns the gate, the context and the slots.
 var actions: ACTIONS_NODE
@@ -185,8 +184,8 @@ func _update_hover() -> void:
 ## One stock UI click when the reticle moves onto a slot. The centre, open and close stay silent.
 func _play_hover() -> void:
 	var view: Camera3D = WORLD.camera()
-	if view is Camera3D and is_instance_valid(view):
-		SOUNDS.play_at(view, "prop_ui_confirm", (view as Camera3D).global_position)
+	if is_instance_valid(view):
+		WORLD.menu().sound("prop_ui_confirm", view, view.global_position)
 
 
 ## Outer and inner radius for the current viewport.

@@ -219,14 +219,14 @@ func caption_tick(act_state: int) -> void:
 func toast(text: String, seconds := 4.0) -> void:
 	if text.is_empty():
 		return
-	GAME.show_toast(self, text, seconds)
+	WORLD.menu().show_toast(self, text, seconds)
 
 
 ## integration: the anatomy status line, two seconds unless the caller says otherwise. An
 ## out-of-tree HUD has no toast line, so the act's own debug logger carries it.
 func anatomy_status(text: String, seconds := 2.0) -> void:
 	if is_inside_tree():
-		GAME.show_toast(self, text, seconds)
+		WORLD.menu().show_toast(self, text, seconds)
 	else:
 		LOG.debug(text)
 
@@ -586,38 +586,33 @@ func update_from(view: RefCounted) -> void:
 ## Hide or restore the game's quick-slot card for the act. Idempotent, and it gives back exactly
 ## the state it found, so a start that failed early runs the same call.
 func set_inventory_hidden(hidden: bool) -> void:
-	var game: Variant = WORLD.game
-	if not is_instance_valid(game):
-		return
-	var inventory: Variant = game.get("inventory")
-	if not is_instance_valid(inventory):
-		return
-	var bar: Variant = GAME.hotbar(inventory)
+	var briefcase := WORLD.inventory()
+	var bar: Variant = briefcase.hotbar()
 	if hidden:
 		if _inventory_hidden:
 			return
 		_inventory_hidden = true
-		_inventory_hud_saved = GAME.inventory_hud_hidden(inventory)
-		GAME.set_inventory_hud_hidden(inventory, true)
+		_inventory_hud_saved = briefcase.hud_hidden()
+		briefcase.set_hud_hidden(true)
 		if is_instance_valid(bar):
-			_inventory_hotbar_visible = GAME.hotbar_visible(bar)
-			var layer: CanvasLayer = GAME.hotbar_hud_layer(bar)
+			_inventory_hotbar_visible = briefcase.hotbar_visible(bar)
+			var layer: CanvasLayer = briefcase.hotbar_layer(bar)
 			if layer != null:
 				_inventory_hud_layer_visible = layer.visible
-			GAME.set_hotbar_hud_visible(bar, false)
-			GAME.set_hotbar_visible(bar, false)
+			briefcase.set_hotbar_layer_visible(bar, false)
+			briefcase.set_hotbar_visible(bar, false)
 		return
 	if not _inventory_hidden:
 		return
-	GAME.set_inventory_hud_hidden(inventory, _inventory_hud_saved)
+	briefcase.set_hud_hidden(_inventory_hud_saved)
 	if is_instance_valid(bar):
-		GAME.set_hotbar_visible(bar, _inventory_hotbar_visible)
-		var layer: CanvasLayer = GAME.hotbar_hud_layer(bar)
+		briefcase.set_hotbar_visible(bar, _inventory_hotbar_visible)
+		var layer: CanvasLayer = briefcase.hotbar_layer(bar)
 		if layer != null:
 			layer.visible = _inventory_hud_layer_visible
 	# Let the inventory re-evaluate its own HUD state after restoring `hud_hidden`: a stale saved
 	# layer flag from a bed/menu start must not keep the quick slots hidden.
-	GAME.inventory_place_hotbar(inventory)
+	briefcase.place_hotbar()
 	_inventory_hidden = false
 	LOG.debug("inventory HUD restored hud_hidden=%s hotbar=%s layer=%s", [
 		str(_inventory_hud_saved), str(_inventory_hotbar_visible),

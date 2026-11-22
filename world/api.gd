@@ -15,6 +15,8 @@ const ANON_VIEW := preload("res://mods/unfplap/world/views/anon.gd")
 const BED_VIEW := preload("res://mods/unfplap/world/views/bed.gd")
 const DIRECTOR_VIEW := preload("res://mods/unfplap/world/views/director.gd")
 const STORY_VIEW := preload("res://mods/unfplap/world/views/story.gd")
+const INVENTORY_VIEW := preload("res://mods/unfplap/world/views/inventory.gd")
+const MENU_VIEW := preload("res://mods/unfplap/world/views/menu.gd")
 const INTERACTOR_PATH := "res://player/interactor.gd"
 
 ## One pony's body reads and writes, bound to her node; every member answers typed zeroes when the
@@ -64,6 +66,16 @@ class Story extends STORY_VIEW:
 	func _init(n: Node) -> void:
 		super(n)
 
+## The bound inventory node's briefcase store, world drops, shop item scene and quick-slot HUD.
+class Inventory extends INVENTORY_VIEW:
+	func _init(n: Node) -> void:
+		super(n)
+
+## The bound world root's named panels, HUD toast line and stock UI cue.
+class Menu extends MENU_VIEW:
+	func _init(n: Node) -> void:
+		super(n)
+
 
 ## The live world root; null outside a world.
 static var game: Node = null
@@ -84,6 +96,8 @@ static var _beds: Dictionary = {}
 static var _directors: Dictionary = {}
 static var _stories: Dictionary = {}
 static var _anon: Anon = null
+static var _inventory_view: Inventory = null
+static var _menu_view: Menu = null
 
 
 ## The world entered. The resolved handles belong to the old one.
@@ -124,6 +138,8 @@ static func _clear_handles() -> void:
 	_directors.clear()
 	_stories.clear()
 	_anon = null
+	_inventory_view = null
+	_menu_view = null
 
 
 static func _tree() -> SceneTree:
@@ -358,7 +374,7 @@ static func ensure_bed(house: Node, kind: String = "") -> Node3D:
 
 ## The shop's packed item scene; null when the shop has no such item.
 static func shop_item(id: String) -> PackedScene:
-	return GAME.shop_item_scene(id)
+	return inventory().item_scene(id)
 
 
 ## True while a menu or panel owns the mouse: the tree paused or a known panel open.
@@ -370,7 +386,7 @@ static func menu_panel_open() -> bool:
 	if not is_instance_valid(game):
 		return false
 	for key: String in ["save_menu", "settings_menu", "pause_menu"]:
-		var panel := GAME.menu_panel(game, key)
+		var panel := menu().panel(key)
 		if is_instance_valid(panel) and bool(panel.get("opened")):
 			return true
 	var inventory := GAME.inventory(game)
@@ -536,6 +552,25 @@ static func story() -> Story:
 	var view := Story.new(context if live else null)
 	_stories[key] = view
 	return view
+
+
+## The inventory node's briefcase and quick-slot HUD, resolved from the bound world and cached.
+static func inventory() -> Inventory:
+	var node: Node = GAME.inventory(game) if is_instance_valid(game) else null
+	var live := is_instance_valid(node)
+	if _inventory_view is Inventory and (not live or _inventory_view._bound() == node):
+		return _inventory_view
+	_inventory_view = Inventory.new(node if live else null)
+	return _inventory_view
+
+
+## The bound world root's menu and toast surface, cached for that root.
+static func menu() -> Menu:
+	var live := is_instance_valid(game)
+	if _menu_view is Menu and (not live or _menu_view._bound() == game):
+		return _menu_view
+	_menu_view = Menu.new(game if live else null)
+	return _menu_view
 
 
 ## The scene's director is a group node, so the facade resolves it here rather than each caller.

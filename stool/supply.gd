@@ -61,10 +61,8 @@ func _tick() -> void:
 	var player := GAME.game_player(game)
 	if not is_instance_valid(player):
 		return
-	var inventory := GAME.inventory(game)
-	if not is_instance_valid(inventory):
-		return
-	var store := GAME.case_store(inventory)
+	var briefcase := WORLD.inventory()
+	var store := briefcase.store()
 	if store == null:
 		return
 	if not _started:
@@ -95,19 +93,19 @@ func _tick() -> void:
 	for house: GAME.HOUSE in houses:
 		if _spawned >= SPAWN_COUNT:
 			break
-		if _place_in(house, inventory):
+		if _place_in(house, briefcase):
 			_spawned += 1
 			_started = true
 	if _spawned >= SPAWN_COUNT:
 		LOG.debug("stool supply spawned=%d", [_spawned])
 
 
-func _place_in(house: GAME.HOUSE, inventory: Node) -> bool:
+func _place_in(house: GAME.HOUSE, briefcase: WORLD.Inventory) -> bool:
 	for point: Vector3 in _spots(house):
 		var pose := _drop_pose(house, point)
 		if not pose.origin.is_finite():
 			continue
-		var item := GAME.spawn_owned_drop(inventory, ITEM.ID, pose)
+		var item := briefcase.spawn_drop(ITEM.ID, pose)
 		if is_instance_valid(item):
 			_used[house.place_id()] = true
 			LOG.debug("stool supply house=%s at=%s", [house.place_id(), str(pose.origin)])

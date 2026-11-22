@@ -202,12 +202,13 @@ func take_items(need: int) -> bool:
 	var store := inventory_store()
 	if facade == null or store == null or not facade.writable(store):
 		return false
+	var briefcase := WORLD.inventory()
 	for _i: int in take:
 		var slot := facade.case_slot(store)
 		if slot < 0:
 			release()
 			return false
-		var token := GAME.case_take(store, slot)
+		var token := briefcase.take(store, slot)
 		if token.is_empty():
 			release()
 			return false
@@ -262,19 +263,20 @@ func release() -> void:
 			floor = candidate
 		player.global_position = Vector3(at.x, floor + 0.002, at.z)
 		if player.get("velocity") != null:
-			GAME.set_velocity(player, Vector3.ZERO)
+			WORLD.set_velocity(player, Vector3.ZERO)
 		player.reset_physics_interpolation()
 		LOG.debug("stool lowered player floor=%.3f", [floor])
 	if not tokens.is_empty():
+		var briefcase := WORLD.inventory()
 		var store := inventory_store()
 		for i: int in tokens.size():
 			var token := tokens[i]
 			var slot := slots[i] if i < slots.size() else -1
 			var returned := false
 			if store != null:
-				returned = GAME.case_put(store, token, slot)
+				returned = briefcase.put(store, token, slot)
 				if not returned:
-					returned = GAME.case_put(store, token, -1)
+					returned = briefcase.put(store, token, -1)
 			if returned:
 				LOG.debug("stool returned count=%d/%d slot=%d", [i + 1, tokens.size(), slot])
 			else:
@@ -315,7 +317,7 @@ func floor_y_at(at: Vector3, body: Node3D) -> float:
 
 
 func inventory_store() -> Object:
-	return GAME.case_store(GAME.inventory(WORLD.game))
+	return WORLD.inventory().store()
 
 
 

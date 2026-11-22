@@ -1676,6 +1676,10 @@ func _check_base_game_access() -> void:
 	var menu_icon := FakeIcon.new()
 	GAME.set_menu_icon_kind(menu_icon, "heart")
 	check(menu_icon.kind == "heart", "the menu icon takes its kind")
+	var picker := GAME.menu_picker()
+	check(picker is Control, "the menu's in-page dropdown is built for a page")
+	if picker is Control:
+		(picker as Control).free()
 	check(GAME._settings_page_button(null, parent, "Unfplap", callback) == null,
 		"an absent settings page has no button")
 	check(GAME.settings_page_icon(null, "heart") == null,

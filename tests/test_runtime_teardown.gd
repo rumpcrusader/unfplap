@@ -76,7 +76,7 @@ class FakePlayer extends Node3D:
 		eye_pushes.append(value)
 
 
-class FakeInventory extends RefCounted:
+class FakeInventory extends Node:
 	var hud_hidden := false
 	var hotbar: Variant = null
 	var placed := 0

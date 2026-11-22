@@ -41,14 +41,6 @@
       "task": "B"
     },
     {
-      "from": "debug/wheel.gd",
-      "to": "res://world/audio/interaction_sounds.gd",
-      "kind": "game-import",
-      "owner": "debug",
-      "reason": "base-game import; drain through the GAME accessor in Task B",
-      "task": "B"
-    },
-    {
       "from": "initiation/classifier.gd",
       "to": "res://world/ai/llm_client.gd",
       "kind": "game-import",
@@ -93,14 +85,6 @@
       "to": "res://world/characters/hybrid_mare/pony_flank_touch.gd",
       "kind": "game-import",
       "owner": "reactions",
-      "reason": "base-game import; drain through the GAME accessor in Task B",
-      "task": "B"
-    },
-    {
-      "from": "settings/characters_ui.gd",
-      "to": "res://world/ui/menu_picker.gd",
-      "kind": "game-import",
-      "owner": "settings",
       "reason": "base-game import; drain through the GAME accessor in Task B",
       "task": "B"
     },

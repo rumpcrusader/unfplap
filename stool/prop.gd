@@ -1,7 +1,7 @@
 extends RefCounted
 ## Scene adapter for the standing act's footstool stack. See docs/stool.md.
 
-const GAME := preload("res://mods/unfplap/world/game.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const ITEM := preload("res://mods/unfplap/stool/item.gd")
 
 ## The base-game visual's natural height is about 0.39 m. These are fallback values only.
@@ -102,7 +102,7 @@ static func remove(prop: Stack) -> void:
 
 
 static func _shop_visual() -> Node3D:
-	var scene := GAME.shop_item_scene(ITEM.ID)
+	var scene := WORLD.shop_item(ITEM.ID)
 	if scene == null:
 		return null
 	var value: Variant = scene.instantiate()

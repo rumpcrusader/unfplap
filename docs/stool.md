@@ -26,7 +26,7 @@ in `docs/eligibility.md`, `docs/readiness.md`, `docs/poses.md`, `docs/camera.md`
 | `stool/service.gd` | facade: the only other systems preload or call; owns the supply child, `new_act()` and the stateless helpers |
 | `stool/act.gd` | per-act handle: the live rule, case loans, placed stack, player lift, failed flag and the hotkey pair (`hotkey_pair`, `hint_pair`); the runtime owns one per pony, resets it per act and forwards its queries one line each |
 | `stool/measure.gd` | pure reach-gap, threshold and stack-count arithmetic |
-| `stool/item.gd` | static `goods:footstool` case-slot, case-count, owned-count and free-slot checks through the base-game accessors |
+| `stool/item.gd` | static `goods:footstool` case-slot, case-count, owned-count and free-slot checks through the world facade's `Inventory` view |
 | `stool/prop.gd` | scene adapter: builds the stacked static act stool and its pony collision exception |
 | `stool/supply.gd` | scene adapter: finds loaded homes and spawns pickable footstool drops |
 | `docs/stool.md` | this contract |
@@ -35,8 +35,8 @@ in `docs/eligibility.md`, `docs/readiness.md`, `docs/poses.md`, `docs/camera.md`
 The facade is the only non-test file outside `stool/` that may preload `stool/*`. The entry's
 service list creates it and the runtime receives it in `act/context.gd` (`stool_service`);
 `act/session.gd` creates the per-act handle from it. `stool/measure.gd` stays pure:
-no `Node`, tree, time, file or game-scene access. `stool/item.gd` reads the case through the
-`world/game.gd` accessors and owns no scene state.
+no `Node`, tree, time, file or game-scene access. `stool/item.gd` reads the case through the world
+facade's `Inventory` view and owns no scene state.
 
 ## Facade
 

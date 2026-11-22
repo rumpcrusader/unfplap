@@ -19,7 +19,8 @@ This contract covers:
 - the three scene writes a service cannot do itself: the merged LOD rebuild after a shape change,
   the act chat open past the controls lock and a body's velocity;
 - the bound views of a pony's body, navigator, face, wings and flank, Anon's rig, a bed, the
-  scene's conversation director and its world context, and the handle cache behind them.
+  conversation director and its world context, the inventory and the menu surface, and the handle
+  cache behind them.
 
 It does not cover an offer, a pose, an act start, a gate verdict or any act state. It preloads no
 service facade and no runtime.
@@ -65,12 +66,13 @@ names the entry to ask whether the scene is live.
 ## Views
 
 A view is a base-game object with its receiver already bound: `pony(n)`, `navigator(n)`, `face(n)`,
-`wings(n)`, `flank(n)`, `bed(n)`, `director()`, `story()` and `anon()` answer a handle whose members
-take no scene argument.
-The factory caches one handle per bound node (one for the player), so a per-frame read costs a
-lookup rather than an allocation, and every bind and `unbind()` drops the cache so a swapped body
-can never answer through the old one. A view built on `null` answers the accessors' typed zeroes; a
-caller that keeps one across a despawn therefore reads those zeroes rather than crashing.
+`wings(n)`, `flank(n)`, `bed(n)`, `inventory()`, `menu()`, `director()`, `story()` and `anon()`
+answer a handle whose members take no scene argument.
+The factory caches one handle per bound node, and one each for the player, the inventory and the
+menu, so a per-frame read costs a lookup rather than an allocation, and every bind and `unbind()`
+drops the cache so a swapped body can never answer through the old one. A view built on `null`
+answers the accessors' typed zeroes; a caller that keeps one across a despawn therefore reads those
+zeroes rather than crashing.
 
 `Anon` is bound by the facade to its player handle, so its player members take no node. The
 presentation and the hand or torso driver it acts on are still passed, because a caller may hold a
@@ -93,6 +95,8 @@ not the receiver.
 | `Bed` | a bed, the couch/rest that owns it, a seat on it or the seating system | `couch_pony_transform`, `couch_seats`, `couch_open`, `couch_invite`, `couch_approach`, `couch_mare_fits`, `couch_cooldown_until`, `couch_partner`, `rest_word`, `rest_bed`, `refresh`, `fits`, `has_guest`, `sleeper`, `front`, `accepts`, `willing`, `eligible`, `seat_free_for`, `seating_phase`, `release_seat`, `finish_guest`, `release_pony`, `surface_top`, `exit_point`, `stock_rest` |
 | `Director` | the scene's conversation director, found by the facade, and the world root it belongs to | `speaking`, `interrupt`, `clock`, `subsystem_active`, `lines`, `llm_config`, `prepare_vocal`, `record_event`, `record_situation`, `tts_enabled`, `tts`, `tts_running`, `play_vocal`, `play_kiss`, `world_context`, `impressions`, `impression_mood`, `set_impression_mood`, `commit_impression`, `standing_line`, `voice_facts` |
 | `Story` | the world-context node, resolved by the facade from the bound world | `journal`, `store`, `open`, `last_line_id`, `search`, `witnessed`, `line_text`, `events` |
+| `Inventory` | the game's inventory node, resolved by the facade from the bound world | `store`, `slots`, `loans`, `writable`, `available`, `take`, `put`, `grant`, `spawn_drop`, `item_scene`, `hotbar`, `hotbar_visible`, `set_hotbar_visible`, `hotbar_layer`, `set_hotbar_layer_visible`, `place_hotbar`, `hud_hidden`, `set_hud_hidden` |
+| `Menu` | the bound world root | `panel`, `show_toast`, `sound` |
 
 `Pony` resolves the parts it can reach from the body it holds — her identity, head, mouth, blush
 sustainer and gaze controller — so a call names only the extra value it needs. The members that
@@ -118,6 +122,15 @@ receiver. `voice_facts` is the one composed member: it hands the pure voice clas
 director's profile, the TTS mode and server, the game's switch and the game's own routing answer, so
 no classifier reads a game node. `Story` binds the world-context node itself, so the journal, its
 store and the event list take no node either.
+
+`Inventory` binds the inventory node the facade resolved, so the store, the world drop, the
+quick-slot bar and its HUD flag take no node; the store a slot row reads and the bar a visibility
+member asks about are passed because they are not the receiver. `item_scene` is the shop's one
+scene read, and the facade's `shop_item` answers through it instead of keeping a second home.
+`Menu` binds the world root for the named panels; the toast sink and the cue's source node are
+passed because they are not the receiver. The settings page's own icon, redraw and menu-icon kind
+stay on the accessor module rather than this view: the settings layer may read the game boundary but
+not a domain facade.
 
 A view holds no service and no act state, and it writes nothing on construction. It is a read and
 write surface over the accessor module, so a base-game rename stays a change in `world/game.gd`.
@@ -154,6 +167,7 @@ behaviour exactly, and a game update that renames one is a change here rather th
 | `GAME.settings_page_icon(page, kind)` | the page's `_icon_texture` (private) | `Texture2D` | `null` |
 | `GAME.settings_page_redraw(page)` | the page's `_redraw` (private) | — | no call |
 | `GAME.set_menu_icon_kind(icon, kind)` | a menu icon's `kind` | — | no write |
+| `GAME.menu_picker()` | `menu_picker.gd`'s `new` | a new `Control` | — |
 | `GAME.inventory(game)` | `inventory` | `Node` | `null` |
 | `GAME.case_store(inventory)` | the inventory's `inventory` briefcase store | `Object` | `null` |
 | `GAME.case_slots(store)` | the store's `slots`, one row per slot | `Array[Dictionary]`, a copy | empty |
@@ -370,6 +384,7 @@ behaviour exactly, and a game update that renames one is a change here rather th
 | `GAME.clear_hold_target(driver, side)` | the rig's `clear_hold_target` | — | no call |
 | `GAME.hand_frame(driver, side)` | the rig's `hand_frame` | `Transform3D` | infinite origin |
 | `GAME.show_toast(instance, text, seconds)` | the HUD's `_show_toast` (private) | — | no call |
+| `GAME.interaction_sound(source, kind, at)` | `interaction_sounds.play_at` | — | no call |
 | `GAME.inventory_hud_hidden(inventory)` | the inventory's `hud_hidden` | `bool` | `false` |
 | `GAME.set_inventory_hud_hidden(inventory, hidden)` | the inventory's `hud_hidden` | — | no write |
 | `GAME.hotbar(inventory)` | the inventory's `hotbar` | `Node` | `null` |
@@ -415,9 +430,9 @@ behaviour exactly, and a game update that renames one is a change here rather th
 
 Only the accessors that hand back a typed copy or a typed view allocate — the mare, couch-seat,
 case and mods lists, the ladder, the bond record, the story rows, the world events, the mod state,
-the director's line host and the model config — plus `GAME.refresh_body_lod` and the settings page's
-tab button and icon, which rebuild through the game's own code. The per-frame accessors copy
-nothing.
+the director's line host and the model config — plus `GAME.refresh_body_lod`, the settings page's tab
+button and icon, the menu's in-page dropdown and the stock cue, which rebuild through the game's own
+code. The per-frame accessors copy nothing.
 
 `GAME` writes the rig's control hold, its eye line and its look pitch, the chat lock, her navigator's
 face point, conversation aim, owner, wander, speed, pace and destination, her own locomotion facing,
@@ -441,10 +456,10 @@ facade answers `null` and `false`; that is the "no world yet" answer, not a rule
 reads the game's own `player` property through `GAME`, so a renamed or missing property is null
 instead of a crash.
 
-The views of a pony's body, navigator, face, wings and flank, of Anon's rig and of a bed exist in
-this revision. The rest of the base-game objects this facade hands back — the director, the story
-journal, the inventory, the menu, the mods registry, the relationship runtime and the affection
-scene — are still reached by taking the node to the facade member or to `GAME`.
+The views of a pony's body, navigator, face, wings and flank, of Anon's rig, a bed, the scene's
+director and world context, the inventory and the menu surface exist in this revision. The rest of
+the base-game objects this facade hands back — the mods registry, the relationship runtime and the
+affection scene — are still reached by taking the node to the facade member or to `GAME`.
 
 ## Data ownership
 

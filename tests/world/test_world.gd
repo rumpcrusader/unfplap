@@ -27,6 +27,7 @@ class FakeGame extends Node:
 	var headset_view := false
 	var inventory: Variant = null
 	var save_menu: Variant = null
+	var pause_menu: Variant = null
 	var player: Variant = null
 	var found_camera: Variant = null
 	var find_calls := 0
@@ -69,6 +70,65 @@ class FakeInventory extends Node:
 class FakeMapInventory extends FakeInventory:
 	func _map_open() -> bool:
 		return true
+
+
+## The briefcase store: the slot rows, the loans and the three write ops the inventory view calls.
+class FakeStore extends RefCounted:
+	var slots: Array = []
+	var loans: Dictionary = {}
+	var writable := true
+	var taken: Array = []
+	var put_back: Array = []
+	var granted: Array = []
+
+	func available(slot: int) -> int:
+		var row: Dictionary = slots[slot] if slot < slots.size() else {}
+		return int(row.get("count", 0))
+
+	func take(slot: int) -> String:
+		taken.append(slot)
+		return "token-%d" % slot
+
+	func put(token: String, slot: int) -> bool:
+		put_back.append([token, slot])
+		return true
+
+	func grant(id: String, count: int) -> int:
+		granted.append([id, count])
+		return 3
+
+
+## The inventory node: its store, the quick-slot bar, the HUD flag and its own world drops.
+class FakeInventoryNode extends Node:
+	var inventory: Variant = null
+	var hotbar: Variant = null
+	var hud_hidden := false
+	var placed := 0
+	var dropped: Array = []
+
+	func spawn_owned_drop(id: String, pose: Transform3D) -> Node:
+		dropped.append([id, pose])
+		return Node3D.new()
+
+	func _place_hotbar() -> void:
+		placed += 1
+
+
+## The quick-slot bar: its visibility and the canvas layer it draws on.
+class FakeHotbar extends Control:
+	var _hud: CanvasLayer = null
+	var hud_calls: Array = []
+
+	func set_hud_visible(on: bool) -> void:
+		hud_calls.append(on)
+
+
+## The HUD's toast slot: the lines the menu view hands it.
+class FakeToast extends Node:
+	var shown: Array = []
+
+	func _show_toast(text: String, seconds: float) -> void:
+		shown.append([text, seconds])
 
 
 class FakeChat extends Node:
@@ -734,6 +794,7 @@ func run() -> void:
 	_check_anon_view()
 	_check_bed_view()
 	_check_director_and_story()
+	_check_inventory_and_menu()
 	_check_body_lod()
 	_check_desktop()
 	await _check_bed_under()
@@ -2228,4 +2289,88 @@ func _check_director_and_story() -> void:
 	vocal.queue_free()
 	boop.queue_free()
 	llm.queue_free()
+	game.queue_free()
+
+
+## The inventory and menu views: one cached handle each, the live answers and the typed zeroes.
+func _check_inventory_and_menu() -> void:
+	WORLD.unbind()
+	var game := FakeGame.new()
+	root.add_child(game)
+	var store := FakeStore.new()
+	store.slots = [{"id": "goods:footstool", "count": 2}, {}]
+	var bar := FakeHotbar.new()
+	root.add_child(bar)
+	var layer := CanvasLayer.new()
+	bar.add_child(layer)
+	bar._hud = layer
+	var inventory := FakeInventoryNode.new()
+	root.add_child(inventory)
+	inventory.inventory = store
+	inventory.hotbar = bar
+	game.inventory = inventory
+	WORLD.bind_world(game)
+
+	var view := WORLD.inventory()
+	check(view == WORLD.inventory(), "an inventory view is cached for the bound world")
+	check(view.store() == store, "the view reads the briefcase store")
+	check(view.slots(store).size() == 2, "the view copies the store's slot rows")
+	check(view.loans(store).is_empty(), "a store with no loans answers empty")
+	check(view.available(store, 0) == 2, "the view reads a slot's availability")
+	check(view.writable(store), "the view reads the store's writable flag")
+	check(view.take(store, 0) == "token-0" and store.taken == [0], "the take reaches the store")
+	check(view.put(store, "token-0", 0) and store.put_back == [["token-0", 0]],
+		"the put reaches the store")
+	check(view.grant(store, "goods:footstool", 1) == 3
+		and store.granted == [["goods:footstool", 1]], "the grant reaches the store")
+	var drop := view.spawn_drop("goods:footstool", Transform3D.IDENTITY)
+	check(is_instance_valid(drop) and inventory.dropped.size() == 1,
+		"the view drops an owned item through the inventory")
+	if is_instance_valid(drop):
+		drop.free()
+	check(view.hotbar() == bar, "the view reads the inventory's quick-slot bar")
+	check(view.hotbar_visible(bar), "the bar reads visible")
+	view.set_hotbar_visible(bar, false)
+	check(not bar.visible, "the visible write reaches the bar")
+	check(view.hotbar_layer(bar) == layer, "the view reads the bar's HUD layer")
+	view.set_hotbar_layer_visible(bar, false)
+	check(bar.hud_calls == [false], "the bar's own HUD switch is called")
+	check(not view.hud_hidden(), "a fresh inventory's card is not hidden")
+	view.set_hud_hidden(true)
+	check(inventory.hud_hidden, "the hidden flag reaches the inventory")
+	view.place_hotbar()
+	check(inventory.placed == 1, "the inventory's own hotbar placement is called")
+
+	var menu := WORLD.menu()
+	check(menu == WORLD.menu(), "a menu view is cached for the bound world")
+	var panel := FakePanel.new()
+	panel.opened = true
+	panel.name = "pause_menu"
+	game.pause_menu = panel
+	root.add_child(panel)
+	check(menu.panel("pause_menu") == panel, "the view reads a named panel")
+	check(menu.panel("save_menu") == null, "an absent panel reads null")
+	var sink := FakeToast.new()
+	root.add_child(sink)
+	menu.show_toast(sink, "hello", 1.5)
+	check(sink.shown == [["hello", 1.5]], "the toast reaches its sink")
+	menu.show_toast(null, "nobody", 1.0)
+	check(sink.shown.size() == 1, "no sink is a quiet no-op")
+	menu.sound("prop_ui_confirm", null, Vector3.ZERO)
+
+	WORLD.bind_world(null)
+	check(WORLD.inventory() != view and WORLD.menu() != menu,
+		"a bind drops the cached inventory and menu views")
+	var gone := WORLD.inventory()
+	check(gone.store() == null and gone.hotbar() == null, "an unbound inventory has no store or bar")
+	check(not gone.hud_hidden() and gone.slots(store).size() == 2,
+		"an unbound inventory answers the store's own rows")
+	var gone_menu := WORLD.menu()
+	check(gone_menu.panel("pause_menu") == null, "an unbound menu has no panel")
+
+	root.remove_child(bar)
+	bar.queue_free()
+	inventory.queue_free()
+	panel.queue_free()
+	sink.queue_free()
 	game.queue_free()

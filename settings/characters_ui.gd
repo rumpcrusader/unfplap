@@ -9,9 +9,7 @@ const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
 const PARTICIPATION := preload("res://mods/unfplap/shared/participation.gd")
 const CONSENT := preload("res://mods/unfplap/shared/consent.gd")
 const STYLE := preload("res://world/ui/menu_style.gd")
-## The game's in-page dropdown. An OptionButton's popup is a bare desktop window a headset cannot
-## reach, and its list runs past the settings window.
-const PICKER := preload("res://world/ui/menu_picker.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
 ## Height cap of the unfolded pony list; the page scrolls the rest.
 const PICKER_LIST_HEIGHT := 260.0
 ## The picker groups its entries on a "group/name" text, so off-roster mares share one header.
@@ -35,7 +33,8 @@ static func build(list: VBoxContainer, font_size: int, live_character_ids: Calla
 	var intro := STYLE.label("Saved preset changes apply live during an act.", "Faint", font_size - 5)
 	intro.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	stack.add_child(intro)
-	var selector: Control = PICKER.new()
+	# The game's in-page dropdown; an OptionButton popup is a desktop window a headset cannot reach.
+	var selector: Control = GAME.menu_picker()
 	selector.placeholder = "Choose a pony"
 	selector.font_size = font_size - 2
 	selector.list_height = PICKER_LIST_HEIGHT

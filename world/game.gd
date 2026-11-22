@@ -16,6 +16,8 @@ const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const OUTLINE_EXCLUSION := preload("res://world/post_outline_exclusion.gd")
 const DOCK_TAIL_MOUNT := preload("res://world/characters/hybrid_mare/dock_tail_mount.gd")
 const HYBRID_DOCK := preload("res://world/characters/hybrid_mare/hybrid_dock.gd")
+const MENU_PICKER := preload("res://world/ui/menu_picker.gd")
+const INTERACTION_SOUNDS := preload("res://world/audio/interaction_sounds.gd")
 
 
 ## The game's dock-fit document; the tail seat owns a copy and nudges it before a rebuild.
@@ -354,6 +356,17 @@ static func case_grant(store: Object, id: String, count: int) -> int:
 	if not is_instance_valid(store) or not store.has_method("grant"):
 		return -1
 	return int(store.call("grant", id, count))
+
+
+## One stock UI cue at a world point; a source that is not a live node3D is silent.
+static func interaction_sound(source: Node3D, kind: String, at: Vector3) -> void:
+	if is_instance_valid(source):
+		INTERACTION_SOUNDS.play_at(source, kind, at)
+
+
+## A new in-page dropdown for the game's pages; each one keeps its own entries.
+static func menu_picker() -> Control:
+	return MENU_PICKER.new()
 
 
 ## The shop's packed item scene; null when the shop has none.

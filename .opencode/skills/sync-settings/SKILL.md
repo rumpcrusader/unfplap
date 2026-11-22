@@ -112,7 +112,7 @@ python3 scripts/settings_sync.py diff --project-root ../..
 python3 scripts/settings_sync.py diff --characters --project-root ../..
 scripts/check.sh --all
 scripts/test.sh test_settings
-scripts/test_all.sh
+scripts/test.sh --all
 ```
 
 The second diff must show only kept differences, missing paths, character overrides and never-sync

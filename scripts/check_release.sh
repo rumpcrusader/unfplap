@@ -115,11 +115,11 @@ echo "Verifying resource assets..."
 python3 scripts/asset_pack.py verify --root "$ROOT" || fail "run scripts/fetch_assets.sh, or repack changed assets"
 
 echo "Running test suites..."
-scripts/test_all.sh
+scripts/test.sh --all
 echo "Stashing installed unfplap packs..."
 stash_installed_packs
 echo "Running source smoke..."
-scripts/smoke.sh
+scripts/test.sh --smoke
 echo "Building and verifying the preflight pack..."
 ./build.sh
 [ -z "$(git status --porcelain)" ] || fail "tests or build changed tracked files; review and commit them first"

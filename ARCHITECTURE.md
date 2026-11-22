@@ -458,7 +458,7 @@ service has a host.
 
 ## Enforcement
 
-The architecture gate is `scripts/architecture.py --check`, run from `scripts/test_all.sh`:
+The architecture gate is `scripts/check.sh --static`, run from `scripts/test.sh --all`:
 
 - discovers services from `*/service.gd` and `*/api.gd` outside `shared/`, preferring `api.gd`,
   and treats the rest of the directory as private;
@@ -513,9 +513,9 @@ Suites are not services: their layout, isolation, discovery and runner are `docs
 The full gate remains:
 
 ```bash
-scripts/architecture.py --check
 scripts/check.sh --all
-scripts/test_all.sh
+scripts/lint.sh
+scripts/test.sh --all
 ```
 
 Manual labs are required for behavior phases: `./lab.sh`, `./lab-stress.sh`, `./lab-vr.sh`. A

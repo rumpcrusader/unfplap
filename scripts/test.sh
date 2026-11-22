@@ -2,9 +2,10 @@
 # Run headless test suites, in parallel, each with its own throwaway data dir.
 # Prints only the failing suites, then one status line naming them if any failed.
 # Usage: scripts/test.sh <suite|dir>...   # poses/test_pose_asset | kiss | poses
-#        scripts/test.sh --all            # every suite (what test_all.sh runs)
+#        scripts/test.sh --all            # every suite: the full headless gate
 #        scripts/test.sh --list           # the discovered suites, then exit
 #        scripts/test.sh --self-test      # the harness self-test (a hung fixture must fail), then exit
+#        scripts/test.sh --smoke          # boot the game from source and fail on script errors
 #        scripts/test.sh --quick ...      # skip the static prechecks: iteration only, never the gate
 #        scripts/test.sh --verbose ...    # also print one PASS line per suite
 # Godot 4.5 must be on PATH.
@@ -26,6 +27,7 @@ VERBOSE="${TEST_VERBOSE:-0}"
 ALL=0
 LIST=0
 SELF_TEST=0
+SMOKE=0
 QUICK=0
 REQUESTED=()
 
@@ -34,23 +36,28 @@ for arg in "$@"; do
 		--all) ALL=1 ;;
 		--list) LIST=1 ;;
 		--self-test) SELF_TEST=1 ;;
+		--smoke) SMOKE=1 ;;
 		--quick) QUICK=1 ;;
 		-v | --verbose) VERBOSE=1 ;;
 		--*)
 			printf 'Unknown option %s\n' "$arg" >&2
-			printf 'Usage: scripts/test.sh <suite|dir>... | --all | --list | --self-test [--quick] [--verbose]\n' >&2
+			printf 'Usage: scripts/test.sh <suite|dir>... | --all | --list | --self-test | --smoke [--quick] [--verbose]\n' >&2
 			exit 2
 			;;
 		*) REQUESTED+=("$arg") ;;
 	esac
 done
 
-if [[ "${#REQUESTED[@]}" -eq 0 && "$ALL" -eq 0 && "$LIST" -eq 0 && "$SELF_TEST" -eq 0 ]]; then
-	printf 'Usage: scripts/test.sh <suite|dir>... | --all | --list | --self-test [--quick] [--verbose]\n' >&2
+if [[ "${#REQUESTED[@]}" -eq 0 && "$ALL" -eq 0 && "$LIST" -eq 0 && "$SELF_TEST" -eq 0 && "$SMOKE" -eq 0 ]]; then
+	printf 'Usage: scripts/test.sh <suite|dir>... | --all | --list | --self-test | --smoke [--quick] [--verbose]\n' >&2
 	exit 2
 fi
 if [[ "$ALL" -eq 1 && "${#REQUESTED[@]}" -gt 0 ]]; then
 	printf 'Usage: scripts/test.sh --all takes no suite names\n' >&2
+	exit 2
+fi
+if [[ "$SMOKE" -eq 1 && ( "$ALL" -eq 1 || "$LIST" -eq 1 || "$SELF_TEST" -eq 1 || "${#REQUESTED[@]}" -gt 0 ) ]]; then
+	printf 'Usage: scripts/test.sh --smoke takes no suite names or other modes\n' >&2
 	exit 2
 fi
 
@@ -86,17 +93,53 @@ run_self_test() {
 	return "$status"
 }
 
+# The source smoke: boot the real game from the mod source and fail on a script or parse error.
+# The game keeps running, so the timeout exit (124) is the expected success status.
+run_smoke() {
+	local seconds="${SMOKE_SECONDS:-20}"
+	if ! python3 "$MOD_DIR/scripts/asset_pack.py" verify --root "$MOD_DIR"; then
+		printf 'Run scripts/fetch_assets.sh once in this checkout.\n' >&2
+		return 1
+	fi
+	local log_file status=0
+	log_file="$(mktemp "${TMPDIR:-/tmp}/unfplap-smoke.XXXXXX")"
+	if timeout "$seconds" godot --headless --xr-mode off --path "$PROJECT_ROOT" \
+			-- --mod-src unfplap --skip-title >"$log_file" 2>&1; then
+		status=0
+	else
+		status=$?
+	fi
+	if grep -qE 'SCRIPT ERROR|Parse Error|Invalid|ERROR' "$log_file"; then
+		printf 'SMOKE_FAIL\n'
+		grep -E 'SCRIPT ERROR|Parse Error|Invalid|ERROR' "$log_file" | head -n 20
+		rm -f "$log_file"
+		return 1
+	fi
+	if [[ "$status" -ne 0 && "$status" -ne 124 ]]; then
+		printf 'SMOKE_FAIL exit=%s\n' "$status"
+		tail -n 20 "$log_file"
+		rm -f "$log_file"
+		return 1
+	fi
+	rm -f "$log_file"
+	printf 'SMOKE_PASS\n'
+}
+
 # The same prechecks the full gate runs, so a local subset cannot disagree with it.
 if ! command -v godot >/dev/null 2>&1; then
 	printf 'Godot not found on PATH (need the Godot 4.5 executable).\n' >&2
 	exit 1
+fi
+if [[ "$SMOKE" -eq 1 ]]; then
+	run_smoke || exit 1
+	exit 0
 fi
 if [[ "$SELF_TEST" -eq 1 ]]; then
 	run_self_test || exit 1
 	exit 0
 fi
 # --quick keeps the Godot probe and discovery for the inner loop and skips the static gates; --all
-# and test_all.sh always run them.
+# always runs them.
 PRECHECK=1
 if [[ "$QUICK" -eq 1 && "$ALL" -eq 0 ]]; then
 	PRECHECK=0
@@ -106,12 +149,8 @@ if [[ "$PRECHECK" -eq 1 ]]; then
 		printf 'Run scripts/fetch_assets.sh once in this checkout.\n' >&2
 		exit 1
 	fi
-	if ! python3 "$MOD_DIR/scripts/architecture.py" --check; then
+	if ! "$MOD_DIR/scripts/check.sh" --static; then
 		printf 'ARCHITECTURE_FAIL\n' >&2
-		exit 1
-	fi
-	if ! python3 "$MOD_DIR/scripts/architecture.py" --self-test; then
-		printf 'ARCHITECTURE_RULES_FAIL\n' >&2
 		exit 1
 	fi
 fi

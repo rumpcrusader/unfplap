@@ -1,7 +1,7 @@
 # Test suites
 
 The headless gate: what a suite is, how it is discovered, how it is isolated and how to run a
-subset without disagreeing with `scripts/test_all.sh`.
+subset without disagreeing with `scripts/test.sh --all`.
 
 Suites are not services. They have no facade, no contract entry in the service index and no service
 lifecycle; this doc owns their shape and their runner.
@@ -171,17 +171,17 @@ parses it.
 | `scripts/test.sh --list` | the discovered suites, then exits |
 | `scripts/test.sh --self-test` | the harness self-test: a hung fixture must fail from the watchdog, then exits |
 | `scripts/test.sh --quick <suite>...` | the same subset without the static prechecks: iteration only |
-| `scripts/test.sh --all` | every suite; this is what `scripts/test_all.sh` runs |
-| `scripts/test_all.sh` | the full gate: every suite, once per task |
+| `scripts/test.sh --all` | every suite: the full headless gate, once per task |
+| `scripts/test.sh --smoke` | boot the game from the mod source and fail on a script or parse error |
 
 `scripts/test.sh` runs the same prechecks as the gate (Godot on `PATH`, the fetched asset set,
-`scripts/architecture.py --check`), uses the same discovery and the same per-suite invocation, so a
+`scripts/check.sh --static`), uses the same discovery and the same per-suite invocation, so a
 subset cannot disagree with the full gate. `--quick` drops the static prechecks for iteration and
-is never the gate: `--all` and `scripts/test_all.sh` always run them.
+is never the gate: `--all` always runs them.
 
 It prints only the suites that failed, each followed by its own failure lines, and ends in one
 status line: `TEST_PASS <n> suites, <n> checks` for a subset and `TEST_ALL_PASS <n> suites, <n>
-checks` for `--all`, which is the marker the release check greps. A failing run prints a `rerun:
+checks` for `--all`. A failing run prints a `rerun:
 scripts/test.sh ...` line and ends in `TEST_FAIL <k> of <n> suites: <names>` (or `TEST_ALL_FAIL
 ...`), so the last line names every failing suite and a trailing `tail` cannot hide the verdict.
 `--verbose` (`TEST_VERBOSE=1`) adds one `PASS <suite> <ms> ms` line per suite for a local run.
@@ -196,8 +196,8 @@ two levels deep, excluding the manual labs (`test_lab*.gd`, `test_stress_lab.gd`
 the parallelism; the default is one job per core, capped at 12 because one heavy suite peaks at
 roughly 370 MB.
 
-`scripts/check.sh` is a parse check, not a test run: use it for the files you touched, and
-`scripts/check.sh --all` before you report the task done.
+`scripts/check.sh` parses the changed scripts and runs the static gate; `--parse` is the quick
+parse-only loop. Run `scripts/check.sh --all` before you report the task done.
 
 ## Manual labs
 

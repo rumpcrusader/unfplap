@@ -180,8 +180,8 @@ Rules:
 | Comment shape and rename-safety | `scripts/comments.py --check` |
 | Parse all scripts | `scripts/check.sh --all` |
 | Touched suites | `scripts/test.sh <suite>...` |
-| Full headless gate | `scripts/test_all.sh` |
-| Source smoke | `scripts/smoke.sh` |
+| Full headless gate | `scripts/test.sh --all` |
+| Source smoke | `scripts/test.sh --smoke` |
 | Settings contract | `tests/test_settings.gd` |
 | Manual lab | `./lab.sh`, `./lab-stress.sh`, `./lab-vr.sh` |
 

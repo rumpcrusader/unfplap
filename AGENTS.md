@@ -118,7 +118,7 @@ Read `WORKFLOW.md` before any task. Commit in small, testable units; never push.
   new contract, an index row, a sweep.
 - Settle the design before touching files. Once it is settled, apply every code edit first, then
   check the change. Before each commit run `scripts/test.sh <touched>`, `scripts/check.sh` and
-  `scripts/lint.sh`; run `scripts/test_all.sh` once when the code phase is done.
+  `scripts/lint.sh`; run `scripts/test.sh --all` once when the code phase is done.
 - Use one whole-file write for a file that changes heavily, and send independent edits together in
   one turn. A chain of single-line edits costs a round trip each.
 - **The shell already runs in the mod directory.** Never prefix a command with `cd`; pass
@@ -139,7 +139,7 @@ Read `WORKFLOW.md` before any task. Commit in small, testable units; never push.
 2. A new doc is indexed in `docs/README.md` in the same commit.
 3. Suites are added or retargeted; `scripts/test.sh <touched>` passes, `scripts/check.sh --all` is
    clean and `scripts/lint.sh` is clean before the commit.
-4. `scripts/test_all.sh` passes once, at the end of the code phase.
+4. `scripts/test.sh --all` passes once, at the end of the code phase.
 5. A standalone `docs:` commit passes `scripts/check.sh --all`, `scripts/lint.sh` and every suite
    that reads an edited doc.
 6. New `.gd` files are tracked before a build; the pack manifest reads `git ls-files`.
@@ -260,9 +260,9 @@ are in `ARCHITECTURE.md` (`## The service contract`).
 ## Commands
 
 ```bash
-scripts/test.sh <suite>...   # touched suites; also --list, --all (failures only)
-scripts/test_all.sh          # every suite, once per task; the last line is the status
-scripts/check.sh             # fast parse check; --all before done
+scripts/test.sh <suite>...   # touched suites; also --list, --all, --smoke (failures only)
+scripts/test.sh --all        # every suite, once per task; the last line is the status
+scripts/check.sh             # parse the changed scripts and the static gate; --all before done
 scripts/lint.sh              # gdlint over the shipped scripts
 ./lab.sh                     # manual lab; also lab-stress.sh, lab-vr.sh
 ```

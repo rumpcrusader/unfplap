@@ -10,8 +10,8 @@ scripts/fetch_assets.sh --sources  # also sources/ for editing
 scripts/fetch_assets.sh --force    # overwrite local changes
 ```
 
-Run the fetch once in a fresh checkout, before `--mod-src`, `scripts/test_all.sh`,
-`scripts/smoke.sh`, a lab or `build.sh`. The download is verified against the archive hash and
+Run the fetch once in a fresh checkout, before `--mod-src`, `scripts/test.sh`,
+`scripts/check.sh`, a lab or `build.sh`. The download is verified against the archive hash and
 per-file manifest in `scripts/asset_pack.json`; a missing, stale or extra runtime file fails
 `build.sh` with the fetch hint. The runtime files are required: the mod has no missing-asset
 fallback. An unuploaded asset edit uses the ignored local contract described under
@@ -73,7 +73,7 @@ An unuploaded runtime edit can be tested without changing the release contract:
 
 ```bash
 scripts/pack_assets.sh --local
-UNFPLAP_ASSET_CONTRACT=dist/asset_pack.local.json scripts/test_all.sh
+UNFPLAP_ASSET_CONTRACT=dist/asset_pack.local.json scripts/test.sh --all
 UNFPLAP_ASSET_CONTRACT=dist/asset_pack.local.json ./build.sh
 ```
 
@@ -101,10 +101,10 @@ anon/anon_part_nrm.png    2048^2 normal map
 anon/anon_part_albedo.png 2048^2 albedo/detail
 ```
 
-These runtime files are required: `build.sh` and `smoke.sh` refuse a set that does not match the
-active contract (`scripts/asset_pack.json`, or a local contract explicitly selected with
-`UNFPLAP_ASSET_CONTRACT`), and the mod has no missing-asset fallback. The anatomy feature itself
-is optional in the settings.
+These runtime files are required: `build.sh` and `scripts/test.sh --smoke` refuse a set that does
+not match the active contract (`scripts/asset_pack.json`, or a local contract explicitly selected
+with `UNFPLAP_ASSET_CONTRACT`), and the mod has no missing-asset fallback. The anatomy feature
+itself is optional in the settings.
 
 ## Recovering or replacing the files
 

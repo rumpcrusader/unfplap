@@ -7,9 +7,9 @@ the commands are `WORKFLOW.md`.
 
 `scripts/check.sh` loads the changed and untracked `.gd` files — tests and tools included — or every
 file with `--all`, once, in one headless engine boot through `tools/parse_all.gd`, and reports the
-files that do not load. The cost is that boot plus each script's preload closure once, so it must
-not return to one boot per file. A run that ends without the tool's `PARSED` line is a failure,
-never a pass.
+files that do not load. The default run also runs the static gate; `--parse` is the parse-only loop.
+The cost is that boot plus each script's preload closure once, so it must not return to one boot per
+file. A run that ends without the tool's `PARSED` line is a failure, never a pass.
 
 ## Formatting
 
@@ -122,8 +122,8 @@ because it starts that service itself and would otherwise run a VR lab without a
 
 A script that must observe a failure captures the status at that call (`if cmd; then ...; else
 status=$?; fi`) and keeps `-e`; it does not drop `-e` so a loop can continue. The gate runners read
-a tool's output after an expected non-zero exit, so `scripts/check.sh`, `scripts/test.sh` and
-`scripts/smoke.sh` allow exactly that call (`|| true` or the if/else capture) and stay under `-e`.
+a tool's output after an expected non-zero exit, so `scripts/check.sh` and `scripts/test.sh` allow
+exactly that call (`|| true` or the if/else capture) and stay under `-e`.
 
 The manual labs pick the session display driver: `DISPLAY_DRIVER` first, then Wayland when
 `WAYLAND_DISPLAY` is set, else X11. `lab-vr.sh` additionally sets its own XR runtime. The labs rely

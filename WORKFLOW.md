@@ -32,15 +32,15 @@ is a separate repository; never commit game-source changes from the mod repo.
 6. Check before each commit:
    - `scripts/test.sh <suite>...` for the suites that cover it; use `--all` when it crosses
      several services;
-   - `scripts/check.sh` for a quick parse check of the changed scripts;
+   - `scripts/check.sh --parse` for a quick parse check of the changed scripts;
    - `scripts/lint.sh` for the shipped GDScript;
-   - `scripts/smoke.sh` for entry/runtime changes;
+   - `scripts/test.sh --smoke` for entry/runtime changes;
    - `./lab.sh` for camera/pose changes; the session is in `last-run.log`, and say it was manual.
 7. Run the full gate once per task, when the code change is complete:
 
    ```bash
    scripts/lint.sh
-   scripts/test_all.sh
+   scripts/test.sh --all
    ```
 
    The test runner runs every suite and ends in `TEST_ALL_PASS`; the lint gate checks the shipped
@@ -73,7 +73,7 @@ scripts/pack_assets.sh --local
 UNFPLAP_ASSET_CONTRACT=dist/asset_pack.local.json ./build.sh
 ```
 
-The same variable prefixes `scripts/test_all.sh`, `scripts/check.sh` and `scripts/smoke.sh`. The
+The same variable prefixes `scripts/test.sh` and `scripts/check.sh`. The
 manual labs use the local contract automatically when `dist/asset_pack.local.json` exists.
 `fetch_assets.sh` and `--upload` always use `scripts/asset_pack.json`, and
 `scripts/check_release.sh` clears the variable. See `assets/README.md`.
@@ -136,12 +136,11 @@ revert: standing: follow the dock in the offer
 ## Documentation commits
 
 A code commit carries the behavior, its tests and the doc sentences the change makes false.
-`scripts/test_all.sh` runs once when the code phase is done.
+`scripts/test.sh --all` runs once when the code phase is done.
 
 A standalone `docs:` commit is only for docs no code commit touched: a new contract, an index row,
-a sweep. Before it, run `scripts/check.sh --all`, `scripts/lint.sh`,
-`python3 scripts/architecture.py --check` and `scripts/test.sh test_api` when `docs/api.md`
-changed. Subject: `docs: <short imperative summary>`.
+a sweep. Before it, run `scripts/check.sh --all`, `scripts/lint.sh` and `scripts/test.sh test_api`
+when `docs/api.md` changed. Subject: `docs: <short imperative summary>`.
 
 ## Bisect
 
@@ -162,7 +161,7 @@ an explicit commit hash as the good endpoint.
 3. Run the predicate:
 
    ```bash
-   git bisect run scripts/test_all.sh
+   git bisect run scripts/test.sh --all
    ```
 
    or a targeted suite for speed.

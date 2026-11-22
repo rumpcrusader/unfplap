@@ -76,6 +76,10 @@ func clear_mesh() -> void:
 	_fill = 0.0
 	_wide = 0.0
 	_hole_target = 0.0
+	_shaft_pivot = Vector3.ZERO
+	_shaft_axis = Vector3.ZERO
+	_shaft_length = 0.0
+	_shaft_radii = PackedFloat32Array()
 	if _tween != null:
 		_tween.kill()
 	_tween = null
@@ -366,10 +370,12 @@ func react() -> void:
 		wink(2)
 
 
+## Clear every act-driven part state, the shaft mask included.
 func clear_part() -> void:
 	set_fill(0.0)
 	set_grip(0.0, false)
 	set_anal_grip(0.0)
+	clear_shaft()
 	_apply_winking_shape()
 
 

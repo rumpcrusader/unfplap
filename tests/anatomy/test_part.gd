@@ -10,6 +10,7 @@ const ANATOMY_ACT := preload("res://mods/unfplap/anatomy/act.gd")
 const ANATOMY_API := preload("res://mods/unfplap/anatomy/api.gd")
 const RIG := preload("res://mods/unfplap/anatomy/rig.gd")
 const PLAYER_PART := preload("res://mods/unfplap/anatomy/player.gd")
+const SHAPES := preload("res://mods/unfplap/anatomy/shapes.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 
@@ -177,6 +178,8 @@ func _check_face_contact() -> void:
 	var act: Node = ANATOMY_ACT.new()
 	root.add_child(act)
 	act.setup(pony, anatomy, RIG.new(), Callable())
+	check(not _last_call(anatomy.calls, "clear_shaft").is_empty(),
+		"an act starts from a cleared shaft")
 	var view := ANATOMY_API.PoseView.new()
 	view.family = "bed"
 	view.frame = "bed"
@@ -244,6 +247,41 @@ func _check_face_contact() -> void:
 	host.free()
 
 
+## The act's part state carries Anon's shaft mask: a shaft left published keeps projecting the
+## closed shell onto its last world cylinder, so clearing the part must clear it too.
+func _check_shaft_mask() -> void:
+	var pony := _pony("twilight_sparkle")
+	var host := Node3D.new()
+	var mesh := MeshInstance3D.new()
+	mesh.mesh = BoxMesh.new()
+	var material := ShaderMaterial.new()
+	mesh.set_surface_override_material(0, material)
+	root.add_child(pony)
+	root.add_child(host)
+	host.add_child(mesh)
+	var shapes := SHAPES.new()
+	shapes.setup(pony, host)
+	shapes.set_mesh(mesh)
+	var radii := PackedFloat32Array([0.03, 0.03, 0.03, 0.03, 0.03, 0.03, 0.03, 0.02])
+	shapes.set_shaft(Vector3(0.1, 0.2, 0.3), Vector3.FORWARD, 0.17, radii)
+	check(is_equal_approx(float(material.get_shader_parameter("shaft_length")), 0.17),
+		"the shaft is published to the material")
+	shapes.clear_part()
+	check(is_zero_approx(float(material.get_shader_parameter("shaft_length"))),
+		"clearing the part clears the published shaft")
+	var pivot: Variant = material.get_shader_parameter("shaft_pivot")
+	check(pivot is Vector3 and (pivot as Vector3).is_zero_approx(),
+		"clearing the part clears the shaft pivot")
+	var cleared: Variant = material.get_shader_parameter("shaft_radii")
+	check(not (cleared is PackedFloat32Array) or not (cleared as PackedFloat32Array).has(0.03),
+		"clearing the part clears the shaft radii")
+
+	root.remove_child(pony)
+	pony.free()
+	root.remove_child(host)
+	host.free()
+
+
 ## The anatomy mesh's own +Z is the outward normal. It must not be flipped by the hips sign: a
 ## body fit or a shape can put the opening in front of the hip bone as the measurement sees it.
 func _check_normal_source() -> void:
@@ -296,6 +334,7 @@ func run() -> void:
 	_check_face_contact()
 	_check_normal_source()
 	_check_pelvis_reset()
+	_check_shaft_mask()
 
 	# Climax clears the shape once and arms the wink pulses; the tick keeps driving the hug so
 	# the lips stay on the shaft through the climax instead of closing on nothing.

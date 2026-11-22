@@ -412,8 +412,9 @@ with the act's typed callbacks.
   outer vertex inside it back onto the surface. While `shaft_length > 0` the fragment skips the
   inner-wall depth pull entirely: the shaft itself fills the opening, and pulling the pink wall
   toward the camera drew the interior over the cock. `clear_shaft()` zeroes the shaft and restores
-  the pull for the empty opening. The guard is generic to standing, missionary and every contact
-  where the shaft is visible.
+  the pull for the empty opening. The mask is part state: the part reset and an act's start clear
+  it, because a stale shaft keeps projecting the closed shell onto its last world cylinder. The
+  guard is generic to standing, missionary and every contact where the shaft is visible.
 - The V2 anal shape has five additive keys: `anal_open`, `anal_stretch`, `anal_overstretch`,
   `anal_extreme` and `ponut_scale`. The first four start where the previous one ends; the ponut key
   is a 2× ponut-only scale that fades out under the extreme key. No upper clamp: an oversized

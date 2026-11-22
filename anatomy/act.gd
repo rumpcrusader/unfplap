@@ -112,6 +112,7 @@ func reset() -> void:
 	_act_wink_next = 0.0
 	_act_wink_mode = 0
 	if is_instance_valid(anatomy):
+		anatomy.clear_shaft()
 		anatomy.animate(0.0, 1.0)
 
 

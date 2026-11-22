@@ -63,6 +63,9 @@ class FakeAnatomy extends "res://mods/unfplap/anatomy/controller.gd":
 	func animate(_value: float, _seconds: float) -> void:
 		pass
 
+	func clear_shaft() -> void:
+		pass
+
 
 class FakePony extends Node3D:
 	pass

@@ -272,8 +272,8 @@ static func house_at(at: Vector3) -> Node3D:
 	return GAME.house_at(_tree(), at)
 
 
-## The place directory's region for a world point, as the witness rows record it.
-static func place_at(at: Vector3) -> GAME.Place:
+## The region id the witness rows record for a point; empty outside every region.
+static func place_at(at: Vector3) -> String:
 	return GAME.place_at(at)
 
 

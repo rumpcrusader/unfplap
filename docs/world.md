@@ -52,7 +52,7 @@ to ask whether the scene is live.
 | `shape_ids()` | a typed copy of the population catalogue's shape ids |
 | `shape_scene(id)` | a shape's packed scene from the population catalogue |
 | `house_at(at)` | the house interior at a world point |
-| `place_at(at)` | where a world point is, as the place directory names it |
+| `place_at(at)` | the place directory's region id for a world point |
 | `house_of(n)` | the house interior that owns a node |
 | `bed_under(point, exclude)` | the bed a downward probe finds under a point |
 | `real_bed(node)` | the bed behind a mattress or temporary support hit |
@@ -210,7 +210,7 @@ behaviour exactly, and a game update that renames one is a change here rather th
 | `GAME.shop_item_scene(id)` | `shop_items.scene` | `PackedScene` | `null` |
 | `GAME.house_of(node)` | a `house_interior.gd` node | `HOUSE` | `null` |
 | `GAME.house_at(tree, at)` | the `house_interiors` group | `Node3D` | `null` |
-| `GAME.place_at(point)` | `PonyAwareness.place_at`, the place directory's regions | `Place`, a typed row | empty id |
+| `GAME.place_at(point)` | `PonyAwareness.place_at`, the place directory's regions | `String` | empty |
 | `GAME.ensure_bed(house, kind)` | `ensure_bed` | `Node3D` | `null` |
 | `GAME.spawn_owned_drop(inventory, id, pose)` | the inventory's `spawn_owned_drop` | `Node` | `null` |
 | `GAME.map_open(inventory)` | `_map_open` (private) | `bool` | `false` |
@@ -468,7 +468,7 @@ behaviour exactly, and a game update that renames one is a change here rather th
 
 Only the accessors that hand back a typed copy or a typed view allocate — the mare, couch-seat,
 case, shape-id and mods lists, the ladder, the bond record, the story rows, the world events, the
-mod state, the place row, the line faces, the kiss settings, the director's line host and the model
+mod state, the line faces, the kiss settings, the director's line host and the model
 config — plus `GAME.refresh_body_lod` and the stock cue, which rebuild through the game's own code,
 and the two senses, which build the game's awareness node per call. The per-frame accessors copy
 nothing.

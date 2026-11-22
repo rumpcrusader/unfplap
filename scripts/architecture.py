@@ -259,7 +259,7 @@ RUNTIME_RAW_INPUT = (
 # Service files another owner may extend or preload as a documented extension point. The source
 # base is a provider contract, not a second facade; the anatomy body binding is the attachment
 # contract the body-change service constructs from the anatomy facade it is handed.
-PUBLIC_SERVICE_FILES = {"body_change/source.gd", "world/game.gd"}
+PUBLIC_SERVICE_FILES = {"body_change/source.gd"}
 # The lifecycle base is a no-behaviour contract: every world service extends it, so it is not a
 # dependency edge.
 SERVICE_BASE = "shared/service.gd"
@@ -288,10 +288,12 @@ SERVICE_IGNORE_DOCS = {"README.md", "api.md", "runtime.md"}
 PUBLIC_TYPE = re.compile(r"^(?:class|enum)\s+([A-Za-z_]\w*)\b", re.MULTILINE)
 API_MEMBER = re.compile(
     r"^(?:const\s+([A-Z][A-Z0-9_]*)|(?:static\s+)?func\s+([A-Za-z_]\w*)|var\s+([A-Za-z_]\w*))")
-GAME_SOURCES = ("world/game.gd", "settings/game.gd", "debug/game.gd")
-# The services allowed to touch the base game: each owns exactly one `<service>/game.gd`, and only
-# that service's own files import it.
+# The game layer: the only services allowed to touch the base game. Membership is by approval only;
+# `vr` is deferred. Each member owns exactly one `<service>/game.gd`, its only base-game boundary
+# and the only home of a base-game import or autoload literal; only that service's files import it.
 GAME_LAYER = {"world", "settings", "debug", "hud"}
+# The accessor files the base-game import rule allows, one per game-layer member.
+GAME_SOURCES = ("world/game.gd", "settings/game.gd", "debug/game.gd", "hud/game.gd")
 
 
 class Failure:
@@ -1098,15 +1100,33 @@ def check_preloads(failure: Failure) -> None:
             failure.add("%s:%d %s" % (rel(path), number, message))
 
 
-def check_game_layer(failure: Failure) -> None:
+def check_game_layer(failure: Failure, sources: list[Path] | None = None) -> None:
     """An accessor file lives only in a game-layer service directory."""
-    for path in shipped_sources():
+    for path in shipped_sources() if sources is None else sources:
         if path.name != "game.gd":
             continue
         service = path.parent.name
         if service not in GAME_LAYER:
             failure.add("%s: game.gd belongs to a game-layer service (%s)"
                         % (rel(path), ", ".join(sorted(GAME_LAYER))))
+
+
+# The base-game autoload paths obey the import rule: only the entry and a game-layer accessor may
+# name one; every other file asks the owning service.
+BASE_GAME_AUTOLOADS = ('"/root/Settings"', '"/root/Mods"')
+
+
+def check_autoloads(failure: Failure) -> None:
+    """A base-game autoload path is reached only through the owning game-layer accessor."""
+    for path in shipped_sources():
+        name = rel(path)
+        if name == "main.gd" or (path.name == "game.gd" and path.parent.name in GAME_LAYER):
+            continue
+        text = path.read_text(encoding="utf-8")
+        for literal in BASE_GAME_AUTOLOADS:
+            if literal in text:
+                failure.add("%s names the base-game autoload %s: read it through the owning "
+                            "service's game.gd or a facade" % (name, literal))
 
 
 def function_body(text: str, name: str) -> str:
@@ -1984,6 +2004,7 @@ def check() -> int:
     check_tests(failure)
     check_preloads(failure)
     check_game_layer(failure)
+    check_autoloads(failure)
     failures = len(failure.messages)
     for message in failure.messages:
         print("FAIL", message)

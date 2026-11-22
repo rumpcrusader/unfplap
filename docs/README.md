@@ -194,8 +194,9 @@ Rules:
 - each contract has an ownership heading and names its facade;
 - every facade's public type carries a `##` note; `api.gd`'s public surface carries one and every
   public `api.gd` function is named in `docs/api.md`;
-- no service imports another service's private files, no module preloads a base-game module except a
-  game-layer service's `game.gd`, and no module reaches another module's preload const.
+- no service imports another service's private files or its `game.gd`, no module preloads a
+  base-game module except a game-layer service's `game.gd`, and no module reaches another module's
+  preload const.
 
 The typed act view boundary is a review rule, not a gate check: `docs/act_facts.md` owns it.
 

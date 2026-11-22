@@ -867,12 +867,18 @@ settings change.
 - The controller and the internal act read the activity's caller-owned read models, not a
   runtime object. `shared/act_facts.gd` belongs to the act, not anatomy.
 
+## Base-game access
+
+Anatomy is not a game-layer service and owns no `game.gd`: every base-game read reaches it through
+`world/api.gd` and its typed views, so a base-game rename stays a change in the world accessor.
+
 ## Boundary
 
 - Every anatomy body read goes through `world/api.gd` and its views; no anatomy file preloads a
   base-game module.
-- No anatomy file preloads a mod service except `settings/service.gd` and `world/api.gd`; no
-  outside file preloads an anatomy file except `anatomy/api.gd`.
+- Outside `anatomy/api.gd`, no anatomy file preloads a mod service but `settings/service.gd` and
+  `world/api.gd`; the facade also reads `eligibility/service.gd`. No outside file preloads an
+  anatomy file except `anatomy/api.gd`.
 - `scripts/architecture.py --check` enforces both rules, and `scripts/test_architecture.py` pins
   an allowed and a forbidden synthetic edge.
 

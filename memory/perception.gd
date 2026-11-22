@@ -86,7 +86,7 @@ static func witnesses(game: Node, service: ELIGIBILITY, partner_id: String,
 		if not seen and not heard:
 			continue
 		var indoors := WORLD.house_at(observer.global_position) != null
-		var place := WORLD.place_at(observer.global_position).id
+		var place := WORLD.place_at(observer.global_position)
 		var sense := FACTS.Sense.SIGHT if seen else FACTS.Sense.SOUND
 		var text := TEXT.witness_text(partner_name, young, indoors, serial, sense)
 		var event_id := "witness_%s_%s_%d" % [observer_id, partner_id, serial]

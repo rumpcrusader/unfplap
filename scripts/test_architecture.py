@@ -203,6 +203,21 @@ def rule_cases() -> int:
     return failures
 
 
+def game_layer_cases() -> int:
+    """A game.gd lives only in a whitelisted service directory."""
+    failures = 0
+    failure = architecture.Failure()
+    architecture.check_game_layer(
+        failure, [architecture.ROOT / "hud" / "game.gd",
+                  architecture.ROOT / "world" / "game.gd"])
+    failures += expect("game layer accessors", failure.messages, None)
+    failure = architecture.Failure()
+    architecture.check_game_layer(failure, [architecture.ROOT / "camera" / "game.gd"])
+    failures += expect("game layer stray accessor", failure.messages,
+                       "game.gd belongs to a game-layer service")
+    return failures
+
+
 def main() -> int:
     failures = 0
     for src, tgt in ALLOWED:
@@ -218,13 +233,14 @@ def main() -> int:
     failures += index_cases()
     failures += rule_cases()
     failures += preload_cases()
+    failures += game_layer_cases()
     if failures:
         print("ARCH_RULES_FAIL %d" % failures)
         return 1
     print("ARCH_RULES_PASS %d" % (
         len(ALLOWED) + len(FORBIDDEN) + len(GAME_ALLOWED) + len(REEXPORTS)
         + len(NOTE_CASES) + len(MEMBER_CASES) + len(SUITE_RESULT_CASES) + len(PRELOAD_CASES)
-        + 6))
+        + 8))
     return 0
 
 

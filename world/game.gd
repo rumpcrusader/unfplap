@@ -2315,11 +2315,6 @@ class ModState:
 	var rows: Dictionary = {}
 
 
-## One world point's place row: the region id the world context records for it.
-class Place:
-	var id := ""
-
-
 ## The stock kiss settings document: the game's own Dictionary, read and written in place.
 class KissSettings:
 	var rows: Dictionary = {}
@@ -2510,11 +2505,9 @@ static func can_see(observer: Node3D, target: Node3D) -> bool:
 	return awareness.visible(observer, target)
 
 
-## The place directory's own region lookup; an empty id outside every region.
-static func place_at(point: Vector3) -> Place:
-	var out := Place.new()
-	out.id = str(AWARENESS.place_at(point).get("id", ""))
-	return out
+## The place directory's own region id for a point; empty outside every region.
+static func place_at(point: Vector3) -> String:
+	return str(AWARENESS.place_at(point).get("id", ""))
 
 
 ## Her awareness facing from the body's own op; a zero vector when the body cannot answer.

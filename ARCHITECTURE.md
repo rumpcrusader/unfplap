@@ -62,15 +62,16 @@ res://world/..., res://player/...   game and engine
 | Entry / orchestrator | anything |
 | Cross-mod API | service facades, shared modules |
 | Scene read facade | `res://world/`, `res://player/`, shared modules and its own accessor module |
-| Base-game accessors | `res://world/`, `res://player/` only |
-| Infrastructure service (`settings`) | shared pure modules |
+| Base-game accessor | base-game modules and shared value types |
+| `settings` (game layer) | shared pure modules |
 | Domain service | `settings`, shared modules, other service facades |
 | Shared store | `settings`, shared pure |
 | Read model | shared pure |
 | Shared pure | shared pure only |
 
-A `game.gd` accessor is not a dependency edge: it imports only base-game modules and exposes
-typed functions, and only its own service's files import it.
+A `game.gd` accessor is not a dependency edge: it preloads base-game modules and shared value
+types, never a service, the entry or `runtime`, and exposes typed functions; only its own service's
+files import it.
 
 Rules:
 
@@ -79,25 +80,43 @@ Rules:
   `main` argument.
 - A service never imports another service's private files.
 - Each game-layer service's `game.gd` is its base-game boundary: one file of static accessors with
-  explicit arguments, no bound state and no mod preload. A base-game member is reached through one
-  typed function, never at the call site.
+  explicit arguments, no bound state and no preload of a service, the entry or `runtime`. A
+  base-game member is reached through one typed function, never at the call site.
 - A service never receives another service through a host dictionary. A host passes scene
   handles, plain values and callbacks only. Service-to-service dependencies are visible as a
   preload of the other facade.
 - A shared pure module never reads `SETTINGS`, `Time`, `FileAccess`, a domain service or a game
   accessor; its values are arguments.
-- A shared store may read `settings`; that is the one infrastructure exception.
+- A shared store may read `settings`; that is the one service read a shared module makes.
 - Only `main`, `runtime` and `api` may call arbitrary service facades.
 - If two services seem to need each other, the boundary is wrong or the orchestrator must mediate
   with plain values. A cycle is not an acceptable design.
 - No per-frame allocation in a facade or read model. Reuse context and event objects. The
   profiler's block must not show added per-frame cost.
 
-`settings` is infrastructure: it may import shared pure modules and its own base-game accessor
-`settings/game.gd`, which is the game boundary rather than a service. The one existing upward edge,
-`settings -> registry/service.gd` (provider defaults and per-mare rows), is recorded in
-`architecture/exceptions.json` and must shrink. Do not add a second upward edge, and do not treat
-the recorded row as a pattern.
+`settings` is a game-layer service and a peer of `world`: neither imports the other. It may import
+shared pure modules and its own accessor `settings/game.gd`, which is its game boundary rather than
+a service. The one existing upward edge, `settings -> registry/service.gd` (provider defaults and
+per-mare rows), is recorded in `architecture/exceptions.json` and must shrink. Do not add a second
+upward edge, and do not treat the recorded row as a pattern.
+
+## Game layer
+
+The game layer is the set of services allowed to interact with the base game: `world`, `settings`,
+`debug` and `hud`. Membership is approval-only; `vr` is deferred and has no `vr/game.gd`.
+
+Each member owns exactly one `<service>/game.gd`. That file is the service's only base-game
+boundary and the only shipped place, besides `main.gd`, where the `/root/Settings` and `/root/Mods`
+autoload paths may appear. Only that service's own files import it, and `shared/` never does: a
+shared module takes its values as arguments. The ownership rule is what keeps the boundary
+auditable by path — a base-game rename is one accessor edit, and a new touch of the game is one
+typed function in a whitelisted accessor.
+
+A member reads the game for its own job only. `settings` owns every game setting, config, file and
+settings-page read; `world` owns the scene, the rig, the bed, the relationship and the mod-registry
+reads; `debug` owns the debug panel's menu chrome; `hud` owns the caption node's fields. A game
+member never borrows another member's slice: `settings` and `world` are peers, and neither imports
+the other.
 
 ## The service contract
 
@@ -333,9 +352,9 @@ dependency and is not drawn as one.
 
 The entry is not a locator. Nothing outside `main.gd` and `tests/` names it, so a consumer that
 needs another service preloads that facade, a consumer that needs the live scene reads `WORLD`
-(`world/api.gd`), the one scene read facade the entry binds, a consumer that needs a base-game
-member reads its game-layer service's accessor (`<service>/game.gd`), and a consumer that needs a
-write takes a named callback. A host passes:
+(`world/api.gd`), the one scene read facade the entry binds, a game-layer service's own files read
+its `<service>/game.gd` accessor, and a consumer that needs a write takes a named callback. A host
+passes:
 
 - scene handles the service is allowed to touch;
 - plain values and typed read models;
@@ -454,6 +473,8 @@ The architecture gate is `scripts/architecture.py --check`, run from `scripts/te
   while a runtime `load(path)` for an asset stays allowed;
 - rejects a base-game import outside a game-layer service's `game.gd`, and a `game.gd` import from
   outside its own service; every other module reads the game through a facade;
+- rejects the literal `/root/Settings` or `/root/Mods` outside `main.gd` and a game-layer
+  `game.gd`;
 - rejects a cross-module preload-const reach-through; enums, nested classes and plain constants
   stay reachable, and `GAME.X` is the one allowed re-export;
 - rejects a private import, a service -> `runtime`/`main`/`api` import, a shared -> service import

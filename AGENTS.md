@@ -18,6 +18,7 @@ restate a contract.
 | `act/**` | `docs/runtime.md` |
 | `world/api.gd` | `docs/world.md` |
 | `world/game.gd` | `docs/world.md` |
+| `settings/game.gd` | `docs/settings.md` |
 | `offer/service.gd` | `docs/offer.md` |
 | `api.gd` | `docs/api.md` |
 | `tests/**` | `docs/tests.md` |
@@ -187,9 +188,10 @@ are in `ARCHITECTURE.md` (`## The service contract`).
   (`scripts/architecture.py --check` fails on any other shipped file, `tests/` excepted). A new
   long-running service joins the lifecycle with `on_world(host)`, `on_world_closed()`,
   `on_player(body)` and `shutdown()`, and one line in the entry's service list.
-- **One game boundary.** Only a game-layer service's `game.gd` preloads a base-game module; every
-  other file reads the game through a facade. `scripts/architecture.py --check` fails a new
-  base-game import outside one.
+- **One game boundary.** A base-game import lives only in `<service>/game.gd`; a `game.gd` exists
+  only in a game-layer service directory; only that service's own files import it. Every other file
+  reads the game through a facade, and the `/root/Settings` and `/root/Mods` literals obey the same
+  rule. `scripts/architecture.py --check` fails a new base-game import outside one.
 - **No preload re-exports.** A file uses only the preload consts it declares. Reaching another
   module's `const … := preload(...)` fails the gate; enums, nested classes and plain constants stay
   reachable, and `GAME.X` is the one allowed re-export.

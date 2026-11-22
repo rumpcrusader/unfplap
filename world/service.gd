@@ -128,6 +128,11 @@ static func mares() -> Array[Node3D]:
 	return GAME.mares(game)
 
 
+## One world point's house, resolved through GAME.
+static func house_at(at: Vector3) -> Node3D:
+	return GAME.house_at(_tree(), at)
+
+
 ## True when an idle scan may run: a live tree that is not paused, and a captured desktop cursor or
 ## a headset. The player and game handles are the scan's own guard.
 static func scan_allowed() -> bool:

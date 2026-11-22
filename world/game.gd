@@ -365,6 +365,13 @@ static func house_of(node: Node) -> HOUSE:
 	return node as HOUSE
 
 
+## The house group's own point lookup; a missing tree or an outdoor point is null.
+static func house_at(tree: SceneTree, at: Vector3) -> Node3D:
+	if tree == null:
+		return null
+	return HOUSE.at(tree, at)
+
+
 ## Spawn an owned world drop through the inventory; null when it refuses.
 static func spawn_owned_drop(inventory: Node, id: String, pose: Transform3D) -> Node:
 	if not is_instance_valid(inventory) or not inventory.has_method("spawn_owned_drop"):

@@ -39,6 +39,7 @@ same answer, so a service never names the entry to ask whether the scene is live
 | `player_is_pony()` | Anon's live form is a pony |
 | `game_player()` | the game's own player property, read defensively; null when absent or not a `Node3D` |
 | `mares()` | a typed copy of the world's live mare list |
+| `house_at(at)` | the house interior at a world point |
 | `bed_under(point, exclude)` | the bed a downward probe finds under a point |
 | `real_bed(node)` | the bed behind a mattress or temporary support hit |
 | `bed_for_cradle(pony)` | the bed a cradle looks at, under the pony then ahead of the eye |
@@ -94,6 +95,7 @@ behaviour exactly, and a game update that renames one is a change here rather th
 | `GAME.case_grant(store, id, count)` | the store's `grant` | `int` | `-1` |
 | `GAME.shop_item_scene(id)` | `shop_items.scene` | `PackedScene` | `null` |
 | `GAME.house_of(node)` | a `house_interior.gd` node | `HOUSE` | `null` |
+| `GAME.house_at(tree, at)` | the `house_interiors` group | `Node3D` | `null` |
 | `GAME.ensure_bed(house, kind)` | `ensure_bed` | `Node3D` | `null` |
 | `GAME.spawn_owned_drop(inventory, id, pose)` | the inventory's `spawn_owned_drop` | `Node` | `null` |
 | `GAME.map_open(inventory)` | `_map_open` (private) | `bool` | `false` |

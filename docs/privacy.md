@@ -1,33 +1,28 @@
 # Privacy
 
-The one live privacy provider. It exposes the existing offer and cuddle privacy rules to the
-proactive, negotiation and act stages; it does not invent a new rule. Contract owner of the
-`offer_private`/`cuddle_private` result for a target.
+The one live privacy provider. It answers one predicate the proactive, negotiation and act stages
+share; it does not invent a new rule. Contract owner of the offer and cuddle verdict for a target.
 
 ## Scope
 
 This contract covers:
 
-- the live privacy state for a target: the house, other mares, Anon, the radius and the target
-  exclusion;
-- the offer predicate (bed and standing) and the cuddle predicate;
-- the debug report;
-- the world house lookup the bed scan shares.
+- the live privacy facts for a target: the house, the other mares, Anon, the outdoor radius and
+  the target exclusion;
+- the offer predicate for a bed or standing offer and the stricter cuddle predicate, chosen by a
+  `Kind`;
+- the one public answer those facts produce.
 
-It does not cover an offer decision, a pose, a scene row or an act start. Visibility is derived
-by the consumer from this state; there is no public override, no third-pony answer rule and no
-negotiation face here.
+It does not cover an offer decision, a pose, a scene row or an act start. Visibility is derived by
+the consumer from this answer; there is no public override, no third-pony answer rule and no
+negotiation face here. The house lookup is a world read (`docs/world.md`), not a privacy read.
 
 ## Ownership
 
 `privacy/service.gd` (a world-list service extending `shared/service.gd`) owns the scene reads for
-privacy:
-
-- Anon from `WORLD.player`;
-- the mares from `WORLD.game.mares`;
-- the house from `res://world/buildings/house_interior.gd` (`HOUSE.at`) and
-  `privacy.RADIUS_M` (30 m);
-- the target exclusion: the offered mare never counts as another mare.
+privacy and the facts they build: Anon's live body, the mares, the house at each point and the
+outdoor other-mare radius. The offered mare is excluded from both other-mare counts: she never
+counts as another mare.
 
 The rule itself is `shared/privacy_rules.gd`:
 
@@ -36,21 +31,21 @@ offer_private  = house_alone or not others_near
 cuddle_private = house_alone if indoors else not others_near
 ```
 
-"House alone" excludes the target and counts every other mare in the same house. `others_near`
-counts every other mare within the radius. `State` carries the facts and the two resolved
-predicates; `private_for(cuddle)` picks the predicate for the offer kind.
+"House alone" counts every other mare in the same house; `others_near` counts every other mare
+within the radius. The gathered facts are a private value: the provider resolves both predicates
+and drops them with the call.
 
 ## Facade
 
 `privacy/service.gd` owns the privacy answer.
 
-`offer_private()` is the bed/standing offer rule; `cuddle_private()` is the stricter cuddle rule.
-Both exclude the target. A missing world root fails closed to not-private.
+`is_private()` is the one predicate. The caller names the `Kind`: `OFFER` for a bed or standing
+offer, `CUDDLE` for the stricter cuddle rule. A missing world bound, a missing player or a freed
+rig fails closed to not-private.
 
 ## Data ownership
 
-The provider stores no data. Everything is sampled from the live scene per call. `State` is a
-fresh value; a caller reads it immediately and never stores it.
+The provider stores no data. Everything is sampled from the live scene per call.
 
 ## Settings
 
@@ -60,14 +55,10 @@ phase.
 
 ## Controls and debug
 
-- The proactive service logs `request privacy <report>` at most once per second while an episode
-  lives.
-- The report names Anon's position, the house and its position, the mares in the house, the mares
-  within the radius, the target id, and both resolved predicates.
-- No privacy hotkey.
+No privacy hotkey and no provider report: the offer and the negotiation log their own privacy-loss
+lines.
 
 ## Host boundary
 
-The provider calls only plain values: `WORLD.player` and `WORLD.game`, and the main loop's tree
-for the house lookup. It never calls a service or a runtime, and with no world bound every
-answer is public.
+The provider calls plain world reads only: Anon's body, the mares and the house at a point. It
+never calls a service or a runtime, and with no world bound every answer is public.

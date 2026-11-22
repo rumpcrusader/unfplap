@@ -129,7 +129,6 @@ func setup(privacy_node: PRIVACY = null, negotiation_node: NEGOTIATION = null,
 	add_child(_classifier)
 	_venue = VENUE.new()
 	_venue.name = "UnfplapRequestPlace"
-	_venue.bind(_privacy)
 	add_child(_venue)
 
 
@@ -270,7 +269,7 @@ func placement_for(runtime: Node) -> POSE_OPTIONS.Placement:
 # --------------------------------------------------------------------------- cuddle edge and cooldown
 
 func _tick_cuddle_edges() -> void:
-	for node: Variant in _venue.mares():
+	for node: Node3D in WORLD.mares():
 		if not is_instance_valid(node):
 			continue
 		var runtime: Node = PONIES.runtime_for(node)
@@ -304,12 +303,12 @@ func _consider_start() -> void:
 			LOG.debug("request scan quiet reason=%s", [quiet])
 		return
 	_quiet_reason = ""
-	var player: Node3D = _venue.player()
+	var player: Node3D = WORLD.player
 	if not is_instance_valid(player):
 		return
 	var candidates: Array = []
 	var service := _eligibility()
-	for node: Variant in _venue.mares():
+	for node: Node3D in WORLD.mares():
 		if not is_instance_valid(node):
 			continue
 		if service == null or not service.eligible(node, ELIGIBILITY.Target.ACT):
@@ -477,7 +476,7 @@ func _on_reasoning(candidate: Candidate, serial: int, reply: String, error: Stri
 ## The single route entry: cuddle asks from bed, bed walks to its front, standing walks to Anon.
 ## Returns `""` on a started route or formed ask, else the close reason.
 func _begin_route(candidate: Candidate) -> String:
-	var player: Node3D = _venue.player()
+	var player: Node3D = WORLD.player
 	if not is_instance_valid(player) or not is_instance_valid(candidate.pony):
 		return "route lost"
 	_serial += 1
@@ -581,7 +580,7 @@ func _tick_approach() -> void:
 			and not _adapter.quiet(POLICY.QUIET_CHAT_GAP_S):
 		_close_episode("approach quiet")
 		return
-	var player: Node3D = _venue.player()
+	var player: Node3D = WORLD.player
 	if not is_instance_valid(player):
 		_close_episode("approach player lost")
 		return
@@ -617,7 +616,7 @@ func _tick_arrive() -> void:
 	if not is_instance_valid(pony) or not is_instance_valid(runtime):
 		_close_episode("arrive pony lost")
 		return
-	var player: Node3D = _venue.player()
+	var player: Node3D = WORLD.player
 	if not is_instance_valid(player) \
 			or player.global_position.distance_to(pony.global_position) \
 			> POLICY.ARRIVE_RANGE_M + 0.75:
@@ -769,7 +768,7 @@ func _line_valid(runtime: Node) -> bool:
 # --------------------------------------------------------------------------- privacy and context
 
 func _private_now(pony: Node, cuddle: bool) -> bool:
-	return _privacy.cuddle_private(pony) if cuddle else _privacy.offer_private(pony)
+	return _privacy.is_private(pony, PRIVACY.Kind.CUDDLE if cuddle else PRIVACY.Kind.OFFER)
 
 
 ## The cuddle offer must be the same offer the act key would start.

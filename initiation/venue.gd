@@ -1,5 +1,5 @@
 extends Node
-## The scene adapter: it alone reads navigators, posture, beds and the world house.
+## The scene adapter: it alone reads navigators, posture and beds.
 ## It returns plain values; the facade owns the reasons and the log.
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
@@ -8,31 +8,7 @@ const BED_REST := preload("res://world/relationships/shared_bed.gd")
 const POLICY := preload("res://mods/unfplap/initiation/policy.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const POSE_OPTIONS := preload("res://mods/unfplap/shared/pose_options.gd")
-const PRIVACY := preload("res://mods/unfplap/privacy/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
-
-var _privacy: PRIVACY
-
-
-func bind(privacy_node: PRIVACY) -> void:
-	_privacy = privacy_node
-
-
-func player() -> Node3D:
-	if not is_instance_valid(WORLD.game):
-		return null
-	var node: Variant = WORLD.player
-	return node as Node3D if is_instance_valid(node) else null
-
-
-func mares() -> Array:
-	if not is_instance_valid(WORLD.game):
-		return []
-	var game: Variant = WORLD.game
-	if not is_instance_valid(game):
-		return []
-	var list: Variant = game.get("mares")
-	return list if list is Array else []
 
 
 func pony_id(pony: Node) -> String:
@@ -47,7 +23,7 @@ func region_of(at: Vector3) -> String:
 
 ## The flat direction Anon faces: the view first, his body as the fallback.
 func camera_forward() -> Vector3:
-	var node := player()
+	var node: Node3D = WORLD.player
 	var forward := Vector3.FORWARD
 	if is_instance_valid(WORLD.game):
 		var view: Variant = WORLD.camera()
@@ -59,15 +35,9 @@ func camera_forward() -> Vector3:
 	return forward.normalized()
 
 
-func house_at(at: Vector3) -> Node3D:
-	if not is_instance_valid(_privacy):
-		return null
-	return _privacy.house_at(at)
-
-
 ## A standing offer needs a navigator free near Anon, in his region.
 func can_approach(pony: Node3D) -> bool:
-	var node := player()
+	var node: Node3D = WORLD.player
 	if not is_instance_valid(node):
 		return false
 	var nav := GAME.navigator_of(pony)
@@ -148,7 +118,7 @@ func release_nav(nav: Node, token: String, prev_owner: String, prev_wander: bool
 
 ## The nearest free bed within reach, as `{bed, rest, front, distance}` or `{}`.
 func find_bed_for(pony: Node3D) -> Dictionary:
-	var node := player()
+	var node: Node3D = WORLD.player
 	if not is_instance_valid(node) or not is_instance_valid(pony):
 		return {}
 	var own := player_bed_node(node)
@@ -193,7 +163,7 @@ func beds_near(node: Node3D) -> Array:
 			if bed != null and not seen.has(bed.get_instance_id()):
 				seen[bed.get_instance_id()] = true
 				found.append(bed)
-	var house := house_at(node.global_position)
+	var house: Node3D = WORLD.house_at(node.global_position)
 	if house != null:
 		for child: Node in house.find_children("*", "Node3D", true, false):
 			if not child.has_meta("mattress_top") and not child.has_meta("soft_support"):
@@ -246,7 +216,7 @@ func placement_for(runtime: Node) -> POSE_OPTIONS.Placement:
 	var pony: Variant = runtime.get("pony") if is_instance_valid(runtime) else null
 	if not is_instance_valid(pony):
 		return out
-	var node := player()
+	var node: Node3D = WORLD.player
 	var gate: Variant = PONIES.scene_of(runtime)
 	var cuddle := bool(gate.cuddle_active()) if gate != null else false
 	if cuddle:

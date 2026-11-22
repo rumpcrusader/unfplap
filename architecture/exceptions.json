@@ -193,14 +193,6 @@
       "task": "B"
     },
     {
-      "from": "privacy/service.gd",
-      "to": "res://world/buildings/house_interior.gd",
-      "kind": "game-import",
-      "owner": "privacy",
-      "reason": "base-game import; drain through the GAME accessor in Task B",
-      "task": "B"
-    },
-    {
       "from": "reactions/service.gd",
       "to": "res://world/characters/hybrid_mare/pony_flank_touch.gd",
       "kind": "game-import",

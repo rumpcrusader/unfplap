@@ -31,9 +31,9 @@ or the act start: those are `docs/negotiation.md` and `docs/runtime.md`.
 | `initiation/reasoning.gd` | pure Mare Initiation Reasoning: the instruction, the payload and the parser |
 | `initiation/prompts.gd` | pure wording: the ask context, the ask purpose, the situation text and the heat line |
 | `initiation/cooldowns.gd` | request cooldown store: `request_times`, the history wait and the heat shortening |
-| `initiation/venue.gd` | scene adapter: the only reader of navigators, posture, the bed search and the placement facts |
+| `initiation/venue.gd` | scene adapter: the only reader of navigators, posture and beds, and the builder of the placement facts |
 | `initiation/classifier.gd` | the bounded classifier this service owns: one client, one queue, one deadline and the two reasoning budgets |
-| `privacy/service.gd` | world privacy provider: the house, the other mares, the radius and the offer/cuddle predicates |
+| `privacy/service.gd` | world privacy provider: the house, the other mares, the radius and the one offer/cuddle predicate |
 | `negotiation/adapter.gd` | the director bridge and model host the Negotiation service owns and hands over: the quiet gate, the ask queue, the situation record, the reasoning call |
 | `negotiation/service.gd` | the Act Negotiation: the answer, privacy, the Agreement and the global lock |
 | `docs/initiation.md` | this contract |

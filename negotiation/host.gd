@@ -64,7 +64,7 @@ func relationship_ok(pony: Node) -> bool:
 func privacy_private(pony: Node, cuddle: bool) -> bool:
 	if not is_instance_valid(privacy):
 		return false
-	return privacy.cuddle_private(pony) if cuddle else privacy.offer_private(pony)
+	return privacy.is_private(pony, PRIVACY.Kind.CUDDLE if cuddle else PRIVACY.Kind.OFFER)
 
 
 func placement_for(runtime: Node) -> POSE_OPTIONS.Placement:
@@ -145,7 +145,7 @@ func context_facts(pony: Node) -> Dictionary:
 	out["cycle_phase"] = facts.cycle_phase
 	out["heat"] = facts.heat
 	out["aftercare"] = pony.has_meta("sex_aftercare")
-	out["private"] = is_instance_valid(privacy) and privacy.offer_private(pony)
+	out["private"] = is_instance_valid(privacy) and privacy.is_private(pony)
 	out["public_preference"] = facts.consent.public
 	out["mood"] = _world_mood(id)
 	out["relation_note"] = _relation_note(id)

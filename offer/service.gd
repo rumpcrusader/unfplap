@@ -298,7 +298,7 @@ func _tick_agreement_auto_start(delta: float) -> void:
 func _agreement_private_now(pony: Node, cuddle: bool) -> bool:
 	if not is_instance_valid(privacy):
 		return false
-	return privacy.cuddle_private(pony) if cuddle else privacy.offer_private(pony)
+	return privacy.is_private(pony, PRIVACY.Kind.CUDDLE if cuddle else PRIVACY.Kind.OFFER)
 
 
 ## The runtime's Agreement start result, forwarded to the Negotiation service.

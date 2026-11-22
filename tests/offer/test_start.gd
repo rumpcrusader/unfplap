@@ -136,18 +136,15 @@ class FakeHud extends "res://mods/unfplap/tests/support/fakes/fake_hud.gd":
 
 class FakePrivacy extends PRIVACY:
 	var private := true
-	var offer_samples := 0
-	var cuddle_samples := 0
+	var samples := 0
+	var last_kind := -1
 
 	func setup() -> void:
 		pass
 
-	func offer_private(_target: Node) -> bool:
-		offer_samples += 1
-		return private
-
-	func cuddle_private(_target: Node) -> bool:
-		cuddle_samples += 1
+	func is_private(_target: Node, kind: PRIVACY.Kind = PRIVACY.Kind.OFFER) -> bool:
+		samples += 1
+		last_kind = int(kind)
 		return private
 
 
@@ -363,7 +360,8 @@ func check_auto_start() -> void:
 	check(negotiation.cancels.size() == 1 and str(negotiation.cancels[0][1]) == "privacy",
 		"a private auto-start cancels when the fresh sample is public")
 	check(runtime.agreement_handles.is_empty(), "a cancelled private auto-start starts no act")
-	check(privacy.offer_samples == 1, "the private sample reads the offer rule")
+	check(privacy.samples == 1 and privacy.last_kind == PRIVACY.Kind.OFFER,
+		"the private sample reads the offer rule")
 
 	# The menu panel holds the start.
 	negotiation.live = _agreement(pony)
@@ -379,14 +377,15 @@ func check_auto_start() -> void:
 	service.tick(OFFER.AGREEMENT_START_S)
 	check(runtime.agreement_handles.size() == 1,
 		"a public Agreement auto-starts without a privacy sample")
-	check(privacy.offer_samples == 1, "the public auto-start does not sample")
+	check(privacy.samples == 1, "the public auto-start does not sample")
 	check(negotiation.reports.size() == 1 and bool(negotiation.reports[0][1]),
 		"the auto-started Agreement is reported")
 
 	# A cuddle Agreement takes the stricter cuddle sample.
 	negotiation.live = _agreement(pony, CATALOG.MISSIONARY, true, true)
 	service.tick(OFFER.AGREEMENT_START_S)
-	check(privacy.cuddle_samples == 1, "a cuddle auto-start reads the cuddle rule")
+	check(privacy.samples == 2 and privacy.last_kind == PRIVACY.Kind.CUDDLE,
+		"a cuddle auto-start reads the cuddle rule")
 	check(runtime.agreement_handles.size() == 2, "the cuddle Agreement starts")
 
 	# A wait keeps the Agreement live and restarts the clock.
@@ -409,10 +408,9 @@ func check_auto_start() -> void:
 	# The hotkey's exact match starts at once and does not sample the provider.
 	negotiation.match = negotiation.live
 	runtime.agreement_result = OFFER.AGREEMENT_STARTED
-	var samples := privacy.offer_samples + privacy.cuddle_samples
+	var samples := privacy.samples
 	check(service.start_pose_offer(_handle(runtime, pony)), "the exact hotkey match starts")
-	check(privacy.offer_samples + privacy.cuddle_samples == samples,
-		"the hotkey match does not resample privacy")
+	check(privacy.samples == samples, "the hotkey match does not resample privacy")
 	_free(made)
 
 

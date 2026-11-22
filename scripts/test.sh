@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Run headless test suites, in parallel, each with its own throwaway data dir.
 # Prints only the failing suites, then one status line naming them if any failed.
-# Usage: scripts/test.sh <suite|dir>...   # poses/test_pose_asset | kiss | poses
+# Usage: scripts/test.sh                  # every suite (same as --all)
+#        scripts/test.sh <suite|dir>...   # poses/test_pose_asset | kiss | poses
 #        scripts/test.sh --all            # every suite: the full headless gate
 #        scripts/test.sh --list           # the discovered suites, then exit
 #        scripts/test.sh --self-test      # the harness self-test (a hung fixture must fail), then exit
@@ -41,16 +42,16 @@ for arg in "$@"; do
 		-v | --verbose) VERBOSE=1 ;;
 		--*)
 			printf 'Unknown option %s\n' "$arg" >&2
-			printf 'Usage: scripts/test.sh <suite|dir>... | --all | --list | --self-test | --smoke [--quick] [--verbose]\n' >&2
+			printf 'Usage: scripts/test.sh [<suite|dir>...] | --all | --list | --self-test | --smoke [--quick] [--verbose]\n' >&2
+			printf 'No argument runs --all.\n' >&2
 			exit 2
 			;;
 		*) REQUESTED+=("$arg") ;;
 	esac
 done
 
-if [[ "${#REQUESTED[@]}" -eq 0 && "$ALL" -eq 0 && "$LIST" -eq 0 && "$SELF_TEST" -eq 0 && "$SMOKE" -eq 0 ]]; then
-	printf 'Usage: scripts/test.sh <suite|dir>... | --all | --list | --self-test | --smoke [--quick] [--verbose]\n' >&2
-	exit 2
+if [[ "${#REQUESTED[@]}" -eq 0 && "$LIST" -eq 0 && "$SELF_TEST" -eq 0 && "$SMOKE" -eq 0 ]]; then
+	ALL=1
 fi
 if [[ "$ALL" -eq 1 && "${#REQUESTED[@]}" -gt 0 ]]; then
 	printf 'Usage: scripts/test.sh --all takes no suite names\n' >&2

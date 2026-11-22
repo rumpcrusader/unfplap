@@ -155,7 +155,7 @@ and no second field copies a snapshot scalar.
    var raise_m: float = SETTINGS.raise_m.get_num()
    ```
 
-4. **Run `scripts/test.sh --all`.** It checks the registry, the shipped document's schema, the file
+4. **Run `scripts/test.sh`.** It checks the registry, the shipped document's schema, the file
    round-trip, coercion and that the panel draws every declaration.
 
 Nothing else exists to update: the widget, unit, save, persistence and placement all come from the

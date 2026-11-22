@@ -178,9 +178,9 @@ Rules:
 |---|---|
 | Architecture gate (graph, docs, source and test-file rules) | `scripts/check.sh --static` |
 | Comment shape and rename-safety | `scripts/lint.sh` |
-| Parse all scripts | `scripts/check.sh --all` |
+| Parse all scripts | `scripts/check.sh` |
 | Touched suites | `scripts/test.sh <suite>...` |
-| Full headless gate | `scripts/test.sh --all` |
+| Full headless gate | `scripts/test.sh` |
 | Source smoke | `scripts/test.sh --smoke` |
 | Settings contract | `tests/test_settings.gd` |
 | Manual lab | `./lab.sh`, `./lab-stress.sh`, `./lab-vr.sh` |

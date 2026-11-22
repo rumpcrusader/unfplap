@@ -30,8 +30,8 @@ is a separate repository; never commit game-source changes from the mod repo.
 5. Never mix unrelated work. Stage explicitly (`git add <path>` or `git add -p`), never
    `git add -A` or `git commit -a` while another task has edits.
 6. Check before each commit:
-   - `scripts/test.sh <suite>...` for the suites that cover it; use `--all` when it crosses
-     several services;
+   - `scripts/test.sh <suite>...` for the suites that cover it; run it with no argument when it
+     crosses several services;
    - `scripts/check.sh --parse` for a quick parse check of the changed scripts;
    - `scripts/lint.sh` for the shipped GDScript;
    - `scripts/test.sh --smoke` for entry/runtime changes;
@@ -40,7 +40,7 @@ is a separate repository; never commit game-source changes from the mod repo.
 
    ```bash
    scripts/lint.sh
-   scripts/test.sh --all
+   scripts/test.sh
    ```
 
    The test runner runs every suite and ends in `TEST_ALL_PASS`; the lint gate checks the shipped
@@ -48,7 +48,7 @@ is a separate repository; never commit game-source changes from the mod repo.
 8. Commit with one scoped, imperative subject line and no body. Include the `.md` sentences the
    change makes false; do not mix an unrelated doc edit into the same commit.
 9. A standalone `docs:` commit carries docs no code commit touched: a new contract, an index row, a
-   sweep. Run `scripts/check.sh --all`, `scripts/lint.sh` and the suites that read the edited docs,
+   sweep. Run `scripts/check.sh`, `scripts/lint.sh` and the suites that read the edited docs,
    then commit as `docs: <summary>`. See "Documentation commits" below.
 10. Commit locally only. Do not push, fetch, pull or force-push. The maintainer may push and tag;
     CI builds and releases from the remote, but the agent never pushes.
@@ -136,10 +136,10 @@ revert: standing: follow the dock in the offer
 ## Documentation commits
 
 A code commit carries the behavior, its tests and the doc sentences the change makes false.
-`scripts/test.sh --all` runs once when the code phase is done.
+`scripts/test.sh` runs once when the code phase is done.
 
 A standalone `docs:` commit is only for docs no code commit touched: a new contract, an index row,
-a sweep. Before it, run `scripts/check.sh --all`, `scripts/lint.sh` and `scripts/test.sh test_api`
+a sweep. Before it, run `scripts/check.sh`, `scripts/lint.sh` and `scripts/test.sh test_api`
 when `docs/api.md` changed. Subject: `docs: <short imperative summary>`.
 
 ## Bisect
@@ -161,7 +161,7 @@ an explicit commit hash as the good endpoint.
 3. Run the predicate:
 
    ```bash
-   git bisect run scripts/test.sh --all
+   git bisect run scripts/test.sh
    ```
 
    or a targeted suite for speed.

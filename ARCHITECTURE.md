@@ -458,7 +458,7 @@ service has a host.
 
 ## Enforcement
 
-The architecture gate is `scripts/check.sh --static`, run from `scripts/test.sh --all`:
+The architecture gate is `scripts/check.sh --static`, run from `scripts/test.sh`:
 
 - discovers services from `*/service.gd` and `*/api.gd` outside `shared/`, preferring `api.gd`,
   and treats the rest of the directory as private;
@@ -512,9 +512,9 @@ Suites are not services: their layout, isolation, discovery and runner are `docs
 The full gate remains:
 
 ```bash
-scripts/check.sh --all
+scripts/check.sh
 scripts/lint.sh
-scripts/test.sh --all
+scripts/test.sh
 ```
 
 Manual labs are required for behavior phases: `./lab.sh`, `./lab-stress.sh`, `./lab-vr.sh`. A

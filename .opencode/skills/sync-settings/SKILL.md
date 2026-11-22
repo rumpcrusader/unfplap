@@ -110,9 +110,9 @@ Add `--dry-run` to print the intended writes without touching the file.
 ```bash
 python3 scripts/settings_sync.py diff --project-root ../..
 python3 scripts/settings_sync.py diff --characters --project-root ../..
-scripts/check.sh --all
+scripts/check.sh
 scripts/test.sh test_settings
-scripts/test.sh --all
+scripts/test.sh
 ```
 
 The second diff must show only kept differences, missing paths, character overrides and never-sync
@@ -138,7 +138,7 @@ no promotion path: `settings/prompts.json` is edited by hand, and `docs/prompts.
 name the setting and its bounds, never the shipped value; a default lives only in the shipped
 document.
 
-Run `scripts/check.sh --all` and, when `docs/api.md` changed, `scripts/test.sh test_api`. Commit
+Run `scripts/check.sh` and, when `docs/api.md` changed, `scripts/test.sh test_api`. Commit
 the doc in its own `docs:` commit:
 
 - `docs: describe the promoted settings`

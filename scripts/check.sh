@@ -2,7 +2,7 @@
 # The static gate: parse the mod's scripts in one headless engine boot and run the architecture
 # rules. A run that ends without the tool's PARSED line is a failure, so a timeout or a crash never
 # reads as a pass.
-# Usage: scripts/check.sh            # changed and untracked .gd + the static gate
+# Usage: scripts/check.sh            # every .gd + the static gate (same as --all)
 #        scripts/check.sh --all      # every .gd + the static gate
 #        scripts/check.sh --static   # the static gate only: no Godot, no fetched assets
 #        scripts/check.sh --parse    # parse only: changed and untracked .gd
@@ -17,9 +17,10 @@ PROJECT_ROOT="$(cd "$MOD_DIR/../.." && pwd)"
 
 usage() {
 	printf 'Usage: scripts/check.sh [--all | --static | --parse | --group GROUP]\n' >&2
+	printf 'No argument runs --all.\n' >&2
 }
 
-MODE=both
+MODE=all
 GROUP=""
 while [[ "$#" -gt 0 ]]; do
 	case "$1" in
@@ -107,7 +108,7 @@ run_parse() {
 case "$MODE" in
 	static | group) run_static ;;
 	parse) run_parse ;;
-	all | both)
+	all)
 		run_parse
 		run_static
 		;;

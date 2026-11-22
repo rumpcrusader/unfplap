@@ -73,7 +73,7 @@ An unuploaded runtime edit can be tested without changing the release contract:
 
 ```bash
 scripts/pack_assets.sh --local
-UNFPLAP_ASSET_CONTRACT=dist/asset_pack.local.json scripts/test.sh --all
+UNFPLAP_ASSET_CONTRACT=dist/asset_pack.local.json scripts/test.sh
 UNFPLAP_ASSET_CONTRACT=dist/asset_pack.local.json ./build.sh
 ```
 

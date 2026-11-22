@@ -5,11 +5,12 @@ the commands are `WORKFLOW.md`.
 
 ## Parse check
 
-`scripts/check.sh` loads the changed and untracked `.gd` files — tests and tools included — or every
-file with `--all`, once, in one headless engine boot through `tools/parse_all.gd`, and reports the
-files that do not load. The default run also runs the static gate; `--parse` is the parse-only loop.
-The cost is that boot plus each script's preload closure once, so it must not return to one boot per
-file. A run that ends without the tool's `PARSED` line is a failure, never a pass.
+`scripts/check.sh` loads every `.gd` file — tests and tools included — once, in one headless engine
+boot through `tools/parse_all.gd`, and reports the files that do not load. The default run also runs
+the static gate; `--parse` loads only the changed and untracked `.gd` files without the gate, and
+`--static` runs the gate without Godot or the fetched assets. The cost is that boot plus each
+script's preload closure once, so it must not return to one boot per file. A run that ends without
+the tool's `PARSED` line is a failure, never a pass.
 
 ## Formatting
 

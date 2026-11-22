@@ -1,10 +1,10 @@
 extends "res://mods/unfplap/tests/support/suite.gd"
 ## The outside-act stock smack sound: install, restore, live switch and the act handoff.
 ##   godot --headless --xr-mode off --path <project> \
-##     --script res://mods/unfplap/tests/act_audio/test_smack_sound.gd
+##     --script res://mods/unfplap/tests/stock_smack/test_smack_sound.gd
 
-const STOCK := preload("res://mods/unfplap/audio/stock_smack.gd")
-const CUES := preload("res://mods/unfplap/audio/smack_cues.gd")
+const STOCK := preload("res://mods/unfplap/stock_smack/api.gd")
+const CUES := preload("res://mods/unfplap/shared/smack_cues.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 
 
@@ -19,7 +19,7 @@ func run() -> void:
 	root.add_child(pony)
 	var player := _player(pony)
 	var stock_stream := player.stream
-	service.call("pony_ready", pony)
+	service.pony_ready(pony)
 	var randomizer := player.stream as AudioStreamRandomizer
 	check(randomizer != null, "a ready pony gets the pack stream")
 	if randomizer != null:
@@ -34,51 +34,51 @@ func run() -> void:
 	check(near(player.pitch_scale, 1.0), "the native pitch is neutral before the pool varies it")
 
 	SETTINGS.pack_smack_sound.set_bool(false)
-	service.call("apply_settings")
+	service.apply_settings()
 	check(player.stream == stock_stream, "turning the switch off restores the stock stream")
 	check(near(player.volume_db, -10.0) and near(player.pitch_scale, 1.2),
 		"turning the switch off restores the stock level and pitch")
 
 	SETTINGS.pack_smack_sound.set_bool(true)
-	service.call("apply_settings")
+	service.apply_settings()
 	check(player.stream is AudioStreamRandomizer, "turning the switch on installs the pack stream")
 
-	service.call("act_start", pony)
+	service.act_start(pony)
 	check(player.stream == stock_stream, "an act pony gives its player back to the stock act path")
-	service.call("act_end", pony)
+	service.act_end(pony)
 	check(player.stream is AudioStreamRandomizer, "the pack stream returns after the act")
 
 	var other := _pony()
 	root.add_child(other)
 	var other_player := _player(other)
 	var other_stock := other_player.stream
-	service.call("pony_ready", other)
+	service.pony_ready(other)
 	check(other_player.stream is AudioStreamRandomizer, "a new pony joins while the switch is on")
 
 	SETTINGS.pack_smack_sound.set_bool(false)
-	service.call("apply_settings")
+	service.apply_settings()
 	check(other_player.stream == other_stock, "a later off also restores the newer pony")
 	var late := _pony()
 	root.add_child(late)
 	var late_player := _player(late)
 	var late_stock := late_player.stream
-	service.call("pony_ready", late)
+	service.pony_ready(late)
 	check(late_player.stream == late_stock, "a pony seen while off keeps the stock stream")
 	SETTINGS.pack_smack_sound.set_bool(true)
-	service.call("apply_settings")
+	service.apply_settings()
 	check(late_player.stream is AudioStreamRandomizer,
 		"turning the switch on reaches a pony seen while off")
 
 	var bare := Node3D.new()
 	root.add_child(bare)
-	service.call("pony_ready", bare)
+	service.pony_ready(bare)
 	check(bare.is_inside_tree(), "a pony without FlankTouch is ignored")
 
-	service.call("on_world_closed")
+	service.on_world_closed()
 	check(player.stream == stock_stream and other_player.stream == other_stock
 		and late_player.stream == late_stock, "a world close puts every stock player back")
 
-	service.call("shutdown")
+	service.shutdown()
 	root.remove_child(service)
 	service.free()
 	root.remove_child(pony)

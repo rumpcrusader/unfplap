@@ -42,7 +42,7 @@ unfplap-assets-<hash>.zip
 
 - `runtime/` is the only tree packed into the mod. Paths are repository-relative.
 - `sources/` is editable material. `build.sh` and CI never stage or pack it.
-- `audio/cues.gd`, `audio/smack_cues.gd` and `audio/cue_sources.json` stay in git: they are code
+- `audio/cues.gd`, `shared/smack_cues.gd` and `audio/cue_sources.json` stay in git: they are code
   and credit metadata, not audio data.
 - `assets/audio/` is flat by cue group: `plap/`, `slide/`, `fabric/`, `mouth/` and `smack/`. The
   cue table and its groups live in `audio/cues.gd`, not in the directory names.

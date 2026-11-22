@@ -26,7 +26,7 @@ const BODY_CHANGE_SERVICE := preload("res://mods/unfplap/body_change/service.gd"
 const PANTYHOSE := preload("res://mods/unfplap/integrations/pantyhose.gd")
 const CHANGELINGS := preload("res://mods/unfplap/integrations/changelings.gd")
 const STOOL := preload("res://mods/unfplap/stool/service.gd")
-const STOCK_SMACK := preload("res://mods/unfplap/audio/stock_smack.gd")
+const STOCK_SMACK := preload("res://mods/unfplap/stock_smack/api.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const OFFER := preload("res://mods/unfplap/offer/service.gd")
@@ -60,7 +60,7 @@ var pantyhose: PANTYHOSE
 var changelings: CHANGELINGS
 ## Footstool system facade: the standing reach rule, item, act prop and world supply.
 var stool: STOOL
-## Outside-act stock smack sound layer; see `docs/audio.md`.
+## Outside-act stock smack sound layer; see `docs/stock_smack.md`.
 var stock_smack: STOCK_SMACK
 var initiation: INITIATION
 var privacy: PRIVACY

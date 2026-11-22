@@ -18,6 +18,7 @@ const READINESS := preload("res://mods/unfplap/readiness/service.gd")
 const SUMMARY := preload("res://mods/unfplap/summary/service.gd")
 const DEBUG_PONY := preload("res://mods/unfplap/debug/pony.gd")
 const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
+const VOICE := preload("res://mods/unfplap/shared/voice_status.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 const State := ACT_STATE.State
@@ -274,7 +275,7 @@ func debug_context(session: ACT_SESSION) -> Dictionary:
 		"penetration_m": context.readiness.penetration_m,
 		"penetration_reach": context.readiness.reach(),
 		"preferences": PREFERENCES.describe(session.preferences),
-		"voice_status_line": context.audio.voice_status_line(session.pony_id),
+		"voice_status_line": VOICE.status_line(session.pony_id),
 	})
 
 

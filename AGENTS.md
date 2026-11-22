@@ -41,11 +41,14 @@ restate a contract.
 | `shared/build_stamp.gd` | its file header |
 | `shared/pose_catalog.gd` | `docs/poses.md` |
 | `shared/settings_change.gd` | `docs/settings.md` |
+| `shared/smack_cues.gd` | `docs/audio.md`, `docs/stock_smack.md` |
+| `shared/voice_status.gd` | `docs/audio.md` |
 | `shared/relationship_cue.gd` | `docs/dialogue.md` |
 | `shared/rump_cone.gd` | `docs/scene_gate.md` |
 | `afterglow/**` | `docs/afterglow.md` |
 | `anatomy/**` | `docs/anatomy.md` |
 | `audio/**` | `docs/audio.md` |
+| `stock_smack/**` | `docs/stock_smack.md` |
 | `body_change/**` | `docs/body_change.md` |
 | `camera/**` | `docs/camera.md` |
 | `debug/**` | `docs/debug.md` |

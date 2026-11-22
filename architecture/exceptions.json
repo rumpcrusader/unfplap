@@ -17,14 +17,6 @@
       "expires": "phase-2"
     },
     {
-      "from": "hands/smack.gd",
-      "to": "audio/smack_cues.gd",
-      "kind": "service-private",
-      "owner": "hands",
-      "reason": "migration baseline; fix in the boundary-cleanup phase",
-      "expires": "phase-2"
-    },
-    {
       "from": "kiss/legs.gd",
       "to": "poses/pose_rig.gd",
       "kind": "service-private",
@@ -57,10 +49,10 @@
       "task": "B"
     },
     {
-      "from": "audio/voice_status.gd",
+      "from": "shared/voice_status.gd",
       "to": "res://world/ai/chatter_voice.gd",
       "kind": "game-import",
-      "owner": "audio",
+      "owner": "shared:voice_status.gd",
       "reason": "base-game import; drain through the GAME accessor in Task B",
       "task": "B"
     },

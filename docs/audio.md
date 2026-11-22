@@ -9,10 +9,8 @@ policy.
 |---|---|
 | `audio/act.gd` | the per-act handle the act session and exit call: node lifetime, cues, voice policy and the shared excitement Beat holds |
 | `audio/service.gd` | the per-runtime audio facade: the pack layer, the base-game sound child, and the Ponese mute policy |
-| `audio/stock_smack.gd` | the world-scope outside-act replacement on the native `FlankTouch` player |
 | `audio/sound.gd` | base-game breath and `squee_*` climax players and their timing |
 | `audio/cues.gd` | the pure pack cue table (groups, variants, volume, cooldowns, pitch) |
-| `audio/smack_cues.gd` | the hand-smack variants used by the hands system and the outside-act layer |
 | `docs/audio.md` | this contract |
 
 `audio/service.gd` is one Node per runtime. `audio/act.gd` is the one act handle: the builder
@@ -21,7 +19,8 @@ closes it. It never preloads `runtime.gd` or `main.gd`; the builder passes the n
 passes the pony, the id and
 the classified voice info as arguments. The shared game excitement Beat is held by owner name
 (`hold_excitement(owner)`/`release_excitement(owner)`); the last release restores the saved pause
-state, and `reset_excitement_hold()` is the teardown fallback.
+state, and `reset_excitement_hold()` is the teardown fallback. The outside-act flank smack is its
+own world service; see `docs/stock_smack.md`.
 
 ## Bridge
 
@@ -68,28 +67,10 @@ The runtime keeps the call sites and the director/vocal prepare.
 - `tick(delta, phase, rate, snout)` drives the base-game breath; `stop_breath()` silences it at
   the restore begin.
 
-## Outside acts
-
-`audio/stock_smack.gd` is one world-scope Node that the entry's service list creates. While
-`features.pack_smack_sound` is on, it gives the native `FlankTouch` sound player an
-`AudioStreamRandomizer` over the two pack hand-smack variants. The randomizer runs in no-repeat
-mode, at its own level (`STOCK_VOLUME_DB`, a little louder than the act's hand smack) and a neutral
-pitch so its own pitch variation applies. The decal, blush, jiggle and reaction stay on the stock
-impact. Each changed player's stream, volume and pitch are saved and restored when the switch goes
-off, when the pony starts an act, or when the world closes.
-
-The entry constructs the layer and calls `pony_ready()` for every pony, `act_start()`/`act_end()`
-with the act pony and `shutdown()` on mod exit; the list calls `on_world_closed()` on a world enter
-and close. Its own settings listener calls `apply_settings()` on every edit, so the switch needs no
-entry path. An act pony is skipped: `set_active()` gives her stock player back so the hands' own
-per-impact swap owns it, and `clear_active()` re-installs the pack layer after the hands restore.
-The layer remembers a pony seen while the switch is off, so turning it on reaches her too. It does
-no per-frame work.
-
 ## Voice policy
 
 `mute_ponese_audio` keeps the generated line and the text HUD but silences the pony's Ponese
-audio for the act. `apply_voice_policy(pony, id, mute, info)` receives `VOICE.classify()` and
+audio for the act. `apply_voice_policy(mute, pony, id)` receives the live routing and
 mutes only when the effective voice is Ponese (`effective_ponese`). A generated/openai voice is
 left alone. The saved volume is restored by `restore_voice_policy()` at the act end or when the
 setting changes.
@@ -99,9 +80,9 @@ The setting is live: `act/view.gd:apply_live()` reads the pre-edit
 when the two differ. The order matters — a snapshot read first would compare the new value with
 itself, and a mid-act edit would never reach the voice player.
 
-The classification itself stays `audio/voice_status.gd` (pure); the server probe is
-`GAME.tts_has_server(tts)`, which reads an absent node or op as no server. The session's
-`voice_status_line()` is the debug read.
+The classification itself stays `shared/voice_status.gd` (pure); the server probe is
+`GAME.tts_has_server(tts)`, which reads an absent node or op as no server. The view's debug context
+carries the routing line it reports.
 
 ## Base-game vocal cache
 
@@ -115,6 +96,6 @@ new player under the presented body. It never edits the game file or another pon
 ## Packs and settings
 
 - The pack foley files are fetched from the resource archive and packed; see `assets/README.md`.
-- `features.mute_ponese_audio` gates the Ponese mute and `features.pack_smack_sound` gates the
-  outside-act smack replacement.
+- `features.mute_ponese_audio` gates the Ponese mute; the outside-act smack switch is
+  `docs/stock_smack.md`.
 - The base-game breath and squee are always on and are not gated by a flag.

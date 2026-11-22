@@ -4,7 +4,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 
 const ACT := preload("res://mods/unfplap/audio/service.gd")
 const CATALOGUE := preload("res://mods/unfplap/audio/cues.gd")
-const SMACK := preload("res://mods/unfplap/audio/smack_cues.gd")
+const SMACK := preload("res://mods/unfplap/shared/smack_cues.gd")
 const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const POSE_VIEW := preload("res://mods/unfplap/shared/pose_view.gd")

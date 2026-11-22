@@ -72,7 +72,8 @@ the idle block; `act/build.gd` constructs and binds them once per pony.
 | Face and mood | `face/service.gd` | `docs/face.md` | `tests/face/` |
 | Reactions | `reactions/service.gd` | `docs/reactions.md` | `tests/reactions/` |
 | Stool | `stool/service.gd` | `docs/stool.md` | `tests/stool/` |
-| Audio and voice | `audio/service.gd`, `audio/stock_smack.gd` | `docs/audio.md` | `tests/act_audio/` |
+| Audio and voice | `audio/service.gd` | `docs/audio.md` | `tests/act_audio/` |
+| Outside-act smack | `stock_smack/api.gd` | `docs/stock_smack.md` | `tests/stock_smack/` |
 | HUD | `hud/service.gd` | `docs/hud.md` | `tests/hud/` |
 | Settings | `settings/service.gd` | `docs/settings.md` | `tests/test_settings.gd` |
 | Mare registry | `registry/service.gd` | `docs/registry.md` | `tests/test_api.gd` |
@@ -120,6 +121,8 @@ is internal API; the only stable external surface is `docs/api.md`.
 | Palm scale | `shared/hands_scale.gd` | `docs/hands.md` | `tests/hands/` |
 | Reach plan | `shared/hands_reach_plan.gd` | `docs/hands.md` | `tests/hands/` |
 | Standing offer cone | `shared/rump_cone.gd` | `docs/scene_gate.md` | `tests/test_rump_cone.gd` |
+| Smack cue table | `shared/smack_cues.gd` | `docs/audio.md`, `docs/stock_smack.md` | `tests/act_audio/`, `tests/stock_smack/` |
+| Voice routing | `shared/voice_status.gd` | `docs/audio.md` | `tests/test_voice.gd`, `tests/act_audio/` |
 
 Shared modules are not services. Pure modules have no scene, lifecycle or service dependency. A
 shared store may read `settings`; a read model is refreshed by its owner. `shared/service.gd` is

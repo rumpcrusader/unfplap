@@ -1,6 +1,5 @@
 extends RefCounted
-## Service: smack cues
-## Hand-smack variants shared by the act and the outside-act layer. See `docs/audio.md`.
+## Hand-smack variants shared by the act and the outside-act layer: paths, levels and pitch.
 
 const PATHS := [
 	"res://mods/unfplap/assets/audio/smack/hand_02.wav",

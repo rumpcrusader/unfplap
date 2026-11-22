@@ -1,8 +1,8 @@
 extends "res://mods/unfplap/tests/support/suite.gd"
-## Pure voice-routing classification checks.
+## Pure voice-routing classification checks and the live debug line.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_voice.gd
 
-const VOICE := preload("res://mods/unfplap/audio/voice_status.gd")
+const VOICE := preload("res://mods/unfplap/shared/voice_status.gd")
 
 
 
@@ -77,6 +77,24 @@ func run() -> void:
 	check(str(absent.get("global_mode", "")) == "ponese",
 		"a missing TTS node reads the Ponese mode")
 	no_server.free()
+
+	# The live read resolves the director's profile and names the one debug line the view carries.
+	var director_script := GDScript.new()
+	director_script.source_code = "extends Node\nvar characters: Dictionary = {}\nvar tts: Node = null\n"
+	director_script.reload()
+	var director: Node = director_script.new()
+	director.set("tts", tts)
+	director.set("characters", {"fluttershy": {"profile": {
+		"voice_status": "character voice", "tts_speaker_id": 5}}})
+	director.add_to_group("conversation_director")
+	root.add_child(director)
+	check(VOICE.status_line("fluttershy").begins_with("voice "),
+		"the live debug line names the routing")
+	check(str(VOICE.routing("unknown").get("status", "?")) == "",
+		"an unknown id reads an empty profile")
+	director.remove_from_group("conversation_director")
+	root.remove_child(director)
+	director.free()
 
 	tts.free()
 	if failures == 0:

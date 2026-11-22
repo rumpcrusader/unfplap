@@ -5,7 +5,7 @@ extends RefCounted
 ## Import: hands/smack.gd only
 ## The smack swing, impact and pack-sound swap; the target comes from `smack_target.gd`.
 
-const SMACK_AUDIO := preload("res://mods/unfplap/audio/smack_cues.gd")
+const SMACK_AUDIO := preload("res://mods/unfplap/shared/smack_cues.gd")
 const MODEL := preload("res://mods/unfplap/hands/model.gd")
 const PORT := preload("res://mods/unfplap/hands/port.gd")
 

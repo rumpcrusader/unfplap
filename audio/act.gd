@@ -67,13 +67,6 @@ func apply_voice_policy(mute: bool, pony: Variant, id: String) -> void:
 		node.apply_voice_policy(mute, pony, id)
 
 
-## The debug read of the voice routing she has; an idle runtime reports nothing.
-func voice_status_line(id: String) -> String:
-	if not is_instance_valid(node):
-		return ""
-	return str(node.voice_status_line(id))
-
-
 func stop_breath() -> void:
 	if is_instance_valid(node):
 		node.stop_breath()

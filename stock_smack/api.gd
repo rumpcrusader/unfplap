@@ -1,16 +1,17 @@
 extends "res://mods/unfplap/shared/service.gd"
-## Scope: world.
-## Swaps the native flank-smack sound for the pack variants while she is not in an act.
-##
-## See `docs/audio.md`.
+## Service: stock_smack
+## Contract: docs/stock_smack.md
+## Scope: world
+## Import: stock_smack/api.gd only
+## The outside-act flank smack: the native player's pack layer while she is not in an act.
 
-const CUES := preload("res://mods/unfplap/audio/smack_cues.gd")
+const CUES := preload("res://mods/unfplap/shared/smack_cues.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 
-class Applied extends RefCounted:
+class _Applied extends RefCounted:
 	var player: AudioStreamPlayer3D
 	var stream: AudioStream
 	var volume_db := 0.0
@@ -68,8 +69,7 @@ func act_end(pony: Node) -> void:
 	_install(pony)
 
 
-## A world enter or a world close: put every stock player back and forget its ponies. The loaded
-## pack streams stay for the next world.
+## A world enter or a world close.
 func on_world_closed() -> void:
 	_restore_all()
 	_ponies.clear()
@@ -90,7 +90,7 @@ func _install(pony: Variant) -> void:
 	var stream := _smack_stream()
 	if stream == null:
 		return
-	var saved := Applied.new()
+	var saved := _Applied.new()
 	saved.player = player
 	saved.stream = player.stream
 	saved.volume_db = player.volume_db
@@ -110,7 +110,7 @@ func _restore_pony(pony: Variant) -> void:
 	var index := _applied_index(player)
 	if index < 0:
 		return
-	var saved: Applied = _applied[index]
+	var saved: _Applied = _applied[index]
 	_applied.remove_at(index)
 	if not is_instance_valid(player):
 		return
@@ -121,7 +121,7 @@ func _restore_pony(pony: Variant) -> void:
 
 func _restore_all() -> void:
 	for saved_v: Variant in _applied:
-		var saved: Applied = saved_v
+		var saved: _Applied = saved_v
 		if not is_instance_valid(saved.player):
 			continue
 		saved.player.stream = saved.stream
@@ -142,14 +142,14 @@ func _player_for(pony: Variant) -> AudioStreamPlayer3D:
 	return player as AudioStreamPlayer3D if player is AudioStreamPlayer3D else null
 
 
-func _applied_for(player: AudioStreamPlayer3D) -> Applied:
+func _applied_for(player: AudioStreamPlayer3D) -> _Applied:
 	var index := _applied_index(player)
 	return _applied[index] if index >= 0 else null
 
 
 func _applied_index(player: AudioStreamPlayer3D) -> int:
 	for index: int in _applied.size():
-		var saved: Applied = _applied[index]
+		var saved: _Applied = _applied[index]
 		if saved.player == player:
 			return index
 	return -1
@@ -160,7 +160,7 @@ func _prune() -> void:
 		if not is_instance_valid(_ponies[index]):
 			_ponies.remove_at(index)
 	for index: int in range(_applied.size() - 1, -1, -1):
-		var saved: Applied = _applied[index]
+		var saved: _Applied = _applied[index]
 		if not is_instance_valid(saved.player):
 			_applied.remove_at(index)
 

@@ -12,6 +12,7 @@ const GAME := preload("res://mods/unfplap/world/game.gd")
 const POSE_VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const VOICE := preload("res://mods/unfplap/shared/voice_status.gd")
 
 
 
@@ -209,7 +210,7 @@ func run() -> void:
 	audio.apply_voice_policy(true, pony, "rarity")
 	check(audio.voice_text_only(), "a Ponese act with the mute owns the text-only state")
 	check(is_equal_approx(voice.volume_db, -80.0), "the Ponese voice player is silenced")
-	check(audio.voice_status_line("rarity").begins_with("voice "),
+	check(VOICE.status_line("rarity").begins_with("voice "),
 		"the debug read describes the routing")
 	audio.restore_voice_policy()
 	check(is_equal_approx(voice.volume_db, -6.0), "the saved voice volume comes back")

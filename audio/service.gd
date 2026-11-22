@@ -10,7 +10,7 @@ const GAME := preload("res://mods/unfplap/world/game.gd")
 const POSE_VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
 const SOUND := preload("res://mods/unfplap/audio/sound.gd")
-const VOICE := preload("res://mods/unfplap/audio/voice_status.gd")
+const VOICE := preload("res://mods/unfplap/shared/voice_status.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 ## The withdraw cue fires when the depth crosses back out; the impact fires at the inward bottom,
@@ -151,7 +151,7 @@ func bed_soft() -> bool:
 ## `mute_ponese_audio`: keep the generated line and text HUD, but silence the Ponese audio for
 ## this act. A generated-voice pony is left alone.
 func apply_voice_policy(mute: bool, pony_in: Node3D, id: String) -> void:
-	var info := VOICE.classify(_voice_profile(id), _tts_node(), _tts_enabled())
+	var info := VOICE.routing(id)
 	_text_only_voice = mute and bool(info.get("effective_ponese", false))
 	if not _text_only_voice:
 		return
@@ -174,33 +174,6 @@ func restore_voice_policy() -> void:
 
 func voice_text_only() -> bool:
 	return _text_only_voice
-
-
-## The debug read: the routing the director's profile and the game's TTS switch give her.
-func voice_status_line(id: String) -> String:
-	return "voice " + VOICE.describe(VOICE.classify(_voice_profile(id), _tts_node(), _tts_enabled()))
-
-
-func _voice_profile(id: String) -> Dictionary:
-	var director := _director()
-	if director == null:
-		return {}
-	var characters: Variant = director.get("characters")
-	if characters is Dictionary and (characters as Dictionary).has(id):
-		var entry: Variant = (characters as Dictionary)[id]
-		if entry is Dictionary:
-			var profile: Variant = (entry as Dictionary).get("profile", {})
-			if profile is Dictionary:
-				return profile
-	return {}
-
-
-func _tts_node() -> Node:
-	return GAME.tts_of(_director())
-
-
-func _tts_enabled() -> bool:
-	return GAME.tts_enabled(get_node_or_null("/root/Settings"))
 
 
 func _director() -> Node:

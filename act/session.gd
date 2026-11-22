@@ -393,11 +393,6 @@ func force_tolerance(kind: String) -> bool:
 	return context.consent.force(kind)
 
 
-## The audio owner's voice routing line for the debug panel.
-func voice_status_line() -> String:
-	return context.audio.voice_status_line(pony_id)
-
-
 ## The anatomy handle's mouth and frame points for the pose and camera callbacks.
 func anatomy_mouth_point() -> Vector3:
 	return context.anatomy.mouth_point() if context.anatomy != null else Vector3.ZERO

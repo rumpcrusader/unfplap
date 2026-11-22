@@ -93,7 +93,7 @@ handover waits out the grace and then asks here.
 `set_active(runtime)` sets the one live act and drops the idle offer's current record, so the act
 key cannot start a second act on a stale scan; `clear_active(runtime)` only clears the pointer when
 that runtime owns it. Both hand the body to the stock smack layer, which owns the outside-act sound
-layer (`docs/audio.md`). `active()` answers the runtime or null, `act_running()` the plain bool the
+layer (`docs/stock_smack.md`). `active()` answers the runtime or null, `act_running()` the plain bool the
 idle probe, the act key, the offer and the stool supply gate on.
 
 ## Identity

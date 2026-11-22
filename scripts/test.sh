@@ -54,13 +54,9 @@ if [[ "$ALL" -eq 1 && "${#REQUESTED[@]}" -gt 0 ]]; then
 	exit 2
 fi
 
-# Suites live in tests/ and tests/<system>/. The manual labs need a live world and are not part
-# of the headless gate.
-mapfile -t TESTS < <(
-	cd "$MOD_DIR" && find tests -maxdepth 2 -name 'test_*.gd' \
-		! -name 'test_lab*.gd' ! -name 'test_stress_lab.gd' \
-		-printf '%P\n' | sed 's/\.gd$//' | sort
-)
+# Suites live in tests/ and tests/<system>/; the gate owns the discovery, so the list, the runner
+# and the static checks cannot drift. The manual labs need a live world and are not in the gate.
+mapfile -t TESTS < <(python3 "$MOD_DIR/scripts/architecture.py" --list-suites)
 
 # A listing is not a run: no precheck output on stdout, so the list stays pipeable.
 if [[ "$LIST" -eq 1 ]]; then

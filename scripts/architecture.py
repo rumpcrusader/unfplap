@@ -1987,12 +1987,18 @@ def check() -> int:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true")
+    parser.add_argument("--list-suites", action="store_true")
     parser.add_argument("--graph", action="store_true")
     parser.add_argument("--audit-surface", action="store_true")
     parser.add_argument("--write-exceptions", action="store_true")
     parser.add_argument("--write-debt", action="store_true")
     parser.add_argument("--write-duck-typing", action="store_true")
     args = parser.parse_args()
+    if args.list_suites:
+        # The runner's discovery: `tests/` relative paths, without the extension, sorted.
+        for path in test_suites():
+            print(rel(path).removeprefix("tests/").removesuffix(".gd"))
+        return 0
     if args.audit_surface:
         audit_surface()
         return 0

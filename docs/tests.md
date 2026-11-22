@@ -175,8 +175,10 @@ status line: `TEST_PASS <n> suites, <n> checks` for a subset and `TEST_ALL_PASS 
 checks` for `--all`, which is the marker the release check greps. A failing run prints a `rerun:
 scripts/test.sh ...` line and ends in `TEST_FAIL <k> of <n> suites: <names>` (or `TEST_ALL_FAIL
 ...`), so the last line names every failing suite and a trailing `tail` cannot hide the verdict.
-`--verbose` (`TEST_VERBOSE=1`) adds one `PASS` line per suite for a local run. `--all` runs the
-self-test first, so the full gate proves the base still ends a hung suite.
+`--verbose` (`TEST_VERBOSE=1`) adds one `PASS <suite> <ms> ms` line per suite for a local run.
+`KEEP=1` keeps the temporary per-suite data and logs and prints their directory. A suite that
+leaves no result fails with its exit status, and one the runner's timeout killed says it timed out.
+`--all` runs the self-test first, so the full gate proves the base still ends a hung suite.
 
 Every suite must also leave no `SCRIPT ERROR` or `Parse Error` in its log.
 

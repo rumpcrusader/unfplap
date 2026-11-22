@@ -156,6 +156,7 @@ run_one() {
 	local started status=0
 	started="$(date +%s%3N)"
 	XDG_DATA_HOME="$work_dir/data-$safe" UNFPLAP_SUITE_RESULT="$work_dir/$safe.result" \
+		UNFPLAP_SUITE_DATA="$work_dir/data-$safe" \
 		timeout -k 5 90 godot --headless --xr-mode off --path "$PROJECT_ROOT" \
 		--script "res://mods/unfplap/tests/$test_name.gd" \
 		>"$work_dir/$safe.out" 2>&1 || status=$?

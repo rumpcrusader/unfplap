@@ -13,7 +13,19 @@ var _end := "run"
 
 func _initialize() -> void:
 	_start_ms = Time.get_ticks_msec()
+	if not _inside_own_data():
+		fail("user:// is outside UNFPLAP_SUITE_DATA")
+		finish()
+		return
 	_run_and_finish.call_deferred()
+
+
+func _inside_own_data() -> bool:
+	# The runner's per-suite directory is the whole isolation; a direct run sets no variable.
+	var expected := OS.get_environment("UNFPLAP_SUITE_DATA")
+	if expected.is_empty():
+		return true
+	return ProjectSettings.globalize_path("user://").begins_with(expected)
 
 
 func _run_and_finish() -> void:

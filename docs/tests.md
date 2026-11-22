@@ -150,6 +150,10 @@ parses it.
 - Each suite gets its own `XDG_DATA_HOME` under the runner's temporary directory, so the player's
   `user://` settings, saves and logs can never change a behaviour assertion or the shipped-document
   schema check.
+- The runner passes that directory as `UNFPLAP_SUITE_DATA` too, and the base refuses to run when the
+  resolved `user://` is outside it. `XDG_DATA_HOME` separates the data on Linux only, so the gate is
+  Linux-only until another platform gets a per-run data directory; a direct run sets no variable and
+  is not checked.
 - A fixed path under `user://` is safe only because the suite owns its data directory: keep the
   path unique to the suite, remove what you write, and never depend on another suite having run
   first.

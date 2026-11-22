@@ -3,7 +3,7 @@ extends RefCounted
 ## Contract: docs/world.md
 ## Scope: world
 ## Import: world/api.gd only
-## One pony's navigator leases, travel and facing, bound to her node.
+## One pony's navigator leases, travel and facing, bound to her node or to the navigator itself.
 
 const GAME := preload("res://mods/unfplap/world/game.gd")
 
@@ -18,9 +18,29 @@ func _bound() -> Node:
 	return _pony
 
 
-## The navigator child this view speaks for; null on a body without one.
+## The navigator child this view speaks for; a view bound to the navigator itself speaks for it.
 func _nav() -> Node:
-	return GAME.navigator_of(_pony)
+	if not is_instance_valid(_pony):
+		return null
+	var found := GAME.navigator_of(_pony)
+	if found != null:
+		return found
+	return _pony if _is_navigator(_pony) else null
+
+
+## Whether a node is the base-game navigator rather than a pony body that owns one.
+static func _is_navigator(node: Node) -> bool:
+	return is_instance_valid(node) and "command_owner" in node
+
+
+## The navigator node the lease reads and writes; null on a body without one.
+func node() -> Node:
+	return _nav()
+
+
+## True while she has a navigator, or while this view is bound to one.
+func present() -> bool:
+	return _nav() != null
 
 
 ## The lease holder's name; empty when the navigator is free.

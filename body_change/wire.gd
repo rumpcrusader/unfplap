@@ -4,7 +4,7 @@ extends RefCounted
 ## See `docs/body_change.md` (`## Internal API`).
 
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
-const GAME := preload("res://mods/unfplap/world/game.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 
 
 ## Mirror `form` onto `pony`.
@@ -21,4 +21,4 @@ static func apply(pony: Node3D, form: BODY_FORM.BodyForm) -> void:
 		pony.set_meta("tail_pose_root", form.tail_root)
 	elif pony.has_meta("tail_pose_root"):
 		pony.remove_meta("tail_pose_root")
-	GAME.set_body_scale(pony, form.body_scale)
+	WORLD.pony(pony).set_body_scale(form.body_scale)

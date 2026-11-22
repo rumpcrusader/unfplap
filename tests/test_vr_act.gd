@@ -9,6 +9,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 
 const VR_ACT := preload("res://mods/unfplap/vr/service.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
+const TOUCH_BRIDGE := preload("res://mods/unfplap/shared/touch_bridge.gd")
 
 
 
@@ -65,13 +66,13 @@ func _check_accessors() -> void:
 	check(not GAME.oral_ready(plain), "a host without the op is not oral ready")
 
 	var sink := FakeBridge.new()
-	var event := GAME.TouchBridge.new()
+	var event := TOUCH_BRIDGE.new()
 	event.run = Callable(sink, "on_touch")
 	GAME.caress(event)
 	check(_count(sink, "touch:caress") == 1, "the caress accessor reaches the touch event")
 	GAME.caress(null)
 	check(_count(sink, "touch:caress") == 1, "no bridge is a quiet no-op")
-	var invalid := GAME.TouchBridge.new()
+	var invalid := TOUCH_BRIDGE.new()
 	GAME.caress(invalid)
 	check(_count(sink, "touch:caress") == 1, "an invalid callable is a quiet no-op")
 

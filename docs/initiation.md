@@ -286,7 +286,7 @@ ponies are around. The heat line is appended only in heat and is empty otherwise
 
 - The adapter reads stock director fields (`_player_text`, `_held_text`, `_now`, `characters`) and
   the venue adapter reads stock navigator fields through the `Navigator` view and bed-rest fields
-  through the `GAME` accessors. A game change can remove them; every read is guarded and the offer
+  through the `Bed` view. A game change can remove them; every read is guarded and the offer
   simply stops.
 - A reasoning call is a model request; an unavailable model or no configured endpoint means no
   automatic offer. The debug actions bypass it.

@@ -82,13 +82,22 @@ class FakeWorld extends Node:
 
 
 func run() -> void:
+	# The caption reads the game's own speech setting through the world facade, so a world is
+	# bound for the whole run; `_check_accessors()` rebinds its own and drops it.
+	var host := FakeWorld.new()
+	root.add_child(host)
+	WORLD.bind_world(host)
 	_check_caption_conditions()
 	_check_caption_scale()
 	_check_toast_duration()
 	_check_accessors()
+	WORLD.bind_world(host)
 	await _check_toast_line()
 	_check_dance_notice()
 	_check_live_settings()
+	WORLD.unbind()
+	root.remove_child(host)
+	host.free()
 	if failures == 0:
 		print("CAPTION_PASS")
 	finish()

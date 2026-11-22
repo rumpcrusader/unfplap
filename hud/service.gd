@@ -4,7 +4,6 @@ extends CanvasLayer
 ## key cap or controller icon beside light words with a dark outline, never a drop shadow.
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
-const GAME := preload("res://mods/unfplap/world/game.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
@@ -467,10 +466,7 @@ func _caption_top_enabled() -> bool:
 		return false
 	if _act_state not in [STATE_POSING_IN, STATE_ACTIVE, STATE_CLIMAX]:
 		return false
-	var settings := get_node_or_null("/root/Settings")
-	if settings == null:
-		return false
-	return GAME.setting_string(settings, "access/speech_text") == "caption"
+	return WORLD.game_setting("access/speech_text") == "caption"
 
 
 ## Move the game's caption card after its own layout pass. The stock caption keeps its text,

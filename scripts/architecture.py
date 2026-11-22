@@ -498,8 +498,8 @@ def is_allowed(src: str, tgt: str) -> tuple[bool, str, Owner | None, Owner | Non
 def scan_reexports() -> list[dict[str, str]]:
     """Cross-module preload-const reach-throughs: ``ALIAS.CONST`` where CONST is a preload in ALIAS's target.
 
-    Enums, nested classes and plain consts stay reachable; only a preload const is a re-export.
-    ``GAME.HOUSE`` is the one allowed game handle and rides the exception ledger.
+    Enums, nested classes and plain consts stay reachable; only a preload const is a re-export,
+    and a re-export is either removed or carried by the exception ledger.
     """
     text_of: dict[str, str] = {}
     aliases: dict[str, dict[str, str]] = {}

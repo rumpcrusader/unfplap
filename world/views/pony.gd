@@ -204,6 +204,11 @@ func grounded() -> bool:
 	return GAME.grounded(_pony)
 
 
+## Her awareness facing from the body's own op; a zero vector when the body cannot answer.
+func awareness() -> Vector3:
+	return GAME.awareness_forward(_pony)
+
+
 func posture_requested() -> String:
 	return GAME.posture_requested(_pony)
 
@@ -214,6 +219,16 @@ func request_posture(posture: String) -> void:
 
 func interruption_reason() -> String:
 	return GAME.interruption_reason(_pony)
+
+
+## Her current face-turn rate; NAN when the body has none.
+func face_turn_rate() -> float:
+	return GAME.face_turn_rate(_pony)
+
+
+## Write her face-turn rate; a body without it keeps its own.
+func set_face_turn_rate(value: float) -> void:
+	GAME.set_face_turn_rate(_pony, value)
 
 
 func stop_speaking() -> void:

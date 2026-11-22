@@ -1,7 +1,7 @@
 extends RefCounted
 ## The peak-memory store; the only memory file that saves.
 
-const GAME := preload("res://mods/unfplap/world/game.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const MOD_ID := "unfplap"
 const KEY := "peak_memories"
 
@@ -22,10 +22,9 @@ static func peak(id: String) -> Dictionary:
 static func record(id: String, event_id: String, text: String, score: float) -> bool:
 	if id.is_empty():
 		return false
-	var mods := _mods()
-	if mods == null:
+	if not WORLD.mods().present():
 		return false
-	var state := GAME.mods_state(mods, MOD_ID).rows
+	var state := WORLD.mods().state(MOD_ID).rows
 	var rows: Variant = state.get(KEY, {})
 	if not rows is Dictionary:
 		rows = {}
@@ -39,24 +38,15 @@ static func record(id: String, event_id: String, text: String, score: float) -> 
 		"at": Time.get_unix_time_from_system(),
 	}
 	state[KEY] = rows
-	save(mods)
+	save()
 	return true
 
 
 static func section() -> Dictionary:
-	var mods := _mods()
-	if mods == null:
+	if not WORLD.mods().present():
 		return {}
-	return GAME.mods_state(mods, MOD_ID).rows
+	return WORLD.mods().state(MOD_ID).rows
 
 
-static func save(mods: Node) -> void:
-	if is_instance_valid(mods):
-		GAME.mods_save(mods)
-
-
-static func _mods() -> Node:
-	var loop := Engine.get_main_loop() as SceneTree
-	if loop == null or loop.root == null:
-		return null
-	return loop.root.get_node_or_null("Mods")
+static func save() -> void:
+	WORLD.mods().save()

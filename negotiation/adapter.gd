@@ -4,7 +4,6 @@ extends Node
 ## Contract: `docs/negotiation.md` (`## Director and model host`).
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
-const GAME := preload("res://mods/unfplap/world/game.gd")
 const PROMPTS := preload("res://mods/unfplap/negotiation/prompts.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const AI_CONFIG := preload("res://world/ai/ai_config.gd")
@@ -207,7 +206,7 @@ func player_name() -> String:
 
 
 func pony_speaking(pony: Node) -> bool:
-	return GAME.pony_speaking(pony)
+	return WORLD.pony(pony).speaking()
 
 
 func begin_greeting(id: String, context: String) -> bool:

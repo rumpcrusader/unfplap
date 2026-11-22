@@ -6,6 +6,7 @@ extends RefCounted
 ## The scene's stock kisser, bound, plus the affection, cuddle and carry nodes the act writes.
 
 const GAME := preload("res://mods/unfplap/world/game.gd")
+const TOUCH_BRIDGE := preload("res://mods/unfplap/shared/touch_bridge.gd")
 
 var _kisser: Node
 
@@ -111,3 +112,8 @@ func carry_released(actions: Node) -> void:
 ## End her hold interaction.
 func end_interaction(pony: Node) -> void:
 	GAME.end_interaction(pony)
+
+
+## Fire the touch host's caress event; a bridge without a callable stays silent.
+func caress(touch: TOUCH_BRIDGE) -> void:
+	GAME.caress(touch)

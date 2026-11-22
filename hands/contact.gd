@@ -5,7 +5,6 @@ extends RefCounted
 ## Import: hands/contact.gd only
 ## Coat queries shared by every caress mode; base-game dictionaries are parsed here.
 
-const GAME := preload("res://mods/unfplap/world/game.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const MODEL := preload("res://mods/unfplap/hands/model.gd")
 
@@ -78,7 +77,7 @@ static func nearest_touch(pony: Node3D, point: Vector3, ignore: Array[String],
 	var touch: Variant = pony.get("touch_body") if is_instance_valid(pony) else null
 	if touch == null or not touch.has_method("nearest"):
 		return out
-	var near: Dictionary = GAME._touch_nearest(touch, point)
+	var near: Dictionary = WORLD.flank(touch).touch_nearest(point)
 	var entry := _entry_of(near.get("entry"))
 	if ignore.is_empty() and allowed.is_empty():
 		if entry != null:
@@ -269,7 +268,7 @@ static func flank_contact(flank: Node, local_point: Vector3,
 	var radii := flank_radii(flank)
 	if radii.z > 0.0:
 		reach = radii.z
-	var raw := GAME._flank_surface_contact(surface, local_point, -local_normal, reach)
+	var raw := WORLD.flank(flank).surface_contact(surface, local_point, -local_normal, reach)
 	if raw.is_empty():
 		return null
 	var raw_point: Variant = raw.get("position")

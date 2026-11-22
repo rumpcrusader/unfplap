@@ -143,14 +143,6 @@
       "owner": "kiss",
       "reason": "the missionary pose cast is a separation-of-concerns reach-in; fix when the kiss takes a pose handle",
       "expires": "phase-2"
-    },
-    {
-      "from": "stool/supply.gd",
-      "to": "res://world/buildings/house_interior.gd",
-      "kind": "re-export",
-      "owner": "stool",
-      "reason": "the GAME handle is the one allowed game re-export; keep",
-      "expires": "phase-2"
     }
   ]
 }

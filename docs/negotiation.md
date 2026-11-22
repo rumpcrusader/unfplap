@@ -125,9 +125,9 @@ used to be the entry's assembly:
   target names;
 - the adapter's model calls and the world-context situation record.
 
-It reads only service facades, `WORLD` and the `GAME` accessors, and the fields the entry binds
-once through `bind()`: `service` (this facade), `adapter`, `eligibility`, `gate`, `memory`,
-`privacy`, `initiation` and `offer`. `initiation` and `offer` are plain nodes because each of them
+It reads only service facades and `WORLD`, and the fields the entry binds once through `bind()`:
+`service` (this facade), `adapter`, `eligibility`, `gate`, `memory`, `privacy`, `initiation` and
+`offer`. `initiation` and `offer` are plain nodes because each of them
 preloads this facade; everything else is the typed facade. `eligibility` and `gate` are the fields
 a world enter rebinds, because the entry rebuilds those services.
 

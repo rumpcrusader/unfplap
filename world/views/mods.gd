@@ -23,6 +23,11 @@ func _host_node() -> Node:
 	return _host if is_instance_valid(_host) else null
 
 
+## True while the game's mods registry autoload is live.
+func present() -> bool:
+	return _host_node() != null
+
+
 ## One mod's live section, as the registry keeps the dictionary; empty rows without a reader.
 func state(id: String) -> GAME.ModState:
 	return GAME.mods_state(_host_node(), id)

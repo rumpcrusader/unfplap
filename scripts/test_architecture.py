@@ -55,7 +55,6 @@ REEXPORTS = (
     ("camera/service.gd", "poses/skeleton_pose.gd"),
     ("initiation/service.gd", "negotiation/adapter.gd"),
     ("kiss/service.gd", "poses/missionary_anon.gd"),
-    ("stool/supply.gd", "res://world/buildings/house_interior.gd"),
 )
 NOTE_CASES = (
     ("noted type", "## A note.\nclass Noted:\n\tpass\n", 0),

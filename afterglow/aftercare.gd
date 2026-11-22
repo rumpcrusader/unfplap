@@ -2,7 +2,6 @@ extends Node
 ## Ten seconds of post-sex body language: no wandering, no new act, tail held up and flicked.
 ## Created by the runtime after restore. Runs independently of the act state.
 
-const GAME := preload("res://mods/unfplap/world/game.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const TAIL := preload("res://mods/unfplap/poses/tail_pose.gd")
 const DURATION := 10.0
@@ -46,9 +45,9 @@ func _ready() -> void:
 			_tail.target_amount = 1.0
 			hair.add_child(_tail)
 			_flick_clock = randf_range(FLICK_MIN, FLICK_MAX)
-	_nav = GAME.navigator_of(pony)
+	var lease := WORLD.navigator(pony)
+	_nav = lease.node()
 	if _nav != null:
-		var lease := WORLD.navigator(pony)
 		_nav_owner = lease.owner()
 		_nav_wander = lease.wander()
 		lease.stay()

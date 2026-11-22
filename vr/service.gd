@@ -3,7 +3,8 @@ extends Node
 ## The fork's auto-speed controls are deliberately not imported.
 
 const ACT_COMMANDS := preload("res://mods/unfplap/shared/act_commands.gd")
-const GAME := preload("res://mods/unfplap/world/game.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
+const TOUCH_BRIDGE := preload("res://mods/unfplap/shared/touch_bridge.gd")
 const SELF := preload("res://mods/unfplap/vr/service.gd")
 
 const HIP_RANGE_M := 0.16
@@ -25,7 +26,7 @@ var camera: XRCamera3D
 var origin: Node3D
 
 ## The touch callable's typed wrapper, rebuilt only when the anatomy host changes it.
-var _touch_bridge: GAME.TouchBridge = null
+var _touch_bridge: TOUCH_BRIDGE = null
 var _touch_source := Callable()
 
 var _left: XRController3D
@@ -136,6 +137,6 @@ func _read_hands() -> void:
 	if body != null and bool(body.get("petting")) and touch.is_valid():
 		if touch != _touch_source:
 			_touch_source = touch
-			_touch_bridge = GAME.TouchBridge.new()
+			_touch_bridge = TOUCH_BRIDGE.new()
 			_touch_bridge.run = touch
-		GAME.caress(_touch_bridge)
+		WORLD.affection().caress(_touch_bridge)

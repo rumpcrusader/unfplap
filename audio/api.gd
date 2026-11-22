@@ -6,7 +6,6 @@ extends "res://mods/unfplap/shared/service.gd"
 ## The act's sound: the world playback pool, the base-game breath and her voice policy.
 
 const CATALOGUE := preload("res://mods/unfplap/audio/cues.gd")
-const GAME := preload("res://mods/unfplap/world/game.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const POOL := preload("res://mods/unfplap/audio/pool.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
@@ -180,7 +179,7 @@ class ActAudio extends RefCounted:
 	func oral_kiss() -> void:
 		if not _open or not is_instance_valid(_pony):
 			return
-		WORLD.director().play_kiss(GAME.boop_of(_pony), CATALOGUE.ORAL_KISS_DB, true)
+		WORLD.director().play_kiss(WORLD.pony(_pony).boop(), CATALOGUE.ORAL_KISS_DB, true)
 
 	func mouth_kiss() -> void:
 		if not _open or _world == null:
@@ -211,9 +210,10 @@ class ActAudio extends RefCounted:
 	func _snout() -> Vector3:
 		if not is_instance_valid(_pony):
 			return Vector3.ZERO
-		var boop := GAME.boop_of(_pony)
+		var view := WORLD.pony(_pony)
+		var boop := view.boop()
 		if boop != null:
-			var point := GAME.nose_world(boop)
+			var point := view.nose_world()
 			if point.is_finite():
 				return point
 		return _pony.global_position + Vector3.UP * 1.0

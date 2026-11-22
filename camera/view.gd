@@ -4,7 +4,6 @@ extends RefCounted
 ## Contract: `docs/camera.md`, `docs/act_facts.md`.
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
-const GAME := preload("res://mods/unfplap/world/game.gd")
 const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
@@ -484,7 +483,7 @@ func _clamp_look() -> void:
 	var yaw_delta := angle_difference(float(facts.look_yaw), float(body.rotation.y))
 	if absf(yaw_delta) > LOOK_YAW_LIMIT:
 		body.rotation.y = float(facts.look_yaw) + clampf(yaw_delta, -LOOK_YAW_LIMIT, LOOK_YAW_LIMIT)
-	if GAME.headset_view(body):
+	if WORLD.headset_view():
 		return
 	var pitch_now := anon.pitch()
 	if not is_finite(pitch_now):

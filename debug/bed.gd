@@ -2,7 +2,6 @@ extends RefCounted
 ## Debug-only: the bed helper behind the wheel action and Show data's rows.
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
-const GAME := preload("res://mods/unfplap/world/game.gd")
 const PONY := preload("res://mods/unfplap/debug/pony.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
@@ -183,14 +182,14 @@ static func _bring_to_bed(pony: Node3D, rest: Node3D) -> String:
 		return "no floor beside the bed"
 	pony.global_position = front
 	if pony.get("velocity") != null:
-		GAME.set_velocity(pony, Vector3.ZERO)
+		WORLD.set_velocity(pony, Vector3.ZERO)
 	if pony.get("motion_paused") != null:
 		WORLD.pony(pony).set_motion_paused(false)
 	PONY.upright(pony)
 	pony.reset_physics_interpolation()
-	var nav := GAME.navigator_of(pony)
+	var lease := WORLD.navigator(pony)
+	var nav := lease.node()
 	if nav != null:
-		var lease := WORLD.navigator(pony)
 		var travel: Variant = nav.get("house_travel")
 		if travel != null and is_instance_valid(travel):
 			lease.clear_travel(travel)
@@ -205,7 +204,7 @@ static func _bring_to_bed(pony: Node3D, rest: Node3D) -> String:
 static func state_text(host: Node, pony: Node3D, rest: Node3D) -> String:
 	var id := PONY_ID.from(str(pony.get_meta("relationship_id", "")), pony.get("identity"))
 	var bed: Variant = rest.get("_bed") if rest != null else null
-	var nav := GAME.navigator_of(pony)
+	var lease := WORLD.navigator(pony)
 	var guest: Variant = rest.get("_guest") if rest != null else null
 	var sleeper: Variant = rest.get("_sleeper") if rest != null else null
 	var seats: Variant = rest.get("seats") if rest != null else null
@@ -243,15 +242,15 @@ static func state_text(host: Node, pony: Node3D, rest: Node3D) -> String:
 		reasons.append("flight")
 	if body_scale > 1.05:
 		reasons.append("too_big")
-	if nav == null:
+	if not lease.present():
 		reasons.append("no_navigator")
 	else:
-		var owner := str(nav.get("command_owner"))
+		var owner := lease.owner()
 		var routine := owner.is_empty() or owner == "rest_after_command" \
 			or owner.begins_with("life:") or owner.begins_with("bond:") or owner.begins_with("day:")
-		if str(nav.get("reserved_by")) != "":
+		if not lease.reserved().is_empty():
 			reasons.append("nav_reserved")
-		if bool(nav.get("_has_target")):
+		if lease.has_target():
 			reasons.append("nav_target")
 		if not routine:
 			reasons.append("nav_owner=" + owner)
@@ -278,9 +277,9 @@ static func state_text(host: Node, pony: Node3D, rest: Node3D) -> String:
 		str((guest as Dictionary).get("state", "?")) if guest is Dictionary \
 			and not (guest as Dictionary).is_empty() else "none",
 		_node_name(sleeper),
-		str(nav.get("command_owner")) if nav != null else "?",
-		str(bool(nav.get("_has_target"))) if nav != null else "?",
-		str(nav.get("reserved_by")) if nav != null else "?",
+		lease.owner() if lease.present() else "?",
+		str(lease.has_target()) if lease.present() else "?",
+		lease.reserved() if lease.present() else "?",
 		"none" if reasons.is_empty() else ", ".join(reasons)]
 
 

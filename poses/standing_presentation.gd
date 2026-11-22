@@ -9,7 +9,6 @@ const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
-const GAME := preload("res://mods/unfplap/world/game.gd")
 const POSE := preload("res://mods/unfplap/poses/skeleton_pose.gd")
 const TAIL := preload("res://mods/unfplap/poses/tail_pose.gd")
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
@@ -212,17 +211,18 @@ func _set_turn_nav_facing() -> void:
 func _raise_present_turn_rate() -> void:
 	if _present_turn_rate_owned or not is_instance_valid(pony):
 		return
-	var rate: float = GAME.face_turn_rate(pony)
+	var view := WORLD.pony(pony)
+	var rate: float = view.face_turn_rate()
 	if is_nan(rate):
 		return
 	_present_turn_rate_saved = rate
 	_present_turn_rate_owned = true
-	GAME.set_face_turn_rate(pony, maxf(_present_turn_rate_saved, PRESENT_FACE_TURN_RATE))
+	view.set_face_turn_rate(maxf(_present_turn_rate_saved, PRESENT_FACE_TURN_RATE))
 
 
 func _restore_present_turn_rate() -> void:
 	if _present_turn_rate_owned and is_instance_valid(pony):
-		GAME.set_face_turn_rate(pony, _present_turn_rate_saved)
+		WORLD.pony(pony).set_face_turn_rate(_present_turn_rate_saved)
 	_present_turn_rate_owned = false
 	_present_turn_rate_saved = -1.0
 

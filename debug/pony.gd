@@ -6,7 +6,7 @@ extends RefCounted
 ## record the sex-ready path writes; see `docs/debug.md`.
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
-const GAME := preload("res://mods/unfplap/world/game.gd")
+const BOND_RECORD := preload("res://mods/unfplap/shared/bond_record.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
@@ -80,7 +80,7 @@ static func upright(pony: Node3D) -> void:
 	transform.basis = Basis(Vector3.UP, euler.y) * Basis.from_scale(scale)
 	pony.global_transform = transform
 	if pony.get("velocity") != null:
-		GAME.set_velocity(pony, Vector3.ZERO)
+		WORLD.set_velocity(pony, Vector3.ZERO)
 	pony.reset_physics_interpolation()
 
 
@@ -170,7 +170,7 @@ static func _bonds(pony: Node3D) -> Object:
 
 
 ## Raise the stage to dating unless she is already dating, engaged or married.
-static func _raise_stage(record: GAME.BondRecord) -> String:
+static func _raise_stage(record: BOND_RECORD) -> String:
 	var before := record.stage
 	if before in KEPT_STAGES:
 		return "stage %s (kept)" % before
@@ -204,7 +204,7 @@ static func _write_record(host: Node, pony: Node3D, id: String) -> Array[String]
 	record.offer = {}
 	record.cooldowns.erase("boundary")
 	record.cooldowns.erase("dating")
-	record.save(bonds, id)
+	WORLD.relationship().save_record(bonds, id, record)
 	if bonds.has_method("mark_met"):
 		WORLD.relationship().mark_met(bonds, id)
 	return out

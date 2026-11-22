@@ -28,6 +28,16 @@ func update_surface(surface: Object, skeleton: Skeleton3D, frame: Transform3D) -
 	GAME.flank_surface_update(surface, skeleton, frame)
 
 
+## The flank patch's contact query at a local point; empty when it has no query.
+func surface_contact(surface: Object, point: Vector3, palm: Vector3, reach: float) -> Dictionary:
+	return GAME._flank_surface_contact(surface, point, palm, reach)
+
+
+## The touch body's nearest hull at a world point; empty when it keeps no query.
+func touch_nearest(point: Vector3) -> Dictionary:
+	return GAME._touch_nearest(_node, point)
+
+
 func impact(index: int, at: Vector3, strength: float) -> void:
 	GAME.flank_impact(_node, index, at, strength)
 

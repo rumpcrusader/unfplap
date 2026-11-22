@@ -12,7 +12,6 @@ const BODY_CHANGE_SOURCE := preload("res://mods/unfplap/body_change/source.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const ACT_HOST := preload("res://mods/unfplap/body_change/act_host.gd")
-const GAME := preload("res://mods/unfplap/world/game.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
@@ -127,7 +126,7 @@ func release(swap: BODY_CHANGE) -> bool:
 		return false
 	# Another system holding her would keep the old body as the act's owner. Release it before
 	# the flame takes the body; a failed release is logged and the watchdog still decides.
-	if GAME.is_held(body) and not host.swap().release_carry():
+	if WORLD.pony(body).is_held() and not host.swap().release_carry():
 		LOG.debug("body swap: could not release the held body")
 	begin(swap)
 	# Leave the old body before it is freed. The world keeps the act; the new body adopts the node.
@@ -245,7 +244,7 @@ func request(true_form: bool, shape_id: String, by_player: bool) -> Dictionary:
 	var body := host.pony()
 	if body == null:
 		return {"ok": false, "reason": "no body", "message": "No body to change."}
-	if GAME.is_held(body):
+	if WORLD.pony(body).is_held():
 		return {"ok": false, "reason": "she is held", "message": "She is being held right now."}
 	var owner := service()
 	if owner == null:

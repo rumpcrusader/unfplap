@@ -123,6 +123,8 @@ is internal API; the only stable external surface is `docs/api.md`.
 | Standing offer cone | `shared/rump_cone.gd` | `docs/scene_gate.md` | `tests/test_rump_cone.gd` |
 | Smack cue table | `shared/smack_cues.gd` | `docs/audio.md`, `docs/stock_smack.md` | `tests/act_audio/`, `tests/stock_smack/` |
 | Voice routing | `shared/voice_status.gd` | `docs/audio.md` | `tests/test_voice.gd`, `tests/act_audio/` |
+| Bond record | `shared/bond_record.gd` | `docs/world.md` | `tests/world/`, `tests/test_debug_pony.gd` |
+| VR touch bridge | `shared/touch_bridge.gd` | `docs/world.md` | `tests/test_vr_act.gd` |
 
 Shared modules are not services. Pure modules have no scene, lifecycle or service dependency. A
 shared store may read `settings`; a read model is refreshed by its owner. `shared/service.gd` is
@@ -192,7 +194,7 @@ Rules:
 - every facade's public type carries a `##` note; `api.gd`'s public surface carries one and every
   public `api.gd` function is named in `docs/api.md`;
 - no service imports another service's private files, no module preloads a base-game module except
-  `world/game.gd`, and no module reaches another module's preload const except `GAME`.
+  `world/game.gd`, and no module reaches another module's preload const.
 
 The typed act view boundary is a review rule, not a gate check: `docs/act_facts.md` owns it.
 

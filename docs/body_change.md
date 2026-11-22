@@ -248,7 +248,7 @@ change when the provider accepts it. A refused request returns false and changes
 `body_change/wire.gd` writes `body_fit_id` (`fit_id`), `anatomy_owned_meta` (`owned_mesh_meta`),
 `tail_pose_root` (`tail_root`) and the live body scale. An empty marker or a missing tail root
 removes the old key, so a return to the own form cannot leave a borrowed body's marker behind. The
-game's `set_body_scale()` updates the capsule and the pose calibration; `GAME.set_body_scale()` uses
+game's `set_body_scale()` updates the capsule and the pose calibration; `Pony.set_body_scale()` uses
 it when the body has it and falls back to a plain field write for a test body. The typed form is the
 only authority: the mirror is write-only and no system reads a partial form back out of it. The
 compatibility status of each key is the owning system's doc; the planned retirement is when every

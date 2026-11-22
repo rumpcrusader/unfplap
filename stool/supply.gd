@@ -2,7 +2,6 @@ extends Node
 ## Finds pickable footstools in the world when the player owns none. See docs/stool.md.
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
-const GAME := preload("res://mods/unfplap/world/game.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const ITEM := preload("res://mods/unfplap/stool/item.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
@@ -70,14 +69,14 @@ func _tick() -> void:
 			return
 	if _spawned >= SPAWN_COUNT:
 		return
-	var houses: Array[GAME.HOUSE] = []
+	var houses: Array = []
 	for node: Variant in tree.get_nodes_in_group("house_interiors"):
 		if not node is Node3D:
 			continue
-		var house := GAME.house_of(node as Node)
+		var house: Variant = WORLD.house_of(node as Node)
 		if house == null:
 			continue
-		var place := house.place_id()
+		var place := str(house.place_id())
 		if place.is_empty() or _used.has(place):
 			continue
 		if house.global_position.distance_to(player.global_position) > RANGE_M:
@@ -89,7 +88,7 @@ func _tick() -> void:
 			LOG.debug("stool supply waiting for a loaded house")
 		return
 	houses.shuffle()
-	for house: GAME.HOUSE in houses:
+	for house: Variant in houses:
 		if _spawned >= SPAWN_COUNT:
 			break
 		if _place_in(house, briefcase):
@@ -99,7 +98,7 @@ func _tick() -> void:
 		LOG.debug("stool supply spawned=%d", [_spawned])
 
 
-func _place_in(house: GAME.HOUSE, briefcase: WORLD.Inventory) -> bool:
+func _place_in(house: Variant, briefcase: WORLD.Inventory) -> bool:
 	for point: Vector3 in _spots(house):
 		var pose := _drop_pose(house, point)
 		if not pose.origin.is_finite():
@@ -116,9 +115,9 @@ func _place_in(house: GAME.HOUSE, briefcase: WORLD.Inventory) -> bool:
 	return false
 
 
-func _spots(house: GAME.HOUSE) -> Array[Vector3]:
-	var at_inside := house.inside()
-	var at_center := house.center()
+func _spots(house: Variant) -> Array[Vector3]:
+	var at_inside: Vector3 = house.inside()
+	var at_center: Vector3 = house.center()
 	var toward := Vector3(at_center.x - at_inside.x, 0.0, at_center.z - at_inside.z)
 	if toward.length_squared() < 0.0001:
 		toward = -house.global_basis.z
@@ -131,10 +130,10 @@ func _spots(house: GAME.HOUSE) -> Array[Vector3]:
 	return out
 
 
-func _drop_pose(house: GAME.HOUSE, point: Vector3) -> Transform3D:
+func _drop_pose(house: Variant, point: Vector3) -> Transform3D:
 	if not point.is_finite():
 		return Transform3D(Basis.IDENTITY, Vector3.INF)
-	var world := house.get_world_3d()
+	var world: World3D = house.get_world_3d()
 	if world == null:
 		return Transform3D(Basis.IDENTITY, Vector3.INF)
 	var from := Vector3(point.x, point.y + 1.0, point.z)
@@ -148,7 +147,8 @@ func _drop_pose(house: GAME.HOUSE, point: Vector3) -> Transform3D:
 	# The ray starts above the house roof on some plots; only use a floor inside this home.
 	if not house.contains(floor):
 		return Transform3D(Basis.IDENTITY, Vector3.INF)
-	var house_floor: float = (house.to_global(Vector3(0.0, house.floor_y, 0.0))).y
+	var floor_y := float(house.floor_y)
+	var house_floor: float = (house.to_global(Vector3(0.0, floor_y, 0.0))).y
 	if absf(floor.y - house_floor) > 0.2:
 		return Transform3D(Basis.IDENTITY, Vector3.INF)
 	var probe := PhysicsShapeQueryParameters3D.new()

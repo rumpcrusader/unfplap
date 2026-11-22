@@ -3,7 +3,6 @@ extends RefCounted
 ## the buck. Eligibility owns the policy. Contract: `docs/scene_gate.md`
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
-const GAME := preload("res://mods/unfplap/world/game.gd")
 const ACT_GATE := preload("res://mods/unfplap/act_gate/service.gd")
 const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const POSE_SESSION := preload("res://mods/unfplap/poses/service.gd")
@@ -138,7 +137,7 @@ func rows(pose: String, act_source: String, bed_in: Node3D, mode: String,
 	_row(rows_out, "pose_source", _source_allowed(pose, act_source), "pose_source")
 	if mode == "start":
 		_row(rows_out, "player", player_ready_for(pose, act_source, bed_in), "player")
-	var nav: Node = GAME.navigator_of(pony)
+	var nav: Node = WORLD.navigator(pony).node()
 	if mode == "start":
 		_row(rows_out, "navigator", nav != null, "no_navigator")
 		if nav != null:

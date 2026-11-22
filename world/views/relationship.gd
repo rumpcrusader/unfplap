@@ -6,6 +6,7 @@ extends RefCounted
 ## The scene's relationship runtime and its bond store, with the runtime already bound.
 
 const GAME := preload("res://mods/unfplap/world/game.gd")
+const BOND_RECORD := preload("res://mods/unfplap/shared/bond_record.gd")
 
 var _runtime: Node
 
@@ -48,8 +49,8 @@ func bonds_of(pony: Node) -> Object:
 	return GAME.bonds_of(pony)
 
 
-## One bond record through the store's reader, as a typed view.
-func record(store: Object, id: String) -> GAME.BondRecord:
+## One bond record through the store's reader, as a typed record.
+func record(store: Object, id: String) -> BOND_RECORD:
 	return GAME.bond_record_for(store, id)
 
 
@@ -76,3 +77,8 @@ func mark_met(store: Object, id: String) -> bool:
 ## Withdraw the bond's standing invitation; nothing happens without the store's op.
 func request_space(pony: Node, id: String) -> void:
 	GAME.request_space(pony, id)
+
+
+## Write a bond record back through the store's own save; false without the store's op.
+func save_record(store: Object, id: String, record: BOND_RECORD) -> bool:
+	return GAME.bond_record_save(store, id, record)

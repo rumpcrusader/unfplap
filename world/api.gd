@@ -272,6 +272,11 @@ static func house_at(at: Vector3) -> Node3D:
 	return GAME.house_at(_tree(), at)
 
 
+## The house interior a node belongs to; null for any other node.
+static func house_of(n: Node) -> Node3D:
+	return GAME.house_of(n)
+
+
 ## True when an idle scan may run: a live tree that is not paused, and a captured desktop cursor or
 ## a headset. The player and game handles are the scan's own guard.
 static func can_interact() -> bool:

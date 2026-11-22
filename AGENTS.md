@@ -44,6 +44,7 @@ restate a contract.
 | `shared/smack_cues.gd` | `docs/audio.md`, `docs/stock_smack.md` |
 | `shared/voice_status.gd` | `docs/audio.md` |
 | `shared/relationship_cue.gd` | `docs/dialogue.md` |
+| `shared/bond_record.gd`, `shared/touch_bridge.gd` | `docs/world.md` |
 | `shared/rump_cone.gd` | `docs/scene_gate.md` |
 | `afterglow/**` | `docs/afterglow.md` |
 | `anatomy/**` | `docs/anatomy.md` |

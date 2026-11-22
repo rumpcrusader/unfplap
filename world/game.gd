@@ -18,6 +18,8 @@ const DOCK_TAIL_MOUNT := preload("res://world/characters/hybrid_mare/dock_tail_m
 const HYBRID_DOCK := preload("res://world/characters/hybrid_mare/hybrid_dock.gd")
 const MENU_PICKER := preload("res://world/ui/menu_picker.gd")
 const INTERACTION_SOUNDS := preload("res://world/audio/interaction_sounds.gd")
+const BOND_RECORD := preload("res://mods/unfplap/shared/bond_record.gd")
+const TOUCH_BRIDGE := preload("res://mods/unfplap/shared/touch_bridge.gd")
 
 
 ## The game's dock-fit document; the tail seat owns a copy and nudges it before a rebuild.
@@ -556,12 +558,23 @@ static func bonds_of(pony: Node) -> Object:
 	return bonds as Object if is_instance_valid(bonds) else null
 
 
-## One bond record through the store's own reader, as a typed view.
-static func bond_record_for(bonds: Object, id: String) -> BondRecord:
+## One bond record through the store's own reader, as a typed record.
+static func bond_record_for(bonds: Object, id: String) -> BOND_RECORD:
+	var out: BOND_RECORD = BOND_RECORD.new()
 	if not is_instance_valid(bonds) or not bonds.has_method("record_for"):
-		return BondRecord.new()
+		return out
 	var row: Variant = bonds.call("record_for", id)
-	return BondRecord.from_dict(row if row is Dictionary else {})
+	if row is Dictionary:
+		out.read(row)
+	return out
+
+
+## Write one bond record back through the store's own save; false without the op.
+static func bond_record_save(bonds: Object, id: String, record: BOND_RECORD) -> bool:
+	if not is_instance_valid(bonds) or not bonds.has_method("_save"):
+		return false
+	bonds.call("_save", id, record.to_row())
+	return true
 
 
 ## Whether the bond store calls one pony romance-eligible; false without the store's op.
@@ -2266,20 +2279,10 @@ static func oral_ready(bridge: Object) -> bool:
 	return bool(bridge.call("oral_ready"))
 
 
-## One host callable for the VR touch bridge; the typed wrapper keeps the accessor strong.
-class TouchBridge:
-	var run := Callable()
-
-	## Fire the bridge's `caress` event; an invalid callable stays silent.
-	func caress() -> void:
-		if run.is_valid():
-			run.call("caress")
-
-
-## Fire the touch host's caress event; an absent host is left alone.
-static func caress(touch: TouchBridge) -> void:
-	if touch != null:
-		touch.caress()
+## Fire the touch host's caress event; an absent or invalid host is left alone.
+static func caress(touch: TOUCH_BRIDGE) -> void:
+	if touch != null and touch.run.is_valid():
+		touch.run.call("caress")
 
 
 ## One stored story line as a typed row; `raw` is the game's own row for its text reader.
@@ -2327,55 +2330,6 @@ class Ladder:
 			out.love_name = str((love as Dictionary).get("name", ""))
 			out.love_level = int((love as Dictionary).get("level", -1))
 		return out
-
-
-## One pony's bond record, read once and written back through the store's own save.
-class BondRecord:
-	var stage := "acquaintance"
-	var familiarity := 0.0
-	var trust := 0.0
-	var anger := 0.0
-	var together_s := 0.0
-	var plan: Dictionary = {}
-	var offer: Dictionary = {}
-	var cooldowns: Dictionary = {}
-	## The untouched rows, so a key this view does not model survives the save.
-	var rows: Dictionary = {}
-
-	static func from_dict(row: Dictionary) -> BondRecord:
-		var out := BondRecord.new()
-		out.rows = row.duplicate(true)
-		out.stage = str(row.get("stage", "acquaintance"))
-		out.familiarity = float(row.get("familiarity", 0.0))
-		out.trust = float(row.get("trust", 0.0))
-		out.anger = float(row.get("anger", 0.0))
-		out.together_s = float(row.get("together_s", 0.0))
-		var stored_plan: Variant = row.get("plan", {})
-		out.plan = stored_plan if stored_plan is Dictionary else {}
-		var stored_offer: Variant = row.get("offer", {})
-		out.offer = stored_offer if stored_offer is Dictionary else {}
-		var stored_cooldowns: Variant = row.get("cooldowns", {})
-		out.cooldowns = stored_cooldowns if stored_cooldowns is Dictionary else {}
-		return out
-
-	func to_row() -> Dictionary:
-		var row := rows
-		row["stage"] = stage
-		row["familiarity"] = familiarity
-		row["trust"] = trust
-		row["anger"] = anger
-		row["together_s"] = together_s
-		row["plan"] = plan
-		row["offer"] = offer
-		row["cooldowns"] = cooldowns
-		return row
-
-	## Write the view back through the store's own save; false without the op.
-	func save(bonds: Object, id: String) -> bool:
-		if not is_instance_valid(bonds) or not bonds.has_method("_save"):
-			return false
-		bonds.call("_save", id, to_row())
-		return true
 
 
 ## One mod's live state section: the Dictionary the registry keeps, read and written in place.

@@ -4,7 +4,6 @@ extends RefCounted
 ## Contract: `docs/scene_hold.md`
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
-const GAME := preload("res://mods/unfplap/world/game.gd")
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const STATE_IDLE := ACT_STATE.State.IDLE
 const STATE_AFTERGLOW := ACT_STATE.State.AFTERGLOW
@@ -77,7 +76,8 @@ func claim_attention() -> bool:
 	var pony: Node = host.pony_node() if host != null else null
 	if not is_instance_valid(pony):
 		return false
-	if GAME.navigator_of(pony) == null or WORLD.navigator(pony).reserved() != "":
+	var lease := WORLD.navigator(pony)
+	if not lease.present() or not lease.reserved().is_empty():
 		return false
 	nav = null
 	token = ""
@@ -91,10 +91,10 @@ func transfer_nav(existing_token: String, old_wander: bool = true) -> bool:
 	var pony: Node = host.pony_node() if host != null else null
 	if not is_instance_valid(pony) or existing_token.is_empty():
 		return false
-	var found: Node = GAME.navigator_of(pony)
+	var lease := WORLD.navigator(pony)
+	var found := lease.node()
 	if found == null:
 		return false
-	var lease := WORLD.navigator(pony)
 	if lease.owner() != existing_token:
 		return false
 	nav = found
@@ -113,8 +113,9 @@ func adopt_nav(existing_token: String, old_wander: bool = true) -> bool:
 	var pony: Node = host.pony_node() if host != null else null
 	if not is_instance_valid(pony) or existing_token.is_empty():
 		return false
-	var found: Node = GAME.navigator_of(pony)
-	if found == null or WORLD.navigator(pony).owner() != existing_token:
+	var lease := WORLD.navigator(pony)
+	var found := lease.node()
+	if found == null or lease.owner() != existing_token:
 		return false
 	nav = found
 	token = existing_token
@@ -136,7 +137,7 @@ func adopt_hold() -> bool:
 func holds_negotiation() -> bool:
 	if not negotiation or token.is_empty() or nav == null or not is_instance_valid(nav):
 		return false
-	return GAME.navigator_owner(nav) == token
+	return WORLD.navigator(nav).owner() == token
 
 
 ## The scene gate's hold predicate: our affection hold, plus our lease when there is one.
@@ -148,17 +149,17 @@ func accepts_hold(_pose: String, _source: String) -> bool:
 		return true
 	if nav == null or not is_instance_valid(nav):
 		return false
-	return GAME.navigator_owner(nav) == token
+	return WORLD.navigator(nav).owner() == token
 
 
 func _claim(owner_id: String, prefix: String) -> bool:
 	var pony: Node = host.pony_node() if host != null else null
 	if not is_instance_valid(pony):
 		return false
-	nav = GAME.navigator_of(pony)
+	var lease := WORLD.navigator(pony)
+	nav = lease.node()
 	if nav == null:
 		return false
-	var lease := WORLD.navigator(pony)
 	if lease.reserved() != "":
 		return false
 	if prefix == TOKEN_NEGOTIATION:
@@ -186,12 +187,13 @@ func keep_nav() -> void:
 	# still has to give the lease back.
 	if nav == null or not is_instance_valid(nav):
 		return
-	if GAME.navigator_owner(nav) != token:
-		GAME.navigator_stay(nav)
-		GAME.set_navigator_owner(nav, token)
-		GAME.set_navigator_wander(nav, false)
-	if negotiation and GAME.navigator_has_target(nav):
-		GAME.navigator_stay(nav)
+	var lease := WORLD.navigator(nav)
+	if lease.owner() != token:
+		lease.stay()
+		lease.set_owner(token)
+		lease.set_wander(false)
+	if negotiation and lease.has_target():
+		lease.stay()
 
 
 ## Give the navigator back and restore the wander flag it had before the act. The adopted hold's
@@ -203,9 +205,10 @@ func release_nav() -> void:
 		token = ""
 		negotiation = false
 		return
-	if GAME.navigator_owner(nav) == token:
-		GAME.set_navigator_owner(nav, "")
-	GAME.set_navigator_wander(nav, nav_old_wander)
+	var lease := WORLD.navigator(nav)
+	if lease.owner() == token:
+		lease.set_owner("")
+	lease.set_wander(nav_old_wander)
 	nav = null
 	token = ""
 	negotiation = false
@@ -270,23 +273,24 @@ func pause_face_turn(force: bool = false) -> void:
 	if (not force and (host == null or host.pose_family_value() != "standing")) \
 			or not is_instance_valid(pony):
 		return
+	var view := WORLD.pony(pony)
 	if face_turn_rate_owned:
-		if absf(GAME.face_turn_rate(pony)) > 0.0001:
-			GAME.set_face_turn_rate(pony, 0.0)
+		if absf(view.face_turn_rate()) > 0.0001:
+			view.set_face_turn_rate(0.0)
 		return
-	var rate := GAME.face_turn_rate(pony)
+	var rate := view.face_turn_rate()
 	if is_nan(rate):
 		return
 	face_turn_rate_saved = rate
 	if absf(face_turn_rate_saved) > 0.0001:
-		GAME.set_face_turn_rate(pony, 0.0)
+		view.set_face_turn_rate(0.0)
 		face_turn_rate_owned = true
 
 
 func restore_face_turn() -> void:
 	var pony: Node = host.pony_node() if host != null else null
 	if face_turn_rate_owned and is_instance_valid(pony):
-		GAME.set_face_turn_rate(pony, face_turn_rate_saved)
+		WORLD.pony(pony).set_face_turn_rate(face_turn_rate_saved)
 	face_turn_rate_owned = false
 	face_turn_rate_saved = -1.0
 

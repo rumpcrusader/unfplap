@@ -15,7 +15,6 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
-const GAME := preload("res://mods/unfplap/world/game.gd")
 const STOOL := preload("res://mods/unfplap/stool/service.gd")
 const STOOL_ACT := preload("res://mods/unfplap/stool/act.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
@@ -411,7 +410,7 @@ func _apply_standing(plan: PlayerPlan, rig: Rig) -> void:
 		target = rig.stool.place(target, plan.yaw, floor_y)
 	body.global_position = target
 	if rig.stool != null and rig.stool.lifted and body.get("velocity") != null:
-		GAME.set_velocity(body, Vector3.ZERO)
+		WORLD.set_velocity(body, Vector3.ZERO)
 	plan.root_transform.origin = target
 	_reset_pelvis()
 	body.reset_physics_interpolation()

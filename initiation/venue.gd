@@ -3,7 +3,6 @@ extends Node
 ## It returns plain values; the facade owns the reasons and the log.
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
-const GAME := preload("res://mods/unfplap/world/game.gd")
 const POLICY := preload("res://mods/unfplap/initiation/policy.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const POSE_OPTIONS := preload("res://mods/unfplap/shared/pose_options.gd")
@@ -39,9 +38,9 @@ func can_approach(pony: Node3D) -> bool:
 	var node: Node3D = WORLD.player_rig()
 	if not is_instance_valid(node):
 		return false
-	if not is_instance_valid(GAME.navigator_of(pony)):
-		return false
 	var nav := WORLD.navigator(pony)
+	if not nav.present():
+		return false
 	if not nav.reserved().is_empty():
 		return false
 	var owner := nav.owner()
@@ -70,10 +69,10 @@ func ensure_stand(pony: Node) -> void:
 func claim_nav(pony: Node3D, token: String) -> Dictionary:
 	if not is_instance_valid(pony):
 		return {}
-	var found := GAME.navigator_of(pony)
+	var nav := WORLD.navigator(pony)
+	var found := nav.node()
 	if found == null:
 		return {}
-	var nav := WORLD.navigator(pony)
 	var before := {
 		"nav": found,
 		"owner": nav.owner(),
@@ -90,7 +89,8 @@ func claim_nav(pony: Node3D, token: String) -> Dictionary:
 
 
 func nav_owned(pony: Node, token: String) -> bool:
-	return is_instance_valid(GAME.navigator_of(pony)) and WORLD.navigator(pony).owner() == token
+	var nav := WORLD.navigator(pony)
+	return nav.present() and nav.owner() == token
 
 
 func nav_has_target(pony: Node) -> bool:
@@ -105,9 +105,9 @@ func stay(pony: Node) -> void:
 ## wander, speed and pace values are always restored.
 func release_nav(pony: Node, token: String, prev_owner: String, prev_wander: bool,
 		prev_limit: float, prev_pace: float) -> void:
-	if not is_instance_valid(GAME.navigator_of(pony)):
-		return
 	var nav := WORLD.navigator(pony)
+	if not nav.present():
+		return
 	if nav.owner() == token:
 		nav.set_owner(prev_owner)
 	nav.set_wander(prev_wander)
@@ -238,9 +238,9 @@ func placement_for(runtime: Node) -> POSE_OPTIONS.Placement:
 ## Restore the request claim's speed and pace overrides before the negotiation takes the lease.
 ## The navigator owner and the wander flag stay with the request episode.
 func restore_limits(pony: Node, limit: float, pace: float) -> void:
-	if not is_instance_valid(GAME.navigator_of(pony)):
-		return
 	var nav := WORLD.navigator(pony)
+	if not nav.present():
+		return
 	if not is_nan(limit):
 		nav.set_speed_limit(limit)
 	if not is_nan(pace):

@@ -1158,11 +1158,11 @@ func _check_view_writes() -> void:
 	view.call("clamp_look")
 	check(near(float(player._pitch), float(facts.look_pitch) + CAMERA_VIEW.LOOK_PITCH_LIMIT),
 		"the look pitch clamps at the cone edge")
-	player.headset_view = true
+	game.headset_view = true
 	player._pitch = 1.2
 	view.call("clamp_look")
 	check(near(float(player._pitch), 1.2), "a headset keeps the look pitch")
-	player.headset_view = false
+	game.headset_view = false
 	player._pitch = null
 	view.call("clamp_look")
 	check(player._pitch == null, "a rig without a pitch takes no look clamp")

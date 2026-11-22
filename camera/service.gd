@@ -4,7 +4,6 @@ extends RefCounted
 ## Contract: docs/camera.md.
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
-const GAME := preload("res://mods/unfplap/world/game.gd")
 const HANDS := preload("res://mods/unfplap/hands/api.gd")
 const KISS := preload("res://mods/unfplap/kiss/service.gd")
 const CAMERA_VIEW := preload("res://mods/unfplap/camera/view.gd")
@@ -663,12 +662,9 @@ func tick_free_look() -> void:
 	LOG.debug("free look %s", [("on" if active else "off")])
 
 
-## The current body preset name, or "" when no Settings node is reachable (a suite runtime).
+## The current body preset name, or "" outside a world or without the game's settings.
 func size_name() -> String:
-	var settings := settings_node()
-	if settings == null:
-		return ""
-	return GAME.setting_string(settings, "ponies/size")
+	return WORLD.game_setting("ponies/size")
 
 
 func size_scale() -> float:
@@ -773,15 +769,6 @@ func main_camera() -> Camera3D:
 func apply_standing_lean_look() -> void:
 	if pose_family() == "standing" and view != null:
 		view.apply_lean_look()
-
-
-func settings_node() -> Node:
-	var node: Node = null
-	if facts != null and is_instance_valid(facts.pony):
-		node = facts.pony
-	if node == null or not node.is_inside_tree():
-		return null
-	return node.get_node_or_null("/root/Settings")
 
 
 func feature(name: String) -> bool:

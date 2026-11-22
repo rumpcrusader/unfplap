@@ -187,7 +187,8 @@ leaves no result fails with its exit status, and one the runner's timeout killed
 Every suite must also leave no `SCRIPT ERROR` or `Parse Error` in its log.
 
 Discovery is `tests/**/test_*.gd`, two levels deep, excluding the manual labs (`test_lab*.gd`,
-`test_stress_lab.gd`). `TEST_JOBS` sets the parallelism (default 12).
+`test_stress_lab.gd`). `TEST_JOBS` sets the parallelism; the default is one job per core, capped at
+12 because one heavy suite peaks at roughly 370 MB.
 
 `scripts/check.sh` is a parse check, not a test run: use it for the files you touched, and
 `scripts/check.sh --all` before you report the task done.

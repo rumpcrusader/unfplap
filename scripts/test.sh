@@ -7,15 +7,20 @@
 #        scripts/test.sh --self-test      # the harness self-test (a hung fixture must fail), then exit
 #        scripts/test.sh --verbose ...    # also print one PASS line per suite
 # Godot 4.5 must be on PATH.
-# TEST_JOBS sets the parallelism (default 12). TEST_VERBOSE=1 is --verbose. KEEP=1 keeps the
-# temporary per-suite data and logs and prints the directory.
+# TEST_JOBS overrides the parallelism: the default is one job per core, capped at 12.
+# KEEP=1 keeps the temporary per-suite data and logs and prints the directory.
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MOD_DIR="$(dirname "$SCRIPT_DIR")"
 PROJECT_ROOT="$(cd "$MOD_DIR/../.." && pwd)"
-JOBS="${TEST_JOBS:-12}"
+JOBS_DEFAULT="$(getconf _NPROCESSORS_ONLN 2>/dev/null || true)"
+JOBS_DEFAULT="${JOBS_DEFAULT:-12}"
+if [[ "$JOBS_DEFAULT" -gt 12 ]]; then
+	JOBS_DEFAULT=12
+fi
+JOBS="${TEST_JOBS:-$JOBS_DEFAULT}"
 VERBOSE="${TEST_VERBOSE:-0}"
 ALL=0
 LIST=0

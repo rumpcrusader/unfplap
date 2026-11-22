@@ -228,8 +228,9 @@ the grip and releases the fluid; the phase decides when a climax event calls it.
   scale in the blend shape, so the shader's `anal_scale` stays at `1.0`; the setting drives the
   ponut and the body coat.
 - `disable_fold_coloring` is a missionary-only hack: it drops the vertex-alpha fold/clitoris
-  masks so the whole mesh uses her skin tones. It is applied per material build, so the next
-  non-missionary build restores the authored colors.
+  masks so the whole mesh uses her skin tones. It is applied per material build: the controller
+  rebuilds the material at the act's bed-family edge and again at the act end, while a live edit
+  goes through `apply_live()`.
 - `coat_color` and `coat_shadow` on the anatomy material are her coat colours. The dock and the
   strip edges read that fallback; leaving it at zero made those vertices black.
 - The appearance reads the presented form: `set_form()` stores it, `_rig()` supplies the typed

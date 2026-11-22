@@ -45,6 +45,8 @@ var act_presented := false
 var _view: Variant = null
 var _stage: Variant = null
 var _act_bed_frame: Variant = null
+## The fold-coloring state the live material was built with; the act's family edge rebuilds it.
+var _fold_missionary := false
 
 ## The persistent mesh/anchor/dock/fluid/visibility attachment.
 var attach: ATTACH
@@ -202,6 +204,7 @@ func end_act() -> void:
 	_view = null
 	_stage = null
 	_act_bed_frame = null
+	_sync_fold_coloring()
 
 
 ## The act's caller-owned pose and stage, kept by reference; the placement trim polls them.
@@ -210,6 +213,7 @@ func set_act_view(view: Variant, stage: Variant, bed_frame: Variant = null) -> v
 	_stage = stage
 	if bed_frame is Transform3D:
 		_act_bed_frame = bed_frame
+	_sync_fold_coloring()
 
 
 ## The service owns the player part; this handle is the one seam the act reads. A rebuild pushes
@@ -354,10 +358,18 @@ func _apply_place() -> void:
 
 
 func _apply_material() -> void:
+	_fold_missionary = _missionary_pose()
 	if appearance != null:
-		appearance.apply_material(_missionary_pose())
+		appearance.apply_material(_fold_missionary)
 	if coat_line != null and appearance != null:
 		coat_line.set_material(appearance.material())
+
+
+## The fold hack is per material build, so only the act's family edge rebuilds it, never a tick.
+func _sync_fold_coloring() -> void:
+	if _missionary_pose() == _fold_missionary or not is_attached():
+		return
+	_apply_material()
 
 
 ## The coat line's debug overlay is a child of the anatomy mesh, so it shares the mesh's local

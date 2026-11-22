@@ -48,6 +48,23 @@ class FakeAppearanceIdentity extends Resource:
 class FakeAppearancePony extends Node3D:
 	var identity: Resource
 
+
+class FakeFoldView extends RefCounted:
+	var family := "bed"
+	var bed_frame: Variant = null
+
+
+class FakeFoldAttach extends "res://mods/unfplap/anatomy/attach.gd":
+	func is_attached() -> bool:
+		return true
+
+
+class FakeFoldAppearance extends "res://mods/unfplap/anatomy/appearance.gd":
+	var fold_builds: Array[bool] = []
+
+	func apply_material(missionary: bool) -> void:
+		fold_builds.append(missionary)
+
 func run() -> void:
 	# The V2 mesh's density walk can collapse to the 4 mm floor; keep the authored band.
 	check(is_equal_approx(GEOMETRY.stable_lip_radius(0.004), GEOMETRY.WINKING_LIP_RADIUS),
@@ -471,6 +488,7 @@ func run() -> void:
 		float(appearance_material.get_shader_parameter("fold_coloring")), 1.0),
 		"a non-missionary rebuild restores the fold coloring")
 	SETTINGS.disable_fold_coloring.set_bool(saved_fold)
+	_check_fold_coloring_act_edge()
 
 	# The generated teats carry their sway weight in CUSTOM0.x, so they get their own material with
 	# `sway_custom` on; the old mare-shaped asset keeps the vertex-alpha sway.
@@ -499,3 +517,23 @@ func run() -> void:
 	near_pony.free()
 
 	finish()
+
+
+## The fold hack is rebuilt at the act's family edge, not on every tick: the bed view builds with
+## it, a repeated read does nothing and the act end restores the authored colors.
+func _check_fold_coloring_act_edge() -> void:
+	var controller := ANATOMY.new()
+	var appearance := FakeFoldAppearance.new()
+	controller.appearance = appearance
+	controller.attach = FakeFoldAttach.new()
+	var view := FakeFoldView.new()
+	controller.set_act_view(view, null)
+	check(appearance.fold_builds.size() == 1 and appearance.fold_builds[0],
+		"the act's bed family rebuilds the material with the fold hack")
+	controller.set_act_view(view, null)
+	check(appearance.fold_builds.size() == 1,
+		"a repeated family read never rebuilds the material")
+	controller.end_act()
+	check(appearance.fold_builds.size() == 2 and not appearance.fold_builds[1],
+		"the act end rebuilds the material without the fold hack")
+	controller.free()

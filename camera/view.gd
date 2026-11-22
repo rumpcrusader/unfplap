@@ -405,7 +405,7 @@ func _drive_glance(delta: float) -> void:
 		_glance_sign_set = true
 		_glance_sign = 1.0 if str(facts.forced_glance) == "L" else -1.0
 		_glance_back = true
-		if GAME.look_toward(secondary, _glance_angles(), 0.4):
+		if WORLD.pony(pony).look_toward(secondary, _glance_angles(), 0.4):
 			_aim_eyes_at_player()
 		return
 	if lean_up:
@@ -413,7 +413,7 @@ func _drive_glance(delta: float) -> void:
 			_glance_sign = 1.0
 			_glance_sign_set = true
 		_glance_back = true
-		if GAME.look_toward(secondary, _glance_angles(), 0.3):
+		if WORLD.pony(pony).look_toward(secondary, _glance_angles(), 0.3):
 			_aim_eyes_at_player()
 		return
 	if not is_instance_valid(secondary) or not secondary.has_method("look_toward"):
@@ -422,7 +422,7 @@ func _drive_glance(delta: float) -> void:
 		_glance_wait = randf_range(float(_pose_cfg["glance_min"]), float(_pose_cfg["glance_max"]))
 	if _glance_left > 0.0:
 		_glance_left -= delta
-		GAME.look_toward(secondary, _glance_angles(), 0.4)
+		WORLD.pony(pony).look_toward(secondary, _glance_angles(), 0.4)
 		_aim_eyes_at_player()
 		if _glance_left <= 0.0:
 			_glance_wait = randf_range(float(_pose_cfg["glance_min"]), float(_pose_cfg["glance_max"]))
@@ -432,7 +432,7 @@ func _drive_glance(delta: float) -> void:
 		_glance_left = float(_pose_cfg["glance_hold"])
 		_glance_back = randf() < float(_pose_cfg["glance_back_chance"])
 		_glance_sign_set = false
-	GAME.look_toward(secondary, Vector3.ZERO, 0.4)
+	WORLD.pony(pony).look_toward(secondary, Vector3.ZERO, 0.4)
 
 
 ## Pupils/eyes follow Anon during a glance. The native eye modifier exposes `target_world` and
@@ -440,16 +440,13 @@ func _drive_glance(delta: float) -> void:
 func _aim_eyes_at_player() -> void:
 	if not is_instance_valid(pony):
 		return
-	var eye_motion: Variant = pony.get("eye_motion")
-	if eye_motion == null or not is_instance_valid(eye_motion):
-		return
 	var view: Camera3D = WORLD.camera()
 	var target: Vector3 = view.global_position if is_instance_valid(view) else pony.global_position
-	GAME.aim_eyes(eye_motion, target)
+	WORLD.pony(pony).aim_eyes(target)
 
 
 func _glance_angles() -> Vector3:
-	var head := GAME.listen_point(pony)
+	var head := WORLD.pony(pony).listen_point()
 	var target: Vector3 = head
 	if is_instance_valid(WORLD.player):
 		var view: Camera3D = WORLD.camera()
@@ -533,7 +530,7 @@ func _tick_eye(kiss: Variant, look: Vector3) -> void:
 	var body: Node = facts.missionary_body() if facts != null else null
 	if body == null:
 		return
-	var eye := GAME.eye_transform(body)
+	var eye := WORLD.pony(body).eye_transform()
 	if not eye.origin.is_finite():
 		return
 	var eye_basis := eye.basis.orthonormalized()
@@ -679,16 +676,14 @@ func _clear_live_head(at: Vector3) -> Vector3:
 	var clearance := float(facts.head_clearance) if facts != null else 0.0
 	if clearance <= 0.0001 or not is_instance_valid(pony):
 		return at
-	var boop := GAME.boop_of(pony)
-	if boop == null:
-		return at
-	var skull := GAME.skull_world(boop)
-	var nose := GAME.nose_world(boop)
+	var body_view := WORLD.pony(pony)
+	var skull := body_view.skull_world()
+	var nose := body_view.nose_world()
 	if not skull.is_finite() or not nose.is_finite():
 		return at
 	var scale := _missionary_body_scale()
 	var point := _push_sphere(at, skull, 0.09 * scale + clearance)
-	var muzzle := GAME.muzzle_world(boop)
+	var muzzle := body_view.muzzle_world()
 	if muzzle.is_finite():
 		point = _push_capsule(point, muzzle, nose, 0.04 * scale + clearance)
 	return point

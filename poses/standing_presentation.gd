@@ -444,18 +444,19 @@ func _end_presentation_hold() -> void:
 ## Hold the approved affectionate face after the turn. A spoken line's own face wins until it
 ## clears; the nose blush stays at full.
 func _sustain_present_blush() -> void:
-	GAME.sustain_blush(GAME.boop_of(pony), PRESENT_BLUSH)
+	WORLD.face(pony).sustain_blush(PRESENT_BLUSH)
 
 
 func _apply_present_face() -> void:
 	if not is_instance_valid(pony):
 		return
-	var expressions: Variant = pony.get("expressions")
-	if expressions == null or not expressions.has_method("set_dialogue"):
+	var face_view := WORLD.face(pony)
+	var controller := face_view.controller()
+	if controller == null or not controller.has_method("set_dialogue"):
 		return
-	if not str(expressions.get("dialogue_face")).is_empty():
+	if not face_view.dialogue_face().is_empty():
 		return
-	GAME.set_dialogue(expressions, PRESENT_FACE)
+	face_view.set_dialogue(PRESENT_FACE)
 	_present_face_owned = true
 
 
@@ -464,11 +465,14 @@ func _clear_present_face() -> void:
 	if not _present_face_owned:
 		return
 	_present_face_owned = false
-	var expressions: Variant = pony.get("expressions") if is_instance_valid(pony) else null
-	if expressions == null or not expressions.has_method("clear_dialogue"):
+	if not is_instance_valid(pony):
 		return
-	if str(expressions.get("dialogue_face")) == PRESENT_FACE:
-		GAME.clear_dialogue(expressions)
+	var face_view := WORLD.face(pony)
+	var controller := face_view.controller()
+	if controller == null or not controller.has_method("clear_dialogue"):
+		return
+	if face_view.dialogue_face() == PRESENT_FACE:
+		face_view.clear_dialogue()
 
 
 func _present_turn_process() -> void:
@@ -495,14 +499,14 @@ func _presentation_process() -> void:
 	if _present_glance_back and facts.clock() >= _present_glance_until:
 		_present_glance_back = false
 	var secondary: Object = pony.get("secondary")
-	GAME.look_toward(secondary, _present_glance_angles(), 0.45)
+	WORLD.pony(pony).look_toward(secondary, _present_glance_angles(), 0.45)
 	_present_aim_eyes()
 	_sustain_present_blush()
 	_apply_present_face()
 
 
 func _present_glance_angles() -> Vector3:
-	var head: Vector3 = GAME.listen_point(pony)
+	var head: Vector3 = WORLD.pony(pony).listen_point()
 	var target: Vector3 = head
 	if is_instance_valid(WORLD.player):
 		var view: Camera3D = WORLD.camera()
@@ -528,7 +532,7 @@ func _present_aim_eyes() -> void:
 		return
 	var view: Camera3D = WORLD.camera() if is_instance_valid(WORLD.game) else null
 	var target: Vector3 = view.global_position if is_instance_valid(view) else pony.global_position
-	GAME.aim_eyes(pony.get("eye_motion"), target)
+	WORLD.pony(pony).aim_eyes(target)
 
 
 ## Read the live scene handles and pose config from the typed act view. The runtime rewrites

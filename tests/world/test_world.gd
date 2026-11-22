@@ -1,6 +1,6 @@
 extends "res://mods/unfplap/tests/support/suite.gd"
 ## The world facade: the bound scene handles, the camera cache, the bed resolution, the menu and
-## headset gates, the player body and mare reads, the LOD rebuild and the act chat.
+## headset gates, the player body and mare reads, the LOD rebuild, the act chat and the four views.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/world/test_world.gd
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
@@ -101,6 +101,7 @@ class FakeBody extends Node3D:
 	var boop_node: Variant = null
 	var body_scale: Variant = null
 	var head: Variant = null
+	var expressions: Variant = null
 	var eye_y := 0.0
 	var skeleton: Skeleton3D
 	var hair_skeleton: Skeleton3D
@@ -227,6 +228,14 @@ class FakeBoop extends Node:
 
 class FakeMouth extends "res://mods/unfplap/tests/support/fakes/fake_mouth.gd":
 	pass
+
+
+## A mouth rig that takes both the viseme writes and the mouth expressions.
+class FakeFullMouth extends "res://mods/unfplap/tests/support/fakes/fake_mouth.gd":
+	var faces: Array[String] = []
+
+	func set_expression(name: String, _amount: float) -> void:
+		faces.append(name)
 
 
 class FakeHead extends Node:
@@ -362,6 +371,78 @@ class FakeLimits extends RefCounted:
 		return Basis(Vector3.UP, 0.5)
 
 
+## Her expression controller: every write the face view makes, and the two live fields it reads.
+class FakeExpressions extends RefCounted:
+	var touches: Array = []
+	var releases: Array = []
+	var stares: Array = []
+	var flusters: Array = []
+	var cleared := 0
+	var finished := 0.0
+	var fluster_amount := 0.0
+	var dialogue_face := ""
+
+	func touch(source: String, smile: float, lids: float) -> void:
+		touches.append([source, smile, lids])
+
+	func release_touch(source: String) -> void:
+		releases.append(source)
+
+	func stare(on: bool, lids: float) -> void:
+		stares.append([on, lids])
+
+	func fluster(seconds: float, peeks: bool) -> void:
+		flusters.append([seconds, peeks])
+
+	func set_dialogue(face: String) -> void:
+		dialogue_face = face
+
+	func finish_dialogue(seconds: float) -> void:
+		finished = seconds
+
+	func clear_dialogue() -> void:
+		cleared += 1
+		dialogue_face = ""
+
+
+## Her touch body: the hull sync the flank view runs.
+class FakeTouchBody extends Node3D:
+	var synced: Array = []
+
+	func _unprofiled_sync(rig: int, _all: bool) -> void:
+		synced.append(rig)
+
+
+## The flank patch the act skins and jiggles.
+class FakeFlankTouch extends Node:
+	var _jiggle_amount := -1.0
+	var impacts: Array = []
+	var wakes := 0
+	var jiggles: Array = []
+	var frames := 0
+
+	func impact(index: int, at: Vector3, strength: float) -> void:
+		impacts.append([index, at, strength])
+
+	func wake_tick() -> void:
+		wakes += 1
+
+	func _start_jiggle(index: int, strength: float) -> void:
+		jiggles.append([index, strength])
+
+	func _process(_delta: float) -> void:
+		frames += 1
+
+
+## The posed patch's own skinning call.
+class FakeSurface extends RefCounted:
+	var skins: Array = []
+
+	func update_pose(skeleton: Skeleton3D, frame: Transform3D) -> void:
+		skins.append([skeleton, frame])
+
+
+
 func run() -> void:
 	_check_unbound()
 	_check_binding()
@@ -378,6 +459,7 @@ func run() -> void:
 	_check_kiss_and_settings()
 	_check_turn_and_wing_accessors()
 	_check_pose_accessors()
+	_check_views()
 	_check_body_lod()
 	_check_desktop()
 	await _check_bed_under()
@@ -1287,3 +1369,158 @@ func _check_pose_accessors() -> void:
 	right.queue_free()
 	plain.queue_free()
 
+
+## The four bound views: one cached handle per node, the accessor answer on the live node, the
+## typed zero on an absent one, and the cache dropped by every bind.
+func _check_views() -> void:
+	WORLD.unbind()
+	var pony := FakeBody.new()
+	root.add_child(pony)
+	var mouth := FakeFullMouth.new()
+	var head := FakeHead.new()
+	root.add_child(head)
+	head.add_child(mouth)
+	head.mouth = mouth
+	pony.head = head
+	var skeleton := Skeleton3D.new()
+	pony.add_child(skeleton)
+	pony.skeleton = skeleton
+	var boop := FakeBoop.new()
+	pony.add_child(boop)
+	pony.boop_node = boop
+	var eye := SkeletonModifier3D.new()
+	pony.add_child(eye)
+	pony.eye_motion = eye
+	pony.body_scale = 1.25
+	var expressions := FakeExpressions.new()
+	pony.expressions = expressions
+
+	var view := WORLD.pony(pony)
+	check(view == WORLD.pony(pony), "a pony view is cached per bound node")
+	check(view.identity() == pony.identity, "the view reads her identity")
+	check(not view.has_wings(), "a plain identity has no wings")
+	check(view.skeleton() == skeleton, "the view reads her skeleton")
+	check(view.head() == head, "the view reads her head")
+	check(view.mouth() == mouth, "the view finds her mouth through the head")
+	check(view.boop() == boop, "the view reads her blush sustainer")
+	check(view.eye_motion() == eye, "the view reads her gaze controller")
+	check(is_equal_approx(view.body_scale(), 1.25), "the view reads her body scale")
+	check(not view.hair_link_ready(), "a body without a hair link is not ready")
+	check(not view.is_held() and not view.grounded(), "a still body is neither held nor grounded")
+	check(view.posture_requested() == "" and view.interruption_reason() == "",
+		"a body without a posture answers empty")
+	check(not view.eye_transform().origin.is_finite(), "a body without the eye read answers INF")
+	view.set_viseme("D")
+	check(mouth.visemes == ["D"], "the viseme reaches her mouth through the view")
+	view.clear_viseme()
+	check(mouth.clears == 1, "the viseme clear reaches her mouth through the view")
+	view.set_near_mesh(false)
+	check(pony.near_calls == [false], "the near-mesh switch reaches her body through the view")
+	view.request_posture("stand")
+	view.stop_speaking()
+	view.set_motion_paused(true)
+
+	var face_view := WORLD.face(pony)
+	check(face_view == WORLD.face(pony), "a face view is cached per bound node")
+	check(face_view.controller() == expressions, "the view reads her expression controller")
+	face_view.touch("unfplap", 0.4, 0.1)
+	check(expressions.touches == [["unfplap", 0.4, 0.1]], "the touch reaches her controller")
+	face_view.release_touch("unfplap")
+	check(expressions.releases == ["unfplap"], "the touch release reaches her controller")
+	face_view.stare(true, 0.2)
+	check(expressions.stares == [[true, 0.2]], "the stare reaches her controller")
+	face_view.fluster(1.5, false)
+	check(expressions.flusters == [[1.5, false]], "the fluster reaches her controller")
+	expressions.fluster_amount = 0.6
+	check(is_equal_approx(face_view.fluster_amount(), 0.6), "the fluster amount is read")
+	face_view.set_dialogue("smile")
+	check(face_view.dialogue_face() == "smile", "a dialogue face is set and read")
+	face_view.finish_dialogue(2.5)
+	check(is_equal_approx(expressions.finished, 2.5), "the dialogue finish reaches her controller")
+	face_view.clear_dialogue()
+	check(expressions.cleared == 1, "the dialogue clear reaches her controller")
+	face_view.set_expression("pout", 0.2)
+	check(mouth.faces == ["pout"], "the mouth expression reaches her rig")
+	face_view.sustain_blush(0.5)
+	check(is_equal_approx(boop.amount, 0.5), "the blush reaches her sustainer")
+	check(not face_view.celebrate(), "a sustainer without the op answers false")
+
+	var wing_node := FakeWings.new()
+	root.add_child(wing_node)
+	var excitement := FakeWingedExcitement.new()
+	root.add_child(excitement)
+	excitement.wings = wing_node
+	var wing_view := WORLD.wings(excitement)
+	check(wing_view == WORLD.wings(excitement), "a wings view is cached per bound node")
+	check(wing_view.node() == wing_node, "the view reads her wing node off the Beat")
+	wing_view.spread(4.0)
+	check(excitement.spreads == [4.0], "the stock spread reaches the Beat")
+	wing_view.flutter()
+	check(excitement.flutters == 1, "the flutter reaches the Beat")
+	var node_view := WORLD.wings(wing_node)
+	check(node_view != wing_view, "the wing node gets its own view")
+	check(node_view.hold("unfplap", 0.4), "the view takes the wing hold")
+	check(wing_node.holds == [["unfplap", 0.4]], "the hold reaches her wing node")
+	node_view.set_opened(true)
+	check(node_view.opened(), "the open write and read reach her wing node")
+	node_view.set_tuck(0.75)
+	node_view.set_half(0.25)
+	check(is_equal_approx(wing_node.tuck, 0.75) and is_equal_approx(wing_node.half, 0.25),
+		"the fold blends reach her wing node")
+	node_view.release_hold("unfplap")
+	check(wing_node.releases == ["unfplap"], "the hold release reaches her wing node")
+	node_view.set_open(false)
+	check(wing_node.opens.back() == false, "the open switch reaches her wing node")
+
+	var flank := FakeFlankTouch.new()
+	root.add_child(flank)
+	var flank_view := WORLD.flank(flank)
+	check(flank_view == WORLD.flank(flank), "a flank view is cached per bound node")
+	flank_view.impact(1, Vector3.ONE, 0.5)
+	check(flank.impacts == [[1, Vector3.ONE, 0.5]], "the impact reaches her flank")
+	flank_view.wake_tick()
+	check(flank.wakes == 1, "the wake tick reaches her flank")
+	check(flank_view.start_jiggle(0, 0.8), "the jiggle starts on her flank")
+	check(flank.jiggles == [[0, 0.8]], "the jiggle reaches her flank")
+	flank_view.process(0.016)
+	check(flank.frames >= 1, "the jiggle frame reaches her flank")
+	flank_view.set_jiggle_amount(0.3)
+	check(is_equal_approx(flank_view.jiggle_amount(), 0.3), "the jiggle amount is written and read")
+	var surface := FakeSurface.new()
+	flank_view.update_surface(surface, skeleton, Transform3D.IDENTITY)
+	check(surface.skins.size() == 1 and surface.skins[0][0] == skeleton,
+		"the patch is skinned through the view")
+	var touch := FakeTouchBody.new()
+	root.add_child(touch)
+	WORLD.flank(touch).sync(2)
+	check(touch.synced == [2], "the hull sync reaches her touch body")
+
+	var second := FakeBody.new()
+	root.add_child(second)
+	check(WORLD.pony(second) != view, "a second body gets its own view")
+	check(WORLD.pony(null).identity() == null, "a null pony answers no identity")
+	check(not WORLD.pony(null).has_wings(), "a null pony has no wings")
+	check(WORLD.face(null).dialogue_face() == "", "a null pony has no dialogue face")
+	check(WORLD.wings(null).node() == null, "a null Beat has no wing node")
+	check(is_nan(WORLD.flank(null).jiggle_amount()), "a null flank answers NAN")
+	var gone := FakeBody.new()
+	root.add_child(gone)
+	gone.free()
+	check(WORLD.pony(null).identity() == null, "no pony answers no identity through the view")
+	var game := FakeGame.new()
+	root.add_child(game)
+	WORLD.bind_world(game)
+	check(WORLD.pony(pony) != view, "a bind drops the cached views")
+	check(WORLD.pony(pony) == WORLD.pony(pony), "the new bind caches its own view")
+	WORLD.unbind()
+
+	pony.queue_free()
+	head.queue_free()
+	boop.queue_free()
+	eye.queue_free()
+	second.queue_free()
+	game.queue_free()
+	wing_node.queue_free()
+	excitement.queue_free()
+	flank.queue_free()
+	touch.queue_free()

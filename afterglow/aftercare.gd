@@ -3,6 +3,7 @@ extends Node
 ## Created by the runtime after restore. Runs independently of the act state.
 
 const GAME := preload("res://mods/unfplap/world/game.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const TAIL := preload("res://mods/unfplap/poses/tail_pose.gd")
 const DURATION := 10.0
 const FADE := 0.6
@@ -33,7 +34,7 @@ func _ready() -> void:
 		return
 	pony.set_meta("sex_aftercare", true)
 	if body_language:
-		var hair := GAME.hair_skeleton_of(pony)
+		var hair := WORLD.pony(pony).hair_skeleton()
 		if hair != null:
 			_tail = TAIL.new()
 			_tail.name = "UnfplapAftercareTail"

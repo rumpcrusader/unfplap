@@ -169,7 +169,7 @@ func rows(pose: String, act_source: String, bed_in: Node3D, mode: String,
 	elif mode == "offer":
 		if bool(scene.get("standing_free", false)):
 			_row(rows_out, "standing_free",
-				not GAME.is_held(pony) and not pony.has_meta("seated"), "standing_free")
+				not WORLD.pony(pony).is_held() and not pony.has_meta("seated"), "standing_free")
 		elif not POSE_SPECS.is_offerable(pose):
 			_row(rows_out, "pose", false, "pose")
 	return rows_out

@@ -134,7 +134,7 @@ func _start_kiss_leg_pin() -> void:
 		return
 	if is_instance_valid(_kiss_leg_pin) or not is_instance_valid(pony):
 		return
-	var skeleton := GAME.skeleton_of(pony)
+	var skeleton := WORLD.pony(pony).skeleton()
 	if skeleton == null:
 		return
 	_kiss_leg_pin = KISS_LEGS.new()
@@ -181,7 +181,7 @@ func _start_base_kiss() -> bool:
 	_base_kiss_affection = affection
 	_suppress_base_kiss_excitement()
 	var pose_node: Variant = affection.get("pose")
-	var skeleton := GAME.skeleton_of(pony)
+	var skeleton := WORLD.pony(pony).skeleton()
 	if pose_node is SkeletonModifier3D and skeleton != null:
 		var index := skeleton.get_children().find(pose_node)
 		if index >= 0:
@@ -225,7 +225,7 @@ func _restore_base_kiss_pose() -> void:
 		GAME.release_kiss_side(_base_kiss_pose)
 	_base_kiss_releasing = false
 	if is_instance_valid(_base_kiss_pose) and is_instance_valid(pony):
-		var skeleton := GAME.skeleton_of(pony)
+		var skeleton := WORLD.pony(pony).skeleton()
 		if skeleton != null:
 			var index := clampi(_base_kiss_pose_index, 0, skeleton.get_child_count() - 1)
 			skeleton.move_child(_base_kiss_pose, index)
@@ -404,13 +404,11 @@ func _kiss_tick(delta: float) -> void:
 		return
 	if not is_instance_valid(pony):
 		return
-	var expressions := GAME.expressions_of(pony)
-	if expressions != null:
-		GAME.touch(expressions, "affection", 0.25 * _kiss_amount, (1.0 - 0.05) * _kiss_amount)
-	var mouth := GAME.mouth_of(GAME.head_of(pony))
-	if mouth != null:
-		GAME.set_expression(mouth, "pout", 0.18 * _kiss_amount)
-		GAME.set_expression(mouth, "open_soft", 0.025 * _kiss_amount)
+	var face_view := WORLD.face(pony)
+	if face_view.controller() != null:
+		face_view.touch("affection", 0.25 * _kiss_amount, (1.0 - 0.05) * _kiss_amount)
+	face_view.set_expression("pout", 0.18 * _kiss_amount)
+	face_view.set_expression("open_soft", 0.025 * _kiss_amount)
 	if not active:
 		return
 	_kiss_sound_clock -= delta
@@ -458,17 +456,15 @@ func _kiss_diag() -> void:
 	if is_instance_valid(view):
 		var target := _target(view)
 		var right := view.global_basis.x.normalized()
-		var mouth := GAME.mouth_point(affection)
+		var mouth := WORLD.pony(pony).mouth_point(affection)
 		if mouth.is_finite():
 			mouth_gap = mouth.distance_to(target)
-		var boop := GAME.boop_of(pony) if is_instance_valid(pony) else null
-		if boop != null:
-			var skull := GAME.skull_world(boop)
-			if skull.is_finite():
-				skull_lateral = (skull - target).dot(right)
+		var skull := WORLD.pony(pony).skull_world() if is_instance_valid(pony) else Vector3.INF
+		if skull.is_finite():
+			skull_lateral = (skull - target).dot(right)
 		var camera: Camera3D = facts.camera
 		cam_roll = rad_to_deg(camera.rotation.z) if is_instance_valid(camera) else 0.0
-		var skeleton := GAME.skeleton_of(pony) if is_instance_valid(pony) else null
+		var skeleton := WORLD.pony(pony).skeleton() if is_instance_valid(pony) else null
 		if skeleton != null:
 			var head_bone := skeleton.find_bone("pony_head")
 			if head_bone >= 0:
@@ -516,13 +512,11 @@ func _mouth_view() -> Camera3D:
 func _release_kiss_face() -> void:
 	if not is_instance_valid(pony):
 		return
-	var expressions := GAME.expressions_of(pony)
-	if expressions != null:
-		GAME.release_touch(expressions, "affection")
-	var mouth := GAME.mouth_of(GAME.head_of(pony))
-	if mouth != null:
-		GAME.set_expression(mouth, "pout", 0.0)
-		GAME.set_expression(mouth, "open_soft", 0.0)
+	var face_view := WORLD.face(pony)
+	if face_view.controller() != null:
+		face_view.release_touch("affection")
+	face_view.set_expression("pout", 0.0)
+	face_view.set_expression("open_soft", 0.0)
 
 
 ## Shared shoulder touch point. The lean reach and the full-lean caress must use exactly the

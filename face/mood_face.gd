@@ -59,20 +59,21 @@ func _physics_process(delta: float) -> void:
 
 
 func _apply_face() -> void:
-	var expressions := GAME.expressions_of(pony)
-	if expressions == null or not is_instance_valid(expressions):
+	var face_view := WORLD.face(pony)
+	var controller := face_view.controller()
+	if controller == null or not is_instance_valid(controller):
 		return
-	if not expressions.has_method("set_dialogue"):
+	if not controller.has_method("set_dialogue"):
 		return
-	if GAME.dialogue_face(expressions).is_empty():
-		GAME.set_dialogue(expressions, face)
+	if face_view.dialogue_face().is_empty():
+		face_view.set_dialogue(face)
 		_applied_face = true
 
 
 func _apply_blush() -> void:
 	if blush <= 0.0:
 		return
-	GAME.sustain_blush(GAME.boop_of(pony), blush)
+	WORLD.face(pony).sustain_blush(blush)
 
 
 ## Her AI can commit a newer mood in a later reply. The face must not outlive the note it shows.
@@ -100,12 +101,13 @@ func _mood_still_ours() -> bool:
 func _clear_face() -> void:
 	if not _applied_face or not is_instance_valid(pony):
 		return
-	var expressions := GAME.expressions_of(pony)
-	if expressions == null or not is_instance_valid(expressions) \
-			or not expressions.has_method("clear_dialogue"):
+	var face_view := WORLD.face(pony)
+	var controller := face_view.controller()
+	if controller == null or not is_instance_valid(controller) \
+			or not controller.has_method("clear_dialogue"):
 		return
-	if GAME.dialogue_face(expressions) == face:
-		GAME.clear_dialogue(expressions)
+	if face_view.dialogue_face() == face:
+		face_view.clear_dialogue()
 
 
 func _finish(reason := "") -> void:

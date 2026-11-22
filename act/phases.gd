@@ -10,7 +10,7 @@ const ACT_SESSION := preload("res://mods/unfplap/act/session.gd")
 const POSE_SESSION := preload("res://mods/unfplap/poses/service.gd")
 const PERF := preload("res://mods/unfplap/shared/perf.gd")
 const ACT_FACE := preload("res://mods/unfplap/shared/act_face.gd")
-const GAME := preload("res://mods/unfplap/world/game.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 
 var host: ACT_HOST = null
 var context: ACT_CONTEXT = null
@@ -35,10 +35,8 @@ func presentation(delta: float) -> void:
 	session.advance_act_seconds(delta)
 	if session.pose_family() == "bed":
 		context.camera.aim_eyes()
-	var boop := GAME.boop_of(host.pony)
-	if boop != null:
-		GAME.sustain_blush(boop, ACT_FACE.blush_for(ACT_FACE.phase_for(session.state),
-			context.readiness.satisfaction, session.feature("blush_arc")))
+	WORLD.face(host.pony).sustain_blush(ACT_FACE.blush_for(ACT_FACE.phase_for(session.state),
+		context.readiness.satisfaction, session.feature("blush_arc")))
 	PERF.begin("wings_tick")
 	context.wings.tick(delta, str(context.pose.view().family), context.readiness.satisfaction,
 		session.act_seconds())
@@ -114,7 +112,7 @@ func oral_speech_stop() -> void:
 func stop_speech() -> void:
 	if not is_instance_valid(host.pony):
 		return
-	if GAME.pony_speaking(host.pony):
-		GAME.stop_speaking(host.pony)
+	if WORLD.pony(host.pony).speaking():
+		WORLD.pony(host.pony).stop_speaking()
 		if context.anatomy != null:
 			context.anatomy.hold_mouth()

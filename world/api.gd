@@ -6,8 +6,34 @@ extends RefCounted
 ## The one live-scene reader; it answers where and what, not whether.
 
 const GAME := preload("res://mods/unfplap/world/game.gd")
+const PONY_VIEW := preload("res://mods/unfplap/world/views/pony.gd")
+const FACE_VIEW := preload("res://mods/unfplap/world/views/face.gd")
+const WINGS_VIEW := preload("res://mods/unfplap/world/views/wings.gd")
+const FLANK_VIEW := preload("res://mods/unfplap/world/views/flank.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const INTERACTOR_PATH := "res://player/interactor.gd"
+
+## One pony's body reads and writes, bound to her node; every member answers typed zeroes when the
+## node is gone, so a caller that keeps a view across a despawn never crashes.
+class Pony extends PONY_VIEW:
+	func _init(n: Node) -> void:
+		super(n)
+
+## Her expression controller, dialogue face and blush, bound to her node.
+class Face extends FACE_VIEW:
+	func _init(n: Node) -> void:
+		super(n)
+
+## Her wing node and the excitement Beat that owns the stock spread, bound to either one.
+class Wings extends WINGS_VIEW:
+	func _init(n: Node) -> void:
+		super(n)
+
+## Her flank patch and touch body: the hull sync, the jiggle surface and its fold.
+class Flank extends FLANK_VIEW:
+	func _init(n: Node) -> void:
+		super(n)
+
 
 ## The live world root; null outside a world.
 static var game: Node = null
@@ -18,6 +44,11 @@ static var _interactor: Node = null
 static var _desktop: Node = null
 static var _camera_cache: Camera3D = null
 static var _camera_cache_at := 0.0
+## One view per bound node, dropped by every bind so no old body survives.
+static var _ponies: Dictionary = {}
+static var _faces: Dictionary = {}
+static var _wings: Dictionary = {}
+static var _flanks: Dictionary = {}
 
 
 ## The world entered. The resolved handles belong to the old one.
@@ -49,6 +80,10 @@ static func _clear_handles() -> void:
 	_desktop = null
 	_camera_cache = null
 	_camera_cache_at = 0.0
+	_ponies.clear()
+	_faces.clear()
+	_wings.clear()
+	_flanks.clear()
 
 
 static func _tree() -> SceneTree:
@@ -353,3 +388,52 @@ static func open_chat() -> bool:
 	if not is_instance_valid(game) or not is_instance_valid(player):
 		return false
 	return GAME.open_chat(game, player)
+
+
+## One pony's body, cached per bound node; an invalid node answers the accessors' typed zeroes.
+static func pony(n: Node) -> Pony:
+	var live := is_instance_valid(n)
+	var key := n.get_instance_id() if live else 0
+	var found: Variant = _ponies.get(key)
+	if found is Pony and (not live or found._bound() == n):
+		return found
+	var view := Pony.new(n if live else null)
+	_ponies[key] = view
+	return view
+
+
+## Her face and blush, cached per bound node.
+static func face(n: Node) -> Face:
+	var live := is_instance_valid(n)
+	var key := n.get_instance_id() if live else 0
+	var found: Variant = _faces.get(key)
+	if found is Face and (not live or found._bound() == n):
+		return found
+	var view := Face.new(n if live else null)
+	_faces[key] = view
+	return view
+
+
+## Her wing node, or the excitement Beat that owns it, cached per bound node.
+static func wings(n: Node) -> Wings:
+	var live := is_instance_valid(n)
+	var key := n.get_instance_id() if live else 0
+	var found: Variant = _wings.get(key)
+	if found is Wings and (not live or found._bound() == n):
+		return found
+	var view := Wings.new(n if live else null)
+	_wings[key] = view
+	return view
+
+
+## Her flank patch or touch body, cached per bound node.
+static func flank(n: Node) -> Flank:
+	var live := is_instance_valid(n)
+	var key := n.get_instance_id() if live else 0
+	var found: Variant = _flanks.get(key)
+	if found is Flank and (not live or found._bound() == n):
+		return found
+	var view := Flank.new(n if live else null)
+	_flanks[key] = view
+	return view
+

@@ -187,7 +187,7 @@ static func _bring_to_bed(pony: Node3D, rest: Node3D) -> String:
 	if pony.get("velocity") != null:
 		GAME.set_velocity(pony, Vector3.ZERO)
 	if pony.get("motion_paused") != null:
-		GAME.set_motion_paused(pony, false)
+		WORLD.pony(pony).set_motion_paused(false)
 	PONY.upright(pony)
 	pony.reset_physics_interpolation()
 	var nav := GAME.navigator_of(pony)
@@ -238,7 +238,7 @@ static func state_text(host: Node, pony: Node3D, rest: Node3D) -> String:
 			reasons.append("meta:" + meta)
 	if pony.get_meta("affection_active", false):
 		reasons.append("affection")
-	if not GAME.interruption_reason(pony).is_empty():
+	if not WORLD.pony(pony).interruption_reason().is_empty():
 		reasons.append("interrupt")
 	if pony.get("flight") != null and bool(pony.get("flight").active()):
 		reasons.append("flight")

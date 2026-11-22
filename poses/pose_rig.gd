@@ -1,7 +1,7 @@
 extends RefCounted
 ## Bone cache and low-level helpers shared by pose recipes. All writes are in skeleton space.
 
-const GAME := preload("res://mods/unfplap/world/game.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 
 var mare: Node3D
 var root := -1
@@ -95,7 +95,8 @@ func rotate_free(sk: Skeleton3D, bone: int, axis: Vector3, angle: float) -> void
 func _limit(sk: Skeleton3D, bone: int) -> void:
 	if limits == null:
 		return
-	var held := GAME.joint_constrain(limits, bone, Basis(sk.get_bone_pose_rotation(bone)))
+	var held := WORLD.pony(mare).joint_constrain(limits, bone,
+		Basis(sk.get_bone_pose_rotation(bone)))
 	sk.set_bone_pose_rotation(bone, held.get_rotation_quaternion())
 
 

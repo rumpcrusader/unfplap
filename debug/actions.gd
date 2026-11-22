@@ -13,6 +13,7 @@ const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const CYCLE := preload("res://mods/unfplap/shared/cycle.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const ACT_FACE := preload("res://mods/unfplap/shared/act_face.gd")
+const FACE := preload("res://mods/unfplap/face/service.gd")
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
 const BODY_CHANGE_SERVICE := preload("res://mods/unfplap/body_change/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
@@ -521,7 +522,7 @@ func _debug_gate_rows(target: Node, runtime: Variant) -> Array[String]:
 	var source := ""
 	var scene := PONIES.scene_of(runtime)
 	var bed: Variant = null
-	var requested := GAME.posture_requested(target)
+	var requested := WORLD.pony(target).posture_requested()
 	if requested == "lie_down":
 		pose = CATALOG.MISSIONARY
 		source = "already_lying"
@@ -574,7 +575,7 @@ func action_force_act_face() -> String:
 	if session != null:
 		shown = bool(session.force_act_face(face))
 	if not shown:
-		shown = ACT_FACE.react(target, face, 3.0)
+		shown = FACE.react(target, face, 3.0)
 	LOG.debug("act face %s=%s shown=%s", [str(target.name), face, str(shown)])
 	return "Act face %s: %s%s." % [str(target.name), face,
 		"" if shown else " (a spoken line owns the face)"]

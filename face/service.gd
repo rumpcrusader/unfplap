@@ -7,7 +7,6 @@ extends RefCounted
 const ACT_FACE := preload("res://mods/unfplap/shared/act_face.gd")
 const BEAT := preload("res://mods/unfplap/shared/face_beat.gd")
 const MOOD_FACE := preload("res://mods/unfplap/face/mood_face.gd")
-const GAME := preload("res://mods/unfplap/world/game.gd")
 const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
 const READINESS := preload("res://mods/unfplap/readiness/service.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
@@ -92,11 +91,11 @@ func beat_context() -> BEAT:
 func set_face(smile: float, lids: float, hold_seconds := 0.0) -> void:
 	if not is_instance_valid(pony):
 		return
-	var expressions := GAME.expressions_of(pony)
-	if expressions == null:
+	var face_view := WORLD.face(pony)
+	if face_view.controller() == null:
 		return
-	GAME.touch(expressions, "unfplap_state", smile, 0.0)
-	GAME.stare(expressions, true, lids)
+	face_view.touch("unfplap_state", smile, 0.0)
+	face_view.stare(true, lids)
 	if hold_seconds > 0.0:
 		var timer := _timer()
 		if is_instance_valid(timer):
@@ -109,11 +108,11 @@ func clear_face() -> void:
 		face_timer.stop()
 	if not is_instance_valid(pony):
 		return
-	var expressions := GAME.expressions_of(pony)
-	if expressions == null:
+	var face_view := WORLD.face(pony)
+	if face_view.controller() == null:
 		return
-	GAME.stare(expressions, false)
-	GAME.release_touch(expressions, "unfplap_state")
+	face_view.stare(false)
+	face_view.release_touch("unfplap_state")
 
 
 ## The act's lids from the session's typed values; the runtime sets them at every transition and
@@ -129,12 +128,12 @@ func eyes_for(state_value: int, close_rewarded: bool, eyes_active: bool) -> void
 func eyes_tick(context: BEAT) -> void:
 	if not is_instance_valid(pony):
 		return
-	var expressions := GAME.expressions_of(pony)
-	if expressions == null:
+	var face_view := WORLD.face(pony)
+	if face_view.controller() == null:
 		return
 	if context.eyes_active or _now() < stare_release_until:
 		if not act_eyes_released:
-			GAME.stare(expressions, false)
+			face_view.stare(false)
 			act_eyes_released = true
 		return
 	act_eyes_released = false
@@ -148,7 +147,7 @@ func eyes_tick(context: BEAT) -> void:
 			lids = AFTERGLOW_CLOSE_LIDS if context.close_rewarded else AFTERGLOW_LIDS
 	if lids < 0.0:
 		return
-	GAME.stare(expressions, true, lids)
+	face_view.stare(true, lids)
 
 
 ## One act moment, with the debug flag applied before the beat table runs. The runtime gathers the
@@ -248,7 +247,7 @@ func beat(moment: String, context: BEAT) -> void:
 		return
 	set_act_face(plan.face, plan.hold_s)
 	if plan.fluster_s > 0.0:
-		GAME.fluster(GAME.expressions_of(pony), plan.fluster_s, true)
+		WORLD.face(pony).fluster(plan.fluster_s, true)
 	if plan.release_stare:
 		stare_release_until = _now() + plan.hold_s + 0.9
 	if debug_enabled:
@@ -266,18 +265,19 @@ func beat(moment: String, context: BEAT) -> void:
 func set_act_face(face: String, hold_s: float) -> bool:
 	if not is_instance_valid(pony) or not ACT_FACE.valid_face(face):
 		return false
-	var expressions := GAME.expressions_of(pony)
-	if expressions == null or not is_instance_valid(expressions) \
-			or not expressions.has_method("set_dialogue"):
+	var face_view := WORLD.face(pony)
+	var controller := face_view.controller()
+	if controller == null or not is_instance_valid(controller) \
+			or not controller.has_method("set_dialogue"):
 		return false
 	var current := dialogue_face()
 	if not current.is_empty() and current != act_face:
 		if debug_enabled:
 			LOG.debug("act face skip face=%s owner=line current=%s", [face, current])
 		return false
-	GAME.set_dialogue(expressions, face)
+	face_view.set_dialogue(face)
 	if hold_s > 0.0:
-		GAME.finish_dialogue(expressions, hold_s)
+		face_view.finish_dialogue(hold_s)
 	act_face = face
 	if debug_enabled:
 		LOG.debug("act face set face=%s hold=%.1f", [face, hold_s])
@@ -290,10 +290,11 @@ func end_face() -> void:
 	if act_face.is_empty():
 		return
 	if is_instance_valid(pony):
-		var expressions := GAME.expressions_of(pony)
-		if expressions != null and expressions.has_method("clear_dialogue") \
+		var face_view := WORLD.face(pony)
+		var controller := face_view.controller()
+		if controller != null and controller.has_method("clear_dialogue") \
 				and dialogue_face() == act_face:
-			GAME.clear_dialogue(expressions)
+			face_view.clear_dialogue()
 			if debug_enabled:
 				LOG.debug("act face clear face=%s", [act_face])
 	act_face = ""
@@ -301,7 +302,7 @@ func end_face() -> void:
 
 ## The face the director's line holds right now, or empty.
 func dialogue_face() -> String:
-	return GAME.dialogue_face(GAME.expressions_of(pony))
+	return WORLD.face(pony).dialogue_face()
 
 
 ## Apply the live debug flag; act faces play either way, and the post-act face is independent.
@@ -314,6 +315,21 @@ func force_face(face: String) -> bool:
 	return set_act_face(face, 3.0)
 
 
+## One-shot face for a caller without a bound instance, such as a debug preview or a witness
+## reaction. False when a spoken line owns the face.
+static func react(pony: Node, face: String, seconds: float = 3.0) -> bool:
+	if not is_instance_valid(pony):
+		return false
+	var hold := ACT_FACE.react_hold(pony, face, seconds)
+	if hold < 0.0:
+		return false
+	var face_view := WORLD.face(pony)
+	face_view.set_dialogue(face)
+	if hold > 0.0:
+		face_view.finish_dialogue(hold)
+	return true
+
+
 ## Debug view for the "Show act face" action. Context: `state`, `hud_mood`, `base_mood`,
 ## `mode`, `blush_arc`.
 func rows(context: BEAT) -> Array[String]:
@@ -323,7 +339,7 @@ func rows(context: BEAT) -> Array[String]:
 		str(context.hud_mood), str(context.base_mood)])
 	result.append("act_face=%s dialogue_face=%s stare_release=%.2f" % [
 		act_face, dialogue_face(), maxf(0.0, stare_release_until - _now())])
-	var fluster := GAME.fluster_amount(GAME.expressions_of(pony))
+	var fluster := WORLD.face(pony).fluster_amount()
 	result.append("climax_mode=%s blush_arc=%s fluster=%.2f" % [
 		str(context.mode), str(context.blush_arc), fluster])
 	if is_instance_valid(mood_face):

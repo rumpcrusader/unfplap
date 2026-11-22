@@ -27,7 +27,7 @@ const FACE_CONTACT := preload("res://mods/unfplap/poses/face_contact.gd")
 const SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const REGISTRY := preload("res://mods/unfplap/poses/registry.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
-const GAME := preload("res://mods/unfplap/world/game.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const MATTRESS := preload("res://world/life/couch/mattress.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
@@ -1954,7 +1954,7 @@ func diagnostics(skeleton: Skeleton3D, info: BASE_INFO) -> Array[String]:
 					hips_at = (other_sk as Skeleton3D).global_transform * (other_sk as Skeleton3D).get_bone_global_pose(b).origin
 			nearest.append("%s d=%.1f posture=%s hips=%s" % [
 				str(other.name), distance,
-				GAME.posture_requested(other), str(hips_at)])
+				WORLD.pony(other).posture_requested(), str(hips_at)])
 	rows.append("nearby=%d %s" % [nearest.size(), "; ".join(nearest)])
 	return rows
 

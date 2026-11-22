@@ -39,7 +39,7 @@ static func context(pony: Node, id: String, act: Dictionary) -> Dictionary:
 		var impressions := GAME.impressions_of(ctx)
 		if impressions != null and impressions.has_method("profile"):
 			mood = GAME.impression_mood(impressions, pony_id, "?")
-	var posture := GAME.posture_requested(pony)
+	var posture := WORLD.pony(pony).posture_requested()
 	var nav := GAME.navigator_of(pony)
 	var owner := ""
 	var target := false
@@ -56,13 +56,13 @@ static func context(pony: Node, id: String, act: Dictionary) -> Dictionary:
 		"welcomes": relations.willing,
 		"mood": mood,
 		"sleeping": bool(pony.get("sleeping")) if is_instance_valid(pony) else false,
-		"held": GAME.is_held(pony),
-		"grounded": GAME.grounded(pony),
+		"held": WORLD.pony(pony).is_held(),
+		"grounded": WORLD.pony(pony).grounded(),
 		"seated": pony.has_meta("seated") if is_instance_valid(pony) else false,
 		"motion": bool(pony.get("motion_paused")) if is_instance_valid(pony) else false,
 		"speed": float(pony.get("actual_speed")) if is_instance_valid(pony) else 0.0,
 		"posture": posture,
-		"interrupt": GAME.interruption_reason(pony),
+		"interrupt": WORLD.pony(pony).interruption_reason(),
 		"owner": owner, "target": target, "reserved": reserved,
 		"body_controls_locked": str(body.get("controls_locked")) if body != null else "?",
 		"body_flying": str(body.get("flying")) if body != null else "?",
@@ -104,9 +104,9 @@ static func idle(pony: Node3D) -> String:
 	if pony.has_meta("active_follow"):
 		pony.remove_meta("active_follow")
 	if pony.get("motion_paused") == true:
-		GAME.set_motion_paused(pony, false)
-	if GAME.posture_requested(pony) != "stand" and pony.has_method("request_posture"):
-		GAME.request_posture(pony, "stand")
+		WORLD.pony(pony).set_motion_paused(false)
+	if WORLD.pony(pony).posture_requested() != "stand" and pony.has_method("request_posture"):
+		WORLD.pony(pony).request_posture("stand")
 		notes.append("stand requested")
 	upright(pony)
 	return "none" if notes.is_empty() else ", ".join(notes)

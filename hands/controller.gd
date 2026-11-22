@@ -218,7 +218,7 @@ func flank() -> Node:
 func flank_impact(index: int, at: Vector3, strength: float) -> void:
 	if not is_instance_valid(_flank):
 		return
-	GAME.flank_impact(_flank, index, at, strength)
+	WORLD.flank(_flank).impact(index, at, strength)
 
 
 func touch(kind: String) -> void:

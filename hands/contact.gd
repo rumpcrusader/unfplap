@@ -6,6 +6,7 @@ extends RefCounted
 ## Coat queries shared by every caress mode; base-game dictionaries are parsed here.
 
 const GAME := preload("res://mods/unfplap/world/game.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const MODEL := preload("res://mods/unfplap/hands/model.gd")
 
 
@@ -15,8 +16,9 @@ static func sync_touch(pony: Node3D) -> void:
 	if not is_instance_valid(pony):
 		return
 	var touch: Variant = pony.get("touch_body")
-	if touch == null or not touch.has_method("_unprofiled_sync"):
+	if not touch is Node or not (touch as Node).has_method("_unprofiled_sync"):
 		return
+	var body := touch as Node
 	var rigs: Variant = touch.get("_rigs")
 	var entries: Variant = touch.get("_entries")
 	if not rigs is Array or (rigs as Array).is_empty():
@@ -27,7 +29,7 @@ static func sync_touch(pony: Node3D) -> void:
 	# that moves up to the cheek sees the act's live pose, not stale standing hulls.
 	for rig in (rigs as Array).size():
 		if is_instance_valid((rigs as Array)[rig]):
-			GAME.touch_sync(touch, rig)
+			WORLD.flank(body).sync(rig)
 
 
 static func region_ignored(region: String, ignore: Array[String]) -> bool:
@@ -154,7 +156,7 @@ static func contact(pony: Node3D, point: Vector3, outward_hint: Vector3,
 				or (bounds as AABB).grow(reach + 0.02).has_point(local_point)
 			if near_flank:
 				if surface.has_method("update_pose") and sk is Skeleton3D:
-					GAME.flank_surface_update(surface, sk, frame)
+					WORLD.flank(flank).update_surface(surface, sk, frame)
 				var local_palm: Vector3 = (frame.basis.inverse() * -outward).normalized()
 				var hit := flank_contact(flank, local_point, local_palm)
 				if hit != null:
@@ -254,7 +256,7 @@ static func flank_update(pony: Node3D, flank: Node) -> void:
 		return
 	var sk: Variant = pony.get("skeleton") if is_instance_valid(pony) else null
 	if sk is Skeleton3D:
-		GAME.flank_surface_update(surface, sk, flank_frame(flank))
+		WORLD.flank(flank).update_surface(surface, sk, flank_frame(flank))
 
 
 ## Refine a local patch point onto the real triangle so the palm normal follows the coat.

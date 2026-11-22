@@ -74,8 +74,8 @@ contains her body, its palette and outline materials.
 - `schedule_hearts()` builds three pulses: four bursts at `t=0`, two at a random time between
   `1.0 s` and `min(2.4, climax_seconds - 0.4) s`, and one at least one second after the second.
 - `hearts_tick()` fires every due pulse and logs its time and count.
-- `hearts_burst_at(origin)` calls the pony's boop `celebrate()` through `GAME.celebrate` and shifts
-  the new hearts from their stored origin to `origin`; the standing afterglow close and the climax
+- `hearts_burst_at(origin)` calls the pony's blush sustainer through the face view and shifts the
+  new hearts from their stored origin to `origin`; the standing afterglow close and the climax
   start both use it.
 - `dock_point()` is the hair `mTail1` base. It falls back to the body `pony_hips` plus her back
   axis and a small lift, then to her origin.

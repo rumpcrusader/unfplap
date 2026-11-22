@@ -5,7 +5,6 @@ extends RefCounted
 const FACE_POSES := preload("res://world/characters/hybrid_mare/face_poses.gd")
 const TAGS := preload("res://world/ai/pony_dialogue_tags.gd")
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
-const GAME := preload("res://mods/unfplap/world/game.gd")
 
 const FACES := TAGS.NAMES
 
@@ -273,20 +272,19 @@ static func prompt_note(moment: String, mood := "") -> String:
 		+ "such as [mood: annoyed]."
 
 
-## One-shot face for debug previews and witness reactions. A spoken line owns the face.
-static func react(pony: Variant, face: String, seconds := 3.0) -> bool:
+## The hold a one-shot face may take, or `-1.0` when a spoken line owns the face. The caller
+## writes it; this stays a pure verdict so no scene write lives in `shared/`.
+static func react_hold(pony: Variant, face: String, seconds := 3.0) -> float:
 	if not valid_face(face) or not pony is Object or not is_instance_valid(pony):
-		return false
+		return -1.0
 	var expressions: Variant = pony.get("expressions")
-	if expressions == null or not is_instance_valid(expressions) or not expressions.has_method("set_dialogue"):
-		return false
+	if expressions == null or not is_instance_valid(expressions) \
+			or not expressions.has_method("set_dialogue"):
+		return -1.0
 	var current := ""
 	var value: Variant = expressions.get("dialogue_face")
 	if value is String:
 		current = value
 	if not current.is_empty() and current != face:
-		return false
-	GAME.set_dialogue(expressions, face)
-	if seconds > 0.0 and expressions.has_method("finish_dialogue"):
-		GAME.finish_dialogue(expressions, seconds)
-	return true
+		return -1.0
+	return seconds

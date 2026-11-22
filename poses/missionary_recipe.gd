@@ -5,6 +5,7 @@ extends "res://mods/unfplap/poses/pose_driver.gd"
 
 const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 
 var _config: Dictionary = {}
 
@@ -101,8 +102,7 @@ func _head_gaze_frame(rig, sk: Skeleton3D) -> Dictionary:
 		# A headless/test rig may not have the link. Fall back to the head skeleton's own gaze
 		# from the last update, then to the body bone.
 		var forward := GAME.awareness_forward(mare)
-		var boop: Node = mare.get("boop_node")
-		var origin := GAME.skull_world(boop)
+		var origin := WORLD.pony(mare).skull_world()
 		if forward.length_squared() > 0.000001 and origin.is_finite():
 			return {"origin": origin, "forward": forward.normalized(), "up": Vector3.UP}
 	return {"origin": world.origin, "forward": world.basis.z.normalized(),

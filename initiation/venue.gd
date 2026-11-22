@@ -61,9 +61,9 @@ func can_approach(pony: Node3D) -> bool:
 func ensure_stand(pony: Node) -> void:
 	if not is_instance_valid(pony) or not pony.has_method("request_posture"):
 		return
-	if GAME.posture_requested(pony) == "stand":
+	if WORLD.pony(pony).posture_requested() == "stand":
 		return
-	GAME.request_posture(pony, "stand")
+	WORLD.pony(pony).request_posture("stand")
 
 
 ## Claim the navigator for a request episode and return its previous state:

@@ -6,7 +6,7 @@ extends RefCounted
 
 const CONTEXT := preload("res://mods/unfplap/reactions/context.gd")
 const FLANK_TOUCH := preload("res://world/characters/hybrid_mare/pony_flank_touch.gd")
-const GAME := preload("res://mods/unfplap/world/game.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
 const RUMP_CONE := preload("res://mods/unfplap/shared/rump_cone.gd")
@@ -125,7 +125,7 @@ func thrust(weight: float) -> void:
 		flank = pony.get_node_or_null("FlankTouch")
 	if not is_instance_valid(flank) or not flank.has_method("_start_jiggle"):
 		return
-	GAME.flank_wake_tick(flank)
+	WORLD.flank(flank).wake_tick()
 	var marks: Variant = flank.get("marks")
 	if not marks is Array or (marks as Array).size() < 2:
 		return
@@ -157,17 +157,17 @@ func thrust(weight: float) -> void:
 	# The stock jiggle clamps its own impulse to 0.3..1. Pass a full stroke and scale the
 	# resolved amount here, so a soft stroke can wobble almost not at all.
 	var wobble := clampf(weight, 0.0, 1.0)
-	GAME.flank_start_jiggle(flank, 0, 1.0)
+	WORLD.flank(flank).start_jiggle(0, 1.0)
 	body_coat_target()
 	# One shader center now covers both flanks, so scale the resolved amount up. Smaller ponies
 	# get less shader travel from the same thrust impulse.
-	var amount := GAME.flank_jiggle_amount(flank)
+	var amount := WORLD.flank(flank).jiggle_amount()
 	if not is_nan(amount):
-		GAME.set_flank_jiggle_amount(flank, amount * wobble * JIGGLE_RUMP_SCALE
+		WORLD.flank(flank).set_jiggle_amount(amount * wobble * JIGGLE_RUMP_SCALE
 			* size_scale * jiggle_intensity)
 		# The stock jiggle already ran a frame at the full amount; refresh it so a soft thrust does
 		# not pop.
-		GAME.flank_process(flank, 0.0)
+		WORLD.flank(flank).process(0.0)
 	apply_radius()
 	if not _jiggle_logged:
 		_jiggle_logged = true
@@ -192,9 +192,9 @@ func smack(_strength: float) -> void:
 		return
 	if is_instance_valid(flank):
 		body_coat_target()
-		var amount := GAME.flank_jiggle_amount(flank)
+		var amount := WORLD.flank(flank).jiggle_amount()
 		if not is_nan(amount):
-			GAME.set_flank_jiggle_amount(flank, amount * jiggle_smack_intensity)
+			WORLD.flank(flank).set_jiggle_amount(amount * jiggle_smack_intensity)
 	apply_radius()
 	if pose_family == "standing" and is_instance_valid(tail):
 		tail.thrust(size_scale * jiggle_smack_intensity)
@@ -361,14 +361,14 @@ func hearts_tick(delta: float) -> void:
 ## Same effect as a boop (five drifting hearts, her heart colours) without counting a boop or
 ## restarting the blush/squeak reaction.
 func hearts_burst() -> void:
-	GAME.celebrate(GAME.boop_of(pony))
+	WORLD.face(pony).celebrate()
 
 
 ## A boop-heart burst moved to `origin` while keeping its random spread and drift.
 func hearts_burst_at(origin: Vector3) -> void:
 	if not is_instance_valid(pony) or not origin.is_finite():
 		return
-	var boop := GAME.boop_of(pony)
+	var boop := WORLD.pony(pony).boop()
 	if boop == null:
 		return
 	var stored: Variant = boop.get("_hearts")
@@ -376,7 +376,7 @@ func hearts_burst_at(origin: Vector3) -> void:
 		return
 	var hearts: Array = stored
 	var before := hearts.size()
-	if not GAME.celebrate(boop):
+	if not WORLD.face(pony).celebrate():
 		return
 	if hearts.size() <= before:
 		return

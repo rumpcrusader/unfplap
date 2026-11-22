@@ -223,10 +223,7 @@ func aim_eyes() -> void:
 			target = value
 	if not target.is_finite():
 		return
-	var eye_motion := GAME.eye_motion_of(pony)
-	if eye_motion == null:
-		return
-	GAME.aim_eyes(eye_motion, target)
+	WORLD.pony(pony).aim_eyes(target)
 
 
 ## Take the act's camera tuning from the runtime's settings snapshot.
@@ -549,7 +546,7 @@ func neck_midpoint() -> Vector3:
 	var pony := _pony_node()
 	if not is_instance_valid(pony):
 		return Vector3.INF
-	var skeleton := GAME.skeleton_of(pony)
+	var skeleton := WORLD.pony(pony).skeleton()
 	if skeleton == null:
 		return Vector3.INF
 	var first := skeleton.find_bone("pony_neck1")
@@ -568,7 +565,7 @@ func missionary_face_point() -> Vector3:
 	var pony := _pony_node()
 	if not is_instance_valid(pony):
 		return Vector3.INF
-	var skeleton := GAME.skeleton_of(pony)
+	var skeleton := WORLD.pony(pony).skeleton()
 	if skeleton == null:
 		return Vector3.INF
 	var head := skeleton.find_bone("pony_head")
@@ -582,7 +579,7 @@ func missionary_face_point() -> Vector3:
 	var direction := at - base
 	if direction.length_squared() < 0.000001:
 		return at
-	return at + direction.normalized() * 0.12 * GAME.body_scale_of(pony)
+	return at + direction.normalized() * 0.12 * WORLD.pony(pony).body_scale()
 
 
 ## The pulled-back shot's target: the vulva when the anatomy is showing, otherwise a point between
@@ -596,7 +593,7 @@ func missionary_vulva_point() -> Vector3:
 	var pony := _pony_node()
 	if not is_instance_valid(pony):
 		return Vector3.INF
-	var skeleton := GAME.skeleton_of(pony)
+	var skeleton := WORLD.pony(pony).skeleton()
 	if skeleton == null:
 		return Vector3.INF
 	var left := skeleton.find_bone("pony_femur_L")
@@ -605,7 +602,7 @@ func missionary_vulva_point() -> Vector3:
 		return neck_midpoint()
 	var a := skeleton.global_transform * skeleton.get_bone_global_pose(left).origin
 	var b := skeleton.global_transform * skeleton.get_bone_global_pose(right).origin
-	return (a + b) * 0.5 + Vector3.UP * 0.10 * GAME.body_scale_of(pony)
+	return (a + b) * 0.5 + Vector3.UP * 0.10 * WORLD.pony(pony).body_scale()
 
 
 ## The presented body, or null outside an act.
@@ -722,7 +719,7 @@ func pony_eye_height() -> float:
 	var pony := _pony_node()
 	if not is_instance_valid(pony):
 		return NAN
-	var skeleton := GAME.skeleton_of(pony)
+	var skeleton := WORLD.pony(pony).skeleton()
 	if skeleton == null:
 		return NAN
 	var head := skeleton.find_bone("pony_head")

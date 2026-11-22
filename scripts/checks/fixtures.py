@@ -1,19 +1,20 @@
-#!/usr/bin/env python3
-"""Fixture checks for the rules in :mod:`architecture`.
+"""Fixture checks for the static gate's rules.
 
-The real tree is checked by ``architecture.py --check``; this file pins the two directions of the
-anatomy boundary rules, the game boundary, the re-export scan, the facade note rules and the doc
-index rows with synthetic fixtures, so the gate still fails when a rule silently disappears.
+The real tree is checked by ``architecture.py --check``; these fixtures pin the two directions of
+the anatomy and game boundaries, the re-export scan, the facade note rules and the doc index rows
+with synthetic fixtures, so the gate fails when a rule silently disappears.
 """
 from __future__ import annotations
 
-import sys
 import tempfile
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-import architecture  # noqa: E402
-
+from .context import ROOT
+from .docs import check_docs, member_note_failures, type_note_failures
+from .failure import Failure
+from .graph import is_allowed, scan_reexports
+from .preloads import check_game_layer, preload_block_problems
+from .tests_rules import suite_result_failures
 
 ALLOWED = (
     ("anatomy/controller.gd", "shared/act_state.gd"),
@@ -158,8 +159,8 @@ def index_cases() -> int:
     for label, services, rows, extra, wanted in cases:
         with tempfile.TemporaryDirectory() as tmp:
             docs = docs_fixture(Path(tmp), services, rows, extra)
-            failure = architecture.Failure()
-            architecture.check_docs(failure, docs=docs, services=services)
+            failure = Failure()
+            check_docs(failure, docs=docs, services=services)
             failures += expect(label, failure.messages, wanted)
     return failures
 
@@ -167,7 +168,7 @@ def index_cases() -> int:
 def preload_cases() -> int:
     failures = 0
     for label, text, wanted in PRELOAD_CASES:
-        actual = len(architecture.preload_block_problems(text))
+        actual = len(preload_block_problems(text))
         if actual != wanted:
             print("FAIL preload %s: wanted %d findings, got %d" % (label, wanted, actual))
             failures += 1
@@ -177,27 +178,27 @@ def preload_cases() -> int:
 def rule_cases() -> int:
     failures = 0
     for src, tgt in GAME_ALLOWED:
-        ok, _kind, _so, _to = architecture.is_allowed(src, tgt)
+        ok, _kind, _so, _to = is_allowed(src, tgt)
         if not ok:
             print("FAIL game allowed edge refused: %s -> %s" % (src, tgt))
             failures += 1
-    found = {(row["from"], row["to"]) for row in architecture.scan_reexports()}
+    found = {(row["from"], row["to"]) for row in scan_reexports()}
     for src, to in REEXPORTS:
         if (src, to) not in found:
             print("FAIL re-export not detected: %s -> %s" % (src, to))
             failures += 1
     for label, text, wanted in NOTE_CASES:
-        actual = len(architecture.type_note_failures("fixture.gd", text))
+        actual = len(type_note_failures("fixture.gd", text))
         if actual != wanted:
             print("FAIL note %s: wanted %d findings, got %d" % (label, wanted, actual))
             failures += 1
     for label, text, wanted in MEMBER_CASES:
-        actual = len(architecture.member_note_failures("fixture.gd", text))
+        actual = len(member_note_failures("fixture.gd", text))
         if actual != wanted:
             print("FAIL member %s: wanted %d findings, got %d" % (label, wanted, actual))
             failures += 1
     for label, text, wanted in SUITE_RESULT_CASES:
-        actual = len(architecture.suite_result_failures("fixture.gd", text))
+        actual = len(suite_result_failures("fixture.gd", text))
         if actual != wanted:
             print("FAIL suite result %s: wanted %d findings, got %d" % (label, wanted, actual))
             failures += 1
@@ -207,13 +208,11 @@ def rule_cases() -> int:
 def game_layer_cases() -> int:
     """A game.gd lives only in a whitelisted service directory."""
     failures = 0
-    failure = architecture.Failure()
-    architecture.check_game_layer(
-        failure, [architecture.ROOT / "hud" / "game.gd",
-                  architecture.ROOT / "world" / "game.gd"])
+    failure = Failure()
+    check_game_layer(failure, [ROOT / "hud" / "game.gd", ROOT / "world" / "game.gd"])
     failures += expect("game layer accessors", failure.messages, None)
-    failure = architecture.Failure()
-    architecture.check_game_layer(failure, [architecture.ROOT / "camera" / "game.gd"])
+    failure = Failure()
+    check_game_layer(failure, [ROOT / "camera" / "game.gd"])
     failures += expect("game layer stray accessor", failure.messages,
                        "game.gd belongs to a game-layer service")
     return failures
@@ -222,12 +221,12 @@ def game_layer_cases() -> int:
 def main() -> int:
     failures = 0
     for src, tgt in ALLOWED:
-        ok, _kind, _so, _to = architecture.is_allowed(src, tgt)
+        ok, _kind, _so, _to = is_allowed(src, tgt)
         if not ok:
             print("FAIL allowed edge refused: %s -> %s" % (src, tgt))
             failures += 1
     for src, tgt in FORBIDDEN:
-        ok, _kind, _so, _to = architecture.is_allowed(src, tgt)
+        ok, _kind, _so, _to = is_allowed(src, tgt)
         if ok:
             print("FAIL forbidden edge allowed: %s -> %s" % (src, tgt))
             failures += 1
@@ -243,7 +242,3 @@ def main() -> int:
         + len(NOTE_CASES) + len(MEMBER_CASES) + len(SUITE_RESULT_CASES) + len(PRELOAD_CASES)
         + 8))
     return 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())

@@ -221,9 +221,8 @@ feature flags into the same reconcile. The hook suites are
 `_fanout()` owner order in `act/tick.gd` (pose service first, then camera, hands, kiss and
 anatomy), the pose-before-facts order in its `_tick()` and the ban on act-exit names under
 `poses/` are static rules in `scripts/architecture.py --check`. The anatomy allow-list and its
-fixture test are `scripts/architecture.py` and `scripts/test_architecture.py`, both run by
-`scripts/test.sh`. The contract is `docs/poses.md`; this doc only names
-the gate.
+fixtures are in the static gate, run by `scripts/test.sh`. The contract is `docs/poses.md`; this doc
+only names the gate.
 
 The body-swap handover is `tests/handover/test_body_swap.gd`: suspend → adopt → resume with the
 act state, depth, climaxes and event id intact, the old runtime still alive, the new anatomy and

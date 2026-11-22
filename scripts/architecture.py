@@ -1,6 +1,15 @@
 """The static architecture gate's front door.
 
-The rules live in ``checks/``; this module keeps the command line and the names the fixtures import.
+The rules live in ``checks/``; this module keeps the command line and the fixtures' import point.
+
+Usage:
+    scripts/architecture.py --check
+    scripts/architecture.py --self-test
+    scripts/architecture.py --graph
+    scripts/architecture.py --audit-surface
+    scripts/architecture.py --write-exceptions
+    scripts/architecture.py --write-debt
+    scripts/architecture.py --write-duck-typing
 """
 from __future__ import annotations
 

@@ -78,7 +78,7 @@ game-boundary and re-export rules. These rules exist so code cannot grow back ou
 - **Every anatomy file reads the game through `GAME`.** No anatomy file may preload a base-game
   module; no anatomy file may preload another mod service except `settings/service.gd`; and no
   outside file may preload an anatomy file except `anatomy/api.gd`. The two directions are
-  synthetic fixtures in `scripts/test_architecture.py`, run by `scripts/test.sh`.
+  synthetic fixtures in the gate's self-test, run by `scripts/test.sh`.
 - **Every script dependency is a top-level preload.** In every `.gd`, `tests/` and `tools/`
   included, each `const … := preload(...)` sits in the contiguous block directly below the doc
   header. A preload after another declaration or inside a class or function fails, and so does a

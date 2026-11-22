@@ -59,6 +59,7 @@ FORBIDDEN = (
     ("act_gate/service.gd", "estrus/service.gd"),
     ("settings/service.gd", "summary/service.gd"),
     ("settings/service.gd", "world/game.gd"),
+    ("world/api.gd", "settings/service.gd"),
     ("act/start.gd", "res://world/life/player_form.gd"),
 )
 GAME_ALLOWED = (

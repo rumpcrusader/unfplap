@@ -492,9 +492,12 @@ def is_allowed(src: str, tgt: str) -> tuple[bool, str, Owner | None, Owner | Non
         return False, kind, so, to
     if so.kind == "service":
         if kind in ("self", "service", "shared", "store", "read model"):
-            # The settings service is infrastructure and must not depend upward on a domain
-            # service. The current registry dependency is recorded as migration debt.
+            # The settings service must not depend upward on a domain service. The current
+            # registry dependency is recorded as migration debt.
             if so.id == "settings" and to.kind == "service" and to.id != "settings":
+                return False, "layer", so, to
+            # The two game-layer services are peers: neither reads the other's facade.
+            if so.id == "world" and to.id == "settings":
                 return False, "layer", so, to
             return True, kind, so, to
         return False, kind, so, to

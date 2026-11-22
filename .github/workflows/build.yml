@@ -22,12 +22,10 @@ jobs:
           python-version: "3.13"
       - name: Install gdtoolkit
         run: python3 -m pip install -r scripts/requirements-lint.txt
+      - name: Static gate
+        run: scripts/check.sh --static
       - name: Lint shipped GDScript
         run: scripts/lint.sh
-      - name: Check comment shape
-        run: python3 scripts/comments.py --check
-      - name: Check architecture and docs
-        run: python3 scripts/architecture.py --check
       - name: Pack report self-test
         run: python3 scripts/pack_report.py --self-test
 
@@ -65,6 +63,9 @@ jobs:
 
       - name: Fetch resource assets
         run: scripts/fetch_assets.sh
+
+      - name: Parse and static gate
+        run: scripts/check.sh --all
 
       # The packer verifies the full tracked tree plus the fetched resource runtime.
       - name: Build

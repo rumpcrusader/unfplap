@@ -19,7 +19,7 @@ negotiation face here. The house lookup is a world read (`docs/world.md`), not a
 
 ## Ownership
 
-`privacy/service.gd` (a world-list service extending `shared/service.gd`) owns the scene reads for
+`privacy/api.gd` (a world-list service extending `shared/service.gd`) owns the scene reads for
 privacy and the facts they build: Anon's live body, the mares, the house at each point and the
 outdoor other-mare radius. The offered mare is excluded from both other-mare counts: she never
 counts as another mare.
@@ -37,7 +37,7 @@ and drops them with the call.
 
 ## Facade
 
-`privacy/service.gd` owns the privacy answer.
+`privacy/api.gd` owns the privacy answer.
 
 `is_private()` is the one predicate. The caller names the `Kind`: `OFFER` for a bed or standing
 offer, `CUDDLE` for the stricter cuddle rule. A missing world bound, a missing player or a freed

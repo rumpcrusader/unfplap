@@ -2,7 +2,7 @@ extends "res://mods/unfplap/shared/service.gd"
 ## Service: privacy
 ## Contract: docs/privacy.md
 ## Scope: world
-## Import: privacy/service.gd only
+## Import: privacy/api.gd only
 ## Scene facts in, one privacy predicate out.
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")

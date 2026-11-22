@@ -33,7 +33,7 @@ or the act start: those are `docs/negotiation.md` and `docs/runtime.md`.
 | `initiation/cooldowns.gd` | request cooldown store: `request_times`, the history wait and the heat shortening |
 | `initiation/venue.gd` | scene adapter: the only reader of navigators, posture and beds, and the builder of the placement facts |
 | `initiation/classifier.gd` | the bounded classifier this service owns: one client, one queue, one deadline and the two reasoning budgets |
-| `privacy/service.gd` | world privacy provider: the house, the other mares, the radius and the one offer/cuddle predicate |
+| `privacy/api.gd` | world privacy provider: the house, the other mares, the radius and the one offer/cuddle predicate |
 | `negotiation/adapter.gd` | the director bridge and model host the Negotiation service owns and hands over: the quiet gate, the ask queue, the situation record, the reasoning call |
 | `negotiation/service.gd` | the Act Negotiation: the answer, privacy, the Agreement and the global lock |
 | `docs/initiation.md` | this contract |
@@ -56,7 +56,7 @@ The purity boundary is deliberate:
   service's own (`classifier.gd`), created in `setup()`: the Negotiation's adapter and both
   reasoning stages make every model call on it, and no other service imports it.
 - The facade is the only file that preloads `eligibility/service.gd`, `act_gate/service.gd`,
-  `privacy/service.gd`,
+  `privacy/api.gd`,
   `negotiation/service.gd`, `shared/clearance.gd`, `shared/context.gd`, `shared/pose_options.gd`,
   `shared/pose_catalog.gd` and `shared/cycle.gd`; `cooldowns.gd` preloads
   `shared/act_history.gd`.
@@ -206,7 +206,7 @@ Context facts and the indexed options. It answers `{"offer": bool, "option": int
 
 ## Privacy
 
-The visibility is derived once at formation from `privacy/service.gd`, with the offer rule for a
+The visibility is derived once at formation from `privacy/api.gd`, with the offer rule for a
 bed or standing offer and the cuddle rule for a cuddle. There is no public-offer override and no
 heat/public-consent visibility rule: a crowded offer is simply public. The Negotiation service owns
 the live privacy sampling after formation; this service does not monitor it.

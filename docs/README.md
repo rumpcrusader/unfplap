@@ -51,7 +51,7 @@ the idle block; `act/build.gd` constructs and binds them once per pony.
 | Estrus cycle | `estrus/service.gd` | `docs/estrus.md` | `tests/estrus/` |
 | Scene gate and refusal | `scene_gate/service.gd` | `docs/scene_gate.md` | `tests/scene_gate/` |
 | Act scene hold | `scene_hold/service.gd` | `docs/scene_hold.md` | `tests/scene_hold/` |
-| Privacy | `privacy/service.gd` | `docs/privacy.md` | `tests/privacy/` |
+| Privacy | `privacy/api.gd` | `docs/privacy.md` | `tests/privacy/` |
 | Act negotiation | `negotiation/service.gd` | `docs/negotiation.md` | `tests/negotiation/` |
 | Mod integrations | `integrations/service.gd`, `integrations/pantyhose.gd` | `docs/integrations.md` | `tests/integrations/` |
 | Bed rest and rejoin | `rest/service.gd` | `docs/rest.md` | `tests/rest/` |

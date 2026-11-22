@@ -184,14 +184,14 @@ func _begin_present_turn() -> void:
 		_present_turn_nav = nav
 		_present_turn_point = pony.global_position + _present_face_direction * PRESENT_TURN_POINT_M
 		# A pending route would keep the navigator out of its face_point branch.
-		GAME.navigator_stay(nav)
+		WORLD.navigator(pony).stay()
 		_set_turn_nav_facing()
 		_raise_present_turn_rate()
 		return
 	if pony.has_method("face_direction"):
 		_present_turn_mode = TURN_FACE
 		_raise_present_turn_rate()
-		GAME.face_direction(pony, _present_face_direction)
+		WORLD.navigator(pony).set_facing(_present_face_direction)
 		return
 	# Unusual actor without the game's locomotion turn: rotate before the pose attaches, never
 	# after it.
@@ -203,9 +203,10 @@ func _begin_present_turn() -> void:
 func _set_turn_nav_facing() -> void:
 	if not is_instance_valid(_present_turn_nav) or not _present_turn_point.is_finite():
 		return
+	var lease := WORLD.navigator(pony)
 	if "face_point" in _present_turn_nav:
-		GAME.set_face_point(_present_turn_nav, _present_turn_point)
-	GAME.clear_conversation_target(_present_turn_nav)
+		lease.set_face_point(_present_turn_point)
+	lease.clear_conversation_target()
 
 
 func _raise_present_turn_rate() -> void:
@@ -231,14 +232,15 @@ func _restore_present_turn_rate() -> void:
 func _end_present_turn() -> void:
 	if is_instance_valid(_present_turn_nav):
 		var face: Variant = _present_turn_nav.get("face_point") if "face_point" in _present_turn_nav else null
+		var lease := WORLD.navigator(pony)
 		if face is Vector3 and _present_turn_point.is_finite() and (face as Vector3) == _present_turn_point:
-			GAME.set_face_point(_present_turn_nav, Vector3.INF)
-		GAME.clear_conversation_target(_present_turn_nav)
+			lease.set_face_point(Vector3.INF)
+		lease.clear_conversation_target()
 	_present_turn_nav = null
 	_present_turn_point = Vector3.INF
 	_present_turn_mode = ""
 	if is_instance_valid(pony):
-		GAME.face_direction(pony, Vector3.ZERO)
+		WORLD.navigator(pony).set_facing(Vector3.ZERO)
 	_restore_present_turn_rate()
 	_present_turning = false
 	_present_turn_still = 0.0
@@ -352,7 +354,7 @@ func _presentation_physics(delta: float) -> void:
 	var scale := t.basis.get_scale()
 	t.basis = Basis(Vector3.UP, _present_yaw).scaled(scale)
 	pony.global_transform = t
-	GAME.clear_facing(pony)
+	WORLD.navigator(pony).clear_facing()
 	facts.pause_face(true)
 
 
@@ -367,7 +369,7 @@ func _presentation_turn_physics(delta: float) -> void:
 		TURN_NAVIGATOR:
 			_set_turn_nav_facing()
 		TURN_FACE:
-			GAME.face_direction(pony, _present_face_direction)
+			WORLD.navigator(pony).set_facing(_present_face_direction)
 		TURN_YAW:
 			_present_yaw = rotate_toward(_present_yaw, _present_target_yaw,
 				PRESENT_TURN_RATE * delta)
@@ -485,7 +487,7 @@ func _present_turn_process() -> void:
 			_set_turn_nav_facing()
 		TURN_FACE:
 			if pony.has_method("face_direction"):
-				GAME.face_direction(pony, _present_face_direction)
+				WORLD.navigator(pony).set_facing(_present_face_direction)
 
 
 func _presentation_process() -> void:

@@ -362,7 +362,7 @@ func _lock_body_facing() -> void:
 	pony.global_transform = t
 	# stay() clears the route, but conversation facing still writes face_point and can make
 	# her take a turn step. Clear both late in the tick so the act owns the body facing.
-	GAME.clear_facing(pony)
+	WORLD.navigator(pony).clear_facing()
 
 
 func _glance_back_fade() -> float:

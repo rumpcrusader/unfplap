@@ -192,12 +192,13 @@ static func _bring_to_bed(pony: Node3D, rest: Node3D) -> String:
 	pony.reset_physics_interpolation()
 	var nav := GAME.navigator_of(pony)
 	if nav != null:
+		var lease := WORLD.navigator(pony)
 		var travel: Variant = nav.get("house_travel")
 		if travel != null and is_instance_valid(travel):
-			GAME.travel_clear(travel, pony)
-		GAME.navigator_stay(nav)
-		GAME.set_navigator_owner(nav, "")
-		GAME.set_navigator_wander(nav, false)
+			lease.clear_travel(travel)
+		lease.stay()
+		lease.set_owner("")
+		lease.set_wander(false)
 	return str(front)
 
 

@@ -258,6 +258,12 @@ class FakeNavigator extends Node:
 	var face_point := Vector3.INF
 	var conversation_target: Variant = null
 	var conversation_hold := true
+	var command_owner := ""
+	var reserved_by := ""
+	var wander_enabled := true
+	var command_speed_limit := NAN
+	var command_pace_target := NAN
+	var _has_target := false
 	var stays := 0
 
 	func stay() -> void:
@@ -1370,7 +1376,7 @@ func _check_pose_accessors() -> void:
 	plain.queue_free()
 
 
-## The four bound views: one cached handle per node, the accessor answer on the live node, the
+## The five bound views: one cached handle per node, the accessor answer on the live node, the
 ## typed zero on an absent one, and the cache dropped by every bind.
 func _check_views() -> void:
 	WORLD.unbind()
@@ -1419,6 +1425,39 @@ func _check_views() -> void:
 	view.request_posture("stand")
 	view.stop_speaking()
 	view.set_motion_paused(true)
+
+	var nav := FakeNavigator.new()
+	nav.name = "Navigator"
+	pony.add_child(nav)
+	var nav_view := WORLD.navigator(pony)
+	check(nav_view == WORLD.navigator(pony), "a navigator view is cached per bound node")
+	nav.command_owner = "life:graze"
+	nav.reserved_by = "someone"
+	nav._has_target = true
+	check(nav_view.owner() == "life:graze" and nav_view.reserved() == "someone"
+		and nav_view.has_target(), "the view reads her leases and her route")
+	nav_view.set_owner("unfplap:test")
+	nav_view.set_reserved("")
+	nav_view.set_wander(false)
+	check(nav.command_owner == "unfplap:test" and nav.reserved_by == ""
+		and not nav.wander_enabled and not nav_view.wander(),
+		"the lease writes reach her navigator")
+	nav_view.stay()
+	check(nav.stays == 1, "the stay reaches her navigator")
+	nav_view.set_speed_limit(1.5)
+	nav_view.set_pace_target(0.25)
+	check(is_equal_approx(nav_view.speed_limit(), 1.5)
+		and is_equal_approx(nav_view.pace_target(), 0.25), "the speed and pace take the writes")
+	nav_view.set_face_point(Vector3.ONE)
+	check(nav.face_point == Vector3.ONE, "the face point reaches her navigator")
+	nav.conversation_target = nav
+	nav_view.clear_facing()
+	check(nav.face_point == Vector3.INF and nav.conversation_target == null,
+		"the facing clear drops both stale writes")
+	var turning := FakeTurnPony.new()
+	root.add_child(turning)
+	WORLD.navigator(turning).set_facing(Vector3.RIGHT)
+	check(turning.facings == [Vector3.RIGHT], "her own turn takes the facing through the view")
 
 	var face_view := WORLD.face(pony)
 	check(face_view == WORLD.face(pony), "a face view is cached per bound node")
@@ -1500,6 +1539,8 @@ func _check_views() -> void:
 	check(WORLD.pony(second) != view, "a second body gets its own view")
 	check(WORLD.pony(null).identity() == null, "a null pony answers no identity")
 	check(not WORLD.pony(null).has_wings(), "a null pony has no wings")
+	check(WORLD.navigator(null).owner() == "", "a null pony has no navigator lease")
+	check(is_nan(WORLD.navigator(null).speed_limit()), "a null pony has no speed override")
 	check(WORLD.face(null).dialogue_face() == "", "a null pony has no dialogue face")
 	check(WORLD.wings(null).node() == null, "a null Beat has no wing node")
 	check(is_nan(WORLD.flank(null).jiggle_amount()), "a null flank answers NAN")
@@ -1511,6 +1552,7 @@ func _check_views() -> void:
 	root.add_child(game)
 	WORLD.bind_world(game)
 	check(WORLD.pony(pony) != view, "a bind drops the cached views")
+	check(WORLD.navigator(pony) != nav_view, "a bind drops the cached navigator views")
 	check(WORLD.pony(pony) == WORLD.pony(pony), "the new bind caches its own view")
 	WORLD.unbind()
 
@@ -1519,6 +1561,7 @@ func _check_views() -> void:
 	boop.queue_free()
 	eye.queue_free()
 	second.queue_free()
+	turning.queue_free()
 	game.queue_free()
 	wing_node.queue_free()
 	excitement.queue_free()

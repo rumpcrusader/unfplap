@@ -40,15 +40,15 @@ func can_approach(pony: Node3D) -> bool:
 	var node: Node3D = WORLD.player
 	if not is_instance_valid(node):
 		return false
-	var nav := GAME.navigator_of(pony)
-	if nav == null:
+	if not is_instance_valid(GAME.navigator_of(pony)):
 		return false
-	if not GAME.navigator_reserved(nav).is_empty():
+	var nav := WORLD.navigator(pony)
+	if not nav.reserved().is_empty():
 		return false
-	var owner := GAME.navigator_owner(nav)
+	var owner := nav.owner()
 	if not (owner.is_empty() or owner.begins_with("life:")):
 		return false
-	if GAME.navigator_has_target(nav):
+	if nav.has_target():
 		return false
 	if region_of(node.global_position) != region_of(pony.global_position):
 		return false
@@ -71,49 +71,51 @@ func ensure_stand(pony: Node) -> void:
 func claim_nav(pony: Node3D, token: String) -> Dictionary:
 	if not is_instance_valid(pony):
 		return {}
-	var nav := GAME.navigator_of(pony)
-	if nav == null:
+	var found := GAME.navigator_of(pony)
+	if found == null:
 		return {}
+	var nav := WORLD.navigator(pony)
 	var before := {
-		"nav": nav,
-		"owner": GAME.navigator_owner(nav),
-		"wander": GAME.navigator_wander(nav),
-		"limit": GAME.navigator_speed_limit(nav),
-		"pace": GAME.navigator_pace_target(nav),
+		"nav": found,
+		"owner": nav.owner(),
+		"wander": nav.wander(),
+		"limit": nav.speed_limit(),
+		"pace": nav.pace_target(),
 	}
-	GAME.navigator_stay(nav)
-	GAME.set_navigator_owner(nav, token)
-	GAME.set_navigator_wander(nav, false)
-	GAME.set_navigator_speed_limit(nav, INF)
-	GAME.set_navigator_pace_target(nav, -1.0)
+	nav.stay()
+	nav.set_owner(token)
+	nav.set_wander(false)
+	nav.set_speed_limit(INF)
+	nav.set_pace_target(-1.0)
 	return before
 
 
-func nav_owned(nav: Node, token: String) -> bool:
-	return is_instance_valid(nav) and GAME.navigator_owner(nav) == token
+func nav_owned(pony: Node, token: String) -> bool:
+	return is_instance_valid(GAME.navigator_of(pony)) and WORLD.navigator(pony).owner() == token
 
 
-func nav_has_target(nav: Node) -> bool:
-	return GAME.navigator_has_target(nav)
+func nav_has_target(pony: Node) -> bool:
+	return WORLD.navigator(pony).has_target()
 
 
-func stay(nav: Node) -> void:
-	GAME.navigator_stay(nav)
+func stay(pony: Node) -> void:
+	WORLD.navigator(pony).stay()
 
 
 ## Hand the navigator back. The owner is restored only when the request still owns it; the
 ## wander, speed and pace values are always restored.
-func release_nav(nav: Node, token: String, prev_owner: String, prev_wander: bool,
+func release_nav(pony: Node, token: String, prev_owner: String, prev_wander: bool,
 		prev_limit: float, prev_pace: float) -> void:
-	if not is_instance_valid(nav):
+	if not is_instance_valid(GAME.navigator_of(pony)):
 		return
-	if GAME.navigator_owner(nav) == token:
-		GAME.set_navigator_owner(nav, prev_owner)
-	GAME.set_navigator_wander(nav, prev_wander)
+	var nav := WORLD.navigator(pony)
+	if nav.owner() == token:
+		nav.set_owner(prev_owner)
+	nav.set_wander(prev_wander)
 	if not is_nan(prev_limit):
-		GAME.set_navigator_speed_limit(nav, prev_limit)
+		nav.set_speed_limit(prev_limit)
 	if not is_nan(prev_pace):
-		GAME.set_navigator_pace_target(nav, prev_pace)
+		nav.set_pace_target(prev_pace)
 
 
 ## The nearest free bed within reach, as `{bed, rest, front, distance}` or `{}`.
@@ -235,10 +237,11 @@ func placement_for(runtime: Node) -> POSE_OPTIONS.Placement:
 
 ## Restore the request claim's speed and pace overrides before the negotiation takes the lease.
 ## The navigator owner and the wander flag stay with the request episode.
-func restore_limits(nav: Node, limit: float, pace: float) -> void:
-	if not is_instance_valid(nav):
+func restore_limits(pony: Node, limit: float, pace: float) -> void:
+	if not is_instance_valid(GAME.navigator_of(pony)):
 		return
+	var nav := WORLD.navigator(pony)
 	if not is_nan(limit):
-		GAME.set_navigator_speed_limit(nav, limit)
+		nav.set_speed_limit(limit)
 	if not is_nan(pace):
-		GAME.set_navigator_pace_target(nav, pace)
+		nav.set_pace_target(pace)

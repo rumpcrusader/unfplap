@@ -48,11 +48,12 @@ func _ready() -> void:
 			_flick_clock = randf_range(FLICK_MIN, FLICK_MAX)
 	_nav = GAME.navigator_of(pony)
 	if _nav != null:
-		_nav_owner = GAME.navigator_owner(_nav)
-		_nav_wander = GAME.navigator_wander(_nav)
-		GAME.navigator_stay(_nav)
-		GAME.set_navigator_owner(_nav, OWNER)
-		GAME.set_navigator_wander(_nav, false)
+		var lease := WORLD.navigator(pony)
+		_nav_owner = lease.owner()
+		_nav_wander = lease.wander()
+		lease.stay()
+		lease.set_owner(OWNER)
+		lease.set_wander(false)
 
 
 func _physics_process(delta: float) -> void:
@@ -81,10 +82,11 @@ func _physics_process(delta: float) -> void:
 func _hold_nav() -> void:
 	if _nav == null or not is_instance_valid(_nav):
 		return
-	if GAME.navigator_owner(_nav) != OWNER:
-		GAME.navigator_stay(_nav)
-		GAME.set_navigator_owner(_nav, OWNER)
-		GAME.set_navigator_wander(_nav, false)
+	var lease := WORLD.navigator(pony)
+	if lease.owner() != OWNER:
+		lease.stay()
+		lease.set_owner(OWNER)
+		lease.set_wander(false)
 
 
 func _finish() -> void:
@@ -94,9 +96,10 @@ func _finish() -> void:
 	if is_instance_valid(pony):
 		pony.remove_meta("sex_aftercare")
 	if _nav != null and is_instance_valid(_nav):
-		if GAME.navigator_owner(_nav) == OWNER:
-			GAME.set_navigator_owner(_nav, _nav_owner)
-			GAME.set_navigator_wander(_nav, _nav_wander)
+		var lease := WORLD.navigator(pony)
+		if lease.owner() == OWNER:
+			lease.set_owner(_nav_owner)
+			lease.set_wander(_nav_wander)
 	_nav = null
 	if is_instance_valid(_tail):
 		_tail.queue_free()

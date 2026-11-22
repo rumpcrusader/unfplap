@@ -7,6 +7,7 @@ extends RefCounted
 
 const GAME := preload("res://mods/unfplap/world/game.gd")
 const PONY_VIEW := preload("res://mods/unfplap/world/views/pony.gd")
+const NAVIGATOR_VIEW := preload("res://mods/unfplap/world/views/navigator.gd")
 const FACE_VIEW := preload("res://mods/unfplap/world/views/face.gd")
 const WINGS_VIEW := preload("res://mods/unfplap/world/views/wings.gd")
 const FLANK_VIEW := preload("res://mods/unfplap/world/views/flank.gd")
@@ -16,6 +17,11 @@ const INTERACTOR_PATH := "res://player/interactor.gd"
 ## One pony's body reads and writes, bound to her node; every member answers typed zeroes when the
 ## node is gone, so a caller that keeps a view across a despawn never crashes.
 class Pony extends PONY_VIEW:
+	func _init(n: Node) -> void:
+		super(n)
+
+## One pony's navigator leases, travel and facing, bound to her node.
+class Navigator extends NAVIGATOR_VIEW:
 	func _init(n: Node) -> void:
 		super(n)
 
@@ -46,6 +52,7 @@ static var _camera_cache: Camera3D = null
 static var _camera_cache_at := 0.0
 ## One view per bound node, dropped by every bind so no old body survives.
 static var _ponies: Dictionary = {}
+static var _navigators: Dictionary = {}
 static var _faces: Dictionary = {}
 static var _wings: Dictionary = {}
 static var _flanks: Dictionary = {}
@@ -81,6 +88,7 @@ static func _clear_handles() -> void:
 	_camera_cache = null
 	_camera_cache_at = 0.0
 	_ponies.clear()
+	_navigators.clear()
 	_faces.clear()
 	_wings.clear()
 	_flanks.clear()
@@ -399,6 +407,18 @@ static func pony(n: Node) -> Pony:
 		return found
 	var view := Pony.new(n if live else null)
 	_ponies[key] = view
+	return view
+
+
+## Her navigator lease surface, cached per bound node.
+static func navigator(n: Node) -> Navigator:
+	var live := is_instance_valid(n)
+	var key := n.get_instance_id() if live else 0
+	var found: Variant = _navigators.get(key)
+	if found is Navigator and (not live or found._bound() == n):
+		return found
+	var view := Navigator.new(n if live else null)
+	_navigators[key] = view
 	return view
 
 

@@ -36,9 +36,10 @@ the negotiation runs before the act.
 
 The ledger calls the leaves in this order: cuddle/carry at start, navigator claim before the pose,
 then on end the face-turn restore, the player unlock, the carry/stool release, the navigator
-release. The negotiation releases the affection hold before the navigator lease. The host is a
-typed `Host` record with the `pony`, `state` and `pose_family` reads; the service never reads the
-runtime's private fields.
+release. The negotiation releases the affection hold before the navigator lease. The keep and the
+release work from the navigator handle the claim recorded, so a teardown that has already lost the
+pony still gives the lease back. The host is a typed `Host` record with the `pony`, `state` and
+`pose_family` reads; the service never reads the runtime's private fields.
 
 ## State and data
 

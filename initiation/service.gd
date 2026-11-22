@@ -4,7 +4,6 @@ extends "res://mods/unfplap/shared/service.gd"
 ## Contract: docs/initiation.md
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
-const GAME := preload("res://mods/unfplap/world/game.gd")
 const POLICY := preload("res://mods/unfplap/initiation/policy.gd")
 const FACTS := preload("res://mods/unfplap/initiation/facts.gd")
 const PROMPTS := preload("res://mods/unfplap/initiation/prompts.gd")
@@ -556,15 +555,15 @@ func _walk_to_player(player: Node3D) -> String:
 	var reason := _claim("approach nav claim")
 	if not reason.is_empty():
 		return reason
-	var nav: Node = _episode.nav
+	var nav := WORLD.navigator(pony)
 	_venue.ensure_stand(pony)
 	if player.global_position.distance_to(pony.global_position) <= POLICY.ARRIVE_RANGE_M:
 		_arrive()
 		return ""
 	var forward: Vector3 = _venue.camera_forward()
-	var goal := GAME.navigator_support(nav, player.global_position + forward * POLICY.APPROACH_GOAL_M)
+	var goal := nav.support(player.global_position + forward * POLICY.APPROACH_GOAL_M)
 	if goal.is_finite() and absf(goal.y - pony.global_position.y) <= 3.0:
-		if not GAME.navigator_destination(nav, goal, "trot"):
+		if not nav.walk_to(goal, "trot"):
 			return _close_episode("approach destination")
 		return ""
 	return _close_episode("approach goal")
@@ -589,7 +588,7 @@ func _tick_approach() -> void:
 			> POLICY.PLAYER_MOVE_CANCEL_M:
 		_close_episode("approach player moved")
 		return
-	if not bool(_venue.nav_owned(nav, _episode.token)):
+	if not bool(_venue.nav_owned(pony, _episode.token)):
 		_close_episode("approach owner")
 		return
 	if _now() > _episode.started_at + POLICY.APPROACH_TIMEOUT_S:
@@ -605,7 +604,7 @@ func _arrive() -> void:
 	if not is_instance_valid(_episode.pony) or not is_instance_valid(nav):
 		_close_episode("arrive lost")
 		return
-	_venue.stay(nav)
+	_venue.stay(_episode.pony)
 	_episode.phase = Phase.ARRIVE
 	_episode.arrive_until = _now() + POLICY.ARRIVE_WAIT_S
 
@@ -646,9 +645,9 @@ func _lead_to_bed() -> String:
 		return reason
 	_venue.ensure_stand(_episode.pony)
 	if _episode.pony.global_position.distance_to(front) <= 1.2:
-		_venue.stay(_episode.nav)
+		_venue.stay(_episode.pony)
 		return _start_ask_handoff()
-	if not GAME.navigator_destination(_episode.nav, front, "trot"):
+	if not WORLD.navigator(_episode.pony).walk_to(front, "trot"):
 		return _close_episode("bed approach destination")
 	return ""
 
@@ -660,15 +659,15 @@ func _tick_bed_approach() -> void:
 	if not is_instance_valid(pony) or not is_instance_valid(nav) or not front is Vector3:
 		_close_episode("bed approach lost")
 		return
-	if not bool(_venue.nav_owned(nav, _episode.token)):
+	if not bool(_venue.nav_owned(pony, _episode.token)):
 		_close_episode("bed approach owner")
 		return
 	if _now() - _episode.started_at > POLICY.BED_LEAD_TIMEOUT_S:
 		_close_episode("bed approach timeout")
 		return
 	if pony.global_position.distance_to(front) <= 1.4 \
-			or not bool(_venue.nav_has_target(nav)):
-		_venue.stay(nav)
+			or not bool(_venue.nav_has_target(pony)):
+		_venue.stay(pony)
 		_start_ask_handoff()
 
 
@@ -727,7 +726,7 @@ func _start_ask_handoff() -> String:
 	offer.cuddle = option.cuddle
 	var episode := _episode
 	# Restore her speed and pace before the lease leaves: the negotiation does not own them.
-	_venue.restore_limits(episode.nav, episode.prev_limit, episode.prev_pace)
+	_venue.restore_limits(episode.pony, episode.prev_limit, episode.prev_pace)
 	var handed := is_instance_valid(_negotiation) and _negotiation.begin_mare_offer(offer)
 	if not handed:
 		return _close_episode("handoff refused")
@@ -817,7 +816,7 @@ func _close_episode(reason: String) -> String:
 	var id := _episode.id
 	var phase := _phase_name(_episode.phase)
 	if is_instance_valid(_episode.nav):
-		_venue.release_nav(_episode.nav, _episode.token, _episode.prev_owner,
+		_venue.release_nav(_episode.pony, _episode.token, _episode.prev_owner,
 			_episode.prev_wander, _episode.prev_limit, _episode.prev_pace)
 	if not reason.is_empty():
 		_retry_at[id] = _now() + POLICY.RETRY_S

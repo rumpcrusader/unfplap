@@ -40,14 +40,10 @@ static func context(pony: Node, id: String, act: Dictionary) -> Dictionary:
 		if impressions != null and impressions.has_method("profile"):
 			mood = GAME.impression_mood(impressions, pony_id, "?")
 	var posture := WORLD.pony(pony).posture_requested()
-	var nav := GAME.navigator_of(pony)
-	var owner := ""
-	var target := false
-	var reserved := ""
-	if nav != null:
-		owner = GAME.navigator_owner(nav)
-		target = GAME.navigator_has_target(nav)
-		reserved = GAME.navigator_reserved(nav)
+	var lease := WORLD.navigator(pony)
+	var owner := lease.owner()
+	var target := lease.has_target()
+	var reserved := lease.reserved()
 	var body: Variant = WORLD.player if is_instance_valid(WORLD.game) else null
 	var out := act.duplicate()
 	out.merge({
@@ -91,16 +87,15 @@ static func upright(pony: Node3D) -> void:
 
 static func idle(pony: Node3D) -> String:
 	var notes := PackedStringArray()
-	var nav := GAME.navigator_of(pony)
-	if nav != null:
-		GAME.navigator_stay(nav)
-		if not GAME.navigator_owner(nav).is_empty():
-			notes.append("owner " + GAME.navigator_owner(nav))
-			GAME.set_navigator_owner(nav, "")
-		GAME.set_navigator_wander(nav, false)
-		if not GAME.navigator_reserved(nav).is_empty():
-			notes.append("reserved " + GAME.navigator_reserved(nav))
-			GAME.set_navigator_reserved(nav, "")
+	var lease := WORLD.navigator(pony)
+	lease.stay()
+	if not lease.owner().is_empty():
+		notes.append("owner " + lease.owner())
+		lease.set_owner("")
+	lease.set_wander(false)
+	if not lease.reserved().is_empty():
+		notes.append("reserved " + lease.reserved())
+		lease.set_reserved("")
 	if pony.has_meta("active_follow"):
 		pony.remove_meta("active_follow")
 	if pony.get("motion_paused") == true:

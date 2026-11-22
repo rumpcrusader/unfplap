@@ -18,7 +18,8 @@ This contract covers:
   game's own settings;
 - the three scene writes a service cannot do itself: the merged LOD rebuild after a shape change,
   the act chat open past the controls lock and a body's velocity;
-- the bound views of a pony's body, face, wings and flank, and the handle cache behind them.
+- the bound views of a pony's body, navigator, face, wings and flank, and the handle cache behind
+  them.
 
 It does not cover an offer, a pose, an act start, a gate verdict or any act state. It preloads no
 service facade and no runtime.
@@ -63,16 +64,17 @@ names the entry to ask whether the scene is live.
 
 ## Views
 
-A view is a base-game object with its receiver already bound: `pony(n)`, `face(n)`, `wings(n)` and
-`flank(n)` answer a handle whose members take no scene argument. The factory caches one handle per
-node, so a per-frame read costs a lookup rather than an allocation, and every bind and `unbind()`
-drops the cache so a swapped body can never answer through the old one. A view built on `null`
-answers the accessors' typed zeroes; a caller that keeps one across a despawn therefore reads those
-zeroes rather than crashing.
+A view is a base-game object with its receiver already bound: `pony(n)`, `navigator(n)`, `face(n)`,
+`wings(n)` and `flank(n)` answer a handle whose members take no scene argument. The factory caches
+one handle per node, so a per-frame read costs a lookup rather than an allocation, and every bind
+and `unbind()` drops the cache so a swapped body can never answer through the old one. A view built
+on `null` answers the accessors' typed zeroes; a caller that keeps one across a despawn therefore
+reads those zeroes rather than crashing.
 
 | View | Binds | Members |
 |---|---|---|
 | `Pony` | a pony body, or the act body that answers for her | `identity`, `has_wings`, `skeleton`, `head`, `mouth`, `hair`, `hair_skeleton`, `model`, `body`, `dock`, `dock_anchor`, `dock_fit`, `dock_fitted_mesh`, `dock_reach`, `dock_rump_z`, `claim_body_materials`, `hair_link`, `hair_link_ready`, `hair_link_pelvis`, `set_hair_link_pelvis`, `notify_hair_link`, `far_mesh_shown`, `set_near_mesh`, `forget_far_mesh`, `eye_motion`, `boop`, `body_scale`, `set_body_scale`, `exclude_from_outline`, `head_skeleton`, `set_viseme`, `clear_viseme`, `mouth_point`, `skull_world`, `nose_world`, `muzzle_world`, `eye_transform`, `listen_point`, `look_toward`, `aim_eyes`, `joint_constrain`, `is_held`, `grounded`, `posture_requested`, `request_posture`, `interruption_reason`, `stop_speaking`, `speaking`, `set_motion_paused` |
+| `Navigator` | a pony body; the members read and write its `Navigator` child | `owner`, `reserved`, `wander`, `has_target`, `stay`, `set_owner`, `set_reserved`, `set_wander`, `speed_limit`, `pace_target`, `set_speed_limit`, `set_pace_target`, `support`, `walk_to`, `clear_travel`, `set_conversation_target`, `clear_conversation_target`, `set_face_point`, `set_facing`, `clear_facing` |
 | `Face` | a pony body | `controller`, `touch`, `release_touch`, `stare`, `fluster`, `fluster_amount`, `dialogue_face`, `set_dialogue`, `finish_dialogue`, `clear_dialogue`, `sustain_blush`, `celebrate`, `set_expression` |
 | `Wings` | her excitement Beat, or the wing node it owns | `node`, `hold`, `release_hold`, `set_open`, `spread`, `flutter`, `opened`, `set_opened`, `set_tuck`, `set_half` |
 | `Flank` | her `FlankTouch` node, or the touch body whose hulls need syncing | `sync`, `update_surface`, `impact`, `wake_tick`, `start_jiggle`, `process`, `jiggle_amount`, `set_jiggle_amount` |
@@ -82,6 +84,11 @@ sustainer and gaze controller — so a call names only the extra value it needs.
 operate on something else carry that first: a mesh, a dock fit, a body name, a gaze object, a
 joint-limit table, or the stock affection while she is held. `Face` resolves her controller and
 sustainer the same way, so the pony stays the only handle its caller holds.
+
+`Navigator` binds the body for the same reason: its members reach her `Navigator` child, so the
+leases, the wander switch, the speed and pace overrides, the route and the facing take no node.
+Only the travel lease it clears and the conversation target it keeps are passed. The lease itself
+belongs to whichever caller claimed it, and the view only carries that owner's reads and writes.
 
 `Wings` and `Flank` are split by what owns the call: the wing hold and fold members take the wing
 node and the stock spread takes her Beat, while the jiggle members take her `FlankTouch` node, the
@@ -405,10 +412,10 @@ facade answers `null` and `false`; that is the "no world yet" answer, not a rule
 reads the game's own `player` property through `GAME`, so a renamed or missing property is null
 instead of a crash.
 
-The views of a pony's body, face, wings and flank exist in this revision. The rest of the
-base-game objects this facade hands back — her navigator, Anon's rig, the bed, the director, the
-story journal, the inventory, the menu, the mods registry, the relationship runtime and the
-affection scene — are still reached by taking the node to the facade member or to `GAME`.
+The views of a pony's body, navigator, face, wings and flank exist in this revision. The rest of
+the base-game objects this facade hands back — Anon's rig, the bed, the director, the story
+journal, the inventory, the menu, the mods registry, the relationship runtime and the affection
+scene — are still reached by taking the node to the facade member or to `GAME`.
 
 ## Data ownership
 

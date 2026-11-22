@@ -77,8 +77,7 @@ func claim_attention() -> bool:
 	var pony: Node = host.pony_node() if host != null else null
 	if not is_instance_valid(pony):
 		return false
-	var found: Node = GAME.navigator_of(pony)
-	if found == null or GAME.navigator_reserved(found) != "":
+	if GAME.navigator_of(pony) == null or WORLD.navigator(pony).reserved() != "":
 		return false
 	nav = null
 	token = ""
@@ -93,16 +92,19 @@ func transfer_nav(existing_token: String, old_wander: bool = true) -> bool:
 	if not is_instance_valid(pony) or existing_token.is_empty():
 		return false
 	var found: Node = GAME.navigator_of(pony)
-	if found == null or GAME.navigator_owner(found) != existing_token:
+	if found == null:
+		return false
+	var lease := WORLD.navigator(pony)
+	if lease.owner() != existing_token:
 		return false
 	nav = found
 	token = existing_token
 	nav_old_wander = old_wander
 	negotiation = true
-	GAME.navigator_stay(nav)
-	GAME.set_navigator_owner(nav, token)
-	GAME.set_navigator_wander(nav, false)
-	return GAME.navigator_owner(nav) == token
+	lease.stay()
+	lease.set_owner(token)
+	lease.set_wander(false)
+	return lease.owner() == token
 
 
 ## Attach this ledger to an owner claimed elsewhere, without touching the navigator. The act
@@ -112,7 +114,7 @@ func adopt_nav(existing_token: String, old_wander: bool = true) -> bool:
 	if not is_instance_valid(pony) or existing_token.is_empty():
 		return false
 	var found: Node = GAME.navigator_of(pony)
-	if found == null or GAME.navigator_owner(found) != existing_token:
+	if found == null or WORLD.navigator(pony).owner() != existing_token:
 		return false
 	nav = found
 	token = existing_token
@@ -156,29 +158,32 @@ func _claim(owner_id: String, prefix: String) -> bool:
 	nav = GAME.navigator_of(pony)
 	if nav == null:
 		return false
-	if GAME.navigator_reserved(nav) != "":
+	var lease := WORLD.navigator(pony)
+	if lease.reserved() != "":
 		return false
 	if prefix == TOKEN_NEGOTIATION:
-		var owner := GAME.navigator_owner(nav)
+		var owner := lease.owner()
 		if owner.begins_with("unfplap:"):
 			return false
 		# A routine owner is free only with no active route; anything else is Occupied.
 		if not owner.is_empty() and not (owner.begins_with("life:") or owner.begins_with("day:")):
 			return false
-		if GAME.navigator_has_target(nav):
+		if lease.has_target():
 			return false
-	nav_old_wander = GAME.navigator_wander(nav)
+	nav_old_wander = lease.wander()
 	token = prefix + owner_id
 	negotiation = prefix == TOKEN_NEGOTIATION
-	GAME.navigator_stay(nav)
-	GAME.set_navigator_owner(nav, token)
-	GAME.set_navigator_wander(nav, false)
-	return GAME.navigator_owner(nav) == token
+	lease.stay()
+	lease.set_owner(token)
+	lease.set_wander(false)
+	return lease.owner() == token
 
 
 ## Re-assert the lease on every tick if another system changed the owner. A negotiation lease also
 ## clears a walk target another system set, so she stays with Anon.
 func keep_nav() -> void:
+	# The handle the claim recorded, not the host's live pony read: a teardown that lost the pony
+	# still has to give the lease back.
 	if nav == null or not is_instance_valid(nav):
 		return
 	if GAME.navigator_owner(nav) != token:
@@ -224,7 +229,7 @@ func keep_target() -> bool:
 			and (player as Node).is_ancestor_of(current as Node)
 		if not under_player:
 			return false
-	GAME.set_conversation_target(pony, player, true)
+	WORLD.navigator(pony).set_conversation_target(player, true)
 	return true
 
 
@@ -295,7 +300,7 @@ func keep_attention() -> void:
 	if not is_instance_valid(pony):
 		return
 	if pony.has_method("set_conversation_target"):
-		GAME.set_conversation_target(pony, null, false)
+		WORLD.navigator(pony).set_conversation_target(null, false)
 
 
 ## Hold the player's movement with the game's `kiss_hold` meta, not `controls_locked`: the camera

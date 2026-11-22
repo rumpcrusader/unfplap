@@ -144,7 +144,7 @@ func rows(pose: String, act_source: String, bed_in: Node3D, mode: String,
 		_row(rows_out, "navigator", nav != null, "no_navigator")
 		if nav != null:
 			_row(rows_out, "navigator_reserved",
-				GAME.navigator_reserved(nav) == "", "navigator_reserved")
+				WORLD.navigator(pony).reserved() == "", "navigator_reserved")
 			_row(rows_out, "nav_owner", nav_owner_allows(pose, act_source), "nav_owner")
 		_row(rows_out, "nav_pose", nav_pose_gate(pose, act_source), "nav_pose")
 	else:

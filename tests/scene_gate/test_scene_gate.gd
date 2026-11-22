@@ -5,7 +5,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/scene_gate/test_scene_gate.gd
 
-const WORLD := preload("res://mods/unfplap/world/service.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const GATE := preload("res://mods/unfplap/scene_gate/service.gd")
 const ACT_GATE := preload("res://mods/unfplap/act_gate/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")

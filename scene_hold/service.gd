@@ -3,7 +3,7 @@ extends RefCounted
 ## The runtime owns the act state; this ledger owns the flags and the release order.
 ## Contract: `docs/scene_hold.md`
 
-const WORLD := preload("res://mods/unfplap/world/service.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const STATE_IDLE := ACT_STATE.State.IDLE

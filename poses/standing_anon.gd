@@ -2,7 +2,7 @@ extends RefCounted
 ## Standing Anon body: the hip thrust wrapper, the pelvis-sway follow and palm scale. The runtime
 ## owns readiness and scoring; this controller only poses the player rig.
 
-const WORLD := preload("res://mods/unfplap/world/service.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
 const ANON_THRUST := preload("res://mods/unfplap/poses/anon_thrust.gd")
 const HIP_THRUST := preload("res://mods/unfplap/poses/anon_hip_thrust.gd")

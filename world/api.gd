@@ -2,7 +2,7 @@ extends RefCounted
 ## Service: world
 ## Contract: docs/world.md
 ## Scope: world
-## Import: world/service.gd, world/game.gd
+## Import: world/api.gd, world/game.gd
 ## The one live-scene reader; it answers where and what, not whether.
 
 const GAME := preload("res://mods/unfplap/world/game.gd")
@@ -37,6 +37,11 @@ static func unbind() -> void:
 	game = null
 	player = null
 	_clear_handles()
+
+
+## True while both bound handles are live; false outside a world and after a close.
+static func ready() -> bool:
+	return is_instance_valid(game) and is_instance_valid(player)
 
 
 static func _clear_handles() -> void:
@@ -121,6 +126,11 @@ static func game_player() -> Node3D:
 	return GAME.game_player(game)
 
 
+## The bound rig itself, not the body the game shows for him.
+static func player_rig() -> Node3D:
+	return player
+
+
 ## The mares as node handles, rebuilt on every read; scan cadence only.
 static func mares() -> Array[Node3D]:
 	if not is_instance_valid(game):
@@ -135,7 +145,7 @@ static func house_at(at: Vector3) -> Node3D:
 
 ## True when an idle scan may run: a live tree that is not paused, and a captured desktop cursor or
 ## a headset. The player and game handles are the scan's own guard.
-static func scan_allowed() -> bool:
+static func can_interact() -> bool:
 	var tree := _tree()
 	if tree == null or tree.paused:
 		return false
@@ -266,6 +276,16 @@ static func player_beside_bed(bed: Node3D) -> bool:
 	return false
 
 
+## A bed the house creates on demand, not one a probe found.
+static func ensure_bed(house: Node, kind: String = "") -> Node3D:
+	return GAME.ensure_bed(house as Node3D, kind)
+
+
+## The shop's packed item scene; null when the shop has no such item.
+static func shop_item(id: String) -> PackedScene:
+	return GAME.shop_item_scene(id)
+
+
 ## True while a menu or panel owns the mouse: the tree paused or a known panel open.
 ## "Mouse is visible" is deliberately excluded: a closed menu would leave input dead.
 static func menu_panel_open() -> bool:
@@ -306,6 +326,16 @@ static func headset_view() -> bool:
 	return GAME.headset_view(game)
 
 
+## The game's own setting by its dotted key; empty when no settings node is reachable.
+static func game_setting(key: String) -> String:
+	if not is_instance_valid(game):
+		return ""
+	var tree := _tree()
+	if tree == null:
+		return ""
+	return GAME.setting_string(tree.root.get_node_or_null("Settings"), key)
+
+
 ## Drop the merged LOD caches for a body whose shape changed and re-arm its near mesh, so the
 ## visible body is rebuilt from the new rig instead of the old shape's gather.
 static func refresh_body_lod(pony: Node) -> void:
@@ -313,8 +343,13 @@ static func refresh_body_lod(pony: Node) -> void:
 		GAME.refresh_body_lod(pony)
 
 
+## A body's velocity; anything that is not a live Node3D is left alone.
+static func set_velocity(body: Node, value: Vector3) -> void:
+	GAME.set_velocity(body as Node3D, value)
+
+
 ## The chat box refuses while the act holds the controls; open it past that lock.
-static func open_act_chat() -> bool:
+static func open_chat() -> bool:
 	if not is_instance_valid(game) or not is_instance_valid(player):
 		return false
 	return GAME.open_chat(game, player)

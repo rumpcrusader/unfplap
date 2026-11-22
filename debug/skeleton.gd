@@ -3,7 +3,7 @@ extends Node3D
 ## body, face and hair/tail skeletons of nearby loaded ponies as thick unshaded lines with joint
 ## circles. Hovering a joint turns it red; clicking one prints its bone name and pose properties.
 
-const WORLD := preload("res://mods/unfplap/world/service.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const BODY_COLOR := Color(0.38, 1.0, 0.62)
 const FACE_COLOR := Color(1.0, 0.83, 0.36)

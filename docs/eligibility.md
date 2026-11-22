@@ -36,7 +36,7 @@ The purity boundary is deliberate:
 - `policy.gd` and `facts.gd` have no `Node`, `Time`, `SceneTree`, `FileAccess`, `SETTINGS` preload
   or scene preload. They receive plain data and return plain data.
 - `eligibility/service.gd` is read-only. It never saves settings, history or consent.
-- Only `eligibility/scene.gd` reads `world/service.gd`; only `eligibility/service.gd` reads
+- Only `eligibility/scene.gd` reads `world/api.gd`; only `eligibility/service.gd` reads
   `bonds`-free identity values, `SETTINGS.profile_identity` and `SETTINGS.consent`.
 - The service is a leaf: it preloads its own files, shared data, the settings and registry facades
   and the scene boundary. It preloads no other service. `scripts/architecture.py --check` enforces

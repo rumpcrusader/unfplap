@@ -13,7 +13,7 @@ const BEAT := preload("res://mods/unfplap/shared/face_beat.gd")
 const DIALOGUE := preload("res://mods/unfplap/dialogue/service.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const REST := preload("res://mods/unfplap/rest/control.gd")
-const WORLD := preload("res://mods/unfplap/world/service.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 

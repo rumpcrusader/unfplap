@@ -1,7 +1,7 @@
 extends RefCounted
 ## Debug-only: the bed helper behind the wheel action and Show data's rows.
 
-const WORLD := preload("res://mods/unfplap/world/service.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
 const BED_REST := preload("res://world/relationships/shared_bed.gd")
 const HOUSE := preload("res://world/buildings/house_interior.gd")

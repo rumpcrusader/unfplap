@@ -3,7 +3,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ## lines and the recent-line reads.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/dialogue/test_act_dialogue.gd
 
-const WORLD := preload("res://mods/unfplap/world/service.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const DIALOGUE := preload("res://mods/unfplap/dialogue/service.gd")
 const FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")

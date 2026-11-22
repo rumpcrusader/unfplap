@@ -6,7 +6,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ## Fake nodes only: the helper touches a pony's Navigator, CuddleSession, act metas and public
 ## posture state, never a game file.
 
-const WORLD := preload("res://mods/unfplap/world/service.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const DEBUG_PONY := preload("res://mods/unfplap/debug/pony.gd")
 
 

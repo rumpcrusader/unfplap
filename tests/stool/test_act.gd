@@ -2,7 +2,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ## The per-act footstool handle: the reach rule, the case loans, the placed stack and the release.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/stool/test_act.gd
 
-const WORLD := preload("res://mods/unfplap/world/service.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const ACT := preload("res://mods/unfplap/stool/act.gd")
 const ITEM := preload("res://mods/unfplap/stool/item.gd")

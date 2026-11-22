@@ -10,7 +10,7 @@ const MOOD_FACE := preload("res://mods/unfplap/face/mood_face.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
 const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
 const READINESS := preload("res://mods/unfplap/readiness/service.gd")
-const WORLD := preload("res://mods/unfplap/world/service.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 ## The act states the lids answer. The runtime owns the enum; these are its values.
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")

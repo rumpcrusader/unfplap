@@ -15,7 +15,7 @@ const ACT_EXIT := preload("res://mods/unfplap/act/exit.gd")
 const ACT_SWAP := preload("res://mods/unfplap/act/swap.gd")
 const ACT_PHASES := preload("res://mods/unfplap/act/phases.gd")
 const CYCLE := preload("res://mods/unfplap/shared/cycle.gd")
-const WORLD := preload("res://mods/unfplap/world/service.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const PERF := preload("res://mods/unfplap/shared/perf.gd")
 
 const State := ACT_STATE.State

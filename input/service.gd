@@ -3,7 +3,7 @@ extends "res://mods/unfplap/shared/service.gd"
 ## While an act is active it consumes the act keys and the interaction keys, and keeps the
 ## game's own stand_up poll from force-standing a seated player.
 
-const WORLD := preload("res://mods/unfplap/world/service.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
 const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/service.gd")
 const OFFER := preload("res://mods/unfplap/offer/service.gd")
@@ -357,7 +357,7 @@ func _act_key(runtime: Node, key: InputEventKey, state: int) -> void:
 		return
 	# Enter opens the act chat and then hands the keyboard to the text field.
 	if key.physical_keycode in [KEY_ENTER, KEY_KP_ENTER] \
-			and bool(WORLD.open_act_chat()):
+			and bool(WORLD.open_chat()):
 		get_viewport().set_input_as_handled()
 		return
 	# X is consumed in every act state: AnonPony uses X to lie down, and the runtime polls it

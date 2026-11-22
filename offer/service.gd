@@ -7,7 +7,7 @@ extends "res://mods/unfplap/shared/service.gd"
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
-const WORLD := preload("res://mods/unfplap/world/service.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const PERF := preload("res://mods/unfplap/shared/perf.gd")
 const HUD := preload("res://mods/unfplap/hud/service.gd")
@@ -100,7 +100,7 @@ func tick(delta: float) -> void:
 func _sense(delta: float, force := false) -> bool:
 	if not is_instance_valid(WORLD.player) or not is_instance_valid(WORLD.game):
 		return false
-	if not WORLD.scan_allowed():
+	if not WORLD.can_interact():
 		return false
 	var seat: Variant = WORLD.player.get("seat")
 	var seat_changed: bool = seat != _seat
@@ -159,7 +159,7 @@ func try_start() -> bool:
 	if PONIES.act_running():
 		return false
 	# No idle input: a paused tree or a free cursor refuses the press before any read.
-	if not WORLD.scan_allowed():
+	if not WORLD.can_interact():
 		return false
 	_sense(0.0, true)
 	reconsider()
@@ -265,7 +265,7 @@ func _tick_agreement_auto_start(delta: float) -> void:
 	if handle == null:
 		return
 	_agreement_clock = 0.0
-	if WORLD.menu_panel_open() or not WORLD.scan_allowed():
+	if WORLD.menu_panel_open() or not WORLD.can_interact():
 		return
 	var pony: Node3D = handle.pony
 	if not is_instance_valid(pony):
@@ -365,9 +365,9 @@ func _reconsider() -> void:
 		_offer_blocked = null
 		_sensor.focus(null)
 		return
-	# Keep the last offer while `scan_allowed()` is false: the menu hides the row, and the next
+	# Keep the last offer while `can_interact()` is false: the menu hides the row, and the next
 	# transition refreshes it.
-	if not WORLD.scan_allowed():
+	if not WORLD.can_interact():
 		return
 	if WORLD.camera() == null:
 		_offer = null

@@ -2,7 +2,7 @@ extends CanvasLayer
 ## The debug action wheel: hold the middle button in captured desktop play and release on a slot.
 ## It never pauses the tree, claims a hotkey or writes a setting. See `docs/debug.md`.
 
-const WORLD := preload("res://mods/unfplap/world/service.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/service.gd")
 const ACTIONS_NODE := preload("res://mods/unfplap/debug/actions.gd")
 const SOUNDS := preload("res://world/audio/interaction_sounds.gd")

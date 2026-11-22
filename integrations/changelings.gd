@@ -5,7 +5,7 @@ extends "res://mods/unfplap/body_change/source.gd"
 ## Scope: world. Reads the pack's public nodes; never edits the pack, never preloads a host.
 ## See `docs/integrations.md`.
 
-const WORLD := preload("res://mods/unfplap/world/service.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const BODY_PROFILE := preload("res://mods/unfplap/shared/body_profile.gd")
 const CHANGELINGS_POLICY := preload("res://mods/unfplap/integrations/changelings_policy.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")

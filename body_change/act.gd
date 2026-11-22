@@ -3,7 +3,7 @@ extends RefCounted
 ## `act/swap.gd` holds the ordered release/resume seams and the one resume caller, the runtime keeps
 ## the reparent and the adoption binding; this handle decides when they run and owns the record.
 
-const WORLD := preload("res://mods/unfplap/world/service.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
 const BODY_CHANGE_POLICY := preload("res://mods/unfplap/shared/body_change_policy.gd")

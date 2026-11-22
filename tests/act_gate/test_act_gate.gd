@@ -4,7 +4,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ## throwaway XDG data dir in the test runner.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/act_gate/test_act_gate.gd
 
-const WORLD := preload("res://mods/unfplap/world/service.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const ACT_GATE := preload("res://mods/unfplap/act_gate/service.gd")
 const FACTS := preload("res://mods/unfplap/act_gate/facts.gd")
 const POLICY := preload("res://mods/unfplap/act_gate/policy.gd")

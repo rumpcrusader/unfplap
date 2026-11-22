@@ -3,7 +3,7 @@ extends "res://mods/unfplap/shared/service.gd"
 ## Scope: world
 ## Contract: docs/initiation.md
 
-const WORLD := preload("res://mods/unfplap/world/service.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
 const POLICY := preload("res://mods/unfplap/initiation/policy.gd")
 const FACTS := preload("res://mods/unfplap/initiation/facts.gd")

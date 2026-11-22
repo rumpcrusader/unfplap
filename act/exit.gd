@@ -13,7 +13,7 @@ const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const REST := preload("res://mods/unfplap/rest/service.gd")
-const WORLD := preload("res://mods/unfplap/world/service.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 const State := ACT_STATE.State

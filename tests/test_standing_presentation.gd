@@ -6,7 +6,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/test_standing_presentation.gd
 
-const WORLD := preload("res://mods/unfplap/world/service.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const PRESENTATION := preload("res://mods/unfplap/poses/standing_presentation.gd")
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")

@@ -2,7 +2,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ## The standing placement raises the player onto the stool and lowers him again.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/stool/test_placement.gd
 
-const WORLD := preload("res://mods/unfplap/world/service.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const STOOL := preload("res://mods/unfplap/stool/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")

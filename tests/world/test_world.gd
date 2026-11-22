@@ -3,7 +3,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ## headset gates, the player body and mare reads, the LOD rebuild and the act chat.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/world/test_world.gd
 
-const WORLD := preload("res://mods/unfplap/world/service.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
 const HYBRID_NEAR_MESH := preload("res://world/characters/hybrid_mare/hybrid_near_mesh.gd")
 const HYBRID_FAR_MESH := preload("res://world/characters/hybrid_mare/hybrid_far_mesh.gd")
@@ -127,6 +127,21 @@ class FakeSettings extends Node:
 
 	func anon_height_scale() -> float:
 		return height
+
+
+## A house interior with the one bed builder the facade calls.
+class FakeHouse extends Node3D:
+	var bed: Variant = null
+	var kinds: Array = []
+
+	func ensure_bed(kind: String) -> Variant:
+		kinds.append(kind)
+		return bed
+
+
+## A body the facade's velocity write reaches.
+class FakeMoving extends Node3D:
+	var velocity := Vector3.ZERO
 
 
 ## The game's pony kisser: one latch per kiss.
@@ -358,7 +373,8 @@ func run() -> void:
 	_check_bed_occupancy()
 	_check_player_beside_bed()
 	_check_menu_and_headset()
-	_check_open_act_chat()
+	_check_open_chat()
+	_check_place_and_ops()
 	_check_kiss_and_settings()
 	_check_turn_and_wing_accessors()
 	_check_pose_accessors()
@@ -387,7 +403,7 @@ func _check_freed_handles() -> void:
 	check(WORLD.mares().is_empty(), "a freed world has no mares")
 	check(not WORLD.menu_panel_open(), "a freed world has no open panel")
 	check(WORLD.camera() == null, "a freed rig has no camera")
-	check(not WORLD.open_act_chat(), "a freed world opens no chat")
+	check(not WORLD.open_chat(), "a freed world opens no chat")
 	WORLD.unbind()
 
 
@@ -404,7 +420,10 @@ func _check_unbound() -> void:
 	check(not WORLD.bed_occupied(null, null), "no bed is not occupied")
 	check(not WORLD.player_beside_bed(null), "no player is not beside a bed")
 	check(not WORLD.headset_view(), "no world is no headset")
-	check(not WORLD.open_act_chat(), "no world opens no chat")
+	check(not WORLD.open_chat(), "no world opens no chat")
+	check(not WORLD.ready(), "an unbound facade is not ready")
+	check(WORLD.player_rig() == null, "an unbound facade has no rig")
+	check(WORLD.game_setting("ponies/size") == "", "an unbound facade reads no game setting")
 	WORLD.refresh_body_lod(null)
 
 
@@ -417,11 +436,15 @@ func _check_binding() -> void:
 	check(WORLD.game == game, "bind_world stores the world root")
 	check(not is_same(WORLD.mares(), list), "the facade answers with a copy, not the game array")
 	check(WORLD.mares().size() == list.size(), "the copy holds every mare")
-	WORLD.bind_player(FakePlayer.new())
+	var player := FakePlayer.new()
+	WORLD.bind_player(player)
 	check(WORLD.player != null, "bind_player stores Anon's body")
+	check(WORLD.player_rig() == player, "the facade hands back the bound rig")
+	check(WORLD.ready(), "a bound world and rig are ready")
 	WORLD.bind_world(null)
 	check(WORLD.player != null, "a world bind keeps the player")
 	check(WORLD.game == null, "a null world bind clears the world")
+	check(not WORLD.ready(), "a missing world is not ready")
 	WORLD.bind_world(game)
 	WORLD.bind_player(null)
 	check(WORLD.game == game and WORLD.player == null, "the player leaves on its own")
@@ -882,7 +905,7 @@ func _check_menu_and_headset() -> void:
 	WORLD.unbind()
 
 
-func _check_open_act_chat() -> void:
+func _check_open_chat() -> void:
 	var game := FakeGame.new()
 	root.add_child(game)
 	var player := FakePlayer.new()
@@ -893,7 +916,7 @@ func _check_open_act_chat() -> void:
 	WORLD.bind_world(game)
 	WORLD.bind_player(player)
 	player.controls_locked = true
-	check(WORLD.open_act_chat(), "the act chat opens past the controls lock")
+	check(WORLD.open_chat(), "the act chat opens past the controls lock")
 	check(chat.opened, "the game's chat box was opened")
 	check(player.controls_locked, "the controls lock is restored")
 	check(not bool(chat._lock_owned), "the opened chat takes its lock back")
@@ -901,10 +924,48 @@ func _check_open_act_chat() -> void:
 	var bare := BareGame.new()
 	root.add_child(bare)
 	WORLD.bind_world(bare)
-	check(not WORLD.open_act_chat(), "a world without a chat box opens nothing")
+	check(not WORLD.open_chat(), "a world without a chat box opens nothing")
 	bare.queue_free()
 	game.queue_free()
 	player.queue_free()
+	WORLD.unbind()
+
+
+## The place reads and the ops that compose the accessor layer: a house's bed, the shop's item,
+## the game's own setting and a body's velocity.
+func _check_place_and_ops() -> void:
+	var game := FakeGame.new()
+	root.add_child(game)
+	WORLD.bind_world(game)
+	# The suite's boot may carry the game's own autoload; the facade must read that node, whatever
+	# its value, rather than a copy of its settings.
+	var settings := root.get_node_or_null("Settings")
+	check(WORLD.game_setting("ponies/size") == GAME.setting_string(settings, "ponies/size"),
+		"the facade reads the game's own settings node")
+
+	var bed := Node3D.new()
+	root.add_child(bed)
+	var house := FakeHouse.new()
+	house.bed = bed
+	root.add_child(house)
+	check(WORLD.ensure_bed(house) == bed, "a house's bed is read through its builder")
+	check(house.kinds == [""], "the facade asks for the house's unnamed bed")
+	var plain := Node.new()
+	root.add_child(plain)
+	check(WORLD.ensure_bed(plain) == null, "a node that is no house has no bed")
+
+	var moving := FakeMoving.new()
+	root.add_child(moving)
+	WORLD.set_velocity(moving, Vector3(1.0, 2.0, 3.0))
+	check(moving.velocity == Vector3(1.0, 2.0, 3.0), "a body's velocity is written")
+	WORLD.set_velocity(null, Vector3.ONE)
+	check(WORLD.shop_item("") == null, "the shop has no item without an id")
+
+	plain.queue_free()
+	house.queue_free()
+	bed.queue_free()
+	moving.queue_free()
+	game.queue_free()
 	WORLD.unbind()
 
 

@@ -4,7 +4,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ## a throwaway XDG data dir in the test runner.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/eligibility/test_eligibility_api.gd
 
-const WORLD := preload("res://mods/unfplap/world/service.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const IDENTITY_RECORD := preload("res://mods/unfplap/eligibility/identity_record.gd")
 const FACTS := preload("res://mods/unfplap/eligibility/facts.gd")

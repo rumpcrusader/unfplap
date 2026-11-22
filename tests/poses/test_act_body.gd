@@ -8,7 +8,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 const ACT_BODY := preload("res://mods/unfplap/poses/missionary_anon.gd")
 const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 const FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
-const WORLD := preload("res://mods/unfplap/world/service.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 
 const HIPS := "Hips"
 const SPINE := "Spine"

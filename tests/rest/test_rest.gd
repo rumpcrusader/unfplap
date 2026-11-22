@@ -3,7 +3,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ## rejoin decision and note, the restore posture and the early rejoin exits.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/rest/test_rest.gd
 
-const WORLD := preload("res://mods/unfplap/world/service.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const REST := preload("res://mods/unfplap/rest/service.gd")
 
 

@@ -5,7 +5,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ##     --script res://mods/unfplap/tests/scene_hold/test_scene_hold.gd
 
 const INTERACTOR := preload("res://player/interactor.gd")
-const WORLD := preload("res://mods/unfplap/world/service.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const HOLD := preload("res://mods/unfplap/scene_hold/service.gd")
 
 const STATE_IDLE := 0

@@ -7,7 +7,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 
 const SENSOR := preload("res://mods/unfplap/offer/fan_sensor.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
-const WORLD := preload("res://mods/unfplap/world/service.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 
 
 

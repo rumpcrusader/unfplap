@@ -1,9 +1,9 @@
 # World
 
-The one place a service reads the live scene. `world/service.gd` (RefCounted, static state) is
-bound by the entry on world and player enter and cleared on world close. It answers *where* and
-*what* — the world root, Anon's body and the reads derived from them — and never *whether*: every
-gate, offer and act rule stays with its caller.
+The world service facade: the one place a service reads the live scene. `world/api.gd` (RefCounted,
+static state) is bound by the entry on world and player enter and cleared on world close. It answers
+*where* and *what* — the world root, Anon's body and the reads derived from them — and never
+*whether*: every gate, offer and act rule stays with its caller.
 
 ## Scope
 
@@ -13,29 +13,32 @@ This contract covers:
   reach interactor, the desktop interactions node);
 - the world-owned reads a rule is built on: the mare list, the thinkable bed under a point, the
   real bed behind a mattress hit, the bed a cradle looks at, bed occupancy, Anon's seat beside a
-  bed, the menu/panel gates and the headset test;
-- the two scene writes a service cannot do itself: the merged LOD rebuild after a shape change and
-  the act chat open past the controls lock.
+  bed, a house's bed, the shop's item scene, the menu/panel gates, the headset test and one of the
+  game's own settings;
+- the three scene writes a service cannot do itself: the merged LOD rebuild after a shape change,
+  the act chat open past the controls lock and a body's velocity.
 
 It does not cover an offer, a pose, an act start, a gate verdict or any act state. It preloads no
 service facade and no runtime.
 
 ## Ownership
 
-The facade is also the mod's one "is there a world" read: a pure guard is
-`is_instance_valid(WORLD.game)`. It replaces the entry handle every service used to hold for the
-same answer, so a service never names the entry to ask whether the scene is live.
+The facade is also the mod's one "is there a world" read: `ready()` answers it for the bound pair.
+It replaces the entry handle every service used to hold for the same answer, so a service never
+names the entry to ask whether the scene is live.
 
-`world/service.gd` owns the bound scene handles:
+`world/api.gd` owns the bound scene handles:
 
 | Read | Why it is a read, not a rule |
 |---|---|
+| `ready()` | both bound handles are live |
 | `game` | the live world root; the caller decides what to do with it |
 | `player` | Anon's body; the caller decides whether he may act |
 | `camera()` | which camera the eye looks through, with the one-second lookup cache |
 | `interactor()` | the player rig's reach node, resolved once per body |
 | `desktop()` | the desktop interactions node in the world |
 | `player_body()` | the rig body the game shows for Anon |
+| `player_rig()` | Anon's rig as the entry bound it |
 | `player_is_pony()` | Anon's live form is a pony |
 | `game_player()` | the game's own player property, read defensively; null when absent or not a `Node3D` |
 | `mares()` | a typed copy of the world's live mare list |
@@ -45,17 +48,21 @@ same answer, so a service never names the entry to ask whether the scene is live
 | `bed_for_cradle(pony)` | the bed a cradle looks at, under the pony then ahead of the eye |
 | `bed_occupied(bed, target)` | another mare already lying on the mattress top |
 | `player_beside_bed(bed)` | Anon's seat is the bed or its couch |
-| `scan_allowed()` | the tree is not paused and a desktop cursor is captured or the eye is in a headset |
+| `ensure_bed(house, kind)` | a house's bed through the house's own builder |
+| `shop_item(id)` | the shop's packed item scene |
+| `can_interact()` | the tree is not paused and a desktop cursor is captured or the eye is in a headset |
 | `menu_panel_open()` | a tree pause or a known UI panel owns the mouse |
 | `menu_open()` | the panel test plus "the cursor is visible" |
 | `headset_view()` | the eye is in a headset |
+| `game_setting(key)` | one of the game's own settings by its dotted key |
 | `refresh_body_lod(pony)` | drop the merged LOD caches and re-arm the near mesh |
-| `open_act_chat()` | open the chat box past the act's controls lock |
+| `set_velocity(body, value)` | a body's velocity |
+| `open_chat()` | open the chat box past the act's controls lock |
 
 ## Base-game access
 
 `world/game.gd` is the base-game and presentation accessor module: static functions with explicit
-arguments, no bound state and no service preload. `world/service.gd` delegates its raw reads to it,
+arguments, no bound state and no service preload. `world/api.gd` delegates its raw reads to it,
 and the act calls it directly for the eye line and the blush sustainer. Every accessor answers with
 a typed zero when the member is absent or renamed — `null` for a handle, `false` for a flag, `NAN`
 for a measurement, a zero vector for a direction — and a clamp hands back the basis it was given.
@@ -366,6 +373,12 @@ handles), `bind_player()` when the player rig arrives, `unbind()` on world close
 facade answers `null` and `false`; that is the "no world yet" answer, not a rule. `game_player()`
 reads the game's own `player` property through `GAME`, so a renamed or missing property is null
 instead of a crash.
+
+The next pass adds typed views of the base-game objects this facade hands back — a pony and her
+navigator, face, wings and flank, Anon's rig, the bed, the director, the story journal, the
+inventory, the menu, the mods registry, the relationship runtime and the affection scene — each a
+cached handle with its receiver already bound. They do not exist in this revision; until they do,
+a consumer keeps taking the node to the facade member or to `GAME`.
 
 ## Data ownership
 

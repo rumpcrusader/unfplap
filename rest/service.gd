@@ -2,7 +2,7 @@ extends RefCounted
 ## Scene work for the bed/couch rest and the cuddle rejoin; the runtime owns the act state.
 ## Contract: `docs/rest.md`
 
-const WORLD := preload("res://mods/unfplap/world/service.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
 const MATTRESS := preload("res://world/life/couch/mattress.gd")
 const COUCH_EXIT := preload("res://world/life/couch/exit_space.gd")

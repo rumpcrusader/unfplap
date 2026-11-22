@@ -3,7 +3,7 @@ extends Node
 ## reads the director directly.
 ## Contract: `docs/negotiation.md` (`## Director and model host`).
 
-const WORLD := preload("res://mods/unfplap/world/service.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
 const PROMPTS := preload("res://mods/unfplap/negotiation/prompts.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")

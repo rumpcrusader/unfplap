@@ -8,7 +8,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ## runtime's host handle and the body-change service are faked here, because `main.gd` itself
 ## names the `Mods` autoload, which a `--script` suite cannot load.
 
-const WORLD := preload("res://mods/unfplap/world/service.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const HYBRID_NEAR_MESH := preload("res://world/characters/hybrid_mare/hybrid_near_mesh.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")

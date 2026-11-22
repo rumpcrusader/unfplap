@@ -4,7 +4,7 @@ extends "res://mods/unfplap/shared/service.gd"
 ## The only file other systems preload or call; the peak store is the one persisted value.
 
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
-const WORLD := preload("res://mods/unfplap/world/service.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const FACTS := preload("res://mods/unfplap/memory/facts.gd")
 const TEXT := preload("res://mods/unfplap/memory/text.gd")
 const DIALOGUE := preload("res://mods/unfplap/memory/dialogue.gd")

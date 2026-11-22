@@ -4,7 +4,7 @@ extends RefCounted
 ##
 ## See `docs/dialogue.md`.
 
-const WORLD := preload("res://mods/unfplap/world/service.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 const PROMPTS := preload("res://mods/unfplap/dialogue/prompts.gd")

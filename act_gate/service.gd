@@ -15,7 +15,7 @@ const CYCLE := preload("res://mods/unfplap/shared/cycle.gd")
 const CYCLE_STATE := preload("res://mods/unfplap/shared/cycle_state.gd")
 const CLEARANCE := preload("res://mods/unfplap/shared/clearance.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
-const WORLD := preload("res://mods/unfplap/world/service.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 

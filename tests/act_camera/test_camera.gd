@@ -4,7 +4,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/act_camera/test_camera.gd
 
-const WORLD := preload("res://mods/unfplap/world/service.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
 const CAMERA := preload("res://mods/unfplap/camera/service.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")

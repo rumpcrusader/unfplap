@@ -2,7 +2,7 @@ extends RefCounted
 ## Missionary and standing kiss. The runtime owns the act state; this controller owns the base
 ## AffectionPose bridge, the custom mouth aim, the foreleg pin and the kiss lean.
 
-const WORLD := preload("res://mods/unfplap/world/service.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
 const AFFECTION_POSE := preload("res://world/relationships/affection_pose.gd")
 const KISS_LEGS := preload("res://mods/unfplap/kiss/legs.gd")

@@ -5,7 +5,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/negotiation/test_adapter.gd
 
-const WORLD := preload("res://mods/unfplap/world/service.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const ADAPTER := preload("res://mods/unfplap/negotiation/adapter.gd")
 const PROMPTS := preload("res://mods/unfplap/negotiation/prompts.gd")
 const CONTEXT := preload("res://mods/unfplap/shared/context.gd")

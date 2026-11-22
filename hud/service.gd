@@ -3,7 +3,7 @@ extends CanvasLayer
 ## Buttons and words follow the game's own prompt row (world/ui/interaction_hints.gd): a cartoon
 ## key cap or controller icon beside light words with a dark outline, never a drop shadow.
 
-const WORLD := preload("res://mods/unfplap/world/service.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")

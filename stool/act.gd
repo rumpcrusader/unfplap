@@ -3,7 +3,7 @@ extends RefCounted
 ## Contract: `docs/stool.md`
 
 const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
-const WORLD := preload("res://mods/unfplap/world/service.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")

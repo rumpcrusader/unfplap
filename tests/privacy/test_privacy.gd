@@ -3,7 +3,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ## cuddle kind and the world house lookup. A fake house and fake mares; no live world.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/privacy/test_privacy.gd
 
-const WORLD := preload("res://mods/unfplap/world/service.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const PRIVACY := preload("res://mods/unfplap/privacy/api.gd")
 const PRIVACY_RULES := preload("res://mods/unfplap/shared/privacy_rules.gd")
 

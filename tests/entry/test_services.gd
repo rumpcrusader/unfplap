@@ -9,7 +9,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 
 const MAIN := preload("res://mods/unfplap/main.gd")
 const SERVICE := preload("res://mods/unfplap/shared/service.gd")
-const WORLD := preload("res://mods/unfplap/world/service.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 
 ## Every hook call, in the order the entry made it: `<id>.<hook>`.
 var order: Array = []

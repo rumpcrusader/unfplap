@@ -2,7 +2,7 @@ extends RefCounted
 ## The eligibility service's one scene boundary: a live body by id, or a named shape's identity.
 ## It is the only eligibility file that reads the world; the service keeps no scene state.
 
-const WORLD := preload("res://mods/unfplap/world/service.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 
 ## Shape id -> its scene identity. Cleared with the world.

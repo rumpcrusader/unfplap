@@ -3,7 +3,7 @@ extends RefCounted
 ## Contract: `docs/summary.md`
 ## Owns the scoring trigger, the grade-aware commit and the peak-memory record.
 
-const WORLD := preload("res://mods/unfplap/world/service.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const ACT_SUMMARY := preload("res://mods/unfplap/summary/score.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")

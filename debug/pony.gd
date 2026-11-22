@@ -5,7 +5,7 @@ extends RefCounted
 ## the act metas. Nothing here is game state of its own except the metas it clears and the bond
 ## record the sex-ready path writes; see `docs/debug.md`.
 
-const WORLD := preload("res://mods/unfplap/world/service.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")

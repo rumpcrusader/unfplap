@@ -28,7 +28,7 @@ ALLOWED = (
     ("eligibility/service.gd", "shared/participation.gd"),
     ("eligibility/service.gd", "registry/service.gd"),
     ("eligibility/service.gd", "settings/service.gd"),
-    ("eligibility/scene.gd", "world/service.gd"),
+    ("eligibility/scene.gd", "world/api.gd"),
     ("act_gate/service.gd", "eligibility/service.gd"),
     ("settings/service.gd", "registry/service.gd"),
 )

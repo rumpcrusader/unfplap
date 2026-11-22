@@ -1665,9 +1665,9 @@ def check_boundaries(failure: Failure) -> None:
 
     # The world facade answers where and what from the scene alone: it imports the game and the
     # shared pure modules, never a service facade, the runtime or the entry.
-    world = ROOT / "world" / "service.gd"
+    world = ROOT / "world" / "api.gd"
     if not world.is_file():
-        failure.add("missing world/service.gd")
+        failure.add("missing world/api.gd")
         return
     source = "\n".join(
         line for line in world.read_text(encoding="utf-8").splitlines()
@@ -1678,7 +1678,7 @@ def check_boundaries(failure: Failure) -> None:
     for target, at in imports:
         if target.startswith(WORLD_ALLOWED):
             continue
-        failure.add("world/service.gd:%d may not import %s" % (line_of(text, at), target))
+        failure.add("world/api.gd:%d may not import %s" % (line_of(text, at), target))
 
 
 def check_runtime_shape(failure: Failure) -> None:

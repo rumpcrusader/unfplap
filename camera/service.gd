@@ -3,7 +3,7 @@ extends RefCounted
 ## the size/torso values the view and the hands read. The frame owns the player state.
 ## Contract: docs/camera.md.
 
-const WORLD := preload("res://mods/unfplap/world/service.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
 const HANDS := preload("res://mods/unfplap/hands/api.gd")
 const KISS := preload("res://mods/unfplap/kiss/service.gd")

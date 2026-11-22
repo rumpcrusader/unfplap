@@ -6,7 +6,7 @@ extends RefCounted
 ## See `docs/runtime.md`.
 
 const TAIL_TUCK := preload("res://mods/unfplap/poses/tail_tuck.gd")
-const WORLD := preload("res://mods/unfplap/world/service.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
 
 var node: Node

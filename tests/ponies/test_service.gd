@@ -7,7 +7,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
-const WORLD := preload("res://mods/unfplap/world/service.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 

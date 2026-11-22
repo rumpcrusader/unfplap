@@ -1,7 +1,7 @@
 extends Node
 ## Finds pickable footstools in the world when the player owns none. See docs/stool.md.
 
-const WORLD := preload("res://mods/unfplap/world/service.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const ITEM := preload("res://mods/unfplap/stool/item.gd")

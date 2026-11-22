@@ -19,7 +19,7 @@ and extension points.
 | Service internals | Private modules under `<service>/`. Nothing outside the service imports them. |
 | Shared pure module | Deterministic data or math in `shared/`. No scene, no lifecycle, no service dependency. |
 | Shared store | Persisted shared data in `shared/`. No scene, no lifecycle; may read `settings`, never a domain service. |
-| Scene read facade | `world/service.gd`: the live world root, Anon's body and the reads derived from them, bound by the entry. Answers where and what, never whether. |
+| Scene read facade | `world/api.gd`: the live world root, Anon's body and the reads derived from them, bound by the entry. Answers where and what, never whether. |
 | Base-game accessors | `world/game.gd`: every base-game and presentation member the mod reads or writes, one static typed function per member with the handle as an argument. Read like the scene by services, shared modules and the settings layer. |
 | Read model | A scene-free mutable value object refreshed by its owner, for example the act view. |
 | Port | A service-owned abstract `RefCounted` contract the runtime implements once per pony, for example `shared/start_port.gd`; it replaces a `Callable` bag without a service cycle. |
@@ -48,7 +48,7 @@ needs, reads `WORLD` for the scene, or takes a host parameter.
 ```text
 main.gd / runtime.gd          entry and orchestration
 api.gd                        cross-mod facade
-world/service.gd              scene read facade
+world/api.gd                  scene read facade
 world/game.gd                 base-game accessors
 <service>/api.gd              service facades (preferred)
 <service>/service.gd          legacy service facade
@@ -335,7 +335,7 @@ dependency and is not drawn as one.
 
 The entry is not a locator. Nothing outside `main.gd` and `tests/` names it, so a consumer that
 needs another service preloads that facade, a consumer that needs the live scene reads `WORLD`
-(`world/service.gd`), the one scene read facade the entry binds, a consumer that needs a base-game
+(`world/api.gd`), the one scene read facade the entry binds, a consumer that needs a base-game
 member reads `GAME` (`world/game.gd`), and a consumer that needs a write takes a named callback. A
 host passes:
 

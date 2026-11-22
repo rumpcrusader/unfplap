@@ -3,7 +3,7 @@ extends RefCounted
 ## The idle fan sensor: the standing fan, the lying candidate and the pony beside a seated Anon,
 ## as the transitions the offer reconsiders on. It reads the scene at the poll cadence.
 
-const WORLD := preload("res://mods/unfplap/world/service.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const RUMP_CONE := preload("res://mods/unfplap/shared/rump_cone.gd")

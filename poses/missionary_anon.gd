@@ -3,7 +3,7 @@ extends Node
 ## asset's `anon` block. The act parks his drivers and writes his bones at render time so nothing
 ## else on his rig wins; the asset carries every bone, and only this body is placed, not his node.
 
-const WORLD := preload("res://mods/unfplap/world/service.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
 const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")

@@ -2,7 +2,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ## The runtime's live footstool gate: opening/part heights, threshold and case slot.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/stool/test_gate.gd
 
-const WORLD := preload("res://mods/unfplap/world/service.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const ACT_GATE := preload("res://mods/unfplap/act_gate/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")

@@ -3,7 +3,7 @@ extends RefCounted
 ## The frame owns the player; this module owns the view and its live offsets.
 ## Contract: `docs/camera.md`, `docs/act_facts.md`.
 
-const WORLD := preload("res://mods/unfplap/world/service.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
 const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
 const MATTRESS := preload("res://world/life/couch/mattress.gd")

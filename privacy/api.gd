@@ -5,7 +5,7 @@ extends "res://mods/unfplap/shared/service.gd"
 ## Import: privacy/api.gd only
 ## Scene facts in, one privacy predicate out.
 
-const WORLD := preload("res://mods/unfplap/world/service.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const PRIVACY_RULES := preload("res://mods/unfplap/shared/privacy_rules.gd")
 
 ## The offer kind: the offer rule or the stricter cuddle rule.

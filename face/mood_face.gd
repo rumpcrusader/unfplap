@@ -3,7 +3,7 @@ extends Node
 ## does. The facade starts it.
 
 const GAME := preload("res://mods/unfplap/world/game.gd")
-const WORLD := preload("res://mods/unfplap/world/service.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const ACT_FACE := preload("res://mods/unfplap/shared/act_face.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")

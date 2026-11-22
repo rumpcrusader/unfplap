@@ -7,7 +7,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 
 const OFFER := preload("res://mods/unfplap/offer/service.gd")
 const HUD := preload("res://mods/unfplap/hud/service.gd")
-const WORLD := preload("res://mods/unfplap/world/service.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const PRIVACY := preload("res://mods/unfplap/privacy/api.gd")

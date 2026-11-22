@@ -5,7 +5,7 @@ extends RefCounted
 ## Import: debug/service.gd only
 ## An action is one table entry that runs a one-off operation, never a setting.
 
-const WORLD := preload("res://mods/unfplap/world/service.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const ACTIONS_NODE := preload("res://mods/unfplap/debug/actions.gd")
 

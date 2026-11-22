@@ -2,7 +2,7 @@ extends Node
 ## The scene adapter: it alone reads navigators, posture and beds.
 ## It returns plain values; the facade owns the reasons and the log.
 
-const WORLD := preload("res://mods/unfplap/world/service.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
 const BED_REST := preload("res://world/relationships/shared_bed.gd")
 const POLICY := preload("res://mods/unfplap/initiation/policy.gd")

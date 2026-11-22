@@ -265,7 +265,7 @@
       "task": "B"
     },
     {
-      "from": "world/service.gd",
+      "from": "world/api.gd",
       "to": "res://world/life/player_form.gd",
       "kind": "game-import",
       "owner": "world",

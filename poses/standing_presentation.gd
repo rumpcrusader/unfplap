@@ -4,7 +4,7 @@ extends RefCounted
 ## calls.
 
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
-const WORLD := preload("res://mods/unfplap/world/service.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")

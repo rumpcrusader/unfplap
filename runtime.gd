@@ -10,7 +10,7 @@ const ACT_SESSION := preload("res://mods/unfplap/act/session.gd")
 const SCENE_GATE := preload("res://mods/unfplap/scene_gate/service.gd")
 const START_PORT := preload("res://mods/unfplap/shared/start_port.gd")
 const PRESENTATION_PORT := preload("res://mods/unfplap/shared/presentation_port.gd")
-const WORLD := preload("res://mods/unfplap/world/service.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 
 ## One act's presentation began. The entry connects this to the world integrations, so the

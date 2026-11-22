@@ -4,7 +4,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/anatomy/test_placement.gd
 
-const WORLD := preload("res://mods/unfplap/world/service.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/controller.gd")
 const ANATOMY_API := preload("res://mods/unfplap/anatomy/api.gd")
 const RIG := preload("res://mods/unfplap/anatomy/rig.gd")

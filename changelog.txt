@@ -1,3 +1,15 @@
+v0.7.1
+- Reworked: the caress — hands now sit on her body's fitted shape instead of a sampled coat patch, so they track her as she moves; the Caress surface quality row is retired.
+- Retired: Re-seat tails and docks — tails and docks are now always seated; the Tail participation checkbox is gone.
+- Fixed: a smack now uses the free hand and lets go of the hand it picked up.
+- Fixed: the "Make love" hint now appears when a pony joins you beside the bed, keeps AnonPony's lying candidate, and follows the nearest eligible mare instead of a nearer one who is not an act target.
+- Fixed: Anon's body reposes and shows again after an act ends.
+- Fixed: the mouth is targeted on the mouth contact.
+- Fixed: the Agreement's readiness is answered live instead of from a stale flag.
+- Fixed: a live participation change now attaches or detaches her anatomy at once.
+- Fixed: the VR hole toggle now follows the act's pose gate.
+- Fixed: less per-frame work in the offer scan, the scene gate, the anatomy sync and the stool reach.
+
 v0.7.0
 - Queen Chrysalis — the changelings pack's Queen joins your mares: mid-act she offers to wear any adult mare's shape you name, and she can show you the real her; the anatomy, tail, hands, pose and camera follow whatever body she wears while the act carries on.
 - Reworked: the missionary view is now always seen from Anon's eyes, with the gaze following the authored look path; the Missionary Camera and Third-person rows are retired.

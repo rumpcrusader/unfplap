@@ -2,16 +2,15 @@ extends RefCounted
 ## The director's authored-line queue, read through guarded calls.
 
 const FACTS := preload("res://mods/unfplap/memory/facts.gd")
-const GAME := preload("res://mods/unfplap/world/game.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const TEXT := preload("res://mods/unfplap/memory/text.gd")
 
 
 static func queue(game: Node, id: String, purpose: String, key: String,
 		valid: Callable, finished: Callable) -> bool:
-	var director := _queue_director(game)
-	if director == null:
+	if not _world_ready(game):
 		return false
-	return GAME.director_lines(director).queue_finished(id, purpose, key, valid, finished,
+	return WORLD.director().lines().queue_finished(id, purpose, key, valid, finished,
 		true, false)
 
 
@@ -20,7 +19,7 @@ static func cancel(game: Node, key: String) -> void:
 		return
 	var director := _line_director(game)
 	if director != null:
-		GAME.director_lines(director).cancel(key)
+		WORLD.director().lines().cancel(key)
 
 
 ## What the director currently holds for one mod-owned key, as a `FACTS.LineState` value.
@@ -75,18 +74,14 @@ static func cancel_prefix(game: Node, prefix: String, keep_speaking: bool) -> in
 			continue
 		if TEXT.keep_active(state(game, key), key, active, keep_speaking):
 			continue
-		GAME.director_lines(director).cancel(key)
+		WORLD.director().lines().cancel(key)
 		cancelled += 1
 	return cancelled
 
 
-static func _queue_director(game: Node) -> Node:
-	if not is_instance_valid(game) or not game.is_inside_tree():
-		return null
-	var found: Node = game.get_tree().get_first_node_in_group("conversation_director")
-	if found == null or not found.has_method("queue_generated_intent"):
-		return null
-	return found
+## True while the world node can answer a director line call.
+static func _world_ready(game: Node) -> bool:
+	return is_instance_valid(game) and game.is_inside_tree()
 
 
 static func _line_director(game: Node) -> Node:

@@ -5,6 +5,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
+const VOICE := preload("res://mods/unfplap/shared/voice_status.gd")
 const HYBRID_NEAR_MESH := preload("res://world/characters/hybrid_mare/hybrid_near_mesh.gd")
 const HYBRID_FAR_MESH := preload("res://world/characters/hybrid_mare/hybrid_far_mesh.gd")
 
@@ -30,6 +31,7 @@ class FakeGame extends Node:
 	var found_camera: Variant = null
 	var find_calls := 0
 	var kisser: Variant = null
+	var world_context: Variant = null
 
 	func _find_camera(_body: Variant) -> Variant:
 		find_calls += 1
@@ -567,6 +569,150 @@ class FakeSurface extends RefCounted:
 		skins.append([skeleton, frame])
 
 
+## The director's model config: the game's own AI gate reads its usage mode.
+class FakeConfig extends Node:
+	func get_value(_key: String, fallback: Variant = null) -> Variant:
+		return fallback
+
+
+## The director's model client: the status path the classifier shows.
+class FakeLlm extends Node:
+	var status_path := ""
+
+
+## The director's TTS node: its mode and its server answer.
+class FakeTts extends Node:
+	var voice_mode := "auto"
+	var live := true
+
+	func has_server() -> bool:
+		return live
+
+
+## The game's settings autoload: only the TTS switch.
+class FakeTtsSwitch extends Node:
+	func tts_enabled() -> bool:
+		return true
+
+
+## An approach or group exchange the director reports.
+class FakeSubsystem extends RefCounted:
+	var live := false
+
+	func active() -> bool:
+		return live
+
+
+## Her generated vocal node: the cache prepare and the play.
+class FakeVocal extends Node:
+	var prepared: Array = []
+
+	func prepare(id: String) -> void:
+		prepared.append(id)
+
+	func play(_id: String, _gender: String, _pony: Variant, _db: float) -> bool:
+		return true
+
+
+## Her boop node's kiss op.
+class FakeKissBoop extends Node:
+	var kisses := 0
+
+	func play_kiss(_db: float, _loop: bool) -> void:
+		kisses += 1
+
+
+## The conversation director: the live routing fields and the authored-line host.
+class FakeDirector extends Node:
+	var state := "idle"
+	var characters: Dictionary = {}
+	var tts: Variant = null
+	var vocal: Variant = null
+	var config: Variant = null
+	var llm: Variant = null
+	var interrupts := 0
+	var cancelled: Array = []
+	var _section: Dictionary = {}
+
+	func interrupt() -> void:
+		interrupts += 1
+
+	func _now() -> float:
+		return 42.0
+
+	func _llm_section() -> Dictionary:
+		return _section
+
+	func begin_player_greeting(_id: String, _context: String) -> bool:
+		return true
+
+	func queue_generated_intent(_id: String, _purpose: String, _key: String, _valid: Callable,
+			_finished: Callable, _once := false, _firm := false) -> bool:
+		return true
+
+	func cancel_authored_line(key: String) -> void:
+		cancelled.append(key)
+
+
+## The world context: the story journal, the impressions store and the event list.
+class FakeContext extends Node:
+	var story: Variant = null
+	var impressions: Variant = null
+	var events: Array = []
+	var records: Array = []
+
+	func record(kind: String, text: String, witnesses: Array, subjects: Array, event_id: String,
+			place := "") -> void:
+		records.append({"kind": kind, "text": text, "witnesses": witnesses,
+			"subjects": subjects, "id": event_id, "place": place})
+
+	func events_for(_id: String, limit: int) -> Array:
+		return events.slice(0, limit)
+
+
+## The impressions store: one profile per mare and the commit key.
+class FakeImpressions extends Node:
+	var profiles: Dictionary = {}
+	var commits: Array = []
+
+	func profile(id: String) -> Dictionary:
+		return profiles.get(id, {})
+
+	func commit(id: String, data: Dictionary, key: String) -> void:
+		commits.append({"id": id, "data": data, "key": key})
+
+	func standing_line(_id: String) -> String:
+		return "steady"
+
+
+## The story journal: its store, its open flag and its line wording.
+class FakeStory extends RefCounted:
+	var store: Variant = null
+	var live := true
+
+	func is_open() -> bool:
+		return live
+
+	func line_text(row: Variant, pony: String, with_day: bool) -> String:
+		return "%s:%s:%s" % [row.id, pony, str(with_day)]
+
+
+## The story line store: the newest id, the word search and the witnessed lines.
+class FakeStoryStore extends RefCounted:
+	var rows: Array = []
+	var seen: Array = []
+	var last := 7
+
+	func last_line_id() -> int:
+		return last
+
+	func search(_pony: String, _words: Array, _before: int, limit: int) -> Array:
+		return rows.slice(0, limit)
+
+	func witnessed(_pony: String, limit: int, _before: int, _kinds: Array) -> Array:
+		return seen.slice(0, limit)
+
+
 
 func run() -> void:
 	_check_unbound()
@@ -587,6 +733,7 @@ func run() -> void:
 	_check_views()
 	_check_anon_view()
 	_check_bed_view()
+	_check_director_and_story()
 	_check_body_lod()
 	_check_desktop()
 	await _check_bed_under()
@@ -1923,4 +2070,162 @@ func _check_bed_view() -> void:
 	player_seat.queue_free()
 	guest_seat.queue_free()
 	pony.queue_free()
+	game.queue_free()
+
+
+## Her AI's live routing and the world context's story rows: the two views, their members and the
+## cache each bind owns.
+func _check_director_and_story() -> void:
+	WORLD.unbind()
+	var context := FakeContext.new()
+	var impressions := FakeImpressions.new()
+	impressions.profiles["rarity"] = {"mood": "happy"}
+	var journal := FakeStory.new()
+	var store := FakeStoryStore.new()
+	store.rows = [{"id": "1", "kind": "say", "text": "hello", "speaker": "player",
+		"listener": "rarity"}]
+	store.seen = [{"id": "2", "kind": "say", "text": "again", "speaker": "rarity",
+		"listener": "player"}]
+	journal.store = store
+	context.story = journal
+	context.impressions = impressions
+	context.events = [{"id": "e1", "kind": "intimacy", "text": "one"}]
+	root.add_child(context)
+	root.add_child(impressions)
+
+	var game := FakeGame.new()
+	game.world_context = context
+	root.add_child(game)
+	var director := FakeDirector.new()
+	director.characters = {"fluttershy": {"profile": {
+		"voice_status": "character voice", "tts_speaker_id": 5}}}
+	director.add_to_group("conversation_director")
+	root.add_child(director)
+	var tts := FakeTts.new()
+	root.add_child(tts)
+	director.tts = tts
+	var vocal := FakeVocal.new()
+	root.add_child(vocal)
+	director.vocal = vocal
+	var boop := FakeKissBoop.new()
+	root.add_child(boop)
+	WORLD.bind_world(game)
+
+	var view := WORLD.director()
+	check(view == WORLD.director(), "a director view is cached per bound director")
+	check(not view.speaking(), "an idle director is not speaking")
+	director.state = "speaking"
+	check(view.speaking(), "the view reads the director's speaking state")
+	view.interrupt()
+	check(director.interrupts == 1, "the interrupt reaches the director")
+	director.state = "idle"
+	check(is_equal_approx(view.clock(), 42.0), "the clock is the director's own")
+	check(not view.subsystem_active(null), "no subsystem is not active")
+	var approaches := FakeSubsystem.new()
+	approaches.live = true
+	check(view.subsystem_active(approaches), "an active subsystem reports active")
+	check(view.lines().greet("rarity", "hello"), "the greeting reaches the director's host")
+	check(view.lines().queue("rarity", "say", "k", Callable(), false),
+		"the authored queue reaches the director's host")
+	view.lines().cancel("k")
+	check(director.cancelled == ["k"], "the authored cancel reaches the director's host")
+	director.config = FakeConfig.new()
+	director._section = {"model": "m"}
+	var llm := FakeLlm.new()
+	llm.status_path = "user://llm.json"
+	root.add_child(llm)
+	director.llm = llm
+	var model := view.llm_config()
+	check(model.enabled and model.section == {"model": "m"},
+		"the model config is the director's own section")
+	check(model.status_path == "user://llm.json", "the model status path is the director's")
+	view.prepare_vocal("rarity")
+	check(vocal.prepared == ["rarity"], "the vocal cache prepares for her id")
+
+	check(view.world_context() == context, "the view reads the bound world's context")
+	view.record_event("intimacy", "a line", ["rarity"], ["rarity"], "e2", "town")
+	check(context.records.size() == 1 and context.records[0]["place"] == "town",
+		"the world event reaches the context")
+	view.record_situation("sitting", ["rarity"], "s1")
+	check(context.records.size() == 2 and context.records[1]["kind"] == "situation",
+		"a situation is one context event")
+	check(view.impressions() == impressions, "the view reads the context's store")
+	check(view.impression_mood("rarity") == "happy", "the committed mood is read")
+	check(view.impression_mood("cadance", "?") == "?", "an absent profile answers the caller's word")
+	check(view.set_impression_mood("rarity", "sad", "m1"), "a mood write reaches the store")
+	check(view.commit_impression("rarity", "happy", 2, "thought", "e3"),
+		"a row commit reaches the store")
+	check(impressions.commits.size() == 2, "both impressions writes reach the store")
+	check(view.standing_line("rarity") == "steady", "the standing line is the store's own")
+
+	check(view.tts() == tts, "the view reads the director's TTS node")
+	check(view.tts_running(tts), "a live TTS node reports its server")
+	tts.live = false
+	check(not view.tts_running(tts), "a node without a server reports no server")
+	check(not view.tts_running(null), "no TTS node reports no server")
+	check(view.play_vocal(vocal, "rarity", "m", null, -6.0), "the generated vocal plays")
+	check(view.play_kiss(boop, -22.0, true) and boop.kisses == 1, "the stock kiss plays")
+
+	var hidden := root.get_node_or_null("Settings")
+	if hidden != null:
+		hidden.name = "SettingsTestHidden"
+	var switch := FakeTtsSwitch.new()
+	switch.name = "Settings"
+	root.add_child(switch)
+	check(view.tts_enabled(), "the TTS switch reads the settings autoload")
+	tts.live = true
+	var facts: VOICE.Facts = view.voice_facts("fluttershy")
+	check(facts.profile == director.characters["fluttershy"]["profile"],
+		"the voice facts carry the director's profile")
+	check(facts.server and facts.tts_enabled and facts.global_mode == "auto",
+		"the voice facts carry the server, the switch and the TTS mode")
+	check(not facts.ponese and not facts.chatter, "the game's routing keeps her on TTS")
+	var routed: Dictionary = VOICE.classify(facts)
+	check(bool(routed.get("generated", false)) and not bool(routed.get("effective_ponese", true)),
+		"the voice facts classify as the game routes her")
+	check(VOICE.status_line(facts).begins_with("voice "), "the debug line names the routing")
+	root.remove_child(switch)
+	switch.free()
+	if hidden != null:
+		hidden.name = "Settings"
+
+	var story := WORLD.story()
+	check(story == WORLD.story(), "a story view is cached per bound context")
+	check(story.journal() == journal, "the view reads the context's journal")
+	check(story.store() == store, "the journal's line store is read")
+	check(story.open(), "an open journal answers open")
+	check(story.last_line_id() == 7, "the newest line id is the store's")
+	var found := story.search("rarity", ["hello"], 8, 8)
+	check(found.size() == 1 and found[0].text == "hello", "a stored line is a typed row")
+	var seen := story.witnessed("rarity", 24, 0, ["say"])
+	check(seen.size() == 1 and seen[0].id == "2", "a witnessed line is a typed row")
+	check(story.line_text(found[0], "rarity", true) == "1:rarity:true",
+		"the line text is the journal's own")
+	check(story.events("rarity", 10).size() == 1, "the context's events are read")
+
+	WORLD.unbind()
+	check(WORLD.director() != view, "an unbind drops the cached director view")
+	var gone := WORLD.director()
+	check(gone.world_context() == null and gone.impressions() == null,
+		"an unbound director has no world context or store")
+	check(gone.impression_mood("rarity") == "" and gone.standing_line("rarity") == "",
+		"an unbound director answers no mood")
+	check(not gone.play_kiss(null, -20.0, true), "an unbound director plays no kiss")
+	var gone_story := WORLD.story()
+	check(gone_story != story, "an unbind drops the cached story view")
+	check(gone_story.journal() == null and gone_story.store() == null,
+		"an unbound story has no journal or store")
+	check(not gone_story.open() and gone_story.last_line_id() == -1,
+		"an unbound story is closed and has no line id")
+	check(gone_story.search("rarity", [], 0, 8).is_empty()
+		and gone_story.witnessed("rarity", 8, 0, []).is_empty()
+		and gone_story.events("rarity", 8).is_empty(), "an unbound story answers no rows")
+
+	context.queue_free()
+	impressions.queue_free()
+	director.queue_free()
+	tts.queue_free()
+	vocal.queue_free()
+	boop.queue_free()
+	llm.queue_free()
 	game.queue_free()

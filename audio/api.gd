@@ -7,6 +7,7 @@ extends "res://mods/unfplap/shared/service.gd"
 
 const CATALOGUE := preload("res://mods/unfplap/audio/cues.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const POOL := preload("res://mods/unfplap/audio/pool.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const SOUND := preload("res://mods/unfplap/audio/sound.gd")
@@ -166,20 +167,20 @@ class ActAudio extends RefCounted:
 		if not _open or _world == null or _vocal_cooldown > 0.0:
 			return
 		var director := _world._director()
-		if director == null or str(director.get("state")) != "idle" or not is_instance_valid(_pony):
+		if director == null or WORLD.director().speaking() or not is_instance_valid(_pony):
 			return
 		var vocal_node: Variant = director.get("vocal")
 		if not vocal_node is Node:
 			return
 		_prune_freed_vocal(vocal_node)
-		if GAME.vocal_play(vocal_node, _id, "m", _pony, CATALOGUE.VOCAL_DB):
+		if WORLD.director().play_vocal(vocal_node, _id, "m", _pony, CATALOGUE.VOCAL_DB):
 			_vocal_cooldown = CATALOGUE.VOCAL_COOLDOWN_S
 
 	## The base game's soft kiss at her snout, for the oral turn's idle timer.
 	func oral_kiss() -> void:
 		if not _open or not is_instance_valid(_pony):
 			return
-		GAME.play_kiss(GAME.boop_of(_pony), CATALOGUE.ORAL_KISS_DB, true)
+		WORLD.director().play_kiss(GAME.boop_of(_pony), CATALOGUE.ORAL_KISS_DB, true)
 
 	func mouth_kiss() -> void:
 		if not _open or _world == null:
@@ -232,7 +233,7 @@ class ActAudio extends RefCounted:
 		_restore_voice()
 		if not _open or _world == null or not is_instance_valid(_pony) or not _world._muted:
 			return
-		var info: Dictionary = VOICE.routing(_id)
+		var info: Dictionary = VOICE.classify(WORLD.director().voice_facts(_id))
 		if not bool(info.get("effective_ponese", false)):
 			return
 		_voice_player = _find_voice_player(_pony)

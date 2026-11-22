@@ -12,6 +12,7 @@ const GAME := preload("res://mods/unfplap/world/game.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const SOUND := preload("res://mods/unfplap/audio/sound.gd")
 const VOICE := preload("res://mods/unfplap/shared/voice_status.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 
 
 
@@ -219,7 +220,7 @@ func run() -> void:
 	SETTINGS.apply_live()
 	check(is_equal_approx(voice.volume_db, -80.0),
 		"muting Ponese silences the live voice player")
-	check(VOICE.status_line("rarity").begins_with("voice "),
+	check(VOICE.status_line(WORLD.director().voice_facts("rarity")).begins_with("voice "),
 		"the debug line names the live voice routing")
 	SETTINGS.mute_ponese_audio.set_bool(false)
 	SETTINGS.apply_live()

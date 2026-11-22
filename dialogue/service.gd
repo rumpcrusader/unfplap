@@ -16,7 +16,6 @@ const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
 const RELATIONSHIP_CUE := preload("res://mods/unfplap/shared/relationship_cue.gd")
 const ACT_FACE := preload("res://mods/unfplap/shared/act_face.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
-const HOUSE := preload("res://world/buildings/house_interior.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
@@ -255,7 +254,7 @@ func bystander_tick(delta: float) -> void:
 			and facts.state in [STATE_ACTIVE, STATE_CLIMAX])
 	var indoors := false
 	if is_instance_valid(facts.pony) and facts.pony.is_inside_tree():
-		indoors = HOUSE.at(facts.pony.get_tree(), facts.pony.global_position) != null
+		indoors = WORLD.house_at(facts.pony.global_position) != null
 	var settings: Dictionary = DEFAULTS_DATA.prompts_block("act.bystander_setting")
 	var setting_key := "indoors" if indoors else "outdoors"
 	var purpose := PROMPT_TEXT.render(DEFAULTS_DATA.prompts_block("act.bystander"), {
@@ -505,7 +504,7 @@ func stop_oral_turn(pony_id: String) -> void:
 		return
 	if str(director.get("_current")) != pony_id:
 		return
-	GAME.interrupt_director(director)
+	WORLD.director().interrupt()
 
 
 ## The stored-history note for a hurt pony.
@@ -710,8 +709,7 @@ func _director() -> Node:
 
 
 func _speech_busy() -> bool:
-	var director := _director()
-	if GAME.director_speaking(director):
+	if WORLD.director().speaking():
 		return true
 	if facts != null and GAME.pony_speaking(facts.pony):
 		return true
@@ -736,4 +734,4 @@ func _now() -> float:
 
 ## The start's generated-vocal preparation: the director prepares her voice cache for the act.
 func prepare_vocal(pony_id: String) -> void:
-	GAME.prepare_vocal(_director(), pony_id)
+	WORLD.director().prepare_vocal(pony_id)

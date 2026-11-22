@@ -4,33 +4,35 @@ extends RefCounted
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
 const FACTS := preload("res://mods/unfplap/memory/facts.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const STORE := preload("res://mods/unfplap/memory/store.gd")
 const MemoryHit = FACTS.MemoryHit
 
 
 static func context(game: Node) -> Node:
-	return GAME.world_context(game)
+	if not is_instance_valid(game):
+		return null
+	return WORLD.director().world_context()
 
 
 static func impressions(game: Node) -> Node:
-	return GAME.impressions_of(context(game))
+	return WORLD.director().impressions() if is_instance_valid(game) else null
 
 
 ## One world-context event. `place` is the region id for a witnessed event and empty otherwise.
 static func record(game: Node, kind: String, text: String, witnesses: Array, subjects: Array,
 		event_id: String, place := "") -> void:
-	var ctx := context(game)
-	if ctx == null:
+	if not is_instance_valid(game):
 		return
-	GAME.world_record(ctx, kind, text, _strings(witnesses), _strings(subjects), event_id, place)
+	WORLD.director().record_event(kind, text, _strings(witnesses), _strings(subjects), event_id,
+		place)
 
 
 static func commit_impression(game: Node, id: String, mood: String, romance: int,
 		thought: String, event_id: String) -> void:
-	var target := impressions(game)
-	if target == null:
+	if not is_instance_valid(game):
 		return
-	GAME.impression_commit(target, id, mood, romance, thought, event_id)
+	WORLD.director().commit_impression(id, mood, romance, thought, event_id)
 
 
 ## Private facts for the cue prompt. No raw scores or counts leave this function.
@@ -56,16 +58,15 @@ static func cue_facts(game: Node, id: String, event_id: String) -> Dictionary:
 	var prior := 0
 	var ctx := context(game)
 	if ctx != null:
-		for row: Dictionary in GAME.world_events(ctx, id, 64):
+		for row: Dictionary in WORLD.story().events(id, 64):
 			if str(row.get("kind", "")) != "intimacy":
 				continue
 			var eid := str(row.get("id", ""))
 			if eid == event_id or eid.begins_with(event_id + ":"):
 				continue
 			prior += 1
-		var stored := GAME.impressions_of(ctx)
-		if stored != null:
-			out["mood"] = GAME.impression_mood(stored, id, "")
+		if is_instance_valid(WORLD.director().impressions()):
+			out["mood"] = WORLD.director().impression_mood(id, "")
 	var acts := ACT_HISTORY.stored_acts(ACT_HISTORY.section(), id)
 	out["first_time"] = prior == 0 and acts == 0
 	out["careful"] = str(out.get("mood", "")) == "annoyed" \
@@ -86,38 +87,37 @@ static func shared_memory(game: Node, id: String, cue: String, event_id: String,
 	var ctx := context(game)
 	if ctx == null:
 		return MemoryHit.new()
-	var story := _story_memory(ctx, id, cue, used_ids)
+	var story := _story_memory(id, cue, used_ids)
 	if story.found():
 		return story
-	return _event_memory(ctx, id, event_id, used_ids)
+	return _event_memory(id, event_id, used_ids)
 
 
-static func _story_memory(ctx: Node, id: String, cue: String,
+static func _story_memory(id: String, cue: String,
 		used_ids: Array[String]) -> MemoryHit:
-	var story := GAME.story_of(ctx)
-	if story == null or not GAME.story_open(story) or not story.has_method("line_text"):
+	var story := WORLD.story()
+	if not story.open():
 		return MemoryHit.new()
-	var store := GAME.story_store(story)
-	if store == null:
+	if story.store() == null:
 		return MemoryHit.new()
-	var before := GAME.story_last_line_id(store) + 1
+	var before := story.last_line_id() + 1
 	if before <= 0:
 		return MemoryHit.new()
-	for row in GAME.story_search(store, id, _memory_words(cue), before, 8):
+	for row in story.search(id, _memory_words(cue), before, 8):
 		if _memory_ok(row.kind, row.text, row.id, row.speaker, row.listener, id, used_ids):
-			return _hit("story:" + row.id, GAME.story_line_text(story, row, id, true))
+			return _hit("story:" + row.id, story.line_text(row, id, true))
 	var kinds: Array[String] = ["say"]
-	var recent := GAME.story_witnessed(store, id, 24, 0, kinds)
+	var recent := story.witnessed(id, 24, 0, kinds)
 	for index in range(recent.size() - 1, -1, -1):
 		var row = recent[index]
 		if _memory_ok(row.kind, row.text, row.id, row.speaker, row.listener, id, used_ids):
-			return _hit("story:" + row.id, GAME.story_line_text(story, row, id, true))
+			return _hit("story:" + row.id, story.line_text(row, id, true))
 	return MemoryHit.new()
 
 
-static func _event_memory(ctx: Node, id: String, event_id: String,
+static func _event_memory(id: String, event_id: String,
 		used_ids: Array[String]) -> MemoryHit:
-	var events := GAME.world_events(ctx, id, 64)
+	var events := WORLD.story().events(id, 64)
 	for index in range(events.size() - 1, -1, -1):
 		var row: Dictionary = events[index]
 		var kind := str(row.get("kind", ""))

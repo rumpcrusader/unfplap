@@ -33,14 +33,6 @@
       "expires": "phase-2"
     },
     {
-      "from": "shared/voice_status.gd",
-      "to": "res://world/ai/chatter_voice.gd",
-      "kind": "game-import",
-      "owner": "shared:voice_status.gd",
-      "reason": "base-game import; drain through the GAME accessor in Task B",
-      "task": "B"
-    },
-    {
       "from": "debug/ui.gd",
       "to": "res://world/ui/menu_style.gd",
       "kind": "game-import",
@@ -53,14 +45,6 @@
       "to": "res://world/audio/interaction_sounds.gd",
       "kind": "game-import",
       "owner": "debug",
-      "reason": "base-game import; drain through the GAME accessor in Task B",
-      "task": "B"
-    },
-    {
-      "from": "dialogue/service.gd",
-      "to": "res://world/buildings/house_interior.gd",
-      "kind": "game-import",
-      "owner": "dialogue",
       "reason": "base-game import; drain through the GAME accessor in Task B",
       "task": "B"
     },

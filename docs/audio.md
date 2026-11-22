@@ -69,10 +69,10 @@ change notification itself, so an edit restores the saved volume and applies the
 open handle. A body change rebinds the handle, which gives the old player's volume back and applies
 the policy to the new body's own player.
 
-The routing classification is `shared/voice_status.gd`: the caller may pass the director's profile,
-TTS node and switch, or ask the live routing by id. The view's debug context carries the routing
-line it reports, and the gate's debug text reads it from there. The server probe is
-`GAME.tts_has_server(tts)`, which reads an absent node or op as no server.
+The routing classification is `shared/voice_status.gd`, a pure match over the facts it is handed.
+The world director view builds those facts from the live director's profile, its TTS node's mode and
+server answer, the game's switch and the game's own chatter routing. The view's debug context
+carries the routing line it reports, and the gate's debug text reads it from there.
 
 ## Base-game vocal cache
 

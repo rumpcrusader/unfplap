@@ -10,7 +10,6 @@ const ACT_GATE := preload("res://mods/unfplap/act_gate/service.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const PRIVACY := preload("res://mods/unfplap/privacy/api.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
-const GAME := preload("res://mods/unfplap/world/game.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
@@ -158,9 +157,7 @@ func context_facts(pony: Node) -> Dictionary:
 func _world_mood(id: String) -> String:
 	if id.is_empty() or not is_instance_valid(WORLD.game):
 		return ""
-	var context := GAME.world_context(WORLD.game)
-	var impressions := GAME.impressions_of(context)
-	return GAME.impression_mood(impressions, id, "")
+	return WORLD.director().impression_mood(id, "")
 
 
 ## The relationship prompt note for one id, or "".

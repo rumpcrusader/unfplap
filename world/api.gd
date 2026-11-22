@@ -13,6 +13,8 @@ const WINGS_VIEW := preload("res://mods/unfplap/world/views/wings.gd")
 const FLANK_VIEW := preload("res://mods/unfplap/world/views/flank.gd")
 const ANON_VIEW := preload("res://mods/unfplap/world/views/anon.gd")
 const BED_VIEW := preload("res://mods/unfplap/world/views/bed.gd")
+const DIRECTOR_VIEW := preload("res://mods/unfplap/world/views/director.gd")
+const STORY_VIEW := preload("res://mods/unfplap/world/views/story.gd")
 const INTERACTOR_PATH := "res://player/interactor.gd"
 
 ## One pony's body reads and writes, bound to her node; every member answers typed zeroes when the
@@ -51,6 +53,17 @@ class Bed extends BED_VIEW:
 	func _init(n: Node) -> void:
 		super(n)
 
+## The scene's conversation director with the world context it belongs to: the routing, the voice,
+## the impressions and the authored-line host, plus the subsystem and audio nodes its members take.
+class Director extends DIRECTOR_VIEW:
+	func _init(n: Node, world: Node) -> void:
+		super(n, world)
+
+## The world context's story journal, its line store and its recent events, bound by the facade.
+class Story extends STORY_VIEW:
+	func _init(n: Node) -> void:
+		super(n)
+
 
 ## The live world root; null outside a world.
 static var game: Node = null
@@ -68,6 +81,8 @@ static var _faces: Dictionary = {}
 static var _wings: Dictionary = {}
 static var _flanks: Dictionary = {}
 static var _beds: Dictionary = {}
+static var _directors: Dictionary = {}
+static var _stories: Dictionary = {}
 static var _anon: Anon = null
 
 
@@ -106,6 +121,8 @@ static func _clear_handles() -> void:
 	_wings.clear()
 	_flanks.clear()
 	_beds.clear()
+	_directors.clear()
+	_stories.clear()
 	_anon = null
 
 
@@ -492,3 +509,36 @@ static func bed(n: Node) -> Bed:
 	var view := Bed.new(n if live else null)
 	_beds[key] = view
 	return view
+
+
+## The scene's conversation director, cached per scene director. It belongs to the bound world, so
+## the world context and the impressions it reads are that world's own.
+static func director() -> Director:
+	var node := _director_node()
+	var live := is_instance_valid(node)
+	var key := node.get_instance_id() if live else 0
+	var found: Variant = _directors.get(key)
+	if found is Director and (not live or found._bound() == node):
+		return found
+	var view := Director.new(node if live else null, game if is_instance_valid(game) else null)
+	_directors[key] = view
+	return view
+
+
+## The world context's story journal, cached per bound context node.
+static func story() -> Story:
+	var context: Node = GAME.world_context(game) if is_instance_valid(game) else null
+	var live := is_instance_valid(context)
+	var key := context.get_instance_id() if live else 0
+	var found: Variant = _stories.get(key)
+	if found is Story and (not live or found._bound() == context):
+		return found
+	var view := Story.new(context if live else null)
+	_stories[key] = view
+	return view
+
+
+## The scene's director is a group node, so the facade resolves it here rather than each caller.
+static func _director_node() -> Node:
+	var tree := _tree()
+	return tree.get_first_node_in_group("conversation_director") if tree != null else null

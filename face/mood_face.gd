@@ -2,7 +2,6 @@ extends Node
 ## The held post-act face node: it yields to a spoken line and ends when the mood's freshness
 ## does. The facade starts it.
 
-const GAME := preload("res://mods/unfplap/world/game.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const ACT_FACE := preload("res://mods/unfplap/shared/act_face.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
@@ -83,16 +82,7 @@ func _mood_still_ours() -> bool:
 	var id := str(pony.get_meta("relationship_id", ""))
 	if id.is_empty():
 		return true
-	var game := WORLD.game
-	if not is_instance_valid(game):
-		return true
-	var context := GAME.world_context(game)
-	if not is_instance_valid(context):
-		return true
-	var impressions := GAME.impressions_of(context)
-	if not is_instance_valid(impressions):
-		return true
-	var committed := GAME.impression_mood(impressions, id)
+	var committed := WORLD.director().impression_mood(id)
 	if committed.is_empty():
 		return true
 	return committed == mood

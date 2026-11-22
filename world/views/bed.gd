@@ -3,7 +3,7 @@ extends RefCounted
 ## Contract: docs/world.md
 ## Scope: world
 ## Import: world/api.gd only
-## A bed, the couch/rest that owns it, a seat on it or the seating system, bound to that node.
+## One rest-family node (a bed, its couch, one seat or the seating system) and the rows it answers.
 
 const GAME := preload("res://mods/unfplap/world/game.gd")
 

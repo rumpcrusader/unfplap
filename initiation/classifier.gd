@@ -4,7 +4,7 @@ extends Node
 ## parses the reply; this only bounds the request and the deadline.
 
 const LLM := preload("res://world/ai/llm_client.gd")
-const GAME := preload("res://mods/unfplap/world/game.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 
 const DEADLINE_SECONDS := 8.0
 const MAX_QUEUE := 4
@@ -50,7 +50,7 @@ func setup(section: Dictionary, status_path: String = "") -> bool:
 func configure_from(director: Node) -> bool:
 	if not is_instance_valid(director):
 		return false
-	var config := GAME.llm_config(director)
+	var config := WORLD.director().llm_config()
 	if not config.enabled:
 		return false
 	if _director == director and _configured:

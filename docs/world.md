@@ -18,8 +18,8 @@ This contract covers:
   game's own settings;
 - the three scene writes a service cannot do itself: the merged LOD rebuild after a shape change,
   the act chat open past the controls lock and a body's velocity;
-- the bound views of a pony's body, navigator, face, wings and flank, Anon's rig, a bed and the
-  handle cache behind them.
+- the bound views of a pony's body, navigator, face, wings and flank, Anon's rig, a bed, the
+  scene's conversation director and its world context, and the handle cache behind them.
 
 It does not cover an offer, a pose, an act start, a gate verdict or any act state. It preloads no
 service facade and no runtime.
@@ -65,7 +65,8 @@ names the entry to ask whether the scene is live.
 ## Views
 
 A view is a base-game object with its receiver already bound: `pony(n)`, `navigator(n)`, `face(n)`,
-`wings(n)`, `flank(n)`, `bed(n)` and `anon()` answer a handle whose members take no scene argument.
+`wings(n)`, `flank(n)`, `bed(n)`, `director()`, `story()` and `anon()` answer a handle whose members
+take no scene argument.
 The factory caches one handle per bound node (one for the player), so a per-frame read costs a
 lookup rather than an allocation, and every bind and `unbind()` drops the cache so a swapped body
 can never answer through the old one. A view built on `null` answers the accessors' typed zeroes; a
@@ -90,6 +91,8 @@ not the receiver.
 | `Flank` | her `FlankTouch` node, or the touch body whose hulls need syncing | `sync`, `update_surface`, `impact`, `wake_tick`, `start_jiggle`, `process`, `jiggle_amount`, `set_jiggle_amount` |
 | `Anon` | the player rig, bound by the facade | `seat`, `controls_locked`, `set_controls_locked`, `set_presentation_enabled`, `force_stand_up`, `height`, `eye_height`, `set_eye_y`, `set_stand_eye`, `set_eye_height`, `pitch`, `set_pitch`, `form`, `clamp_view`, `form_is_young`, `form_is_pony`, `body`, `q_held`, `set_q_held`, `set_space_hold`, `set_rest_held`, `sit_on`, `toggle_couch_sleep`, `set_hold_target`, `clear_hold_target`, `hand_frame`, `apply_torso_pose`, `set_rest_hand_targets`, `clear_rest_hand_targets`, `pose_driver`, `set_pose_driver`, `knockdown`, `start_knockdown` |
 | `Bed` | a bed, the couch/rest that owns it, a seat on it or the seating system | `couch_pony_transform`, `couch_seats`, `couch_open`, `couch_invite`, `couch_approach`, `couch_mare_fits`, `couch_cooldown_until`, `couch_partner`, `rest_word`, `rest_bed`, `refresh`, `fits`, `has_guest`, `sleeper`, `front`, `accepts`, `willing`, `eligible`, `seat_free_for`, `seating_phase`, `release_seat`, `finish_guest`, `release_pony`, `surface_top`, `exit_point`, `stock_rest` |
+| `Director` | the scene's conversation director, found by the facade, and the world root it belongs to | `speaking`, `interrupt`, `clock`, `subsystem_active`, `lines`, `llm_config`, `prepare_vocal`, `record_event`, `record_situation`, `tts_enabled`, `tts`, `tts_running`, `play_vocal`, `play_kiss`, `world_context`, `impressions`, `impression_mood`, `set_impression_mood`, `commit_impression`, `standing_line`, `voice_facts` |
+| `Story` | the world-context node, resolved by the facade from the bound world | `journal`, `store`, `open`, `last_line_id`, `search`, `witnessed`, `line_text`, `events` |
 
 `Pony` resolves the parts it can reach from the body it holds — her identity, head, mouth, blush
 sustainer and gaze controller — so a call names only the extra value it needs. The members that
@@ -105,6 +108,16 @@ belongs to whichever caller claimed it, and the view only carries that owner's r
 `Wings` and `Flank` are split by what owns the call: the wing hold and fold members take the wing
 node and the stock spread takes her Beat, while the jiggle members take her `FlankTouch` node, the
 hull sync takes her touch body and the skinning call takes the owned patch as its argument.
+
+`Director` is the one view with two receivers. Its director members are bound to the scene's
+conversation director, which the facade finds by its group; the world context and the impressions
+are the bound world's, so `world_context`, `impressions` and the mood rows resolve them there rather
+than through a caller's node, while `tts_enabled` reads the game's settings autoload itself. The
+subsystem, TTS, vocal and boop nodes a member asks about are passed because they are not the
+receiver. `voice_facts` is the one composed member: it hands the pure voice classifier the
+director's profile, the TTS mode and server, the game's switch and the game's own routing answer, so
+no classifier reads a game node. `Story` binds the world-context node itself, so the journal, its
+store and the event list take no node either.
 
 A view holds no service and no act state, and it writes nothing on construction. It is a read and
 write surface over the accessor module, so a base-game rename stays a change in `world/game.gd`.
@@ -297,6 +310,7 @@ behaviour exactly, and a game update that renames one is a change here rather th
 | `GAME.prepare_vocal(director, pony_id)` | the director's `vocal.prepare` | — | no call |
 | `GAME.tts_of(director)` | the director's `tts` | `Node` | `null` |
 | `GAME.tts_has_server(tts)` | `has_server` | `bool` | `false` |
+| `GAME.voice_route(director, id)` | the director's `characters`, its `tts` and the game's own mode/chatter routing | `VoiceRoute` | empty profile, Ponese, no server |
 | `GAME.vocal_play(vocal, id, gender, pony, db)` | the vocal node's `play` | `bool` | `false` |
 | `GAME.affection_buck(affection, body)` | `Affection.buck` | `bool` | `false` |
 | `GAME.kisser_of(game)` | the scene's `kisser` | `Node` | `null` |

@@ -104,7 +104,7 @@ line, and it is queued once per act from the body-change handover's offer tick.
 The bystander pass is always on. It uses `memory.observers()` and the modern witness perception.
 It starts after 12 s, repeats every 20 s, has a 70 % roll and caps at three lines. Its validity
 rule checks the observer, the act event id and `ACTIVE`/`CLIMAX`. Indoors/outdoors wording comes from
-`house_interior.gd`.
+the world facade's house lookup.
 
 ## Idle history scan
 

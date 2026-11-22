@@ -28,7 +28,7 @@ writes the facts those systems read.
 | `memory/service.gd` | facade: the typed internal API, the three writes, the four line-channel calls and the four reads; composes the adapters and reads `WORLD.game` and `PONIES.eligibility` per call |
 | `memory/facts.gd` | pure typed boundary data: `LineState`, `LineKind`, `Reaction`, `NoteKind`, `StopReason`, `ImpressionSlot`, `Sense`, and the `Impression`, `Peak`, `Witness`, `Observer`, `CueFacts`, `MemoryHit`, `Line`, `LineRequest` types |
 | `memory/text.gd` | pure wording and ids: the director key and its prefix, the keep-active rule, the impression/event suffixes, the event kinds, the stop names, the event texts, the witness texts |
-| `memory/world.gd` | scene adapter: the only reader of `world_context` and `impressions`, and the builder of the private cue facts and the shared-memory hit |
+| `memory/world.gd` | scene adapter: the builder of the private cue facts and the shared-memory hit, and the only memory reader of the world context, the impressions and the story journal |
 | `memory/dialogue.gd` | scene adapter: the only reader of the conversation director's authored-line queue |
 | `memory/perception.gd` | scene adapter: the only reader of the ponies, awareness, sleeping, house lookup and the player's form |
 | `memory/store.gd` | scene adapter: the only reader and writer of `Mods.state("unfplap").peak_memories` and the only memory file that asks the mod to save |
@@ -39,9 +39,10 @@ The purity boundary is deliberate:
 
 - `facts.gd` and `text.gd` have no `Node`, tree, time, file, `Settings`, scene or game preload.
   They take plain values and return plain values or strings.
-- `world.gd` owns `world_context.record`, `world_context.events_for`, `world_context.story`,
-  `impressions.commit`, `impressions.profile`, `relationship_runtime.ladder`, `bonds.record_for`
-  and the `act_history` read. Every read is guarded.
+- `world.gd` owns the world context's `record`, `events_for` and `story` rows and
+  `impressions.commit`, `impressions.profile`, read through the world director and story views,
+  plus `relationship_runtime.ladder`, `bonds.record_for` and the `act_history` read. Every read is
+  guarded.
 - `dialogue.gd` owns the director's `queue_generated_intent`, `state`, `active`, `cancel` and the
   authored-line list. A game change that removes the queue makes the mod's lines stop instead of
   erroring.
@@ -181,8 +182,8 @@ memory is marked used only after the caller queues the line.
 ## Known limits
 
 - The dialogue adapter reads the director's authored-line queue and the world adapter reads the
-  stock `world_context` and `impressions` fields. A game change can remove them; every read is
-  guarded and the memory simply stops writing.
+  stock `world_context` and `impressions` fields, both through the world views. A game change can
+  remove them; every read is guarded and the memory simply stops writing.
 - The witness pass reads the game's `PonyAwareness` and `HouseInterior`; a game change that moves
   the perception or the house lookup is a change to this adapter, not a new rule.
 - The peak memory is a single row per mare and never expires; a higher score replaces it.

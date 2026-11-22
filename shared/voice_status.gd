@@ -1,15 +1,22 @@
 extends RefCounted
-## Classifies one AI profile's voice routing and names the line the debug panel shows. The match
-## is pure when the caller passes its inputs, and reads the live director when it asks by id.
+## Classifies one AI profile's voice routing and names the line the debug panel shows. It reads no
+## game node: the world Director view reads the live facts and hands them in.
 
-const CHATTER := preload("res://world/ai/chatter_voice.gd")
-const GAME := preload("res://mods/unfplap/world/game.gd")
+## One classification's inputs: the profile the director holds and the game's own answers for it.
+class Facts extends RefCounted:
+	var profile: Dictionary = {}
+	var global_mode := "ponese"
+	var server := false
+	var tts_enabled := true
+	var ponese := true
+	var chatter := false
 
 
 ## Classifies one AI profile's voice routing. `effective_ponese` mirrors the game's own routing, so
 ## a character voice still counts as Ponese when the global mode or server says so.
-static func classify(profile: Dictionary, tts: Node, tts_enabled := true) -> Dictionary:
-	var global_mode := str(tts.get("voice_mode")) if is_instance_valid(tts) else "ponese"
+static func classify(facts: Facts) -> Dictionary:
+	var profile := facts.profile
+	var global_mode := facts.global_mode
 	var profile_mode := str(profile.get("voice_mode", ""))
 	var mode := profile_mode if not profile_mode.is_empty() else global_mode
 	var status := str(profile.get("voice_status", ""))
@@ -18,10 +25,9 @@ static func classify(profile: Dictionary, tts: Node, tts_enabled := true) -> Dic
 	var has_character_voice := (speaker >= 0 or not openai.is_empty()) \
 		and not status.begins_with("Ponese") \
 		and not status.begins_with("temporary shared")
-	var server := GAME.tts_has_server(tts)
-	var effective := not tts_enabled or not server or CHATTER.is_ponese_mode(global_mode)
+	var effective := not facts.tts_enabled or not facts.server or facts.ponese
 	if not effective:
-		effective = CHATTER.use_chatter(profile, global_mode)
+		effective = facts.chatter
 	return {
 		"mode": mode,
 		"global_mode": global_mode,
@@ -44,40 +50,6 @@ static func describe(info: Dictionary) -> String:
 	]
 
 
-## The live routing for one stable id: the director's own profile and TTS node plus the game's
-## switch. An absent director or settings autoload reads as Ponese.
-static func routing(id: String) -> Dictionary:
-	var director := _director()
-	return classify(_profile(director, id), GAME.tts_of(director), _tts_enabled())
-
-
-## The debug panel's one voice line for `id`.
-static func status_line(id: String) -> String:
-	return "voice " + describe(routing(id))
-
-
-static func _director() -> Node:
-	var loop := Engine.get_main_loop()
-	if not loop is SceneTree:
-		return null
-	return (loop as SceneTree).get_first_node_in_group("conversation_director")
-
-
-static func _profile(director: Node, id: String) -> Dictionary:
-	if not is_instance_valid(director):
-		return {}
-	var characters: Variant = director.get("characters")
-	if characters is Dictionary and (characters as Dictionary).has(id):
-		var entry: Variant = (characters as Dictionary)[id]
-		if entry is Dictionary:
-			var profile: Variant = (entry as Dictionary).get("profile", {})
-			if profile is Dictionary:
-				return profile
-	return {}
-
-
-static func _tts_enabled() -> bool:
-	var loop := Engine.get_main_loop()
-	if not loop is SceneTree:
-		return false
-	return GAME.tts_enabled((loop as SceneTree).root.get_node_or_null("Settings"))
+## The debug panel's one voice line for the facts it was handed.
+static func status_line(facts: Facts) -> String:
+	return "voice " + describe(classify(facts))

@@ -272,7 +272,7 @@ func debug_context(session: ACT_SESSION) -> Dictionary:
 		"penetration_m": context.readiness.penetration_m,
 		"penetration_reach": context.readiness.reach(),
 		"preferences": PREFERENCES.describe(session.preferences),
-		"voice_status_line": VOICE.status_line(session.pony_id),
+		"voice_status_line": VOICE.status_line(WORLD.director().voice_facts(session.pony_id)),
 	})
 
 

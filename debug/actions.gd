@@ -676,17 +676,19 @@ func _debug_prompt_rows(target: Node) -> Array[String]:
 	var history_row := ACT_HISTORY.effective_row(ACT_HISTORY.section(), id, ACT_HISTORY.day_now())
 	var history_note := ACT_HISTORY.prompt_note(history_row)
 	rows.append("history_note: " + (history_note if not history_note.is_empty() else "none"))
-	var ctx := GAME.world_context(WORLD.game)
+	var ctx := WORLD.director().world_context()
 	if ctx != null:
-		var events := GAME.world_events(ctx, id, 10)
+		var events := WORLD.story().events(id, 10)
 		rows.append("recent events:")
 		for event: Variant in events:
 			if event is Dictionary:
 				var item: Dictionary = event
 				rows.append("  %s: %s" % [str(item.get("kind", "")), str(item.get("text", ""))])
-		var impressions := GAME.impressions_of(ctx)
-		if impressions != null and impressions.has_method("standing_line"):
-			rows.append("standing_line: " + GAME.impression_standing_line(impressions, id))
+		var impressions := WORLD.director().impressions()
+		if impressions != null:
+			var standing := WORLD.director().standing_line(id)
+			if not standing.is_empty():
+				rows.append("standing_line: " + standing)
 	return rows
 
 

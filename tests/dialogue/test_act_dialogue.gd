@@ -106,6 +106,8 @@ func run() -> void:
 	WORLD.bind_world(main.game)
 	var pony := FakePony.new()
 	var director := FakeDirector.new()
+	director.add_to_group("conversation_director")
+	root.add_child(director)
 	director.characters = {
 		"fluttershy": {
 			"spoken": ["I missed you.", "Not so fast."],

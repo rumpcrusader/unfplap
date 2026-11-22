@@ -126,10 +126,12 @@ func quiet_reason(chat_gap_s: float) -> String:
 	if str(node.get("state")) != "idle":
 		return "director_state"
 	var approaches: Variant = node.get("player_approaches")
-	if approaches != null and approaches.has_method("active") and GAME.subsystem_active(approaches):
+	if approaches != null and approaches.has_method("active") \
+			and WORLD.director().subsystem_active(approaches):
 		return "approach"
 	var group: Variant = node.get("group")
-	if group != null and group.has_method("active") and GAME.subsystem_active(group):
+	if group != null and group.has_method("active") \
+			and WORLD.director().subsystem_active(group):
 		return "group"
 	var speech: Variant = node.get("speech")
 	if speech != null and is_instance_valid(speech) and str(speech.get("state")) == "hearing":
@@ -137,7 +139,7 @@ func quiet_reason(chat_gap_s: float) -> String:
 	var config: Variant = node.get("config")
 	if config != null and not AI_CONFIG.background_allowed(config):
 		return "ai_usage"
-	var now := GAME.director_now(node)
+	var now := WORLD.director().clock()
 	var characters: Variant = node.get("characters")
 	if characters is Dictionary:
 		for entry: Variant in (characters as Dictionary).values():
@@ -209,17 +211,17 @@ func pony_speaking(pony: Node) -> bool:
 
 
 func begin_greeting(id: String, context: String) -> bool:
-	return GAME.director_lines(director()).greet(id, context)
+	return WORLD.director().lines().greet(id, context)
 
 
 ## Queue one authored line with a validity callback. False when the director is missing or the
 ## queue refuses it.
 func queue(id: String, purpose: String, key: String, valid: Callable, priority: bool) -> bool:
-	return GAME.director_lines(director()).queue(id, purpose, key, valid, priority)
+	return WORLD.director().lines().queue(id, purpose, key, valid, priority)
 
 
 func cancel_keys(keys: Array) -> void:
-	var lines := GAME.director_lines(director())
+	var lines := WORLD.director().lines()
 	for key: Variant in keys:
 		lines.cancel(str(key))
 
@@ -227,12 +229,11 @@ func cancel_keys(keys: Array) -> void:
 ## Record a situation event for the director's world context: `ids` is the subject list and `key`
 ## the replaceable event key.
 func record_situation(text: String, ids: Array, key: String) -> void:
-	var game: Variant = WORLD.game
-	if not is_instance_valid(game):
+	if not is_instance_valid(WORLD.game):
 		return
 	var subjects: Array[String] = []
 	subjects.assign(ids)
-	GAME.record_situation(GAME.world_context(game), text, subjects, key)
+	WORLD.director().record_situation(text, subjects, key)
 
 
 # --------------------------------------------------------------------------- model calls

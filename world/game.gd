@@ -11,6 +11,7 @@ const HYBRID_FAR_MESH := preload("res://world/characters/hybrid_mare/hybrid_far_
 const SHOP_ITEMS := preload("res://world/shop/shop_items.gd")
 const HOUSE := preload("res://world/buildings/house_interior.gd")
 const AI_CONFIG := preload("res://world/ai/ai_config.gd")
+const CHATTER := preload("res://world/ai/chatter_voice.gd")
 const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const OUTLINE_EXCLUSION := preload("res://world/post_outline_exclusion.gd")
 const DOCK_TAIL_MOUNT := preload("res://world/characters/hybrid_mare/dock_tail_mount.gd")
@@ -520,6 +521,13 @@ static func tts_enabled(settings: Node) -> bool:
 	return bool(settings.call("tts_enabled"))
 
 
+## The TTS node's own voice mode; an absent node answers the Ponese default.
+static func _voice_mode(tts: Node) -> String:
+	if not is_instance_valid(tts):
+		return "ponese"
+	return str(tts.get("voice_mode"))
+
+
 ## The director's TTS node; null when it has none.
 static func tts_of(director: Node) -> Node:
 	if not is_instance_valid(director):
@@ -533,6 +541,39 @@ static func tts_has_server(tts: Node) -> bool:
 	if not is_instance_valid(tts) or not tts.has_method("has_server"):
 		return false
 	return bool(tts.call("has_server"))
+
+
+## One AI profile's live voice routing: the profile the director holds and the game's own answers
+## for its mode, server and chatter choice.
+class VoiceRoute:
+	var profile: Dictionary = {}
+	var mode := "ponese"
+	var server := false
+	var ponese := true
+	var chatter := false
+
+
+## The routing the game applies to one pony's profile; every answer defaults as if absent.
+static func voice_route(director: Node, id: String) -> VoiceRoute:
+	var out := VoiceRoute.new()
+	if not is_instance_valid(director):
+		return out
+	var characters: Variant = director.get("characters")
+	if not characters is Dictionary or not (characters as Dictionary).has(id):
+		return out
+	var entry: Variant = (characters as Dictionary)[id]
+	if not entry is Dictionary:
+		return out
+	var profile: Variant = (entry as Dictionary).get("profile", {})
+	if not profile is Dictionary:
+		return out
+	var tts := tts_of(director)
+	out.profile = profile
+	out.mode = _voice_mode(tts)
+	out.server = tts_has_server(tts)
+	out.ponese = CHATTER.is_ponese_mode(out.mode)
+	out.chatter = CHATTER.use_chatter(out.profile, out.mode)
+	return out
 
 
 ## Play one line through the game's own vocal node; false without the op.

@@ -35,10 +35,9 @@ static func context(pony: Node, id: String, act: Dictionary) -> Dictionary:
 		love_name = GAME.relationship_love_name(pony, pony_id)
 	var mood := "?"
 	if is_instance_valid(WORLD.game):
-		var ctx := GAME.world_context(WORLD.game)
-		var impressions := GAME.impressions_of(ctx)
-		if impressions != null and impressions.has_method("profile"):
-			mood = GAME.impression_mood(impressions, pony_id, "?")
+		var committed := WORLD.director().impression_mood(pony_id, "?")
+		if not committed.is_empty():
+			mood = committed
 	var posture := WORLD.pony(pony).posture_requested()
 	var lease := WORLD.navigator(pony)
 	var owner := lease.owner()
@@ -220,19 +219,15 @@ static func _neutral_mood(host: Node, pony: Node3D, id: String) -> String:
 	var game: Variant = WORLD.game
 	if not is_instance_valid(game):
 		return "no game"
-	var context := GAME.world_context(game)
-	if context == null:
+	if WORLD.director().world_context() == null:
 		return "no world context"
-	var impressions := GAME.impressions_of(context)
-	if impressions == null or not impressions.has_method("profile") \
-			or not impressions.has_method("commit"):
-		return "no impressions"
-	var before := GAME.impression_mood(impressions, id)
+	var before := WORLD.director().impression_mood(id)
 	if before.is_empty():
 		before = "neutral"
-	GAME.impression_set_mood(impressions, id, "neutral",
-		"unfplap-debug-mood:%s:%d" % [id, Time.get_ticks_usec()])
-	var after := GAME.impression_mood(impressions, id)
+	if not WORLD.director().set_impression_mood(id, "neutral",
+			"unfplap-debug-mood:%s:%d" % [id, Time.get_ticks_usec()]):
+		return "no impressions"
+	var after := WORLD.director().impression_mood(id)
 	if after.is_empty():
 		after = "neutral"
 	return "%s -> %s" % [before, after]

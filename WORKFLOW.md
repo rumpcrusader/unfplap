@@ -96,16 +96,17 @@ With no argument the same tool reports the source tree, `--scope` picks `shipped
 
 ## Lint
 
-`scripts/lint.sh` runs gdlint 4.5.0 over the shipped `.gd` files only. Install the pinned toolchain
-once:
+`scripts/lint.sh` runs gdlint 4.5.0 over the shipped `.gd` files and the test suites. Install the
+pinned toolchain once:
 
 ```bash
 python3 -m pip install -r scripts/requirements-lint.txt
 ```
 
-Tests and tools are excluded because gdtoolkit's parser rejects some valid test syntax. The config
-and the disabled structural rules are in `.gdlintrc`; the formatting, linting and complexity policy
-is in `docs/quality.md`. The source-checks CI job runs the same command.
+The shipped config is the root `.gdlintrc`; `tests/` has its own `tests/.gdlintrc`, which drops
+`tests` from the excluded tree and adds four disables for test syntax. `tools/` stays excluded. The
+disabled rules and the formatting, linting and complexity policy are in `docs/quality.md`. The
+source-checks CI job runs the same command.
 
 ## Commit messages
 

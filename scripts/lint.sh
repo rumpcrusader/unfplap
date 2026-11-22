@@ -28,6 +28,12 @@ fi
 
 gdlint "${files[@]}"
 
+# gdlint reads .gdlintrc from the working directory, so the test pass runs from tests/.
+mapfile -t test_files < <(git ls-files '*.gd' | grep '^tests/')
+if [[ "${#test_files[@]}" -gt 0 ]]; then
+	( cd tests && gdlint "${test_files[@]#tests/}" )
+fi
+
 # The gate carries its own fixtures; a broken rule must fail here, not silently pass.
 if ! python3 "$ROOT/scripts/comments.py" --self-test >/dev/null; then
 	python3 "$ROOT/scripts/comments.py" --self-test
@@ -35,4 +41,4 @@ if ! python3 "$ROOT/scripts/comments.py" --self-test >/dev/null; then
 fi
 python3 "$ROOT/scripts/comments.py" --check
 
-printf 'LINT_PASS %d files\n' "${#files[@]}"
+printf 'LINT_PASS %d files\n' "$(( ${#files[@]} + ${#test_files[@]} ))"

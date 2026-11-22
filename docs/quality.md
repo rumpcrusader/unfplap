@@ -22,8 +22,10 @@ by review; do not add a formatter gate.
 
 ## Linting
 
-`gdlint` 4.5.0 lints the shipped `.gd` files only. Tests and tools are excluded because
-gdtoolkit's parser rejects some valid test syntax. The config is `.gdlintrc`.
+`gdlint` 4.5.0 lints the shipped `.gd` files and the test suites. The shipped config is the root
+`.gdlintrc`; `tests/.gdlintrc` keeps the same structural disables and adds `unnecessary-pass`,
+`unused-argument`, `comparison-with-itself` and `sub-class-name` for test syntax. `tools/` stays
+excluded from both.
 
 The structural rules are disabled because they conflict with the service layout: the repo
 interleaves public and private state by subsystem, a correct boundary beats a line count, the

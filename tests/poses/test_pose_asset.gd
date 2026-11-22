@@ -100,7 +100,7 @@ func run() -> void:
 	# The authored shot positions are optional until they are placed in the lab, but every entry
 	# present must be a usable bed-space camera.
 	var shots: Dictionary = pose.get("shots")
-	check(bool(pose.get("has_shots")) == not shots.is_empty(), "shot block agrees with its count")
+	check(bool(pose.get("has_shots")) == (not shots.is_empty()), "shot block agrees with its count")
 	var bad_shots: Array[String] = []
 	for key: Variant in shots:
 		var shot: Transform3D = shots[key]

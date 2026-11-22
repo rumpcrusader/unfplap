@@ -33,14 +33,6 @@
       "expires": "phase-2"
     },
     {
-      "from": "debug/ui.gd",
-      "to": "res://world/ui/menu_style.gd",
-      "kind": "game-import",
-      "owner": "debug",
-      "reason": "base-game import; drain through the GAME accessor in Task B",
-      "task": "B"
-    },
-    {
       "from": "initiation/classifier.gd",
       "to": "res://world/ai/llm_client.gd",
       "kind": "game-import",

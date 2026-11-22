@@ -5,8 +5,9 @@ extends RefCounted
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/service.gd")
-const STYLE := preload("res://world/ui/menu_style.gd")
+const GAME := preload("res://mods/unfplap/debug/game.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
+const STYLE := GAME.MenuStyle
 
 
 ## Fill a Debug block with its action buttons and the last result; shared rows draw on one line.

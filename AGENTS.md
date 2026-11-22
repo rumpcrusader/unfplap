@@ -52,6 +52,7 @@ restate a contract.
 | `stock_smack/**` | `docs/stock_smack.md` |
 | `body_change/**` | `docs/body_change.md` |
 | `camera/**` | `docs/camera.md` |
+| `debug/game.gd` | `docs/debug.md` |
 | `debug/**` | `docs/debug.md` |
 | `dialogue/**` | `docs/dialogue.md` |
 | `eligibility/**` | `docs/eligibility.md` |

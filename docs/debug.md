@@ -19,6 +19,12 @@ deep stretch action. `debug/skeleton.gd` draws the skeleton overlay. `settings/u
 Unfplap tab and calls `debug/ui.gd` for each Debug block. The console gate is the game's; the log
 switch is `shared/log.gd`'s and the perf panel is `shared/perf.gd`'s.
 
+## Base-game access
+
+`debug/game.gd` is the debug service's one base-game accessor: the three game-menu builders its
+Debug block draws with. A handle is an argument, never something a consumer resolves, and
+`debug/ui.gd` takes them from it, so no debug file preloads a base-game module.
+
 ## Console
 
 - The backtick command console is gated by `DEV.enabled()`. Source/editor runs have it; a player

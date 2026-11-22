@@ -265,7 +265,7 @@ PUBLIC_SERVICE_FILES = {"body_change/source.gd", "world/game.gd"}
 SERVICE_BASE = "shared/service.gd"
 HUD_FACADE = "hud/service.gd"
 # A public accessor module outside a `service.gd` facade joins the weak-signature scan.
-TYPING_EXTRA = ("world/game.gd", "settings/game.gd")
+TYPING_EXTRA = ("world/game.gd", "settings/game.gd", "debug/game.gd")
 # The five body-bound systems `body_change.wire()` builds and registers. The entry names none of
 # them: a new binding adds a preload to the service, not to the composition root.
 BODY_BINDINGS = (
@@ -288,7 +288,7 @@ SERVICE_IGNORE_DOCS = {"README.md", "api.md", "runtime.md"}
 PUBLIC_TYPE = re.compile(r"^(?:class|enum)\s+([A-Za-z_]\w*)\b", re.MULTILINE)
 API_MEMBER = re.compile(
     r"^(?:const\s+([A-Z][A-Z0-9_]*)|(?:static\s+)?func\s+([A-Za-z_]\w*)|var\s+([A-Za-z_]\w*))")
-GAME_SOURCES = ("world/game.gd", "settings/game.gd")
+GAME_SOURCES = ("world/game.gd", "settings/game.gd", "debug/game.gd")
 # The services allowed to touch the base game: each owns exactly one `<service>/game.gd`, and only
 # that service's own files import it.
 GAME_LAYER = {"world", "settings", "debug", "hud"}

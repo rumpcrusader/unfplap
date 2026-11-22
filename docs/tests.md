@@ -72,7 +72,8 @@ table, not a second owner: each rule has exactly one suite.
 ## Writing a suite
 
 A suite extends the shared base and implements `run()`; the base drives the rest of the lifecycle.
-It has no scene and no autoload beyond `Mods` and `Settings`:
+It has no scene. The project's autoloads do boot, so a suite reads none of them directly: it
+fakes the node it needs under `/root` and restores any autoload node it renames.
 
 ```gdscript
 extends "res://mods/unfplap/tests/support/suite.gd"
@@ -93,7 +94,8 @@ defers `_run_and_finish()`, which calls `before()`, then `run()`, then `finish()
 - `check(ok, text)` prints only failures; the text names the rule, not the value.
 - Because the base calls `finish()` after `run()` returns, a suite that returns early or never
   calls `finish()` still reports. `finish()` is idempotent, so the explicit call a suite keeps at
-  the end of `run()` is harmless.
+  the end of `run()`, and the private `X_PASS` line many suites print, are cosmetic for a direct
+  run and are not part of the contract.
 - `finish()` runs `teardown()` once, fails the suite when no assertion ran, prints the final
   `…_RESULT checks=%d failures=%d` line and quits. The runner reads that line as its result input.
 - The runner also scans the suite log for `SCRIPT ERROR` and `Parse Error`; a suite that logs one
@@ -124,8 +126,8 @@ defers `_run_and_finish()`, which calls `before()`, then `run()`, then `finish()
 The helpers are additions: an existing `check(a == b, …)` call keeps working, and a new or touched
 check uses the helper for its shape. `near` defaults to `0.0001`, and a suite that needs another
 tolerance passes it explicitly: one default does not fit every call site, so a suite using `0.001`
-or `0.00001` states it. A failure line carries the suite label and the suite's source line, and a
-value helper prints the expected and the got value.
+or `0.00001` states it. A failure line carries the suite label and, when the stack still holds the
+calling frame, the suite's source line, and a value helper prints the expected and the got value.
 
 ### Result label
 
@@ -142,7 +144,9 @@ prefix, so the two act-audio suites stay distinct: `privacy/privacy` → `PRIVAC
 - Each suite gets its own `XDG_DATA_HOME` under the runner's temporary directory, so the player's
   `user://` settings, saves and logs can never change a behaviour assertion or the shipped-document
   schema check.
-- Never write a fixed path under `user://` and never depend on another suite having run first.
+- A fixed path under `user://` is safe only because the suite owns its data directory: keep the
+  path unique to the suite, remove what you write, and never depend on another suite having run
+  first.
 - A suite must pass on a fresh checkout, with no settings file and no save.
 - Parallel runs are the default; two suites must never touch the same file.
 

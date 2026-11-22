@@ -34,7 +34,7 @@ live scene rows (that is `scene_gate`), readiness or tolerance (`docs/readiness.
 The purity boundary is deliberate: `policy.gd` and `facts.gd` have no `Node`, `Time`, `SceneTree`,
 `FileAccess`, `SETTINGS` preload or scene preload. The service composes their results from the live
 game, the settings and the shared stores. It is a leaf reader of the world and of `eligibility`;
-`scripts/architecture.py --check` rejects an anatomy or estrus edge.
+The static gate rejects an anatomy or estrus edge.
 
 ## Data ownership
 

@@ -39,7 +39,7 @@ The purity boundary is deliberate:
 - Only `eligibility/scene.gd` reads `world/api.gd`; only `eligibility/service.gd` reads
   `bonds`-free identity values, `SETTINGS.profile_identity` and `SETTINGS.consent`.
 - The service is a leaf: it preloads its own files, shared data, the settings and registry facades
-  and the scene boundary. It preloads no other service. `scripts/architecture.py --check` enforces
+  and the scene boundary. It preloads no other service. The static gate enforces
   the leaf rule, including the shape cache's one world read.
 - No file outside `eligibility/` preloads the pure core. Another system calls the facade, which
   answers `eligible(pony, target)` or `witness_age(pony)`; it never inspects age, sex or the

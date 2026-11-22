@@ -138,8 +138,8 @@ no promotion path: `settings/prompts.json` is edited by hand, and `docs/prompts.
 name the setting and its bounds, never the shipped value; a default lives only in the shipped
 document.
 
-Run `scripts/check.sh --all`, `python3 scripts/architecture.py --check` and, when `docs/api.md`
-changed, `scripts/test.sh test_api`. Commit the doc in its own `docs:` commit:
+Run `scripts/check.sh --all` and, when `docs/api.md` changed, `scripts/test.sh test_api`. Commit
+the doc in its own `docs:` commit:
 
 - `docs: describe the promoted settings`
 

@@ -549,7 +549,7 @@ Unknown settings keys are ignored.
   default lives only in `settings/settings.json`.
 - **One description per setting.** A `##` block of one or two lines above the declaration, saying
   what the setting is and what its hint does not: who reads it, when an edit lands, or what a
-  boundary value does. `scripts/comments.py --check` enforces the shape.
+  boundary value does. The comment gate enforces the shape.
 - Promote a player value with `scripts/settings_sync.py promote` (a declared setting) or
   `scripts/settings_sync.py promote --characters` (a profile difference, a per-mare override or a
   placement row); never hand-edit the shipped document to copy a local value.

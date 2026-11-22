@@ -13,7 +13,7 @@ lifecycle; this doc owns their shape and their runner.
   result line.
 - Anything that needs a live world, a person at the keyboard, a headset or the HUD belongs to a
   manual lab, not here.
-- The static source and test-file invariants are `scripts/architecture.py --check`, not a suite.
+- The static source and test-file invariants are the static gate, not a suite.
 
 ## Suite layout
 
@@ -68,7 +68,7 @@ table, not a second owner: each rule has exactly one suite.
 | `tests/summary/test_history.gd` | `tests/summary/test_act_flow.gd` |
 | `tests/integrations/test_hold.gd` | `tests/integrations/test_service.gd` |
 | `tests/perf/test_log.gd`, `tests/perf/test_perf_idle.gd`, `tests/perf/test_perf_tree.gd`, `tests/test_perf_panel.gd` | `tests/perf/test_perf.gd` |
-| `tests/test_source_hygiene.gd` | `scripts/architecture.py --check` |
+| `tests/test_source_hygiene.gd` | the static gate |
 
 ## Writing a suite
 
@@ -191,7 +191,7 @@ leaves no result fails with its exit status, and one the runner's timeout killed
 
 Every suite must also leave no `SCRIPT ERROR` or `Parse Error` in its log.
 
-Discovery has one implementation, `scripts/architecture.py --list-suites`: `tests/**/test_*.gd`,
+Discovery has one implementation, `scripts/test.sh --list`: `tests/**/test_*.gd`,
 two levels deep, excluding the manual labs (`test_lab*.gd`, `test_stress_lab.gd`). `TEST_JOBS` sets
 the parallelism; the default is one job per core, capped at 12 because one heavy suite peaks at
 roughly 370 MB.
@@ -220,7 +220,7 @@ feature flags into the same reconcile. The hook suites are
 `tests/act_audio/test_audio.gd`. The pose ledger's order and its three callers, the
 `_fanout()` owner order in `act/tick.gd` (pose service first, then camera, hands, kiss and
 anatomy), the pose-before-facts order in its `_tick()` and the ban on act-exit names under
-`poses/` are static rules in `scripts/architecture.py --check`. The anatomy allow-list and its
+`poses/` are static rules in the static gate. The anatomy allow-list and its
 fixtures are in the static gate, run by `scripts/test.sh`. The contract is `docs/poses.md`; this doc
 only names the gate.
 
@@ -247,7 +247,7 @@ binding order, same-node revisions, source registry and provider notification) a
 `tests/integrations/test_changelings.gd` (the shipped provider's forms and policy); the handover
 paragraph above is the act-side half. The base invariants — one body-change fan-out, one resume,
 one teardown and no provider vocabulary in the core — are static rules in
-`scripts/architecture.py --check`, not a suite.
+the static gate, not a suite.
 
 The pose suites are `tests/poses/test_pose_state.gd`, `test_pose_edge.gd`,
 `test_pose_registry.gd`, `test_pose_spec.gd`, `test_pose_view.gd`, `test_session.gd`,
@@ -262,7 +262,7 @@ the continuous/discrete partition of `ALL`, the helpers and the reserved `end`.
 refused and non-ready) plus the unchanged shield. The hook suites `tests/act_camera/test_camera.gd` and
 `tests/act_camera/test_kiss.gd` pin the view-only config; the pose-view contact and facing reads
 are review rules (`docs/act_facts.md`), and the `pose_tick`/`pose_fanout` order around the facts
-sync in `act/tick.gd` is a static rule in `scripts/architecture.py --check`.
+sync in `act/tick.gd` is a static rule in the static gate.
 
 ## What not to assert
 
@@ -272,10 +272,10 @@ sync in `act/tick.gd` is a static rule in `scripts/architecture.py --check`.
 - **Never assert a shipped default.** A suite names a setting and its behaviour and reads the live
   value as input. It never copies the default into an expectation or compares a
   `Setting.default` to a numeric literal. The shipped `settings/settings.json` is the only source
-  of the value; `scripts/architecture.py --check` rejects a default-vs-literal comparison, with
+  of the value; the static gate rejects a default-vs-literal comparison, with
   one allow-listed fallback-to-default call in `tests/poses/test_session.gd`.
 - **Never grep source text.** A suite does not read production source or docs to assert their text.
-  Source invariants belong to `scripts/architecture.py --check`, and `FileAccess.get_file_as_string`
+  Source invariants belong to the static gate, and `FileAccess.get_file_as_string`
   is limited to the allow-list below.
 - **No tautologies.** `check(true, …)`, a count compared with the keys just iterated, and a
   read-back of the value just written prove nothing. A check compares a value the code produced
@@ -289,7 +289,7 @@ sync in `act/tick.gd` is a static rule in `scripts/architecture.py --check`.
 
 ### Test-file gate
 
-`scripts/architecture.py --check` enforces these rules over `tests/`:
+The static gate enforces these rules over `tests/`:
 
 - every discovered `tests/**/test_*.gd` extends `tests/support/suite.gd`;
 - every suite defines `run()` and contains at least one assertion call (`check(`, `check_eq(`,

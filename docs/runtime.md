@@ -54,7 +54,7 @@ The node's public surface is exactly:
 | `adopt_body()` | the handover's reparent onto the new body |
 | `_init`, `_ready`, `_physics_process`, `_process`, `_exit_tree` | the engine callbacks |
 
-`scripts/architecture.py` holds this list as `NODE_SURFACE` (functions) and `NODE_PROPERTIES`
+The static gate holds this list as `NODE_SURFACE` (functions) and `NODE_PROPERTIES`
 (properties) and compares both directions: a new public member fails and a stale row fails.
 
 ## Ownership
@@ -461,7 +461,7 @@ regression; everything else reads the session, the gate or the owning service.
 
 ## Checker
 
-`scripts/architecture.py --check` enforces the host shape in addition to the exit, pose-ledger and
+The static gate enforces the host shape in addition to the exit, pose-ledger and
 fan-out invariants:
 
 - `state` is declared and written only in `act/session.gd` (`_set_state()`); `runtime.gd` has no

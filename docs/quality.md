@@ -68,7 +68,7 @@ wanted.
 
 ## Architecture gate
 
-`scripts/architecture.py --check` scans the preload graph and enforces the layer, owner,
+The static gate (`scripts/check.sh --static`) scans the preload graph and enforces the layer, owner,
 game-boundary and re-export rules. These rules exist so code cannot grow back outside the gate:
 
 - **Every mod path has an owner.** A shipped `.gd` must resolve through `owner_of()` to a service
@@ -108,11 +108,13 @@ game-boundary and re-export rules. These rules exist so code cannot grow back ou
 The rest — one body-change fan-out, one `act/swap.gd:resume()`, one `act/exit.gd:run()`, the
 schedule's tick and fan-out order in `act/tick.gd`, the scene-only world facade and the suite
 allow-lists — is the checker's own source of truth; read `scripts/architecture.py` before changing
-the tree it guards.
+the tree it guards. Its maintenance modes — `--graph`, `--audit-surface`, `--write-exceptions`,
+`--write-debt` and `--write-duck-typing` — run directly on that module, not through the gate. The
+graph is for review and is not checked in.
 
 ## Shell scripts
 
-Every bash entry point starts with `set -euo pipefail`; `scripts/architecture.py --check` pins that
+Every bash entry point starts with `set -euo pipefail`; the static gate pins that
 prelude for every root and `scripts/*.sh`. Rely on the options instead of probing dependencies: a
 script that needs `godot` or `python3` calls it; `set -e` stops at the failing command and the shell
 or tool prints the reason. A `command -v` guard is only for a failure that would otherwise continue

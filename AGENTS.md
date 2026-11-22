@@ -176,7 +176,7 @@ are in `ARCHITECTURE.md` (`## The service contract`).
   start sequence, `act/exit.gd:run` and the impact fan-out keep their call order until a change
   deliberately moves one call.
 - **One teardown.** `act/exit.gd:run` is the only exit path and its own routes plus the consent stop
-  are its only callers; `scripts/architecture.py --check` enforces it. Do not add a second exit
+  are its only callers; the static gate enforces it. Do not add a second exit
   sequence.
 - **No reach-ins, no allocation churn.** A system must not preload `runtime.gd` or `main.gd`, must
   not call `runtime.get("_…")` / `runtime.call("_…")`, and reuses `act_facts` and event
@@ -185,13 +185,13 @@ are in `ARCHITECTURE.md` (`## The service contract`).
   owning facade.
 - **The entry is not a locator.** A service that needs another service preloads its facade; a
   service that needs the scene reads `WORLD`; nothing but `main.gd` names `main`
-  (`scripts/architecture.py --check` fails on any other shipped file, `tests/` excepted). A new
+  (the static gate fails on any other shipped file, `tests/` excepted). A new
   long-running service joins the lifecycle with `on_world(host)`, `on_world_closed()`,
   `on_player(body)` and `shutdown()`, and one line in the entry's service list.
 - **One game boundary.** A base-game import lives only in `<service>/game.gd`; a `game.gd` exists
   only in a game-layer service directory; only that service's own files import it. Every other file
   reads the game through a facade, and the `/root/Settings` and `/root/Mods` literals obey the same
-  rule. `scripts/architecture.py --check` fails a new base-game import outside one.
+  rule. The static gate fails a new base-game import outside one.
 - **No preload re-exports.** A file uses only the preload consts it declares. Reaching another
   module's `const … := preload(...)` fails the gate; enums, nested classes and plain constants stay
   reachable, and `GAME.X` is the one allowed re-export.
@@ -216,7 +216,7 @@ are in `ARCHITECTURE.md` (`## The service contract`).
 - **One sink, one profiler.** `shared/log.gd` is the only file that prints, warns, errors or
   builds the mod prefix, and `shared/perf.gd` the only one that reads a clock, an engine
   monitor or the rendering info. Every other script calls `LOG` and `PERF`;
-  `scripts/architecture.py --check` fails on a second one.
+  the static gate fails on a second one.
 - **Both modules are frozen.** `shared/log.gd` and `shared/perf.gd` are edited only with the
   user's explicit approval; their header is the contract and no `docs/` entry restates it.
 - **A timed chunk is one unconditional pair.** `PERF.begin("chunk")` and `PERF.end("chunk")`
@@ -249,8 +249,8 @@ are in `ARCHITECTURE.md` (`## The service contract`).
   `Service:`/`Contract:`/`Scope:`/`Import:` fields plus one purpose sentence; the owning doc carries
   the rest. A `#` block is at most three lines and only for an invariant, an order constraint, a
   game quirk or a workaround. Do not restate a doc sentence, a member name, a count, an ordinal or a
-  numeric value the code owns; a rename must never force a comment edit. `scripts/comments.py
-  --check` enforces the shape in `scripts/lint.sh`.
+  numeric value the code owns; a rename must never force a comment edit. The comment gate
+  enforces the shape in `scripts/lint.sh`.
 - A doc names settings and behaviour, not copied numeric defaults; the shipped
   `settings/settings.json` is the source for the default and the declaration in
   `settings/service.gd` for the bounds.

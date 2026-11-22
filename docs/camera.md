@@ -41,8 +41,8 @@ camera fields (`lean_*`, `bob`, `lean`, `shot_lean_forward`, `free_camera_active
 `missionary_body()`, `authored_pose_asset()` and `mark_camera_basis_ready()` callbacks. The pose family, the contact kind
 (`view.contact_kind`) and the presentation lean profile come from `facts.pose_view`; the camera
 does not read a start pose id or a contact mirror. The field and callback contract is
-`docs/act_facts.md`; a camera module that preloads `runtime.gd` or `main.gd` fails
-`scripts/architecture.py --check`.
+`docs/act_facts.md`; a camera module that preloads `runtime.gd` or `main.gd` fails the static
+gate.
 
 The camera's `pose_changed(view)` hook is the retarget seam: it caches the last family and
 presentation lean, and only on a change retires the pose-local lean action. An unrelated repeat is

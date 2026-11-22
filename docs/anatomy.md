@@ -879,7 +879,7 @@ Anatomy is not a game-layer service and owns no `game.gd`: every base-game read 
 - Outside `anatomy/api.gd`, no anatomy file preloads a mod service but `settings/service.gd` and
   `world/api.gd`; the facade also reads `eligibility/service.gd`. No outside file preloads an
   anatomy file except `anatomy/api.gd`.
-- `scripts/architecture.py --check` enforces both rules; its fixtures pin an allowed and a
+- The static gate enforces both rules; its fixtures pin an allowed and a
   forbidden synthetic edge.
 
 Tests are split by concern: `tests/anatomy/test_api.gd` covers the public entry,

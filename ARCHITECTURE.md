@@ -268,7 +268,7 @@ teardown to `free_pose()`. The order is `docs/poses.md`.
 
 It also keeps the `Mods` hooks, the group join, the three-line `prompt_note` forward, the settings
 page injection and the one runtime factory. It does not own domain rules, debug action
-implementations, a service's private state or a second exit path. `scripts/architecture.py --check`
+implementations, a service's private state or a second exit path. The static gate
 refuses string dispatch in the entry: no `.call(`, `.get("` or `.set("`, and no `action_*` handler.
 
 ### `runtime.gd`
@@ -283,7 +283,7 @@ act, and it:
 - exposes exactly `act` (the `ActSession`), `scene` (the `SceneGate`), `start` and `presentation`
   (the two ports), `pony`, `live_id()`, `attach_to_body()`, `adopt_body()` and the engine
   callbacks. `NODE_SURFACE` and `NODE_PROPERTIES`
-  in `scripts/architecture.py` compare both directions, so a new public member and a stale row both
+  in the static gate compare both directions, so a new public member and a stale row both
   fail;
 - hands all composition to `act/build.gd`, a plain struct builder with typed fields and
   `bind_pony()`. It constructs the session, the modules, the typed hosts, the context and every
@@ -302,7 +302,7 @@ session accessors, a system value is that service's method, node and scene opera
 It implements no system's rules and owns no system's mutable state: no scoring, pose math, camera
 shots, hand/kiss/wing behaviour, body-change detection or provider policy, raw input decoding,
 audio creation, aftercare nodes, HUD strings, eligibility or gate rules, debug formatting,
-settings declarations or per-frame settings reads. `scripts/architecture.py --check` enforces the
+settings declarations or per-frame settings reads. The static gate enforces the
 shape: one `state` writer in `act/session.gd`, the fixed Node surface, no raw input, no settings
 read in `runtime.gd`, no child node, plus the one exit, the start recipe's order, the pose ledger's
 three callers, the fan-out order and the one resume. File size is reported as a smell, never a
@@ -492,11 +492,10 @@ The architecture gate is `scripts/check.sh --static`, run from `scripts/test.sh 
   game — and not a pattern; the `runtime.get` rows are the handle reads the typed accessors are
   replacing.
 
-`scripts/architecture.py --graph` prints the service graph for review; it is not checked in.
-`scripts/architecture.py --write-debt` is the deliberate way to update the debt after a service
-is typed.
+The maintenance modes — the service graph, the debt writer, the exception writer and the
+duck-typing writer — are run directly on the checker module and documented in `docs/quality.md`.
 
-`scripts/architecture.py --check` owns the static invariants: one teardown body in
+The static gate owns the static invariants: one teardown body in
 `act/exit.gd:run()` entered only through the exit's routes and the consent stop, with
 `act/session.gd:force_stop()` as the one-line delegate, the start recipe's order, the pose ledger's
 order and its three exact callers, the `act/tick.gd` fan-out order and the pose-before-facts write

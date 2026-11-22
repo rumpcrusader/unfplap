@@ -358,8 +358,8 @@ active-change index and the legacy mirror. It must supply its own:
 - its own observation and its `notify_*` calls;
 - optionally its policy, installed ids and tail placement hooks.
 
-The base mod never mentions a provider's characters, pack ids or mesh marker. The static rule is
-`scripts/architecture.py --check`.
+The base mod never mentions a provider's characters, pack ids or mesh marker. The static gate
+enforces it.
 
 ## Identity and the presented body
 

@@ -58,7 +58,7 @@ contact and facing mirrors.
 `act/frame.gd` owns Anon's placement, his stance and the one restore. Its `begin()`, `refit()` and
 `end()` are the act's only player-placement calls, and no other shipped file writes his root, yaw,
 pitch, eye line, look, controls or the act body's first placement
-(`scripts/architecture.py --check`).
+(the static gate).
 
 - **`solve(pose, rig)`** is pure with respect to the scene: one `PoseInput` (family, frame, start
   setup) and one `Rig` record in, one `PlayerPlan` out. The plan carries the player only: the
@@ -209,7 +209,7 @@ dictionary for the session: `set_pose_config()` and `sync_standing_config()` tak
 world-space sway through `facts.standing_sway_offset`; that field is the one owner and the
 standing Anon controller reads it from there. The session binds `facts`, `perf` and
 `log` for the modifiers. The field and callback contract is `docs/act_facts.md`; a pose module
-that preloads `runtime.gd` or `main.gd` fails `scripts/architecture.py --check`.
+that preloads `runtime.gd` or `main.gd` fails the static gate.
 
 `shared/pose_view.gd` is the pose read model the session fills and clears. It holds the identity
 and support fields from the registry, the ten spec profiles by reference, the live config (the same

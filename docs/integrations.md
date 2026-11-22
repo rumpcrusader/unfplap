@@ -118,7 +118,7 @@ saved original back without dropping the record, so a later write keeps the act-
 final reset.
 
 Providers must stay scene-free and must not preload a service, `runtime.gd` or `main.gd`;
-`scripts/architecture.py --check` rejects that import edge.
+the static gate rejects that import edge.
 
 ## Body-change provider
 

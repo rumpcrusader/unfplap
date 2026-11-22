@@ -176,8 +176,8 @@ Rules:
 
 | Check | Command / suite |
 |---|---|
-| Architecture gate (graph, docs, source and test-file rules) | `scripts/architecture.py --check` |
-| Comment shape and rename-safety | `scripts/comments.py --check` |
+| Architecture gate (graph, docs, source and test-file rules) | `scripts/check.sh --static` |
+| Comment shape and rename-safety | `scripts/lint.sh` |
 | Parse all scripts | `scripts/check.sh --all` |
 | Touched suites | `scripts/test.sh <suite>...` |
 | Full headless gate | `scripts/test.sh --all` |
@@ -187,7 +187,7 @@ Rules:
 
 ## Documentation gate
 
-`scripts/architecture.py --check` enforces this section:
+The static gate enforces this section:
 
 - every doc under `docs/` is linked from this index;
 - every service has a facade, a contract and exactly one index row whose contract and tests resolve;

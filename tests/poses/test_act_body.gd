@@ -1,11 +1,14 @@
 extends "res://mods/unfplap/tests/support/suite.gd"
-## The act-body adapter's authored pair: the placement blend, the v7 local-rest bone blend and the
-## service-bound pair setter. A bare Anon skeleton keeps it off every game scene.
+## The act-body adapter's authored pair: the placement blend, the v7 local-rest bone blend, the
+## borrowed avatar state and the service-bound pair setter. A bare Anon skeleton keeps it off every
+## game scene.
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/poses/test_act_body.gd
 
 const ACT_BODY := preload("res://mods/unfplap/poses/missionary_anon.gd")
 const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
+const FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
+const WORLD := preload("res://mods/unfplap/world/service.gd")
 
 const HIPS := "Hips"
 const SPINE := "Spine"
@@ -15,10 +18,15 @@ const RIGHT_HAND := "RightHand"
 const ANON_BONES := [HIPS, SPINE, HEAD, LEFT_HAND, RIGHT_HAND]
 
 
+class FakeAvatar extends Node3D:
+	var desktop_pose_driver: Node = null
+
+
 func run() -> void:
 	_check_placement()
 	_check_bones()
 	_check_pair()
+	_check_restore_ownership()
 	if failures == 0:
 		print("ACT_BODY_PASS")
 	finish()
@@ -172,3 +180,39 @@ func _check_pair() -> void:
 	check(body.from_asset == null and body.to_asset == null and is_equal_approx(body.asset_weight, 1.0),
 		"remove clears the asset pair and the weight")
 	body.free()
+
+
+## The act body borrows the pose, never the presentation's hold: the frame parks the avatar before
+## the body installs and releases it before the body is removed, so remove leaves the enabled state.
+func _check_restore_ownership() -> void:
+	var game := Node.new()
+	game.name = "FakeGame"
+	root.add_child(game)
+	var player := Node3D.new()
+	player.name = "FakePlayer"
+	root.add_child(player)
+	var avatar := FakeAvatar.new()
+	avatar.name = "AnonBody"
+	player.add_child(avatar)
+	var skeleton := Skeleton3D.new()
+	skeleton.name = "Skeleton3D"
+	avatar.add_child(skeleton)
+	WORLD.bind_world(game)
+	WORLD.bind_player(player)
+	avatar.visible = false
+	avatar.process_mode = Node.PROCESS_MODE_DISABLED
+	var body := ACT_BODY.new()
+	check(body.install(FACTS.new()), "the act body installs on the parked avatar")
+	check(avatar.visible, "the act body shows the parked avatar for the act")
+	# The frame's release has already re-enabled the presentation when the teardown runs.
+	avatar.visible = true
+	avatar.process_mode = Node.PROCESS_MODE_INHERIT
+	body.remove()
+	check(avatar.visible and avatar.process_mode == Node.PROCESS_MODE_INHERIT,
+		"remove leaves the presentation's visibility and process mode alone")
+	body.free()
+	WORLD.unbind()
+	root.remove_child(player)
+	player.free()
+	root.remove_child(game)
+	game.free()

@@ -89,7 +89,10 @@ pitch, eye line, look, controls or the act body's first placement
 - **`end()`** gives the player back exactly once: the captured stance and eye line, the bed act's
   captured yaw/pitch, the presentation hold, the controls lock and the view. A forced stop and the
   failed-start funnel use the same end. The scene token is applied by `restore_scene()` when the bed
-  posture rejoins, so the cuddle starts from the spot the act found (`docs/rest.md`).
+  posture rejoins, so the cuddle starts from the spot the act found (`docs/rest.md`). The act body
+  gives back only the pose it borrowed (driver, process flag, transform and bones); the
+  presentation hold owns his visibility and process mode and the frame releases it before the body
+  is removed.
 - The act start, the swap and the pose render write call the frame; the frame calls the live view's
   `begin_facing()` and the pose service's first act-body write, never the reverse.
 

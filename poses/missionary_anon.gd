@@ -51,8 +51,6 @@ var _body_ik_was_active := true
 var _leg_hide: SkeletonModifier3D
 var _leg_hide_influence := 0.0
 var _driver: Node
-var _avatar_visible := true
-var _avatar_process := Node.PROCESS_MODE_INHERIT
 var _avatar_processing := true
 var _avatar_transform := Transform3D.IDENTITY
 ## Every bone's local transform before the act, put back whole: the authored pose keeps its stretched
@@ -101,8 +99,6 @@ func install(context: ACT_FACTS) -> bool:
 	skeleton = avatar.find_child("Skeleton3D", true, false) as Skeleton3D
 	if not is_instance_valid(skeleton):
 		return false
-	_avatar_visible = avatar.visible
-	_avatar_process = avatar.process_mode
 	_avatar_processing = avatar.is_processing()
 	_avatar_transform = avatar.transform
 	_hand_offsets.clear()
@@ -186,8 +182,8 @@ func remove() -> void:
 		# presentation left it, then hand it back.
 		avatar.transform = _avatar_transform
 		avatar.set_process(_avatar_processing)
-		avatar.visible = _avatar_visible
-		avatar.process_mode = _avatar_process
+		# Visibility and process mode are the presentation's hold, already released by the frame;
+		# restoring the parked snapshot here would freeze his own pose driver for good.
 		if is_instance_valid(skeleton) and _saved_bones.size() == skeleton.get_bone_count():
 			for i in skeleton.get_bone_count():
 				skeleton.set_bone_pose(i, _saved_bones[i])

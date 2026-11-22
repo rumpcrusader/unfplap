@@ -68,14 +68,14 @@ func check_eq(actual: Variant, expected: Variant, text: String) -> void:
 	checks += 1
 	if actual != expected:
 		failures += 1
-		_report("%s: expected %s, got %s" % [text, _show(expected), _show(actual)])
+		_report("%s: expected %s, got %s" % [text, _show(expected, actual), _show(actual, expected)])
 
 
 func check_ne(actual: Variant, unexpected: Variant, text: String) -> void:
 	checks += 1
 	if actual == unexpected:
 		failures += 1
-		_report("%s: did not expect %s" % [text, _show(unexpected)])
+		_report("%s: did not expect %s" % [text, _show(unexpected, actual)])
 
 
 func check_approx(actual: float, expected: float, text: String, eps := 0.0001) -> void:
@@ -103,6 +103,10 @@ func check_contains(haystack: Variant, needle: Variant, text: String) -> void:
 
 func check_empty(value: Variant, text: String) -> void:
 	checks += 1
+	if not (value is String or value is StringName or value is Array or value is Dictionary):
+		failures += 1
+		_report("%s: expected a string or container, got %s" % [text, type_string(typeof(value))])
+		return
 	var empty := false
 	if value is String or value is StringName:
 		empty = str(value).is_empty()
@@ -117,7 +121,11 @@ func check_empty(value: Variant, text: String) -> void:
 
 func check_size(value: Variant, expected: int, text: String) -> void:
 	checks += 1
-	var actual := -1
+	if not (value is String or value is StringName or value is Array or value is Dictionary):
+		failures += 1
+		_report("%s: expected a string or container, got %s" % [text, type_string(typeof(value))])
+		return
+	var actual := 0
 	if value is String or value is StringName:
 		actual = str(value).length()
 	elif value is Array:
@@ -160,11 +168,25 @@ func near(a: float, b: float, eps := 0.0001) -> bool:
 	return absf(a - b) <= eps
 
 
-func _show(value: Variant) -> String:
+func _show(value: Variant, other: Variant = null) -> String:
 	var text: String = str(value)
 	if value is String or value is StringName:
 		text = "\"%s\"" % text
-	return text.substr(0, 200)
+	var shown := text.substr(0, 200)
+	if other == null or text.length() <= 200:
+		return shown
+	var at := _first_difference(str(value), str(other))
+	if at < 200:
+		return shown
+	return "%s… @%d" % [shown, at]
+
+
+func _first_difference(a: String, b: String) -> int:
+	var limit := mini(a.length(), b.length())
+	for index in limit:
+		if a[index] != b[index]:
+			return index
+	return limit
 
 
 func _report(text: String) -> void:

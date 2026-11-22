@@ -133,7 +133,9 @@ The helpers are additions: an existing `check(a == b, …)` call keeps working, 
 check uses the helper for its shape. `near` defaults to `0.0001`, and a suite that needs another
 tolerance passes it explicitly: one default does not fit every call site, so a suite using `0.001`
 or `0.00001` states it. A failure line carries the suite label and, when the stack still holds the
-calling frame, the suite's source line, and a value helper prints the expected and the got value.
+calling frame, the suite's source line, and a value helper prints the expected and the got value,
+names the type when `check_empty` or `check_size` cannot measure its argument, and marks the offset
+where two long strings first differ.
 
 ### Result label
 

@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """The static architecture gate's front door.
 
 The rules live in ``checks/``; this module keeps the command line and the fixtures' import point.

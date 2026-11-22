@@ -261,8 +261,9 @@ func _reward(caressed: bool, reward: bool) -> void:
 		if memory != null:
 			memory.commit(impression)
 	if not reward and caressed:
-		if ACT_HISTORY.repair(ACT_HISTORY.section(), pony_id, 1, ACT_HISTORY.day_now()):
-			ACT_HISTORY.save()
+		var history: Dictionary = WORLD.mods().state(ACT_HISTORY.MOD_ID).rows
+		if ACT_HISTORY.repair(history, pony_id, 1, ACT_HISTORY.day_now()):
+			WORLD.mods().save()
 	if face != null:
 		face.set_face(0.9, FACE.AFTERGLOW_CLOSE_LIDS)
 	if reactions != null:

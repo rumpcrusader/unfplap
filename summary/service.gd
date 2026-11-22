@@ -254,9 +254,9 @@ func commit_summary(real_act: bool, context: Context) -> void:
 	summary = outcome
 	var id := context.pony_id
 	var event_id := context.event_id
-	var result: Dictionary = ACT_HISTORY.commit(ACT_HISTORY.section(), id, outcome,
-		ACT_HISTORY.day_now())
-	ACT_HISTORY.save()
+	var result: Dictionary = ACT_HISTORY.commit(
+		WORLD.mods().state(ACT_HISTORY.MOD_ID).rows, id, outcome, ACT_HISTORY.day_now())
+	WORLD.mods().save()
 	var impression := MEMORY.Impression.new()
 	impression.id = id
 	impression.event_id = event_id

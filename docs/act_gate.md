@@ -52,7 +52,7 @@ cleared with the world. Every fact is read per call; the verdict is never cached
 
 Rules:
 
-- `act_gate/service.gd` never calls `SETTINGS.save_*`, `ACT_HISTORY.commit/save` or
+- `act_gate/service.gd` never calls `SETTINGS.save_*`, `ACT_HISTORY.commit` or
   `Mods.save_changed`.
 - `facts.consent` is a snapshot of the resolved consent block. `consent(pony, key)` re-resolves
   live through `SETTINGS.consent(id)`.

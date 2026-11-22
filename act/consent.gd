@@ -14,7 +14,6 @@ const DIALOGUE := preload("res://mods/unfplap/dialogue/service.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const REST := preload("res://mods/unfplap/rest/control.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
-const GAME := preload("res://mods/unfplap/world/game.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 const State := ACT_STATE.State
@@ -170,7 +169,7 @@ func stop_with_her(reason: String) -> void:
 ## is a quiet no-op.
 func request_space() -> void:
 	if is_instance_valid(host.pony):
-		GAME.request_space(host.pony, session.pony_id)
+		WORLD.relationship().request_space(host.pony, session.pony_id)
 
 
 ## One post-act line, presented once the act is IDLE. The summary already says why she stopped.

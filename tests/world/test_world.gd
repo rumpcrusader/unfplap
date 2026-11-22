@@ -33,6 +33,7 @@ class FakeGame extends Node:
 	var find_calls := 0
 	var kisser: Variant = null
 	var world_context: Variant = null
+	var relationship_runtime: Variant = null
 
 	func _find_camera(_body: Variant) -> Variant:
 		find_calls += 1
@@ -301,6 +302,7 @@ class FakeAffection extends Node:
 	var face := Basis.IDENTITY
 	var ended := 0
 	var cancelled := 0
+	var bucks := 0
 	var mouth := Vector3(1.0, 1.0, 1.0)
 
 	func end() -> void:
@@ -308,6 +310,10 @@ class FakeAffection extends Node:
 
 	func cancel_afterglow() -> void:
 		cancelled += 1
+
+	func buck(_body: Node3D) -> bool:
+		bucks += 1
+		return true
 
 	func mouth_point() -> Vector3:
 		return mouth
@@ -773,6 +779,103 @@ class FakeStoryStore extends RefCounted:
 		return seen.slice(0, limit)
 
 
+## The scene's relationship runtime: one bond store and one ladder row per pony.
+class FakeRelationRuntime extends Node:
+	var bonds: Variant = null
+	var ladders: Dictionary = {}
+
+	func ladder(id: String) -> Dictionary:
+		return ladders.get(id, {})
+
+
+## The bond store: the record, the romance test, the welcome, the day and the two writes.
+class FakeBonds extends RefCounted:
+	var rows: Dictionary = {}
+	var met: Array = []
+	var spaces: Array = []
+	var romance := true
+	var day_now := 12.5
+
+	func record_for(id: String) -> Dictionary:
+		return rows.get(id, {})
+
+	func eligible_for_romance(_id: String) -> bool:
+		return romance
+
+	func welcomes(_id: String, kind: String) -> bool:
+		return kind == "kiss"
+
+	func day() -> float:
+		return day_now
+
+	func mark_met(id: String) -> void:
+		met.append(id)
+
+	func request_space(id: String) -> void:
+		spaces.append(id)
+
+
+## The game's mods registry autoload: one live section per mod, the pack rows and the save call.
+class FakeModsHost extends Node:
+	var data: Dictionary = {}
+	var rows: Array = []
+	var saves := 0
+
+	func state(id: String) -> Dictionary:
+		if not data.has(id):
+			data[id] = {}
+		return data[id]
+
+	func is_active(id: String) -> bool:
+		return id == "dance_mod"
+
+	func save_changed() -> void:
+		saves += 1
+
+	func list() -> Array:
+		return rows
+
+	func data_folder(id: String) -> String:
+		return "user://mods/data/" + id
+
+
+## The stock cuddle session the act ends before it takes the pose.
+class FakeCuddle extends Node:
+	var ended := 0
+
+	func end(_force: bool) -> void:
+		ended += 1
+
+
+## Her hoof hold's active flag.
+class FakeHoof extends RefCounted:
+	func active() -> bool:
+		return true
+
+
+## The reach that carries a pony, with its desktop actions node.
+class FakeReach extends Node:
+	var held: Variant = null
+	var cradled := false
+	var desktop_actions: Variant = null
+
+
+## The desktop actions that hear the carried pony was released.
+class FakeActions extends Node:
+	var released := 0
+
+	func pony_released() -> void:
+		released += 1
+
+
+## A body that owns her own hold interaction.
+class FakeEndPony extends Node3D:
+	var endings := 0
+
+	func end_interaction() -> void:
+		endings += 1
+
+
 
 func run() -> void:
 	_check_unbound()
@@ -795,6 +898,7 @@ func run() -> void:
 	_check_bed_view()
 	_check_director_and_story()
 	_check_inventory_and_menu()
+	_check_relationship_mods_affection()
 	_check_body_lod()
 	_check_desktop()
 	await _check_bed_under()
@@ -2374,3 +2478,192 @@ func _check_inventory_and_menu() -> void:
 	panel.queue_free()
 	sink.queue_free()
 	game.queue_free()
+
+
+## The relationship, mods and affection views: their receivers, members, typed zeroes and cache.
+func _check_relationship_mods_affection() -> void:
+	WORLD.unbind()
+	var runtime := FakeRelationRuntime.new()
+	var bonds := FakeBonds.new()
+	runtime.bonds = bonds
+	runtime.ladders["rarity"] = {"friendship": {"name": "close", "level": 3},
+		"love": {"name": "dating", "level": 2}}
+	root.add_child(runtime)
+	bonds.rows["rarity"] = {"stage": "dating", "anger": 0.5, "affection": 7}
+	var pony := FakeBody.new()
+	root.add_child(pony)
+	pony.set_meta("relationship_runtime", runtime)
+	var stranger := FakeBody.new()
+	var game := FakeGame.new()
+	root.add_child(game)
+	game.relationship_runtime = runtime
+	var kisser := FakeKisser.new()
+	root.add_child(kisser)
+	game.kisser = kisser
+	WORLD.bind_world(game)
+
+	var relations := WORLD.relationship()
+	check(relations == WORLD.relationship(), "a relationship view is cached per runtime")
+	check(relations.runtime() == runtime, "the view reads the scene's runtime")
+	check(relations.bonds() == bonds, "the view reads the runtime's bond store")
+	var ladder := relations.ladder("rarity")
+	check(ladder.friendship_found and ladder.love_found and ladder.love_name == "dating",
+		"the view reads one pony's ladder")
+	check(relations.love_name(pony, "rarity") == "dating", "the view reads her love stage name")
+	check(relations.love_name(stranger, "rarity") == "?",
+		"a pony with no relationship runtime answers ?")
+	check(relations.bonds_of(pony) == bonds, "the view reads the store she carries")
+	check(relations.bonds_of(stranger) == null, "a pony with no store answers null")
+	var record := relations.record(bonds, "rarity")
+	check(record.stage == "dating" and is_equal_approx(record.anger, 0.5),
+		"the view reads one bond record")
+	check(relations.eligible_for_romance(bonds, "rarity"), "the store's romance test answers")
+	check(relations.welcomes(bonds, "rarity", "kiss"), "the store's welcome answers")
+	check(not relations.welcomes(bonds, "rarity", "smack"), "another kind is not welcomed")
+	check(is_equal_approx(relations.day(bonds), 12.5), "the store's day is read")
+	check(relations.mark_met(bonds, "rarity") and bonds.met == ["rarity"],
+		"the met mark reaches the store")
+	relations.request_space(pony, "rarity")
+	check(bonds.spaces == ["rarity"], "the space request reaches the store")
+
+	var existing: Node = root.get_node_or_null("Mods")
+	if existing != null:
+		existing.name = "ModsTestHidden"
+	var host := FakeModsHost.new()
+	host.name = "Mods"
+	host.rows = [{"id": "unfplap", "version": "1.0.0"}]
+	root.add_child(host)
+	var mods := WORLD.mods()
+	check(mods == WORLD.mods(), "a mods view is cached for the registry")
+	check(mods.state("unfplap").rows.is_empty(), "an untouched section starts empty")
+	mods.state("unfplap").rows["serial"] = 3
+	check(int(host.data["unfplap"].get("serial", 0)) == 3,
+		"the state section is the registry's live dictionary")
+	check(mods.active("dance_mod") and not mods.active("other"),
+		"the registry answers which pack is on")
+	check(mods.list().size() == 1 and str(mods.list()[0].get("id", "")) == "unfplap",
+		"the installed rows are a typed copy")
+	check(mods.data_folder("unfplap") == "user://mods/data/unfplap",
+		"the registry names the data folder")
+	mods.save()
+	check(host.saves == 1, "the save reaches the registry")
+	root.remove_child(host)
+	host.free()
+	var orphan := WORLD.mods()
+	check(orphan.state("unfplap").rows.is_empty(), "no registry answers empty rows")
+	check(not orphan.active("dance_mod"), "no registry reports no pack active")
+	check(orphan.list().is_empty() and orphan.data_folder("unfplap") == "",
+		"no registry lists no pack and names no folder")
+
+	var affection_view := WORLD.affection()
+	check(affection_view == WORLD.affection(), "an affection view is cached for the kisser")
+	check(affection_view.kisser() == kisser, "the view holds the scene's kisser")
+	check(affection_view.begin_from_pony(pony) and kisser.begins == 1,
+		"the view starts the stock kiss")
+	kisser.accepts = false
+	check(not affection_view.begin_from_pony(pony), "a refusing kisser answers false")
+	kisser.accepts = true
+	affection_view.clear_kisser()
+	check(kisser._active == null and not kisser._her_kiss and not kisser._used_hold,
+		"the view clears the kisser's latch")
+
+	var affection := FakeAffection.new()
+	root.add_child(affection)
+	affection_view.feed(affection, Vector3.ONE, Vector3.UP, Basis.IDENTITY)
+	check(affection.target == Vector3.ONE and affection.eye == Vector3.UP,
+		"the view feeds the live mouth and eye")
+	affection_view.end(affection)
+	affection_view.cancel_afterglow(affection)
+	check(affection.ended == 1 and affection.cancelled == 1,
+		"the view ends the affection and its afterglow")
+	check(affection_view.buck(affection, pony) and affection.bucks == 1,
+		"the view lets her buck")
+
+	var pose := FakeKissPose.new()
+	root.add_child(pose)
+	check(not affection_view.side_known(pose), "an unpinned pose has no side")
+	affection_view.pin_side(pose, -1.0, 9999.0)
+	check(affection_view.side_known(pose) and is_equal_approx(pose._side_now, -1.0),
+		"the view pins the kiss side")
+	affection_view.release_side(pose)
+	check(is_equal_approx(pose._side_wait, 0.0), "the view releases the side hold")
+
+	var excitement := FakeExcitement.new()
+	root.add_child(excitement)
+	affection_view.settle_excitement(excitement)
+	check(is_equal_approx(excitement._until, 0.0), "the view settles the Beat")
+
+	var session := FakeCuddle.new()
+	root.add_child(session)
+	affection_view.end_cuddle(session)
+	check(session.ended == 1, "the view ends the cuddle session")
+	check(affection_view.hoof_active(FakeHoof.new()), "the view reads an active hoof")
+
+	var actions := FakeActions.new()
+	root.add_child(actions)
+	var reach := FakeReach.new()
+	reach.held = pony
+	reach.cradled = true
+	reach.desktop_actions = actions
+	root.add_child(reach)
+	check(affection_view.carry_ours(reach, pony), "the view recognises our carry")
+	affection_view.clear_carry(reach)
+	check(reach.held == null and not reach.cradled, "the view clears the carry flags")
+	affection_view.carry_released(affection_view.carry_actions(reach))
+	check(actions.released == 1, "the release reaches the desktop actions")
+	var held := FakeEndPony.new()
+	root.add_child(held)
+	affection_view.end_interaction(held)
+	check(held.endings == 1, "the view ends her hold interaction")
+
+	WORLD.bind_world(game)
+	check(WORLD.relationship() != relations and WORLD.affection() != affection_view,
+		"a bind drops the cached relationship and affection views")
+
+	WORLD.unbind()
+	var bare := WORLD.relationship()
+	check(bare.runtime() == null and bare.bonds() == null and not bare.ladder("rarity").love_found,
+		"an unbound relationship answers no runtime, store or ladder")
+	check(bare.bonds_of(pony) == bonds and bare.love_name(pony, "rarity") == "dating",
+		"the pony-keyed reads still answer while she carries the store")
+	check(bare.record(null, "rarity").rows.is_empty()
+		and not bare.eligible_for_romance(null, "rarity"), "no store answers an empty record")
+	check(not bare.welcomes(null, "rarity", "kiss") and is_nan(bare.day(null)),
+		"no store welcomes nothing and has no day")
+	check(not bare.mark_met(null, "rarity"), "no store takes no met mark")
+	bare.request_space(null, "rarity")
+
+	var bare_affection := WORLD.affection()
+	check(bare_affection.kisser() == null and not bare_affection.begin_from_pony(pony),
+		"no kisser starts no kiss")
+	bare_affection.clear_kisser()
+	bare_affection.end(null)
+	bare_affection.cancel_afterglow(null)
+	bare_affection.feed(null, Vector3.ZERO, Vector3.ZERO, Basis.IDENTITY)
+	check(not bare_affection.side_known(null) and not bare_affection.buck(null, pony),
+		"no node answers the typed zeroes")
+	bare_affection.pin_side(null, 1.0, 1.0)
+	bare_affection.release_side(null)
+	bare_affection.settle_excitement(null)
+	bare_affection.end_cuddle(null)
+	check(not bare_affection.hoof_active(null) and not bare_affection.carry_ours(null, pony),
+		"no node carries nothing")
+	check(bare_affection.carry_actions(null) == null, "no reach has no desktop actions")
+	bare_affection.clear_carry(null)
+	bare_affection.carry_released(null)
+	bare_affection.end_interaction(null)
+
+	affection.queue_free()
+	pose.queue_free()
+	excitement.queue_free()
+	session.queue_free()
+	actions.queue_free()
+	reach.queue_free()
+	held.queue_free()
+	pony.queue_free()
+	stranger.free()
+	kisser.queue_free()
+	runtime.queue_free()
+	game.queue_free()
+	if existing != null and is_instance_valid(existing):
+		existing.name = "Mods"

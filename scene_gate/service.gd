@@ -557,7 +557,7 @@ func buck_or_push() -> bool:
 		return false
 	var affection: Node = pony.get_node_or_null("Affection")
 	if affection != null:
-		if GAME.affection_buck(affection, WORLD.player_body()):
+		if WORLD.affection().buck(affection, WORLD.player_body()):
 			return true
 	var body: Node3D = WORLD.player
 	if not is_instance_valid(body):
@@ -598,7 +598,7 @@ func suppress_auto_cuddle() -> void:
 		pony.remove_meta("couch_cuddle")
 	var session: Node = pony.get_node_or_null("CuddleSession")
 	if session != null and (bool(session.get("enabled")) or float(session.get("blend")) > 0.0):
-		GAME.cuddle_end(session)
+		WORLD.affection().end_cuddle(session)
 	if pony.has_meta("cuddle_active"):
 		pony.remove_meta("cuddle_active")
 
@@ -635,7 +635,7 @@ func free_of_affection() -> bool:
 		if kind != null and not str(kind).is_empty():
 			return false
 	var hoof: Variant = pony.get("hoof_hold")
-	if hoof != null and GAME.hoof_active(hoof):
+	if hoof != null and WORLD.affection().hoof_active(hoof):
 		return false
 	return true
 

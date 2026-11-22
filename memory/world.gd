@@ -3,7 +3,6 @@ extends RefCounted
 
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
 const FACTS := preload("res://mods/unfplap/memory/facts.gd")
-const GAME := preload("res://mods/unfplap/world/game.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const STORE := preload("res://mods/unfplap/memory/store.gd")
 const MemoryHit = FACTS.MemoryHit
@@ -40,19 +39,19 @@ static func cue_facts(game: Node, id: String, event_id: String) -> Dictionary:
 	var out: Dictionary = {}
 	if game == null:
 		return out
-	var runtime := GAME.relationship_runtime(game)
+	var runtime := WORLD.relationship().runtime()
 	if runtime == null:
 		return out
-	var ladder := GAME.relationship_ladder(runtime, id)
+	var ladder := WORLD.relationship().ladder(id)
 	if ladder.friendship_found:
 		out["friendship"] = ladder.friendship_name
 		out["friendship_level"] = ladder.friendship_level
 	if ladder.love_found:
 		out["love"] = ladder.love_name
 		out["love_level"] = ladder.love_level
-	var bonds := GAME.relationship_bonds(runtime)
+	var bonds := WORLD.relationship().bonds()
 	if bonds != null:
-		var record := GAME.bond_record_for(bonds, id)
+		var record := WORLD.relationship().record(bonds, id)
 		out["stage"] = record.stage
 		out["anger"] = record.anger
 	var prior := 0
@@ -67,7 +66,7 @@ static func cue_facts(game: Node, id: String, event_id: String) -> Dictionary:
 			prior += 1
 		if is_instance_valid(WORLD.director().impressions()):
 			out["mood"] = WORLD.director().impression_mood(id, "")
-	var acts := ACT_HISTORY.stored_acts(ACT_HISTORY.section(), id)
+	var acts := ACT_HISTORY.stored_acts(WORLD.mods().state(ACT_HISTORY.MOD_ID).rows, id)
 	out["first_time"] = prior == 0 and acts == 0
 	out["careful"] = str(out.get("mood", "")) == "annoyed" \
 		or float(out.get("anger", 0.0)) > 0.0

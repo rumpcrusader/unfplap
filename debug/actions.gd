@@ -602,10 +602,10 @@ func action_reset_act_history() -> String:
 	var id := _debug_pony_id(target)
 	if id.is_empty():
 		return "No relationship id for %s." % str(target.name)
-	var section: Dictionary = ACT_HISTORY.section()
+	var section: Dictionary = WORLD.mods().state(ACT_HISTORY.MOD_ID).rows
 	if not ACT_HISTORY.reset(section, id):
 		return "No act history for %s." % str(target.name)
-	ACT_HISTORY.save()
+	WORLD.mods().save()
 	LOG.debug("act history reset for %s", [id])
 	return "Act history cleared for %s." % str(target.name)
 
@@ -618,7 +618,8 @@ func _debug_history_rows(target: Node) -> Array[String]:
 	if id.is_empty():
 		rows.append("no relationship id")
 		return rows
-	var row := ACT_HISTORY.effective_row(ACT_HISTORY.section(), id, ACT_HISTORY.day_now())
+	var row := ACT_HISTORY.effective_row(WORLD.mods().state(ACT_HISTORY.MOD_ID).rows, id,
+		ACT_HISTORY.day_now())
 	var acts := int(row.get("acts", 0))
 	if acts <= 0 and int(row.get("hurt", 0)) <= 0 and int(row.get("comfort", 0)) <= 0:
 		rows.append("no history stored")
@@ -672,7 +673,8 @@ func _debug_prompt_rows(target: Node) -> Array[String]:
 		return rows
 	rows.append("prompt_note: " + str(_session(runtime).prompt_note()))
 	rows.append("cycle_note: " + str(_session(runtime).cycle_note()))
-	var history_row := ACT_HISTORY.effective_row(ACT_HISTORY.section(), id, ACT_HISTORY.day_now())
+	var history_row := ACT_HISTORY.effective_row(WORLD.mods().state(ACT_HISTORY.MOD_ID).rows,
+		id, ACT_HISTORY.day_now())
 	var history_note := ACT_HISTORY.prompt_note(history_row)
 	rows.append("history_note: " + (history_note if not history_note.is_empty() else "none"))
 	var ctx := WORLD.director().world_context()

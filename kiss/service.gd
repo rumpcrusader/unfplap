@@ -3,7 +3,6 @@ extends RefCounted
 ## AffectionPose bridge, the custom mouth aim, the foreleg pin and the kiss lean.
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
-const GAME := preload("res://mods/unfplap/world/game.gd")
 const AFFECTION_POSE := preload("res://world/relationships/affection_pose.gd")
 const KISS_LEGS := preload("res://mods/unfplap/kiss/legs.gd")
 const POSES := preload("res://mods/unfplap/poses/service.gd")
@@ -163,7 +162,8 @@ func _start_base_kiss() -> bool:
 			or not is_instance_valid(WORLD.player):
 		return false
 	var affection := pony.get_node_or_null("Affection")
-	var kisser := GAME.kisser_of(WORLD.game)
+	var affection_view := WORLD.affection()
+	var kisser := affection_view.kisser()
 	if not is_instance_valid(affection) or not is_instance_valid(kisser):
 		return false
 	if not str(affection.get("kind")).is_empty():
@@ -171,7 +171,7 @@ func _start_base_kiss() -> bool:
 	var anon := WORLD.anon()
 	var was_locked := anon.controls_locked()
 	anon.set_controls_locked(false)
-	var begun := GAME.begin_from_pony(kisser, pony)
+	var begun := affection_view.begin_from_pony(pony)
 	anon.set_controls_locked(was_locked)
 	if not begun:
 		return false
@@ -201,12 +201,13 @@ func _end_base_kiss() -> void:
 	_restore_base_kiss_excitement()
 	var affection := _base_kiss_affection
 	if is_instance_valid(affection):
+		var affection_view := WORLD.affection()
 		if str(affection.get("kind")) == "kiss":
-			GAME.end_affection(affection)
+			affection_view.end(affection)
 		# Even if the affection already ended itself, clear its 60 s stare afterglow.
-		GAME.cancel_afterglow(affection)
+		affection_view.cancel_afterglow(affection)
 	if is_instance_valid(WORLD.game):
-		GAME.clear_kisser(GAME.kisser_of(WORLD.game))
+		WORLD.affection().clear_kisser()
 	if is_instance_valid(WORLD.player) \
 			and int(facts.state) in [STATE_ACTIVE, STATE_CLIMAX]:
 		WORLD.player.set_meta("kiss_hold", true)
@@ -222,7 +223,7 @@ func _restore_base_kiss_pose() -> void:
 	_restore_kiss_forelegs()
 	_stop_kiss_leg_pin()
 	if is_instance_valid(_base_kiss_pose):
-		GAME.release_kiss_side(_base_kiss_pose)
+		WORLD.affection().release_side(_base_kiss_pose)
 	_base_kiss_releasing = false
 	if is_instance_valid(_base_kiss_pose) and is_instance_valid(pony):
 		var skeleton := WORLD.pony(pony).skeleton()
@@ -246,7 +247,7 @@ func _suppress_base_kiss_excitement() -> void:
 	_base_kiss_excitement = excitement as Node
 	if facts != null:
 		facts.hold_beat("kiss")
-	GAME.settle_excitement(_base_kiss_excitement)
+	WORLD.affection().settle_excitement(_base_kiss_excitement)
 
 
 func _restore_base_kiss_excitement() -> void:
@@ -368,9 +369,10 @@ func _pin_base_side() -> void:
 		return
 	if absf(_kiss_pony_side) <= 0.5:
 		return
-	if not GAME.kiss_side_known(_base_kiss_pose):
+	var affection_view := WORLD.affection()
+	if not affection_view.side_known(_base_kiss_pose):
 		return
-	GAME.pin_kiss_side(_base_kiss_pose, _kiss_pony_side, KISS_SIDE_HOLD_S)
+	affection_view.pin_side(_base_kiss_pose, _kiss_pony_side, KISS_SIDE_HOLD_S)
 
 
 ## Her mouth stays at Anon's lips while the kiss channel is held, with a soft repeat sound.
@@ -424,7 +426,7 @@ func _update_base_kiss(delta: float) -> void:
 	if is_instance_valid(affection):
 		var view := _mouth_view()
 		if is_instance_valid(view):
-			GAME.feed_affection(affection, _target(view), view.global_position,
+			WORLD.affection().feed(affection, _target(view), view.global_position,
 				view.global_basis.orthonormalized())
 	_kiss_sound_clock -= delta
 	if _kiss_sound_clock <= 0.0:

@@ -19,8 +19,9 @@ This contract covers:
 - the three scene writes a service cannot do itself: the merged LOD rebuild after a shape change,
   the act chat open past the controls lock and a body's velocity;
 - the bound views of a pony's body, navigator, face, wings and flank, Anon's rig, a bed, the
-  conversation director and its world context, the inventory and the menu surface, and the handle
-  cache behind them.
+  conversation director and its world context, the inventory and menu surfaces, the mods registry,
+  the relationship runtime and its bond store, the scene's kisser and the affection nodes, and the
+  handle cache behind them.
 
 It does not cover an offer, a pose, an act start, a gate verdict or any act state. It preloads no
 service facade and no runtime.
@@ -66,13 +67,13 @@ names the entry to ask whether the scene is live.
 ## Views
 
 A view is a base-game object with its receiver already bound: `pony(n)`, `navigator(n)`, `face(n)`,
-`wings(n)`, `flank(n)`, `bed(n)`, `inventory()`, `menu()`, `director()`, `story()` and `anon()`
-answer a handle whose members take no scene argument.
-The factory caches one handle per bound node, and one each for the player, the inventory and the
-menu, so a per-frame read costs a lookup rather than an allocation, and every bind and `unbind()`
-drops the cache so a swapped body can never answer through the old one. A view built on `null`
-answers the accessors' typed zeroes; a caller that keeps one across a despawn therefore reads those
-zeroes rather than crashing.
+`wings(n)`, `flank(n)`, `bed(n)`, `inventory()`, `menu()`, `director()`, `story()`, `anon()`,
+`mods()`, `relationship()` and `affection()` answer a handle whose receiver is already chosen.
+The factory caches one handle per bound node, and one each for the player, the inventory, the
+menu, the relationship runtime, the mods registry and the scene's kisser, so a per-frame read costs
+a lookup rather than an allocation, and every bind and `unbind()` drops the cache so a swapped body
+can never answer through the old one. A view built on `null` answers the accessors' typed zeroes; a
+caller that keeps one across a despawn therefore reads those zeroes rather than crashing.
 
 `Anon` is bound by the facade to its player handle, so its player members take no node. The
 presentation and the hand or torso driver it acts on are still passed, because a caller may hold a
@@ -97,6 +98,9 @@ not the receiver.
 | `Story` | the world-context node, resolved by the facade from the bound world | `journal`, `store`, `open`, `last_line_id`, `search`, `witnessed`, `line_text`, `events` |
 | `Inventory` | the game's inventory node, resolved by the facade from the bound world | `store`, `slots`, `loans`, `writable`, `available`, `take`, `put`, `grant`, `spawn_drop`, `item_scene`, `hotbar`, `hotbar_visible`, `set_hotbar_visible`, `hotbar_layer`, `set_hotbar_layer_visible`, `place_hotbar`, `hud_hidden`, `set_hud_hidden` |
 | `Menu` | the bound world root | `panel`, `show_toast`, `sound` |
+| `Relationship` | the scene's relationship runtime | `love_name`, `runtime`, `bonds`, `ladder`, `bonds_of`, `record`, `eligible_for_romance`, `welcomes`, `day`, `mark_met`, `request_space` |
+| `ModRegistry` | the game's mods registry autoload | `state`, `active`, `save`, `list`, `data_folder` |
+| `Affection` | the scene's stock kisser | `kisser`, `begin_from_pony`, `clear_kisser`, `end`, `cancel_afterglow`, `feed`, `side_known`, `pin_side`, `release_side`, `settle_excitement`, `buck`, `end_cuddle`, `hoof_active`, `carry_ours`, `carry_actions`, `clear_carry`, `carry_released`, `end_interaction` |
 
 `Pony` resolves the parts it can reach from the body it holds — her identity, head, mouth, blush
 sustainer and gaze controller — so a call names only the extra value it needs. The members that
@@ -113,7 +117,7 @@ belongs to whichever caller claimed it, and the view only carries that owner's r
 node and the stock spread takes her Beat, while the jiggle members take her `FlankTouch` node, the
 hull sync takes her touch body and the skinning call takes the owned patch as its argument.
 
-`Director` is the one view with two receivers. Its director members are bound to the scene's
+`Director` is the one view bound to two nodes. Its director members are bound to the scene's
 conversation director, which the facade finds by its group; the world context and the impressions
 are the bound world's, so `world_context`, `impressions` and the mood rows resolve them there rather
 than through a caller's node, while `tts_enabled` reads the game's settings autoload itself. The
@@ -131,6 +135,16 @@ scene read, and the facade's `shop_item` answers through it instead of keeping a
 passed because they are not the receiver. The settings page's own icon, redraw and menu-icon kind
 stay on the accessor module rather than this view: the settings layer may read the game boundary but
 not a domain facade.
+
+`Relationship` is bound to the scene's relationship runtime, with `bonds` and `ladder` resolving
+through it. `bonds_of` and `love_name` still take a pony because she is not the receiver: they read
+the store her own metadata points at. The store-keyed members — the record, the romance test, the
+welcome, the day and the mark — take that store for the same reason. `ModRegistry` binds the game's
+mods registry autoload, so `state`, `active`, `save`, `list` and `data_folder` answer without a host
+argument. `Affection` binds the scene's stock kisser for `kisser`, `begin_from_pony` and
+`clear_kisser`; the affection, kiss pose, Beat, cuddle session, hoof hold, reach and runtime body its
+other members write are passed because they are not the kisser. A caller that saves through the
+registry owns the call: the view only asks it.
 
 A view holds no service and no act state, and it writes nothing on construction. It is a read and
 write surface over the accessor module, so a base-game rename stays a change in `world/game.gd`.
@@ -457,9 +471,9 @@ reads the game's own `player` property through `GAME`, so a renamed or missing p
 instead of a crash.
 
 The views of a pony's body, navigator, face, wings and flank, of Anon's rig, a bed, the scene's
-director and world context, the inventory and the menu surface exist in this revision. The rest of
-the base-game objects this facade hands back — the mods registry, the relationship runtime and the
-affection scene — are still reached by taking the node to the facade member or to `GAME`.
+director and world context, the inventory and menu surfaces, the mods registry, the relationship
+runtime and the scene's affection, kiss and carry are answered here. A caller that already holds a
+node calls `GAME` directly only for an accessor no view owns.
 
 ## Data ownership
 

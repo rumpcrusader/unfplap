@@ -19,11 +19,11 @@ func run() -> void:
 	check(service.debug_set_phase(pony, CYCLE.HEAT) == CYCLE.HEAT,
 		"the debug override forces heat")
 	check(service.phase(pony) == CYCLE.HEAT, "the phase reads the override")
-	check(CYCLE_STATE.phase(pony, false) == CYCLE.HEAT,
+	check(CYCLE_STATE.phase(pony, false, NAN) == CYCLE.HEAT,
 		"the shared derivation honours the override with the feature off")
 	service.debug_set_phase(pony, "")
 	check(service.phase(pony) == CYCLE.NORMAL, "clearing the override restores normal")
-	check(CYCLE_STATE.phase(pony, true) == CYCLE.NORMAL,
+	check(CYCLE_STATE.phase(pony, true, NAN) == CYCLE.NORMAL,
 		"the shared derivation reads the automatic phase")
 
 	service.track(pony)

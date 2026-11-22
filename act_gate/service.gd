@@ -16,7 +16,6 @@ const CYCLE_STATE := preload("res://mods/unfplap/shared/cycle_state.gd")
 const CLEARANCE := preload("res://mods/unfplap/shared/clearance.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
-const GAME := preload("res://mods/unfplap/world/game.gd")
 
 ## Verdict modes. The mode is recorded; every verdict field is always computed.
 enum Mode { START, OFFER }
@@ -178,7 +177,8 @@ func relationship_ok(pony: Node) -> bool:
 	if rel == null or not is_instance_valid(rel):
 		return false
 	var id := PONY_ID.of(pony)
-	var romance := GAME.bond_eligible_for_romance(GAME.bonds_of(pony), id)
+	var relations := WORLD.relationship()
+	var romance := relations.eligible_for_romance(relations.bonds_of(pony), id)
 	var love := _love_level(rel, id)
 	var floor_ok := POLICY.level_ok(str(SETTINGS.promiscuity.get_choice()), love)
 	return CLEARANCE.relationship_ok(true, romance, floor_ok)
@@ -225,7 +225,9 @@ func cycle_note(pony: Node) -> String:
 
 ## The debug override wins even with the feature off, so the lab can force heat.
 static func cycle_phase_for(pony: Node) -> String:
-	return CYCLE_STATE.phase(pony, SETTINGS.estrus_cycle.get_bool())
+	var relations := WORLD.relationship()
+	return CYCLE_STATE.phase(pony, SETTINGS.estrus_cycle.get_bool(),
+		relations.day(relations.bonds_of(pony)))
 
 
 ## The typed act gate. Never stored.
@@ -291,13 +293,14 @@ func _read_relationship(pony: Node, id: String, out: Dictionary) -> void:
 	if rel == null or not is_instance_valid(rel):
 		return
 	out["has_relationship"] = true
-	var bonds: Object = GAME.bonds_of(pony)
+	var relations := WORLD.relationship()
+	var bonds: Object = relations.bonds_of(pony)
 	if bonds != null:
 		var adults: Variant = bonds.get("adults")
 		out["registered_adult"] = _registered_adult(id, adults)
-		out["romance_eligible"] = GAME.bond_eligible_for_romance(bonds, id)
-		out["willing"] = GAME.bond_welcomes(bonds, id, "kiss")
-		var record := GAME.bond_record_for(bonds, id)
+		out["romance_eligible"] = relations.eligible_for_romance(bonds, id)
+		out["willing"] = relations.welcomes(bonds, id, "kiss")
+		var record := relations.record(bonds, id)
 		if not record.rows.is_empty():
 			out["stage"] = record.stage
 	out["love_level"] = _love_level(rel, id)
@@ -323,8 +326,8 @@ func _read_cycle(pony: Node, out: Dictionary) -> void:
 func _read_history(id: String, out: Dictionary) -> void:
 	if id.is_empty():
 		return
-	var row: Dictionary = ACT_HISTORY.effective_row(ACT_HISTORY.section(), id,
-		ACT_HISTORY.day_now())
+	var row: Dictionary = ACT_HISTORY.effective_row(
+		WORLD.mods().state(ACT_HISTORY.MOD_ID).rows, id, ACT_HISTORY.day_now())
 	out["history"] = {
 		"tier": ACT_HISTORY.tier_name(row),
 		"hurt": int(row.get("hurt", 0)),
@@ -342,7 +345,7 @@ func _love_level(rel: Node, id: String) -> int:
 	if cached is Dictionary:
 		return int((cached as Dictionary).get("love", -1))
 	if rel != null and is_instance_valid(rel):
-		var ladder := GAME.relationship_ladder(rel, id)
+		var ladder := WORLD.relationship().ladder(id)
 		if ladder.love_found:
 			return ladder.love_level
 	return -1

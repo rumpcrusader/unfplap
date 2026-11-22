@@ -16,6 +16,7 @@ const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const DIALOGUE := preload("res://mods/unfplap/dialogue/service.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 const State := ACT_STATE.State
@@ -136,10 +137,10 @@ func cancel() -> void:
 			# The stopped act gets one post-act beat at most: suppress the later history line
 			# for the same act, even when the roll chose silence. A skipped summary must not
 			# clear an older act's pending reminder.
+			var history: Dictionary = WORLD.mods().state(ACT_HISTORY.MOD_ID).rows
 			if not context.summary.summary.is_empty() \
-					and ACT_HISTORY.mark_announced(ACT_HISTORY.section(), session.pony_id,
-						"complaint"):
-				ACT_HISTORY.save()
+					and ACT_HISTORY.mark_announced(history, session.pony_id, "complaint"):
+				WORLD.mods().save()
 	elif session.state == State.AFTERGLOW:
 		end_afterglow()
 

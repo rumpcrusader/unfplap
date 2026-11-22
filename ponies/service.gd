@@ -8,7 +8,6 @@ extends RefCounted
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
-const GAME := preload("res://mods/unfplap/world/game.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
@@ -278,15 +277,11 @@ static func installed_character_ids() -> Array[String]:
 ## The next serial for a new act, stored under the `unfplap.serial` key.
 ## The process's last value outranks a stale store, so no serial repeats.
 static func allocate_serial() -> int:
-	var value: int = _serial_issued + 1
-	var mods := _mods()
-	if mods != null:
-		var section := GAME.mods_state(mods, "unfplap")
-		value = maxi(int(section.rows.get("serial", 0)), _serial_issued) + 1
-		section.rows["serial"] = value
-		GAME.mods_save(mods)
-	_serial_issued = value
-	return value
+	var section := WORLD.mods().state("unfplap")
+	_serial_issued = maxi(int(section.rows.get("serial", 0)), _serial_issued) + 1
+	section.rows["serial"] = _serial_issued
+	WORLD.mods().save()
+	return _serial_issued
 
 
 ## Record the act's one pending body swap. The runtime keeps the act; this record only lets the new
@@ -472,15 +467,6 @@ static func _adopt_pending(pony: Node) -> bool:
 	_swap = {}
 	runtime.adopt_body(pony)
 	return true
-
-
-## The game's mod registry. A static facade cannot name the autoload: a `--script` suite preloads
-## this file before the autoloads exist.
-static func _mods() -> Node:
-	var loop := Engine.get_main_loop() as SceneTree
-	if loop == null or loop.root == null:
-		return null
-	return loop.root.get_node_or_null("Mods")
 
 
 ## The stable act identity of one presented body: the relationship id when it is ready, the

@@ -17,6 +17,9 @@ const DIRECTOR_VIEW := preload("res://mods/unfplap/world/views/director.gd")
 const STORY_VIEW := preload("res://mods/unfplap/world/views/story.gd")
 const INVENTORY_VIEW := preload("res://mods/unfplap/world/views/inventory.gd")
 const MENU_VIEW := preload("res://mods/unfplap/world/views/menu.gd")
+const RELATIONSHIP_VIEW := preload("res://mods/unfplap/world/views/relationship.gd")
+const MODS_VIEW := preload("res://mods/unfplap/world/views/mods.gd")
+const AFFECTION_VIEW := preload("res://mods/unfplap/world/views/affection.gd")
 const INTERACTOR_PATH := "res://player/interactor.gd"
 
 ## One pony's body reads and writes, bound to her node; every member answers typed zeroes when the
@@ -76,6 +79,23 @@ class Menu extends MENU_VIEW:
 	func _init(n: Node) -> void:
 		super(n)
 
+## The scene's relationship runtime and bond store, bound by the facade; the pony-keyed members
+## still take her node because the store she carries is not the receiver.
+class Relationship extends RELATIONSHIP_VIEW:
+	func _init(n: Node) -> void:
+		super(n)
+
+## The game's mods registry, bound to its autoload host: one mod's live state, its rows and folder.
+class ModRegistry extends MODS_VIEW:
+	func _init(n: Node) -> void:
+		super(n)
+
+## The scene's kisser, plus the affection, cuddle and carry writes the act makes; each write takes
+## its own node because it is not the kisser.
+class Affection extends AFFECTION_VIEW:
+	func _init(n: Node) -> void:
+		super(n)
+
 
 ## The live world root; null outside a world.
 static var game: Node = null
@@ -98,6 +118,9 @@ static var _stories: Dictionary = {}
 static var _anon: Anon = null
 static var _inventory_view: Inventory = null
 static var _menu_view: Menu = null
+static var _relationship_view: Relationship = null
+static var _mods_view: ModRegistry = null
+static var _affection_view: Affection = null
 
 
 ## The world entered. The resolved handles belong to the old one.
@@ -140,6 +163,9 @@ static func _clear_handles() -> void:
 	_anon = null
 	_inventory_view = null
 	_menu_view = null
+	_relationship_view = null
+	_mods_view = null
+	_affection_view = null
 
 
 static func _tree() -> SceneTree:
@@ -571,6 +597,42 @@ static func menu() -> Menu:
 		return _menu_view
 	_menu_view = Menu.new(game if live else null)
 	return _menu_view
+
+
+## The scene's relationship runtime, resolved from the bound world and cached for it.
+static func relationship() -> Relationship:
+	var node: Node = GAME.relationship_runtime(game) if is_instance_valid(game) else null
+	var live := is_instance_valid(node)
+	if _relationship_view is Relationship and (not live or _relationship_view._bound() == node):
+		return _relationship_view
+	_relationship_view = Relationship.new(node if live else null)
+	return _relationship_view
+
+
+## The game's mods registry, cached for its autoload host; one registry serves every world.
+static func mods() -> ModRegistry:
+	var node := _mods_host()
+	var live := is_instance_valid(node)
+	if _mods_view is ModRegistry and (not live or _mods_view._bound() == node):
+		return _mods_view
+	_mods_view = ModRegistry.new(node if live else null)
+	return _mods_view
+
+
+## The scene's stock kisser, resolved from the bound world and cached for it.
+static func affection() -> Affection:
+	var node: Node = GAME.kisser_of(game) if is_instance_valid(game) else null
+	var live := is_instance_valid(node)
+	if _affection_view is Affection and (not live or _affection_view._bound() == node):
+		return _affection_view
+	_affection_view = Affection.new(node if live else null)
+	return _affection_view
+
+
+## The mods autoload is the registry the game installs at the root, so the facade resolves it.
+static func _mods_host() -> Node:
+	var tree := _tree()
+	return tree.root.get_node_or_null("Mods") if tree != null else null
 
 
 ## The scene's director is a group node, so the facade resolves it here rather than each caller.

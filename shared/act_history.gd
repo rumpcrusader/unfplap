@@ -1,9 +1,8 @@
 extends RefCounted
-## Durable per-mare act history. Pure policy plus one `Mods.state("unfplap").act_history`
-## dictionary; no scene access.
+## Durable per-mare act history. Pure policy over one caller-resolved
+## `Mods.state("unfplap").act_history` dictionary; no scene access.
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
-const GAME := preload("res://mods/unfplap/world/game.gd")
 const DEFAULTS_DATA := preload("res://mods/unfplap/shared/defaults_data.gd")
 const PROMPT_TEXT := preload("res://mods/unfplap/shared/prompt_text.gd")
 
@@ -62,14 +61,6 @@ static func rules() -> Dictionary:
 	_rules_cache = out
 	_rules_generation = SETTINGS.generation
 	return _rules_cache
-
-
-## The live mod section for the current world, or an empty dictionary outside one.
-static func section() -> Dictionary:
-	var mods := _mods()
-	if mods == null:
-		return {}
-	return GAME.mods_state(mods, MOD_ID).rows
 
 
 static func records(section: Dictionary) -> Dictionary:
@@ -450,12 +441,6 @@ static func sanitize(raw: Variant) -> Dictionary:
 	return out
 
 
-static func save() -> void:
-	var mods := _mods()
-	if mods != null:
-		GAME.mods_save(mods)
-
-
 ## In-game day as a float. Tests pass an explicit day instead of calling this.
 static func day_now() -> float:
 	var loop := Engine.get_main_loop() as SceneTree
@@ -556,9 +541,3 @@ static func _clean_reasons(raw: Variant) -> Array:
 static func out_noop(section: Dictionary, id: String) -> Dictionary:
 	return {"row": row(section, id), "previous_tier": 0, "tier": 0, "events": []}
 
-
-static func _mods() -> Node:
-	var loop := Engine.get_main_loop() as SceneTree
-	if loop == null or loop.root == null:
-		return null
-	return loop.root.get_node_or_null("Mods")

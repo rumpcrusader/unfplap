@@ -149,7 +149,8 @@ func context_facts(pony: Node) -> Dictionary:
 	out["mood"] = _world_mood(id)
 	out["relation_note"] = _relation_note(id)
 	out["history_note"] = ACT_HISTORY.ask_note(ACT_HISTORY.effective_row(
-		ACT_HISTORY.section(), id, ACT_HISTORY.day_now())) if not id.is_empty() else ""
+		WORLD.mods().state(ACT_HISTORY.MOD_ID).rows, id, ACT_HISTORY.day_now())) \
+		if not id.is_empty() else ""
 	return out
 
 

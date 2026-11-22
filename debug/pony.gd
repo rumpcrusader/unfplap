@@ -32,7 +32,7 @@ static func context(pony: Node, id: String, act: Dictionary) -> Dictionary:
 	var relations: Variant = _relations(pony)
 	var love_name := "?"
 	if is_instance_valid(pony):
-		love_name = GAME.relationship_love_name(pony, pony_id)
+		love_name = WORLD.relationship().love_name(pony, pony_id)
 	var mood := "?"
 	if is_instance_valid(WORLD.game):
 		var committed := WORLD.director().impression_mood(pony_id, "?")
@@ -113,7 +113,7 @@ static func clear_busy(pony: Node3D) -> String:
 	if session != null and session.get("blend") != null:
 		blend = float(session.get("blend"))
 	if session != null and (bool(session.get("enabled")) or blend > 0.0):
-		GAME.cuddle_end(session)
+		WORLD.affection().end_cuddle(session)
 		notes.append("cuddle ended")
 	for meta: String in ["couch_cuddle", "cuddle_active", "sex_aftercare"]:
 		if pony.has_meta(meta):
@@ -166,7 +166,7 @@ static func _record_refusal(pony: Node3D) -> String:
 
 ## The pony's relationship runtime's bonds store, or null when she has none.
 static func _bonds(pony: Node3D) -> Object:
-	return GAME.bonds_of(pony)
+	return WORLD.relationship().bonds_of(pony)
 
 
 ## Raise the stage to dating unless she is already dating, engaged or married.
@@ -195,7 +195,7 @@ static func _write_record(host: Node, pony: Node3D, id: String) -> Array[String]
 	if not bonds.has_method("_save"):
 		out.append("refused: no _save")
 		return out
-	var record := GAME.bond_record_for(bonds, id)
+	var record := WORLD.relationship().record(bonds, id)
 	out.append("record=" + _raise_stage(record))
 	record.familiarity = maxf(record.familiarity, FAMILIARITY_FLOOR)
 	record.trust = maxf(record.trust, TRUST_FLOOR)
@@ -206,7 +206,7 @@ static func _write_record(host: Node, pony: Node3D, id: String) -> Array[String]
 	record.cooldowns.erase("dating")
 	record.save(bonds, id)
 	if bonds.has_method("mark_met"):
-		GAME.bond_mark_met(bonds, id)
+		WORLD.relationship().mark_met(bonds, id)
 	return out
 
 

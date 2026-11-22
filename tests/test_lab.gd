@@ -25,6 +25,7 @@ extends Node
 
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const LAB_POPULATION := preload("res://world/population/pony_population_config.gd")
 const MOD_SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const TEST_IDS := ["twilight_sparkle", "fluttershy", "rarity", "derpy_hooves", "applejack",
@@ -498,13 +499,13 @@ func _setup_ponies(ponies: Array) -> void:
 		_log_action("test ponies", rows)
 	if is_instance_valid(impressions):
 		impressions.set("xp", xp)
-	var history_section: Dictionary = ACT_HISTORY.section()
+	var history_section: Dictionary = WORLD.mods().state(ACT_HISTORY.MOD_ID).rows
 	var history_rows := PackedStringArray()
 	for id: String in TEST_IDS:
 		if ACT_HISTORY.reset(history_section, id):
 			history_rows.append(id)
 	if not history_rows.is_empty():
-		ACT_HISTORY.save()
+		WORLD.mods().save()
 		_log_action("act history cleared", history_rows)
 	var context: Variant = game.get("world_context")
 	if is_instance_valid(context):

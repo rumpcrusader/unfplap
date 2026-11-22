@@ -289,8 +289,9 @@ func history_tick(delta: float, pony: Node3D, pony_id: String, event_id: String,
 		var target: Variant = pony.get("conversation_target")
 		if not text.is_empty() and PREFERENCES.apology_intent(text) \
 				and (target == WORLD.player or target == body):
-			if ACT_HISTORY.apology_repair(ACT_HISTORY.section(), pony_id, ACT_HISTORY.day_now()):
-				ACT_HISTORY.save()
+			if ACT_HISTORY.apology_repair(WORLD.mods().state(ACT_HISTORY.MOD_ID).rows,
+					pony_id, ACT_HISTORY.day_now()):
+				WORLD.mods().save()
 				memory.note(MEMORY.NoteKind.APOLOGY, pony_id, event_id)
 				LOG.debug("history apology id=%s", [pony_id])
 	_history_scan += delta
@@ -303,7 +304,8 @@ func history_tick(delta: float, pony: Node3D, pony_id: String, event_id: String,
 		return
 	if WORLD.player.global_position.distance_to(pony.global_position) > 5.0:
 		return
-	var current := ACT_HISTORY.effective_row(ACT_HISTORY.section(), pony_id, ACT_HISTORY.day_now())
+	var current := ACT_HISTORY.effective_row(WORLD.mods().state(ACT_HISTORY.MOD_ID).rows,
+		pony_id, ACT_HISTORY.day_now())
 	var kind := ACT_HISTORY.pending_line(current)
 	if kind.is_empty():
 		return
@@ -320,8 +322,8 @@ func history_tick(delta: float, pony: Node3D, pony_id: String, event_id: String,
 		ACT_HISTORY.line_purpose(current, kind), valid)
 	if key.is_empty():
 		return
-	ACT_HISTORY.mark_announced(ACT_HISTORY.section(), pony_id, kind)
-	ACT_HISTORY.save()
+	ACT_HISTORY.mark_announced(WORLD.mods().state(ACT_HISTORY.MOD_ID).rows, pony_id, kind)
+	WORLD.mods().save()
 	_history_reminder_at = now
 	LOG.debug("history line kind=%s key=%s", [kind, key])
 
@@ -509,7 +511,8 @@ func stop_oral_turn(pony_id: String) -> void:
 
 ## The stored-history note for a hurt pony.
 func history_note(pony_id: String) -> String:
-	var row := ACT_HISTORY.effective_row(ACT_HISTORY.section(), pony_id, ACT_HISTORY.day_now())
+	var row := ACT_HISTORY.effective_row(WORLD.mods().state(ACT_HISTORY.MOD_ID).rows,
+		pony_id, ACT_HISTORY.day_now())
 	return ACT_HISTORY.prompt_note(row)
 
 

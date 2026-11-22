@@ -515,11 +515,7 @@ func _act_key_label() -> String:
 ## True while the bundled Dance Mod is on. It is another pack, so the game's mods host answers;
 ## the host is looked up rather than assumed.
 func _dance_mod_active() -> bool:
-	var loop := Engine.get_main_loop() as SceneTree
-	if loop == null or loop.root == null:
-		return false
-	var mods: Node = loop.root.get_node_or_null("Mods")
-	return is_instance_valid(mods) and GAME.mod_active(mods, "dance_mod")
+	return WORLD.mods().active("dance_mod")
 
 
 ## The auto shape's display label, from the raw generator value in the act view.

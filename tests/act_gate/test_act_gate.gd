@@ -71,6 +71,7 @@ class FakeContext extends Node:
 class FakeGame extends Node:
 	var mares: Array = []
 	var world_context: Node
+	var relationship_runtime: Variant = null
 
 
 class FakeMain extends Node:
@@ -218,6 +219,7 @@ func _check_facade() -> void:
 	var relation := FakeRelation.new()
 	relation.bonds = FakeBonds.new()
 	pony.set_meta("relationship_runtime", relation)
+	main.game.relationship_runtime = relation
 	root.add_child(pony)
 
 	check(gate.ready(pony), "the identity act target and clearance row pass")
@@ -287,6 +289,7 @@ func _check_facade() -> void:
 	# A bond store without the reader ops answers each accessor's typed zero, and the ladder
 	# fallback still supplies the level.
 	var bare_relation := FakeBareRelation.new()
+	main.game.relationship_runtime = bare_relation
 	var bare_pony := FakePony.new()
 	bare_pony.name = "BareBonds"
 	bare_pony.identity = FakeIdentity.new()

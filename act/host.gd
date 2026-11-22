@@ -7,7 +7,6 @@ extends RefCounted
 
 const TAIL_TUCK := preload("res://mods/unfplap/poses/tail_tuck.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
-const GAME := preload("res://mods/unfplap/world/game.gd")
 
 var node: Node
 ## The presented body. The runtime's pony setter keeps it in step.
@@ -78,7 +77,7 @@ func director() -> Node:
 func mod_enabled(id: String) -> bool:
 	if id.is_empty() or not is_instance_valid(node) or not node.is_inside_tree():
 		return false
-	return GAME.mod_active(node.get_node_or_null("/root/Mods"), id)
+	return WORLD.mods().active(id)
 
 
 ## The VR scene handles the anatomy bridge wires into the VR act: the player, the avatar and the

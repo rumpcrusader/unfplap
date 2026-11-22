@@ -269,12 +269,12 @@ func _setup_ponies(ponies: Array) -> void:
 	if is_instance_valid(context):
 		context.call("_changed")
 	var history_rows := PackedStringArray()
-	var history_section: Dictionary = ACT_HISTORY.section()
+	var history_section: Dictionary = WORLD.mods().state(ACT_HISTORY.MOD_ID).rows
 	for id: String in _stress_ids():
 		if ACT_HISTORY.reset(history_section, id):
 			history_rows.append(id)
 	if not history_rows.is_empty():
-		ACT_HISTORY.save()
+		WORLD.mods().save()
 		_log_action("stress act history cleared", history_rows)
 
 

@@ -10,7 +10,7 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const REGISTRY := preload("res://mods/unfplap/registry/service.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
-const GAME := preload("res://mods/unfplap/world/game.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 ## The major version; a breaking change bumps it.
@@ -176,8 +176,7 @@ func _failure(descriptor: Dictionary, error: String) -> Dictionary:
 
 
 func _mod_version() -> String:
-	var mods := get_node_or_null("/root/Mods")
-	for mod: Dictionary in GAME.mods_list(mods):
+	for mod: Dictionary in WORLD.mods().list():
 		if str(mod.get("id", "")) == "unfplap":
 			return str(mod.get("version", ""))
 	return ""

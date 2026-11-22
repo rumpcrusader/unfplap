@@ -11,6 +11,7 @@ const CYCLE := preload("res://mods/unfplap/shared/cycle.gd")
 const CYCLE_STATE := preload("res://mods/unfplap/shared/cycle_state.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const PERF := preload("res://mods/unfplap/shared/perf.gd")
 
@@ -59,7 +60,8 @@ func shutdown() -> void:
 
 ## One pony's effective phase: debug override, feature switch and the relationship bond day.
 func phase(pony: Node) -> String:
-	return CYCLE_STATE.phase(pony, _enabled)
+	var relations := WORLD.relationship()
+	return CYCLE_STATE.phase(pony, _enabled, relations.day(relations.bonds_of(pony)))
 
 
 ## The debug override. A session override is honoured even with the feature off.

@@ -349,11 +349,11 @@ func release_carry() -> bool:
 	var pony: Node = host.pony_node() if host != null else null
 	if not is_instance_valid(reach) or not is_instance_valid(pony):
 		return false
-	if not GAME.carry_ours(reach, pony):
+	if not WORLD.affection().carry_ours(reach, pony):
 		return false
-	GAME.end_interaction(pony)
-	GAME.clear_carry(reach)
-	GAME.carry_released(GAME.carry_actions(reach))
+	WORLD.affection().end_interaction(pony)
+	WORLD.affection().clear_carry(reach)
+	WORLD.affection().carry_released(WORLD.affection().carry_actions(reach))
 	return true
 
 
@@ -364,7 +364,7 @@ func end_cuddle() -> void:
 		return
 	var session: Node = pony.get_node_or_null("CuddleSession")
 	if session != null and (bool(session.get("enabled")) or float(session.get("blend")) > 0.0):
-		GAME.cuddle_end(session)
+		WORLD.affection().end_cuddle(session)
 	if pony.has_meta("cuddle_active"):
 		pony.remove_meta("cuddle_active")
 

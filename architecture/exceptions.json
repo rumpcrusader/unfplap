@@ -89,22 +89,6 @@
       "task": "B"
     },
     {
-      "from": "settings/characters_ui.gd",
-      "to": "res://world/ui/menu_style.gd",
-      "kind": "game-import",
-      "owner": "settings",
-      "reason": "base-game import; drain through the GAME accessor in Task B",
-      "task": "B"
-    },
-    {
-      "from": "settings/ui.gd",
-      "to": "res://world/ui/menu_style.gd",
-      "kind": "game-import",
-      "owner": "settings",
-      "reason": "base-game import; drain through the GAME accessor in Task B",
-      "task": "B"
-    },
-    {
       "from": "shared/act_face.gd",
       "to": "res://world/ai/pony_dialogue_tags.gd",
       "kind": "game-import",

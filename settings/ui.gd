@@ -10,8 +10,8 @@ const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 const ACT_KEYS := preload("res://mods/unfplap/shared/act_keys.gd")
 const CHARACTERS_UI := preload("res://mods/unfplap/settings/characters_ui.gd")
 const INTEGRATIONS_CATALOG := preload("res://mods/unfplap/shared/integrations.gd")
-const STYLE := preload("res://world/ui/menu_style.gd")
-const GAME := preload("res://mods/unfplap/world/game.gd")
+const GAME := preload("res://mods/unfplap/settings/game.gd")
+const STYLE := GAME.MenuStyle
 
 ## Choices at most in a pill track, and the longest label one may hold: past either, the row keeps
 ## a dropdown, which cannot overflow the card.
@@ -246,10 +246,10 @@ static func build_integrations(list: VBoxContainer, font_size: int, page: Node,
 static func _build_experimental_notice(list: VBoxContainer, font_size: int) -> void:
 	var panel := PanelContainer.new()
 	panel.name = "IntegrationsExperimental"
-	var style := STYLE.box(Color(STYLE.SKY, 0.16), Color(STYLE.SKY, 0.8), 1)
+	var style := STYLE.box(Color(STYLE.sky(), 0.16), Color(STYLE.sky(), 0.8), 1)
 	panel.add_theme_stylebox_override("panel", STYLE.rounded(style))
 	var label := STYLE.label("Experimental", "", font_size - 4)
-	label.add_theme_color_override("font_color", STYLE.SKY)
+	label.add_theme_color_override("font_color", STYLE.sky())
 	panel.add_child(label)
 	list.add_child(panel)
 
@@ -534,8 +534,8 @@ static func _inject_now(page: Node, actions_builder: Callable, live_character_id
 		font_size = 20
 	# The Unfplap row goes at the foot of the sidebar, under the game's own More group, with no
 	# caption of its own.
-	var button: Button = GAME._settings_page_button(page, side, "Unfplap",
-		func() -> void: _show_settings_tab(page))
+	var button: Button = GAME.settings_page_button(page, side, "Unfplap")
+	button.pressed.connect(func() -> void: _show_settings_tab(page))
 	button.theme_type_variation = "Tab"
 	button.toggle_mode = true
 	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
@@ -650,20 +650,20 @@ static func _style_tabs(tabs: TabContainer, font_size: int) -> void:
 	bar.add_theme_stylebox_override("tab_unselected", quiet)
 	bar.add_theme_stylebox_override("tab_disabled", quiet)
 	bar.add_theme_stylebox_override("tab_hovered", STYLE.rounded(STYLE.box(
-		Color(1, 1, 1, 0.1), Color(STYLE.PINK, 0.5), 1, 99, 14, 5)))
-	var lit := STYLE.box(STYLE.ROSE, Color(1, 1, 1, 0.55), 1, 99, 14, 5)
-	lit.shadow_color = Color(STYLE.ROSE, 0.35)
+		Color(1, 1, 1, 0.1), Color(STYLE.pink(), 0.5), 1, 99, 14, 5)))
+	var lit := STYLE.box(STYLE.rose(), Color(1, 1, 1, 0.55), 1, 99, 14, 5)
+	lit.shadow_color = Color(STYLE.rose(), 0.35)
 	lit.shadow_size = 10
 	lit.shadow_offset = Vector2(0, 2)
 	bar.add_theme_stylebox_override("tab_selected", STYLE.rounded(lit))
-	var ring := STYLE.box(Color.TRANSPARENT, Color(STYLE.PINK, 0.8), 2, 101)
+	var ring := STYLE.box(Color.TRANSPARENT, Color(STYLE.pink(), 0.8), 2, 101)
 	ring.set_expand_margin_all(2)
 	bar.add_theme_stylebox_override("tab_focus", STYLE.rounded(ring))
-	bar.add_theme_font_override("font", STYLE.BOLD)
+	bar.add_theme_font_override("font", STYLE.bold())
 	bar.add_theme_font_size_override("font_size", font_size - 3)
 	bar.add_theme_color_override("font_selected_color", Color.WHITE)
-	bar.add_theme_color_override("font_unselected_color", STYLE.MUTED)
-	bar.add_theme_color_override("font_hovered_color", STYLE.CREAM)
+	bar.add_theme_color_override("font_unselected_color", STYLE.muted())
+	bar.add_theme_color_override("font_hovered_color", STYLE.cream())
 	bar.add_theme_constant_override("tab_separation", 4)
 
 
@@ -838,7 +838,7 @@ static func _row_box(page: Node, hover: bool) -> StyleBox:
 	if stored is StyleBox:
 		return stored as StyleBox
 	if hover:
-		return STYLE.rounded(STYLE.box(Color(1, 1, 1, 0.085), Color(STYLE.PINK, 0.45), 1, 16, 16, 9))
+		return STYLE.rounded(STYLE.box(Color(1, 1, 1, 0.085), Color(STYLE.pink(), 0.45), 1, 16, 16, 9))
 	return STYLE.rounded(STYLE.box(Color(1, 1, 1, 0.045), Color(1, 1, 1, 0.07), 1, 16, 16, 9))
 
 
@@ -973,7 +973,7 @@ static func _pills_fit(texts: Array[String], font_size: int, page: Node) -> bool
 		return true
 	var width := 10.0 + 4.0 * (texts.size() - 1)
 	for text: String in texts:
-		width += STYLE.BOLD.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1,
+		width += STYLE.bold().get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1,
 			font_size - 4).x + 30.0
 	return width <= room
 

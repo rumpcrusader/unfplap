@@ -11,7 +11,7 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const ROWS := preload("res://mods/unfplap/settings/rows.gd")
 const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 const SETTINGS_UI := preload("res://mods/unfplap/settings/ui.gd")
-const GAME := preload("res://mods/unfplap/world/game.gd")
+const GAME := preload("res://mods/unfplap/settings/game.gd")
 const CHARACTERS_UI := preload("res://mods/unfplap/settings/characters_ui.gd")
 const DEBUG_UI := preload("res://mods/unfplap/debug/ui.gd")
 const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/service.gd")
@@ -62,10 +62,15 @@ class FakeMods extends Node:
 		return "user://mods/data/%s" % id
 
 
-## A settings autoload stand-in with the one value the size preset reads.
+## A settings autoload stand-in with the two values the accessors read.
 class FakeSettings extends Node:
 	func get_value(key: String) -> Variant:
-		return "mounting" if key == "ponies/size" else null
+		match key:
+			"ponies/size":
+				return "mounting"
+			"access/speech_text":
+				return "caption"
+		return null
 
 func run() -> void:
 	_check_load()
@@ -1664,11 +1669,10 @@ func _settings_version(path: String) -> int:
 func _check_base_game_access() -> void:
 	var page := FakeSettingsPage.new()
 	var parent := VBoxContainer.new()
-	var callback := func() -> void: pass
-	var button := GAME._settings_page_button(page, parent, "Unfplap", callback)
+	var button := GAME.settings_page_button(page, parent, "Unfplap")
 	check(button != null and button.text == "Unfplap",
 		"the settings page builds its tab button")
-	check(page.last_callback == callback, "the tab button keeps the page's callback")
+	check(page.last_callback.is_valid(), "the page's builder gets a live handler")
 	var icon := GAME.settings_page_icon(page, "heart")
 	check(icon != null, "the settings page answers its icon texture")
 	GAME.settings_page_redraw(page)
@@ -1680,13 +1684,13 @@ func _check_base_game_access() -> void:
 	check(picker is Control, "the menu's in-page dropdown is built for a page")
 	if picker is Control:
 		(picker as Control).free()
-	check(GAME._settings_page_button(null, parent, "Unfplap", callback) == null,
+	check(GAME.settings_page_button(null, parent, "Unfplap") == null,
 		"an absent settings page has no button")
 	check(GAME.settings_page_icon(null, "heart") == null,
 		"an absent settings page has no icon")
 	GAME.settings_page_redraw(null)
 	var plain := Node.new()
-	check(GAME._settings_page_button(plain, parent, "Unfplap", callback) == null,
+	check(GAME.settings_page_button(plain, parent, "Unfplap") == null,
 		"a page without the builder has no button")
 	check(GAME.settings_page_icon(plain, "heart") == null,
 		"a page without the texture op has no icon")
@@ -1704,6 +1708,8 @@ func _check_base_game_access() -> void:
 	SETTINGS._game_settings = settings
 	check(SETTINGS.pony_size_name() == "mounting",
 		"the size preset reads the game setting through the accessor")
+	check(SETTINGS.caption_mode() == "caption",
+		"the caption mode reads the game setting through the accessor")
 	SETTINGS._game_settings = saved
 	page.free()
 	parent.free()

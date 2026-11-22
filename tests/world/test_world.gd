@@ -847,9 +847,6 @@ class FakeModsHost extends Node:
 	func list() -> Array:
 		return rows
 
-	func data_folder(id: String) -> String:
-		return "user://mods/data/" + id
-
 
 ## The stock cuddle session the act ends before it takes the pose.
 class FakeCuddle extends Node:
@@ -962,7 +959,6 @@ func _check_unbound() -> void:
 	check(WORLD.shape_ids().is_empty(), "an unbound facade has no shape catalogue")
 	check(not WORLD.bond_level("rarity").found, "an unbound facade has no bond level")
 	check(not WORLD.paused(), "an unbound facade is not paused")
-	check(WORLD.game_setting("ponies/size") == "", "an unbound facade reads no game setting")
 	WORLD.refresh_body_lod(null)
 
 
@@ -1487,17 +1483,12 @@ func _check_open_chat() -> void:
 	WORLD.unbind()
 
 
-## The place reads and the ops that compose the accessor layer: a house's bed, the shop's item,
-## the game's own setting and a body's velocity.
+## The place reads and the ops that compose the accessor layer: a house's bed, the shop's item and
+## a body's velocity.
 func _check_place_and_ops() -> void:
 	var game := FakeGame.new()
 	root.add_child(game)
 	WORLD.bind_world(game)
-	# The suite's boot may carry the game's own autoload; the facade must read that node, whatever
-	# its value, rather than a copy of its settings.
-	var settings := root.get_node_or_null("Settings")
-	check(WORLD.game_setting("ponies/size") == GAME.setting_string(settings, "ponies/size"),
-		"the facade reads the game's own settings node")
 
 	var bed := Node3D.new()
 	root.add_child(bed)
@@ -1585,14 +1576,12 @@ func _check_bed_under() -> void:
 	WORLD.unbind()
 
 
-## The kiss bridge and the settings reader: every member's live answer and its typed zero.
+## The kiss bridge and the rig and height readers: every member's live answer and its typed zero.
 func _check_kiss_and_settings() -> void:
 	var settings := FakeSettings.new()
 	root.add_child(settings)
-	check(GAME.setting_string(settings, "ponies/size") == "canon", "one game setting is read")
 	var plain := Node.new()
 	root.add_child(plain)
-	check(GAME.setting_string(plain, "ponies/size") == "", "a node without the reader answers empty")
 	check(is_equal_approx(GAME.anon_height(settings), 1.2), "Anon's height scale is read")
 	check(not is_finite(GAME.anon_height(plain)), "a node without the height answers NAN")
 	check(not is_finite(GAME.anon_height(null)), "no node answers no height")
@@ -2589,8 +2578,6 @@ func _check_relationship_mods_affection() -> void:
 		"the registry answers which pack is on")
 	check(mods.list().size() == 1 and str(mods.list()[0].get("id", "")) == "unfplap",
 		"the installed rows are a typed copy")
-	check(mods.data_folder("unfplap") == "user://mods/data/unfplap",
-		"the registry names the data folder")
 	mods.save()
 	check(host.saves == 1, "the save reaches the registry")
 	root.remove_child(host)
@@ -2598,8 +2585,7 @@ func _check_relationship_mods_affection() -> void:
 	var orphan := WORLD.mods()
 	check(orphan.state("unfplap").rows.is_empty(), "no registry answers empty rows")
 	check(not orphan.active("dance_mod"), "no registry reports no pack active")
-	check(orphan.list().is_empty() and orphan.data_folder("unfplap") == "",
-		"no registry lists no pack and names no folder")
+	check(orphan.list().is_empty(), "no registry lists no pack")
 
 	var affection_view := WORLD.affection()
 	check(affection_view == WORLD.affection(), "an affection view is cached for the kisser")

@@ -78,7 +78,8 @@ and caches it by settings group and pose id, so a held debug pair does not snap.
   roll.
 - Lean distances, pitch, yaw and roll scale with pony size:
   `lean_size_scale_for(size) = clamp(2.0 - size, 0.75, 1.5)`. JRHNBR (`1.0`) is the reference;
-  Canon (`0.66`) is `1.34` (+34%).
+  Canon (`0.66`) is `1.34` (+34%). The preset is `SETTINGS.pony_size_name()`; the camera keeps no
+  second read of the game setting.
 - Standing Anon body lean: `apply_anon_lean()` freezes the whole lower body (hip target and both
   foot targets) at its act-start pose. The camera/head moves forward, sideways or down, so the
   torso hinges over her while the legs keep their pose instead of walking into the view. Pulling

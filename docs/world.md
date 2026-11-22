@@ -14,8 +14,7 @@ This contract covers:
   reach interactor, the desktop interactions node);
 - the world-owned reads a rule is built on: the mare list, the thinkable bed under a point, the
   real bed behind a mattress hit, the bed a cradle looks at, bed occupancy, Anon's seat beside a
-  bed, a house's bed, the shop's item scene, the menu/panel gates, the headset test and one of the
-  game's own settings;
+  bed, a house's bed, the shop's item scene, the menu/panel gates and the headset test;
 - the three scene writes a service cannot do itself: the merged LOD rebuild after a shape change,
   the act chat open past the controls lock and a body's velocity;
 - the bound views of a pony's body, navigator, face, wings and flank, Anon's rig, a bed, the
@@ -65,7 +64,6 @@ to ask whether the scene is live.
 | `menu_open()` | the panel test plus "the cursor is visible" |
 | `headset_view()` | the eye is in a headset |
 | `interaction_hints()` | the world's own interaction-hints node |
-| `game_setting(key)` | one of the game's own settings by its dotted key |
 | `bond_level(id)` | her cached love level, with `found` telling the ladder fallback whether the cache held her |
 | `refresh_body_lod(pony)` | drop the merged LOD caches and re-arm the near mesh |
 | `set_velocity(body, value)` | a body's velocity |
@@ -106,7 +104,7 @@ not the receiver.
 | `Inventory` | the game's inventory node, resolved by the facade from the bound world | `store`, `slots`, `loans`, `writable`, `available`, `take`, `put`, `grant`, `spawn_drop`, `item_scene`, `held_count`, `holding_case`, `hotbar`, `hotbar_visible`, `set_hotbar_visible`, `hotbar_layer`, `set_hotbar_layer_visible`, `place_hotbar`, `hud_hidden`, `set_hud_hidden` |
 | `Menu` | the bound world root | `panel`, `show_toast`, `sound` |
 | `Relationship` | the scene's relationship runtime | `love_name`, `runtime`, `bonds`, `ladder`, `bonds_of`, `record`, `save_record`, `eligible_for_romance`, `welcomes`, `day`, `mark_met`, `request_space` |
-| `ModRegistry` | the game's mods registry autoload | `present`, `state`, `active`, `save`, `list`, `data_folder` |
+| `ModRegistry` | the game's mods registry autoload | `present`, `state`, `active`, `save`, `list` |
 | `Affection` | the scene's stock kisser | `kisser`, `begin_from_pony`, `clear_kisser`, `end`, `cancel_afterglow`, `feed`, `side_known`, `pin_side`, `release_side`, `settle_excitement`, `buck`, `end_cuddle`, `hoof_active`, `carry_ours`, `carry_actions`, `clear_carry`, `carry_released`, `caress`, `end_interaction` |
 
 `Pony` resolves the parts it can reach from the body it holds — her identity, head, mouth, blush
@@ -144,15 +142,14 @@ member asks about are passed because they are not the receiver. `item_scene` is 
 scene read, and the facade's `shop_item` answers through it instead of keeping a second home.
 `Menu` binds the world root for the named panels; the toast sink and the cue's source node are
 passed because they are not the receiver. The settings page's own icon, redraw and menu-icon kind
-stay on the accessor module rather than this view: the settings layer may read the game boundary but
-not a domain facade.
+are the settings accessor's, so this view does not carry them.
 
 `Relationship` is bound to the scene's relationship runtime, with `bonds` and `ladder` resolving
 through it. `bonds_of` and `love_name` still take a pony because she is not the receiver: they read
 the store her own metadata points at. The store-keyed members — the record, its save, the romance
 test, the welcome, the day and the mark — take that store for the same reason. `ModRegistry` binds
-the game's mods registry autoload, so `present`, `state`, `active`, `save`, `list` and
-`data_folder` answer without a host argument. `Affection` binds the scene's stock kisser for
+the game's mods registry autoload, so `present`, `state`, `active`, `save` and `list` answer without
+a host argument. `Affection` binds the scene's stock kisser for
 `kisser`, `begin_from_pony` and `clear_kisser`; the affection, kiss pose, Beat, cuddle session,
 hoof hold, reach, runtime body and touch bridge its other members write are passed because they
 are not the kisser. A caller that saves through the registry owns the call: the view only asks it.
@@ -192,11 +189,6 @@ behaviour exactly, and a game update that renames one is a change here rather th
 | `GAME.set_presentation_enabled(presentation, on)` | `set_enabled` | — | no call |
 | `GAME.force_stand_up(player)` | `force_stand_up` | — | no call |
 | `GAME.menu_panel(game, key)` | `save_menu`, `settings_menu`, `pause_menu` | `Node` | `null` |
-| `GAME._settings_page_button(page, parent, text, callback)` | the page's `_button` (private) | `Button` | `null` |
-| `GAME.settings_page_icon(page, kind)` | the page's `_icon_texture` (private) | `Texture2D` | `null` |
-| `GAME.settings_page_redraw(page)` | the page's `_redraw` (private) | — | no call |
-| `GAME.set_menu_icon_kind(icon, kind)` | a menu icon's `kind` | — | no write |
-| `GAME.menu_picker()` | `menu_picker.gd`'s `new` | a new `Control` | — |
 | `GAME.inventory(game)` | `inventory` | `Node` | `null` |
 | `GAME.interaction_hints(game)` | the world's `InteractionHints` child | `Node` | `null` |
 | `GAME.inventory_held_count(inventory)` | the inventory's `held` row count | `int` | `0` |
@@ -352,7 +344,6 @@ behaviour exactly, and a game update that renames one is a change here rather th
 | `GAME.mods_state(mods, id)` | `Mods.state` | `ModState`, the live section | empty rows |
 | `GAME.mod_active(mods, id)` | `Mods.is_active` | `bool` | `false` |
 | `GAME.mods_save(mods)` | `Mods.save_changed` | — | no save |
-| `GAME.mods_data_folder(mods, id)` | `Mods.data_folder` | `String` | empty |
 | `GAME.mods_list(mods)` | `Mods.list` | `Array[Dictionary]`, the installed rows | empty |
 | `GAME.prepare_vocal(director, pony_id)` | the director's `vocal.prepare` | — | no call |
 | `GAME.tts_of(director)` | the director's `tts` | `Node` | `null` |
@@ -463,17 +454,15 @@ behaviour exactly, and a game update that renames one is a change here rather th
 
 Only the accessors that hand back a typed copy or a typed view allocate — the mare, couch-seat,
 case, shape-id and mods lists, the ladder, the bond record, the story rows, the world events, the
-mod state, the director's line host and the model config — plus `GAME.refresh_body_lod`, the
-settings page's tab
-button and icon, the menu's in-page dropdown and the stock cue, which rebuild through the game's own
-code. The per-frame accessors copy nothing.
+mod state, the director's line host and the model config — plus `GAME.refresh_body_lod` and the
+stock cue, which rebuild through the game's own code. The per-frame accessors copy nothing.
 
 `GAME` writes the rig's control hold, its eye line and its look pitch, the chat lock, her navigator's
 face point, conversation aim, owner, wander, speed, pace and destination, her own locomotion facing,
 her posture request, her face-turn rate, her wing hold, open switch and fold blends, the carry flags,
 the seated Q hold, a body's velocity, her gaze and pupils, the stock kiss's
 latch and side hold, the affection it feeds, the director's authored-line queue, the world-context
-situation record, the mod state section, the settings page's tab icon kind, the briefcase's slot
+situation record, the mod state section, the briefcase's slot
 writes and world drops, the inventory's quick-slot card and its bar, the HUD's toast line, the
 seated space and rest holds, and the VR touch bridge's caress event.
 
@@ -494,8 +483,8 @@ property through `GAME`, so a renamed or missing property is null instead of a c
 The views of a pony's body, navigator, face, wings and flank, of Anon's rig, a bed, the scene's
 director and world context, the inventory and menu surfaces, the mods registry, the relationship
 runtime and the scene's affection, kiss and carry are answered here. Every consumer outside the
-world service reads the game through the facade and one of these views; `anatomy/**`, the
-settings layer and the suites are the code that still names `GAME` directly.
+world service reads the game through the facade and one of these views; `anatomy/**` and the suites
+are the code that still names `GAME` directly.
 
 ## Data ownership
 

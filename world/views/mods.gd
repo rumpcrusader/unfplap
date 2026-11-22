@@ -46,8 +46,3 @@ func save() -> void:
 ## The registry's installed pack rows, as a typed copy.
 func list() -> Array[Dictionary]:
 	return GAME.mods_list(_host_node())
-
-
-## One mod's data folder; empty when the host cannot name one.
-func data_folder(id: String) -> String:
-	return GAME.mods_data_folder(_host_node(), id)

@@ -466,7 +466,7 @@ func _caption_top_enabled() -> bool:
 		return false
 	if _act_state not in [STATE_POSING_IN, STATE_ACTIVE, STATE_CLIMAX]:
 		return false
-	return WORLD.game_setting("access/speech_text") == "caption"
+	return SETTINGS.caption_mode() == "caption"
 
 
 ## Move the game's caption card after its own layout pass. The stock caption keeps its text,

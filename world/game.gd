@@ -16,7 +16,6 @@ const PLAYER_FORM := preload("res://world/life/player_form.gd")
 const OUTLINE_EXCLUSION := preload("res://world/post_outline_exclusion.gd")
 const DOCK_TAIL_MOUNT := preload("res://world/characters/hybrid_mare/dock_tail_mount.gd")
 const HYBRID_DOCK := preload("res://world/characters/hybrid_mare/hybrid_dock.gd")
-const MENU_PICKER := preload("res://world/ui/menu_picker.gd")
 const INTERACTION_SOUNDS := preload("res://world/audio/interaction_sounds.gd")
 const BOND_RECORD := preload("res://mods/unfplap/shared/bond_record.gd")
 const TOUCH_BRIDGE := preload("res://mods/unfplap/shared/touch_bridge.gd")
@@ -186,13 +185,6 @@ static func force_stand_up(player: Node) -> void:
 		player.call("force_stand_up")
 
 
-## One game setting by its dotted key; empty when the settings node has no reader.
-static func setting_string(settings: Node, key: String) -> String:
-	if not is_instance_valid(settings) or not settings.has_method("get_value"):
-		return ""
-	return str(settings.call("get_value", key))
-
-
 ## The game's Anon height scale; NAN when the settings node cannot answer.
 static func anon_height(settings: Node) -> float:
 	if not is_instance_valid(settings) or not settings.has_method("anon_height_scale"):
@@ -238,13 +230,6 @@ static func mods_list(mods: Node) -> Array[Dictionary]:
 	return out
 
 
-## One mod's data folder from the registry; empty when the host has no folder reader.
-static func mods_data_folder(mods: Node, id: String) -> String:
-	if not is_instance_valid(mods) or not mods.has_method("data_folder"):
-		return ""
-	return str(mods.call("data_folder", id))
-
-
 ## One named game panel; the caller decides what an open panel means.
 static func menu_panel(game: Node, key: StringName) -> Node:
 	if not is_instance_valid(game):
@@ -253,39 +238,6 @@ static func menu_panel(game: Node, key: StringName) -> Node:
 	if panel is Node and is_instance_valid(panel):
 		return panel
 	return null
-
-
-## One button from the game's settings page; null when the page has no builder.
-static func _settings_page_button(page: Node, parent: Node, text: String,
-		callback: Callable) -> Button:
-	if not is_instance_valid(page) or not page.has_method("_button"):
-		return null
-	var button: Variant = page.call("_button", parent, text, callback)
-	if button is Button and is_instance_valid(button):
-		return button
-	return null
-
-
-## One icon texture from the game's settings page; null when the page has no texture op.
-static func settings_page_icon(page: Node, kind: String) -> Texture2D:
-	if not is_instance_valid(page) or not page.has_method("_icon_texture"):
-		return null
-	var icon: Variant = page.call("_icon_texture", kind)
-	if icon is Texture2D:
-		return icon
-	return null
-
-
-## Ask the game's settings page to repaint; nothing happens without its own redraw.
-static func settings_page_redraw(page: Node) -> void:
-	if is_instance_valid(page) and page.has_method("_redraw"):
-		page.call("_redraw")
-
-
-## Set the picture on one of the game's menu icons; a control without the field is left alone.
-static func set_menu_icon_kind(icon: Control, kind: String) -> void:
-	if is_instance_valid(icon):
-		icon.set("kind", kind)
 
 
 ## The game's inventory node; null when the scene has none.
@@ -438,11 +390,6 @@ static func case_grant(store: Object, id: String, count: int) -> int:
 static func interaction_sound(source: Node3D, kind: String, at: Vector3) -> void:
 	if is_instance_valid(source):
 		INTERACTION_SOUNDS.play_at(source, kind, at)
-
-
-## A new in-page dropdown for the game's pages; each one keeps its own entries.
-static func menu_picker() -> Control:
-	return MENU_PICKER.new()
 
 
 ## The shop's packed item scene; null when the shop has none.

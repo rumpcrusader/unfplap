@@ -1,6 +1,7 @@
 {
   "allowed": [
-    "world/game.gd"
+    "world/game.gd",
+    "settings/game.gd"
   ],
   "baseline": [
     {

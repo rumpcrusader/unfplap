@@ -662,9 +662,9 @@ func tick_free_look() -> void:
 	LOG.debug("free look %s", [("on" if active else "off")])
 
 
-## The current body preset name, or "" outside a world or without the game's settings.
+## The current body preset; the settings facade owns the game read, and a missing node is `canon`.
 func size_name() -> String:
-	return WORLD.game_setting("ponies/size")
+	return SETTINGS.pony_size_name()
 
 
 func size_scale() -> float:

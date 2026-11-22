@@ -265,7 +265,7 @@ PUBLIC_SERVICE_FILES = {"body_change/source.gd", "world/game.gd"}
 SERVICE_BASE = "shared/service.gd"
 HUD_FACADE = "hud/service.gd"
 # A public accessor module outside a `service.gd` facade joins the weak-signature scan.
-TYPING_EXTRA = ("world/game.gd",)
+TYPING_EXTRA = ("world/game.gd", "settings/game.gd")
 # The five body-bound systems `body_change.wire()` builds and registers. The entry names none of
 # them: a new binding adds a preload to the service, not to the composition root.
 BODY_BINDINGS = (
@@ -288,7 +288,10 @@ SERVICE_IGNORE_DOCS = {"README.md", "api.md", "runtime.md"}
 PUBLIC_TYPE = re.compile(r"^(?:class|enum)\s+([A-Za-z_]\w*)\b", re.MULTILINE)
 API_MEMBER = re.compile(
     r"^(?:const\s+([A-Z][A-Z0-9_]*)|(?:static\s+)?func\s+([A-Za-z_]\w*)|var\s+([A-Za-z_]\w*))")
-GAME_SOURCE = "world/game.gd"
+GAME_SOURCES = ("world/game.gd", "settings/game.gd")
+# The services allowed to touch the base game: each owns exactly one `<service>/game.gd`, and only
+# that service's own files import it.
+GAME_LAYER = {"world", "settings", "debug", "hud"}
 
 
 class Failure:
@@ -422,21 +425,35 @@ ANATOMY_FACADE = "anatomy/api.gd"
 ELIGIBILITY_SCENE = "eligibility/scene.gd"
 
 
+def owns_game_accessor(src: str, tgt: str) -> bool:
+    """A `*/game.gd` import belongs to the accessor's own game-layer service."""
+    owner = tgt.split("/")[0]
+    if owner not in GAME_LAYER:
+        return False
+    # The anatomy leaf still reads the world accessor until its own migration lands.
+    if src.startswith("anatomy/") and tgt == "world/game.gd":
+        return True
+    return src.split("/")[0] == owner
+
+
 def is_allowed(src: str, tgt: str) -> tuple[bool, str, Owner | None, Owner | None]:
     kind, so, to = edge_kind(src, tgt)
-    # One game boundary: only the accessor preloads a base-game module; every other module reads
-    # the game through `GAME`.
-    if kind == "game" and src != GAME_SOURCE:
+    # One game boundary: only a game-layer accessor preloads a base-game module; every other
+    # module reads the game through a facade.
+    if kind == "game" and src not in GAME_SOURCES:
         return False, kind, so, to
     if so is None or to is None:
         return True, kind, so, to
     if so.kind == "orchestrator":
         return True, kind, so, to
+    # One accessor per service: shared code takes values, and no service reads another's game.gd.
+    if tgt.endswith("/game.gd") and not owns_game_accessor(src, tgt):
+        return False, kind, so, to
 
     # Anatomy is a presentation leaf: every anatomy file reads the game through `GAME`; only the
     # facade asks eligibility or another mod service, and outside files may preload only api.gd.
     if src.startswith("anatomy/"):
-        if tgt == GAME_SOURCE:
+        if tgt in GAME_SOURCES:
             return True, kind, so, to
         if kind in ("self", "shared", "store", "read model"):
             return True, kind, so, to
@@ -462,32 +479,24 @@ def is_allowed(src: str, tgt: str) -> tuple[bool, str, Owner | None, Owner | Non
     if to is not None and to.id == "anatomy":
         return tgt == ANATOMY_FACADE, kind, so, to
     if so.kind == "shared":
-        # The accessor module is the game boundary, so a shared module may read it like the scene.
-        if tgt == "world/game.gd":
-            return True, kind, so, to
-        if kind in ("shared", "store", "read model", "self", "game"):
+        # A shared module takes its values as arguments: it reads no game accessor.
+        if kind in ("shared", "store", "read model", "self"):
             return True, kind, so, to
         # A shared store may read settings; a pure/read-model module may not.
         if so.kind == "store" and to.id == "settings" and kind == "service":
             return True, kind, so, to
         return False, kind, so, to
     if so.kind == "store":
-        # A store reads shared data and settings, and the accessor game boundary.
-        if tgt == "world/game.gd":
-            return True, kind, so, to
+        # A store reads shared data and settings, and takes no game accessor.
         if kind in ("self", "shared", "store", "read model"):
             return True, kind, so, to
         if kind == "service" and to is not None and to.id == "settings":
             return True, kind, so, to
         return False, kind, so, to
     if so.kind == "service":
-        if kind in ("self", "service", "shared", "store", "read model", "game"):
+        if kind in ("self", "service", "shared", "store", "read model"):
             # The settings service is infrastructure and must not depend upward on a domain
             # service. The current registry dependency is recorded as migration debt.
-            # The settings layer may read the base-game accessor module: it is the game boundary,
-            # not a domain service, so the upward-edge rule does not apply to it.
-            if so.id == "settings" and tgt == "world/game.gd":
-                return True, kind, so, to
             if so.id == "settings" and to.kind == "service" and to.id != "settings":
                 return False, "layer", so, to
             return True, kind, so, to
@@ -1092,6 +1101,17 @@ def check_preloads(failure: Failure) -> None:
     for path in all_sources():
         for number, message in preload_block_problems(path.read_text(encoding="utf-8")):
             failure.add("%s:%d %s" % (rel(path), number, message))
+
+
+def check_game_layer(failure: Failure) -> None:
+    """An accessor file lives only in a game-layer service directory."""
+    for path in shipped_sources():
+        if path.name != "game.gd":
+            continue
+        service = path.parent.name
+        if service not in GAME_LAYER:
+            failure.add("%s: game.gd belongs to a game-layer service (%s)"
+                        % (rel(path), ", ".join(sorted(GAME_LAYER))))
 
 
 def function_body(text: str, name: str) -> str:
@@ -1968,6 +1988,7 @@ def check() -> int:
     check_owners(failure)
     check_tests(failure)
     check_preloads(failure)
+    check_game_layer(failure)
     failures = len(failure.messages)
     for message in failure.messages:
         print("FAIL", message)

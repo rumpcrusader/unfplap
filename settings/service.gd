@@ -16,7 +16,7 @@ const LOG := preload("res://mods/unfplap/shared/log.gd")
 const ROWS := preload("res://mods/unfplap/settings/rows.gd")
 const PROFILE := preload("res://mods/unfplap/settings/profile.gd")
 const DEPRECATION := preload("res://mods/unfplap/settings/deprecation.gd")
-const GAME := preload("res://mods/unfplap/world/game.gd")
+const GAME := preload("res://mods/unfplap/settings/game.gd")
 ## Character names, order and preference templates live in `shared/character_preferences.gd`; the settings view
 ## and the runtime merge read them through these aliases.
 const CHARACTERS := preload("res://mods/unfplap/shared/character_preferences.gd")
@@ -1133,12 +1133,21 @@ static var gaze_offset_mm_hoers := num("gaze_offset_mm_hoers",
 static var _game_settings: Node = null
 
 static func pony_size_name() -> String:
+	var settings := _game_settings_node()
+	if settings == null:
+		return "canon"
+	return GAME.setting_string(settings, "ponies/size")
+
+## The game's speech-text mode: the explicit bottom caption, overhead or automatic.
+static func caption_mode() -> String:
+	return GAME.setting_string(_game_settings_node(), "access/speech_text")
+
+## The cached autoload, resolved through the settings accessor; null outside a tree.
+static func _game_settings_node() -> Node:
 	if not is_instance_valid(_game_settings):
 		var loop := Engine.get_main_loop() as SceneTree
-		_game_settings = loop.root.get_node_or_null("Settings") if loop != null else null
-	if _game_settings == null:
-		return "canon"
-	return GAME.setting_string(_game_settings, "ponies/size")
+		_game_settings = GAME.settings_node(loop.root) if loop != null and loop.root != null else null
+	return _game_settings
 
 static func vulva_shift_mm_for(size: String) -> float:
 	match size:
@@ -2152,9 +2161,10 @@ static func deprecated(path: String) -> DEPRECATION.Rule:
 static func _path() -> String:
 	var loop := Engine.get_main_loop() as SceneTree
 	if loop != null and loop.root != null:
-		var mods: Node = loop.root.get_node_or_null("Mods")
-		if mods != null and mods.has_method("data_folder"):
-			return GAME.mods_data_folder(mods, ID).path_join(FILE)
+		var mods := GAME.mods_node(loop.root)
+		var folder := GAME.mods_data_folder(mods, ID)
+		if not folder.is_empty():
+			return folder.path_join(FILE)
 	return "user://mods/data/%s/%s" % [ID, FILE]
 
 

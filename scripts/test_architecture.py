@@ -31,12 +31,18 @@ ALLOWED = (
     ("eligibility/scene.gd", "world/api.gd"),
     ("act_gate/service.gd", "eligibility/service.gd"),
     ("settings/service.gd", "registry/service.gd"),
+    ("settings/service.gd", "settings/game.gd"),
+    ("settings/ui.gd", "settings/game.gd"),
+    ("settings/game.gd", "res://world/ui/menu_style.gd"),
 )
 FORBIDDEN = (
     ("anatomy/controller.gd", "ponies/service.gd"),
     ("anatomy/controller.gd", "eligibility/service.gd"),
     ("anatomy/controller.gd", "res://world/life/player_form.gd"),
     ("anatomy/rig.gd", "ponies/service.gd"),
+    ("anatomy/x.gd", "settings/game.gd"),
+    ("shared/x.gd", "world/game.gd"),
+    ("debug/x.gd", "world/game.gd"),
     ("ponies/service.gd", "anatomy/controller.gd"),
     ("ponies/service.gd", "anatomy/rig.gd"),
     ("eligibility/service.gd", "estrus/service.gd"),
@@ -46,6 +52,7 @@ FORBIDDEN = (
     ("act_gate/service.gd", "anatomy/api.gd"),
     ("act_gate/service.gd", "estrus/service.gd"),
     ("settings/service.gd", "summary/service.gd"),
+    ("settings/service.gd", "world/game.gd"),
     ("act/start.gd", "res://world/life/player_form.gd"),
 )
 GAME_ALLOWED = (

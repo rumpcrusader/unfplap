@@ -490,16 +490,6 @@ static func interaction_hints() -> Node:
 	return GAME.interaction_hints(_game)
 
 
-## The game's own setting by its dotted key; empty when no settings node is reachable.
-static func game_setting(key: String) -> String:
-	if not is_instance_valid(_game):
-		return ""
-	var tree := _tree()
-	if tree == null:
-		return ""
-	return GAME.setting_string(tree.root.get_node_or_null("Settings"), key)
-
-
 ## The game's per-pony love level from the world context, with the cache's own -1 kept distinct
 ## from a row the cache does not hold.
 static func bond_level(id: String) -> GAME.BondLevel:

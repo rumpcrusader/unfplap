@@ -47,11 +47,12 @@ detached copy, so an act gate pays a lookup instead of a template build.
 ## Ownership
 
 `settings/service.gd` owns the declaration catalog, the shipped-data loaders, both player files,
-the merge, the typed accessors and the per-mare profiles. `settings/settings.json`,
-`settings/characters.json` and `settings/prompts.json` are shipped data, not code: they are tracked,
-packed, read-only in a build and parsed once per process. The catalog is the settings service's
-internal public API: a service contributes a setting with a literal declaration there, one value in
-the shipped settings document, and then reads the typed handle.
+the merge, the typed accessors and the per-mare profiles; `settings/game.gd` owns its base-game
+access. `settings/settings.json`, `settings/characters.json` and `settings/prompts.json` are shipped
+data, not code: they are tracked, packed, read-only in a build and parsed once per process. The
+catalog is the settings service's internal public API: a service contributes a setting with a
+literal declaration there, one value in the shipped settings document, and then reads the typed
+handle.
 
 `settings/ui.gd` is the only file that draws the declaration rows; it also owns the settings-page
 injection and the Debug block visibility. `settings/characters_ui.gd` is the interim home of the
@@ -60,6 +61,14 @@ page and the log sink read, and the one guard that refuses to install the mod wh
 document is invalid. An edit reaches the services through the change notification below, never
 through the entry. The act session takes the settings service's typed `ActSnapshot` in
 `act/session.gd:snapshot_settings()`; the settings file never reads a live act.
+
+## Base-game access
+
+`settings/game.gd` is the settings service's one base-game accessor: typed reads and writes of the
+game's settings autoload, settings page, menu style, in-page picker and mods data folder. The
+settings facade resolves the two autoloads through it and reads the size preset and caption mode
+there; the settings pages take the menu style and picker from it, so no settings file preloads a
+base-game module. A handle is passed by the facade, never resolved by a consumer.
 
 ## Contributing a setting
 

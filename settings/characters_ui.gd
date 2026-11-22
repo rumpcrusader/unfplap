@@ -8,8 +8,8 @@ const ROWS := preload("res://mods/unfplap/settings/rows.gd")
 const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
 const PARTICIPATION := preload("res://mods/unfplap/shared/participation.gd")
 const CONSENT := preload("res://mods/unfplap/shared/consent.gd")
-const STYLE := preload("res://world/ui/menu_style.gd")
-const GAME := preload("res://mods/unfplap/world/game.gd")
+const GAME := preload("res://mods/unfplap/settings/game.gd")
+const STYLE := GAME.MenuStyle
 ## Height cap of the unfolded pony list; the page scrolls the rest.
 const PICKER_LIST_HEIGHT := 260.0
 ## The picker groups its entries on a "group/name" text, so off-roster mares share one header.

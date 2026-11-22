@@ -185,8 +185,9 @@ are in `ARCHITECTURE.md` (`## The service contract`).
   (`scripts/architecture.py --check` fails on any other shipped file, `tests/` excepted). A new
   long-running service joins the lifecycle with `on_world(host)`, `on_world_closed()`,
   `on_player(body)` and `shutdown()`, and one line in the entry's service list.
-- **One game boundary.** Only `world/game.gd` preloads a base-game module; every other file reads
-  the game through `GAME`. `scripts/architecture.py --check` fails a new base-game import outside it.
+- **One game boundary.** Only a game-layer service's `game.gd` preloads a base-game module; every
+  other file reads the game through a facade. `scripts/architecture.py --check` fails a new
+  base-game import outside one.
 - **No preload re-exports.** A file uses only the preload consts it declares. Reaching another
   module's `const … := preload(...)` fails the gate; enums, nested classes and plain constants stay
   reachable, and `GAME.X` is the one allowed re-export.

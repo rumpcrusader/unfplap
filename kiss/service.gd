@@ -3,7 +3,6 @@ extends RefCounted
 ## AffectionPose bridge, the custom mouth aim, the foreleg pin and the kiss lean.
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
-const AFFECTION_POSE := preload("res://world/relationships/affection_pose.gd")
 const KISS_LEGS := preload("res://mods/unfplap/kiss/legs.gd")
 const POSES := preload("res://mods/unfplap/poses/service.gd")
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
@@ -108,7 +107,7 @@ func _apply_kiss_forelegs() -> void:
 		return
 	if _kiss_forelegs_planted:
 		return
-	var settings := AFFECTION_POSE.kiss_settings()
+	var settings := WORLD.affection().kiss_settings()
 	_kiss_saved_rear = float(settings.get("rear", 1.0))
 	_kiss_saved_hooves = float(settings.get("hooves", 1.0))
 	settings["rear"] = 0.0
@@ -120,7 +119,7 @@ func _apply_kiss_forelegs() -> void:
 func _restore_kiss_forelegs() -> void:
 	if not _kiss_forelegs_planted:
 		return
-	var settings := AFFECTION_POSE.kiss_settings()
+	var settings := WORLD.affection().kiss_settings()
 	settings["rear"] = _kiss_saved_rear
 	settings["hooves"] = _kiss_saved_hooves
 	_kiss_forelegs_planted = false

@@ -272,6 +272,11 @@ static func house_at(at: Vector3) -> Node3D:
 	return GAME.house_at(_tree(), at)
 
 
+## The place directory's region for a world point, as the witness rows record it.
+static func place_at(at: Vector3) -> GAME.Place:
+	return GAME.place_at(at)
+
+
 ## The house interior a node belongs to; null for any other node.
 static func house_of(n: Node) -> Node3D:
 	return GAME.house_of(n)

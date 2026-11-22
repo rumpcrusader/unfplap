@@ -51,8 +51,8 @@ reach.
 - The shared act-level excitement Beat hold keeps the Beat paused so the stock unicorn horn
   sparkle does not fire. The kiss service holds the `kiss` token; the mod-integration service holds
   its own token, and the runtime restores the original state after the last release.
-- The game's `AffectionPose.kiss_settings()` `rear` and `hooves` values are saved and both set to
-  zero before the base kiss; `kiss/legs.gd` captures both foreleg tips before the kiss and runs last
+- The affection view's kiss settings (`rear` and `hooves`) are saved and both set to zero before the
+  base kiss; `kiss/legs.gd` captures both foreleg tips before the kiss and runs last
   to CCD them back to those positions, because the base kiss's chest flex would otherwise drag the
   legs after `body_sway`'s upper-arm pin.
 - The side is latched at the start from the input lean (`lean_side`, falling back to

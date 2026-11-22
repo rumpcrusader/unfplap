@@ -17,6 +17,11 @@ const OUTLINE_EXCLUSION := preload("res://world/post_outline_exclusion.gd")
 const DOCK_TAIL_MOUNT := preload("res://world/characters/hybrid_mare/dock_tail_mount.gd")
 const HYBRID_DOCK := preload("res://world/characters/hybrid_mare/hybrid_dock.gd")
 const INTERACTION_SOUNDS := preload("res://world/audio/interaction_sounds.gd")
+const LLM_CLIENT := preload("res://world/ai/llm_client.gd")
+const AWARENESS := preload("res://world/ai/pony_awareness.gd")
+const AFFECTION_POSE := preload("res://world/relationships/affection_pose.gd")
+const PONY_FLANK_TOUCH := preload("res://world/characters/hybrid_mare/pony_flank_touch.gd")
+const FACE_POSES := preload("res://world/characters/hybrid_mare/face_poses.gd")
 const BOND_RECORD := preload("res://mods/unfplap/shared/bond_record.gd")
 const TOUCH_BRIDGE := preload("res://mods/unfplap/shared/touch_bridge.gd")
 const DOCK_FIT := preload("res://mods/unfplap/shared/dock_fit.gd")
@@ -1426,6 +1431,16 @@ static func director_lines(director: Node) -> DirectorLines:
 	return out
 
 
+## A fresh model client for the caller to name, configure and parent.
+static func new_llm() -> Node:
+	return LLM_CLIENT.new()
+
+
+## Whether the game's own configuration allows a background model request.
+static func background_allowed(config: Object) -> bool:
+	return AI_CONFIG.background_allowed(config)
+
+
 ## One director's live model configuration, typed for the classifier's own setup.
 static func llm_config(director: Node) -> LlmConfig:
 	var out := LlmConfig.new()
@@ -1533,6 +1548,13 @@ static func mouth_point(node: Node) -> Vector3:
 	return Vector3.INF
 
 
+## The stock kiss settings document, as the game keeps it: the caller mutates the same rows.
+static func kiss_settings() -> KissSettings:
+	var out := KissSettings.new()
+	out.rows = AFFECTION_POSE.kiss_settings()
+	return out
+
+
 ## Whether the stock kiss pose exposes the side latch the act pins.
 static func kiss_side_known(pose: SkeletonModifier3D) -> bool:
 	return is_instance_valid(pose) and pose.get("_side") != null
@@ -1563,6 +1585,13 @@ static func settle_excitement(excitement: Node) -> void:
 static func set_expression(mouth: Node, name: String, amount: float) -> void:
 	if is_instance_valid(mouth) and mouth.has_method("set_expression"):
 		mouth.call("set_expression", name, amount)
+
+
+## The base game's dialogue face table: the names a spoken line may set.
+static func line_faces() -> LineFaces:
+	var out := LineFaces.new()
+	out.rows = FACE_POSES.LINE_FACES
+	return out
 
 
 ## Let her Affection buck at Anon; false without the op or when it refuses.
@@ -2106,6 +2135,12 @@ static func set_flank_jiggle_amount(flank: Node, amount: float) -> void:
 		flank.set("_jiggle_amount", amount)
 
 
+## The stock rump blush texture the flank patch draws; null until the game builds it.
+static func rump_blush_texture() -> Texture2D:
+	var texture: Variant = PONY_FLANK_TOUCH.texture
+	return texture if texture is Texture2D else null
+
+
 ## Hand the desktop rig one palm target; a rig without the holder is left alone.
 static func set_hold_target(driver: Node, side: String, frame: Transform3D,
 		kind := "hold") -> void:
@@ -2280,6 +2315,21 @@ class ModState:
 	var rows: Dictionary = {}
 
 
+## One world point's place row: the region id the world context records for it.
+class Place:
+	var id := ""
+
+
+## The stock kiss settings document: the game's own Dictionary, read and written in place.
+class KissSettings:
+	var rows: Dictionary = {}
+
+
+## The base game's dialogue face table: one row per face name a line may set.
+class LineFaces:
+	var rows: Dictionary = {}
+
+
 ## The director's authored-line host: the greeting, the generated-intent queue and the cancel.
 class DirectorLines:
 	var director: Node = null
@@ -2442,6 +2492,29 @@ static func desktop_pose_driver(avatar: Node) -> Node:
 static func set_desktop_pose_driver(avatar: Node, driver: Node) -> void:
 	if is_instance_valid(avatar):
 		avatar.set("desktop_pose_driver", driver)
+
+
+## Whether the observer hears the partner within the stock hearing range.
+static func can_hear(observer: Node3D, partner: Node3D) -> bool:
+	if not is_instance_valid(observer) or not is_instance_valid(partner):
+		return false
+	var awareness := AWARENESS.new()
+	return awareness.can_hear(observer, partner, AWARENESS.HEARING_RANGE)
+
+
+## Whether the observer sees the target under the stock sight, facing and clear-path rules.
+static func can_see(observer: Node3D, target: Node3D) -> bool:
+	if not is_instance_valid(observer) or not is_instance_valid(target):
+		return false
+	var awareness := AWARENESS.new()
+	return awareness.visible(observer, target)
+
+
+## The place directory's own region lookup; an empty id outside every region.
+static func place_at(point: Vector3) -> Place:
+	var out := Place.new()
+	out.id = str(AWARENESS.place_at(point).get("id", ""))
+	return out
 
 
 ## Her awareness facing from the body's own op; a zero vector when the body cannot answer.

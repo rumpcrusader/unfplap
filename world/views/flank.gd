@@ -60,3 +60,8 @@ func jiggle_amount() -> float:
 
 func set_jiggle_amount(amount: float) -> void:
 	GAME.set_flank_jiggle_amount(_node, amount)
+
+
+## The stock rump blush texture; null until the game has built it.
+func rump_blush_texture() -> Texture2D:
+	return GAME.rump_blush_texture()

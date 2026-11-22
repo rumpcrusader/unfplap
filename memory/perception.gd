@@ -1,8 +1,6 @@
 extends RefCounted
-## Scene adapter for the witness perception: ponies, awareness, sleep, the house and the age rule.
+## Scene adapter for the witness perception: the mares' senses, sleep, place and the age rule.
 
-const HOUSE := preload("res://world/buildings/house_interior.gd")
-const AWARENESS := preload("res://world/ai/pony_awareness.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
@@ -23,7 +21,6 @@ static func observers(game: Node, service: ELIGIBILITY, partner: Node3D) -> Arra
 	var list: Variant = game.get("mares")
 	if not list is Array:
 		return out
-	var awareness := AWARENESS.new()
 	for node: Variant in list:
 		if not is_instance_valid(node):
 			continue
@@ -37,15 +34,15 @@ static func observers(game: Node, service: ELIGIBILITY, partner: Node3D) -> Arra
 		var observer_id := _pony_id(observer)
 		if observer_id.is_empty():
 			continue
-		var seen := awareness.visible(observer, partner)
-		var heard := false if seen else awareness.can_hear(observer, partner, AWARENESS.HEARING_RANGE)
+		var seen := WORLD.pony(observer).can_see(partner)
+		var heard := false if seen else WORLD.pony(observer).can_hear(partner)
 		if not seen and not heard:
 			continue
 		var row := FACTS.Observer.new()
 		row.id = observer_id
 		row.node = observer
 		row.sense = FACTS.Sense.SIGHT if seen else FACTS.Sense.SOUND
-		row.indoors = HOUSE.at(observer.get_tree(), observer.global_position) != null
+		row.indoors = WORLD.house_at(observer.global_position) != null
 		out.append(row)
 	return out
 
@@ -64,7 +61,6 @@ static func witnesses(game: Node, service: ELIGIBILITY, partner_id: String,
 	var list: Variant = game.get("mares")
 	if not list is Array:
 		return out
-	var awareness := AWARENESS.new()
 	for node: Variant in list:
 		if not is_instance_valid(node):
 			continue
@@ -83,14 +79,14 @@ static func witnesses(game: Node, service: ELIGIBILITY, partner_id: String,
 		if kind == ELIGIBILITY.Age.NONE:
 			continue
 		var young := kind == ELIGIBILITY.Age.YOUNG
-		var seen := awareness.visible(observer, partner)
+		var seen := WORLD.pony(observer).can_see(partner)
 		var heard := false
 		if not seen:
-			heard = awareness.can_hear(observer, partner, AWARENESS.HEARING_RANGE)
+			heard = WORLD.pony(observer).can_hear(partner)
 		if not seen and not heard:
 			continue
-		var indoors: bool = HOUSE.at(observer.get_tree(), observer.global_position) != null
-		var place := str(AWARENESS.place_at(observer.global_position).get("id", ""))
+		var indoors := WORLD.house_at(observer.global_position) != null
+		var place := WORLD.place_at(observer.global_position).id
 		var sense := FACTS.Sense.SIGHT if seen else FACTS.Sense.SOUND
 		var text := TEXT.witness_text(partner_name, young, indoors, serial, sense)
 		var event_id := "witness_%s_%s_%d" % [observer_id, partner_id, serial]

@@ -4,6 +4,7 @@ extends "res://mods/unfplap/shared/service.gd"
 ## Scope: world. It never preloads the entry or `runtime.gd` and never edits the pack.
 
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
 const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
@@ -714,12 +715,7 @@ func _anatomy() -> ANATOMY:
 
 
 func _mod_active() -> bool:
-	if not is_inside_tree():
-		return false
-	var mods := get_node_or_null("/root/Mods")
-	if mods == null or not mods.has_method("is_active"):
-		return false
-	return bool(mods.call("is_active", MOD_ID))
+	return WORLD.mods().active(MOD_ID)
 
 
 func _mod_active_now() -> bool:

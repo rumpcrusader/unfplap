@@ -3,7 +3,6 @@ extends Node
 ## calls never race each other or the director's dialogue request. The caller owns the schema and
 ## parses the reply; this only bounds the request and the deadline.
 
-const LLM := preload("res://world/ai/llm_client.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 
 const DEADLINE_SECONDS := 8.0
@@ -36,7 +35,7 @@ func _ready() -> void:
 
 func setup(section: Dictionary, status_path: String = "") -> bool:
 	if not is_instance_valid(client):
-		client = LLM.new()
+		client = WORLD.director().new_llm()
 		client.name = "UnfplapClassifierLlm"
 		add_child(client)
 	client.configure(section)

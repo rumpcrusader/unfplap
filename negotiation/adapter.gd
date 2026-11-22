@@ -6,7 +6,6 @@ extends Node
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const PROMPTS := preload("res://mods/unfplap/negotiation/prompts.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
-const AI_CONFIG := preload("res://world/ai/ai_config.gd")
 
 ## The classifier node the service owns, or null. The file is not this service's to import.
 var classifier_source := Callable()
@@ -136,7 +135,7 @@ func quiet_reason(chat_gap_s: float) -> String:
 	if speech != null and is_instance_valid(speech) and str(speech.get("state")) == "hearing":
 		return "hearing"
 	var config: Variant = node.get("config")
-	if config != null and not AI_CONFIG.background_allowed(config):
+	if config != null and not WORLD.director().background_allowed(config):
 		return "ai_usage"
 	var now := WORLD.director().clock()
 	var characters: Variant = node.get("characters")

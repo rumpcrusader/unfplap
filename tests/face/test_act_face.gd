@@ -5,6 +5,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 
 const ACT_FACE := preload("res://mods/unfplap/shared/act_face.gd")
 const MOOD_FACE := preload("res://mods/unfplap/face/mood_face.gd")
+const FACE_POSES := preload("res://world/characters/hybrid_mare/face_poses.gd")
 
 
 class FakeExpressions extends Node:
@@ -49,13 +50,16 @@ func _quality(overrides := {}) -> Dictionary:
 
 
 func run() -> void:
-	for face: String in ACT_FACE.FACES:
-		check(ACT_FACE.valid_face(face), "valid face %s" % face)
-	check(not ACT_FACE.valid_face("not_a_face"), "unknown face is rejected")
+	var line_faces: Dictionary = FACE_POSES.LINE_FACES
+	for face: String in line_faces.keys():
+		check(ACT_FACE.valid_face(face, line_faces), "valid face %s" % face)
+	check(not ACT_FACE.valid_face("not_a_face", line_faces), "unknown face is rejected")
+	check(not ACT_FACE.valid_face("shy", {}), "a caller without the table has no valid face")
 
 	for mood: String in ACT_FACE.MOOD_FACES:
 		var face := str(ACT_FACE.MOOD_FACES[mood])
-		check(face.is_empty() or ACT_FACE.valid_face(face), "mood %s maps to a face" % mood)
+		check(face.is_empty() or ACT_FACE.valid_face(face, line_faces),
+			"mood %s maps to a face" % mood)
 
 	check(near(ACT_FACE.blush_for("posing_in", 0.0), 0.60, 0.001), "posing-in blush")
 	check(near(ACT_FACE.blush_for("active", 0.0), 0.55, 0.001), "active blush at zero")
@@ -90,21 +94,25 @@ func run() -> void:
 	var forced_auto := ACT_FACE.climax_style_for_mode("auto", _quality())
 	check(not bool(forced_auto.get("forced", true)), "auto is not forced")
 
-	var start_first := ACT_FACE.plan_for("start", {"first_time": true})
+	var start_first := ACT_FACE.plan_for("start", {"first_time": true}, line_faces)
 	check(str(start_first.get("face", "")) == "shy", "first time starts shy")
-	var start_repeat := ACT_FACE.plan_for("start", {"first_time": false})
+	var start_repeat := ACT_FACE.plan_for("start", {"first_time": false}, line_faces)
 	check(str(start_repeat.get("face", "")) == "relaxed", "repeat starts relaxed")
-	var close := ACT_FACE.plan_for("close")
+	var close := ACT_FACE.plan_for("close", {}, line_faces)
 	check(str(close.get("face", "")) == "anticipation", "close face is anticipation")
+	var no_table := ACT_FACE.plan_for("close")
+	check(str(no_table.get("face", "x")) == "", "an empty table plans no face")
 
-	var climax_warm := ACT_FACE.plan_for("climax", {"mode": "auto", "quality": _quality({"liked_touch": 1})})
+	var climax_warm := ACT_FACE.plan_for("climax",
+		{"mode": "auto", "quality": _quality({"liked_touch": 1})}, line_faces)
 	check(str(climax_warm.get("face", "")) == "shy", "warm climax uses shy")
 	check(near(float(climax_warm.get("fluster_s", 0.0)), 5.0, 0.001), "warm climax flusters")
 	check(bool(climax_warm.get("release_stare", false)), "warm climax releases the stare")
-	var climax_ooo := ACT_FACE.plan_for("climax", {"mode": "auto", "quality": _quality()})
+	var climax_ooo := ACT_FACE.plan_for("climax", {"mode": "auto", "quality": _quality()},
+		line_faces)
 	check(str(climax_ooo.get("face", "")) == "ooo", "physical climax uses ooo")
 	check(not bool(climax_ooo.get("release_stare", true)), "round mouth keeps the stare")
-	var climax_wide := ACT_FACE.plan_for("climax", {"mode": "auto", "quality": poor})
+	var climax_wide := ACT_FACE.plan_for("climax", {"mode": "auto", "quality": poor}, line_faces)
 	check(str(climax_wide.get("face", "")) == "", "poor climax has no extra face")
 
 	var positive := {"grade": "great", "positive": true, "reward": true, "severe": false, "early": false}
@@ -133,7 +141,7 @@ func run() -> void:
 		var names := ACT_FACE.moment_faces(moment)
 		check(not names.is_empty(), "%s has face hints" % moment)
 		for face: String in names:
-			check(ACT_FACE.valid_face(face), "%s suggests a valid face" % moment)
+			check(ACT_FACE.valid_face(face, line_faces), "%s suggests a valid face" % moment)
 	var cue_note := ACT_FACE.prompt_note("cue", "overwhelmed")
 	check(cue_note.contains("[face:"), "cue note names a face tag")
 	check(cue_note.contains("feeling tag after your spoken words"),

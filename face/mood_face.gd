@@ -27,7 +27,7 @@ var _applied_face := false
 func _ready() -> void:
 	process_physics_priority = 85
 	if not is_instance_valid(pony) or not pony.is_inside_tree() or face.is_empty() \
-			or not ACT_FACE.valid_face(face):
+			or not ACT_FACE.valid_face(face, WORLD.face(pony).line_faces()):
 		queue_free()
 		return
 	pony.set_meta("unfplap_mood_face", true)

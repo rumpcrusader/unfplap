@@ -210,6 +210,16 @@ func awareness() -> Vector3:
 	return GAME.awareness_forward(_pony)
 
 
+## Whether she hears `other` within the stock hearing range; a non-body is out of earshot.
+func can_hear(other: Node) -> bool:
+	return GAME.can_hear(_pony as Node3D, other as Node3D)
+
+
+## Whether she sees `other` under the stock sight, facing and clear-path rules.
+func can_see(other: Node) -> bool:
+	return GAME.can_see(_pony as Node3D, other as Node3D)
+
+
 func posture_requested() -> String:
 	return GAME.posture_requested(_pony)
 

@@ -16,7 +16,9 @@ ledgers call `set_face()`/`clear_face()`/`end_face()` at the transitions. The af
 
 `face/service.gd` is the facade and the only module another system calls. `shared/face_beat.gd` holds the
 typed beat context and its plan, summary and climax-quality records; `shared/act_face.gd` stays
-pure and `face/mood_face.gd` stays the held-face node.
+pure and `face/mood_face.gd` stays the held-face node. The expression table is the caller's:
+`act_face` validates every name against the `line_faces` it is handed, and the Face view supplies
+it.
 
 ## Architecture
 
@@ -54,9 +56,9 @@ a runtime without entering the tree calls `ensure_bound()` on its first facade c
 | afterglow, bad | `sad`/`annoyed` | 3 s |
 | warning / overwhelmed | `sad` for forgiving, else `annoyed` | 3 s / 2.5 s |
 
-The plan is `act_face.plan_for(moment, context)`; an empty plan does nothing. A face with a hold
-calls `finish_dialogue(hold_s)`. A climax with `release_stare` sets `stare_release_until` to
-`clock() + hold + 0.9`.
+The plan is `act_face.plan_for(moment, context, line_faces)`; an empty plan does nothing. A face
+with a hold calls `finish_dialogue(hold_s)`. A climax with `release_stare` sets
+`stare_release_until` to `clock() + hold + 0.9`.
 
 ## Line-face ownership
 

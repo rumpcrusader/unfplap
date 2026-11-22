@@ -36,6 +36,7 @@ ALLOWED = (
     ("settings/game.gd", "res://world/ui/menu_style.gd"),
     ("debug/ui.gd", "debug/game.gd"),
     ("hud/service.gd", "hud/game.gd"),
+    ("world/views/pony.gd", "world/game.gd"),
 )
 FORBIDDEN = (
     ("anatomy/controller.gd", "ponies/service.gd"),
@@ -46,6 +47,7 @@ FORBIDDEN = (
     ("anatomy/rig.gd", "ponies/service.gd"),
     ("anatomy/x.gd", "settings/game.gd"),
     ("shared/x.gd", "world/game.gd"),
+    ("shared/act_face.gd", "res://world/characters/hybrid_mare/face_poses.gd"),
     ("debug/x.gd", "world/game.gd"),
     ("ponies/service.gd", "anatomy/controller.gd"),
     ("ponies/service.gd", "anatomy/rig.gd"),

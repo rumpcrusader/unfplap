@@ -27,7 +27,7 @@ audio facade (`docs/audio.md`).
 | `runtime.gd` | binds the scene, snapshots the settings, calls the facade from the stroke/climax paths |
 
 The facade is a `RefCounted` scene adapter. It reads the base-game flank and boop members through
-the `GAME` accessors and the `body_coat_deform` setting; the jiggle tuning is pushed in by
+the world views and the `body_coat_deform` setting; the jiggle tuning is pushed in by
 `configure()` from the runtime's act snapshot. The block is complete, so the reaction context reads
 its five keys and the facade holds no fallback value. The anatomy API and the standing tail modifier are the facade's
 collaborators (`anatomy/api.gd` and `SkeletonModifier3D`); the pose builder binds the tail because
@@ -64,7 +64,8 @@ contains her body, its palette and outline materials.
 
 - The `standing` family only. A thrust at `RUMP_BLUSH_MIN_STRENGTH` or above adds `RUMP_BLUSH_STEP`, capped at
   `RUMP_BLUSH_MAX`. It decays at `RUMP_BLUSH_DECAY` per second.
-- The decal is created lazily from `FlankTouch.texture` on the first step and freed at act end.
+- The decal is created lazily from the flank view's rump blush texture on the first step and freed
+  at act end.
 - The decal rides the live hind-femur midpoint, so it follows the body sway.
 - It is separate from the face blush in `docs/face.md` and from the stock `FlankTouch` marks,
   which the act hides and ages at start.

@@ -276,7 +276,7 @@ per-node value has to be packed into an existing one or replace it.
 
 ## Queen Chrysalis
 
-`integrations/changelings.gd` is active only while `Mods.is_active("changelings")` is true. It
+`integrations/changelings.gd` is active only while the mods view reports `changelings` active. It
 registers one provider layer through `api.register_mare` with the adapter as the owner, so the
 layer leaves with unfplap and is never written to `settings.json`:
 
@@ -435,7 +435,7 @@ overlay reads them.
 | `PONIES.live_character_ids()` | merges the body-change service's `installed_character_ids()` |
 | `runtime.act.request_form_change()` | the act-side start of a body change; the watcher owns the suspension and the player flag marks the player's change, with only a true form exceptional |
 | `runtime.adopt_body()` / `attach_to_body()` | moves the suspended act under the claimed body |
-| `Mods.is_active("changelings")` | the adapter's installation gate |
+| `WORLD.mods().active("changelings")` | the adapter's installation gate |
 
 ## Verification / lab
 

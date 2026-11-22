@@ -54,7 +54,8 @@ The purity boundary is deliberate:
 - The director bridge is the `negotiation/adapter.gd` the Negotiation service owns and hands over
   through its facade; this service never reads the director. The bounded classifier is this
   service's own (`classifier.gd`), created in `setup()`: the Negotiation's adapter and both
-  reasoning stages make every model call on it, and no other service imports it.
+  reasoning stages make every model call on it, and no other service imports it. Its model client
+  comes from the director view, so the classifier imports no base-game module.
 - The facade is the only file that preloads `eligibility/service.gd`, `act_gate/service.gd`,
   `privacy/api.gd`,
   `negotiation/service.gd`, `shared/clearance.gd`, `shared/context.gd`, `shared/pose_options.gd`,
@@ -139,7 +140,7 @@ mare starts a reasoning call, a walk or a handoff.
 
 - not paused, no menu panel with a free cursor, Anon not locked, flying or knocked down;
 - the director idle, not in a group exchange or an approach, not hearing, and background AI
-  allowed (`AI_CONFIG.background_allowed`, i.e. AI usage Full);
+  allowed (the director's own `background_allowed`, i.e. AI usage Full);
 - no character chat in the last `45 s`.
 
 A blocked quiet gate logs one `request scan quiet reason=<reason>` line when its reason changes.

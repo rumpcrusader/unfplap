@@ -74,3 +74,8 @@ func celebrate() -> bool:
 ## One mouth expression write; the mouth is hers, so the caller names only the shape.
 func set_expression(name: String, amount: float) -> void:
 	GAME.set_expression(GAME.mouth_of(GAME.head_of(_pony)), name, amount)
+
+
+## The base game's line-face table the act validates a face name against.
+func line_faces() -> Dictionary:
+	return GAME.line_faces().rows

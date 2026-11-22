@@ -993,9 +993,6 @@ func _api() -> Node:
 
 
 func _mod_active() -> bool:
-	var mods := get_node_or_null("/root/Mods")
-	if mods == null or not mods.has_method("is_active"):
-		return false
-	return bool(mods.call("is_active", MOD_ID))
+	return WORLD.mods().active(MOD_ID)
 
 

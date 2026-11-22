@@ -117,3 +117,8 @@ func end_interaction(pony: Node) -> void:
 ## Fire the touch host's caress event; a bridge without a callable stays silent.
 func caress(touch: TOUCH_BRIDGE) -> void:
 	GAME.caress(touch)
+
+
+## The stock kiss settings document; a caller's write reaches the game's own rows.
+func kiss_settings() -> Dictionary:
+	return GAME.kiss_settings().rows

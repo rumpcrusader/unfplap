@@ -1869,6 +1869,13 @@ func _check_views() -> void:
 	check(view.eye_motion() == eye, "the view reads her gaze controller")
 	check(is_equal_approx(view.body_scale(), 1.25), "the view reads her body scale")
 	check(not view.hair_link_ready(), "a body without a hair link is not ready")
+	check(not view.can_hear(null) and not view.can_see(null),
+		"a partner that is not a node is out of earshot and sight")
+	var plain_partner := Node.new()
+	root.add_child(plain_partner)
+	check(not view.can_hear(plain_partner) and not view.can_see(plain_partner),
+		"a partner that is not a body is out of earshot and sight")
+	plain_partner.free()
 	check(not view.is_held() and not view.grounded(), "a still body is neither held nor grounded")
 	check(view.posture_requested() == "" and view.interruption_reason() == "",
 		"a body without a posture answers empty")
@@ -1919,6 +1926,7 @@ func _check_views() -> void:
 	var face_view := WORLD.face(pony)
 	check(face_view == WORLD.face(pony), "a face view is cached per bound node")
 	check(face_view.controller() == expressions, "the view reads her expression controller")
+	check(face_view.line_faces().has("shy"), "the view hands back the game's line-face table")
 	face_view.touch("unfplap", 0.4, 0.1)
 	check(expressions.touches == [["unfplap", 0.4, 0.1]], "the touch reaches her controller")
 	face_view.release_touch("unfplap")

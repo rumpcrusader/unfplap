@@ -57,6 +57,16 @@ func lines() -> GAME.DirectorLines:
 	return GAME.director_lines(_director)
 
 
+## A fresh model client for the classifier to name, configure and parent.
+func new_llm() -> Node:
+	return GAME.new_llm()
+
+
+## Whether the game's own configuration allows a background model request.
+func background_allowed(config: Variant) -> bool:
+	return GAME.background_allowed(config)
+
+
 ## The director's live model configuration, typed for the classifier's own setup.
 func llm_config() -> GAME.LlmConfig:
 	return GAME.llm_config(_director)

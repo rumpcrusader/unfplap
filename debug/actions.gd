@@ -11,7 +11,6 @@ const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const CYCLE := preload("res://mods/unfplap/shared/cycle.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
-const ACT_FACE := preload("res://mods/unfplap/shared/act_face.gd")
 const FACE := preload("res://mods/unfplap/face/service.gd")
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
 const BODY_CHANGE_SERVICE := preload("res://mods/unfplap/body_change/service.gd")
@@ -566,8 +565,11 @@ func action_force_act_face() -> String:
 	var target: Node = _aim()
 	if not is_instance_valid(target):
 		return "No mare under the crosshair."
-	_debug_face_index = (_debug_face_index + 1) % ACT_FACE.FACES.size()
-	var face := str(ACT_FACE.FACES[_debug_face_index])
+	var faces: Array = WORLD.face(target).line_faces().keys()
+	if faces.is_empty():
+		return "No act face table."
+	_debug_face_index = (_debug_face_index + 1) % faces.size()
+	var face := str(faces[_debug_face_index])
 	var runtime: Node = _runtime_for(target)
 	var shown := false
 	var session: Variant = _session(runtime)

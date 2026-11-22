@@ -30,7 +30,7 @@ writes the facts those systems read.
 | `memory/text.gd` | pure wording and ids: the director key and its prefix, the keep-active rule, the impression/event suffixes, the event kinds, the stop names, the event texts, the witness texts |
 | `memory/world.gd` | scene adapter: the builder of the private cue facts and the shared-memory hit, and the only memory reader of the world context, the impressions and the story journal |
 | `memory/dialogue.gd` | scene adapter: the only reader of the conversation director's authored-line queue |
-| `memory/perception.gd` | scene adapter: the only reader of the ponies, awareness, sleeping, house lookup and the player's form |
+| `memory/perception.gd` | scene adapter: the witness pass — the mares, their senses, sleep, place and the player's form, read through the world facade |
 | `memory/store.gd` | scene adapter: the only reader and writer of `Mods.state("unfplap").peak_memories` and the only memory file that asks the mod to save |
 | `docs/memory.md` | this contract |
 | `tests/memory/` | pure wording, facts, store and dialogue suites, plus the facade API suite |
@@ -46,9 +46,9 @@ The purity boundary is deliberate:
 - `dialogue.gd` owns the director's `queue_generated_intent`, `state`, `active`, `cancel` and the
   authored-line list. A game change that removes the queue makes the mod's lines stop instead of
   erroring.
-- `perception.gd` owns `PonyAwareness`, `HouseInterior.at`, `PlaceAt`, the `mares` list and
-  `PlayerForm.is_young`. The age rule comes from the eligibility capability answer
-  (`eligibility.witness_age`), never from a local copy.
+- `perception.gd` owns the witness pass: the `mares` list, her sleep and identity, and the sight,
+  sound, house and place each row carries, all read through the world facade. The age rule comes
+  from the eligibility capability answer (`eligibility.witness_age`), never from a local copy.
 - `store.gd` owns the `Mods` lookup and the save. No other memory file writes the section.
 - The facade is the only file that preloads `memory/*`; no file outside `memory/service.gd` and
   `memory/` preloads `memory/*`.
@@ -184,8 +184,9 @@ memory is marked used only after the caller queues the line.
 - The dialogue adapter reads the director's authored-line queue and the world adapter reads the
   stock `world_context` and `impressions` fields, both through the world views. A game change can
   remove them; every read is guarded and the memory simply stops writing.
-- The witness pass reads the game's `PonyAwareness` and `HouseInterior`; a game change that moves
-  the perception or the house lookup is a change to this adapter, not a new rule.
+- The witness pass reads the game's `PonyAwareness` and `HouseInterior` through the world facade; a
+  game change that moves the perception or the house lookup is a change to `world/game.gd`, not to
+  this adapter.
 - The peak memory is a single row per mare and never expires; a higher score replaces it.
 - The event id is the only idempotency key. A caller that reuses an event id for a different act
   writes nothing the second time.

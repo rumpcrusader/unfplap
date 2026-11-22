@@ -1,12 +1,8 @@
 extends RefCounted
 ## Pure act expression mapping: face beats, the live climax style, blush levels and prompt hints.
-## No scene access. Every face name is checked against the base game's expression table.
+## No scene access. Every face name is checked against the expression table the caller passes.
 
-const FACE_POSES := preload("res://world/characters/hybrid_mare/face_poses.gd")
-const TAGS := preload("res://world/ai/pony_dialogue_tags.gd")
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
-
-const FACES := TAGS.NAMES
 
 const MOOD_FACES := {
 	"neutral": "",
@@ -34,8 +30,9 @@ const WARNING_HOLD_S := 3.0
 const OVERWHELMED_HOLD_S := 2.5
 
 
-static func valid_face(face: String) -> bool:
-	return FACE_POSES.LINE_FACES.has(face)
+## True when the game's table this caller passed names the face.
+static func valid_face(face: String, line_faces: Dictionary) -> bool:
+	return line_faces.has(face)
 
 
 ## The act state as the phase name the blush and the beat table read.
@@ -131,14 +128,14 @@ static func climax_style_for_mode(mode: String, inputs: Dictionary) -> Dictionar
 	return result
 
 
-## One face beat. An empty plan means no act face for this moment.
-static func plan_for(moment: String, ctx := {}) -> Dictionary:
+## One face beat, validated against the caller's table. An empty plan means no act face here.
+static func plan_for(moment: String, ctx := {}, line_faces := {}) -> Dictionary:
 	match moment:
 		"start":
 			var first := bool(ctx.get("first_time", false))
-			return _plan("shy" if first else "relaxed", START_HOLD_S)
+			return _plan("shy" if first else "relaxed", START_HOLD_S, line_faces)
 		"close":
-			return _plan("anticipation", CLOSE_HOLD_S)
+			return _plan("anticipation", CLOSE_HOLD_S, line_faces)
 		"climax":
 			var mode := str(ctx.get("mode", "auto"))
 			var quality: Dictionary = {}
@@ -156,7 +153,7 @@ static func plan_for(moment: String, ctx := {}) -> Dictionary:
 					release = true
 				"ooo":
 					face = "ooo"
-			var out := _plan(face, CLIMAX_HOLD_S if not face.is_empty() else 0.0)
+			var out := _plan(face, CLIMAX_HOLD_S if not face.is_empty() else 0.0, line_faces)
 			out["fluster_s"] = fluster
 			out["release_stare"] = release
 			out["style"] = str(style.get("style", "wide"))
@@ -168,17 +165,18 @@ static func plan_for(moment: String, ctx := {}) -> Dictionary:
 			var summary_value: Variant = ctx.get("summary", {})
 			if summary_value is Dictionary:
 				summary = summary_value as Dictionary
-			return _plan(face_for_afterglow(summary), AFTERGLOW_HOLD_S)
+			return _plan(face_for_afterglow(summary), AFTERGLOW_HOLD_S, line_faces)
 		"warning":
-			return _plan(_displeasure_face(str(ctx.get("tolerance", "normal"))), WARNING_HOLD_S)
+			return _plan(_displeasure_face(str(ctx.get("tolerance", "normal"))), WARNING_HOLD_S,
+				line_faces)
 		"overwhelmed":
 			return _plan(_displeasure_face(str(ctx.get("tolerance", "normal"))),
-				OVERWHELMED_HOLD_S)
+				OVERWHELMED_HOLD_S, line_faces)
 	return {}
 
 
-static func _plan(face: String, hold_s: float) -> Dictionary:
-	var known := valid_face(face)
+static func _plan(face: String, hold_s: float, line_faces: Dictionary) -> Dictionary:
+	var known := valid_face(face, line_faces)
 	return {
 		"face": face if known else "",
 		"hold_s": hold_s if known else 0.0,
@@ -274,8 +272,9 @@ static func prompt_note(moment: String, mood := "") -> String:
 
 ## The hold a one-shot face may take, or `-1.0` when a spoken line owns the face. The caller
 ## writes it; this stays a pure verdict so no scene write lives in `shared/`.
-static func react_hold(pony: Variant, face: String, seconds := 3.0) -> float:
-	if not valid_face(face) or not pony is Object or not is_instance_valid(pony):
+static func react_hold(pony: Variant, face: String, seconds := 3.0,
+		line_faces := {}) -> float:
+	if not valid_face(face, line_faces) or not pony is Object or not is_instance_valid(pony):
 		return -1.0
 	var expressions: Variant = pony.get("expressions")
 	if expressions == null or not is_instance_valid(expressions) \

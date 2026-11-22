@@ -237,7 +237,9 @@ func _timer() -> Timer:
 func beat(moment: String, context: BEAT) -> void:
 	if not is_instance_valid(pony):
 		return
-	var plan := BEAT.Plan.from_dict(ACT_FACE.plan_for(moment, context.plan_data(moment)))
+	var face_view := WORLD.face(pony)
+	var plan := BEAT.Plan.from_dict(
+		ACT_FACE.plan_for(moment, context.plan_data(moment), face_view.line_faces()))
 	if plan.face.is_empty():
 		if moment in ["climax", "afterglow"]:
 			end_face()
@@ -247,7 +249,7 @@ func beat(moment: String, context: BEAT) -> void:
 		return
 	set_act_face(plan.face, plan.hold_s)
 	if plan.fluster_s > 0.0:
-		WORLD.face(pony).fluster(plan.fluster_s, true)
+		face_view.fluster(plan.fluster_s, true)
 	if plan.release_stare:
 		stare_release_until = _now() + plan.hold_s + 0.9
 	if debug_enabled:
@@ -263,9 +265,11 @@ func beat(moment: String, context: BEAT) -> void:
 
 ## Set one face, or refuse when a line owns the expression; returns whether it applied.
 func set_act_face(face: String, hold_s: float) -> bool:
-	if not is_instance_valid(pony) or not ACT_FACE.valid_face(face):
+	if not is_instance_valid(pony):
 		return false
 	var face_view := WORLD.face(pony)
+	if not ACT_FACE.valid_face(face, face_view.line_faces()):
+		return false
 	var controller := face_view.controller()
 	if controller == null or not is_instance_valid(controller) \
 			or not controller.has_method("set_dialogue"):
@@ -320,10 +324,10 @@ func force_face(face: String) -> bool:
 static func react(pony: Node, face: String, seconds: float = 3.0) -> bool:
 	if not is_instance_valid(pony):
 		return false
-	var hold := ACT_FACE.react_hold(pony, face, seconds)
+	var face_view := WORLD.face(pony)
+	var hold := ACT_FACE.react_hold(pony, face, seconds, face_view.line_faces())
 	if hold < 0.0:
 		return false
-	var face_view := WORLD.face(pony)
 	face_view.set_dialogue(face)
 	if hold > 0.0:
 		face_view.finish_dialogue(hold)
@@ -380,7 +384,7 @@ func start_post_act(context: BEAT) -> void:
 func start_mood_face(mood: String, face: String, blush: float, warm_note_value: bool) -> void:
 	if not _host_ok() or not is_instance_valid(pony) or face.is_empty():
 		return
-	if not ACT_FACE.valid_face(face):
+	if not ACT_FACE.valid_face(face, WORLD.face(pony).line_faces()):
 		return
 	end_mood_face()
 	mood_face = MOOD_FACE.new()

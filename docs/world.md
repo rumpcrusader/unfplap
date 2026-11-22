@@ -12,9 +12,10 @@ This contract covers:
 
 - the live world root and Anon's body, and the handles resolved from them (the view camera, the
   reach interactor, the desktop interactions node);
-- the world-owned reads a rule is built on: the mare list, the thinkable bed under a point, the
-  real bed behind a mattress hit, the bed a cradle looks at, bed occupancy, Anon's seat beside a
-  bed, a house's bed, the shop's item scene, the menu/panel gates and the headset test;
+- the world-owned reads a rule is built on: the mare list, the place directory's answer for a
+  point, the thinkable bed under a point, the real bed behind a mattress hit, the bed a cradle
+  looks at, bed occupancy, Anon's seat beside a bed, a house's bed, the shop's item scene, the
+  menu/panel gates and the headset test;
 - the three scene writes a service cannot do itself: the merged LOD rebuild after a shape change,
   the act chat open past the controls lock and a body's velocity;
 - the bound views of a pony's body, navigator, face, wings and flank, Anon's rig, a bed, the
@@ -51,6 +52,7 @@ to ask whether the scene is live.
 | `shape_ids()` | a typed copy of the population catalogue's shape ids |
 | `shape_scene(id)` | a shape's packed scene from the population catalogue |
 | `house_at(at)` | the house interior at a world point |
+| `place_at(at)` | where a world point is, as the place directory names it |
 | `house_of(n)` | the house interior that owns a node |
 | `bed_under(point, exclude)` | the bed a downward probe finds under a point |
 | `real_bed(node)` | the bed behind a mattress or temporary support hit |
@@ -93,26 +95,27 @@ not the receiver.
 
 | View | Binds | Members |
 |---|---|---|
-| `Pony` | a pony body, or the act body that answers for her | `identity`, `has_wings`, `skeleton`, `head`, `mouth`, `hair`, `hair_skeleton`, `model`, `body`, `dock`, `dock_anchor`, `dock_fit`, `dock_fitted_mesh`, `dock_reach`, `dock_rump_z`, `claim_body_materials`, `hair_link`, `hair_link_ready`, `hair_link_pelvis`, `set_hair_link_pelvis`, `notify_hair_link`, `far_mesh_shown`, `set_near_mesh`, `forget_far_mesh`, `eye_motion`, `boop`, `body_scale`, `set_body_scale`, `exclude_from_outline`, `head_skeleton`, `set_viseme`, `clear_viseme`, `mouth_point`, `skull_world`, `nose_world`, `muzzle_world`, `eye_transform`, `listen_point`, `look_toward`, `aim_eyes`, `joint_constrain`, `is_held`, `grounded`, `awareness`, `posture_requested`, `request_posture`, `interruption_reason`, `face_turn_rate`, `set_face_turn_rate`, `stop_speaking`, `speaking`, `set_motion_paused` |
+| `Pony` | a pony body, or the act body that answers for her | `identity`, `has_wings`, `skeleton`, `head`, `mouth`, `hair`, `hair_skeleton`, `model`, `body`, `dock`, `dock_anchor`, `dock_fit`, `dock_fitted_mesh`, `dock_reach`, `dock_rump_z`, `claim_body_materials`, `hair_link`, `hair_link_ready`, `hair_link_pelvis`, `set_hair_link_pelvis`, `notify_hair_link`, `far_mesh_shown`, `set_near_mesh`, `forget_far_mesh`, `eye_motion`, `boop`, `body_scale`, `set_body_scale`, `exclude_from_outline`, `head_skeleton`, `set_viseme`, `clear_viseme`, `mouth_point`, `skull_world`, `nose_world`, `muzzle_world`, `eye_transform`, `listen_point`, `look_toward`, `aim_eyes`, `joint_constrain`, `is_held`, `grounded`, `awareness`, `can_hear`, `can_see`, `posture_requested`, `request_posture`, `interruption_reason`, `face_turn_rate`, `set_face_turn_rate`, `stop_speaking`, `speaking`, `set_motion_paused` |
 | `Navigator` | a pony body, or the navigator node a caller recorded | `node`, `present`, `owner`, `reserved`, `wander`, `has_target`, `stay`, `set_owner`, `set_reserved`, `set_wander`, `speed_limit`, `pace_target`, `set_speed_limit`, `set_pace_target`, `support`, `walk_to`, `clear_travel`, `set_conversation_target`, `clear_conversation_target`, `set_face_point`, `set_facing`, `clear_facing` |
-| `Face` | a pony body | `controller`, `touch`, `release_touch`, `stare`, `fluster`, `fluster_amount`, `dialogue_face`, `set_dialogue`, `finish_dialogue`, `clear_dialogue`, `sustain_blush`, `celebrate`, `set_expression` |
+| `Face` | a pony body | `controller`, `touch`, `release_touch`, `stare`, `fluster`, `fluster_amount`, `dialogue_face`, `set_dialogue`, `finish_dialogue`, `clear_dialogue`, `sustain_blush`, `celebrate`, `set_expression`, `line_faces` |
 | `Wings` | her excitement Beat, or the wing node it owns | `node`, `hold`, `release_hold`, `set_open`, `spread`, `flutter`, `opened`, `set_opened`, `set_tuck`, `set_half` |
-| `Flank` | her `FlankTouch` node, or the touch body whose hulls need syncing | `sync`, `update_surface`, `surface_contact`, `touch_nearest`, `impact`, `wake_tick`, `start_jiggle`, `process`, `jiggle_amount`, `set_jiggle_amount` |
+| `Flank` | her `FlankTouch` node, or the touch body whose hulls need syncing | `sync`, `update_surface`, `surface_contact`, `touch_nearest`, `impact`, `wake_tick`, `start_jiggle`, `process`, `jiggle_amount`, `set_jiggle_amount`, `rump_blush_texture` |
 | `Anon` | the player rig, bound by the facade | `seat`, `controls_locked`, `set_controls_locked`, `set_presentation_enabled`, `force_stand_up`, `height`, `eye_height`, `set_eye_y`, `set_stand_eye`, `set_eye_height`, `pitch`, `set_pitch`, `form`, `clamp_view`, `form_is_young`, `form_is_pony`, `body`, `exclude_from_outline`, `q_held`, `set_q_held`, `set_space_hold`, `set_rest_held`, `sit_on`, `toggle_couch_sleep`, `set_hold_target`, `clear_hold_target`, `hand_frame`, `apply_torso_pose`, `set_rest_hand_targets`, `clear_rest_hand_targets`, `pose_driver`, `set_pose_driver`, `knockdown`, `start_knockdown` |
 | `Bed` | a bed, the couch/rest that owns it, a seat on it or the seating system | `couch_pony_transform`, `couch_seats`, `couch_open`, `couch_invite`, `couch_approach`, `couch_mare_fits`, `couch_cooldown_until`, `couch_partner`, `rest_word`, `rest_bed`, `refresh`, `fits`, `has_guest`, `sleeper`, `front`, `accepts`, `willing`, `eligible`, `seat_free_for`, `seating_phase`, `release_seat`, `finish_guest`, `release_pony`, `surface_top`, `exit_point`, `stock_rest` |
-| `Director` | the scene's conversation director, found by the facade, and the world root it belongs to | `speaking`, `interrupt`, `clock`, `subsystem_active`, `lines`, `llm_config`, `prepare_vocal`, `record_event`, `record_situation`, `tts_enabled`, `tts`, `tts_running`, `play_vocal`, `play_kiss`, `world_context`, `impressions`, `impression_mood`, `set_impression_mood`, `commit_impression`, `standing_line`, `voice_facts` |
+| `Director` | the scene's conversation director, found by the facade, and the world root it belongs to | `speaking`, `interrupt`, `clock`, `subsystem_active`, `lines`, `llm_config`, `new_llm`, `background_allowed`, `prepare_vocal`, `record_event`, `record_situation`, `tts_enabled`, `tts`, `tts_running`, `play_vocal`, `play_kiss`, `world_context`, `impressions`, `impression_mood`, `set_impression_mood`, `commit_impression`, `standing_line`, `voice_facts` |
 | `Story` | the world-context node, resolved by the facade from the bound world | `journal`, `store`, `open`, `last_line_id`, `search`, `witnessed`, `line_text`, `events` |
 | `Inventory` | the game's inventory node, resolved by the facade from the bound world | `store`, `slots`, `loans`, `writable`, `available`, `take`, `put`, `grant`, `spawn_drop`, `item_scene`, `held_count`, `holding_case`, `hotbar`, `hotbar_visible`, `set_hotbar_visible`, `hotbar_layer`, `set_hotbar_layer_visible`, `place_hotbar`, `hud_hidden`, `set_hud_hidden` |
 | `Menu` | the bound world root | `panel`, `show_toast`, `sound` |
 | `Relationship` | the scene's relationship runtime | `love_name`, `runtime`, `bonds`, `ladder`, `bonds_of`, `record`, `save_record`, `eligible_for_romance`, `welcomes`, `day`, `mark_met`, `request_space` |
 | `ModRegistry` | the game's mods registry autoload | `present`, `state`, `active`, `save`, `list` |
-| `Affection` | the scene's stock kisser | `kisser`, `begin_from_pony`, `clear_kisser`, `end`, `cancel_afterglow`, `feed`, `side_known`, `pin_side`, `release_side`, `settle_excitement`, `buck`, `end_cuddle`, `hoof_active`, `carry_ours`, `carry_actions`, `clear_carry`, `carry_released`, `caress`, `end_interaction` |
+| `Affection` | the scene's stock kisser | `kisser`, `begin_from_pony`, `clear_kisser`, `end`, `cancel_afterglow`, `feed`, `side_known`, `pin_side`, `release_side`, `settle_excitement`, `buck`, `end_cuddle`, `hoof_active`, `carry_ours`, `carry_actions`, `clear_carry`, `carry_released`, `caress`, `end_interaction`, `kiss_settings` |
 
 `Pony` resolves the parts it can reach from the body it holds — her identity, head, mouth, blush
 sustainer and gaze controller — so a call names only the extra value it needs. The members that
 operate on something else carry that first: a mesh, a dock fit, a body name, a gaze object, a
 joint-limit table, or the stock affection while she is held. `Face` resolves her controller and
-sustainer the same way, so the pony stays the only handle its caller holds.
+sustainer the same way, so the pony stays the only handle its caller holds; its `line_faces` is the
+base game's expression table, handed out so a pure module can validate a name without an import.
 
 `Navigator` binds the body for the same reason: its members reach her `Navigator` child, so the
 leases, the wander switch, the speed and pace overrides, the route and the facing take no node.
@@ -134,7 +137,9 @@ than through a caller's node, while `tts_enabled` reads the game's settings auto
 subsystem, TTS, vocal and boop nodes a member asks about are passed because they are not the
 receiver. `voice_facts` is the one composed member: it hands the pure voice classifier the
 director's profile, the TTS mode and server, the game's switch and the game's own routing answer, so
-no classifier reads a game node. `Story` binds the world-context node itself, so the journal, its
+no classifier reads a game node. `new_llm` builds a fresh client for a caller to name, configure and
+parent, and `background_allowed` answers the game's own policy, so the classifier and the adapter
+import no model or policy module. `Story` binds the world-context node itself, so the journal, its
 store and the event list take no node either.
 
 `Inventory` binds the inventory node the facade resolved, so the store, the world drop, the
@@ -205,6 +210,7 @@ behaviour exactly, and a game update that renames one is a change here rather th
 | `GAME.shop_item_scene(id)` | `shop_items.scene` | `PackedScene` | `null` |
 | `GAME.house_of(node)` | a `house_interior.gd` node | `HOUSE` | `null` |
 | `GAME.house_at(tree, at)` | the `house_interiors` group | `Node3D` | `null` |
+| `GAME.place_at(point)` | `PonyAwareness.place_at`, the place directory's regions | `Place`, a typed row | empty id |
 | `GAME.ensure_bed(house, kind)` | `ensure_bed` | `Node3D` | `null` |
 | `GAME.spawn_owned_drop(inventory, id, pose)` | the inventory's `spawn_owned_drop` | `Node` | `null` |
 | `GAME.map_open(inventory)` | `_map_open` (private) | `bool` | `false` |
@@ -324,6 +330,8 @@ behaviour exactly, and a game update that renames one is a change here rather th
 | `GAME.subsystem_active(node)` | an approach or group's `active` | `bool` | `false` |
 | `GAME.director_lines(director)` | the director's `begin_player_greeting`, `queue_generated_intent`, `cancel_authored_line` | `DirectorLines` | no call |
 | `GAME.llm_config(director)` | the director's `config`, `_llm_section` (private) and `llm.status_path` | `LlmConfig` | `enabled` false |
+| `GAME.new_llm()` | the model client module's constructor | `Node` | — |
+| `GAME.background_allowed(config)` | `ai_config.background_allowed` | `bool` | `true`, the game's own default |
 | `GAME.request_posture(pony, posture)` | `request_posture` | — | no call |
 | `GAME.navigator_speed_limit(nav)` | the navigator's `command_speed_limit` | `float` | `NAN` |
 | `GAME.navigator_pace_target(nav)` | the navigator's `command_pace_target` | `float` | `NAN` |
@@ -361,10 +369,12 @@ behaviour exactly, and a game update that renames one is a change here rather th
 | `GAME.feed_affection(affection, target, eye, face)` | the affection's `target`, `eye`, `face` | — | no write |
 | `GAME.mouth_point(node)` | `mouth_point` | `Vector3` | `Vector3.INF` |
 | `GAME.kiss_side_known(pose)` | the stock kiss pose's `_side` (private) | `bool` | `false` |
+| `GAME.kiss_settings()` | the stock kiss settings document | `KissSettings`, the live rows | empty rows |
 | `GAME.pin_kiss_side(pose, side, hold_s)` | the pose's `_side`, `_side_now`, `_side_wait` (private) | — | no write |
 | `GAME.release_kiss_side(pose)` | the pose's `_side_wait` (private) | — | no write |
 | `GAME.settle_excitement(excitement)` | the Beat's `_until` (private) | — | no write |
 | `GAME.set_expression(mouth, name, amount)` | the mouth rig's `set_expression` | — | no call |
+| `GAME.line_faces()` | the dialogue face table | `LineFaces`, the game's rows | empty rows |
 | `GAME.setting_string(settings, key)` | `Settings.get_value` | `String` | empty |
 | `GAME.anon_height(settings)` | `Settings.anon_height_scale` | `float` | `NAN` |
 | `GAME.tts_enabled(settings)` | `Settings.tts_enabled` | `bool` | `false` |
@@ -405,6 +415,7 @@ behaviour exactly, and a game update that renames one is a change here rather th
 | `GAME.flank_process(flank, delta)` | `FlankTouch._process` (private) | — | no call |
 | `GAME.flank_jiggle_amount(flank)` | `FlankTouch._jiggle_amount` (private) | `float` | `NAN` |
 | `GAME.set_flank_jiggle_amount(flank, amount)` | `FlankTouch._jiggle_amount` (private) | — | no write |
+| `GAME.rump_blush_texture()` | the flank patch's `texture` | `Texture2D` | `null` |
 | `GAME.set_hold_target(driver, side, frame, kind)` | the rig's `set_hold_target` | — | no call |
 | `GAME.clear_hold_target(driver, side)` | the rig's `clear_hold_target` | — | no call |
 | `GAME.hand_frame(driver, side)` | the rig's `hand_frame` | `Transform3D` | infinite origin |
@@ -442,6 +453,8 @@ behaviour exactly, and a game update that renames one is a change here rather th
 | `GAME.desktop_pose_driver(avatar)` | the Anon body's `desktop_pose_driver` | `Node` | `null` |
 | `GAME.set_desktop_pose_driver(avatar, driver)` | the Anon body's `desktop_pose_driver` | — | no write |
 | `GAME.awareness_forward(pony)` | the body's `awareness_forward` | `Vector3` | zero vector |
+| `GAME.can_hear(observer, partner)` | `PonyAwareness.can_hear` with the stock hearing range | `bool` | `false` |
+| `GAME.can_see(observer, target)` | `PonyAwareness.visible` | `bool` | `false` |
 | `GAME.joint_constrain(limits, bone, basis)` | the pony's `joint_limits.constrain` | `Basis` | the input basis |
 | `GAME.exclude_from_outline(mesh)` | `post_outline_exclusion.apply_to` | — | no call |
 | `GAME.player_form_is_young(tree)` | `player_form.active` + `is_young` | `bool` | `false` |
@@ -455,8 +468,10 @@ behaviour exactly, and a game update that renames one is a change here rather th
 
 Only the accessors that hand back a typed copy or a typed view allocate — the mare, couch-seat,
 case, shape-id and mods lists, the ladder, the bond record, the story rows, the world events, the
-mod state, the director's line host and the model config — plus `GAME.refresh_body_lod` and the
-stock cue, which rebuild through the game's own code. The per-frame accessors copy nothing.
+mod state, the place row, the line faces, the kiss settings, the director's line host and the model
+config — plus `GAME.refresh_body_lod` and the stock cue, which rebuild through the game's own code,
+and the two senses, which build the game's awareness node per call. The per-frame accessors copy
+nothing.
 
 `GAME` writes the rig's control hold, its eye line and its look pitch, the chat lock, her navigator's
 face point, conversation aim, owner, wander, speed, pace and destination, her own locomotion facing,

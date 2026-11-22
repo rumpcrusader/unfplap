@@ -87,8 +87,9 @@ generation token.
 instance as its child in `bind()` and wires the `Host` model callbacks to it; the Proactive service
 takes the same instance through `adapter()` and does not keep a second copy. It owns every private
 director read (`state`, `config`, `_player_text`, `_held_text`, the group, the approach and hearing
-state), the transcript hook, one answer watch and the bounded classifier calls. No service reads
-the director directly; the classifier is the Proactive service's, and the adapter reaches it only
+state), the transcript hook, one answer watch and the bounded classifier calls. The quiet gate's
+background policy is the director view's answer, not the adapter's own read. No service reads the
+director directly; the classifier is the Proactive service's, and the adapter reaches it only
 through `classifier_source`.
 
 The bridge methods are the pacing reads and the director writes: `quiet(chat_gap_s)`,

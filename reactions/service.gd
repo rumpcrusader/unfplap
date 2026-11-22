@@ -5,7 +5,6 @@ extends RefCounted
 ## Contract: `docs/reactions.md`.
 
 const CONTEXT := preload("res://mods/unfplap/reactions/context.gd")
-const FLANK_TOUCH := preload("res://world/characters/hybrid_mare/pony_flank_touch.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
@@ -290,7 +289,7 @@ func _ensure_rump_decal() -> void:
 		return
 	if not is_instance_valid(flank):
 		flank = pony.get_node_or_null("FlankTouch")
-	var texture: Variant = FLANK_TOUCH.texture
+	var texture: Variant = WORLD.flank(pony).rump_blush_texture()
 	if not texture is Texture2D:
 		return
 	var decal := Decal.new()

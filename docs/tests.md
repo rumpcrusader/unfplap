@@ -23,6 +23,7 @@ lifecycle; this doc owns their shape and their runner.
 | `tests/test_<topic>.gd` | a root suite that crosses services, or a shared/pure module's suite |
 | `tests/<topic>/test_<topic>.gd` | a cross-service concern with its own name; `handover/` is the act body swap, `entry/` the entry's service list |
 | `tests/support/suite.gd` | the shared base: the assertion helpers, the run/finish lifecycle and the result line |
+| `tests/support/fixtures/<name>.gd` | a suite the runner starts by path, not by discovery: the self-test's hung fixture |
 | `tests/support/fakes/<family>.gd` | shared fakes for byte-identical bodies; a suite keeps a local class when its fake differs |
 
 `tests/act/test_session.gd` covers the runtime's own `act/` modules: the one state writer, the

@@ -1,8 +1,8 @@
 extends "res://mods/unfplap/tests/support/suite.gd"
 ## The idle offer service: the fan sensor's transitions, the scene fingerprint, the standing
-## target, the footstool block and its one toast, the hint row in the game's prompt row and the
-## HUD fallback, the live Agreement offer, the pure `offer_target()` read and the offer cleared
-## while an act is live.
+## target, the bed-side offer, the footstool block and its one toast, the hint row in the game's
+## prompt row and the HUD fallback, the live Agreement offer, the pure `offer_target()` read and
+## the offer cleared while an act is live.
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/offer/test_offer.gd
 
@@ -38,6 +38,13 @@ class FakeGame extends Node:
 class FakePlayer extends Node3D:
 	var seat: Variant = null
 	var camera: Variant = null
+
+
+class FakeCouch extends Node:
+	var partner_pony: Node = null
+
+	func partner(_seat: Node) -> Node:
+		return partner_pony
 
 
 class FakeMare extends Node3D:
@@ -152,6 +159,7 @@ func run() -> void:
 	_check_hud_fallback()
 	_check_agreement_first()
 	_check_lying_act_target()
+	_check_bed_side()
 	_check_hide_while_act_live()
 	if failures == 0:
 		print("OFFER_PASS")
@@ -370,6 +378,66 @@ func _check_lying_act_target() -> void:
 	runtime.bed.free()
 	runtime.bed = null
 	_free(made)
+
+
+## A pony who lies down beside Anon after the seat change is offered missionary: her arrival and
+## her settling are the trigger, not the seat alone.
+func _check_bed_side() -> void:
+	var made := _fixture()
+	var service: OFFER = made["service"]
+	var player: FakePlayer = made["player"]
+	var near: FakeMare = made["near"]
+	var runtime: FakeRuntime = made["near_runtime"]
+	var far: FakeMare = made["far"]
+	var stallion: FakeMare = made["stallion"]
+	var seat := Node3D.new()
+	seat.name = "PlayerBedSeat"
+	root.add_child(seat)
+	var couch := FakeCouch.new()
+	couch.name = "FakeBedRest"
+	root.add_child(couch)
+	seat.set_meta("couch", couch)
+	runtime.bed = Node3D.new()
+	runtime.bed.name = "FakeBed"
+	player.seat = seat
+	near.requested = "lie_down"
+	far.requested = "lie_down"
+	stallion.requested = "lie_down"
+	service.tick(0.2)
+	check(service.current() == null, "a seated Anon with an empty bed offers nothing")
+	couch.partner_pony = near
+	service.tick(0.2)
+	check(service.current() != null and service.current().pony == near,
+		"a partner arriving after the seat change raises the offer")
+	check(service.current().pose == CATALOG.MISSIONARY
+		and service.current().source == "bed_side", "the bed-side offer names missionary")
+	check(service.current().bed == runtime.bed, "the offer carries the bed")
+	near.settled = false
+	var calls := runtime.hotkey_calls
+	service.tick(0.2)
+	check(runtime.hotkey_calls > calls, "the partner's settle change re-evaluates the offer")
+	near.settled = true
+	calls = runtime.hotkey_calls
+	service.tick(0.2)
+	check(runtime.hotkey_calls > calls, "the settled partner re-evaluates the offer")
+	check(service.current() != null, "the settled partner offers again")
+	couch.partner_pony = null
+	service.tick(0.2)
+	check(service.current() == null, "a partner leaving drops the offer")
+	player.seat = null
+	_drop(seat)
+	_drop(couch)
+	runtime.bed.free()
+	runtime.bed = null
+	_free(made)
+
+
+func _drop(node: Node) -> void:
+	if not is_instance_valid(node):
+		return
+	if node.get_parent() != null:
+		node.get_parent().remove_child(node)
+	node.free()
 
 
 ## `offer_target()` reads the scan result instead of rescanning, and an act takes the hint away.

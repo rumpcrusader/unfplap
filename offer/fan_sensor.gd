@@ -1,7 +1,7 @@
 extends RefCounted
 ## Contract: docs/offer.md
-## The idle fan sensor: the standing fan and the lying candidate as transitions the offer
-## reconsiders on. It reads the scene at the poll cadence and owns no offer.
+## The idle fan sensor: the standing fan, the lying candidate and the pony beside a seated Anon,
+## as the transitions the offer reconsiders on. It reads the scene at the poll cadence.
 
 const WORLD := preload("res://mods/unfplap/world/service.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
@@ -40,6 +40,9 @@ var _previous: Array[Node3D] = []
 ## The best lying candidate for AnonPony's bed poses, or null.
 var _lying: Node3D = null
 var _previous_lying: Node3D = null
+## The pony lying in the seat beside a seated human Anon, or null.
+var _beside: Node3D = null
+var _previous_beside: Node3D = null
 ## The pony the offer last offered, so its state is polled even outside the fan.
 var _focus: Node3D = null
 var _clock := 0.0
@@ -66,11 +69,12 @@ func update(delta: float, eye: Vector3, forward: Vector3, pony_form: bool,
 	PERF.end("fan_discover")
 	var list_changed := not _same_candidates()
 	var structural := _pending or list_changed
-	var changed := structural or _lying != _previous_lying or mode_changed
+	var changed := structural or _lying != _previous_lying \
+		or _beside != _previous_beside or mode_changed
 	_pending = false
 	_pony_form = pony_form
 	var has_state := is_instance_valid(_focus) or is_instance_valid(_lying) \
-		or not _candidates.is_empty()
+		or is_instance_valid(_beside) or not _candidates.is_empty()
 	if structural and has_state:
 		# A transition re-evaluates the offer anyway: baseline every sense now, so a candidate
 		# that entered the fan is compared from its current state on its first poll turn.
@@ -80,6 +84,8 @@ func update(delta: float, eye: Vector3, forward: Vector3, pony_form: bool,
 			_changed(pony, _scene_hash(pony, baseline), false)
 		if is_instance_valid(_lying):
 			_changed(_lying, _scene_hash(_lying, baseline), false)
+		if is_instance_valid(_beside):
+			_changed(_beside, _scene_hash(_beside, baseline), false)
 		if is_instance_valid(_focus):
 			_changed(_focus, _scene_hash(_focus, baseline), false)
 		_cursor = 0
@@ -93,6 +99,9 @@ func update(delta: float, eye: Vector3, forward: Vector3, pony_form: bool,
 			changed = true
 		if is_instance_valid(_lying) and _lying != lead \
 				and _changed(_lying, _scene_hash(_lying, player_value), true):
+			changed = true
+		if is_instance_valid(_beside) and _beside != lead and _beside != _lying \
+				and _changed(_beside, _scene_hash(_beside, player_value), true):
 			changed = true
 		# The budget bounds one poll's cost in a crowd; a candidate's next turn is a few polls
 		# away, and the offer target above is always read.
@@ -116,9 +125,11 @@ func _discover(eye: Vector3, forward: Vector3, pony_form: bool) -> void:
 	_previous.clear()
 	_previous.assign(_candidates)
 	_previous_lying = _lying
+	_previous_beside = _beside
 	_candidates.clear()
 	_distances.clear()
 	_lying = null
+	_beside = null
 	var near_sq := LYING_NEAR_SQ if pony_form else NEAR_SQ
 	var lying_dot := LYING_DOT
 	var mares: Variant = WORLD.game.get("mares")
@@ -155,6 +166,23 @@ func _discover(eye: Vector3, forward: Vector3, pony_form: bool) -> void:
 				if dot > lying_dot:
 					lying_dot = dot
 					_lying = actor
+	if not pony_form:
+		_beside = _seat_partner()
+
+
+## The pony in the seat beside a seated human Anon; null without an occupied seat.
+static func _seat_partner() -> Node3D:
+	var body: Node3D = WORLD.player
+	if not is_instance_valid(body):
+		return null
+	var seat: Node = GAME.seat_of(body)
+	if not is_instance_valid(seat) or not seat.has_meta("couch"):
+		return null
+	var couch: Variant = seat.get_meta("couch")
+	if not is_instance_valid(couch):
+		return null
+	var partner: Node = GAME.couch_partner(couch, seat)
+	return partner as Node3D if is_instance_valid(partner) else null
 
 
 ## The first fan point, the one that would win if the offer target is null.
@@ -171,6 +199,11 @@ func candidates() -> Array[Node3D]:
 ## The best lying candidate for AnonPony's bed poses, or null.
 func lying() -> Node3D:
 	return _lying
+
+
+## The pony lying beside a seated human Anon, or null.
+func beside() -> Node3D:
+	return _beside
 
 
 ## The pony whose scene state the next polls follow: the offer's current target, or null.
@@ -198,6 +231,8 @@ func reset() -> void:
 	_previous.clear()
 	_lying = null
 	_previous_lying = null
+	_beside = null
+	_previous_beside = null
 	_focus = null
 	_clock = 0.0
 	_cursor = 0
@@ -212,6 +247,8 @@ func _clear() -> bool:
 	_previous.clear()
 	_lying = null
 	_previous_lying = null
+	_beside = null
+	_previous_beside = null
 	_focus = null
 	_cursor = 0
 	_pending = false

@@ -8,7 +8,6 @@ extends "res://mods/unfplap/shared/service.gd"
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 const WORLD := preload("res://mods/unfplap/world/service.gd")
-const GAME := preload("res://mods/unfplap/world/game.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const PERF := preload("res://mods/unfplap/shared/perf.gd")
 const HUD := preload("res://mods/unfplap/hud/service.gd")
@@ -109,14 +108,15 @@ func _sense(delta: float, force := false) -> bool:
 		_seat = seat
 	var pony_form := WORLD.player_is_pony()
 	_sensor.advance(delta)
-	if not (force or _sensor.due(pony_form)):
-		return seat_changed
+	if not (force or seat_changed or _sensor.due(pony_form)):
+		return false
 	var view: Camera3D = WORLD.camera()
 	if view == null:
 		return seat_changed
 	PERF.begin("offer_sensor_read")
+	# A new seat forces the read, so a partner already lying there is seen on that frame.
 	var changed := _sensor.update(0.0, view.global_position, -view.global_basis.z,
-		pony_form, force)
+		pony_form, force or seat_changed)
 	PERF.end("offer_sensor_read")
 	return changed or seat_changed
 
@@ -406,10 +406,10 @@ func _reconsider() -> void:
 
 ## Missionary while a seated or lying Anon has a pony lying beside him on the bed.
 func _offer_bed_side(pony_form: bool) -> bool:
-	if pony_form or WORLD.player.get("seat") == null:
+	if pony_form:
 		return false
-	var lying: Node = _bedside_pony()
-	if not is_instance_valid(lying) or not PONIES.relationship_ok(lying):
+	var lying: Node3D = _sensor.beside()
+	if not is_instance_valid(lying) or not PONIES.act_target(lying):
 		return false
 	var runtime: Node = PONIES.runtime_for(lying)
 	if not is_instance_valid(runtime):
@@ -417,6 +417,8 @@ func _offer_bed_side(pony_form: bool) -> bool:
 	var scene := PONIES.scene_of(runtime)
 	var bed: Node3D = scene.find_bed_under() if scene != null else null
 	if bed == null or not _candidate_ready(runtime, CATALOG.MISSIONARY, "bed_side", bed):
+		return false
+	if not PONIES.relationship_ok(lying):
 		return false
 	_offer = _new_offer(runtime, lying, CATALOG.MISSIONARY, "bed_side", bed)
 	_sensor.focus(lying)
@@ -671,17 +673,3 @@ func _log_offer() -> void:
 	LOG.debug("OFFER pony=%s pose=%s source=%s bed=%s pending=%s", [
 		str(target.name) if is_instance_valid(target) else "?",
 		_offer.pose, _offer.source, str(_offer.bed), str(_offer.pending)])
-
-
-func _bedside_pony() -> Node:
-	# The player's bed/couch seat knows exactly who lies beside Anon.
-	if is_instance_valid(WORLD.player):
-		var seat := GAME.seat_of(WORLD.player)
-		if is_instance_valid(seat) and seat.has_meta("couch"):
-			var couch: Variant = seat.get_meta("couch")
-			if not is_instance_valid(couch):
-				return null
-			var partner := GAME.couch_partner(couch, seat)
-			if partner != null and PONIES.act_target(partner):
-				return partner
-	return null

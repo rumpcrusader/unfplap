@@ -1,6 +1,7 @@
 extends "res://mods/unfplap/tests/support/suite.gd"
 ## The offer fan sensor: the standing fan boundary, the candidate distance order, the lying
-## candidate, the scene fingerprint transitions, the far-mare silence and the act-inert state.
+## candidate, the bed-side partner, the scene fingerprint transitions, the far-mare silence and
+## the act-inert state.
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/offer/test_fan_sensor.gd
 
@@ -43,10 +44,22 @@ class FakeGame extends Node:
 	var headset_view := false
 
 
+class FakePlayer extends Node3D:
+	var seat: Variant = null
+
+
+class FakeCouch extends Node:
+	var partner_pony: Node = null
+
+	func partner(_seat: Node) -> Node:
+		return partner_pony
+
+
 func run() -> void:
 	_check_fan_boundary()
 	_check_order_and_focus()
 	_check_lying()
+	_check_beside()
 	_check_fingerprint_and_far_mare()
 	_check_rotation()
 	_check_poll_cadence()
@@ -116,6 +129,57 @@ func _check_lying() -> void:
 	sensor.update(0.2, eye, forward, false)
 	check(sensor.candidates().size() == 1, "a standing mare is a fan candidate")
 	_free(made, sensor)
+
+
+## A human Anon's bed-side partner is a candidate of its own: she arriving, settling and leaving
+## each report a transition, and AnonPony has none.
+func _check_beside() -> void:
+	var made := _fixture()
+	var sensor := SENSOR.new()
+	var mare: FakeMare = made["mare"]
+	mare.requested = "lie_down"
+	var player := FakePlayer.new()
+	player.name = "FakePlayer"
+	root.add_child(player)
+	var seat := Node3D.new()
+	seat.name = "PlayerBedSeat"
+	root.add_child(seat)
+	var couch := FakeCouch.new()
+	couch.name = "FakeBedRest"
+	root.add_child(couch)
+	seat.set_meta("couch", couch)
+	player.seat = seat
+	WORLD.bind_player(player)
+	var eye := Vector3(0.0, 1.6, 2.0)
+	var forward := Vector3(0.0, 0.0, -1.0)
+	sensor.update(0.2, eye, forward, false)
+	check(sensor.beside() == null, "an empty seat has no bed-side partner")
+	couch.partner_pony = mare
+	check(sensor.update(0.2, eye, forward, false), "a partner arriving reports a transition")
+	check(sensor.beside() == mare, "the seat's other occupant is the bed-side partner")
+	mare.settled = false
+	check(sensor.update(0.2, eye, forward, false), "the partner settling reports a transition")
+	mare.settled = true
+	check(sensor.update(0.2, eye, forward, false), "the partner moving again reports a transition")
+	couch.partner_pony = null
+	check(sensor.update(0.2, eye, forward, false), "the partner leaving reports a transition")
+	check(sensor.beside() == null, "an empty seat clears the bed-side partner")
+	couch.partner_pony = mare
+	sensor.reset()
+	sensor.update(0.2, eye, forward, true)
+	check(sensor.beside() == null, "AnonPony has no bed-side partner")
+	_drop(player)
+	_drop(seat)
+	_drop(couch)
+	_free(made, sensor)
+
+
+func _drop(node: Node) -> void:
+	if not is_instance_valid(node):
+		return
+	if node.get_parent() != null:
+		node.get_parent().remove_child(node)
+	node.free()
 
 
 ## The scene fingerprint polls the candidates only: a state change inside the fan reports a

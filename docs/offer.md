@@ -10,7 +10,7 @@ the act key could start here and it starts that act.
 
 This contract covers:
 
-- the per-frame fan sensor, its transitions and the standing fan candidates;
+- the per-frame fan sensor, its transitions, the standing fan candidates and the bed-side candidate;
 - the single-call business checks the `reconsider()` pass and the Agreement readiness run;
 - the typed playable offer, the blocked variant and the `offer_target()` query;
 - the hint unit in the game's prompt row, its HUD fallback and the blocked toasts;
@@ -42,16 +42,17 @@ gate (`docs/scene_gate.md`).
 | `on_world(host)` | the world entry: close the old world, then warm the two offerable assets |
 | `on_world_closed()` | the world enter and close: no offer, no sensor, no one-shot flag, no hint row |
 
-The sensor reads the fan at `SENSOR_POLL_S`; the act key forces a read. A squared eye-to-body
-distance rejects the mares out of reach before the rump math, and the standing fan and the AnonPony
-lying candidate are collected in distance or facing order. The player's seat is read once a frame;
-a change is the bed branch's trigger. The sensor reports a transition when the candidate set, the
-lying candidate, the offer target or a candidate's scene fingerprint changes. Each poll rebuilds
-the fan; a changed set baselines every candidate at once, the offer target and the lying candidate
-are compared every poll, and the other in-fan candidates rotate through a small budget so a crowd
-cannot stack every hash in one frame. The hash covers the runtime state, posture, held, seated,
-sleeping, aftercare, cuddle, affection, conversation, the navigator owner, the player's press
-guards, the inventory and the player form.
+The sensor reads the fan at `SENSOR_POLL_S`; the act key forces a read, and so does a new seat. A
+squared eye-to-body distance rejects the mares out of reach before the rump math, and the standing
+fan and the AnonPony lying candidate are collected in distance or facing order. A human Anon's
+bed-side candidate is the pony in the other seat of his couch rest. The sensor reports a transition
+when the candidate set, the lying or bed-side candidate, the offer target or a candidate's scene
+fingerprint changes. Each poll rebuilds the fan; a changed set baselines every candidate at once,
+the offer target, the lying candidate and the bed-side candidate are compared every poll, and the
+other in-fan candidates rotate through a small budget so a crowd cannot stack every hash in one
+frame. The hash covers the runtime state, posture, held, seated, sleeping, aftercare, cuddle,
+affection, conversation, the navigator owner, the player's press guards, the inventory and the
+player form.
 
 `reconsider()` then runs one pass: the live Agreement, the bed-side and already-lying candidates,
 and the standing fan candidates nearest first. There is no cached gate verdict and no row list: the
@@ -108,8 +109,9 @@ path that cancels a private Agreement between auto-start polls.
 |---|---|---|
 | Enter or leave a standing fan | the sensor's poll | `reconsider()` |
 | A lying mare in front for AnonPony | the sensor's lying candidate | `reconsider()` |
+| A pony lies down or leaves beside Anon | the sensor's bed-side candidate and its fingerprint | `reconsider()` |
 | A candidate's or the target's scene state | the fingerprints at `SENSOR_POLL_S` | `reconsider()` |
-| The player sits or stands at a bed | the seat read once per frame | `reconsider()` |
+| The player sits or stands at a bed | the seat read once per frame | a forced sensor read, then `reconsider()` |
 | A settings edit | `shared/settings_change.gd` | `apply_settings()` drops the row and resets the sensor |
 | A world enter or close | `on_world()`/`on_world_closed()` | the sensor reset |
 | A body swap or a new runtime | a new instance id | a new sense; the attach warm |

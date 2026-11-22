@@ -13,7 +13,6 @@ const THRUST_STATE := preload("res://mods/unfplap/readiness/thrust_state.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 const State := ACT_STATE.State
-const CONTACT_GAP_M := 0.0
 
 var host: ACT_HOST = null
 var context: ACT_CONTEXT = null
@@ -73,8 +72,8 @@ func auto_advance(delta: float) -> void:
 ## ordered stroke/impact fan-out.
 func finish_stroke(before: float, at: float, events: Array[THRUST_STATE.StrokeEvent]) -> void:
 	if session.state in [State.ACTIVE, State.CLIMAX] and not _face_contact() \
-			and context.audio.crossed(before, context.readiness.depth):
-		context.audio.withdraw(before, context.readiness.depth,
+			and context.audio.crossing_out(before, context.readiness.depth):
+		context.audio.slide_out(before, context.readiness.depth,
 			context.readiness.live_strength(at), context.reactions.rump_point())
 	dispatch(events)
 
@@ -109,9 +108,9 @@ func impact(event: THRUST_STATE.StrokeEvent) -> void:
 		context.reactions.add_blush(event.visual)
 		context.pose.trigger_ear_twitch(event.visual)
 	context.readiness.note_impact()
-	context.audio.play_vocal()
+	context.audio.vocal()
 	context.audio.impact(event.tier, event.strength, context.reactions.rump_point(),
-		event.gap, CONTACT_GAP_M, not quiet)
+		event.gap, not quiet)
 	LOG.debug("thrust impact gap=%.3f speed=%.2f tier=%s plap=%d oral=%d face=%d readiness=%.0f rate=%.1f/s strength=%.2f impact=%.2f jiggle=%.2f intensity=%s pattern=%s", [
 		event.gap, event.impact_speed, event.tier if not event.tier.is_empty() else "-",
 		1 if event.plap else 0, 1 if oral else 0, 1 if face else 0,

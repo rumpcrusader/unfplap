@@ -21,6 +21,7 @@ const BUILD_STAMP := preload("res://mods/unfplap/shared/build_stamp.gd")
 const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/actions.gd")
 const DEBUG_STRETCH := preload("res://mods/unfplap/debug/idle_stretch.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
+const AUDIO := preload("res://mods/unfplap/audio/api.gd")
 const ESTRUS := preload("res://mods/unfplap/estrus/service.gd")
 const BODY_CHANGE_SERVICE := preload("res://mods/unfplap/body_change/service.gd")
 const PANTYHOSE := preload("res://mods/unfplap/integrations/pantyhose.gd")
@@ -60,6 +61,8 @@ var pantyhose: PANTYHOSE
 var changelings: CHANGELINGS
 ## Footstool system facade: the standing reach rule, item, act prop and world supply.
 var stool: STOOL
+## Act audio facade: the process-lifetime cue pool, the breath sound and her voice policy.
+var audio: AUDIO
 ## Outside-act stock smack sound layer; see `docs/stock_smack.md`.
 var stock_smack: STOCK_SMACK
 var initiation: INITIATION
@@ -175,6 +178,7 @@ func _build_services() -> void:
 	pantyhose.setup()
 	stool = _add(STOOL.new(), "UnfplapStool")
 	stool.setup()
+	audio = _add(AUDIO.new(), "UnfplapAudio")
 	stock_smack = _add(STOCK_SMACK.new(), "UnfplapStockSmack")
 	body_change.wire(anatomy, pantyhose, stock_smack)
 	changelings = _add(CHANGELINGS.new(), "UnfplapChangelings")
@@ -268,7 +272,7 @@ func _on_pony(pony: Node) -> void:
 ## The entry's one runtime construction, called once per attached body. The runtime file is the
 ## entry's preload, so the registry never imports it.
 func _new_runtime(pony: Node) -> Node:
-	var runtime: RUNTIME = RUNTIME.new(hud, memory, stool)
+	var runtime: RUNTIME = RUNTIME.new(hud, memory, stool, audio)
 	runtime.name = "UnfplapRuntime"
 	runtime.pony = pony
 	if is_instance_valid(pantyhose):

@@ -69,7 +69,6 @@ func act_end(pony: Node) -> void:
 	_install(pony)
 
 
-## A world enter or a world close.
 func on_world_closed() -> void:
 	_restore_all()
 	_ponies.clear()

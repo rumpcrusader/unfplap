@@ -81,7 +81,6 @@ func _tick(delta: float) -> void:
 	context.pose.sync_frame(session.pose_family())
 	if host.pony.sleeping:
 		host.pony.sleeping = false
-	context.audio.tick_vocal(delta)
 	context.hold.keep_nav()
 	context.camera.tick_free_look()
 	context.hold.keep_attention()
@@ -168,7 +167,7 @@ func _director() -> Node:
 
 
 ## The pose-change fan-out has a fixed order: the pose service reconciles its modifiers and the
-## act body, then the camera, hands, kiss, anatomy and audio retarget. Every hook is idempotent.
+## act body, then the camera, hands, kiss and anatomy retarget. Every hook is idempotent.
 func _fanout() -> void:
 	var view := context.pose.view()
 	context.pose.pose_changed(view)
@@ -182,9 +181,6 @@ func _fanout() -> void:
 		context.pose_view.contact_target = view.contact_target \
 			if view.contact_target is Vector3 else Vector3.INF
 		context.anatomy.pose(context.pose_view)
-	# The act audio has no pose hook today; the row stays the fan-out's last seam.
-	if context.audio != null and context.audio.has_method("pose_changed"):
-		context.audio.pose_changed(view)
 
 
 ## One render frame: the pose write, the look target, the shot and the breath. Idle keeps only the

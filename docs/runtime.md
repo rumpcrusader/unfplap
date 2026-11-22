@@ -37,8 +37,8 @@ kiss, wings, integrations, scene gate, scene hold, rest) own their own state and
   (`bind_adopted_body`), ends a non-adult body through the one exit and refreshes the game LOD.
 - End: pony despawn, world close or mod shutdown. `_exit_tree()` releases the kiss forelegs, the
   stool, the tail tuck, the aftercare, the anatomy act and the face, and clears the pending
-  body-swap record. The audio node and the pose-scope tail tuck are system-owned children created
-  by their owners, not by the node.
+  body-swap record. The audio pool and sound child belong to the world audio service and the
+  pose-scope tail tuck to its owner; the node creates neither.
 
 The node's public surface is exactly:
 
@@ -72,11 +72,11 @@ The node's public surface is exactly:
 | lean, surge/bob, free look | `camera/service.gd` |
 | act view, glance, facing lock, eye | `camera/view.gd` |
 | player placement, stance, restore, scene token | `act/frame.gd` |
-| audio, voice | `audio/act.gd` |
+| audio, voice | `audio/api.gd` |
 | aftercare plan, satisfaction decay, close window | `afterglow/service.gd` |
 | face/eyes, reactions, dialogue, hands, kiss, wings, integrations, anatomy | their services |
 | act view | `shared/act_facts.gd`, filled by `act/view.gd` |
-| injected HUD, memory and stool | the entry's factory, passed to `RUNTIME.new()` and `act/context.gd` |
+| injected HUD, memory, stool and audio | the entry's factory, passed to `RUNTIME.new()` and `act/context.gd` |
 
 No value is mirrored in two owners. The session is the one state writer: `act/session.gd:_set_state`
 is the only assignment to `state`, and it refreshes the scene gate's live state.
@@ -473,8 +473,8 @@ fan-out invariants:
 - `runtime.gd` contains no settings read; `act/settings.gd` is the act's one snapshot boundary
   (`snapshot_values` and `live_preferences`), and every `SETTINGS.<member>` read there is a named
   allow-list row;
-- `runtime.gd` creates no child node; the act audio node and the pose-scope tail tuck are created by
-  their owners;
+- `runtime.gd` creates no child node; the world audio service's pool and the pose-scope tail tuck
+  are created by their owners;
 - a file over 1,000 lines prints `SMELL large file` and does not fail; size is information, not a
   hard gate, and no line, function or preload cap exists;
 - every `Callable(node, ...)` in `act/build.gd` must name a function `runtime.gd` defines (the

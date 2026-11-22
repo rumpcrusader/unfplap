@@ -74,7 +74,7 @@ func run(rejoin_cuddle: bool) -> void:
 		restore_posture(_start_frame(), rejoin_cuddle)
 	free_pose()
 	context.pose.restore_bones()
-	context.audio.stop()
+	context.audio.end_act()
 	if is_instance_valid(WORLD.game):
 		if is_instance_valid(context.hud):
 			context.hud.hide_all()
@@ -121,7 +121,6 @@ func free_pose() -> void:
 	context.hold.release_all_beats()
 	context.standing_anon.remove()
 	context.pose.leave_pose_body()
-	context.audio.restore_voice_policy()
 	context.reactions.end_act()
 	context.pose.release_pose()
 
@@ -205,7 +204,6 @@ func restore_begin() -> void:
 	if is_instance_valid(pose):
 		pose.target_amount = 0.0
 	context.pose.set_tail_target(0.0)
-	context.audio.stop_breath()
 	context.camera.release_back()
 	context.view.reset_facing()
 	if is_instance_valid(context.hud):

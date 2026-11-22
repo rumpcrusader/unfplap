@@ -28,7 +28,7 @@ const SUMMARY := preload("res://mods/unfplap/summary/service.gd")
 const AFTERGLOW := preload("res://mods/unfplap/afterglow/service.gd")
 const FACE := preload("res://mods/unfplap/face/service.gd")
 const REACTIONS := preload("res://mods/unfplap/reactions/service.gd")
-const AUDIO_ACT := preload("res://mods/unfplap/audio/act.gd")
+const AUDIO := preload("res://mods/unfplap/audio/api.gd")
 const STOOL := preload("res://mods/unfplap/stool/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
@@ -73,7 +73,8 @@ class Bundle extends RefCounted:
 	var pose: POSE_SESSION = null
 	var camera: ACT_CAMERA = null
 	var readiness: READINESS = null
-	var audio: AUDIO_ACT = null
+	## The act audio handle, typed by convention: the API's inner class, so a suite may replace it.
+	var audio: RefCounted = null
 	var afterglow: AFTERGLOW = null
 	var face: FACE = null
 	var reactions: REACTIONS = null
@@ -204,7 +205,7 @@ class BodyChangeHost extends "res://mods/unfplap/body_change/act_host.gd":
 ## Build the bundle once. `pony` is null at `_init()` because the registry assigns the body after
 ## the node is built; `bind_pony()` carries it then.
 static func build(pony: Node, node: Node, hud: Node = null, memory: Node = null,
-		stool: Node = null) -> Bundle:
+		stool: Node = null, audio: Node = null) -> Bundle:
 	var b := Bundle.new()
 	b.node = node
 	b.pony = pony if is_instance_valid(pony) else null
@@ -229,7 +230,8 @@ static func build(pony: Node, node: Node, hud: Node = null, memory: Node = null,
 	b.dialogue = ACT_DIALOGUE.new(b.facts, b.memory)
 	b.afterglow = AFTERGLOW.new(b.hud, b.memory)
 	b.hold = SCENE_HOLD.new()
-	_build_systems(node, b)
+	b.audio = AUDIO.ActAudio.new(audio)
+	_build_systems(b)
 	_bind_act_frame(node, b)
 	_bind_pose_hosts(node, b)
 	_bind_facts(node, b)
@@ -240,7 +242,7 @@ static func build(pony: Node, node: Node, hud: Node = null, memory: Node = null,
 
 
 ## The per-act systems, in construction order.
-static func _build_systems(node: Node, b: Bundle) -> void:
+static func _build_systems(b: Bundle) -> void:
 	b.handover_host = BodyChangeHost.new(b)
 	b.handover = BODY_CHANGE_ACT.new(b.handover_host, b.memory)
 	b.wings = WING.new(b.facts)
@@ -252,8 +254,6 @@ static func _build_systems(node: Node, b: Bundle) -> void:
 	b.presentation = STANDING_PRESENTATION.new(b.facts)
 	b.camera.bind(b.facts, b.hands, b.kiss, b.view)
 	b.camera.standing_anon = b.standing_anon
-	b.audio = AUDIO_ACT.new()
-	b.audio.bind(node)
 
 
 ## The act's own host, context, session and modules, in binding order.
@@ -385,7 +385,7 @@ static func _bind_facts(node: Node, b: Bundle) -> void:
 	hold_host.state = Callable(b.act, "state_value")
 	hold_host.pose_family = Callable(b.act, "pose_family")
 	b.hold.bind(hold_host)
-	b.facts.play_mouth_kiss = Callable(b.audio, "play_mouth_kiss")
+	b.facts.play_mouth_kiss = Callable(b.audio, "mouth_kiss")
 	b.facts.act_actions_allowed = Callable(b.camera, "at_actions_allowed")
 	b.facts.auto_panel_open = Callable(b.input, "auto_panel_open")
 	b.facts.view = Callable(b.camera, "view_controller")

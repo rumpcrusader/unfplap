@@ -56,9 +56,11 @@ var presentation: PRESENTATION_PORT:
 var _swapping_parent := false
 
 
-## Three optional handles arrive from the entry: HUD, memory and stool. A suite may leave them out.
-func _init(hud: Node = null, memory: Node = null, stool: Node = null) -> void:
-	_bundle = ACT_BUILD.build(null, self, hud, memory, stool)
+## Four optional handles arrive from the entry: HUD, memory, stool and audio. A suite may leave
+## them out.
+func _init(hud: Node = null, memory: Node = null, stool: Node = null,
+		audio: Node = null) -> void:
+	_bundle = ACT_BUILD.build(null, self, hud, memory, stool, audio)
 
 
 func _ready() -> void:

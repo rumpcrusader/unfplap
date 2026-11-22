@@ -146,23 +146,20 @@ class FakeAudio extends RefCounted:
 	var vocals := 0
 	var oral_kisses := 0
 
-	func pose_changed(_view: Variant) -> void:
-		pass
-
 	func impact(tier: String, strength: float, _rump: Vector3,
-			_gap: float, _eps: float, plap := true) -> void:
-		impacts.append({"tier": tier, "strength": strength, "plap": plap})
+			_gap: float, body_slap: bool) -> void:
+		impacts.append({"tier": tier, "strength": strength, "plap": body_slap})
 
-	func crossed(_before: float, _after: float) -> bool:
+	func crossing_out(_before: float, _now: float) -> bool:
 		return true
 
-	func withdraw(_before: float, _after: float, _strength: float, _rump: Vector3) -> void:
+	func slide_out(_before: float, _now: float, _strength: float, _rump: Vector3) -> void:
 		withdraws += 1
 
-	func play_vocal() -> void:
+	func vocal() -> void:
 		vocals += 1
 
-	func tick_vocal(_delta: float) -> void:
+	func tick(_delta: float, _state: int, _rate: float) -> void:
 		pass
 
 	func oral_kiss() -> void:
@@ -280,7 +277,7 @@ func _fixture() -> Dictionary:
 	runtime._bundle.wings = wings
 	runtime._bundle.pose = pose
 	pose.facts = runtime._bundle.facts
-	runtime._bundle.audio.node = audio
+	runtime._bundle.audio = audio
 	runtime._bundle.dialogue = dialogue
 	runtime._bundle.camera = act_camera
 	runtime._bundle.kiss = kiss

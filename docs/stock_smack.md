@@ -29,8 +29,8 @@ service, and it does no per-frame work.
 
 - Only the stock player is touched; a pony without `FlankTouch` is ignored.
 - A restored player gets the values it had, not the shipped defaults.
-- A world enter or close puts every stock player back and forgets its ponies; the loaded pack
-  streams stay for the next world.
+- A world close puts every stock player back and forgets its ponies; the loaded pack streams stay
+  for the next world.
 - The setting is live: the service subscribes to the settings change notification itself, so the
   entry installs no settings path.
 

@@ -87,7 +87,6 @@ POSE_LEDGER_ORDER = (
     "context.hold.release_all_beats()",
     "context.standing_anon.remove()",
     "context.pose.leave_pose_body()",
-    "context.audio.restore_voice_policy()",
     "context.reactions.end_act()",
     "context.pose.release_pose()",
 )
@@ -97,7 +96,6 @@ POSE_FANOUT_ORDER = (
     "context.hands",
     "context.kiss",
     "context.anatomy",
-    "context.audio",
 )
 # The start ledger's recipe, in the order the act depends on: the presentation guard, the stool,
 # the borrows, the pose build, the player frame, the camera open, the audio,
@@ -113,7 +111,7 @@ START_LEDGER_ORDER = (
     "_build_pose()",
     "context.frame.begin(",
     "context.camera.begin_act(",
-    "context.audio.start(",
+    "context.audio.begin_act(",
     "session.begin_pose_in()",
     "context.hud.show_act(context.facts)",
 )

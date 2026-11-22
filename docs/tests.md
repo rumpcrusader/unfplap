@@ -218,8 +218,8 @@ feature flags into the same reconcile. The hook suites are
 `tests/act_camera/test_camera.gd`, `tests/act_camera/test_kiss.gd`, `tests/hands/test_caress.gd`,
 `tests/hands/test_actions.gd`, `tests/anatomy/test_api.gd` and
 `tests/act_audio/test_audio.gd`. The pose ledger's order and its three callers, the
-`_fanout()` owner order in `act/tick.gd` (pose service first, then camera, hands, kiss, anatomy
-and audio), the pose-before-facts order in its `_tick()` and the ban on act-exit names under
+`_fanout()` owner order in `act/tick.gd` (pose service first, then camera, hands, kiss and
+anatomy), the pose-before-facts order in its `_tick()` and the ban on act-exit names under
 `poses/` are static rules in `scripts/architecture.py --check`. The anatomy allow-list and its
 fixture test are `scripts/architecture.py` and `scripts/test_architecture.py`, both run by
 `scripts/test.sh`. The contract is `docs/poses.md`; this doc only names

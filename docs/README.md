@@ -72,7 +72,7 @@ the idle block; `act/build.gd` constructs and binds them once per pony.
 | Face and mood | `face/service.gd` | `docs/face.md` | `tests/face/` |
 | Reactions | `reactions/service.gd` | `docs/reactions.md` | `tests/reactions/` |
 | Stool | `stool/service.gd` | `docs/stool.md` | `tests/stool/` |
-| Audio and voice | `audio/service.gd` | `docs/audio.md` | `tests/act_audio/` |
+| Audio and voice | `audio/api.gd` | `docs/audio.md` | `tests/act_audio/` |
 | Outside-act smack | `stock_smack/api.gd` | `docs/stock_smack.md` | `tests/stock_smack/` |
 | HUD | `hud/service.gd` | `docs/hud.md` | `tests/hud/` |
 | Settings | `settings/service.gd` | `docs/settings.md` | `tests/test_settings.gd` |

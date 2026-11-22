@@ -69,7 +69,7 @@ func rebind_body() -> void:
 	session.refresh_gate()
 	context.pose.bind(host.node, host.pony)
 	context.face.bind(host.pony as Node3D, host.node)
-	context.audio.bind_identity(host.pony, session.pony_id, session.bed)
+	context.audio.rebind_body(host.pony, session.pony_id, session.bed)
 	session.refresh_view()
 	session.refresh_anatomy()
 	context.reactions.bind_scene(host.pony as Node3D,
@@ -158,7 +158,7 @@ func restore_camera() -> void:
 
 
 func stop_breath() -> void:
-	context.audio.stop_breath()
+	context.audio.silence_breath()
 
 
 ## The adopted body's binding before the resume moves the act onto it.
@@ -255,11 +255,6 @@ func pause_face_turn() -> void:
 func reset_face() -> void:
 	context.face.clear_face()
 	context.face.set_face(0.45, context.face.ACT_LIDS)
-
-
-func apply_voice_policy() -> void:
-	context.audio.apply_voice_policy(session.feature("mute_ponese_audio"), host.pony,
-		session.pony_id)
 
 
 func apply_pose_change() -> void:

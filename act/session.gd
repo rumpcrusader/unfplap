@@ -636,7 +636,7 @@ func climax() -> void:
 			and context.readiness.pony_climaxes == 1:
 		context.memory.note(MEMORY.NoteKind.CLIMAXED, pony_id, event_id)
 	view.climax_line(self)
-	context.audio.play_climax()
+	context.audio.climax()
 	# integration: her fluid and one-shot climax presentation.
 	if context.anatomy != null:
 		context.anatomy.climax()
@@ -809,7 +809,7 @@ func refresh_anatomy() -> void:
 func bind_adopted_body(body: Node) -> void:
 	context.pose.bind(host.node, body)
 	context.face.bind(body as Node3D, host.node)
-	context.audio.bind_identity(body, pony_id, bed)
+	context.audio.rebind_body(body, pony_id, bed)
 	adopt_display_name(context.handover.form(), body)
 	refresh_view()
 	refresh_anatomy()

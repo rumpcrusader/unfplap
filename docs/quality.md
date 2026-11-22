@@ -100,7 +100,7 @@ game-boundary and re-export rules. These rules exist so code cannot grow back ou
   value, and calls no `add_child()`. Its public functions and properties are fixed by
   `NODE_SURFACE` and `NODE_PROPERTIES`. The act's settings reads live in `act/settings.gd` at its
   two snapshot boundaries (`snapshot_values`, `live_preferences`), each with a named allow-list row;
-  the act audio node and the pose-scope tail tuck are created by their owners. Both allow-lists live
+  the world audio service's pool and the pose-scope tail tuck are created by their owners. Both allow-lists live
   in the checker and are compared in both directions, so a new settings read or node fails the gate
   and a row whose code is gone fails as stale. File size is reported as `SMELL large file`, never as
   a cap.

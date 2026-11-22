@@ -12,6 +12,7 @@ const WORLD := preload("res://mods/unfplap/world/service.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const HYBRID_NEAR_MESH := preload("res://world/characters/hybrid_mare/hybrid_near_mesh.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
+const AUDIO := preload("res://mods/unfplap/audio/api.gd")
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const ACT_SESSION := preload("res://mods/unfplap/act/session.gd")
 const CONTROLLER := preload("res://mods/unfplap/anatomy/controller.gd")
@@ -617,15 +618,16 @@ func _check_auto_survives_swap() -> void:
 	_free_fixture(f)
 
 
-## The base game's vocal cache must not keep a freed player from the old body. The audio facade
+## The base game's vocal cache must not keep a freed player from the old body. The audio handle
 ## clears only the act's stable id and leaves every valid entry alone.
 func _check_vocal_cache() -> void:
 	var f := _fixture()
 	var runtime: Node = f["runtime"]
 	runtime.act.pony_id = "test_mare"
-	runtime.act.pony_id = "test_mare"
-	var audio: Node = runtime._bundle.audio.service()
-	audio.bind(null, "test_mare", null)
+	var service: Node = AUDIO.new()
+	root.add_child(service)
+	var audio := AUDIO.ActAudio.new(service)
+	audio.rebind_body(null, "test_mare", null)
 	var vocal := FakeVocal.new()
 	root.add_child(vocal)
 	var freed := Node3D.new()
@@ -634,14 +636,17 @@ func _check_vocal_cache() -> void:
 	var kept := Node3D.new()
 	root.add_child(kept)
 	vocal._players["kept"] = kept
-	audio.prune_freed_vocal(vocal)
+	audio._prune_freed_vocal(vocal)
 	check(not vocal._players.has("test_mare"), "a freed vocal cache entry is cleared")
 	check(vocal._players.get("kept") == kept, "another id's valid player is left alone")
 	vocal._players["test_mare"] = kept
-	audio.prune_freed_vocal(vocal)
+	audio._prune_freed_vocal(vocal)
 	check(vocal._players.has("test_mare"), "a valid cached player is kept")
 	vocal.free()
 	kept.free()
+	service.shutdown()
+	root.remove_child(service)
+	service.free()
 	_free_fixture(f)
 
 

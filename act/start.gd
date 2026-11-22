@@ -165,8 +165,7 @@ func run(pose: String, bed_in: Variant, act_source: String, skip_presentation :=
 	context.hold.pause_face_turn(false)
 	if context.camera.begin_act(session.start_family(), session.player_pony, WORLD.headset_view()):
 		session.begin_vr()
-	context.audio.start(host.pony, session.pony_id, session.bed)
-	context.audio.apply_voice_policy(session.feature("mute_ponese_audio"), host.pony, session.pony_id)
+	context.audio.begin_act(host.pony, session.pony_id, session.bed)
 	if is_instance_valid(context.hud):
 		context.hud.set_inventory_hidden(true)
 	session.begin_pose_in()

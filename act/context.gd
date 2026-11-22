@@ -34,8 +34,8 @@ const STOOL_ACT := preload("res://mods/unfplap/stool/act.gd")
 var pose: POSE_SESSION = null
 var camera: ACT_CAMERA = null
 var readiness: READINESS = null
-## The lazy per-act audio node; the view and idle schedule do not read it.
-var audio: Variant = null
+## The act audio handle; the field carries the anatomy handle's RefCounted convention.
+var audio: RefCounted = null
 var afterglow: AFTERGLOW = null
 var face: FACE = null
 var reactions: REACTIONS = null

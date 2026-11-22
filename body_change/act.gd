@@ -178,7 +178,6 @@ func resume() -> bool:
 	host.swap().claim_nav()
 	host.swap().pause_face_turn()
 	host.swap().reset_face()
-	host.swap().apply_voice_policy()
 	host.swap().apply_pose_change()
 	host.swap().begin_integrations()
 	host.swap().sync_hud()

@@ -251,10 +251,10 @@ SETTINGS.apply_live()                                  # one pass, after the val
 The subscribers, in construction order: `log` (the two debug switches, through the reads the entry
 binds), `hud` (the act-key cap and the caption mode), `offer`, `input` (the act action and the
 shield), `anatomy` (the player part, every live controller and the tail seats), `body_change` (the
-source's tail wrapper for every live body), `pantyhose`, `stock_smack`, `ponies` (every runtime, and
-the act a pending body swap has taken out of the registry), the debug actions (the wheel and the
-skeleton overlay) and the settings UI (the Debug blocks). `stool`, `initiation` and `negotiation`
-read their settings live and subscribe to nothing.
+source's tail wrapper for every live body), `pantyhose`, `audio` (the Ponese mute), `stock_smack`,
+`ponies` (every runtime, and the act a pending body swap has taken out of the registry), the debug
+actions (the wheel and the skeleton overlay) and the settings UI (the Debug blocks). `stool`,
+`initiation` and `negotiation` read their settings live and subscribe to nothing.
 
 `api.gd`, `eligibility.set_profile()` and a provider's settled body change call
 `SETTINGS.apply_live()` too: a provider layer is a live input like a panel edit. The list lives in

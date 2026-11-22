@@ -76,9 +76,6 @@ extends RefCounted
 @abstract func reset_face() -> void
 
 
-@abstract func apply_voice_policy() -> void
-
-
 @abstract func apply_pose_change() -> void
 
 

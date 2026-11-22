@@ -610,11 +610,12 @@ and the runtime only re-asserts the pose weight, the tail, the HUD state and the
 ## Retarget hooks and the pose change
 
 `act/tick.gd:_fanout()` runs after the pose tick and the facts sync in every act phase above
-`IDLE`, in one fixed order: the pose service, the camera, the hands, the kiss, the anatomy handle
-and the audio. The pose service reconciles its modifier profile and applies the `act_body`/`anon`
+`IDLE`, in one fixed order: the pose service, the camera, the hands, the kiss and the anatomy
+handle. The pose service reconciles its modifier profile and applies the `act_body`/`anon`
 channel; each following owner implements `pose_changed(view)` and caches the last id/profile/
 family/contact, so an unchanged view is a cheap no-op. The face, dialogue and HUD read the view
-through the facts and have no hook. The fan-out is a retarget seam, not a second teardown: it never
+through the facts and have no hook. The audio follows the bed it was bound with, not the pose view.
+The fan-out is a retarget seam, not a second teardown: it never
 calls `release_pose()`, `leave_pose_start()`, `leave_pose_body()`, `free_pose()`
 or any act-scope restore. The eye view's write stays on the render write, after the pose write.
 

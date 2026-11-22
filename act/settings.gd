@@ -60,11 +60,6 @@ func snapshot_values(group: String, family: String, preferences: Dictionary,
 	configure_dialogue()
 
 
-## The pre-edit Ponese mute, compared after the new snapshot to spot a voice-policy edit.
-func muted() -> bool:
-	return bool(features.get("mute_ponese_audio", false))
-
-
 func debug_face() -> bool:
 	return bool(features.get("face_debug", false))
 
@@ -91,9 +86,9 @@ func live_preferences(pony_id: String) -> Dictionary:
 	return SETTINGS.preferences(pony_id).raw() if not pony_id.is_empty() else {}
 
 
-## The live edit's post-view half: the integrations, the pose family's config, the modifiers,
-## the face and the voice policy. `mute_changed` re-applies the voice policy.
-func apply_act_live(family: String, pony_id: String, mute_changed: bool) -> void:
+## The live edit's post-view half: the integrations, the pose family's config, the modifiers
+## and the face. The audio owns its own mute subscription, so no voice step runs here.
+func apply_act_live(family: String) -> void:
 	context.integrations.apply_live_settings()
 	context.reactions.apply_radius()
 	if family == "standing":
@@ -107,8 +102,6 @@ func apply_act_live(family: String, pony_id: String, mute_changed: bool) -> void
 	_refresh_live_modifiers(family)
 	context.face.ensure_bound(host.pony, host.node)
 	context.face.sync_settings(debug_face())
-	if mute_changed:
-		_refresh_live_voice(pony_id)
 
 
 ## Push the debug talk/cue pacing settings into the pure scheduler.
@@ -136,15 +129,6 @@ func _refresh_live_modifiers(family: String) -> void:
 	elif family == "bed":
 		context.pose.refresh_act_body_palm()
 
-
-## A live voice-policy edit: give the player its saved volume back, then apply the new policy.
-func _refresh_live_voice(pony_id: String) -> void:
-	if host.node == null or not host.node.is_inside_tree():
-		return
-	if not is_instance_valid(context.audio):
-		return
-	context.audio.restore_voice_policy()
-	context.audio.apply_voice_policy(muted(), host.pony, pony_id)
 
 
 

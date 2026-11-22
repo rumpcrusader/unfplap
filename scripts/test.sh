@@ -4,6 +4,7 @@
 # Usage: scripts/test.sh <suite|dir>...   # poses/test_pose_asset | kiss | poses
 #        scripts/test.sh --all            # every suite (what test_all.sh runs)
 #        scripts/test.sh --list           # the discovered suites, then exit
+#        scripts/test.sh --self-test      # the harness self-test (a hung fixture must fail), then exit
 #        scripts/test.sh --verbose ...    # also print one PASS line per suite
 # Godot 4.5 must be on PATH.
 # TEST_JOBS sets the parallelism (default 12). TEST_VERBOSE=1 is --verbose.
@@ -17,24 +18,26 @@ JOBS="${TEST_JOBS:-12}"
 VERBOSE="${TEST_VERBOSE:-0}"
 ALL=0
 LIST=0
+SELF_TEST=0
 REQUESTED=()
 
 for arg in "$@"; do
 	case "$arg" in
 		--all) ALL=1 ;;
 		--list) LIST=1 ;;
+		--self-test) SELF_TEST=1 ;;
 		-v | --verbose) VERBOSE=1 ;;
 		--*)
 			printf 'Unknown option %s\n' "$arg" >&2
-			printf 'Usage: scripts/test.sh <suite|dir>... | --all | --list [--verbose]\n' >&2
+			printf 'Usage: scripts/test.sh <suite|dir>... | --all | --list | --self-test [--verbose]\n' >&2
 			exit 2
 			;;
 		*) REQUESTED+=("$arg") ;;
 	esac
 done
 
-if [[ "${#REQUESTED[@]}" -eq 0 && "$ALL" -eq 0 && "$LIST" -eq 0 ]]; then
-	printf 'Usage: scripts/test.sh <suite|dir>... | --all | --list [--verbose]\n' >&2
+if [[ "${#REQUESTED[@]}" -eq 0 && "$ALL" -eq 0 && "$LIST" -eq 0 && "$SELF_TEST" -eq 0 ]]; then
+	printf 'Usage: scripts/test.sh <suite|dir>... | --all | --list | --self-test [--verbose]\n' >&2
 	exit 2
 fi
 if [[ "$ALL" -eq 1 && "${#REQUESTED[@]}" -gt 0 ]]; then
@@ -56,10 +59,35 @@ if [[ "$LIST" -eq 1 ]]; then
 	exit 0
 fi
 
+# The harness self-test: a fixture that never returns from run() must fail from the base watchdog.
+run_self_test() {
+	local dir log status=0
+	dir="$(mktemp -d "${TMPDIR:-/tmp}/unfplap-selftest.XXXXXX")"
+	log="$dir/watchdog.out"
+	timeout 10 godot --headless --xr-mode off --path "$PROJECT_ROOT" \
+		--script res://mods/unfplap/tests/support/fixtures/watchdog_hang.gd >"$log" 2>&1 || true
+	# The fixture exits 1 by design, so its log is the assertion, not its status.
+	if ! grep -qE '^FAIL .*run\(\) did not finish' "$log"; then
+		printf 'TEST_SELFTEST_FAIL (no watchdog failure line)\n'
+		tail -n 20 "$log" | sed 's/^/  /' || true
+		status=1
+	elif ! grep -qE '_RESULT checks=[0-9]+ failures=1$' "$log"; then
+		printf 'TEST_SELFTEST_FAIL (the watchdog did not report one failure)\n'
+		tail -n 20 "$log" | sed 's/^/  /' || true
+		status=1
+	fi
+	rm -rf "$dir"
+	return "$status"
+}
+
 # The same prechecks the full gate runs, so a local subset cannot disagree with it.
 if ! command -v godot >/dev/null 2>&1; then
 	printf 'Godot not found on PATH (need the Godot 4.5 executable).\n' >&2
 	exit 1
+fi
+if [[ "$SELF_TEST" -eq 1 ]]; then
+	run_self_test || exit 1
+	exit 0
 fi
 if ! python3 "$MOD_DIR/scripts/asset_pack.py" verify --root "$MOD_DIR"; then
 	printf 'Run scripts/fetch_assets.sh once in this checkout.\n' >&2
@@ -75,6 +103,7 @@ if ! python3 "$MOD_DIR/scripts/test_architecture.py"; then
 fi
 
 if [[ "$ALL" -eq 1 ]]; then
+	run_self_test || exit 1
 	SELECTED=("${TESTS[@]}")
 else
 	SELECTED=()

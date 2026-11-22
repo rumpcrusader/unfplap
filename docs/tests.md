@@ -98,6 +98,8 @@ defers `_run_and_finish()`, which calls `before()`, then `run()`, then `finish()
   run and are not part of the contract.
 - `finish()` runs `teardown()` once, fails the suite when no assertion ran, prints the final
   `…_RESULT checks=%d failures=%d` line and quits. The runner reads that line as its result input.
+- `before()` returns, then a watchdog starts: a `run()` that never returns fails the suite and still
+  tears down once. `scripts/test.sh --self-test` proves it with a fixture that hangs on purpose.
 - The runner also scans the suite log for `SCRIPT ERROR` and `Parse Error`; a suite that logs one
   fails even when the result line reports `failures=0`, so a script error cannot hide behind a
   passing check count.
@@ -156,6 +158,7 @@ prefix, so the two act-audio suites stay distinct: `privacy/privacy` → `PRIVAC
 |---|---|
 | `scripts/test.sh <suite>...` | the named suites, or every suite under a directory (`scripts/test.sh poses`) |
 | `scripts/test.sh --list` | the discovered suites, then exits |
+| `scripts/test.sh --self-test` | the harness self-test: a hung fixture must fail from the watchdog, then exits |
 | `scripts/test.sh --all` | every suite; this is what `scripts/test_all.sh` runs |
 | `scripts/test_all.sh` | the full gate: every suite, once per task |
 
@@ -168,7 +171,8 @@ status line: `TEST_PASS <n> suites, <n> checks` for a subset and `TEST_ALL_PASS 
 checks` for `--all`, which is the marker the release check greps. A failing run prints a `rerun:
 scripts/test.sh ...` line and ends in `TEST_FAIL <k> of <n> suites: <names>` (or `TEST_ALL_FAIL
 ...`), so the last line names every failing suite and a trailing `tail` cannot hide the verdict.
-`--verbose` (`TEST_VERBOSE=1`) adds one `PASS` line per suite for a local run.
+`--verbose` (`TEST_VERBOSE=1`) adds one `PASS` line per suite for a local run. `--all` runs the
+self-test first, so the full gate proves the base still ends a hung suite.
 
 Every suite must also leave no `SCRIPT ERROR` or `Parse Error` in its log.
 

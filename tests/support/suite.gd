@@ -4,6 +4,8 @@ extends SceneTree
 
 var failures := 0
 var checks := 0
+## The deadline for run(); only the harness self-test lowers it in before().
+var watchdog_seconds := 60.0
 var _finished := false
 
 
@@ -13,7 +15,17 @@ func _initialize() -> void:
 
 func _run_and_finish() -> void:
 	before()
+	# A run() that never returns fails here instead of leaving the runner without a result.
+	var timer: SceneTreeTimer = create_timer(watchdog_seconds)
+	timer.timeout.connect(_on_watchdog_timeout)
 	await run()
+	finish()
+
+
+func _on_watchdog_timeout() -> void:
+	if _finished:
+		return
+	fail("run() did not finish")
 	finish()
 
 

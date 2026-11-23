@@ -11,8 +11,6 @@ const ACT_DIALOGUE := preload("res://mods/unfplap/dialogue/service.gd")
 const READINESS := preload("res://mods/unfplap/readiness/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 
-## The runtime node the handover host belongs to.
-var node: Node = null
 var host: ACT_NODE = null
 var act: ACT_SESSION = null
 ## The swap module; `swap()` below is the port read, so the field cannot share its name.

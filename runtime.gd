@@ -192,7 +192,6 @@ func _compose() -> void:
 	_act = ACT_SESSION.new()
 	_act.bind(_host, _context)
 	# The handover's reads point at the live act frame, which exists only after the session binds.
-	_handover_host.node = self
 	_handover_host.host = _host
 	_handover_host.act = _act
 	_handover_host.act_swap = swap

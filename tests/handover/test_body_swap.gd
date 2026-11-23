@@ -397,7 +397,6 @@ func _roster(made: Dictionary) -> PONIES:
 ## Point the runtime's memory consumers at the suite's fake after the fixture built it.
 func _set_memory(runtime: Node, memory: Node) -> void:
 	runtime.act.context.memory = memory
-	runtime.act.context.memory = memory
 	runtime.act.context.handover.memory = memory
 	runtime.act.context.dialogue.memory = memory
 	runtime.act.context.summary.memory = memory

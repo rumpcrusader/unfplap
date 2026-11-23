@@ -75,6 +75,10 @@ var _overlay_parent: Node3D = null
 var _overlay_reason := ""
 
 
+func _ready() -> void:
+	setup()
+
+
 func setup() -> void:
 	process_priority = PROCESS_PRIORITY
 	if mod_active.is_null():

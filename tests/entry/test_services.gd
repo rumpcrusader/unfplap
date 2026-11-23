@@ -73,7 +73,7 @@ func run() -> void:
 	_check_player(entry, first, last, body)
 	_check_close(entry, first, last, host)
 	_check_exit(entry, first, last)
-	_check_add()
+	_check_attach()
 	_check_hooks()
 
 	root.remove_child(body)
@@ -140,20 +140,25 @@ func _check_exit(entry: Variant, first: StandIn, last: StandIn) -> void:
 	host.free()
 
 
-## `_add`: a list service is named and parented; both services join the one ordered list.
-func _check_add() -> void:
+## `_attach`: a World service is named, parented under the entry, joined to the world group and
+## appended to the one ordered list in attach order, which is the broadcast order.
+func _check_attach() -> void:
 	var builder: Variant = MAIN.new()
 	var first := StandIn.new()
+	first.id = "first"
+	builder.call("_attach", first, "UnfplapFake")
+	check(first.name == "UnfplapFake", "_attach names the service")
+	check(first.get_parent() == builder, "_attach parents the service under the entry")
+	check(first.is_in_group("unfplap_world"), "_attach joins the service to the world group")
+	var services: Array = builder.get("_services")
+	check(services.size() == 1 and services[0] == first,
+		"_attach appends the service to the one ordered list")
 	var second := StandIn.new()
-	check(builder.call("_add", first, "UnfplapFake") == first, "_add returns the service it took")
-	check(first.name == "UnfplapFake", "_add names the service")
-	check(first.get_parent() == builder, "_add parents the service under the entry")
-	check(builder.call("_add", second, "UnfplapSecond") == second, "_add returns the second service")
-	check((builder.get("_services") as Array).size() == 2, "_add joins both to the one list")
-	var unnamed := StandIn.new()
-	check(builder.call("_add", unnamed) == unnamed, "_add takes a service without a name")
-	check(not unnamed.name.is_empty(), "_add never assigns the empty node name the engine rejects")
-	check((builder.get("_services") as Array).size() == 3, "an unnamed service still joins the list")
+	second.id = "second"
+	builder.call("_attach", second, "UnfplapSecond")
+	var ordered: Array = builder.get("_services")
+	check(ordered.size() == 2 and ordered[1] == second,
+		"_attach appends in attach order, which is the broadcast order")
 	builder.free()
 
 

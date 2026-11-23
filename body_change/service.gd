@@ -36,6 +36,10 @@ var _active_by_source: Dictionary = {}
 var _active_by_body: Dictionary = {}
 
 
+func _ready() -> void:
+	setup()
+
+
 func setup() -> void:
 	CHANGE.on_changed(Callable(self, "apply_settings"))
 

@@ -66,6 +66,7 @@ var _agreement_clock := 0.0
 
 func _ready() -> void:
 	CHANGE.on_changed(Callable(self, "apply_settings"))
+	apply_settings()
 
 
 func _exit_tree() -> void:

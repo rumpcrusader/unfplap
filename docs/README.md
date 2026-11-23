@@ -24,12 +24,13 @@ traps and extension points.
 
 ## Orchestrators
 
-`main.gd` and `runtime.gd` compose services; they are not services. `main.gd` holds the one ordered
-service list, which is the lifecycle order of every broadcast. `runtime.gd` is the per-pony Node
-host: it exists for every non-player pony, idle and in an act, and owns lifetime, parenting, the two
-engine-frame forwards, the reparent across a body swap and the world-close release. Its own `act/`
-modules own the act state and values, the start recipe, the one teardown, the schedule, the view and
-the idle block; `act/build.gd` constructs and binds them once per pony.
+`main.gd` and `runtime.gd` compose services; they are not services. `main.gd` owns two build roots:
+`_build_process()`, the one process Node, and `_build_world()`, the one ordered World service list
+that is the lifecycle order of every broadcast. `runtime.gd` is the per-pony Node host: it exists
+for every non-player pony, idle and in an act, and owns lifetime, parenting, the two engine-frame
+forwards, the reparent across a body swap and the world-close release. Its own `act/` modules own
+the act state and values, the start recipe, the one teardown, the schedule, the view and the idle
+block; `act/build.gd` constructs and binds them once per pony.
 
 | Part | Entry | Contract | Tests |
 |---|---|---|---|

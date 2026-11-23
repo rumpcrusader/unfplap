@@ -161,6 +161,7 @@ func _ready() -> void:
 	# setting concerns the caption move.
 	CHANGE.on_game_changed(Callable(self, "_on_game_setting_changed"))
 	CHANGE.on_changed(Callable(self, "apply_settings"))
+	apply_settings()
 
 
 func _exit_tree() -> void:

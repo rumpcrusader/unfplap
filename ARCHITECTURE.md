@@ -32,7 +32,8 @@ per-world or per-pony orchestration state, but they do not implement another ser
 The entry has four jobs and nothing else:
 
 1. the primitives: the settings load, the two debug switch binds and the loader lookup;
-2. the one ordered service list (`_build_services()`), a line or two per service;
+2. the two build roots (`_build_process()`, `_build_world()`): the one process Node and the ordered
+   World service list;
 3. the broadcasts and the frame loop, in a visible order;
 4. the one teardown (`_release()` then `_shutdown()`).
 
@@ -297,16 +298,23 @@ teardown to `free_pose()`. The order is `docs/poses.md`.
 `main.gd` is the mod entry and composition root. It owns four things:
 
 - **the primitives**: the settings load, the two debug switch binds and the loader lookup;
-- **the ordered service list**: `_build_services()` constructs every long-running service in one
-  literal list, one construction line and one `wire()` where it takes peers. The list order is the
-  construction order and the broadcast order, so a consumer is built after the services it reads.
-  The entry assigns only the registry's composition handles and the cross-mod factory; a service
-  owns its own fields and rules;
+- **the two build roots**: `_build_process()` constructs the one process Node, the cross-mod API;
+  the statics are preloaded, not built. `_build_world()` constructs every World service in one
+  block, calls each `wire()` exactly once, then names and attaches each in broadcast order and
+  joins it to `unfplap_world`. Construct → wire → name → attach is why the `wire` order stops
+  mattering and why `_ready` runs wired: a service builds its private children and reads its peers
+  there. The roots read no `WORLD`/`SETTINGS`/`LOG`/`PERF` and call no behaviour; the one
+  cross-service signal and the provider registration are the world root's only extras. The attach
+  order is the broadcast order, and `negotiation` attaches before `initiation` because
+  `initiation.setup()` takes the adapter `negotiation._ready()` builds;
 - **the broadcasts and the frame order**: `_on_world`, `_on_player` and the release walk the list;
   `_process` keeps the frame order visible;
 - **the one teardown**: `_exit_tree` runs the same `_release()` a world close runs, then
   `_shutdown()`, which stops the registry and calls every service's `shutdown()` in reverse list
   order. `WORLD` is bound before the first service and unbound after the last.
+
+After the world root, `_ready` assigns the registry's composition handles and the cross-mod
+factory; a service owns its own fields and rules.
 
 It also keeps the `Mods` hooks, the group join, the three-line `prompt_note` forward, the settings
 page injection and the one runtime factory. It does not own domain rules, debug action
@@ -583,7 +591,7 @@ block in an act and one outside it before and after, with **Enable debug** + **P
    actions to `debug/service.gd`; document the behavior in the service contract.
 7. Add the service and its facade to `docs/README.md`.
 8. Extend `shared/service.gd` (or `body_change/source.gd` for a provider), override the lifecycle
-   hooks it needs, and add one line to the entry's `_build_services()` list.
+   hooks it needs, and add one line to the entry's `_build_world()` root.
 9. Run `scripts/check.sh` and `scripts/test.sh`.
 10. Add an exception only if the boundary cannot be fixed in the same change. An exception needs
     an owner, a reason and an expiry; a stale exception fails.

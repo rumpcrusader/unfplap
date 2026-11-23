@@ -162,8 +162,8 @@ var initiation: Node = null
 var offer: Node = null
 
 
-## The entry's one call: the services the bridge reads. The adapter and the bridge are built here
-## and nowhere else, so the entry never assembles a `Host`.
+## Takes the peers this service calls; the composition root is the only caller. The adapter and the
+## bridge are built in `_ready()`, after every peer is wired.
 func wire(eligibility_service: ELIGIBILITY, gate_service: ACT_GATE, memory_service: MEMORY,
 		privacy_service: PRIVACY, initiation_service: Node, offer_service: Node,
 		hud_service: Node = null) -> void:
@@ -174,6 +174,10 @@ func wire(eligibility_service: ELIGIBILITY, gate_service: ACT_GATE, memory_servi
 	initiation = initiation_service
 	offer = offer_service
 	hud = hud_service
+
+
+## Builds the one adapter and bridge as this service's children, then binds the typed host to them.
+func _ready() -> void:
 	if not is_instance_valid(_adapter):
 		_adapter = ADAPTER.new()
 		_adapter.name = "UnfplapNegotiationAdapter"

@@ -119,25 +119,32 @@ var _reasoning_scope := ""
 
 
 ## The peers this service calls; the composition root is the only caller. The Negotiation adapter
-## is read here, so `setup()` follows this call at once.
+## is resolved in `setup()`, because the negotiation has not attached when this runs.
 func wire(eligibility: ELIGIBILITY, act_gate: ACT_GATE, privacy: PRIVACY,
 		negotiation: NEGOTIATION, offer: OFFER) -> void:
 	self.eligibility = eligibility
 	self.act_gate = act_gate
 	_privacy = privacy if is_instance_valid(privacy) else PRIVACY.new()
 	_negotiation = negotiation
-	_adapter = _negotiation.adapter() if is_instance_valid(_negotiation) else null
 	_offer = offer
 
 
-## Builds the bounded classifier and the place node this service owns; it takes no peers.
+## Builds the bounded classifier, the place node and the adapter read this service owns; `_ready`
+## calls it once the composition has attached the Negotiation before this service.
 func setup() -> void:
-	_classifier = CLASSIFIER.new()
-	_classifier.name = "UnfplapClassifier"
-	add_child(_classifier)
-	_venue = VENUE.new()
-	_venue.name = "UnfplapRequestPlace"
-	add_child(_venue)
+	_adapter = _negotiation.adapter() if is_instance_valid(_negotiation) else null
+	if not is_instance_valid(_classifier):
+		_classifier = CLASSIFIER.new()
+		_classifier.name = "UnfplapClassifier"
+		add_child(_classifier)
+	if not is_instance_valid(_venue):
+		_venue = VENUE.new()
+		_venue.name = "UnfplapRequestPlace"
+		add_child(_venue)
+
+
+func _ready() -> void:
+	setup()
 
 
 ## The bounded classifier this service owns, or null. The negotiation's adapter makes the one

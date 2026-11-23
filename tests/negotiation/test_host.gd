@@ -325,8 +325,8 @@ func _service_fixture() -> Dictionary:
 		root.add_child(node)
 	WORLD.bind_world(game)
 	WORLD.bind_player(player)
-	root.add_child(service)
 	service.wire(eligibility, gate, FakeMemory.new(), FakePrivacy.new(), initiation, offer)
+	root.add_child(service)
 	return {"service": service, "game": game, "pony": pony, "runtime": runtime,
 		"player": player, "eligibility": eligibility, "gate": gate, "facts": facts,
 		"initiation": initiation, "offer": offer, "director": director}
@@ -348,6 +348,7 @@ func _option(pose: String) -> POSE_OPTIONS.Option:
 
 
 func run() -> void:
+	_check_wire_build()
 	_check_host_callbacks()
 	_check_context_and_form()
 	_check_watch()
@@ -356,6 +357,27 @@ func run() -> void:
 	_check_outcome_routing()
 	_check_agreement_handoff()
 	finish()
+
+
+## `wire()` stores its peers only; the adapter, the bridge and the typed host are `_ready()`'s, so a
+## service that attaches after every `wire()` still owns the live bridge.
+func _check_wire_build() -> void:
+	var service := NEGOTIATION.new()
+	service.name = "UnfplapNegotiation"
+	service.wire(FakeEligibility.new(), FakeGate.new(), FakeMemory.new(), FakePrivacy.new(),
+		FakeInitiation.new(), FakeOffer.new())
+	check(service.get_child_count() == 0, "wire() builds no child")
+	check(not is_instance_valid(service.adapter()), "wire() builds no adapter")
+	root.add_child(service)
+	var adapter: ADAPTER = service.adapter()
+	check(adapter != null and adapter.get_parent() == service,
+		"attaching builds the adapter as the service's child")
+	check(adapter != null and adapter.name == "UnfplapNegotiationAdapter",
+		"the adapter keeps its stable name")
+	check(service.get("_bridge") != null, "attaching builds the bridge")
+	check(service.get("_host") != null, "attaching binds the typed host to the bridge")
+	root.remove_child(service)
+	service.free()
 
 
 ## The bridge answers the typed host callbacks from the facades the entry binds.

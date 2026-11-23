@@ -84,7 +84,7 @@ generation token.
 ## Director and model host
 
 `negotiation/adapter.gd` is the one director bridge and model host. This service builds one
-instance as its child in `wire()` and wires the `Host` model callbacks to it; the Proactive service
+instance as its child in `_ready()` and wires the `Host` model callbacks to it; the Proactive service
 takes the same instance through `adapter()` and does not keep a second copy. It owns every private
 director read (`state`, `config`, `_player_text`, `_held_text`, the group, the approach and hearing
 state), the transcript hook, one answer watch and the bounded classifier calls. The quiet gate's

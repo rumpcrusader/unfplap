@@ -271,6 +271,7 @@ func run() -> void:
 	check(CLASSIFIER.DEADLINE_SECONDS >= 8.0,
 		"the negotiation classifier deadline covers reasoning")
 	_check_force()
+	_check_adapter_resolution()
 	_check_clearance_and_options()
 	_check_reasoning()
 	_check_handoff_failure()
@@ -347,6 +348,29 @@ func _check_force() -> void:
 	check(not nav._has_target, "arriving stops the walk")
 	check(adapter.greetings.is_empty(), "the arrival still settles")
 	_free(made)
+
+
+## The Negotiation adapter is resolved in `setup()`, never captured by `wire()`: the composition
+## wires every service before any attaches, so `adapter()` is null at wire time on the live path.
+func _check_adapter_resolution() -> void:
+	var negotiation := FakeNegotiation.new()
+	var adapter := FakeAdapter.new()
+	negotiation.adapter_node = adapter
+	root.add_child(negotiation)
+	root.add_child(adapter)
+	var service := INIT.new()
+	service.name = "UnfplapInitiation"
+	service.wire(FakeEligibility.new(), FakeGate.new(), FakePrivacy.new(), negotiation,
+		FakeOffer.new())
+	check(service.get("_adapter") == null, "wire() leaves the adapter unresolved")
+	service.setup()
+	check(service.get("_adapter") == adapter, "setup() takes the live Negotiation adapter")
+	root.remove_child(service)
+	service.free()
+	root.remove_child(adapter)
+	adapter.free()
+	root.remove_child(negotiation)
+	negotiation.free()
 
 
 func _check_clearance_and_options() -> void:

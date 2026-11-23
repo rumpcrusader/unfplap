@@ -5,7 +5,6 @@ extends Node
 ## process exit run the same release, so a service cannot be released on one path and forgotten.
 
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
-const SERVICE := preload("res://mods/unfplap/shared/service.gd")
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const ACT_GATE := preload("res://mods/unfplap/act_gate/service.gd")
@@ -39,6 +38,8 @@ const SETTINGS_PAGE_PATH := "res://world/ui/settings_page.gd"
 
 ## The four lifecycle hooks a list service carries; the boot check validates each one.
 const HOOKS: Array[String] = ["on_world", "on_world_closed", "on_player", "shutdown"]
+## The one scope group every attached World service joins; see `ARCHITECTURE.md`.
+const WORLD_GROUP := "unfplap_world"
 
 ## The long-running services in construction order: every broadcast walks the list, so a service
 ## joins a broadcast by being here.
@@ -111,7 +112,12 @@ func _ready() -> void:
 	# The two debug switches: each module binds its own read and keeps its gate in step.
 	LOG.bind(Callable(SETTINGS.debug_mode, "get_bool"))
 	PERF.bind(Callable(SETTINGS.debug_perf, "get_bool"), self)
-	_build_services()
+	_build_process()
+	_build_world()
+	# The registry's composition handles, assigned once the world root exists and runs wired.
+	PONIES.eligibility = eligibility
+	PONIES.act_gate = act_gate
+	PONIES.bind(anatomy, body_change, offer, stock_smack, eligibility, act_gate, estrus, api)
 	# The per-pony registry binds the services above once and builds its runtimes through the
 	# one factory, so no other entry member holds a runtime.
 	PONIES.factory = Callable(self, "_new_runtime")
@@ -135,80 +141,77 @@ func _ready() -> void:
 			_on_player(existing)
 
 
-## The one ordered service list: each line constructs its service, joins it to the tree and binds
-## the facades it reads.
-func _build_services() -> void:
-	eligibility = _add(ELIGIBILITY.new())
-	# The API can be discovered before the end of the build; `describe_mare` reads this service.
-	PONIES.eligibility = eligibility
-	# The dynamic gate asks the identity question and owns every "right now" row.
-	act_gate = _add(ACT_GATE.new())
-	act_gate.wire(eligibility)
-	PONIES.act_gate = act_gate
-	memory = _add(MEMORY.new())
-	privacy = _add(PRIVACY.new())
-	negotiation = _add(NEGOTIATION.new(), "UnfplapNegotiation")
+## The process root: the one Node the entry owns, the cross-mod API. The statics are preloaded.
+func _build_process() -> void:
+	api = _add_node(API.new(), "UnfplapApi")
+
+
+## The World root: construct every service, wire each once, then name and attach it in broadcast
+## order. `_ready` runs wired, so a service builds its private children there.
+func _build_world() -> void:
+	eligibility = ELIGIBILITY.new()
+	act_gate = ACT_GATE.new()
+	memory = MEMORY.new()
+	privacy = PRIVACY.new()
+	negotiation = NEGOTIATION.new()
 	# The HUD exists before the player does: it owns the act card, the toast line, the caption
-	# move and the one-time key notice, and it is the one sink the rest of the mod reaches
-	# through the instance the entry passes to each caller.
-	hud = _add_hud(HUD.new(), "UnfplapHUD")
-	hud.apply_settings()
-	offer = _add(OFFER.new(), "UnfplapOffer")
+	# move and the one-time key notice.
+	hud = HUD.new()
+	offer = OFFER.new()
+	input = INPUT.new()
+	initiation = INITIATION.new()
+	estrus = ESTRUS.new()
+	anatomy = ANATOMY.new()
+	body_change = BODY_CHANGE_SERVICE.new()
+	pantyhose = PANTYHOSE.new()
+	stool = STOOL.new()
+	audio = AUDIO.new()
+	stock_smack = STOCK_SMACK.new()
+	changelings = CHANGELINGS.new()
+	debug_actions = DEBUG_ACTIONS.new()
+
+	act_gate.wire(eligibility)
 	offer.wire(negotiation, privacy, hud)
-	offer.apply_settings()
-	# The act key and the seated-player guard exist before the player does; the offer above is
-	# the one service the input policy hands its press to.
-	input = _add(INPUT.new(), "UnfplapInput")
 	input.wire(offer)
-	# The Proactive service owns the bounded classifier and takes the Negotiation facade: its
-	# adapter, lock, form view and Context. The bridge reads this service back, so it is bound
-	# once both exist.
-	initiation = _add(INITIATION.new(), "UnfplapInitiation")
 	initiation.wire(eligibility, act_gate, privacy, negotiation, offer)
-	initiation.setup()
 	negotiation.wire(eligibility, act_gate, memory, privacy, initiation, offer, hud)
-	estrus = _add(ESTRUS.new(), "UnfplapEstrus")
-	anatomy = _add(ANATOMY.new(), "UnfplapAnatomy")
-	anatomy.status.connect(Callable(hud, "anatomy_status"))
 	anatomy.wire(eligibility)
 	estrus.wire(anatomy)
-	body_change = _add(BODY_CHANGE_SERVICE.new(), "UnfplapBodyChange")
-	body_change.setup()
-	pantyhose = _add(PANTYHOSE.new(), "UnfplapPantyhose")
-	pantyhose.setup()
-	stool = _add(STOOL.new(), "UnfplapStool")
-	stool.setup()
-	audio = _add(AUDIO.new(), "UnfplapAudio")
-	stock_smack = _add(STOCK_SMACK.new(), "UnfplapStockSmack")
 	body_change.wire(anatomy, pantyhose, stock_smack)
-	changelings = _add(CHANGELINGS.new(), "UnfplapChangelings")
-	changelings.setup()
-	body_change.register_source(changelings)
-	api = _add_node(API.new(), "UnfplapApi")
-	# The debug actions run against the services above, so they are built last. They read the live
-	# act through the facades themselves; the entry hands them only the services they act through.
-	debug_actions = _add(DEBUG_ACTIONS.new(), "UnfplapDebugActions")
 	debug_actions.wire(body_change, initiation, negotiation, anatomy, pantyhose, hud)
-	debug_actions.sync_skeleton_overlay()
-	PONIES.bind(anatomy, body_change, offer, stock_smack, eligibility, act_gate, estrus, api)
+
+	# `negotiation` attaches before `initiation`: the latter's `_ready` resolves the former's
+	# adapter.
+	_attach(eligibility, "UnfplapEligibility")
+	_attach(act_gate, "UnfplapActGate")
+	_attach(memory, "UnfplapMemory")
+	_attach(privacy, "UnfplapPrivacy")
+	_attach(negotiation, "UnfplapNegotiation")
+	_attach(hud, "UnfplapHUD")
+	_attach(offer, "UnfplapOffer")
+	_attach(input, "UnfplapInput")
+	_attach(initiation, "UnfplapInitiation")
+	_attach(estrus, "UnfplapEstrus")
+	_attach(anatomy, "UnfplapAnatomy")
+	_attach(body_change, "UnfplapBodyChange")
+	_attach(pantyhose, "UnfplapPantyhose")
+	_attach(stool, "UnfplapStool")
+	_attach(audio, "UnfplapAudio")
+	_attach(stock_smack, "UnfplapStockSmack")
+	_attach(changelings, "UnfplapChangelings")
+	_attach(debug_actions, "UnfplapDebugActions")
+
+	anatomy.status.connect(Callable(hud, "anatomy_status"))
+	body_change.register_source(changelings)
 	_assert_hooks()
 
 
-## Join one service to the tree and to the ordered list. Every list member is a base service.
-func _add(service: SERVICE, node_name := "") -> Variant:
-	_services.append(service)
-	if not node_name.is_empty():
-		service.name = node_name
-	add_child(service)
-	return service
-
-
-## The HUD is the one `CanvasLayer` in the list; it carries the four hooks itself.
-func _add_hud(service: HUD, node_name: String) -> HUD:
-	_services.append(service)
+## Join one World service to the tree and to the ordered list. The helper is the only attach site.
+func _attach(service: Node, node_name: String) -> void:
 	service.name = node_name
 	add_child(service)
-	return service
+	service.add_to_group(WORLD_GROUP)
+	_services.append(service)
 
 
 ## The cross-mod API is frozen and carries no lifecycle hooks: parent it, keep it out of the list.

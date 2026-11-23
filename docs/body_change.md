@@ -398,7 +398,7 @@ suspension, adoption, resume and failure phases.
 
 | Host call | Purpose |
 |---|---|
-| `_build_services()` | constructs the service, hands it the anatomy, Pantyhose and stock smack facades in one `wire()` call, and registers the providers |
+| `_build_world()` | constructs the service, hands it the anatomy, Pantyhose and stock smack facades in one `wire()` call, and registers the providers |
 | `on_world(host)` | re-reads every provider's own installation state, so each one re-reads its pack |
 | `PONIES._prepare(pony)` | calls `notify_body_ready()` before the tail seat, the stock smack layer and a runtime |
 | `PONIES.runtime_for(pony)` | the runtime binding's public lookup |

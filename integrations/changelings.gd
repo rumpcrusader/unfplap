@@ -116,8 +116,7 @@ func setup() -> void:
 
 
 func _ready() -> void:
-	if mod_active.is_null():
-		mod_active = Callable(self, "_mod_active")
+	setup()
 	set_process(false)
 	refresh()
 

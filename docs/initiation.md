@@ -52,10 +52,12 @@ The purity boundary is deliberate:
   rest (`_front_for`, `_mare_fits`, `_guest`, `_sleeper`), the player seat, the `couches` group and
   `WorldLayout`. It also builds the placement facts the option builder consumes.
 - The director bridge is the `negotiation/adapter.gd` the Negotiation service owns and hands over
-  through its facade; this service never reads the director. The bounded classifier is this
-  service's own (`classifier.gd`), created in `setup()`: the Negotiation's adapter and both
-  reasoning stages make every model call on it, and no other service imports it. Its model client
-  comes from the director view, so the classifier imports no base-game module.
+  through its facade; this service never reads the director. `setup()` resolves that adapter, so
+  reasoning reads the live bridge instead of a copy taken before the negotiation attached. The
+  bounded classifier is this service's own (`classifier.gd`), created in `setup()`: the
+  Negotiation's adapter and both reasoning stages make every model call on it, and no other
+  service imports it. Its model client comes from the director view, so the classifier imports no
+  base-game module.
 - The facade is the only file that preloads `eligibility/service.gd`, `act_gate/service.gd`,
   `privacy/api.gd`,
   `negotiation/service.gd`, `shared/clearance.gd`, `shared/context.gd`, `shared/pose_options.gd`,
@@ -63,9 +65,10 @@ The purity boundary is deliberate:
   `shared/act_history.gd`.
 - No file outside `initiation/service.gd` and `initiation/` preloads `initiation/*` except the
   orchestrator, which owns the service.
-- The entry's service list creates the service, wires it once (the live `eligibility` and
-  `act_gate` instances and its privacy, Negotiation and offer peers), runs its peerless `setup()`
-  and drives it: `tick`, `on_world`/`on_world_closed`, `force`,
+- The world root creates the service, wires it once (the live `eligibility` and `act_gate`
+  instances and its privacy, Negotiation and offer peers), attaches it after the Negotiation so
+  the `setup()` its `_ready()` runs resolves the live adapter, and drives it: `tick`,
+  `on_world`/`on_world_closed`, `force`,
   `cancel_approach`, `placement_for` and the outcome handoff. `runtime.gd` exposes
   `cuddle_active()` and the scene-only verdict; the offer facade answers which pony the act key
   would start (`docs/offer.md`), and the Negotiation facade answers the lock, the form view and

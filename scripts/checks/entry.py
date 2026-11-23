@@ -20,8 +20,8 @@ from .text import (
 
 MAIN_CONST = re.compile(
     r'^const\s+([A-Z][A-Z0-9_]*)\s*:=\s*preload\("(res://[^"]+)"\)', re.MULTILINE)
-MAIN_ADD = re.compile(r"_add\(\s*([A-Z][A-Z0-9_]*)\.new\(")
-MAIN_ADD_HUD = re.compile(r"_add_hud\(\s*([A-Z][A-Z0-9_]*)\.new\(")
+MAIN_WORLD = re.compile(r"^func _build_world\(\) -> void:\n(.*?)(?=^func )", re.MULTILINE | re.DOTALL)
+MAIN_WORLD_NEW = re.compile(r"\b([A-Z][A-Z0-9_]*)\.new\(")
 ENTRY_MEMBER = re.compile(r"(?<![\w.])main\.(?!gd\b)[A-Za-z_]\w*")
 ENTRY_DECLARATION = re.compile(r"^\s*(?:var|const)\s+main\b", re.MULTILINE)
 ENTRY_PRELOAD = re.compile(r'(?:preload|load)\(\s*"[^"]*main\.gd"')
@@ -365,7 +365,8 @@ def check_static_instances(failure: Failure) -> None:
 
 
 def check_service_bases(failure: Failure) -> None:
-    """Every service the entry adds is a `shared/service.gd` descendant; the HUD is the exception."""
+    """Every World service the world root constructs is a `shared/service.gd` descendant; the HUD
+    is the one `CanvasLayer` and carries the four hooks itself."""
     main_path = ROOT / "main.gd"
     if not main_path.is_file():
         return
@@ -386,20 +387,21 @@ def check_service_bases(failure: Failure) -> None:
             name = match.group(1).replace("res://mods/unfplap/", "") if match else ""
         return seen
 
-    for match in MAIN_ADD.finditer(text):
+    world = MAIN_WORLD.search(text)
+    if world is None:
+        failure.add("main.gd defines no _build_world(); the World root is the one service list")
+        return
+    for match in MAIN_WORLD_NEW.finditer(world.group(1)):
         const = match.group(1)
         name = consts.get(const, "")
         if not name:
-            failure.add("main.gd adds %s but no preloaded const resolves it" % const)
+            failure.add("_build_world() builds %s but no preloaded const resolves it" % const)
         elif name == HUD_FACADE:
-            failure.add("main.gd adds the HUD with _add(); use _add_hud()")
+            continue
         elif SERVICE_BASE not in chain(name):
-            failure.add("%s does not extend %s; the typed service list requires it" % (
-                name, SERVICE_BASE))
-    for match in MAIN_ADD_HUD.finditer(text):
-        const = match.group(1)
-        if consts.get(const, "") != HUD_FACADE:
-            failure.add("main.gd adds %s with _add_hud(); only the HUD uses it" % const)
+            failure.add(
+                "_build_world() builds %s, which does not extend %s; the World root constructs "
+                "only services" % (name, SERVICE_BASE))
     hud_path = ROOT / HUD_FACADE
     if hud_path.is_file():
         hud_text = read_text(str(hud_path))

@@ -140,7 +140,7 @@ matched through its body's identity (`shared/pony_id.gd:of()`).
 
 The entry's `bind(anatomy_service, body_change_service, offer_service, stock_smack_service,
 eligibility_service, gate_service, estrus_service, api_service)` sets these once, before the first
-hook, from its `_build_services()` list:
+hook, from its `_build_world()` root:
 
 | Bound by the entry's service list | Purpose |
 |---|---|

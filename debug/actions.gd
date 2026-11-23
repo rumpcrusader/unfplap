@@ -78,6 +78,7 @@ func _ready() -> void:
 	if host == null:
 		host = _host()
 	CHANGE.on_changed(Callable(self, "apply_settings"))
+	sync_skeleton_overlay()
 
 
 ## Set by the entry: the services the buttons act through.

@@ -17,6 +17,10 @@ const ID := ITEM.ID
 var _supply: SUPPLY = null
 
 
+func _ready() -> void:
+	setup()
+
+
 func setup() -> void:
 	if is_instance_valid(_supply):
 		return

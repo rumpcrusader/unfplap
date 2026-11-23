@@ -26,10 +26,12 @@ math.
 - `_init(pony, world)` builds an empty World record when the entry passes none and calls the
   composition function once; the body arrives through the `pony` setter. The entry's factory passes
   the record, and a bare `new()` reads every World field as absent.
-- `_ready()` sets process and physics on at priority `100` (after locomotion, the navigator and
-  attention), reads the identity, binds the pony through the typed fields, binds the face,
-  re-presents the persistent anatomy with the stored form and schedules the first-frame identity
-  and anatomy retry as one deferred call of its own.
+- `_ready()` sets the physics priority to `100` (after locomotion, the navigator and attention),
+  reads the identity, binds the pony through the typed fields, binds the face, re-presents the
+  persistent anatomy with the stored form, schedules the first-frame identity and anatomy retry as
+  one deferred call of its own, and syncs the two engine frames from the body: a runtime with no
+  body composes and releases but ticks nothing, which is the suite fixture state; the game assigns
+  the body before `add_child`.
 - The retry is one private call scheduled on the node: the engine drops it with the node, so a
   runtime freed before its first frame never runs it against freed service children. It returns
   early unless the runtime is in the tree and both the session and the world anatomy still exist.

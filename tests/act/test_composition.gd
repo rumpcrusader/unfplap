@@ -42,10 +42,29 @@ func run() -> void:
 	other.call("_release_composition")
 	other.free()
 	_check_scope_children()
+	_check_frames()
 	gate.free()
 	runtime.call("_release_composition")
 	runtime.free()
 	finish()
+
+
+## The engine frames follow the body: the suite fixture state runs none, a bound runtime runs both.
+func _check_frames() -> void:
+	var bodyless: Node = RUNTIME.new()
+	root.add_child(bodyless)
+	check(not bodyless.is_processing() and not bodyless.is_physics_processing(),
+		"a bodyless runtime runs no act frame")
+	bodyless.free()
+	var body := Node3D.new()
+	root.add_child(body)
+	var bound: Node = RUNTIME.new()
+	bound.pony = body
+	root.add_child(bound)
+	check(bound.is_processing() and bound.is_physics_processing(),
+		"a runtime given a body runs both act frames")
+	bound.free()
+	body.free()
 
 
 ## `_assert_children`: the composed set passes; a hand-built stray child is reported.

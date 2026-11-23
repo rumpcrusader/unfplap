@@ -68,6 +68,7 @@ var pony: Node:
 	set(value):
 		_pony_node = value
 		_bind_pony(value)
+		_sync_frames()
 
 var _pony_node: Node = null
 ## The World services this pony's act reads; a bare `new()` gets an empty record.
@@ -360,10 +361,16 @@ func _bind_pony(value: Node) -> void:
 			(value as Node3D).get_node_or_null("FlankTouch"))
 
 
+## The frames track the body: with none bound the runtime is inert, which is the suite fixture
+## state, and the game binds before the runtime enters.
+func _sync_frames() -> void:
+	var body_live := is_instance_valid(_pony_node)
+	set_process(body_live)
+	set_physics_process(body_live)
+
+
 func _ready() -> void:
 	add_to_group(RUNTIME_GROUP)
-	set_process(true)
-	set_physics_process(true)
 	# Run after locomotion/navigator/attention so the body facing lock and head glance win.
 	process_physics_priority = 100
 	# Identity is the key for per-mare preferences, poses, prompts and memory. It can arrive after
@@ -374,6 +381,7 @@ func _ready() -> void:
 	_face.bind(pony, self)
 	# integration: anatomy is persistent outside acts.
 	_act.refresh_anatomy()
+	_sync_frames()
 
 
 ## The first-frame retry, owned by the node so the engine drops it when the runtime is freed;

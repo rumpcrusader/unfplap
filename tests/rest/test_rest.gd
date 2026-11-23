@@ -4,6 +4,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/rest/test_rest.gd
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
+const BED := preload("res://mods/unfplap/rest/bed.gd")
 const REST := preload("res://mods/unfplap/rest/service.gd")
 
 
@@ -200,11 +201,11 @@ func _check_wanted() -> void:
 
 func _check_anchor() -> void:
 	var made := _fixture()
-	var facade: REST = made["facade"]
 	var bed: Node3D = made["bed"]
+	var pony: FakePony = made["pony"]
 	var player: FakePlayer = made["player"]
 	player.global_position = Vector3(1.0, 1.0, 0.0)
-	var anchor: Transform3D = facade.call("bed_anchor")
+	var anchor: Transform3D = BED.anchor(pony, bed, player)
 	check(is_equal_approx(anchor.origin.y, 0.62), "the fallback anchor sits on the mattress top")
 	check(anchor.basis.is_finite(), "the anchor basis is finite")
 	check(anchor.origin.x > 0.0, "the fallback anchor shifts to Anon's side")
@@ -220,10 +221,10 @@ func _check_anchor() -> void:
 	couch.add_to_group("couches")
 	root.add_child(couch)
 	seat.global_position = Vector3(2.0, 0.6, 3.0)
-	var shared: REST.RestState = facade.call("shared_bed_rest", bed)
+	var shared: BED.RestState = BED.shared_rest(pony, bed)
 	check(shared != null and shared.guest.origin.is_equal_approx(
 		seat.global_position), "the shared bed rest returns the guest seat transform")
-	var shared_anchor: Transform3D = facade.call("bed_anchor")
+	var shared_anchor: Transform3D = BED.anchor(pony, bed, player)
 	check(shared_anchor.origin.is_equal_approx(seat.global_position),
 		"the live bed rest wins over the fallback anchor")
 	couch.remove_from_group("couches")
@@ -234,8 +235,8 @@ func _check_anchor() -> void:
 
 func _check_rest_lookup() -> void:
 	var made := _fixture()
-	var facade: REST = made["facade"]
 	var bed: Node3D = made["bed"]
+	var pony: FakePony = made["pony"]
 	var rest := FakeRest.new()
 	rest.name = "Rest"
 	var seat_a := Node3D.new()
@@ -245,14 +246,14 @@ func _check_rest_lookup() -> void:
 	rest.add_child(seat_b)
 	rest.add_to_group("couches")
 	root.add_child(rest)
-	check(facade.call("bed_rest_for", bed) == null,
+	check(BED.rest_for(pony, bed) == null,
 		"a crate without an invite entry is not the bed rest")
 	rest.set("_bed", bed)
-	var found: REST.RestState = facade.call("bed_rest_for", bed)
+	var found: BED.RestState = BED.rest_for(pony, bed)
 	check(found != null and found.node == rest,
 		"the couch with the invite entry and seats is the bed rest")
 	rest.seats = [seat_a]
-	check(facade.call("bed_rest_for", bed) == null,
+	check(BED.rest_for(pony, bed) == null,
 		"a rest without two seats is refused")
 	rest.remove_from_group("couches")
 	root.remove_child(rest)
@@ -267,7 +268,7 @@ func _check_note() -> void:
 	var rest := FakeRest.new()
 	rest._mare_fits = true
 	rest._cooldowns = {pony.get_instance_id(): Time.get_ticks_msec() + 4000}
-	var note := str(facade.call("rejoin_note", REST.RestState.of_node(rest)))
+	var note := str(facade.call("rejoin_note", BED.RestState.of_node(rest)))
 	check(note.contains("posture=stand"), "the note reports the posture")
 	check(note.contains("grounded=true"), "the note reports grounded")
 	check(note.contains("nav=life:idle"), "the note reports the navigator owner")

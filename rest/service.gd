@@ -6,6 +6,7 @@ extends Node
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
+const BED := preload("res://mods/unfplap/rest/bed.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 const CUDDLE_REJOIN_SETTLE_S := 1.5
@@ -52,47 +53,6 @@ class Context extends RefCounted:
 		return out
 
 
-## One resolved game couch rest: the live node the rejoin seats through, or the guest transform a
-## bed rest reports. A missing member answers its typed zero.
-class RestState extends RefCounted:
-	var node: Node3D = null
-	var guest := Transform3D(Basis.IDENTITY, Vector3.INF)
-
-	static func of_node(value: Node3D) -> RestState:
-		var out := RestState.new()
-		out.node = value
-		return out
-
-	static func of_guest(value: Transform3D) -> RestState:
-		var out := RestState.new()
-		out.guest = value
-		return out
-
-	func valid() -> bool:
-		return is_instance_valid(node)
-
-	func has_guest() -> bool:
-		return guest.origin.is_finite() and guest.origin.length_squared() > 0.0
-
-	func seats() -> Array[Node3D]:
-		return WORLD.bed(node).couch_seats()
-
-	func open() -> bool:
-		return WORLD.bed(node).couch_open()
-
-	func invite(target: Node3D, seat: Node3D) -> bool:
-		return WORLD.bed(node).couch_invite(target, seat)
-
-	func approach(seat: Node3D) -> Vector3:
-		return WORLD.bed(node).couch_approach(seat)
-
-	func mare_fits() -> bool:
-		return WORLD.bed(node).couch_mare_fits()
-
-	func cooldown_until(target: Node3D) -> int:
-		return WORLD.bed(node).couch_cooldown_until(target)
-
-
 func bind(pony_node: Node3D, bed_node: Node3D) -> void:
 	pony = pony_node
 	bed = bed_node
@@ -122,79 +82,7 @@ func place_on_bed(anchor: Transform3D) -> void:
 
 ## The cradle start wants the placement as one step; the runtime keeps the call site.
 func place_on_start() -> void:
-	await place_on_bed(bed_anchor())
-
-
-## The place on the mattress: the game's own pony transform for the guest seat when it exists,
-## otherwise the mattress top at the side Anon is on.
-func bed_anchor() -> Transform3D:
-	if not is_instance_valid(pony):
-		return Transform3D.IDENTITY
-	if is_instance_valid(bed):
-		var shared := shared_bed_rest(bed)
-		if shared != null and shared.has_guest():
-			return shared.guest
-	var fallback := 0.6
-	if is_instance_valid(bed) and bed.has_meta("mattress_top"):
-		fallback = float(bed.get_meta("mattress_top"))
-	var center: Vector3 = bed.global_position if is_instance_valid(bed) else pony.global_position
-	var top: float = center.y
-	if is_instance_valid(bed):
-		var points: Array[Vector3] = [bed.to_global(Vector3(0.18, 0.0, 0.0)),
-			bed.to_global(Vector3(-0.18, 0.0, 0.0))]
-		top = WORLD.bed(bed).surface_top(points, bed.to_global(Vector3(0.0, fallback, 0.0)).y)
-		center = Vector3(bed.global_position.x, top, bed.global_position.z)
-	var player: Node3D = player_node()
-	var player_at: Vector3 = player.global_position if is_instance_valid(player) else pony.global_position
-	var side := Vector3.FORWARD
-	if is_instance_valid(bed):
-		side = bed.global_basis.x
-		side.y = 0.0
-	if side.length_squared() < 0.0001:
-		side = player_at - center
-		side.y = 0.0
-	side = side.normalized()
-	var across := side * signf((player_at - center).dot(side)) * 0.25
-	var along: Vector3 = -pony.global_basis.z
-	if is_instance_valid(bed):
-		along = -bed.global_basis.z
-	elif is_instance_valid(player):
-		along = -player.global_basis.z
-	along.y = 0.0
-	if along.length_squared() < 0.0001:
-		along = player_at - center
-		along.y = 0.0
-	along = along.normalized()
-	var at: Vector3 = center + across
-	at.y = top + 0.02
-	return Transform3D(Basis.looking_at(along, Vector3.UP), at)
-
-
-## The game's own bed-rest place for a pony lying beside Anon. Using it keeps her along the
-## mattress (not across it) and on the drawn bedding.
-func shared_bed_rest(bed_node: Node3D) -> RestState:
-	if not is_instance_valid(bed_node) or not is_instance_valid(pony):
-		return null
-	var tree: SceneTree = pony.get_tree()
-	if tree == null:
-		return null
-	for node: Node in tree.get_nodes_in_group("couches"):
-		if not node is Node3D or node.get("bed_node") != bed_node:
-			continue
-		if not node.has_method("pony_transform"):
-			continue
-		var couch := WORLD.bed(node)
-		var seats := couch.couch_seats()
-		if seats.size() < 2:
-			continue
-		var rest := couch.couch_pony_transform(seats[1])
-		if not rest.origin.is_finite():
-			continue
-		if rest.origin.length_squared() < 0.01 \
-				or rest.origin.distance_to(bed_node.global_position) > 4.0:
-			continue
-		return RestState.of_guest(rest)
-	return null
+	await place_on_bed(BED.anchor(pony, bed, player_node()))
 
 
 ## Rejoin the stock cuddle after a normal bed end.
@@ -214,7 +102,7 @@ func rejoin_bed_cuddle(bed_node: Node3D, act_serial: int) -> void:
 	if not player.has_method("sit_on") or not player.has_method("toggle_couch_sleep"):
 		LOG.debug("cuddle rejoin skipped reason=no_player_rest")
 		return
-	var rest := bed_rest_for(bed_node)
+	var rest := BED.rest_for(pony, bed_node)
 	if rest == null:
 		LOG.debug("cuddle rejoin skipped reason=no_bed_rest")
 		return
@@ -256,26 +144,8 @@ func rejoin_bed_cuddle(bed_node: Node3D, act_serial: int) -> void:
 	LOG.debug("cuddle rejoin failed reason=timeout %s", [note])
 
 
-## The game's live rest that owns this bed (`world/relationships/shared_bed.gd`).
-## `shared_bed_rest()` only returns her transform; the rejoin needs the seats and the invite entry.
-func bed_rest_for(bed_node: Node3D) -> RestState:
-	if not is_instance_valid(bed_node) or not is_instance_valid(pony):
-		return null
-	var tree: SceneTree = pony.get_tree()
-	if tree == null:
-		return null
-	for node: Node in tree.get_nodes_in_group("couches"):
-		if not node is Node3D or not node.has_method("invite"):
-			continue
-		if node.get("_bed") != bed_node and node.get("bed_node") != bed_node:
-			continue
-		if WORLD.bed(node).couch_seats().size() >= 2:
-			return RestState.of_node(node)
-	return null
-
-
 ## Stand her on clear floor beside the bed; the restore leaves her on the mattress.
-func stand_beside_bed(rest: RestState, seat: Node3D) -> void:
+func stand_beside_bed(rest: BED.RestState, seat: Node3D) -> void:
 	if not is_instance_valid(pony) or not is_instance_valid(seat) or rest == null:
 		return
 	var profile: Variant = pony.get("profile")
@@ -303,7 +173,7 @@ func stand_beside_bed(rest: RestState, seat: Node3D) -> void:
 
 
 ## A compact state dump for the timeout line. Read-only: the stock invite stays the authority.
-func rejoin_note(rest: RestState) -> String:
+func rejoin_note(rest: BED.RestState) -> String:
 	var parts := PackedStringArray()
 	if is_instance_valid(pony):
 		var status: Dictionary = pony.posture_status() if pony.has_method("posture_status") else {}

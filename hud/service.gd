@@ -61,6 +61,8 @@ var _layer_rows := {}
 var _layer_labels := {}
 var _toast_label: Label
 var _toast_serial := 0
+## The toast's own hide timer. A tree timer would outlive the HUD that armed it.
+var _toast_timer: Timer = null
 ## instance id -> WeakRef for every SpeechCaption the mod may move to the top.
 var _captions: Dictionary = {}
 ## Cached captions_on_top so the per-frame caption tick never rereads settings.json.
@@ -442,15 +444,21 @@ func _show_toast(text: String, seconds := 2.0) -> void:
 	if _toast_label == null:
 		return
 	_toast_serial += 1
-	var serial := _toast_serial
 	_toast_label.text = text
 	_toast_label.visible = not text.is_empty()
 	if text.is_empty() or seconds <= 0.0:
 		return
-	await get_tree().create_timer(seconds).timeout
-	if not is_inside_tree():
-		return
-	if is_instance_valid(_toast_label) and serial == _toast_serial:
+	if _toast_timer == null:
+		_toast_timer = Timer.new()
+		_toast_timer.one_shot = true
+		_toast_timer.timeout.connect(_hide_toast)
+		add_child(_toast_timer)
+	_toast_timer.wait_time = maxf(seconds, 0.001)
+	_toast_timer.start()
+
+
+func _hide_toast() -> void:
+	if is_instance_valid(_toast_label):
 		_toast_label.visible = false
 		_toast_label.text = ""
 

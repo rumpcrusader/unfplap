@@ -79,7 +79,8 @@ def edge_kind(src: str, tgt: str) -> tuple[str, Owner | None, Owner | None]:
         return ("service-private" if to.private else "service"), so, to
     if to.kind in ("shared", "store", "read model"):
         return to.kind, so, to
-    if to.kind == "orchestrator":
+    # An Other module is its host's own file: the edge inward is a host import, not an allowed one.
+    if to.kind in ("orchestrator", "other"):
         return "host", so, to
     return "external", so, to
 
@@ -100,7 +101,7 @@ def is_allowed(src: str, tgt: str) -> tuple[bool, str, Owner | None, Owner | Non
         return False, kind, so, to
     if so is None or to is None:
         return True, kind, so, to
-    if so.kind == "orchestrator":
+    if so.kind in ("orchestrator", "other"):
         return True, kind, so, to
     # One accessor per service: shared code takes values, and no service reads another's game.gd.
     if tgt.endswith("/game.gd") and not owns_game_accessor(src, tgt):

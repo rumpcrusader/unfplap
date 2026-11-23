@@ -74,8 +74,10 @@ game-boundary and re-export rules. These rules exist so code cannot grow back ou
 
 - **Every mod path has an owner.** A shipped `.gd` must resolve through `owner_of()` to a service
   (`<id>/service.gd`, or `anatomy/api.gd` for the anatomy package, and everything under
-  `<id>/`), `shared/`, or one of the three orchestrators `main.gd`, `runtime.gd` and `api.gd`. Any other path has no owner, so every edge to and from it
-  is classified external and allowed; the mod root's former `runtime/` grew a file that way.
+  `<id>/`), `shared/`, one of the three orchestrators `main.gd`, `runtime.gd` and `api.gd`, or one
+  of the two Other trees `act/` and `vr/`, whose files carry the `other` kind: an Other module may
+  preload a service, and a service that preloads it is a host import and refused. Any other shipped
+  path has no owner and is refused; an edge naming one is classified external.
 - **Every anatomy file reads the game through `GAME`.** No anatomy file may preload a base-game
   module; no anatomy file may preload another mod service except `settings/service.gd`; and no
   outside file may preload an anatomy file except `anatomy/api.gd`. The two directions are

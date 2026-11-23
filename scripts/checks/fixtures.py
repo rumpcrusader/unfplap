@@ -63,6 +63,7 @@ ALLOWED = (
     ("debug/ui.gd", "debug/game.gd"),
     ("hud/service.gd", "hud/game.gd"),
     ("world/views/pony.gd", "world/game.gd"),
+    ("act/tick.gd", "settings/service.gd"),
 )
 FORBIDDEN = (
     ("anatomy/controller.gd", "ponies/service.gd"),
@@ -86,6 +87,7 @@ FORBIDDEN = (
     ("settings/service.gd", "summary/service.gd"),
     ("settings/service.gd", "world/game.gd"),
     ("world/api.gd", "settings/service.gd"),
+    ("settings/service.gd", "act/tick.gd"),
     ("act/start.gd", "res://world/life/player_form.gd"),
 )
 GAME_ALLOWED = (

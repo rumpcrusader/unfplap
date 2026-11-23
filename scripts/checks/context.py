@@ -31,6 +31,9 @@ FACADE_NAMES = ("api.gd", "service.gd")
 # A store holds a resolved document another service reads directly, with no scene work of its own.
 STORE_SERVICES = {"registry"}
 ORCHESTRATORS = {"main.gd", "runtime.gd", "api.gd"}
+# The two Other trees, owned by the runtime without being the runtime itself: the act modules and
+# the VR act handle.
+RUNTIME_MODULES = ("act/", "vr/")
 SHARED_KINDS = {
     "act_history.gd": "store",
     "act_facts.gd": "read model",
@@ -134,8 +137,8 @@ def owner_of(path: str) -> Owner | None:
     # The act modules are the runtime's own files and the VR act handle is the session's Other
     # module: they may preload services, and a service that preloads one is a host import, not an
     # edge.
-    if path.startswith("act/") or path.startswith("vr/"):
-        return Owner("runtime", path, False, "orchestrator")
+    if path.startswith(RUNTIME_MODULES):
+        return Owner("runtime", path, False, "other")
     if path.startswith("shared/"):
         name = path.split("/")[-1]
         kind = SHARED_KINDS.get(name, "shared")

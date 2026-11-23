@@ -39,13 +39,16 @@ func run() -> void:
 	var other: Node = RUNTIME.new(null, other_world)
 	check(other.act.context.world == other_world and other.scene.gate_service == null,
 		"each runtime reads its own record, never a shared one")
-	other.call("_release_composition")
+	root.add_child(other)
 	other.free()
 	_check_scope_children()
 	_check_frames()
-	gate.free()
-	runtime.call("_release_composition")
+	# The composition releases from the runtime's real world-close exit, its one release path.
+	root.add_child(runtime)
+	root.remove_child(runtime)
+	check_null(runtime.act.context, "the world-close exit releases the act record")
 	runtime.free()
+	gate.free()
 	finish()
 
 
@@ -80,5 +83,5 @@ func _check_scope_children() -> void:
 	check(int(runtime.call("_assert_children")) == 1,
 		"a child outside the Pony service group is reported")
 	LOG.enabled = quiet
-	runtime.call("_release_composition")
+	root.add_child(runtime)
 	runtime.free()

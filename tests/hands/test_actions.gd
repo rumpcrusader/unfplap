@@ -63,9 +63,17 @@ class FakeBody extends Node3D:
 	var _right_foot: Node3D
 
 
+## The runtime fixture: constructed and parented under the suite root; the caller frees it.
+func _runtime() -> Node:
+	var runtime: Node = RUNTIME.new()
+	root.add_child(runtime)
+	return runtime
+
+
 func _check_tail_tuning() -> void:
-	var tail_runtime: Node = RUNTIME.new()
+	var tail_runtime: Node = _runtime()
 	var tail_pony := Node3D.new()
+	root.add_child(tail_pony)
 	tail_runtime.set("pony", tail_pony)
 	tail_runtime.act.pony_id = "twilight_sparkle"
 	tail_runtime.act.pose_id = CATALOG.STANDING
@@ -490,7 +498,7 @@ func run() -> void:
 	check(near(MOTION.hip_phase_step(0.0, -10.0, 1.0 / 60.0), 0.0),
 		"hip phase clamps depth to zero")
 
-	var live_runtime: Node = RUNTIME.new()
+	var live_runtime: Node = _runtime()
 	live_runtime.act._set_state(2) # ACTIVE
 	live_runtime.act.pose_id = CATALOG.STANDING
 	live_runtime.act.apply_live_settings()
@@ -513,6 +521,7 @@ func run() -> void:
 	fake_tail.free()
 	root.remove_child(jiggle_pony)
 	jiggle_pony.free()
+	smack.free()
 
 	var mark_flank := FakeFlank.new()
 	mark_flank.name = "FlankTouch"
@@ -538,6 +547,7 @@ func run() -> void:
 	mark_a.free()
 	mark_b.free()
 	mark_pony.free()
+	marks.free()
 
 	var radius_flank := FakeFlank.new()
 	root.add_child(radius_flank)
@@ -560,6 +570,7 @@ func run() -> void:
 		"jiggle radius override restores")
 	radius_mesh.free()
 	radius_flank.free()
+	radius.free()
 
 	check(near(STANDING_ANON.hip_offset(0.0, 1.0, 2.0), -0.045),
 		"hip rests one reach behind the rump limit")
@@ -581,17 +592,19 @@ func run() -> void:
 	stand.set("pony", hip_pony)
 	stand.set("_hip_thrust", hip_modifier)
 	stand.set("_hip_phase", 0.0)
-	stand.call("apply_anon_thrust", Node3D.new(), Basis.IDENTITY)
+	var hip_body := Node3D.new()
+	stand.call("apply_anon_thrust", hip_body, Basis.IDENTITY)
 	var hip_offset: Vector3 = hip_modifier.get("offset_world")
 	check(near(hip_offset.length(), 0.045) and hip_offset.z > 0.0,
 		"depth 0 sets the hips back from the rump limit")
 	stand.set("_hip_phase", 1.0)
-	stand.call("apply_anon_thrust", Node3D.new(), Basis.IDENTITY)
+	stand.call("apply_anon_thrust", hip_body, Basis.IDENTITY)
 	hip_offset = hip_modifier.get("offset_world")
 	check(near(hip_offset.length(), 0.045) and hip_offset.z < 0.0,
 		"depth 1 moves the hips onto the rump limit")
 	hip_modifier.free()
 	hip_pony.free()
+	hip_body.free()
 
 	var modifier_skeleton := Skeleton3D.new()
 	root.add_child(modifier_skeleton)
@@ -656,6 +669,7 @@ func run() -> void:
 	smack_mesh.free()
 	smack_flank.free()
 	smack_pony.free()
+	smack_amount.free()
 
 	var hair := Skeleton3D.new()
 	root.add_child(hair)
@@ -751,7 +765,7 @@ func run() -> void:
 	plant_right.free()
 	plant_body.free()
 
-	var gate_runtime: Node = RUNTIME.new()
+	var gate_runtime: Node = _runtime()
 	check(not gate_runtime.act.context.gate.start_verdict(CATALOG.MISSIONARY, "bed_side").show(),
 		"missing pony blocks start")
 	var gate: Variant = gate_runtime.act.context.gate
@@ -775,9 +789,10 @@ func run() -> void:
 	check(near(MOTION.lean_step(1.0, 0.0, 0.8, true), 0.5),
 		"shoulder recentre returns over 1.6 seconds")
 
-	var cuddle_runtime: Node = RUNTIME.new()
+	var cuddle_runtime: Node = _runtime()
 	var cuddle_pony := Node3D.new()
 	cuddle_pony.set_meta("couch_cuddle", true)
+	root.add_child(cuddle_pony)
 	cuddle_runtime.pony = cuddle_pony
 	cuddle_runtime.act._set_state(0) # IDLE
 	cuddle_runtime.act.context.gate.suppress_auto_cuddle()
@@ -844,6 +859,7 @@ func _check_pose_retarget() -> void:
 	check(controller.hook_path() == "standing", "the return path is carried")
 	check(caress.active(MODEL.Side.LEFT),
 		"the oral to standing path keeps the caress for the return blend")
+	facade.free()
 
 
 ## The standing pose read model the body wrappers gate on.

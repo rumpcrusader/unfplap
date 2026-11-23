@@ -124,6 +124,7 @@ func _fixture() -> Dictionary:
 	runtime.pony = pony
 	runtime.act.bed = Node3D.new()
 	runtime.act.source = "bed_side"
+	root.add_child(runtime)
 	return {"runtime": runtime, "pony": pony, "main": main, "player": player}
 
 

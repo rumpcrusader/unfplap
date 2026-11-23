@@ -426,6 +426,7 @@ func _runtime_beat(paused := false, with_beat := true) -> Dictionary:
 	root.add_child(pony)
 	var runtime: Node = RUNTIME.new()
 	runtime.pony = pony
+	root.add_child(runtime)
 	return {"pony": pony, "runtime": runtime, "beat": beat}
 
 
@@ -511,5 +512,9 @@ func _check_facade() -> void:
 	root.remove_child(host)
 	host.free()
 	facade.free()
+	body_change.free()
+	anatomy.free()
+	ponies.free()
+	eligibility.free()
 
 

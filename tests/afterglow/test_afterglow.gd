@@ -45,6 +45,7 @@ func _view(pose: String) -> RefCounted:
 func _facade(pose: String) -> Dictionary:
 	var host := Host.new()
 	var phase: AFTERGLOW = AFTERGLOW.new()
+	_facades.append(phase)
 	phase.caress_active = Callable(host, "is_caressing")
 	phase.bind_view(_view(pose))
 	var summary := AFTERGLOW.SUMMARY.new()
@@ -53,13 +54,28 @@ func _facade(pose: String) -> Dictionary:
 	return {"phase": phase, "host": host}
 
 
+## The facade fixtures the suite builds; freed once in teardown.
+var _facades: Array[Node] = []
+
+
+func teardown() -> void:
+	for facade: Node in _facades:
+		if is_instance_valid(facade):
+			facade.free()
+	_facades.clear()
+
+
+## The runtime fixture: its body is a child, so freeing the runtime frees both through its one exit.
 func _runtime(pose: String) -> Node:
 	var runtime: Node = RUNTIME.new()
-	runtime.pony = Node3D.new()
+	var body := Node3D.new()
+	runtime.add_child(body)
+	runtime.pony = body
 	runtime.act.pose_id = pose
 	runtime.act._set_state(4) # AFTERGLOW
 	runtime.act.preferences = PREF.resolve({})
 	runtime.act.snapshot_settings()
+	root.add_child(runtime)
 	return runtime
 
 
@@ -72,12 +88,14 @@ func run() -> void:
 		"afterglow prompt note carries the live state")
 	check(not idle_note.contains("[stay:"), "afterglow prompt note does not advertise a stay tag")
 	var note_context: Variant = note_runtime.act.context
+	var real_hands: Variant = note_context.hands
 	var note_caress := FakeHands.new(ACT_FACTS.new())
 	note_context.hands = note_caress
 	note_caress.active = true
 	check(note_runtime.act.prompt_note().contains("caressing your flank"), "caress note")
 	note_caress.active = false
-	note_context.hands = note_runtime.act.context.hands
+	note_context.hands = real_hands
+	note_caress.free()
 	note_runtime.act.context.camera.lean_forward = 0.8
 	check(note_runtime.act.prompt_note().contains("leaning in close"), "lean note")
 	note_runtime.act._set_state(2) # ACTIVE
@@ -148,6 +166,7 @@ func run() -> void:
 
 	# The row follows the active view family only; without a view it falls back to the bed row.
 	var no_view := AFTERGLOW.new()
+	_facades.append(no_view)
 	var no_view_summary := AFTERGLOW.SUMMARY.new()
 	no_view_summary.fill({"reward": true})
 	no_view.begin(no_view_summary)
@@ -197,6 +216,7 @@ func run() -> void:
 	# The post-act decision and its hosted node. A partner stop keeps the tail tucked; otherwise
 	# the healthy summary or a satisfied meter gives the aftercare its body language.
 	var post := AFTERGLOW.new()
+	_facades.append(post)
 	var tucked: RefCounted = post.post_act(true, 90.0, 10, true, true)
 	check(tucked.tail_tuck and not tucked.body_language,
 		"a partner stop keeps the tail tucked instead of an aftercare")
@@ -244,8 +264,6 @@ func run() -> void:
 	# face and the meter decays; a partner stop tucks the tail instead.
 	var ended: Node = _runtime("standing")
 	var ended_pony: Node3D = ended.pony
-	root.add_child(ended_pony)
-	root.add_child(ended)
 	ended.act.context.readiness.satisfaction = 80.0
 	ended.act.aftercare_min = 10
 	ended.act.context.summary.summary = {"grade": "great", "positive": true, "reward": true,
@@ -264,10 +282,7 @@ func run() -> void:
 	ended.act.host.end_tail_tuck()
 	check(ended.act.host._tail_tuck == null, "the tuck is released")
 	ended.act.context.afterglow.stop_decay()
-	root.remove_child(ended)
 	ended.free()
-	root.remove_child(ended_pony)
-	ended_pony.free()
 
 	pony.free()
 	host_node.free()

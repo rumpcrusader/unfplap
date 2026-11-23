@@ -371,6 +371,7 @@ class FakeHost extends Node:
 
 func _pony(display_name: String, node_name := "Pony") -> FakePony:
 	var pony := FakePony.new()
+	_bodies.append(pony)
 	pony.name = node_name
 	var identity := FakeIdentity.new()
 	identity.id = "test_mare"
@@ -412,6 +413,16 @@ func _set_memory(runtime: Node, memory: Node) -> void:
 
 ## The act frame of the current fixture; every `_fixture()` replaces it.
 var owner: ACT_OWNER = null
+## The bodies and memories the fixture built; `_free_fixture()` frees them with the act.
+var _bodies: Array[Node] = []
+var _memories: Array[Node] = []
+
+
+## One fake memory, freed by `_free_fixture()` with the inner service it calls.
+func _memory() -> FakeMemory:
+	var memory := FakeMemory.new()
+	_memories.append(memory)
+	return memory
 
 
 func _fixture() -> Dictionary:
@@ -420,7 +431,7 @@ func _fixture() -> Dictionary:
 	root.add_child(host)
 	var old_pony := _pony("Test Mare", "OldBody")
 	root.add_child(old_pony)
-	var memory := FakeMemory.new()
+	var memory := _memory()
 	host.memory = memory
 	var world := HANDLES.new()
 	world.memory = memory
@@ -496,12 +507,25 @@ func _free_fixture(made: Dictionary) -> void:
 		runtime.free()
 	if is_instance_valid(old):
 		old.free()
+	for body: Node in _bodies:
+		if is_instance_valid(body):
+			body.free()
+	_bodies.clear()
 	if is_instance_valid(source):
 		source.free()
 	if is_instance_valid(host):
 		host.free()
+	for memory: Node in _memories:
+		if is_instance_valid(memory):
+			var service: Variant = memory.get("_service")
+			if is_instance_valid(service):
+				(service as Node).free()
+			memory.free()
+	_memories.clear()
 	if is_instance_valid(owner):
 		owner.free()
+	# The roster queues the runtime; one frame lets the engine delete it and run its one exit.
+	await process_frame
 
 
 func run() -> void:
@@ -741,7 +765,7 @@ func _check_policy_events() -> void:
 	var runtime: Node = f["runtime"]
 	var source: FakeSource = f["source"]
 	var policy: FakePolicy = f["policy"]
-	host.memory = FakeMemory.new()
+	host.memory = _memory()
 	_set_memory(runtime, host.memory)
 	runtime.act._set_state(ACT_STATE.State.POSING_IN)
 	runtime.act.enter_active_act()
@@ -797,7 +821,7 @@ func _check_ai_change() -> void:
 	var runtime: Node = f["runtime"]
 	var old_pony: FakePony = f["old"]
 	var source: FakeSource = f["source"]
-	host.memory = FakeMemory.new()
+	host.memory = _memory()
 	_set_memory(runtime, host.memory)
 	source.shape = "fluttershy"
 	# Nothing called request_form: the source is already changing, as her own AI leaves it.
@@ -904,6 +928,7 @@ func _check_invalid_shape() -> void:
 	check(not owner.act_running(), "an ineligible shape clears the active runtime")
 	check(not new_pony.has_meta("sex_active"), "an ineligible shape keeps no act flag")
 	await _free_fixture(f)
+	eligibility.free()
 
 
 ## Closing the world while the act is suspended is the same one exit, not a second teardown.
@@ -928,7 +953,7 @@ func _check_form_reveal() -> void:
 	var runtime: Node = f["runtime"]
 	var source: FakeSource = f["source"]
 	var policy: FakePolicy = f["policy"]
-	host.memory = FakeMemory.new()
+	host.memory = _memory()
 	_set_memory(runtime, host.memory)
 	var director := FakeDirector.new()
 	director.name = "FakeDirector"
@@ -1003,7 +1028,7 @@ func _check_shape_offer() -> void:
 	var runtime: Node = f["runtime"]
 	var source: FakeSource = f["source"]
 	var policy: FakePolicy = f["policy"]
-	host.memory = FakeMemory.new()
+	host.memory = _memory()
 	_set_memory(runtime, host.memory)
 	source.shape = ""
 	runtime.act.context.handover.offer_tick()
@@ -1281,7 +1306,7 @@ func _check_named_without_shape() -> void:
 	var host: FakeHost = f["host"]
 	var runtime: Node = f["runtime"]
 	var source: FakeSource = f["source"]
-	host.memory = FakeMemory.new()
+	host.memory = _memory()
 	_set_memory(runtime, host.memory)
 	source.shape = ""
 	runtime.act.context.handover.offer_tick()

@@ -174,6 +174,17 @@ class FakePresentation extends RefCounted:
 		pass
 
 
+## Every fixture runtime leaves the tree through its real exit before it is freed; one that already
+## entered at its case is not re-added, and one the case already freed is skipped.
+func _free_runtime(runtime: Variant) -> void:
+	if not is_instance_valid(runtime):
+		return
+	var node: Node = runtime
+	if not node.is_inside_tree():
+		root.add_child(node)
+	node.free()
+
+
 func _fixture() -> Dictionary:
 	var memory := FakeMemory.new()
 	var hud: CanvasLayer = HUD.new()
@@ -195,7 +206,8 @@ func _fixture() -> Dictionary:
 	var player: FakePlayer = FakePlayer.new()
 	var main: FakeMain = FakeMain.new()
 	var game: FakeGame = FakeGame.new()
-	game.inventory = FakeInventory.new()
+	var inventory := FakeInventory.new()
+	game.inventory = inventory
 	main.player = player
 	WORLD.bind_player(main.player)
 	main.game = game
@@ -229,7 +241,7 @@ func _fixture() -> Dictionary:
 	runtime.act.context.hold.token = "unfplap:test_mare"
 	hud.set_inventory_hidden(true)
 	return {"runtime": runtime, "pony": pony, "player": player, "main": main, "hud": hud,
-		"world": world, "owner": owner}
+		"world": world, "owner": owner, "memory": memory, "inventory": inventory}
 
 
 class FakeHandle extends AGREEMENT.Handle:
@@ -441,7 +453,7 @@ func run() -> void:
 	owner7.clear_active(acting7)
 	hud7.ensure_act_inventory_visible(owner7.active())
 	check(not hud7.inventory_hidden(), "idle safety restores the HUD with no active runtime")
-	acting7.free()
+	_free_runtime(acting7)
 	owner7.free()
 
 	# The pose teardown detaches the act's modifiers before freeing them, so the skeleton has no
@@ -528,7 +540,8 @@ func run() -> void:
 	var anatomy8: ANATOMY_API = ANATOMY_API.new()
 	var world8: HANDLES = f8["world"]
 	world8.anatomy = anatomy8
-	world8.act_gate = FakeGate.new()
+	var gate8 := FakeGate.new()
+	world8.act_gate = gate8
 	pony8.global_position = Vector3(2.0, 0.0, 3.0)
 	var oral_from: Vector3 = pony8.global_position
 	runtime8.act.start._build_pose()
@@ -651,18 +664,29 @@ func run() -> void:
 	root.remove_child(runtime12)
 	check(released.size() == 1 and released[0] == null,
 		"the world-close path releases the act record once")
+	runtime12.free()
 
 	# The first-frame refresh is the node's own deferred call and returns early outside the tree.
 	var no_frame: Node = RUNTIME.new()
 	no_frame._deferred_refresh()
 	check(no_frame.act.pony_id.is_empty(), "a deferred refresh outside the tree changes nothing")
-	no_frame.free()
+	_free_runtime(no_frame)
 
-	# Free a runtime the way a body exit does: the deferred first-frame refresh belongs to the node,
-	# so the engine drops it instead of running it against the freed services.
-	for item: Dictionary in [f, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12]:
-		(item["runtime"] as Node).free()
+	# Free each remaining fixture the way a body exit does: the deferred first-frame refresh belongs
+	# to the node, so the engine drops it instead of running it against the freed services.
+	for item: Dictionary in [f, f2, f3, f4, f5, f6, f6b, f7, f8, f9, f10, f11, f12]:
+		_free_runtime(item["runtime"])
 		(item["owner"] as Node).free()
+		(item["memory"] as Node).free()
+		(item["inventory"] as Node).free()
+	anatomy6b.free()
+	anatomy8.free()
+	body8.free()
+	# The exit detaches and queue_frees the act's modifiers and act body; one frame lets the engine
+	# run those deletions before the suite quits.
+	await process_frame
+	gate.free()
+	gate8.free()
 	if failures == 0:
 		print("RUNTIME_TEARDOWN_PASS")
 	finish()

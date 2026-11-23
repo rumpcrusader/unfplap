@@ -113,6 +113,13 @@ defers `_run_and_finish()`, which calls `before()`, then `run()`, then `finish()
 - The header comment carries the direct command, so a suite can be run without the runner while
   debugging.
 
+### Fixtures
+
+A suite is its own root: every `Node` it builds is freed by the suite, and a runtime — or the body
+that holds it — is attached under the suite's `root` before it is freed, so `_ready` and `_exit_tree`
+run and the composition is released on its one real path. A detached `free()` is a defect, not a
+shortcut.
+
 ### Assertion helpers
 
 | Helper | Pins |

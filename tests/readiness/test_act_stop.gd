@@ -228,6 +228,7 @@ func fixture(kind: String) -> Dictionary:
 		"runtime": runtime, "pony": pony, "main": main, "game": game,
 		"context": context, "impressions": impressions, "bonds": bonds,
 		"affection": affection, "mods": mods, "existing": existing,
+		"memory": memory, "relation": relation,
 	}
 
 
@@ -256,11 +257,15 @@ func run() -> void:
 	check(normal_events.size() == 1, "a partner stop writes one world event")
 	check(str((normal_events[0] as Dictionary).get("kind", "")) == "relationship",
 		"the one partner-stop event is the summary")
+	root.add_child(normal_runtime)
 	normal_runtime.queue_free()
 	normal["main"].queue_free()
 	normal["context"].queue_free()
 	normal["impressions"].queue_free()
 	normal["mods"].free()
+	normal["memory"].free()
+	normal["relation"].free()
+	normal["bonds"].free()
 	if normal["existing"] != null and is_instance_valid(normal["existing"]):
 		normal["existing"].name = "Mods"
 
@@ -282,11 +287,15 @@ func run() -> void:
 	var strict_row: Dictionary = (strict["mods"].data["unfplap"].get("act_history", {}) as Dictionary).get("rarity", {})
 	check(float(strict_row.get("stop_until", 0.0)) > float(normal_row.get("stop_until", 0.0)),
 		"the strict cooldown is longer than normal")
+	root.add_child(strict_runtime)
 	strict_runtime.queue_free()
 	strict["main"].queue_free()
 	strict["context"].queue_free()
 	strict["impressions"].queue_free()
 	strict["mods"].free()
+	strict["memory"].free()
+	strict["relation"].free()
+	strict["bonds"].free()
 	if strict["existing"] != null and is_instance_valid(strict["existing"]):
 		strict["existing"].name = "Mods"
 
@@ -308,6 +317,9 @@ func run() -> void:
 	paused_fixture["context"].queue_free()
 	paused_fixture["impressions"].queue_free()
 	paused_fixture["mods"].free()
+	paused_fixture["memory"].free()
+	paused_fixture["relation"].free()
+	paused_fixture["bonds"].free()
 	if paused_fixture["existing"] != null and is_instance_valid(paused_fixture["existing"]):
 		paused_fixture["existing"].name = "Mods"
 

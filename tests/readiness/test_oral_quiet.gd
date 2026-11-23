@@ -445,5 +445,10 @@ func run() -> void:
 	pony.free()
 	root.remove_child(main)
 	main.free()
+	reactions.free()
+	pose.free()
+	dialogue.free()
+	act_camera.free()
+	kiss.free()
 
 	finish()

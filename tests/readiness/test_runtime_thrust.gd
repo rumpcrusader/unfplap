@@ -16,7 +16,9 @@ func _view(runtime: Node) -> RefCounted:
 
 func _runtime() -> Node:
 	var runtime: Node = RUNTIME.new()
-	runtime.pony = Node3D.new()
+	var body := Node3D.new()
+	runtime.add_child(body)
+	runtime.pony = body
 	runtime.act.preferences = PREF.resolve({
 		"intensity": "firm",
 		"pattern": "steady",
@@ -30,6 +32,7 @@ func _runtime() -> Node:
 	runtime.act.context.readiness.last_touch_at = -1000.0
 	runtime.act.context.readiness.last_talk_at = -1000.0
 	runtime.act.reset_thrust_state()
+	root.add_child(runtime)
 	return runtime
 
 

@@ -55,6 +55,7 @@ func run() -> void:
 	# A pony that has only just spawned has no relationship runtime yet. The anatomy bridge asks
 	# for the phase during its bind, so the read must not warn or throw.
 	var runtime: Node = RUNTIME.new()
+	root.add_child(runtime)
 	var pony := Node3D.new()
 	pony.set_meta("relationship_id", "rarity")
 	root.add_child(pony)

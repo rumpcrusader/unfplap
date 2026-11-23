@@ -360,8 +360,8 @@ func _add_hint_row(key: String, keys: Array, mode: String, text: String) -> Labe
 			row.add_child(icon)
 		else:
 			row.add_child(keycap(str(entry.get("cap", ""))))
-	var modifier := text_label(mode, 13, MUTED, 4)
 	if not mode.is_empty():
+		var modifier := text_label(mode, 13, MUTED, 4)
 		modifier.custom_minimum_size.x = MODE_WIDTH
 		modifier.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		row.add_child(modifier)

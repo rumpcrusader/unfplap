@@ -95,6 +95,7 @@ func _free_fixture(made: Dictionary) -> void:
 	runtime.free()
 	if is_instance_valid(pose.act_body):
 		pose.act_body.free()
+	pose.free()
 
 
 func _check_helper() -> void:
@@ -129,6 +130,7 @@ func _check_helper() -> void:
 	check(runtime.act.face_sit_error() == "the anatomy is not available",
 		"the anatomy master off is refused")
 	SETTINGS.anatomy_mode.set_choice("act")
+	pose.act_body.free()
 	pose.act_body = null
 	check(runtime.act.face_sit_error() == "the anatomy is not available",
 		"a missing act body is refused")

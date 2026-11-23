@@ -18,6 +18,7 @@ func run() -> void:
 	root.add_child(pony)
 	var id_runtime: Node = RUNTIME.new()
 	id_runtime.pony = pony
+	root.add_child(id_runtime)
 	check(bool(id_runtime.act.refresh_identity()), "identity fallback reads a runtime id")
 	check(str(id_runtime.act.pony_id) == "identity_id", "identity id is the fallback")
 	pony.set_meta("relationship_id", "rarity")
@@ -41,6 +42,7 @@ func run() -> void:
 	ready_pony.free()
 
 	var runtime: Node = RUNTIME.new()
+	root.add_child(runtime)
 	runtime.act._set_state(0) # IDLE
 	runtime.act.context.face.warm_note = true
 	var note := str(runtime.act.prompt_note())

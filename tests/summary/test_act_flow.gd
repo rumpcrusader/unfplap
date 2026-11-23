@@ -57,7 +57,10 @@ func _hud_view(runtime: Node) -> RefCounted:
 func run() -> void:
 	_check_summary_shapes()
 	var runtime: Node = RUNTIME.new()
-	runtime.pony = Node3D.new()
+	var body := Node3D.new()
+	runtime.add_child(body)
+	runtime.pony = body
+	root.add_child(runtime)
 	runtime.act.preferences = {"intensity": "firm", "pattern": "steady", "talk": ["praise"]}
 	runtime.act._set_state(4) # AFTERGLOW
 	runtime.act.pose_id = CATALOG.MISSIONARY
@@ -94,6 +97,7 @@ func run() -> void:
 
 	# The snapshot must carry the per-act counters the pure scorer expects.
 	var probe: Node = RUNTIME.new()
+	root.add_child(probe)
 	probe.act.context.readiness.act_touch_counts = {"smack": 2}
 	probe.act.context.readiness.act_touch_dislikes = {"smack": 2}
 	probe.act.context.readiness.act_talk_dislikes = 1
@@ -165,6 +169,7 @@ func _check_summary_shapes() -> void:
 	check(wrapped.inputs.to_dict().has("touch_dislikes"),
 		"the context wraps the built inputs")
 	main.free()
+	summary.free()
 
 
 ## The peak memory is written once per act from the committed summary, with the act's exchange.
@@ -205,6 +210,7 @@ func _check_peak_commit() -> void:
 	main.free()
 	game.free()
 	sink.free()
+	summary.free()
 
 
 func _check_commit() -> void:
@@ -226,10 +232,12 @@ func _check_commit() -> void:
 	main.game = game
 	WORLD.bind_world(main.game)
 	main.memory = MEMORY.new()
+	var memory: Node = main.memory
 	root.add_child(main)
 	var world := HANDLES.new()
-	world.memory = main.memory
+	world.memory = memory
 	var runtime: Node = RUNTIME.new(null, world)
+	root.add_child(runtime)
 	runtime.act.pony_id = "rarity"
 	runtime.act.pony_id = "rarity"
 	runtime.act.display_name = "Rarity"
@@ -291,5 +299,6 @@ func _check_commit() -> void:
 	context.free()
 	impressions.free()
 	mods.free()
+	memory.free()
 	if existing != null and is_instance_valid(existing):
 		existing.name = "Mods"

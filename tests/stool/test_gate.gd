@@ -126,6 +126,7 @@ func run() -> void:
 	root.add_child(inventory)
 	var runtime: Node = RUNTIME.new(null, world)
 	runtime.pony = pony
+	root.add_child(runtime)
 	# The scene gate gets its body from the runtime's own refresh, as it does on the idle frame.
 	runtime.act.refresh_gate()
 	var anatomy: FakeService = main.anatomy
@@ -191,6 +192,7 @@ func run() -> void:
 	main.stool.free()
 	main.free()
 	pony.free()
+	fake_gate.free()
 	player.free()
 	game.free()
 	inventory.free()

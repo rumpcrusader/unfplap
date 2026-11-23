@@ -1,6 +1,9 @@
 extends "res://mods/unfplap/shared/service.gd"
+## Service: stool
+## Scope: world
+## Contract: docs/stool.md
 ## The footstool system's entry: the standing reach rule, the case item, the act prop and the
-## world supply. Other systems call this facade only; see docs/stool.md.
+## world supply.
 
 const MEASURE := preload("res://mods/unfplap/stool/measure.gd")
 const ITEM := preload("res://mods/unfplap/stool/item.gd")

@@ -1,7 +1,8 @@
 extends "res://mods/unfplap/shared/service.gd"
-## Proactive offers: she reads the place, reasons, walks and asks; nothing starts the act here.
+## Service: initiation
 ## Scope: world
 ## Contract: docs/initiation.md
+## Proactive offers: she reads the place, reasons, walks and asks; nothing starts the act here.
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const POLICY := preload("res://mods/unfplap/initiation/policy.gd")

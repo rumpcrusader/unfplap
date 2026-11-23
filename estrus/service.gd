@@ -1,8 +1,7 @@
 extends "res://mods/unfplap/shared/service.gd"
 ## Service: estrus
-## Contract: docs/estrus.md
 ## Scope: world
-## Import: estrus/service.gd only
+## Contract: docs/estrus.md
 ## The optional cycle service: one phase per mare, her wink timer and the idle rest.
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")

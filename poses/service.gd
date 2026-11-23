@@ -1,9 +1,9 @@
 extends RefCounted
+## Service: poses
+## Scope: pony
+## Contract: docs/poses.md
 ## The act's pose session: the skeleton pose modifier, the authored missionary base, the bed frame,
-## the extra modifiers, the bone snapshots and the pose diagnostics. The act state, the start order
-## and the ledger behind the one teardown belong to the runtime. Contract: `docs/poses.md`.
-## The teardown is split by lifetime: the session owns the pose-scope steps and the act-scope resets
-## between them stay in the runtime's ledger.
+## the extra modifiers, the bone snapshots and the pose diagnostics.
 
 const POSE := preload("res://mods/unfplap/poses/skeleton_pose.gd")
 const POSE_SPEC := preload("res://mods/unfplap/poses/pose_spec.gd")

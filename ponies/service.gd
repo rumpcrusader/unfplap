@@ -1,8 +1,7 @@
 extends RefCounted
 ## Service: ponies
-## Contract: docs/ponies.md
 ## Scope: world
-## Import: ponies/service.gd only
+## Contract: docs/ponies.md
 ## The registry that owns one runtime per pony body.
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")

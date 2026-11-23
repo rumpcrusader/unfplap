@@ -100,6 +100,45 @@ a service. The one existing upward edge, `settings -> registry/service.gd` (prov
 per-mare rows), is recorded in `architecture/exceptions.json` and must shrink. Do not add a second
 upward edge, and do not treat the recorded row as a pattern.
 
+## Scopes
+
+Every object in the mod belongs to exactly one of four classes:
+
+| Class | Instances | Constructed by | Reached by |
+|---|---|---|---|
+| **Process** | one per process | preload at boot | preload the static |
+| **World** | one per process | the entry's world builder | typed injection |
+| **Pony** | one per attached body | the runtime's composer | typed injection |
+| **Other** | per owner | its owner | passed as a value |
+
+Class is about ownership, not feature area: a per-act handle is Other even when it belongs to a
+World service's feature. `Other` is a derived class for everything without a facade; it is not a
+scope value.
+
+Only a facade declares itself, with three fields directly under `extends`: `Service: <dir>`,
+`Scope: process|world|pony` and `Contract: docs/<id>.md`. A non-facade carries no declaration: its
+owner and scope are derived from its path. A module may keep a plain purpose sentence.
+
+The Node rule applies to facades only: a `world` or `pony` facade is a `Node` (or `CanvasLayer`, or
+`shared/service.gd`), while a `process` facade may be `RefCounted`. `world/api.gd` is the one World
+facade that is not a Node; the gate names it with `WORLD_STATIC` beside `HUD_FACADE`, not a header
+field. There is no `Import:` field: the top preload block is the dependency manifest and the graph
+gate reads it.
+
+The old `Scope:` labelled every file. Only facade values are mapped; the module labels described a
+layer and are deleted with the module headers:
+
+| Old facade value | New value |
+|---|---|
+| `process` | `process` |
+| `world` | `world` |
+| `settings` | `process` |
+| `debug` | `process` (the action table) |
+| `hud` | `world` |
+| `per-pony handle` | `pony` |
+| `per-act` | `world` (`integrations`); `vr` becomes Other |
+| `world + per-act handles`, prose `world; …` | `world` |
+
 ## Game layer
 
 The game layer is the set of services allowed to interact with the base game: `world`, `settings`,
@@ -145,14 +184,16 @@ per-act service is constructed inside the runtime and has no world broadcast, so
 the base. The cross-mod `api.gd` is frozen, is parented without joining the list, and carries no
 hooks.
 
-The facade header names the service, its contract, its scope and the import rule:
+The facade header names the service, its scope and its contract, in this order:
 
 ```gdscript
 ## Service: <id>
+## Scope: process | world | pony
 ## Contract: docs/<id>.md
-## Scope: world | per-pony | per-act | pure
-## Import: <id>/api.gd only
 ```
+
+A module carries a purpose sentence but no declaration; its scope is derived from its path and the
+`Other` class.
 
 ### Typing
 

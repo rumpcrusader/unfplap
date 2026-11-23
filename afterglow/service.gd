@@ -1,6 +1,8 @@
 extends RefCounted
+## Service: afterglow
+## Scope: pony
+## Contract: docs/afterglow.md
 ## The held after-act phase and its aftercare; the runtime owns the act state.
-## Contract: `docs/afterglow.md`
 
 const ACT_SUMMARY := preload("res://mods/unfplap/summary/score.gd")
 const AFTERCARE := preload("res://mods/unfplap/afterglow/aftercare.gd")

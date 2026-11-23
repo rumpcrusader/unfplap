@@ -1,8 +1,7 @@
 extends "res://mods/unfplap/shared/service.gd"
 ## Service: negotiation
-## Contract: docs/negotiation.md
 ## Scope: world
-## Import: negotiation/service.gd only
+## Contract: docs/negotiation.md
 ## The Act Negotiation: one live offer or Agreement, its global lock and its terminal outcome.
 
 const AGREEMENT := preload("res://mods/unfplap/shared/agreement.gd")

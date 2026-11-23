@@ -1,8 +1,9 @@
 extends RefCounted
+## Service: reactions
+## Scope: pony
+## Contract: docs/reactions.md
 ## Thrust and climax presentation: the rump jiggle, its coat target, the smack, the rump blush
 ## and the heart bursts.
-##
-## Contract: `docs/reactions.md`.
 
 const CONTEXT := preload("res://mods/unfplap/reactions/context.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")

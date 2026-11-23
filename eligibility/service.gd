@@ -1,7 +1,7 @@
 extends "res://mods/unfplap/shared/service.gd"
 ## Service: eligibility
-## Contract: docs/eligibility.md
 ## Scope: world
+## Contract: docs/eligibility.md
 ## Public eligibility API: the permanent identity answer and the provider profile layer.
 
 const SCENE := preload("res://mods/unfplap/eligibility/scene.gd")

@@ -1,8 +1,7 @@
 extends "res://mods/unfplap/shared/service.gd"
 ## Service: anatomy
+## Scope: world
 ## Contract: docs/anatomy.md
-## Scope: world + per-act handles
-## Import: anatomy/api.gd only
 ## The anatomy presentation service: roster verbs, act presentation, tail seat and the player part.
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")

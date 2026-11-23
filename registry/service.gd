@@ -1,5 +1,8 @@
 extends RefCounted
-## In-memory provider registry for mare templates; the API contract is `docs/api.md`.
+## Service: registry
+## Scope: process
+## Contract: docs/registry.md
+## In-memory provider registry for mare templates.
 
 const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
 const PARTICIPATION := preload("res://mods/unfplap/shared/participation.gd")

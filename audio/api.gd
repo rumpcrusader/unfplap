@@ -1,8 +1,7 @@
 extends "res://mods/unfplap/shared/service.gd"
 ## Service: audio
+## Scope: world
 ## Contract: docs/audio.md
-## Scope: world + per-act handles
-## Import: audio/api.gd only
 ## The act's sound: the world playback pool, the base-game breath and her voice policy.
 
 const CATALOGUE := preload("res://mods/unfplap/audio/cues.gd")

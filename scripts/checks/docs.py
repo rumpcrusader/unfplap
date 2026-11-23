@@ -47,6 +47,7 @@ def parse_service_index(text: str) -> dict[str, list[dict[str, str]]]:
         rows.setdefault(found.group(1), []).append({
             "contract": contract,
             "tests": cells[3].strip("`"),
+            "scope": cells[4].strip("`") if len(cells) > 4 else "",
         })
     return rows
 

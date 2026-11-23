@@ -1,7 +1,9 @@
 extends RefCounted
+## Service: camera
+## Scope: pony
+## Contract: docs/camera.md
 ## The act camera session: the lean and its smoothing, the thrust camera, the debug free look and
-## the size/torso values the view and the hands read. The frame owns the player state.
-## Contract: docs/camera.md.
+## the size/torso values the view and the hands read.
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const HANDS := preload("res://mods/unfplap/hands/api.gd")

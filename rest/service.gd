@@ -1,6 +1,8 @@
 extends RefCounted
+## Service: rest
+## Scope: pony
+## Contract: docs/rest.md
 ## Scene work for the bed/couch rest and the cuddle rejoin; the runtime owns the act state.
-## Contract: `docs/rest.md`
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")

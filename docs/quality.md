@@ -45,7 +45,7 @@ Comments are shape-gated, not prose-reviewed. `scripts/comments.py --check` runs
 `scripts/lint.sh` and in the source-checks CI job; tests and tools are excluded like gdlint. The
 rules:
 
-- a file header is at most five `##` lines: `Service:`/`Contract:`/`Scope:`/`Import:` plus one
+- a file header is at most five `##` lines: `Service:`/`Scope:`/`Contract:` plus one
   purpose sentence;
 - any other `##` block is at most two lines: the promise, then one clause of why;
 - a `#` block is at most three lines;

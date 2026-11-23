@@ -1,8 +1,9 @@
 extends RefCounted
+## Service: readiness
+## Scope: pony
+## Contract: docs/readiness.md
 ## Act readiness: her satisfaction, mood and cue, the stroke score, touch/talk input, the
-## neglect-tolerance meter and the counters the act summary reads. The runtime owns the act state
-## and supplies the clock, the climax transition, the face beats and the cue admission; this
-## module owns the scoring and tolerance state. See docs/readiness.md.
+## neglect-tolerance meter and the counters the act summary reads.
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")

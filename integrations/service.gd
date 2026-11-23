@@ -1,8 +1,7 @@
 extends RefCounted
 ## Service: integrations
+## Scope: world
 ## Contract: docs/integrations.md
-## Scope: per-act
-## Import: integrations/service.gd only
 ## The one scene adapter for optional act-time bridges: resolve bindings, save originals, restore.
 
 const CATALOG := preload("res://mods/unfplap/shared/integrations.gd")

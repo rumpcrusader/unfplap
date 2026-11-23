@@ -1,8 +1,9 @@
 extends RefCounted
+## Service: dialogue
+## Scope: pony
+## Contract: docs/dialogue.md
 ## The per-act dialogue facade: admission, prompt notes, the one director slot, reactions and
-## bystanders. It reads no runtime field; the facts view and the memory channel are its inputs.
-##
-## See `docs/dialogue.md`.
+## bystanders.
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")

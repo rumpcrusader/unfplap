@@ -1,8 +1,8 @@
 extends RefCounted
+## Service: settings
+## Scope: process
+## Contract: docs/settings.md
 ## The one settings module: every global setting, the player data files, and the per-mare profiles.
-##
-## A setting is declared here once, with its JSON path; its default lives in the shipped document
-## and call sites use the typed accessor. See docs/settings.md.
 
 const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")

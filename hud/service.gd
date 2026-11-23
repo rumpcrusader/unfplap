@@ -1,7 +1,8 @@
 extends CanvasLayer
+## Service: hud
+## Scope: world
+## Contract: docs/hud.md
 ## Desktop HUD: prompt and a bottom-left controls/cue list.
-## Buttons and words follow the game's own prompt row (world/ui/interaction_hints.gd): a cartoon
-## key cap or controller icon beside light words with a dark outline, never a drop shadow.
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")

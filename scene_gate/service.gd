@@ -1,6 +1,9 @@
 extends RefCounted
+## Service: scene_gate
+## Scope: pony
+## Contract: docs/scene_gate.md
 ## The scene half of the act gate: the rows, the small checks, the bed search, the verdicts and
-## the buck. Eligibility owns the policy. Contract: `docs/scene_gate.md`
+## the buck. Eligibility owns the policy.
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const ACT_GATE := preload("res://mods/unfplap/act_gate/service.gd")

@@ -1,8 +1,7 @@
 extends "res://mods/unfplap/shared/service.gd"
 ## Service: offer
-## Contract: docs/offer.md
 ## Scope: world
-## Import: offer/service.gd only
+## Contract: docs/offer.md
 ## The idle act offer: what a press could start, and the start itself.
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")

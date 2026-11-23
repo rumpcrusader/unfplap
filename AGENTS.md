@@ -247,7 +247,7 @@ are in `ARCHITECTURE.md` (`## The service contract`).
   the claims that became false; a claim that is still true is never reworded.
 - **Comments state what the code cannot.** A `##` block is at most two lines: the promise, then one
   clause of why when the reason is not visible. A file header is at most five lines — the
-  `Service:`/`Contract:`/`Scope:`/`Import:` fields plus one purpose sentence; the owning doc carries
+  `Service:`/`Scope:`/`Contract:` fields plus one purpose sentence; the owning doc carries
   the rest. A `#` block is at most three lines and only for an invariant, an order constraint, a
   game quirk or a workaround. Do not restate a doc sentence, a member name, a count, an ordinal or a
   numeric value the code owns; a rename must never force a comment edit. The comment gate

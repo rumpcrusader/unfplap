@@ -1,8 +1,7 @@
 extends RefCounted
 ## Service: hands
+## Scope: pony
 ## Contract: docs/hands.md
-## Scope: per-pony handle
-## Import: hands/api.gd only
 ## The act hand layer: caress, shoulder reach, smack and palm-on-coat contact.
 
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")

@@ -1,8 +1,7 @@
 extends RefCounted
 ## Service: world
-## Contract: docs/world.md
 ## Scope: world
-## Import: world/api.gd, world/game.gd
+## Contract: docs/world.md
 ## The one live-scene reader; it answers where and what, not whether.
 
 const GAME := preload("res://mods/unfplap/world/game.gd")

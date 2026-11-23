@@ -14,6 +14,7 @@ const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 
 ## The public v1 surface. An addition or rename must update this list and docs/api.md together.
 const METHODS := ["contract", "describe_mare", "register_mare", "supports", "unregister_mare"]
+const SIGNALS := ["act_progress", "act_result"]
 const DESCRIPTOR_KEYS := [
 	"schema", "id", "source", "name",
 	"preferences", "consent", "eligible", "profile", "placement", "poses",
@@ -56,6 +57,7 @@ func run() -> void:
 	_check_base_provider()
 	_check_validation()
 	_check_deep_copies()
+	await _check_relay()
 	await _check_owner_cleanup()
 	SETTINGS.reset_preferences("fluttershy")
 	api.call("_shutdown")
@@ -82,7 +84,11 @@ func _check_surface() -> void:
 			methods.append(name)
 	methods.sort()
 	check(methods == METHODS, "public method surface: %s" % str(methods))
-	check(script.get_script_signal_list().is_empty(), "v1 declares no signals")
+	var signals: Array[String] = []
+	for row: Dictionary in script.get_script_signal_list():
+		signals.append(str(row.get("name", "")))
+	signals.sort()
+	check(signals == SIGNALS, "public signal surface: %s" % str(signals))
 	var descriptor_keys: Array = REGISTRY.TOP_KEYS.duplicate()
 	descriptor_keys.sort()
 	var expected_keys: Array = DESCRIPTOR_KEYS.duplicate()
@@ -94,17 +100,25 @@ func _check_contract() -> void:
 	var contract: Dictionary = api.contract()
 	check(str(contract.get("provider", "")) == "unfplap", "provider id")
 	check(int(contract.get("api_major", 0)) == 1, "api major")
-	check(int(contract.get("api_minor", -1)) == 3, "api minor")
-	check(str(contract.get("api_version", "")) == "1.3", "api version")
-	check(int((contract.get("schemas", {}) as Dictionary).get("mare", 0)) == 1, "mare schema")
-	check((contract.get("schemas", {}) as Dictionary).size() == 1, "one schema")
+	check(int(contract.get("api_minor", -1)) == 4, "api minor")
+	check(str(contract.get("api_version", "")) == "1.4", "api version")
+	var schemas: Dictionary = contract.get("schemas", {})
+	check(int(schemas.get("mare", 0)) == 1, "mare schema")
+	check(int(schemas.get("act_progress", 0)) == 1, "progress schema")
+	check(int(schemas.get("act_result", 0)) == 1, "result schema")
+	check(schemas.size() == 3, "one schema per payload")
 	var capabilities: Dictionary = contract.get("capabilities", {})
 	check(int(capabilities.get("registry.mare", 0)) == 1, "registry capability")
 	check(int(capabilities.get("mare.read", 0)) == 1, "read capability")
 	check(int(capabilities.get("profile.mare", 0)) == 1, "profile capability")
+	check(int(capabilities.get("act.progress", 0)) == 1, "progress capability")
+	check(int(capabilities.get("act.result", 0)) == 1, "result capability")
+	check(capabilities.size() == 5, "one version per capability")
 	check((contract.get("deprecations", []) as Array).is_empty(), "no v1 deprecations")
 	check(api.supports("registry.mare"), "supports a known capability")
+	check(api.supports("act.progress") and api.supports("act.result"), "supports the act signals")
 	check(not api.supports("registry.mare", 2), "capability version check")
+	check(not api.supports("act.progress", 2), "signal capability version check")
 	check(not api.supports("not.a.capability"), "unknown capability")
 
 
@@ -113,13 +127,17 @@ func _check_docs() -> void:
 	check(not text.is_empty(), "docs/api.md exists")
 	for name: String in METHODS:
 		check(text.contains(name), "docs mention " + name)
-	for name: String in ["registry.mare", "mare.read", "profile.mare"]:
+	for name: String in SIGNALS:
+		check(text.contains(name), "docs mention signal " + name)
+	for name: String in ["registry.mare", "mare.read", "profile.mare", "act.progress", "act.result"]:
 		check(text.contains(name), "docs mention capability " + name)
 	for key: String in DESCRIPTOR_KEYS:
 		check(text.contains(key), "docs mention descriptor " + key)
 	for key: String in DESCRIPTION_KEYS:
 		check(text.contains(key), "docs mention description " + key)
-	check(text.contains("1.3"), "docs carry the current API version")
+	for key: String in ["act_id", "stop_reasons", "forms", "outcome"]:
+		check(text.contains(key), "docs mention signal field " + key)
+	check(text.contains("1.4"), "docs carry the current API version")
 
 
 func _check_base_description() -> void:
@@ -408,6 +426,47 @@ func _check_deep_copies() -> void:
 	check((unknown.get("sources", []) as Array).is_empty(), "an unknown id has no sources")
 	check((unknown.get("placement", {}) as Dictionary).size() == PLACEMENT.KEYS.size(),
 		"an unknown id still gets a complete placement")
+
+
+## The relays deliver at the end of the frame, and each callback owns an immutable copy.
+func _check_relay() -> void:
+	var progress: Array[Dictionary] = []
+	var results: Array[Dictionary] = []
+	var on_progress := func(data: Dictionary) -> void: progress.append(data)
+	var on_result := func(data: Dictionary) -> void: results.append(data)
+	api.act_progress.connect(on_progress)
+	api.act_result.connect(on_result)
+	var payload := {
+		"schema": 1, "act_id": 7,
+		"climaxes": {"current": 1, "limit": 2},
+	}
+	var result_payload := {
+		"schema": 1, "act_id": 7,
+		"forms": ["chrysalis", "fluttershy"],
+		"outcome": {"romance": 2, "stopped": false},
+	}
+	api._on_progress(payload)
+	api._on_result(result_payload)
+	check(progress.is_empty() and results.is_empty(), "the relays defer delivery")
+	payload["act_id"] = 99
+	payload["climaxes"]["current"] = 99
+	result_payload["forms"].append("rarity")
+	result_payload["outcome"]["romance"] = -1
+	await process_frame
+	await process_frame
+	check_size(progress, 1, "one progress delivery")
+	check_size(results, 1, "one result delivery")
+	var delivered: Dictionary = progress[0] if not progress.is_empty() else {}
+	var delivered_result: Dictionary = results[0] if not results.is_empty() else {}
+	check_eq(int(delivered.get("act_id", 0)), 7, "the progress relay keeps the emitted act id")
+	check_eq(int((delivered.get("climaxes", {}) as Dictionary).get("current", -1)), 1,
+		"the progress relay deep-copies nested data")
+	check_eq((delivered_result.get("forms", []) as Array).size(), 2,
+		"the result relay deep-copies its array")
+	check_eq(int((delivered_result.get("outcome", {}) as Dictionary).get("romance", 0)), 2,
+		"the result relay deep-copies its outcome")
+	api.act_progress.disconnect(on_progress)
+	api.act_result.disconnect(on_result)
 
 
 func _check_owner_cleanup() -> void:

@@ -30,6 +30,7 @@ restate a contract.
 | `*.sh`, `.gdlintrc`, `scripts/requirements-lint.txt`, `scripts/pack_report.py` | `docs/quality.md` |
 | `shared/act_facts.gd` | `docs/act_facts.md` |
 | `shared/act_state.gd` | `docs/runtime.md` |
+| `shared/act_report.gd` | `docs/api.md` |
 | `shared/pony_identity.gd` | `docs/runtime.md` |
 | `shared/act_keys.gd` | `docs/input.md` |
 | `shared/integrations.gd` | `docs/integrations.md` |

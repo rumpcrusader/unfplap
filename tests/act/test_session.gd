@@ -13,9 +13,22 @@ const INPUT := preload("res://mods/unfplap/act/input.gd")
 const ACT_COMMANDS := preload("res://mods/unfplap/shared/act_commands.gd")
 const POSE_SESSION := preload("res://mods/unfplap/poses/service.gd")
 const HUD := preload("res://mods/unfplap/hud/service.gd")
+const READINESS := preload("res://mods/unfplap/readiness/service.gd")
+const SUMMARY := preload("res://mods/unfplap/summary/service.gd")
+const DIALOGUE := preload("res://mods/unfplap/dialogue/service.gd")
+const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 const FAKE_GATE := preload("res://mods/unfplap/tests/support/fakes/fake_act_gate.gd")
 
 const State := ACT_STATE.State
+const PROGRESS_KEYS: Array[String] = [
+	"act_id", "climaxes", "duration_s", "form_id", "heat", "mood",
+	"pony_id", "pose", "schema", "state",
+]
+const RESULT_KEYS: Array[String] = [
+	"act_id", "climaxes", "duration_s", "form_id", "forms", "grade",
+	"outcome", "pony_id", "pose", "schema", "stop_reasons", "thrusts",
+]
+const OUTCOME_KEYS: Array[String] = ["early", "mood", "romance", "severe", "stopped"]
 
 
 
@@ -88,6 +101,25 @@ class FakeHud extends HUD:
 
 	func anatomy_status(text: String, _seconds := 2.0) -> void:
 		statuses.append(text)
+
+
+## The summary commit's view seam: the act's collected values, no tree and no context.
+class FakeView extends RefCounted:
+	func summary_input(session: Variant) -> SUMMARY.ActInput:
+		var out := SUMMARY.ActInput.new()
+		out.pony_id = str(session.pony_id)
+		out.event_id = str(session.event_id)
+		out.seconds = float(session.act_seconds())
+		return out
+
+
+## The peak record's line read; the suite has no spoken line.
+class FakeDialogue extends DIALOGUE:
+	func last_spoken_at() -> float:
+		return -1e9
+
+	func last_spoken_line() -> String:
+		return ""
 
 
 func run() -> void:
@@ -195,6 +227,7 @@ func run() -> void:
 	check(orphan.get_parent() == null, "a node-less host parents nothing")
 	orphan.free()
 
+	_check_report()
 	_check_hole_command()
 	_free_frame(made)
 	finish()
@@ -242,3 +275,161 @@ func _check_hole_command() -> void:
 	context.pose = null
 	input = null
 	_free_frame(made)
+
+
+## The cross-mod reports: the progress change key, the final IDLE, and the one committed result.
+func _check_report() -> void:
+	var made := _frame()
+	var session: RefCounted = made["session"]
+	var context: RefCounted = made["context"]
+	var readiness := READINESS.new()
+	var summary := SUMMARY.new()
+	var dialogue := FakeDialogue.new()
+	context.readiness = readiness
+	context.summary = summary
+	context.dialogue = dialogue
+	summary.wire(null, readiness, dialogue)
+	session.view = FakeView.new()
+	session.ticker = FakeTicker.new([])
+	session.pony_id = "chrysalis"
+	session.serial = 12
+	session.pose_id = "missionary"
+	session.event_id = "intimacy_chrysalis_12"
+	var form := BODY_FORM.BodyForm.new()
+	form.pony_id = "chrysalis"
+	form.form_name = "Chrysalis"
+	var progress: Array[Dictionary] = []
+	var results: Array[Dictionary] = []
+	session.progress.connect(func(data: Dictionary) -> void: progress.append(data))
+	session.result.connect(func(data: Dictionary) -> void: results.append(data))
+	session.advance_act_seconds(18.6)
+	session._set_state(State.POSING_IN)
+	session.adopt_display_name(form, null)
+	session.tick(0.02)
+
+	check_size(progress, 1, "the first frame emits one progress update")
+	var first: Dictionary = progress[0] if not progress.is_empty() else {}
+	check_eq(_keys(first), PROGRESS_KEYS, "the progress payload key surface")
+	check_eq(int(first.get("schema", 0)), 1, "the progress schema")
+	check_eq(int(first.get("act_id", 0)), 12, "the act serial correlates the payload")
+	check_eq(str(first.get("state", "")), "POSING_IN", "the start state is reported")
+	check_eq(str(first.get("pony_id", "")), "chrysalis", "the stable pony id is reported")
+	check_eq(str(first.get("form_id", "")), "chrysalis", "her own form normalizes to the pony id")
+	check_eq(str(first.get("pose", "")), "missionary", "the running pose is reported")
+	check_approx(float(first.get("duration_s", -1.0)), 18.6, "the act duration is a snapshot")
+	check_eq(str(first.get("mood", "")), "warming", "the readiness mood is reported")
+	check_eq(first.get("climaxes"), {"current": 0, "limit": 0}, "the climax pair is reported")
+	check_eq(bool(first.get("heat", true)), false, "heat is reported")
+
+	session.tick(0.02)
+	check_size(progress, 1, "an unchanged tick emits no progress")
+	readiness.mood = "close"
+	session.tick(0.02)
+	check_size(progress, 2, "a mood change emits one progress update")
+	check_eq(str(progress[1].get("mood", "")), "close", "the changed mood is reported")
+	readiness.pony_climaxes = 1
+	session.tick(0.02)
+	check_size(progress, 3, "a climax change emits one progress update")
+	check_eq(progress[2].get("climaxes"), {"current": 1, "limit": 0},
+		"the changed climax count is reported")
+	session.cycle_heat = true
+	session.tick(0.02)
+	check_size(progress, 4, "a heat flip emits one progress update")
+	check_eq(bool(progress[3].get("heat", false)), true, "the changed heat is reported")
+	form.form_id = "fluttershy"
+	form.form_name = "Fluttershy"
+	session.adopt_display_name(form, null)
+	session.tick(0.02)
+	check_size(progress, 5, "a form change emits one progress update")
+	check_eq(str(progress[4].get("form_id", "")), "fluttershy", "the borrowed form is reported")
+
+	session.pose_id = ""
+	session.enter_idle()
+	session.tick(0.02)
+	check_size(progress, 6, "the final IDLE emits one progress update")
+	check_eq(str(progress[5].get("state", "")), "IDLE", "the end state is reported")
+	check_eq(str(progress[5].get("pose", "")), "", "the final pose is already restored")
+	readiness.mood = "relaxed"
+	readiness.satisfaction = 40.0
+	session.tick(0.02)
+	check_size(progress, 6, "the after-act IDLE decay emits no progress")
+
+	readiness.act_thrusts = 143
+	readiness.pony_climaxes = 2
+	session.pose_id = "missionary"
+	session.advance_act_seconds(167.8)
+	summary.summary = {
+		"grade": "great", "romance": 2, "mood": "happy", "severe": false,
+		"early": false, "stopped": false, "reasons": [], "positive": true,
+	}
+	session.commit_afterglow()
+	check_size(results, 1, "the normal end emits one result")
+	var result: Dictionary = results[0] if not results.is_empty() else {}
+	check_eq(_keys(result), RESULT_KEYS, "the result payload key surface")
+	check_eq(int(result.get("schema", 0)), 1, "the result schema")
+	check_eq(int(result.get("act_id", 0)), 12, "the result keeps the act serial")
+	check_eq(str(result.get("form_id", "")), "fluttershy", "the form at the commit is reported")
+	check_eq(result.get("forms"), ["chrysalis", "fluttershy"],
+		"the forms start with her own and keep their order")
+	check_eq(str(result.get("pose", "")), "missionary", "the act pose is reported")
+	check_approx(float(result.get("duration_s", -1.0)), 186.4, "the act duration at the commit")
+	check_eq(int(result.get("thrusts", 0)), 143, "her real strokes are reported")
+	check_eq(result.get("climaxes"), {"current": 2, "limit": 0}, "the commit climax pair")
+	check_eq(str(result.get("grade", "")), "great", "the grade is reported")
+	check_eq(result.get("stop_reasons"), [], "a clean act has no stop reasons")
+	check_eq(_keys(result.get("outcome", {}) as Dictionary), OUTCOME_KEYS,
+		"the outcome key surface")
+	check_eq(result.get("outcome"), {
+		"romance": 2, "mood": "happy", "severe": false, "early": false, "stopped": false,
+	}, "the outcome is the summary's own values")
+
+	session.commit_afterglow()
+	check_size(results, 1, "a second commit emits no second result")
+
+	summary.reset_act()
+	summary.summary = {
+		"grade": "bad", "romance": -1, "mood": "annoyed", "severe": true,
+		"early": false, "stopped": true, "positive": false,
+		"reasons": ["stopped_by_her", "disliked_smack"],
+	}
+	session.reset_act()
+	session.serial = 13
+	session.pose_id = "missionary"
+	session.event_id = "intimacy_chrysalis_13"
+	session.advance_act_seconds(42.0)
+	readiness.act_thrusts = 20
+	readiness.pony_climaxes = 1
+	session.adopt_display_name(form, null)
+	session.commit_summary(false)
+	check_size(results, 2, "the early end emits one result")
+	var early: Dictionary = results[1] if results.size() > 1 else {}
+	check_eq(early.get("stop_reasons"), ["stopped_by_her", "disliked_smack"],
+		"the summary's reasons are copied to the result")
+	check_eq(early.get("outcome"), {
+		"romance": -1, "mood": "annoyed", "severe": true, "early": false, "stopped": true,
+	}, "the stopped outcome is reported")
+	check_eq(early.get("forms"), ["chrysalis", "fluttershy"],
+		"a new act starts its own form sequence")
+
+	session.reset_act()
+	check(not bool(session._result_emitted), "reset_act clears the result guard")
+	check_empty(session._forms_taken, "reset_act clears the form sequence")
+	summary.reset_act()
+	session.commit_summary(false)
+	check_size(results, 2, "a skipped summary emits no result")
+
+	context.readiness = null
+	context.summary = null
+	context.dialogue = null
+	readiness.free()
+	summary.free()
+	dialogue.free()
+	_free_frame(made)
+
+
+func _keys(data: Dictionary) -> Array[String]:
+	var out: Array[String] = []
+	for key: Variant in data.keys():
+		out.append(str(key))
+	out.sort()
+	return out

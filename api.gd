@@ -1,6 +1,6 @@
 extends Node
 ## The stable cross-mod API facade, and the only script of this mod another mod calls. It returns
-## plain data, never internal Nodes, runtimes, settings paths or resource handles.
+## plain data and act snapshots, never internal Nodes, runtimes, settings paths or handles.
 ##
 ## Discovery is by group, `unfplap_api` and the pinned `unfplap_api_v1`; the human contract is
 ## `docs/api.md`.
@@ -15,18 +15,26 @@ const LOG := preload("res://mods/unfplap/shared/log.gd")
 ## The major version; a breaking change bumps it.
 const API_MAJOR := 1
 ## The minor version; an additive change bumps it.
-const API_MINOR := 3
+const API_MINOR := 4
 ## The dotted version string the contract reports.
-const API_VERSION := "1.3"
+const API_VERSION := "1.4"
 ## The descriptor schema version a consumer checks.
 const SCHEMA := 1
 ## The schema version per named payload.
-const SCHEMAS := {"mare": 1}
+const SCHEMAS := {"mare": 1, "act_progress": 1, "act_result": 1}
 ## The capability name -> version map a consumer checks.
-const CAPABILITIES := {"registry.mare": 1, "mare.read": 1, "profile.mare": 1}
+const CAPABILITIES := {"registry.mare": 1, "mare.read": 1, "profile.mare": 1,
+	"act.progress": 1, "act.result": 1}
 ## Methods that still work but should be replaced. The entry shape is part of the contract, so a
 ## deprecation is data, not a code change in every consumer.
 const DEPRECATIONS := []
+
+## A live act snapshot at each change; `act_id` joins it to the one committed result.
+## Delivered deferred as a deep copy; `docs/api.md` owns the payload.
+signal act_progress(data: Dictionary)
+
+## The one committed result of an act, at the summary commit; a skipped act sends none.
+signal act_result(data: Dictionary)
 
 ## owner instance id -> true, for the auto-unregister on tree exit.
 var _owners: Dictionary = {}
@@ -138,6 +146,24 @@ func describe_mare(id: String) -> Dictionary:
 func _shutdown() -> void:
 	_owners.clear()
 	REGISTRY.reset()
+
+
+## Internal relay the entry binds to one live session; it holds no act state.
+func _on_progress(data: Dictionary) -> void:
+	_deliver_progress.call_deferred(data.duplicate(true))
+
+
+func _deliver_progress(data: Dictionary) -> void:
+	act_progress.emit(data)
+
+
+## Internal relay for the one result; the copy is taken before the frame ends.
+func _on_result(data: Dictionary) -> void:
+	_deliver_result.call_deferred(data.duplicate(true))
+
+
+func _deliver_result(data: Dictionary) -> void:
+	act_result.emit(data)
 
 
 ## The live eligibility service, found by its group and script; null before the world is built.

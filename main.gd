@@ -329,6 +329,9 @@ func _new_runtime(pony: Node) -> Node:
 	runtime.pony = pony
 	if is_instance_valid(integrations):
 		runtime.act_started.connect(Callable(integrations, "act_started"))
+	if is_instance_valid(api):
+		runtime.act.progress.connect(api._on_progress)
+		runtime.act.result.connect(api._on_result)
 	return runtime
 
 

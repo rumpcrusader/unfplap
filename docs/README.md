@@ -94,6 +94,7 @@ with its service's contract.
 | Module | Path | Contract | Tests |
 |---|---|---|---|
 | Act keys | `shared/act_keys.gd` | `docs/input.md` | `tests/test_input.gd` |
+| Act report | `shared/act_report.gd` | `docs/api.md` | `tests/act/test_session.gd`, `tests/test_api.gd` |
 | Act state | `shared/act_state.gd` | `docs/runtime.md` | `tests/hud/test_hud_lines.gd`, `tests/act_audio/test_audio.gd` |
 | Typed act view | `shared/act_facts.gd` | `docs/act_facts.md` | `tests/act_facts/` |
 | Settings change notification | `shared/settings_change.gd` | `docs/settings.md` | `tests/test_settings_change.gd` |

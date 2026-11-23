@@ -9,6 +9,7 @@ const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const AFTERGLOW_SUMMARY := preload("res://mods/unfplap/afterglow/summary.gd")
 const ACT_NODE := preload("res://mods/unfplap/act/host.gd")
 const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")
+const ACT_REPORT := preload("res://mods/unfplap/shared/act_report.gd")
 const ACT_SETTINGS := preload("res://mods/unfplap/act/settings.gd")
 const SUMMARY := preload("res://mods/unfplap/summary/service.gd")
 const POSE_SESSION := preload("res://mods/unfplap/poses/service.gd")
@@ -41,6 +42,12 @@ const ENTER_ACTIVE := 1
 const FINISH_CLIMAX := 2
 const FINISH_RESTORE := 3
 
+## One live act snapshot at a change; the cross-mod facade relays it.
+signal progress(data: Dictionary)
+
+## One committed act result; the cross-mod facade relays it.
+signal result(data: Dictionary)
+
 var host: ACT_NODE = null
 var context: ACT_CONTEXT = null
 var start: Variant = null
@@ -63,6 +70,10 @@ var bed: Node3D = null
 var event_id := ""
 var serial := 0
 var pony_id := ""
+## The live form id; her own body reports the stable pony id.
+var _form_id := ""
+## Every distinct form presented during the act, in first-appearance order.
+var _forms_taken: Array[String] = []
 ## The relationship meta the last identity refresh read; a late assignment is caught without an
 ## allocation per physics frame.
 var _identity_meta := ""
@@ -114,6 +125,14 @@ var _cycle_left := 0.0
 var _cycle_cached := "normal"
 var _cycle_dirty := true
 var _act_seconds := 0.0
+var _progress_due := false
+var _result_emitted := false
+var _last_state: int = State.IDLE
+var _last_mood := ""
+var _last_climaxes := -1
+var _last_heat := false
+var _last_pose := ""
+var _last_form := ""
 ## The optional VR standing controller this act built.
 var vr: Node = null
 func bind(host_in: ACT_NODE, context_in: ACT_CONTEXT) -> void:
@@ -147,6 +166,7 @@ func begin(pose: String, bed_in: Variant, act_source: String, skip_presentation 
 	return bool(start.run(pose, bed_in, act_source, skip_presentation))
 func _set_state(next: int) -> void:
 	state = next
+	_progress_due = true
 	refresh_gate()
 
 func refresh_gate() -> void:
@@ -165,6 +185,7 @@ func climax_progress() -> float:
 ## The one physics frame, owned by `act/tick.gd`.
 func tick(delta: float) -> void:
 	ticker.tick(delta)
+	_emit_progress_if_changed()
 
 ## The one render frame, owned by `act/tick.gd`.
 func render(delta: float) -> void:
@@ -194,6 +215,10 @@ func pose_values(pose: String, look: Vector3, camera_at: Vector3, size_name: Str
 
 func adopt_display_name(form: BODY_FORM.BodyForm, body: Variant) -> void:
 	display_name = PONY_IDENTITY.display_name(form, body if is_instance_valid(body) else null, pony_id)
+	var form_id := form.form_id.strip_edges() if form != null else ""
+	_form_id = form_id if not form_id.is_empty() else pony_id
+	if not _form_id.is_empty() and not _forms_taken.has(_form_id):
+		_forms_taken.append(_form_id)
 
 func refresh_identity() -> bool:
 	_cycle_dirty = true
@@ -252,6 +277,16 @@ func state_name() -> String:
 
 func reset_act() -> void:
 	_act_seconds = 0.0
+	_forms_taken.clear()
+	_form_id = ""
+	_progress_due = false
+	_result_emitted = false
+	_last_state = State.IDLE
+	_last_mood = ""
+	_last_climaxes = -1
+	_last_heat = false
+	_last_pose = ""
+	_last_form = ""
 	clear_phase()
 
 func clear_phase() -> void:
@@ -605,12 +640,106 @@ func act_input() -> SUMMARY.ActInput:
 
 func commit_summary(real_act: bool) -> void:
 	context.summary.commit_act(act_input(), real_act)
+	_emit_result_once()
 
 func record_peak_memory() -> void:
 	context.summary.record_act_peak(act_input())
 
 func commit_afterglow() -> void:
 	context.summary.commit_after_act(act_input(), display_name, serial, host.pony)
+	_emit_result_once()
+
+
+## One progress emission per frame at most: a scalar comparison, then a payload only on a change.
+func _emit_progress_if_changed() -> void:
+	if context.handover != null and context.handover.suspended:
+		return
+	if state == State.IDLE and not _progress_due:
+		return
+	var readiness := context.readiness
+	if readiness == null or not is_instance_valid(readiness):
+		return
+	var mood: String = readiness.mood
+	var climaxes: int = readiness.pony_climaxes
+	if not _progress_due and state == _last_state and mood == _last_mood \
+			and climaxes == _last_climaxes and cycle_heat == _last_heat \
+			and pose_id == _last_pose and _form_id == _last_form:
+		return
+	_last_state = state
+	_last_mood = mood
+	_last_climaxes = climaxes
+	_last_heat = cycle_heat
+	_last_pose = pose_id
+	_last_form = _form_id
+	_progress_due = false
+	var report := ACT_REPORT.Progress.new()
+	report.act_id = serial
+	report.state = state_name()
+	report.pony_id = pony_id
+	report.form_id = _form_id if not _form_id.is_empty() else pony_id
+	report.pose = pose_id
+	report.duration_s = act_seconds()
+	report.mood = mood
+	report.climaxes = {"current": climaxes, "limit": climax_limit()}
+	report.heat = cycle_heat
+	progress.emit(report.to_dict())
+
+
+## One result per act, only once the summary has been written; a forced or skipped act sends none.
+func _emit_result_once() -> void:
+	if _result_emitted or context.summary == null or not is_instance_valid(context.summary):
+		return
+	var summary: Dictionary = context.summary.summary
+	if summary.is_empty():
+		return
+	var readiness := context.readiness
+	if readiness == null or not is_instance_valid(readiness):
+		return
+	_result_emitted = true
+	var report := ACT_REPORT.Result.new()
+	report.act_id = serial
+	report.pony_id = pony_id
+	report.form_id = _form_id if not _form_id.is_empty() else pony_id
+	report.forms = _report_forms()
+	report.pose = pose_id
+	report.duration_s = act_seconds()
+	report.thrusts = readiness.act_thrusts
+	report.climaxes = {"current": readiness.pony_climaxes, "limit": climax_limit()}
+	report.grade = str(summary.get("grade", "neutral"))
+	report.stop_reasons = _summary_reasons(summary)
+	report.outcome = {
+		"romance": int(summary.get("romance", 0)),
+		"mood": str(summary.get("mood", "")),
+		"severe": bool(summary.get("severe", false)),
+		"early": bool(summary.get("early", false)),
+		"stopped": bool(summary.get("stopped", false)),
+	}
+	result.emit(report.to_dict())
+
+
+func _report_forms() -> Array[String]:
+	var out: Array[String] = []
+	_append_form(out, pony_id)
+	for id: String in _forms_taken:
+		_append_form(out, id)
+	_append_form(out, _form_id)
+	return out
+
+
+static func _append_form(out: Array[String], id: String) -> void:
+	var form_id := id.strip_edges()
+	if form_id.is_empty() or out.has(form_id):
+		return
+	out.append(form_id)
+
+
+static func _summary_reasons(summary: Dictionary) -> Array[String]:
+	var out: Array[String] = []
+	var raw: Variant = summary.get("reasons", [])
+	if raw is Array:
+		for item: Variant in raw:
+			out.append(str(item))
+	return out
 
 func begin_afterglow() -> void:
 	LOG.debug("afterglow pose=%s pony=%s", [pose_id, host.pony_name()])

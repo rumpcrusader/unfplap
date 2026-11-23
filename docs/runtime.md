@@ -130,6 +130,8 @@ Breath timing: `0.9 s` base while active, `0.85 s` during climax, `1.4 s` in aft
   `climax_progress()` are the typed reads.
 - frame handles: `ticker` (the ordered schedule), `input` (the input protocol), `start`, `view`,
   `exit` and `swap`. `tick(delta)` and `render(delta)` are the two one-line forwards to `ticker`.
+- the cross-mod `progress` and `result` signals, the per-act form sequence they report and the
+  once-per-act result guard; `docs/api.md` owns their payloads.
 - values: `pose_id`, `source`, `bed`, `pony_id`, `display_name`, `event_id`, `serial`,
   `preferences`, `profile`, `player_pony`, `forced_glance`.
 - act bookkeeping: `aftercare_min`, `cue_gap`, `first_time`, `stopped_by_her`, `act_spoken_at`,

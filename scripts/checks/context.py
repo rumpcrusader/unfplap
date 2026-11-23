@@ -6,6 +6,7 @@ and caches each read, owner and facade lookup.
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -35,6 +36,20 @@ SHARED_KINDS = {
     "act_facts.gd": "read model",
 }
 
+# The one World facade that is not a Node: the static scene read surface. The header cannot say
+# so, because staticness is a shape of the module, not a value a facade declares.
+WORLD_STATIC = "world/api.gd"
+# The two modules whose frozen header is their contract. They are the only non-facades allowed a
+# declaration; editing either needs the user's explicit approval.
+FROZEN_HEADERS = ("shared/log.gd", "shared/perf.gd")
+# The three facade scopes. `Other` is derived from the path, never declared.
+SCOPES = ("process", "world", "pony")
+DECLARATION_FIELDS = ("Service", "Scope", "Contract")
+# The removed fields: still a declaration when they survive, on a facade or elsewhere.
+LEGACY_DECLARATION_FIELDS = ("Import", "Static")
+DECLARATION = re.compile(r"^##\s+([A-Z][A-Za-z]*):\s*(.*?)\s*$", re.MULTILINE)
+EXTENDS = re.compile(r"^extends\b.*$", re.MULTILINE)
+
 
 @dataclass(frozen=True)
 class Owner:
@@ -61,6 +76,40 @@ def facade_for(sid: str) -> str:
         if (ROOT / sid / name).is_file():
             return name
     return "service.gd"
+
+
+def declaration_block(text: str) -> str:
+    """The contiguous `##` run directly under the file's `extends` line."""
+    match = EXTENDS.search(text)
+    if not match:
+        return ""
+    block: list[str] = []
+    for line in text[match.end():].lstrip("\n").splitlines():
+        if line.startswith("##"):
+            block.append(line)
+            continue
+        break
+    return "\n".join(block)
+
+
+def declaration_of(text: str) -> dict[str, str]:
+    """The declaration fields under `extends`, keyed by field name.
+
+    A purpose sentence with a longer lead-in stays prose; only a single capitalized word before
+    the colon is a declaration field, so `## The face owner: ...` is not one.
+    """
+    return {
+        match.group(1): match.group(2)
+        for match in DECLARATION.finditer(declaration_block(text))
+    }
+
+
+@lru_cache(maxsize=None)
+def facade_scope(sid: str) -> str:
+    path = ROOT / sid / facade_for(sid)
+    if not path.is_file():
+        return ""
+    return declaration_of(read_text(str(path))).get("Scope", "")
 
 
 def service_ids() -> list[str]:

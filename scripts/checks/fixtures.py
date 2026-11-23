@@ -10,10 +10,26 @@ import tempfile
 from pathlib import Path
 
 from .context import ROOT
-from .docs import check_docs, member_note_failures, type_note_failures
+from .docs import (
+    check_docs,
+    index_scope_failures,
+    member_note_failures,
+    type_note_failures,
+    unknown_index_rows,
+)
 from .failure import Failure
 from .graph import is_allowed, scan_reexports
 from .preloads import check_game_layer, preload_block_problems
+from .scope import (
+    attach_failures,
+    construction_failures,
+    cross_scope_failures,
+    declaration_failures,
+    entry_name_failures,
+    fixed_name_failures,
+    group_failures,
+    node_base_failures,
+)
 from .tests_rules import suite_result_failures
 
 ALLOWED = (
@@ -85,6 +101,119 @@ MEMBER_CASES = (
 SUITE_RESULT_CASES = (
     ("quiet suite", "func run() -> void:\n\tcheck(1 == 1, \"x\")\n", 0),
     ("printed result line", "func run() -> void:\n\tprint(\"X_RESULT checks=1 failures=0\")\n", 1),
+)
+SCOPE_DECL_CASES = (
+    ("scope declaration valid", "extends Node\n## Service: alpha\n## Scope: world\n"
+     "## Contract: docs/alpha.md\n## A purpose.\n", "alpha", None),
+    ("scope declaration missing field", "extends Node\n## Service: alpha\n## Scope: world\n",
+     "alpha", "missing the ## Contract: field"),
+    ("scope declaration wrong service", "extends Node\n## Service: beta\n## Scope: world\n"
+     "## Contract: docs/alpha.md\n", "alpha", "expected its directory alpha"),
+    ("scope declaration bad scope", "extends Node\n## Service: alpha\n## Scope: other\n"
+     "## Contract: docs/alpha.md\n", "alpha", "expected one of process|world|pony"),
+    ("scope declaration extra field", "extends Node\n## Service: alpha\n## Scope: world\n"
+     "## Contract: docs/alpha.md\n## Import: shared/x.gd\n", "alpha",
+     "unknown field ## Import:"),
+    ("scope declaration non-facade", "extends Node\n## Service: alpha\n## Scope: world\n"
+     "## Contract: docs/alpha.md\n", None, "non-facade carries a declaration field"),
+    ("scope declaration prose", "extends RefCounted\n## Pure: reads only what it is given.\n",
+     None, None),
+)
+SCOPE_BASE_CASES = (
+    ("scope base world service", "alpha/api.gd", "world", ["shared/service.gd", "Node"], None),
+    ("scope base world canvas", "alpha/api.gd", "world", ["CanvasLayer"], None),
+    ("scope base pony node", "alpha/api.gd", "pony", ["Node"], None),
+    ("scope base process refcounted", "alpha/api.gd", "process", ["RefCounted"], None),
+    ("scope base world refcounted", "alpha/api.gd", "world", ["RefCounted"],
+     "must extend Node"),
+    ("scope base static world", "world/api.gd", "world", ["RefCounted"], None),
+)
+CONSTRUCTION_CASES = (
+    ("construction in world root", "main.gd",
+     'const ALPHA := preload("res://mods/unfplap/alpha/api.gd")\n'
+     "func _build_world() -> void:\n\talpha = ALPHA.new()\n",
+     {"alpha/api.gd": "world"}, None),
+    ("construction outside its root", "hud/service.gd",
+     'const ALPHA := preload("res://mods/unfplap/alpha/api.gd")\n'
+     "func _ready() -> void:\n\talpha = ALPHA.new()\n",
+     {"alpha/api.gd": "world"}, "only main.gd constructs a world service"),
+    ("cross-scope construction", "world/x.gd",
+     'const ALPHA := preload("res://mods/unfplap/alpha/api.gd")\n'
+     "func _ready() -> void:\n\talpha = ALPHA.new()\n",
+     {"alpha/api.gd": "pony"}, "only runtime.gd constructs a pony service"),
+    ("construction of an other helper", "hud/service.gd",
+     'const RECORD := preload("res://mods/unfplap/world/handles.gd")\n'
+     "func _ready() -> void:\n\tvar record := RECORD.new()\n",
+     {"alpha/api.gd": "world"}, None),
+)
+ATTACH_CASES = (
+    ("attach valid", "main.gd",
+     'const ALPHA := preload("res://mods/unfplap/alpha/api.gd")\n'
+     "func _build_world() -> void:\n\talpha = ALPHA.new()\n"
+     '\t_attach(alpha, "UnfplapAlpha")\n', {"ALPHA": "alpha"}, None),
+    ("attach missing", "main.gd",
+     'const ALPHA := preload("res://mods/unfplap/alpha/api.gd")\n'
+     "func _build_world() -> void:\n\talpha = ALPHA.new()\n",
+     {"ALPHA": "alpha"}, "does not attach the alpha service"),
+    ("attach outside its root", "main.gd",
+     'const ALPHA := preload("res://mods/unfplap/alpha/api.gd")\n'
+     "func _build_world() -> void:\n\talpha = ALPHA.new()\n"
+     '\t_attach(alpha, "UnfplapAlpha")\n'
+     "func _ready() -> void:\n\t_attach(alpha, \"UnfplapAlpha\")\n",
+     {"ALPHA": "alpha"}, "attaches a service in _ready()"),
+    ("attach missing construction", "main.gd",
+     'const ALPHA := preload("res://mods/unfplap/alpha/api.gd")\n'
+     "func _build_world() -> void:\n\tpass\n",
+     {"ALPHA": "alpha"}, "does not construct the alpha facade"),
+)
+ENTRY_NAME_CASES = (
+    ("entry keeps its name", "func _ready() -> void:\n\tservice.name = \"UnfplapX\"\n", None),
+    ("entry renames itself", "func _ready() -> void:\n\tself.name = \"UnfplapEntry\"\n",
+     "renames the entry"),
+)
+FIXED_NAME_CASES = (
+    ("fixed child names",
+     'runtime.name = "UnfplapRuntime"\n_add_node(API.new(), "UnfplapApi")\n', None),
+    ("fixed child name missing", 'runtime.name = "UnfplapRuntime"\n',
+     "UnfplapApi is never assigned"),
+)
+GROUP_CASES = (
+    ("group in the helper", 'const GROUP := "unfplap_world"\n'
+     "func _attach(service: Node) -> void:\n\tservice.add_to_group(GROUP)\n",
+     "unfplap_world", "_attach", None),
+    ("group outside the helper", 'const GROUP := "unfplap_world"\n'
+     "func _ready() -> void:\n\tadd_to_group(GROUP)\n",
+     "unfplap_world", "_attach", "adds the unfplap_world scope group in _ready()"),
+    ("group never added", "func _attach(service: Node) -> void:\n\tpass\n",
+     "unfplap_world", "_attach", "never adds the unfplap_world scope group"),
+)
+CROSS_CASES = (
+    ("cross-scope pony to world facade", "camera/service.gd",
+     {"camera/service.gd": "pony", "world/api.gd": "world"},
+     'const WORLD := preload("res://mods/unfplap/world/api.gd")\n',
+     {"world/api.gd": "world"}, None),
+    ("cross-scope public record", "offer/service.gd",
+     {"offer/service.gd": "world", "world/handles.gd": "world"},
+     'const HANDLES := preload("res://mods/unfplap/world/handles.gd")\n',
+     {}, None),
+    ("cross-scope private preload", "offer/service.gd",
+     {"offer/service.gd": "world", "poses/skeleton_pose.gd": "pony"},
+     'const POSE := preload("res://mods/unfplap/poses/skeleton_pose.gd")\n',
+     {}, "preloads the pony file poses/skeleton_pose.gd from the world scope"),
+    ("cross-scope process private", "debug/x.gd",
+     {"debug/x.gd": "process", "eligibility/policy.gd": "world"},
+     'const POLICY := preload("res://mods/unfplap/eligibility/policy.gd")\n',
+     {}, "preloads the world file eligibility/policy.gd from the process scope"),
+)
+INDEX_SCOPE_CASES = (
+    ("index scope valid", "world", {"alpha": "world"}, None),
+    ("index scope missing", "", {"alpha": "world"}, "has no Scope for alpha"),
+    ("index scope mismatch", "pony", {"alpha": "world"}, "the facade declares world"),
+    ("index scope unknown", "other", {"alpha": "world"}, "unknown Scope for alpha: other"),
+)
+OTHER_INDEX_CASES = (
+    ("other index valid", ["alpha"], None),
+    ("other index row", ["alpha", "gamma"], "unknown service: gamma"),
 )
 PRELOAD_CASES = (
     ("preload block", "extends RefCounted\n## Header.\n\n"
@@ -205,6 +334,64 @@ def rule_cases() -> int:
     return failures
 
 
+def services_table(rows: list[str]) -> str:
+    return (
+        "# docs\n\n## Services\n\n| Service | Facade | Contract | Tests | Scope |\n"
+        "|---|---|---|---|---|\n%s\n" % "\n".join(rows)
+    )
+
+
+def scoped_row(sid: str, scope: str) -> str:
+    cell = "`%s`" % scope if scope else ""
+    return "| %s | `%s/service.gd` | `docs/%s.md` | `tests/%s/` | %s |" % (
+        sid, sid, sid, sid, cell)
+
+
+def scope_cases() -> int:
+    """Both directions for every scope rule: a passing fixture and a failing message."""
+    failures = 0
+    for label, text, sid, wanted in SCOPE_DECL_CASES:
+        failures += expect(label, declaration_failures("fixture.gd", text, sid), wanted)
+    for label, path, scope, chain, wanted in SCOPE_BASE_CASES:
+        failures += expect(label, node_base_failures(path, scope, chain), wanted)
+    for label, path, text, scopes, wanted in CONSTRUCTION_CASES:
+        failures += expect(label, construction_failures(path, text, scopes), wanted)
+    for label, path, text, expected, wanted in ATTACH_CASES:
+        failures += expect(
+            label, attach_failures(path, text, expected, "_attach", "_build_world"), wanted)
+    for label, text, wanted in ENTRY_NAME_CASES:
+        failures += expect(label, entry_name_failures("main.gd", text), wanted)
+    for label, text, wanted in FIXED_NAME_CASES:
+        failures += expect(label, fixed_name_failures("main.gd", text), wanted)
+    for label, text, group, helper, wanted in GROUP_CASES:
+        failures += expect(label, group_failures("main.gd", text, group, helper), wanted)
+    for label, path, scope_map, text, facades, wanted in CROSS_CASES:
+        failures += expect(
+            label, cross_scope_failures(path, text, scope_map.get, facades), wanted)
+    for label, scope, scopes, wanted in INDEX_SCOPE_CASES:
+        text = services_table([scoped_row("alpha", scope)])
+        failures += expect(label, index_scope_failures(text, scopes), wanted)
+    for label, sids, wanted in OTHER_INDEX_CASES:
+        text = services_table([index_row(sid) for sid in sids])
+        failures += expect(label, unknown_index_rows(text, ["alpha"]), wanted)
+    return failures
+
+
+def scope_case_count() -> int:
+    return sum(len(cases) for cases in (
+        SCOPE_DECL_CASES,
+        SCOPE_BASE_CASES,
+        CONSTRUCTION_CASES,
+        ATTACH_CASES,
+        ENTRY_NAME_CASES,
+        FIXED_NAME_CASES,
+        GROUP_CASES,
+        CROSS_CASES,
+        INDEX_SCOPE_CASES,
+        OTHER_INDEX_CASES,
+    ))
+
+
 def game_layer_cases() -> int:
     """A game.gd lives only in a whitelisted service directory."""
     failures = 0
@@ -234,11 +421,12 @@ def main() -> int:
     failures += rule_cases()
     failures += preload_cases()
     failures += game_layer_cases()
+    failures += scope_cases()
     if failures:
         print("ARCH_RULES_FAIL %d" % failures)
         return 1
     print("ARCH_RULES_PASS %d" % (
         len(ALLOWED) + len(FORBIDDEN) + len(GAME_ALLOWED) + len(REEXPORTS)
         + len(NOTE_CASES) + len(MEMBER_CASES) + len(SUITE_RESULT_CASES) + len(PRELOAD_CASES)
-        + 8))
+        + 8 + scope_case_count()))
     return 0

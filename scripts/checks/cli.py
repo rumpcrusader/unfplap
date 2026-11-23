@@ -6,7 +6,13 @@ import sys
 
 from .act import check_act_owners
 from .context import ROOT, SERVICES, TYPING_DEBT, load_json
-from .docs import audit_surface, check_api_docs, check_docs, check_facade_notes
+from .docs import (
+    audit_surface,
+    check_api_docs,
+    check_docs,
+    check_facade_notes,
+    check_index_scopes,
+)
 from .entry import (
     check_boundaries,
     check_callable_targets,
@@ -21,6 +27,14 @@ from .entry import (
 from .failure import Failure, rel
 from .graph import check_exceptions, graph, scan_violations, write_exceptions
 from .preloads import check_autoloads, check_game_layer, check_preloads
+from .scope import (
+    check_scope_attachment,
+    check_scope_bases,
+    check_scope_construction,
+    check_scope_cross,
+    check_scope_declarations,
+    check_scope_groups,
+)
 from .sources import check_sources
 from .tests_rules import check_tests, test_suites
 from .typing import check_duck_typing, check_typing, write_debt, write_duck_typing
@@ -34,6 +48,16 @@ def _docs_group(failure: Failure) -> None:
     check_docs(failure)
     check_facade_notes(failure)
     check_api_docs(failure)
+    check_index_scopes(failure)
+
+
+def _scope_group(failure: Failure) -> None:
+    check_scope_declarations(failure)
+    check_scope_bases(failure)
+    check_scope_construction(failure)
+    check_scope_attachment(failure)
+    check_scope_groups(failure)
+    check_scope_cross(failure)
 
 
 def _typing_group(failure: Failure) -> None:
@@ -65,6 +89,7 @@ STEPS = (
     ("sink", check_log_bleed),
     ("act", check_act_owners),
     ("owners", check_owners),
+    ("scope", _scope_group),
     ("tests", check_tests),
     ("preloads", _preloads_group),
 )

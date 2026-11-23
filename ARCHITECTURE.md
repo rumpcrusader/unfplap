@@ -548,6 +548,32 @@ The architecture gate is `scripts/check.sh --static`, run from `scripts/test.sh`
   game — and not a pattern; the `runtime.get` rows are the handle reads the typed accessors are
   replacing.
 
+The scope tree adds eight rules. Each is a pure function with both fixture directions in
+`scripts/architecture.py --self-test`:
+
+1. **Declaration.** Every facade carries `Service:` equal to its directory, `Scope:` in
+   `process|world|pony` and `Contract: docs/<sid>.md`; a non-facade carries none, except
+   `shared/log.gd` and `shared/perf.gd`, whose frozen header is their contract. `Import:` and
+   `Static:` are gone.
+2. **Node base.** A `world` or `pony` facade extends `Node`, `CanvasLayer` or
+   `shared/service.gd` directly or through a chain; a `process` facade may be anything.
+   `WORLD_STATIC` (`world/api.gd`) is the one named exception.
+3. **Construction.** Only a scope's root constructs its services: `main.gd` for `process` and
+   `world`, `runtime.gd` for `pony`. A facade const constructed anywhere else fails.
+4. **Attachment.** `main.gd` attaches every World facade through `_attach` and names it;
+   `runtime.gd` attaches every Pony facade through `_attach`. The entry sets no name on itself
+   (the loader owns the host name), and `UnfplapRuntime` and `UnfplapApi` are the fixed child
+   names.
+5. **Other.** A directory with no facade is never indexed in the Services table and never
+   constructed by a root.
+6. **Groups.** `unfplap_world` is added only by `main.gd`'s attach helper; `unfplap_pony_service`
+   only by `runtime.gd`'s.
+7. **Cross-scope.** A Pony file may preload a World facade, and a World file may preload a Pony
+   facade for a `wire` type or a static read. A cross-scope private file fails; a cross-scope
+   construction fails. `world/handles.gd` is public through `PUBLIC_SERVICE_FILES`.
+8. **Index scope.** Every Services row's `Scope` cell equals its facade's `Scope:`; a row with no
+   scope or an unknown value fails.
+
 The gate's front door is `scripts/architecture.py`. Its maintenance modes run there, not through
 `scripts/check.sh`: `--group <name>` runs one rule group, `--graph` prints the service graph for
 review, `--audit-surface` lists the public facade functions without a `##` note, and

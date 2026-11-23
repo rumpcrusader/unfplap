@@ -93,6 +93,13 @@ game-boundary and re-export rules. These rules exist so code cannot grow back ou
   and attach, and each service builds its own children and settings in `_ready()`. Neither root
   reads `WORLD`, `SETTINGS`, `LOG` or `PERF`, starts behaviour or dispatches by string; the gate
   fails on the first string dispatch.
+- **The scope tree is static.** Every facade declares `Service:`/`Scope:`/`Contract:` and the
+  Services table repeats the scope; a non-facade declares nothing except the frozen
+  `shared/log.gd` and `shared/perf.gd` headers. A `world` or `pony` facade is a Node,
+  `CanvasLayer` or `shared/service.gd` (`world/api.gd` is the `WORLD_STATIC` exception). Only
+  `main.gd` and `runtime.gd` construct and attach their scopes, through their attach helpers and
+  their `unfplap_world`/`unfplap_pony_service` groups; a cross-scope private preload or
+  construction fails.
 - **Only the entry names the entry.** No shipped `.gd` outside `main.gd` may contain
   `main.<member>`, `var main`, a `main.gd` preload or a `main` argument; `tests/` is exempt. A
   consumer preloads the facade it needs, reads `WORLD` for the scene, or takes a typed host

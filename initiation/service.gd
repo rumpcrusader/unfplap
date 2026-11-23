@@ -126,7 +126,7 @@ func wire(eligibility: ELIGIBILITY, act_gate: ACT_GATE, privacy: PRIVACY,
 		negotiation: NEGOTIATION, offer: OFFER, ponies: PONIES) -> void:
 	self.eligibility = eligibility
 	self.act_gate = act_gate
-	_privacy = privacy if is_instance_valid(privacy) else PRIVACY.new()
+	_privacy = privacy
 	_negotiation = negotiation
 	_offer = offer
 	_ponies = ponies

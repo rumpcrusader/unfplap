@@ -8,6 +8,9 @@ const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const POSE_OPTIONS := preload("res://mods/unfplap/shared/pose_options.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 
+## The roster the facade hands this adapter; a bare node answers no scene handle.
+var ponies: PONIES = null
+
 
 func pony_id(pony: Node) -> String:
 	if not is_instance_valid(pony):
@@ -219,7 +222,7 @@ func placement_for(runtime: Node) -> POSE_OPTIONS.Placement:
 	if not is_instance_valid(pony):
 		return out
 	var node: Node3D = WORLD.player_rig()
-	var gate: Variant = PONIES.scene_of(runtime)
+	var gate: Variant = ponies.scene_of(runtime) if is_instance_valid(ponies) else null
 	var cuddle := bool(gate.cuddle_active()) if gate != null else false
 	if cuddle:
 		var under: Variant = gate.find_bed_under() if gate != null else null

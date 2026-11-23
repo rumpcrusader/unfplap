@@ -29,6 +29,7 @@ const REACTIONS := preload("res://mods/unfplap/reactions/service.gd")
 const AUDIO := preload("res://mods/unfplap/audio/api.gd")
 const STOOL := preload("res://mods/unfplap/stool/service.gd")
 const HANDLES := preload("res://mods/unfplap/world/handles.gd")
+const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const ACT_NODE := preload("res://mods/unfplap/act/host.gd")
 const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")
 const ACT_SESSION := preload("res://mods/unfplap/act/session.gd")
@@ -50,6 +51,8 @@ const WORLD := preload("res://mods/unfplap/world/api.gd")
 
 ## The scope assertion every Pony service carries; the runtime's children are the set.
 const PONY_GROUP := "unfplap_pony_service"
+## The roster's set of live runtimes; the one place a runtime is discovered rather than held.
+const RUNTIME_GROUP := "unfplap_pony"
 
 ## One act's presentation began. The entry connects this to the world integrations, so the
 ## undress and the anatomy act handle fire from the runtime instead of the anatomy service.
@@ -144,14 +147,16 @@ func _compose() -> void:
 	# The per-act systems, in construction order; the handover and the anatomy bridge are built
 	# against these instances.
 	_handover_host = HOST_LIVE.new()
-	_handover = BODY_CHANGE_ACT.new(_handover_host, memory, _world.act_owner)
+	_handover = BODY_CHANGE_ACT.new(_handover_host, memory, _world.act_owner,
+		_world.body_change, _world.ponies as PONIES)
 	var wings: WING = WING.new(facts)
 	var hands: HANDS = HANDS.new(facts)
 	_kiss = KISS.new(facts)
 	var integrations: INTEGRATIONS = INTEGRATIONS.new(facts)
 	var view: CAMERA_VIEW = CAMERA_VIEW.new(facts)
 	var standing_anon: STANDING_ANON = STANDING_ANON.new(facts)
-	var standing_presentation: STANDING_PRESENTATION = STANDING_PRESENTATION.new(facts)
+	var standing_presentation: STANDING_PRESENTATION = \
+		STANDING_PRESENTATION.new(facts, _world.eligibility)
 	camera.bind(facts, hands, _kiss, view)
 	camera.standing_anon = standing_anon
 	# The act's own host, record, session and modules, in binding order.
@@ -338,6 +343,7 @@ func _bind_pony(value: Node) -> void:
 
 
 func _ready() -> void:
+	add_to_group(RUNTIME_GROUP)
 	set_process(true)
 	set_physics_process(true)
 	# Run after locomotion/navigator/attention so the body facing lock and head glance win.

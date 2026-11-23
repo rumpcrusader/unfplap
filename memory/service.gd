@@ -4,7 +4,6 @@ extends "res://mods/unfplap/shared/service.gd"
 ## Contract: docs/memory.md
 ## The only file other systems preload or call; the peak store is the one persisted value.
 
-const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const FACTS := preload("res://mods/unfplap/memory/facts.gd")
 const TEXT := preload("res://mods/unfplap/memory/text.gd")
@@ -17,6 +16,8 @@ const ACT_FACE := preload("res://mods/unfplap/shared/act_face.gd")
 const DEFAULTS_DATA := preload("res://mods/unfplap/shared/defaults_data.gd")
 const PROMPT_TEXT := preload("res://mods/unfplap/shared/prompt_text.gd")
 
+## The eligibility service, injected by the composition root.
+var _eligibility_service: ELIGIBILITY = null
 const LineState = FACTS.LineState
 const LineKind = FACTS.LineKind
 const Reaction = FACTS.Reaction
@@ -32,6 +33,11 @@ const CueFacts = FACTS.CueFacts
 const MemoryHit = FACTS.MemoryHit
 const Line = FACTS.Line
 const LineRequest = FACTS.LineRequest
+
+## Takes the eligibility peer; the composition root is the only caller.
+func wire(eligibility: ELIGIBILITY) -> void:
+	_eligibility_service = eligibility
+
 
 ## The act's typed stop reason for one stop text. The enum is the game-facing memory vocabulary;
 ## `runtime._stop()` reads this rather than owning the mapping.
@@ -240,8 +246,7 @@ func _game() -> Node:
 
 ## The eligibility service, or null before it exists. This is the one-way capability read.
 func _eligibility() -> ELIGIBILITY:
-	var service: ELIGIBILITY = PONIES.eligibility
-	return service if is_instance_valid(service) else null
+	return _eligibility_service if is_instance_valid(_eligibility_service) else null
 
 
 ## True when this is her first act with the player.

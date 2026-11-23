@@ -3,7 +3,6 @@ extends RefCounted
 ## is not the act: no camera, player lock, HUD or sex_active. The runtime only forwards the public
 ## calls.
 
-const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
@@ -67,6 +66,8 @@ var _present_face_direction := Vector3.ZERO
 ## The presentation's own affection hold: it blocks AI approach/follow through the turn.
 var _present_hold := false
 var _present_claimed_affection := false
+## The eligibility rule the invite gates on; the runtime's composition passes it once.
+var _eligibility: ELIGIBILITY = null
 ## Bring her into the presentation hold: the ask is always the normal standing pose, and the
 ## stored variant and side carry into the act once she has accepted and turned.
 func present_standing() -> bool:
@@ -79,7 +80,7 @@ func present_standing() -> bool:
 		return false
 	if not bool(facts.call_value(facts.free_of_affection, true)):
 		return false
-	var service: ELIGIBILITY = PONIES.eligibility
+	var service: ELIGIBILITY = _eligibility
 	if service == null or not service.eligible(pony, ELIGIBILITY.Target.ACT):
 		return false
 	# No pre-turn offer gate here: she has faced Anon for the ask line, so the rump-sensitive
@@ -553,8 +554,9 @@ func _sync() -> void:
 		_pose_cfg = cfg
 
 
-func _init(facts_context: Variant = null) -> void:
+func _init(facts_context: Variant = null, eligibility_service: ELIGIBILITY = null) -> void:
 	facts = facts_context
+	_eligibility = eligibility_service
 
 
 func process() -> void:

@@ -275,7 +275,7 @@ func debug_context(session: ACT_SESSION) -> Dictionary:
 		"preferences": PREFERENCES.describe(session.preferences),
 		"voice_status_line": VOICE.status_line(WORLD.director().voice_facts(session.pony_id,
 			SETTINGS.tts_enabled())),
-	})
+	}, context.world.act_gate)
 
 
 func climax_line(session: ACT_SESSION) -> void:

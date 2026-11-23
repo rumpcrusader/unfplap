@@ -11,6 +11,8 @@ const LOG := preload("res://mods/unfplap/shared/log.gd")
 const PERF := preload("res://mods/unfplap/shared/perf.gd")
 const HUD := preload("res://mods/unfplap/hud/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
+const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
+const ACT_GATE := preload("res://mods/unfplap/act_gate/service.gd")
 const NEGOTIATION := preload("res://mods/unfplap/negotiation/service.gd")
 const AGREEMENT := preload("res://mods/unfplap/shared/agreement.gd")
 const POSES := preload("res://mods/unfplap/poses/service.gd")
@@ -46,6 +48,11 @@ var privacy: PRIVACY = null
 var hud: Node = null
 ## Set by the entry: the act frame the offer and its sensor gate on.
 var act_owner: ACT_OWNER = null
+## The roster: the per-pony runtime and the scene and start handles.
+var _ponies: PONIES = null
+## The act-target rule and the Base clearance relationship row, injected by the entry.
+var _eligibility: ELIGIBILITY = null
+var _act_gate: ACT_GATE = null
 
 ## The idle offer's playable offer and its blocked variant. Both are typed `PoseOffer` handles;
 ## null means none.
@@ -77,13 +84,18 @@ func _exit_tree() -> void:
 
 
 ## Set by the entry: the Negotiation and privacy facades this offer reads, the HUD its hint falls
-## back to and the act frame. The registry and the act-target reads are the `PONIES` facade.
-func wire(negotiation: NEGOTIATION, privacy: PRIVACY, hud: Node, owner: ACT_OWNER) -> void:
+## back to, the act frame, the roster and the two capability services.
+func wire(negotiation: NEGOTIATION, privacy: PRIVACY, hud: Node, owner: ACT_OWNER,
+		ponies: PONIES, eligibility: ELIGIBILITY, act_gate: ACT_GATE) -> void:
 	self.negotiation = negotiation
 	self.privacy = privacy
 	self.hud = hud
 	act_owner = owner
+	_ponies = ponies
+	_eligibility = eligibility
+	_act_gate = act_gate
 	_sensor.act_owner = owner
+	_sensor.ponies = ponies
 
 
 ## One idle frame: tick the fan sensor, sync the prompt row, then run the Agreement clock.
@@ -212,7 +224,7 @@ func _start_hotkey_offer(offer: POSE_OFFER) -> bool:
 			LOG.debug("hotkey interrupt negotiation id=%s", [id])
 			negotiation.interrupt_for_hotkey()
 	LOG.debug("hotkey immediate id=%s pose=%s source=%s", [id, offer.pose, offer.source])
-	var start := PONIES.start_of(runtime)
+	var start := _ponies.start_of(runtime)
 	var started := start != null \
 		and bool(start.start_hotkey(offer.pose, offer.bed, offer.source))
 	if not started:
@@ -239,7 +251,7 @@ func _start_agreement_offer(offer: POSE_OFFER, skip_presentation: bool) -> bool:
 	if handle == null or not is_instance_valid(offer.runtime):
 		_clear_offer_hint()
 		return false
-	var start := PONIES.start_of(offer.runtime)
+	var start := _ponies.start_of(offer.runtime)
 	if start == null:
 		_clear_offer_hint()
 		return false
@@ -415,16 +427,16 @@ func _offer_bed_side(pony_form: bool) -> bool:
 	if pony_form:
 		return false
 	var lying: Node3D = _sensor.beside()
-	if not is_instance_valid(lying) or not PONIES.act_target(lying):
+	if not is_instance_valid(lying) or not _act_target(lying):
 		return false
-	var runtime: Node = PONIES.runtime_for(lying)
+	var runtime: Node = _ponies.runtime_for(lying)
 	if not is_instance_valid(runtime):
 		return false
-	var scene := PONIES.scene_of(runtime)
+	var scene := _ponies.scene_of(runtime)
 	var bed: Node3D = scene.find_bed_under() if scene != null else null
 	if bed == null or not _candidate_ready(runtime, CATALOG.MISSIONARY, "bed_side", bed):
 		return false
-	if not PONIES.relationship_ok(lying):
+	if not _relationship_ok(lying):
 		return false
 	_offer = _new_offer(runtime, lying, CATALOG.MISSIONARY, "bed_side", bed)
 	_sensor.focus(lying)
@@ -437,16 +449,16 @@ func _offer_lying(pony_form: bool) -> bool:
 	if not pony_form:
 		return false
 	var lying: Node3D = _sensor.lying()
-	if not is_instance_valid(lying) or not PONIES.act_target(lying):
+	if not is_instance_valid(lying) or not _act_target(lying):
 		return false
-	var runtime: Node = PONIES.runtime_for(lying)
+	var runtime: Node = _ponies.runtime_for(lying)
 	if not is_instance_valid(runtime):
 		return false
-	var scene := PONIES.scene_of(runtime)
+	var scene := _ponies.scene_of(runtime)
 	var bed: Node3D = scene.find_bed_under() if scene != null else null
 	if bed == null or not _candidate_ready(runtime, CATALOG.MISSIONARY, "already_lying", bed):
 		return false
-	if not PONIES.relationship_ok(lying):
+	if not _relationship_ok(lying):
 		return false
 	_offer = _new_offer(runtime, lying, CATALOG.MISSIONARY, "already_lying", bed)
 	_sensor.focus(lying)
@@ -458,17 +470,17 @@ func _offer_lying(pony_form: bool) -> bool:
 ## clearance and the small scene checks make her ready.
 func _offer_standing() -> void:
 	for candidate: Node3D in _sensor.candidates():
-		if not PONIES.act_target(candidate):
+		if not _act_target(candidate):
 			continue
-		var runtime: Node = PONIES.runtime_for(candidate)
+		var runtime: Node = _ponies.runtime_for(candidate)
 		if not is_instance_valid(runtime):
 			continue
 		if not _candidate_ready(runtime, CATALOG.STANDING, "", null):
 			continue
-		if not PONIES.relationship_ok(candidate):
+		if not _relationship_ok(candidate):
 			continue
 		PERF.begin("offer_stool")
-		var presentation := PONIES.presentation_of(runtime)
+		var presentation := _ponies.presentation_of(runtime)
 		var pair: Vector2i = presentation.stool_pair(CATALOG.STANDING) \
 			if presentation != null else Vector2i(-1, -1)
 		PERF.end("offer_stool")
@@ -484,9 +496,21 @@ func _offer_standing() -> void:
 		return
 
 
+## The eligibility service's act-target rule.
+func _act_target(pony: Node) -> bool:
+	return is_instance_valid(pony) and is_instance_valid(_eligibility) \
+		and _eligibility.eligible(pony, ELIGIBILITY.Target.ACT)
+
+
+## The act gate's Base clearance relationship row.
+func _relationship_ok(pony: Node) -> bool:
+	return is_instance_valid(pony) and is_instance_valid(_act_gate) \
+		and _act_gate.relationship_ok(pony)
+
+
 ## The scene checks the hint and the press share, without the composite's duplicate reads.
 func _candidate_ready(runtime: Node, pose: String, source: String, bed: Variant) -> bool:
-	var gate := PONIES.scene_of(runtime)
+	var gate := _ponies.scene_of(runtime)
 	if gate == null or not gate.available():
 		return false
 	if not gate.pose_supported(pose, source):
@@ -628,7 +652,7 @@ func _log_blocked_offer(runtime: Node, target: Node, need: int) -> void:
 	if key == _last_blocked_key:
 		return
 	_last_blocked_key = key
-	var presentation := PONIES.presentation_of(runtime)
+	var presentation := _ponies.presentation_of(runtime)
 	var gap: Variant = presentation.stool_gap_m() if presentation != null else NAN
 	var gap_text := "n/a" if not (gap is float or gap is int) \
 		or not is_finite(float(gap)) else "%.3f" % float(gap)
@@ -650,7 +674,7 @@ func agreement_offer(handle: AGREEMENT.Handle) -> POSE_OFFER:
 	if option == null:
 		return null
 	var pony: Variant = handle.pony
-	var runtime: Node = PONIES.runtime_for(pony) if is_instance_valid(pony) else null
+	var runtime: Node = _ponies.runtime_for(pony) if is_instance_valid(pony) else null
 	if not is_instance_valid(runtime):
 		return null
 	var offer := POSE_OFFER.new()

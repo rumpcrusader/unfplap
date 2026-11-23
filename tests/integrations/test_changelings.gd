@@ -20,6 +20,7 @@ const PROFILES := preload("res://mods/unfplap/shared/character_preferences.gd")
 const IDENTITY := preload("res://mods/unfplap/anatomy/identity.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
+const HANDLES := preload("res://mods/unfplap/world/handles.gd")
 const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 
 
@@ -46,11 +47,11 @@ class ChangeSpy extends RefCounted:
 
 ## The registry's prepare hook, forwarded to the real service and recorded: the adapter's late
 ## prepare and installed list both reach `ponies`.
-class RecordingBodyChange extends Node:
+class RecordingBodyChange extends BODY_CHANGE_SERVICE:
 	var service: Node = null
 	var prepared: Array[Node] = []
 
-	func notify_body_ready(pony: Node) -> void:
+	func notify_body_ready(pony: Node3D) -> void:
 		prepared.append(pony)
 		service.call("notify_body_ready", pony)
 
@@ -68,6 +69,10 @@ class FakeGame extends Node:
 
 class FakeIdentity extends "res://mods/unfplap/tests/support/fakes/fake_identity.gd":
 	pass
+
+
+class LiveRuntime extends Node:
+	var pony: Node = null
 
 
 class FakePony extends Node3D:
@@ -151,17 +156,21 @@ func run() -> void:
 	body_change.call("setup")
 	root.add_child(body_change)
 	main.body_change = body_change
-	PONIES.shutdown()
 	var recorder := RecordingBodyChange.new()
 	recorder.name = "RecordingBodyChange"
 	recorder.service = body_change
 	root.add_child(recorder)
-	PONIES.body_change = recorder
-	PONIES.eligibility = ELIGIBILITY.new()
+	var eligibility := ELIGIBILITY.new()
+	var handles := HANDLES.new()
+	handles.body_change = recorder
+	handles.eligibility = eligibility
+	var ponies := PONIES.new()
+	ponies.name = "UnfplapPonies"
+	root.add_child(ponies)
+	ponies.wire(handles)
 	var api := API.new()
 	api.name = "UnfplapApi"
 	root.add_child(api)
-	PONIES.api = api
 	var gate := Gate.new()
 	var pack := FakeSourceMod.new()
 	pack.name = "FakeChangelingsMod"
@@ -170,6 +179,7 @@ func run() -> void:
 	adapter.name = "UnfplapChangelings"
 	adapter.set("mod_active", Callable(gate, "active"))
 	adapter.call("setup")
+	adapter.wire(ponies, eligibility, recorder, api)
 	root.add_child(adapter)
 	check(bool(body_change.call("register_source", adapter)),
 		"the adapter registers as a typed body-change source")
@@ -647,15 +657,17 @@ func run() -> void:
 	live_mare.name = "SunnyStar"
 	live_mare.identity = _identity("sunny_star")
 	root.add_child(live_mare)
-	var live_runtime := Node.new()
-	live_runtime.name = "LiveRuntime"
-	PONIES.factory = func(_pony_node: Node) -> Node: return live_runtime
-	PONIES.attach(live_mare)
+	var live_runtime := LiveRuntime.new()
+	live_runtime.name = "UnfplapRuntime"
+	live_runtime.pony = live_mare
+	ponies.factory = func(_pony_node: Node) -> Node: return live_runtime
+	ponies.attach(live_mare)
+	live_runtime.add_to_group("unfplap_pony")
 	check(str(adapter.call("named_form", "Sunny Star")) == "sunny_star",
 		"a live off-roster adult mare resolves")
-	PONIES.shutdown()
-	# The teardown drops the registry's handles; the rest of the suite still reads the API.
-	PONIES.api = api
+	ponies.shutdown()
+	# The teardown drops the roster's record; the rest of the suite still reads the API.
+	ponies.wire(handles)
 	live_runtime.free()
 	root.remove_child(live_mare)
 	live_mare.free()
@@ -857,7 +869,9 @@ func run() -> void:
 	api.call("_shutdown")
 	root.remove_child(api)
 	api.free()
-	PONIES.shutdown()
+	ponies.shutdown()
+	root.remove_child(ponies)
+	ponies.free()
 	root.remove_child(recorder)
 	recorder.free()
 	root.remove_child(main)

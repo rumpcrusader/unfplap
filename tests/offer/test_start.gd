@@ -451,18 +451,19 @@ func _fixture(with_world := true) -> Dictionary:
 		WORLD.bind_player(player)
 	var targets := Targets.new()
 	targets.allowed = [pony]
-	PONIES.eligibility = targets
-	PONIES.act_gate = FAKE_GATE.new()
-	PONIES.stock_smack = null
+	var gate := FAKE_GATE.new()
 	var owner := ACT_OWNER.new()
 	owner.wire(null, null)
+	var roster := PONIES.new()
+	roster.wire(HANDLES.new())
+	root.add_child(roster)
 	var service := OFFER.new()
 	service.name = "UnfplapOffer"
-	service.wire(negotiation, privacy, hud, owner)
+	service.wire(negotiation, privacy, hud, owner, roster, targets, gate)
 	root.add_child(service)
 	return {"service": service, "pony": pony, "runtime": runtime, "game": game, "menu": menu,
 		"negotiation": negotiation, "hud": hud, "privacy": privacy, "owner": owner,
-		"nodes": world_nodes}
+		"nodes": world_nodes, "ponies": roster, "eligibility": targets, "gate": gate}
 
 
 func _handle(runtime: Node, pony: Node3D) -> POSE_OFFER:
@@ -494,11 +495,12 @@ func _agreement(pony: Node3D, pose := CATALOG.MISSIONARY, cuddle := false,
 func _free(made: Dictionary) -> void:
 	var service: Node = made["service"]
 	service.on_world_closed()
-	PONIES.stock_smack = null
 	(made["owner"] as ACT_OWNER).clear_active(made["runtime"])
 	(made["owner"] as ACT_OWNER).free()
-	PONIES.eligibility = null
-	PONIES.act_gate = null
+	var roster: PONIES = made["ponies"]
+	roster.shutdown()
+	root.remove_child(roster)
+	roster.free()
 	WORLD.unbind()
 	var nodes: Array[Node] = [made["game"], made["negotiation"], made["hud"], made["pony"],
 		made["runtime"]]

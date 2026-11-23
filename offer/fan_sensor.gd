@@ -23,6 +23,9 @@ const LYING_DOT := 0.78
 ## The standing pose's moving threshold, as the scene gate reads it.
 const STILL_SPEED := 0.06
 
+## The roster the fingerprint reads a body's runtime through; the offer hands it over.
+var ponies: PONIES = null
+
 
 ## One mare's last scene fingerprint.
 class MareSense extends RefCounted:
@@ -326,7 +329,7 @@ func _scene_hash(pony: Node3D, player_value: int) -> int:
 		value = _mix(value, hash(str(nav.get("reserved_by"))))
 		value = _mix(value, hash(str(nav.get("command_owner"))))
 		value = _mix(value, 1 if nav.get("_has_target") == true else 0)
-	var runtime: Node = PONIES.runtime_for(pony)
+	var runtime: Node = ponies.runtime_for(pony) if is_instance_valid(ponies) else null
 	var act: Variant = runtime.get("act") if is_instance_valid(runtime) else null
 	value = _mix(value, int(act.get("state")) if act != null else 0)
 	return value

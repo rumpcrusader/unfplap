@@ -5,7 +5,6 @@ extends Node
 ## Discovery is by group, `unfplap_api` and the pinned `unfplap_api_v1`; the human contract is
 ## `docs/api.md`.
 
-const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const REGISTRY := preload("res://mods/unfplap/registry/service.gd")
@@ -110,7 +109,7 @@ func describe_mare(id: String) -> Dictionary:
 		smack_radius = maxf(0.0, float(smack_value))
 	# The identity slice is read through the eligibility service so its rules and the registry
 	# stay in one place.
-	var service: ELIGIBILITY = PONIES.eligibility
+	var service: ELIGIBILITY = _eligibility()
 	var profile: ELIGIBILITY.Profile = service.get_profile(mare_id) if service != null else null
 	var consent: Dictionary = profile.consent.to_dict() if profile != null else {}
 	var eligible: Variant = profile.eligible_value() if profile != null else null
@@ -139,6 +138,16 @@ func describe_mare(id: String) -> Dictionary:
 func _shutdown() -> void:
 	_owners.clear()
 	REGISTRY.reset()
+
+
+## The live eligibility service, found by its group and script; null before the world is built.
+func _eligibility() -> ELIGIBILITY:
+	if not is_inside_tree():
+		return null
+	for node: Node in get_tree().get_nodes_in_group("unfplap_world"):
+		if node.get_script() == ELIGIBILITY:
+			return node as ELIGIBILITY
+	return null
 
 
 func _watch_owner(owner: Node) -> void:

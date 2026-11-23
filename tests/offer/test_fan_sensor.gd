@@ -6,7 +6,6 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ##     --script res://mods/unfplap/tests/offer/test_fan_sensor.gd
 
 const SENSOR := preload("res://mods/unfplap/offer/fan_sensor.gd")
-const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const ACT_OWNER := preload("res://mods/unfplap/act_owner/service.gd")
 const HANDLES := preload("res://mods/unfplap/world/handles.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
@@ -283,8 +282,6 @@ func _fixture() -> Dictionary:
 	root.add_child(game)
 	var mare := _mare(Vector3.ZERO, "near")
 	game.mares = [mare]
-	PONIES.stock_smack = null
-	PONIES.eligibility = null
 	WORLD.bind_world(game)
 	return {"game": game, "mare": mare}
 

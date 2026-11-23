@@ -7,7 +7,6 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ##     --script res://mods/unfplap/tests/test_standing_presentation.gd
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
-const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const PRESENTATION := preload("res://mods/unfplap/poses/standing_presentation.gd")
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
@@ -121,7 +120,6 @@ func run() -> void:
 	var main := FakeMain.new()
 	root.add_child(main)
 	main.eligibility = ELIGIBILITY.new()
-	PONIES.eligibility = main.eligibility
 	main.player = FakePlayer.new()
 	WORLD.bind_player(main.player)
 	root.add_child(main.player)
@@ -161,7 +159,7 @@ func run() -> void:
 	facts.restore_face_turn = func() -> void: pass
 	facts.now = func() -> float: return float(clock["now"])
 
-	var presentation: Variant = PRESENTATION.new(facts)
+	var presentation: Variant = PRESENTATION.new(facts, main.eligibility)
 	check(bool(presentation.call("present_standing")),
 		"an accepted offer presents without a pre-turn gate")
 	check(bool(presentation.call("presentation_active"))

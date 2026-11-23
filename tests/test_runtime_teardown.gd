@@ -250,12 +250,14 @@ func run() -> void:
 	var nav: FakeNav = runtime.act.context.hold.nav
 	var inventory: FakeInventory = main.game.inventory
 
-	# The registry accessors hand back the runtime's real handles: the scene Node and the act ports.
-	check(PONIES.scene_of(runtime) == runtime.scene, "the scene accessor returns the live gate")
-	check(PONIES.start_of(runtime) == runtime.start, "the start accessor returns the live start handle")
-	check(PONIES.presentation_of(runtime) == runtime.presentation,
+	# The roster accessors hand back the runtime's real handles: the scene Node and the act ports.
+	var roster := PONIES.new()
+	check(roster.scene_of(runtime) == runtime.scene, "the scene accessor returns the live gate")
+	check(roster.start_of(runtime) == runtime.start, "the start accessor returns the live start handle")
+	check(roster.presentation_of(runtime) == runtime.presentation,
 		"the presentation accessor returns the live presentation handle")
-	check(PONIES.scene_of(null) == null, "a missing runtime reads no scene handle")
+	check(roster.scene_of(null) == null, "a missing runtime reads no scene handle")
+	roster.free()
 
 	# The scene-only Agreement start's guard rails: no handle, no option, and the aftercare clear.
 	check(runtime.start.start_agreement(null) == ACT_AGREEMENT.AGREEMENT_FAILED,

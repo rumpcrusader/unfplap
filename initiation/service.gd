@@ -105,6 +105,8 @@ var _privacy: PRIVACY
 var _offer: OFFER
 ## The Negotiation service, which owns the exchange, the lock, the form and the Context.
 var _negotiation: NEGOTIATION = null
+## The roster that answers the runtimes and the per-pony scene handles.
+var _ponies: PONIES = null
 ## The director bridge and model host. The Negotiation service owns it; see
 ## `negotiation/adapter.gd`.
 var _adapter: NEGOTIATION.ADAPTER = null
@@ -121,12 +123,13 @@ var _reasoning_scope := ""
 ## The peers this service calls; the composition root is the only caller. The Negotiation adapter
 ## is resolved in `setup()`, because the negotiation has not attached when this runs.
 func wire(eligibility: ELIGIBILITY, act_gate: ACT_GATE, privacy: PRIVACY,
-		negotiation: NEGOTIATION, offer: OFFER) -> void:
+		negotiation: NEGOTIATION, offer: OFFER, ponies: PONIES) -> void:
 	self.eligibility = eligibility
 	self.act_gate = act_gate
 	_privacy = privacy if is_instance_valid(privacy) else PRIVACY.new()
 	_negotiation = negotiation
 	_offer = offer
+	_ponies = ponies
 
 
 ## Builds the bounded classifier, the place node and the adapter read this service owns; `_ready`
@@ -140,6 +143,7 @@ func setup() -> void:
 	if not is_instance_valid(_venue):
 		_venue = VENUE.new()
 		_venue.name = "UnfplapRequestPlace"
+		_venue.ponies = _ponies
 		add_child(_venue)
 
 
@@ -281,10 +285,10 @@ func _tick_cuddle_edges() -> void:
 	for node: Node3D in WORLD.mares():
 		if not is_instance_valid(node):
 			continue
-		var runtime: Node = PONIES.runtime_for(node)
+		var runtime: Node = _ponies.runtime_for(node)
 		if not is_instance_valid(runtime):
 			continue
-		var gate: Variant = PONIES.scene_of(runtime)
+		var gate: Variant = _ponies.scene_of(runtime)
 		if gate == null:
 			continue
 		var id: String = _venue.pony_id(node)
@@ -322,7 +326,7 @@ func _consider_start() -> void:
 			continue
 		if service == null or not service.eligible(node, ELIGIBILITY.Target.ACT):
 			continue
-		var runtime: Node = PONIES.runtime_for(node)
+		var runtime: Node = _ponies.runtime_for(node)
 		if not is_instance_valid(runtime):
 			continue
 		var reasons: Array = []
@@ -388,7 +392,7 @@ func _candidate_for(runtime: Node, forced: bool, pose_request := "",
 			return null
 	var placeable: Array[POSE_OPTIONS.Option] = []
 	for option: POSE_OPTIONS.Option in options:
-		var verdict: Variant = PONIES.scene_of(runtime).scene_only_verdict(option.pose, option.source,
+		var verdict: Variant = _ponies.scene_of(runtime).scene_only_verdict(option.pose, option.source,
 			option.bed, null)
 		if verdict == null:
 			continue
@@ -529,7 +533,7 @@ func debug_rows(pony: Node) -> Array[String]:
 	if id.is_empty():
 		rows.append("no relationship id")
 		return rows
-	var runtime: Node = PONIES.runtime_for(pony)
+	var runtime: Node = _ponies.runtime_for(pony)
 	var section := COOLDOWNS.section()
 	var heat := _in_heat(runtime)
 	var wait := COOLDOWNS.wait_seconds(section, id, heat)
@@ -717,7 +721,7 @@ func _start_ask_handoff() -> String:
 		return _close_episode("ask lost")
 	# The place can have changed since the scan; only a hard scene failure closes the ask. An
 	# unfilled bed gate or a player not yet in position is the Agreement's live condition.
-	var verdict: Variant = PONIES.scene_of(runtime).scene_only_verdict(option.pose, option.source,
+	var verdict: Variant = _ponies.scene_of(runtime).scene_only_verdict(option.pose, option.source,
 		option.bed, null)
 	if verdict == null or not bool(verdict.hard_ok):
 		return _close_episode("ask scene")

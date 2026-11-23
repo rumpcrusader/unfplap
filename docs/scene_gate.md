@@ -202,10 +202,11 @@ one stop. It never rereads the start rows or the policy.
 
 ## Standing offer hint
 
-The free-standing act-key hint is discovered by `offer/service.gd` through
-`PONIES.cone_target()`: a 90 degree half-angle fan to each side of her backward axis, within 2 m of
-an approximate rump anchor (`shared/rump_cone.gd`). It is a discovery rule for the idle hint, not a
-scene-gate row; the hotkey and the Agreement start keep their own scene checks.
+The free-standing act-key hint is discovered by the offer's fan sensor: a 90 degree half-angle fan
+to each side of her backward axis, within 2 m of an approximate rump anchor
+(`shared/rump_cone.gd`). The sensor reads each candidate's runtime through the roster; the old
+`cone_target()` scan is gone. It is a discovery rule for the idle hint, not a scene-gate row; the
+hotkey and the Agreement start keep their own scene checks.
 
 ## Buck and push
 

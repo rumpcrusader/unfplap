@@ -58,8 +58,8 @@ player form.
 and the standing fan candidates nearest first. There is no cached gate verdict and no row list: the
 standing candidate's stool pair is read once, the small scene checks (`available`,
 `pose_supported`, `player_ready`, `navigator_allows`, `posture_allows`) are one call each, and
-`PONIES.act_target()` is the eligibility read and `PONIES.relationship_ok()` is the act gate's Base
-clearance row. The composite `hotkey_ready()` stays the press's path. A live Agreement is checked
+the eligibility service's `eligible(pony, Target.ACT)` is the act-target read and the act gate's
+`relationship_ok()` is the Base clearance row. The composite `hotkey_ready()` stays the press's path. A live Agreement is checked
 first: it is already a yes, so the rump fan and the scene pass do not rediscover it.
 
 An offer of either kind keeps its logged key, and no offer at all clears both keys, so the same
@@ -176,10 +176,12 @@ the `offer_sensor_read` child), its `fan_discover` and `fan_hash` children at th
 | `privacy` | `privacy/api.gd` | the live visibility provider, sampled fresh before a private Agreement auto-starts |
 | `hud` | `Node` | the desktop HUD, bound at construction; `show_prompt`/`hide_prompt` (toasts go through the bound `hud.toast()`) |
 | `act_owner` | `act_owner/service.gd` | the act frame the press and the sensor gate on (`docs/act_owner.md`) |
+| `ponies` | `ponies/service.gd` | the roster the runtime, scene, start and presentation reads go through (`docs/ponies.md`); handed to the fan sensor too |
+| `eligibility` | `eligibility/service.gd` | the act-target capability |
+| `act_gate` | `act_gate/service.gd` | the Base clearance relationship row |
 
 `_ready()` joins the settings change notification and `_exit_tree()` leaves it, so an edit reaches
-`apply_settings()` with no entry path. The runtime, act-target and relationship reads are the
-preloaded `PONIES` facade; the act-running read is the wired act owner (`docs/act_owner.md`), which
-it also hands to its fan sensor. A missing registry reads as no runtime and no act target, and a
-missing owner as no act, so an unbound service reads no fan and starts nothing. A missing privacy
-provider reads as public, so a private Agreement does not start on a stale answer.
+`apply_settings()` with no entry path. The act-running read is the wired act owner
+(`docs/act_owner.md`). A missing roster reads as no runtime and no act target, and a missing owner
+as no act, so an unbound service reads no fan and starts nothing. A missing privacy provider reads
+as public, so a private Agreement does not start on a stale answer.

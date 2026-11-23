@@ -21,8 +21,8 @@ math.
 
 ## Node
 
-- Scope: per-pony. Constructed by `ponies/service.gd` through the entry's one factory on the body's
-  attach hook; parented under the pony and recorded in the registry.
+- Scope: per-pony. Constructed by the roster's factory on the body's attach hook; parented under
+  the pony, named `UnfplapRuntime` and joined to `unfplap_pony` in `_ready()`.
 - `_init(pony, world)` builds an empty World record when the entry passes none and calls the
   composition function once; the body arrives through the `pony` setter. The entry's factory passes
   the record, and a bare `new()` reads every World field as absent.
@@ -179,7 +179,7 @@ attached service Nodes.
 
 The World services are injected, never static: the record holds them, the HUD, memory and stool
 come from it, and `act/context.gd` carries it so the act modules read `context.world.<field>` rather
-than the registry. `afterglow`, `summary`, `face`, `dialogue` and the handover receive memory
+than the roster. `afterglow`, `summary`, `face`, `dialogue` and the handover receive memory
 through their constructor; `anatomy` receives the HUD in `setup(hud)`, `negotiation` and
 `debug/actions` in their `wire()`, and `offer` at construction. A null field is an absent peer: the
 act modules guard every call, and a bare runtime remains valid.
@@ -309,7 +309,7 @@ pose id; `act/start.gd` mounts the act view for the `bed` family and opens the c
 `act/exit.gd:run(rejoin_cuddle)` is the only exit body. The exit's own routes are its only callers,
 plus `act/consent.gd:stop_with_her()` for a partner stop: `cancel()`, `end_afterglow()`,
 `restore_begin()`, `finish_restore()`, `restore_now()`, `force_stop()` and `stop(reason)`.
-`act/session.gd:force_stop()` is the one-line session delegate `ponies` calls. It gives back, in
+`act/session.gd:force_stop()` is the one-line session delegate the roster calls. It gives back, in
 order: the auto stroke, the handover, the inventory HUD, kiss forelegs, face-turn rate, the player
 frame (`frame.end()`: stance, look, controls, avatar hold), the act view (`view.unmount()`), face
 and wings, player lock, camera, stool, `sex_active`, navigator, posture/cuddle, pose, audio, HUD
@@ -358,7 +358,7 @@ never reparents the node or resumes by itself.
   serial, settings snapshot and dialogue state stay in the session. The player stays locked, the
   HUD stays up and the outer camera is not restored to the player as an idle camera.
 
-`PONIES.attach(new_pony)` adopts the suspended runtime before it creates a runtime. It runs the
+The roster's `attach(new_pony)` adopts the suspended runtime before it creates a runtime. It runs the
 body-change `notify_body_ready()` first, then `anatomy.bind()` and `runtime.adopt_body()`, which
 bind the new body, pose, face and anatomy but do not resume. `body_change/act.gd:resume()` is the
 one resume body and `act/swap.gd:resume()` its only caller; it ends the act through the one exit

@@ -175,7 +175,7 @@ names, its shape lookup and whether a named form is copyable and adult.
 
 ## Facade
 
-`PONIES.body_change` is `body_change/service.gd`.
+`body_change/service.gd` is the service; its handle reaches consumers through the World record.
 
 Registration rejects an object that is not the typed base. Registration order is the binding
 fan-out order and the source lookup order. `wire()` is the one call that builds the built-in
@@ -267,7 +267,7 @@ the same fan-out, and no binding adds a line to the entry.
 | Binding | Built from | Reads | Refreshes |
 |---|---|---|---|
 | `body_change/anatomy_binding.gd` | the anatomy API | `fit_id`, `rig`, `owned_mesh_meta`, `tail_root` | anatomy placement and rig, appearance, owned marker and the tail seat row |
-| `body_change/runtime_binding.gd` | `PONIES.runtime_for()` | body, form | the live runtime's pose, face, hands, kiss, player frame, view, reactions, wings and audio; a suspended act is left to the one resume |
+| `body_change/runtime_binding.gd` | the body's `UnfplapRuntime` child | body, form | the live runtime's pose, face, hands, kiss, player frame, view, reactions, wings and audio; a suspended act is left to the one resume |
 | `body_change/lod_binding.gd` | `WORLD.refresh_body_lod()` | body | drops the near/far LOD caches and re-arms the near mesh |
 | `body_change/garment_binding.gd` | the Pantyhose adapter | body | one worn-garment scan; the adapter has no per-pony rebind |
 | `body_change/smack_binding.gd` | the stock smack layer | body | hands the body to the outside-act stock smack layer |
@@ -275,7 +275,7 @@ the same fan-out, and no binding adds a line to the entry.
 Every binding is scene-free: it reads the facade it was built from and preloads nothing else.
 
 The runtime owns its sub-services behind one binding; they have no separate public binding files.
-The runtime binding looks the runtime up through `PONIES.runtime_for(body)` and never runs an act
+The runtime binding looks the runtime up as the body's `UnfplapRuntime` child and never runs an act
 exit. `bind_body()` and `refresh_body()` both forward to the runtime's idempotent rebind; a body
 without a runtime is inert.
 
@@ -344,10 +344,9 @@ extend the policy once its behavior is specified.
 
 `body_change/source.gd` is the documented base-mod extension point for a new form provider,
 including a provider added to the base game. A provider extends the file by path (no `class_name`),
-is constructed by the entry, and is registered with `PONIES.body_change.register_source()`. The
-service
-validates the base type before registration, so a source outside the contract cannot enter the
-registry.
+is constructed by the entry, and is registered with the body-change service's `register_source()`.
+The service validates the base type before registration, so a source outside the contract cannot
+enter the source list.
 
 The extension can rely on the service for the form store, the apply path, the binding fan-out, the
 active-change index and the legacy mirror. It must supply its own:
@@ -399,14 +398,14 @@ suspension, adoption, resume and failure phases.
 
 | Host call | Purpose |
 |---|---|
-| `_build_world()` | constructs the service, hands it the anatomy, Pantyhose and stock smack facades in one `wire()` call, and registers the providers |
+| `_build_world()` | constructs the service, hands it the anatomy, Pantyhose, stock smack and roster peers in one `wire()` call, and registers the providers |
 | `on_world(host)` | re-reads every provider's own installation state, so each one re-reads its pack |
-| `PONIES._prepare(pony)` | calls `notify_body_ready()` before the tail seat, the stock smack layer and a runtime |
-| `PONIES.runtime_for(pony)` | the runtime binding's public lookup |
+| the roster's `_prepare(pony)` | calls `notify_body_ready()` before the tail seat, the stock smack layer and a runtime |
+| the body's `UnfplapRuntime` child | the runtime binding's public lookup |
 | `WORLD.refresh_body_lod(pony)` | the LOD binding's public refresh |
 | `pantyhose.scan()` | the garment binding's public scan |
 | `stock_smack.pony_ready(pony)` | the stock smack binding's public prepare |
-| `PONIES.body_change` | the runtime's, the anatomy editor's and the debug block's service handle |
+| the `WorldHandles` record | the runtime's, the anatomy editor's and the debug block's service handle |
 | `body_change/act.gd` | the act's swap record and form request; it owns `release()`, `resume()`, `rebind()` and the offer/reveal timing, while `act/swap.gd` holds the typed release/resume seams and the one `resume()` caller, and the runtime node keeps only the reparent, `attach_to_body()` and `adopt_body()` |
 | `shared/settings_change.gd` | `apply_settings()` re-applies the handling source's tail wrapper for every live body after a settings edit |
 

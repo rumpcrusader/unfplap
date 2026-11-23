@@ -275,7 +275,7 @@ give the mod two entry points and hide the real dependency.
 | Scope | Constructed by | Begun / ended by | Examples |
 |---|---|---|---|
 | World | the entry's service list, at boot | the list order on world enter, close and exit | eligibility, memory, negotiation, hud, offer, input, initiation, anatomy, body_change, the world adapters, stool, stock smack, debug actions; the cross-mod `api.gd` is parented but takes no broadcast |
-| Per-pony | `ponies` through the entry's one factory | pony despawn or world close | the runtime itself |
+| Per-pony | the roster through the entry's one factory | pony despawn or world close | the runtime itself |
 | Per-pony handle | the runtime, once per pony | the runtime ledger or the negotiation hold | pose, camera, hands, kiss, face, history, afterglow, scene hold, rest |
 | Pure / read model | its owner | no teardown | preferences math, act view, the log sink and the profiler |
 
@@ -310,11 +310,11 @@ teardown to `free_pose()`. The order is `docs/poses.md`.
 - **the broadcasts and the frame order**: `_on_world`, `_on_player` and the release walk the list;
   `_process` keeps the frame order visible;
 - **the one teardown**: `_exit_tree` runs the same `_release()` a world close runs, then
-  `_shutdown()`, which stops the registry and calls every service's `shutdown()` in reverse list
+  `_shutdown()`, which stops the roster and calls every service's `shutdown()` in reverse list
   order. `WORLD` is bound before the first service and unbound after the last.
 
-After the world root, `_ready` assigns the registry's composition handles and the cross-mod
-factory; a service owns its own fields and rules.
+After the world root, `_ready` sets the roster's one runtime factory; a service owns its own fields
+and rules.
 
 It also keeps the `Mods` hooks, the group join, the three-line `prompt_note` forward, the settings
 page injection and the one runtime factory. It does not own domain rules, debug action

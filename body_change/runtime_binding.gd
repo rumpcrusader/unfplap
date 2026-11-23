@@ -4,9 +4,6 @@ extends "res://mods/unfplap/shared/body_binding.gd"
 ## An unbind never runs the act exit.
 ## See `docs/runtime.md` (`### Suspend, adopt and resume`) and `docs/body_change.md`.
 
-const PONIES := preload("res://mods/unfplap/ponies/service.gd")
-
-
 func binding_id() -> String:
 	return "runtime"
 
@@ -37,7 +34,7 @@ func _dispatch(method: StringName, body: Node3D, form: BODY_FORM.BodyForm) -> vo
 func _runtime_for(body: Node3D) -> Node:
 	if not is_instance_valid(body):
 		return null
-	var runtime: Node = PONIES.runtime_for(body)
+	var runtime: Node = body.get_node_or_null("UnfplapRuntime")
 	if is_instance_valid(runtime) and not runtime.is_queued_for_deletion():
 		return runtime
 	return null

@@ -75,16 +75,16 @@ Rules:
 ## Facade
 
 `eligibility/service.gd` extends `shared/service.gd`, the world-service base. The entry creates one
-instance per world and binds it as `PONIES.eligibility`; `anatomy`, `act_gate`, `initiation`,
-`negotiation`, `debug`, `memory`, `api` and the standing presentation read it. The types are
-declared in the facade, so a consumer names them `ELIGIBILITY.Target`, `ELIGIBILITY.Profile`, and
-so on.
+instance per world and attaches it to `unfplap_world`; the World record carries it, so `anatomy`,
+`act_gate`, `initiation`, `negotiation`, `debug`, `memory`, `api` and the standing presentation read
+the peer they were wired with. The types are declared in the facade, so a consumer names them
+`ELIGIBILITY.Target`, `ELIGIBILITY.Profile`, and so on.
 
 `eligible()` is the capability answer: the cached identity record, the provider assertion, the
 stable id and the target's participation veto. It is called in per-frame discovery loops, so it
 never builds a fact snapshot. `warm(pony)` is the attach-time read: it builds the identity record
-and marks its era, once per era, so the first capability read is a lookup; it is called from
-`PONIES._prepare()` and is a no-op on a second prepare of the same era. `eligible_id()` is the
+and marks its era, once per era, so the first capability read is a lookup; it is called from the
+roster's `_prepare()` and is a no-op on a second prepare of the same era. `eligible_id()` is the
 id-only form for a body that may not be live: a live pony answers as `eligible()`, otherwise the
 shape's population scene identity and the provider assertion feed the same target predicate. It is
 a capability, not an age or sex read; the default character target is what a shape source asks

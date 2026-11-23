@@ -8,7 +8,7 @@ and the handoff of that player to the act and back.
 `stock_smack/api.gd` is one world-scope service the entry's service list constructs. It owns the
 per-pony bookkeeping of the players it changed and the one `AudioStreamRandomizer` over the pack
 hand-smack variants; `hands/api.gd` owns the act's own per-impact swap on the same player. The
-service reads only the pony nodes the registry hands it and the setting through the settings
+service reads only the pony nodes the roster hands it and the setting through the settings
 service, and it does no per-frame work.
 
 ## Decisions

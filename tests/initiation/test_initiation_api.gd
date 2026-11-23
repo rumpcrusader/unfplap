@@ -15,6 +15,7 @@ const CONTEXT := preload("res://mods/unfplap/shared/context.gd")
 const CLASSIFIER := preload("res://mods/unfplap/initiation/classifier.gd")
 const ADAPTER := preload("res://mods/unfplap/negotiation/adapter.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
+const HANDLES := preload("res://mods/unfplap/world/handles.gd")
 
 
 
@@ -224,6 +225,7 @@ func _fixture() -> Dictionary:
 	nav.name = "Navigator"
 	target.add_child(nav)
 	var runtime := FakeRuntime.new()
+	runtime.name = "UnfplapRuntime"
 	runtime.pony = target
 	target.add_child(runtime)
 	var eligibility := FakeEligibility.new()
@@ -238,26 +240,32 @@ func _fixture() -> Dictionary:
 	WORLD.bind_world(main.game)
 	var negotiation := FakeNegotiation.new()
 	negotiation.adapter_node = adapter
-	PONIES.shutdown()
-	PONIES.factory = func(_pony_node: Node) -> Node: return runtime
-	PONIES.attach(target)
+	var roster := PONIES.new()
+	roster.name = "UnfplapPonies"
+	root.add_child(roster)
+	roster.wire(HANDLES.new())
+	roster.factory = func(_pony_node: Node) -> Node: return runtime
+	roster.attach(target)
 	for node: Node in [game, player, target, adapter, negotiation, offer]:
 		root.add_child(node)
 	root.add_child(main)
 	var service := INIT.new()
 	service.name = "UnfplapInitiation"
 	var gate := FakeGate.new()
-	service.wire(eligibility, gate, privacy, negotiation, offer)
+	service.wire(eligibility, gate, privacy, negotiation, offer, roster)
 	service.setup()
 	root.add_child(service)
 	return {"main": main, "game": game, "context": context, "player": player,
 		"target": target, "nav": nav, "runtime": runtime, "eligibility": eligibility,
 		"gate": gate, "adapter": adapter, "privacy": privacy, "service": service, "offer": offer,
-		"negotiation": negotiation}
+		"negotiation": negotiation, "ponies": roster}
 
 
 func _free(made: Dictionary) -> void:
-	PONIES.shutdown()
+	var roster: PONIES = made["ponies"]
+	roster.shutdown()
+	root.remove_child(roster)
+	roster.free()
 	for key: String in ["service", "main", "game", "player", "target", "adapter", "offer",
 			"negotiation"]:
 		var node: Node = made[key]
@@ -358,15 +366,18 @@ func _check_adapter_resolution() -> void:
 	negotiation.adapter_node = adapter
 	root.add_child(negotiation)
 	root.add_child(adapter)
+	var roster := PONIES.new()
+	roster.wire(HANDLES.new())
 	var service := INIT.new()
 	service.name = "UnfplapInitiation"
 	service.wire(FakeEligibility.new(), FakeGate.new(), FakePrivacy.new(), negotiation,
-		FakeOffer.new())
+		FakeOffer.new(), roster)
 	check(service.get("_adapter") == null, "wire() leaves the adapter unresolved")
 	service.setup()
 	check(service.get("_adapter") == adapter, "setup() takes the live Negotiation adapter")
 	root.remove_child(service)
 	service.free()
+	roster.free()
 	root.remove_child(adapter)
 	adapter.free()
 	root.remove_child(negotiation)

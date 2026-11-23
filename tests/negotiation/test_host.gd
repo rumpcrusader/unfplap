@@ -253,6 +253,7 @@ func _bridge_fixture() -> Dictionary:
 	var game := FakeGame.new()
 	var pony := FakePony.new()
 	var runtime := FakeRuntime.new()
+	runtime.name = "UnfplapRuntime"
 	runtime.pony = pony
 	pony.add_child(runtime)
 	var player := Node3D.new()
@@ -270,6 +271,14 @@ func _bridge_fixture() -> Dictionary:
 	var eligibility := FakeEligibility.new()
 	var gate := FakeGate.new()
 	gate.facts = facts
+	var world := HANDLES.new()
+	world.eligibility = eligibility
+	world.act_gate = gate
+	world.act_owner = _owner()
+	var roster := PONIES.new()
+	roster.wire(world)
+	roster.factory = func(_pony_node: Node) -> Node: return runtime
+	roster.attach(pony)
 	var bridge := HOST.new()
 	bridge.service = FakeService.new()
 	bridge.adapter = FakeAdapter.new()
@@ -279,22 +288,24 @@ func _bridge_fixture() -> Dictionary:
 	bridge.privacy = FakePrivacy.new()
 	bridge.initiation = FakeInitiation.new()
 	bridge.offer = FakeOffer.new()
-	bridge.act_owner = _owner()
-	PONIES.shutdown()
-	PONIES.factory = func(_pony_node: Node) -> Node: return runtime
-	PONIES.attach(pony)
+	bridge.act_owner = world.act_owner
+	bridge.ponies = roster
 	for node: Node in [game, bridge.service, bridge.adapter, bridge.initiation, bridge.offer]:
 		root.add_child(node)
+	root.add_child(roster)
 	WORLD.bind_world(game)
 	WORLD.bind_player(player)
 	return {"bridge": bridge, "game": game, "pony": pony, "runtime": runtime,
 		"player": player, "eligibility": eligibility, "gate": gate, "facts": facts,
 		"service": bridge.service, "adapter": bridge.adapter, "initiation": bridge.initiation,
-		"offer": bridge.offer, "owner": bridge.act_owner}
+		"offer": bridge.offer, "owner": world.act_owner, "ponies": roster}
 
 
 func _free_bridge(made: Dictionary) -> void:
-	PONIES.shutdown()
+	var roster: PONIES = made["ponies"]
+	roster.shutdown()
+	root.remove_child(roster)
+	roster.free()
 	WORLD.unbind()
 	for key: String in ["service", "adapter", "initiation", "offer", "game"]:
 		var node: Node = made[key]
@@ -308,6 +319,7 @@ func _service_fixture() -> Dictionary:
 	var game := FakeGame.new()
 	var pony := FakePony.new()
 	var runtime := FakeRuntime.new()
+	runtime.name = "UnfplapRuntime"
 	runtime.pony = pony
 	pony.add_child(runtime)
 	var player := Node3D.new()
@@ -328,24 +340,35 @@ func _service_fixture() -> Dictionary:
 	var initiation := FakeInitiation.new()
 	var offer := FakeOffer.new()
 	var owner := _owner()
-	PONIES.shutdown()
-	PONIES.factory = func(_pony_node: Node) -> Node: return runtime
-	PONIES.attach(pony)
+	var world := HANDLES.new()
+	world.eligibility = eligibility
+	world.act_gate = gate
+	world.act_owner = owner
+	var roster := PONIES.new()
+	roster.wire(world)
+	roster.factory = func(_pony_node: Node) -> Node: return runtime
+	roster.attach(pony)
 	var service := NEGOTIATION.new()
 	service.name = "UnfplapNegotiation"
 	for node: Node in [game, director, initiation, offer]:
 		root.add_child(node)
+	root.add_child(roster)
 	WORLD.bind_world(game)
 	WORLD.bind_player(player)
-	service.wire(eligibility, gate, FakeMemory.new(), FakePrivacy.new(), initiation, offer, owner)
+	service.wire(eligibility, gate, FakeMemory.new(), FakePrivacy.new(), initiation, offer,
+		owner, null, roster)
 	root.add_child(service)
 	return {"service": service, "game": game, "pony": pony, "runtime": runtime,
 		"player": player, "eligibility": eligibility, "gate": gate, "facts": facts,
-		"initiation": initiation, "offer": offer, "director": director, "owner": owner}
+		"initiation": initiation, "offer": offer, "director": director, "owner": owner,
+		"ponies": roster}
 
 
 func _free_service(made: Dictionary) -> void:
-	PONIES.shutdown()
+	var roster: PONIES = made["ponies"]
+	roster.shutdown()
+	root.remove_child(roster)
+	roster.free()
 	WORLD.unbind()
 	(made["owner"] as Node).free()
 	for key: String in ["service", "director", "initiation", "offer", "game"]:

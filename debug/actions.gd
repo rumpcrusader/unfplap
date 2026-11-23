@@ -15,6 +15,8 @@ const FACE := preload("res://mods/unfplap/face/service.gd")
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
 const BODY_CHANGE_SERVICE := preload("res://mods/unfplap/body_change/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
+const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
+const ESTRUS := preload("res://mods/unfplap/estrus/service.gd")
 const ACT_OWNER := preload("res://mods/unfplap/act_owner/service.gd")
 const POSES := preload("res://mods/unfplap/poses/service.gd")
 const INITIATION := preload("res://mods/unfplap/initiation/service.gd")
@@ -65,6 +67,10 @@ var pantyhose: Node = null
 var hud: Node = null
 ## The act frame the live reads name; `wire()` is the only writer.
 var act_owner: ACT_OWNER = null
+## The roster, the capability reads and the cycle service; `wire()` is the only writer.
+var _ponies: PONIES = null
+var _eligibility: ELIGIBILITY = null
+var _estrus: ESTRUS = null
 ## The pack's one hull rebuild, bound once so this node never imports a pack file.
 var _pantyhose_rebuild: Callable = Callable()
 
@@ -87,7 +93,8 @@ func _ready() -> void:
 ## Set by the entry: the services the buttons act through.
 func wire(body_change: BODY_CHANGE_SERVICE, initiation: INITIATION,
 		negotiation: NEGOTIATION, anatomy: ANATOMY,
-		pantyhose: Node, owner: ACT_OWNER, hud: Node = null) -> void:
+		pantyhose: Node, owner: ACT_OWNER, hud: Node = null, ponies: PONIES = null,
+		eligibility: ELIGIBILITY = null, estrus: ESTRUS = null) -> void:
 	self.body_change = body_change
 	self.initiation = initiation
 	self.negotiation = negotiation
@@ -95,6 +102,9 @@ func wire(body_change: BODY_CHANGE_SERVICE, initiation: INITIATION,
 	self.pantyhose = pantyhose
 	self.act_owner = owner
 	self.hud = hud
+	_ponies = ponies
+	_eligibility = eligibility
+	_estrus = estrus
 	_pantyhose_rebuild = Callable(pantyhose, "rebuild_hull")
 
 
@@ -121,9 +131,10 @@ func build_settings_block(list: VBoxContainer, font_size: int, tab: String) -> v
 func _host() -> Host:
 	var built := Host.new()
 	built.act = Callable(self, "_live_act")
-	built.runtime_for = Callable(PONIES, "runtime_for")
-	built.runtimes = func() -> Array: return PONIES.live_ponies()
-	built.act_target = Callable(PONIES, "act_target")
+	if is_instance_valid(_ponies):
+		built.runtime_for = Callable(_ponies, "runtime_for")
+		built.runtimes = Callable(_ponies, "live_ponies")
+	built.act_target = Callable(self, "_act_target_capability")
 	built.reload_posed_base = Callable(POSES, "reload_authored_base")
 	return built
 
@@ -230,8 +241,8 @@ func _debug_cycle_toggle(phase_name: String) -> String:
 		return "No runtime for %s." % str(target.name)
 	var current := str(_session(runtime).cycle_phase())
 	var next := CYCLE.NORMAL if current == phase_name else phase_name
-	if is_instance_valid(PONIES.estrus):
-		PONIES.estrus.debug_set_phase(target, next)
+	if is_instance_valid(_estrus):
+		_estrus.debug_set_phase(target, next)
 	else:
 		CYCLE.set_override(_debug_pony_id(target), next)
 	var verb := "cleared" if next == CYCLE.NORMAL else "forced"
@@ -262,8 +273,8 @@ func _debug_cycle_request(phase_name: String) -> String:
 	var runtime: Node = _runtime_for(target)
 	if not is_instance_valid(runtime):
 		return "No runtime for %s." % str(target.name)
-	if is_instance_valid(PONIES.estrus):
-		PONIES.estrus.debug_set_phase(target, phase_name)
+	if is_instance_valid(_estrus):
+		_estrus.debug_set_phase(target, phase_name)
 	else:
 		CYCLE.set_override(_debug_pony_id(target), phase_name)
 	var label := "automatic" if phase_name.is_empty() else phase_name
@@ -528,7 +539,7 @@ func _debug_gate_rows(target: Node, runtime: Variant) -> Array[String]:
 			dot = (-view.global_basis.z).dot(delta.normalized())
 	var pose := CATALOG.STANDING
 	var source := ""
-	var scene := PONIES.scene_of(runtime)
+	var scene := _ponies.scene_of(runtime)
 	var bed: Variant = null
 	var requested := WORLD.pony(target).posture_requested()
 	if requested == "lie_down":
@@ -562,7 +573,7 @@ func _debug_act_rows(runtime: Variant) -> Array[String]:
 func _debug_stool_rows(runtime: Variant) -> Array[String]:
 	if not is_instance_valid(runtime):
 		return ["no runtime"]
-	var presentation := PONIES.presentation_of(runtime)
+	var presentation := _ponies.presentation_of(runtime)
 	if presentation == null:
 		return ["stool unavailable"]
 	return [str(presentation.stool_state_text())]
@@ -998,6 +1009,13 @@ func _runtimes() -> Array:
 
 func _is_act_target(pony: Variant) -> bool:
 	return host != null and host.act_target.is_valid() and bool(host.act_target.call(pony))
+
+
+## The eligibility service's act-target rule behind the Host's `act_target` read.
+func _act_target_capability(pony: Variant) -> bool:
+	if not is_instance_valid(pony) or not pony is Node or not is_instance_valid(_eligibility):
+		return false
+	return _eligibility.eligible(pony as Node, ELIGIBILITY.Target.ACT)
 
 
 func _reload_posed_base() -> String:

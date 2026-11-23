@@ -268,11 +268,12 @@ facades, so the entry binds none of them:
 |---|---|---|
 | `host.act` | `Callable() -> Node` | the live act's runtime, or null |
 | `host.runtime_for` | `Callable(Node) -> Node` | the runtime of one pony |
-| `host.runtimes` | `Callable() -> Array` | every live runtime node |
+| `host.runtimes` | `Callable() -> Array` | every body with a live runtime |
 | `host.act_target` | `Callable(Variant) -> bool` | the act-target capability |
 | `host.reload_posed_base` | `Callable() -> String` | re-read the authored pose file when no act is live |
 
-All five are facade reads: the `ponies` registry for the first four (`act_target` asks its
-eligibility rule) and `poses/service.gd`'s `reload_authored_base()` for the last. `apply_settings()`
+All five are facade reads: the roster for the first three and the eligibility service's
+`eligible(pony, Target.ACT)` behind `act_target`, plus `poses/service.gd`'s `reload_authored_base()`
+for the last. `apply_settings()`
 is the node's settings change listener: it closes the wheel when debug mode goes off and re-syncs
 the skeleton overlay; `_ready()` joins that list and `_exit_tree()` leaves it.

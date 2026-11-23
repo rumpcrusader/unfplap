@@ -163,13 +163,15 @@ var initiation: Node = null
 var offer: Node = null
 ## The act frame the bridge's watch gates on; `wire()` is the only writer.
 var _act_owner: ACT_OWNER = null
+## The roster the terminal outcome and the Agreement handle read runtimes through.
+var _ponies: PONIES = null
 
 
 ## Takes the peers this service calls; the composition root is the only caller. The adapter and the
 ## bridge are built in `_ready()`, after every peer is wired.
 func wire(eligibility_service: ELIGIBILITY, gate_service: ACT_GATE, memory_service: MEMORY,
 		privacy_service: PRIVACY, initiation_service: Node, offer_service: Node,
-		owner: ACT_OWNER, hud_service: Node = null) -> void:
+		owner: ACT_OWNER, hud_service: Node = null, ponies_service: PONIES = null) -> void:
 	eligibility = eligibility_service
 	gate = gate_service
 	memory = memory_service
@@ -178,6 +180,7 @@ func wire(eligibility_service: ELIGIBILITY, gate_service: ACT_GATE, memory_servi
 	offer = offer_service
 	_act_owner = owner
 	hud = hud_service
+	_ponies = ponies_service
 
 
 ## Builds the one adapter and bridge as this service's children, then binds the typed host to them.
@@ -199,6 +202,7 @@ func _ready() -> void:
 	_bridge.initiation = initiation
 	_bridge.offer = offer
 	_bridge.act_owner = _act_owner
+	_bridge.ponies = _ponies
 	_bind_host()
 
 
@@ -530,8 +534,9 @@ func _on_outcome_terminal(terminal: Variant) -> void:
 			else "none", float(_field(terminal, "cooldown_s", 0.0))])
 	var pony: Variant = _field(terminal, "pony")
 	if is_instance_valid(pony):
-		var runtime: Variant = PONIES.runtime_for(pony)
-		var presentation := PONIES.presentation_of(runtime) if is_instance_valid(runtime) else null
+		var runtime: Variant = _ponies.runtime_for(pony) if _ponies != null else null
+		var presentation := _ponies.presentation_of(runtime) \
+			if _ponies != null and is_instance_valid(runtime) else null
 		if presentation != null:
 			presentation.clear_presentation()
 	if int(_field(terminal, "outcome", -1)) != Outcome.STARTED \
@@ -552,12 +557,14 @@ func _on_agreement_handle(handle: Variant) -> void:
 		pony_id, str(_field(handle, "trigger", "")),
 		str(_field(option, "pose", "none")) if option != null else "none",
 		str(_field(handle, "private", false))])
-	var runtime: Variant = PONIES.runtime_for(pony) if is_instance_valid(pony) else null
-	var start := PONIES.start_of(runtime) if is_instance_valid(runtime) else null
+	var runtime: Variant = _ponies.runtime_for(pony) \
+		if is_instance_valid(pony) and _ponies != null else null
+	var start := _ponies.start_of(runtime) if _ponies != null and is_instance_valid(runtime) else null
 	if start == null:
 		cancel(handle, "cancelled")
 		return
-	var presentation := PONIES.presentation_of(runtime) if is_instance_valid(runtime) else null
+	var presentation := _ponies.presentation_of(runtime) \
+		if _ponies != null and is_instance_valid(runtime) else null
 	# The presentation is act-owned: it starts now, and the auto-start waits for it to settle.
 	if option != null and str(option.pose) == CATALOG.STANDING \
 			and (presentation == null or not bool(presentation.present_standing())):

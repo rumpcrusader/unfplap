@@ -65,10 +65,9 @@ It does not cover eligibility, act readiness, thrust scoring, pose or camera rul
 
 The internal entry points are:
 
-- The entry creates the service and `ponies` hands it out as `PONIES.anatomy`. `ponies` binds the
-  controller on attach and seats the tail on
-  every prepare, `_on_player` creates the player part, and the placement debug buttons forward to
-  the service.
+- The entry creates the service; the roster reads it from the World record and binds the controller
+  on attach and seats the tail on every prepare, `_on_player` creates the player part, and the
+  placement debug buttons forward to the service.
 - `anatomy/api.gd` owns the per-pony controllers, the player part, tail seat/visibility and the
   placement editor. It supplies the typed facts, the service, consent, status and the dock
   refresh to each controller, and pushes the live player part to every controller on a player
@@ -91,7 +90,8 @@ controller is a thin shell. The internal act reads the controller's `part()` han
 
 ## Facade
 
-`PONIES.anatomy` holds one `anatomy/api.gd` instance. The facade's verbs are declared in `anatomy/api.gd`.
+One `anatomy/api.gd` instance holds the per-pony controllers; the World record carries it. The
+facade's verbs are declared in `anatomy/api.gd`.
 
 `present` is idempotent and a null form means the body's own default. It is the one place the
 assignment is decided: it stores the form, asks `eligibility` once for `Target.ANATOMY`, and then
@@ -197,9 +197,8 @@ the grip and releases the fluid; the phase decides when a climax event calls it.
   `unbind_body()` calls `withdraw`. The API gates the identity itself, so a provider that binds a
   body before the roster sees it cannot present an ineligible controller. `refresh_form()` re-fits
   the placement and rebuilds the appearance, marker and placement only when the rig or fit changed.
-  `docs/body_change.md` owns the binding and lifecycle contract. The roster's
-  `PONIES._prepare()` calls `present` once with the provider's stored form; there is no separate
-  tail pass. A settings edit re-asks the gate for every remembered form in `anatomy/api.gd`, so a
+  `docs/body_change.md` owns the binding and lifecycle contract. The roster's `_prepare()` calls
+  `present` once with the provider's stored form; there is no separate tail pass. A settings edit re-asks the gate for every remembered form in `anatomy/api.gd`, so a
   participation change attaches or detaches her without a roster pass.
 - The mare bits mesh and skin strip ship with the pack, so a missing mesh is a broken build, not a
   state the controller handles. The teats are generated from her body; the old mare-shaped
@@ -756,8 +755,8 @@ sample of the body coat.
   default does not move her spring tail. The wrapper is not a seat row and has no dock.
   `docs/poses.md` owns how the act modifiers rotate and restore the chain itself, so a placement
   edit and an act never overwrite each other. The Anatomy editor's
-  tail actions accept a source-owned tail through `can_place_tail()` and forward
-  `PONIES.body_change.apply_tail_placement()`; a dock action still answers `no dock on this tail.` The princesses'
+  tail actions accept a source-owned tail through `can_place_tail()` and forward the body-change
+  service's `apply_tail_placement()`; a dock action still answers `no dock on this tail.` The princesses'
   fitted bodies keep their body-rig tail and have no seat or wrapper.
 
 The per-pony seat state is the inner `SeatRow` class: the pony, the stable id, the presented form

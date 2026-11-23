@@ -41,6 +41,8 @@ var initiation: Node = null
 var offer: Node = null
 ## The act frame the watch is armed around; a null owner reads as no act.
 var act_owner: ACT_OWNER = null
+## The roster that answers the per-pony runtime and its handles.
+var ponies: PONIES = null
 ## True while the adapter's global Anon-offer watch is armed.
 var _watching := false
 
@@ -76,7 +78,8 @@ func placement_for(runtime: Node) -> POSE_OPTIONS.Placement:
 ## The live placement re-check the Agreement asks for: the chosen option's scene-only rows, with
 ## no frozen capability and no hold exemption. It is a scene check, not a new policy read.
 func pose_placed(runtime: Node, option: POSE_OPTIONS.Option) -> bool:
-	var scene := PONIES.scene_of(runtime) if is_instance_valid(runtime) else null
+	var scene := ponies.scene_of(runtime) \
+		if is_instance_valid(ponies) and is_instance_valid(runtime) else null
 	if scene == null or option == null:
 		return false
 	var verdict: Variant = scene.scene_only_verdict(option.pose, option.source,
@@ -87,8 +90,10 @@ func pose_placed(runtime: Node, option: POSE_OPTIONS.Option) -> bool:
 ## The live readiness of a formed Agreement: its small scene checks with the frozen pose pair.
 ## The press and auto-start call it through `ready_offer()`; it builds no row list.
 func scene_ready(pony: Node, option: POSE_OPTIONS.Option, profile_ok: bool, source_ok: bool) -> bool:
-	var runtime: Variant = PONIES.runtime_for(pony) if is_instance_valid(pony) else null
-	var scene := PONIES.scene_of(runtime) if is_instance_valid(runtime) else null
+	var runtime: Variant = ponies.runtime_for(pony) \
+		if is_instance_valid(ponies) and is_instance_valid(pony) else null
+	var scene := ponies.scene_of(runtime) \
+		if is_instance_valid(ponies) and is_instance_valid(runtime) else null
 	if scene == null or option == null:
 		return false
 	return bool(scene.agreement_ready(option.pose, option.source, option.bed,
@@ -96,7 +101,8 @@ func scene_ready(pony: Node, option: POSE_OPTIONS.Option, profile_ok: bool, sour
 
 
 func hold_for(runtime: Node) -> Node:
-	var presentation := PONIES.presentation_of(runtime) if is_instance_valid(runtime) else null
+	var presentation := ponies.presentation_of(runtime) \
+		if is_instance_valid(ponies) and is_instance_valid(runtime) else null
 	return presentation.hold_handle() if presentation != null else null
 
 
@@ -227,7 +233,7 @@ func on_anon_line(text: String) -> void:
 	if not is_instance_valid(pony):
 		LOG.debug("anon_line skip reason=no_target")
 		return
-	var runtime: Variant = PONIES.runtime_for(pony)
+	var runtime: Variant = ponies.runtime_for(pony) if is_instance_valid(ponies) else null
 	if not is_instance_valid(runtime) or _state_of(runtime) != 0:
 		LOG.debug("anon_line skip reason=runtime_state state=%s", [
 			str(_state_of(runtime)) if is_instance_valid(runtime) else "none"])

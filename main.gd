@@ -83,6 +83,8 @@ var memory: MEMORY
 
 ## The idle act offer and its hint; see docs/offer.md.
 var offer: OFFER
+## The roster: one runtime per pony body, and the attach and prepare hooks.
+var ponies: PONIES
 ## The act frame: the live runtime, the serial floor and the pending body swap.
 var act_owner: ACT_OWNER
 ## Every Debug block button and wheel slot; see `docs/debug.md`.
@@ -92,9 +94,9 @@ var _world: HANDLES = null
 
 
 ## Live act/afterglow context for the game's normal dialogue prompt; the game calls a Node in the
-## group, so the entry joins it and forwards to the RefCounted facade that owns the note.
+## group, so the entry joins it and forwards to the roster that owns the note.
 func prompt_note(pony: String) -> String:
-	return PONIES.prompt_note(pony)
+	return ponies.prompt_note(pony)
 
 
 func _ready() -> void:
@@ -120,15 +122,9 @@ func _ready() -> void:
 	PERF.bind(Callable(SETTINGS.debug_perf, "get_bool"), self)
 	_build_process()
 	_build_world()
-	# The registry's composition handles, assigned once the world root exists and runs wired.
-	PONIES.eligibility = eligibility
-	PONIES.act_gate = act_gate
-	PONIES.act_owner = act_owner
-	PONIES.bind(anatomy, body_change, stock_smack, eligibility, act_gate, estrus, api)
-	# The per-pony registry binds the services above once and builds its runtimes through the
-	# one factory, so no other entry member holds a runtime.
-	PONIES.factory = Callable(self, "_new_runtime")
-	PONIES.bind_settings()
+	# The roster builds its runtimes through the one factory, so no other entry member holds a
+	# runtime. The roster is already wired and attached, so its settings listener is live.
+	ponies.factory = Callable(self, "_new_runtime")
 	# A source run carries a non-zero mtime and a pack 0, which the one log line records.
 	BUILD_STAMP.log_stamp()
 	mods.world_ready.connect(_on_world)
@@ -175,6 +171,7 @@ func _build_world() -> void:
 	audio = AUDIO.new()
 	stock_smack = STOCK_SMACK.new()
 	changelings = CHANGELINGS.new()
+	ponies = PONIES.new()
 	act_owner = ACT_OWNER.new()
 	debug_actions = DEBUG_ACTIONS.new()
 
@@ -182,17 +179,24 @@ func _build_world() -> void:
 	# services, so the runtimes read the same objects the entry wired.
 	_world = _build_record()
 
+	# The roster needs every peer, so it takes the record before the services that read it.
+	ponies.wire(_world)
 	act_owner.wire(offer, stock_smack)
 	act_gate.wire(eligibility)
-	offer.wire(negotiation, privacy, hud, act_owner)
+	offer.wire(negotiation, privacy, hud, act_owner, ponies, eligibility, act_gate)
 	input.wire(offer, act_owner)
-	initiation.wire(eligibility, act_gate, privacy, negotiation, offer)
-	negotiation.wire(eligibility, act_gate, memory, privacy, initiation, offer, act_owner, hud)
+	initiation.wire(eligibility, act_gate, privacy, negotiation, offer, ponies)
+	negotiation.wire(eligibility, act_gate, memory, privacy, initiation, offer, act_owner, hud,
+		ponies)
 	anatomy.wire(eligibility)
 	estrus.wire(anatomy)
-	body_change.wire(anatomy, pantyhose, stock_smack)
+	body_change.wire(anatomy, pantyhose, stock_smack, ponies)
+	pantyhose.wire(anatomy)
+	changelings.wire(ponies, eligibility, body_change, api)
 	stool.wire(act_owner)
-	debug_actions.wire(body_change, initiation, negotiation, anatomy, pantyhose, act_owner, hud)
+	memory.wire(eligibility)
+	debug_actions.wire(body_change, initiation, negotiation, anatomy, pantyhose, act_owner, hud,
+		ponies, eligibility, estrus)
 
 	# `negotiation` attaches before `initiation`: the latter's `_ready` resolves the former's
 	# adapter.
@@ -215,6 +219,7 @@ func _build_world() -> void:
 	_attach(stool, "UnfplapStool")
 	_attach(audio, "UnfplapAudio")
 	_attach(stock_smack, "UnfplapStockSmack")
+	_attach(ponies, "UnfplapPonies")
 	_attach(changelings, "UnfplapChangelings")
 	_attach(debug_actions, "UnfplapDebugActions")
 
@@ -239,6 +244,7 @@ func _build_record() -> HANDLES:
 	world.stool = stool
 	world.audio = audio
 	world.act_owner = act_owner
+	world.ponies = ponies
 	return world
 
 
@@ -299,10 +305,10 @@ func _on_player(body: Node) -> void:
 			service.on_player(body)
 
 
-## Every body the game spawns arrives here; the registry owns the prepare hooks and the
+## Every body the game spawns arrives here; the roster owns the prepare hooks and the
 ## pending-swap adoption, and the factory below is the entry's only runtime construction.
 func _on_pony(pony: Node) -> void:
-	PONIES.attach(pony)
+	ponies.attach(pony)
 
 
 ## The entry's one runtime construction, called once per attached body. The runtime file is the
@@ -320,7 +326,7 @@ func _new_runtime(pony: Node) -> Node:
 ## injection. Every callable it takes is a facade's, so the page never calls back into the entry.
 func _on_settings_page(page: Node) -> void:
 	SETTINGS_UI.inject(page, Callable(debug_actions, "build_settings_block"),
-		Callable(PONIES, "live_character_ids"), Callable(SETTINGS, "profile_participation"),
+		Callable(ponies, "live_character_ids"), Callable(SETTINGS, "profile_participation"),
 		Callable(SETTINGS, "apply_live"), Callable(LOG, "debug"))
 
 
@@ -367,10 +373,12 @@ func _exit_tree() -> void:
 	_shutdown()
 
 
-## The process-only release: the registry goes first, so every runtime is stopped and freed while
+## The process-only release: the roster goes first, so every runtime is stopped and freed while
 ## the services it reads are alive; then the service shutdown runs in reverse list order.
 func _shutdown() -> void:
-	PONIES.shutdown()
+	# The entry's own test replaces the service list and builds no world; production always has it.
+	if is_instance_valid(ponies):
+		ponies.shutdown()
 	for index: int in range(_services.size() - 1, -1, -1):
 		var service: Node = _services[index]
 		if not is_instance_valid(service):

@@ -8,7 +8,6 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const GATE := preload("res://mods/unfplap/scene_gate/service.gd")
 const ACT_GATE := preload("res://mods/unfplap/act_gate/service.gd")
-const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 
 const STATE_IDLE := 0
@@ -186,7 +185,6 @@ func _fixture() -> Dictionary:
 	gate.policy_verdict = Callable(policy, "verdict_for")
 	gate.debug_context = Callable(context, "context")
 	var gate_service := FakeGate.new()
-	PONIES.act_gate = gate_service
 	gate.gate_service = gate_service
 	await physics_frame
 	return {
@@ -213,7 +211,6 @@ func _free(made: Dictionary) -> void:
 	main.free()
 	root.remove_child(bed)
 	bed.free()
-	PONIES.act_gate = null
 
 
 func run() -> void:

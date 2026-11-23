@@ -16,6 +16,7 @@ const LOD_BINDING := preload("res://mods/unfplap/body_change/lod_binding.gd")
 const POLICY := preload("res://mods/unfplap/shared/body_change_policy.gd")
 const RUNTIME_BINDING := preload("res://mods/unfplap/body_change/runtime_binding.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
+const HANDLES := preload("res://mods/unfplap/world/handles.gd")
 const SERVICE := preload("res://mods/unfplap/body_change/service.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const SMACK_BINDING := preload("res://mods/unfplap/body_change/smack_binding.gd")
@@ -381,7 +382,7 @@ func _check_wire() -> void:
 	var host := FakeHost.new()
 	var bare := SERVICE.new()
 	bare.setup()
-	bare.wire(null, null, null)
+	bare.wire(null, null, null, null)
 	var faceless := FakePony.new()
 	faceless.name = "FacelessBody"
 	faceless.identity = {"id": "fluttershy", "display_name": "Fluttershy"}
@@ -392,7 +393,7 @@ func _check_wire() -> void:
 	root.add_child(anatomy)
 	var wired := SERVICE.new()
 	wired.setup()
-	wired.wire(anatomy, null, null)
+	wired.wire(anatomy, null, null, null)
 	var seated := FakePony.new()
 	seated.name = "WiredBody"
 	seated.identity = {"id": "fluttershy", "display_name": "Fluttershy"}
@@ -406,7 +407,7 @@ func _check_wire() -> void:
 	var smack_target := FakeSmack.new()
 	var service := SERVICE.new()
 	service.setup()
-	service.wire(null, garment_target, smack_target)
+	service.wire(null, garment_target, smack_target, null)
 	check(str(LOD_BINDING.new().call("binding_id")) == "lod", "the LOD binding names itself")
 	check(str(GARMENT_BINDING.new().call("binding_id")) == "garments",
 		"the garment binding names itself")
@@ -460,7 +461,9 @@ func _check_wire() -> void:
 ## The runtime binding dispatches through the pony registry and never owns the act: a body
 ## without a runtime is inert, and an unbind is not a teardown.
 func _check_runtime_binding() -> void:
-	PONIES.shutdown()
+	var world := HANDLES.new()
+	var roster := PONIES.new()
+	roster.wire(world)
 	var host := FakeHost.new()
 	host.name = "RuntimeBindingHost"
 	var binding: RefCounted = RUNTIME_BINDING.new()
@@ -471,9 +474,9 @@ func _check_runtime_binding() -> void:
 	body.identity = {"id": "fluttershy", "display_name": "Fluttershy"}
 	var form := BODY_FORM.default_form(body)
 	var runtime := FakeRuntime.new()
-	runtime.name = "FakeRuntime"
-	PONIES.factory = func(_pony_node: Node) -> Node: return runtime
-	PONIES.attach(body)
+	runtime.name = "UnfplapRuntime"
+	roster.factory = func(_pony_node: Node) -> Node: return runtime
+	roster.attach(body)
 	binding.call("bind_body", body, form)
 	check(runtime.journal == ["bind"], "a body with a runtime binds that runtime")
 	check(runtime.last_body == body, "the runtime receives the presented body")
@@ -494,14 +497,15 @@ func _check_runtime_binding() -> void:
 		"a body without a runtime is left alone")
 
 	var second := FakeRuntime.new()
-	second.name = "SecondRuntime"
-	PONIES.factory = func(_pony_node: Node) -> Node: return second
-	PONIES.attach(idle)
+	second.name = "UnfplapRuntime"
+	roster.factory = func(_pony_node: Node) -> Node: return second
+	roster.attach(idle)
 	binding.call("bind_body", idle, form)
-	check(second.journal == ["bind"], "the binding follows the registry's runtime lookup")
+	check(second.journal == ["bind"], "the binding follows the roster's runtime lookup")
 	check(second.last_body == idle, "the second body's runtime is the target")
 
-	PONIES.shutdown()
+	roster.shutdown()
+	roster.free()
 	host.free()
 	runtime.free()
 	second.free()

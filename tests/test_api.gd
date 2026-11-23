@@ -4,7 +4,6 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_api.gd
 
 const API := preload("res://mods/unfplap/api.gd")
-const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const ROWS := preload("res://mods/unfplap/settings/rows.gd")
 const REGISTRY := preload("res://mods/unfplap/registry/service.gd")
@@ -38,8 +37,11 @@ func run() -> void:
 	var main := FakeMain.new()
 	main.name = "FakeMain"
 	main.eligibility = ELIGIBILITY.new()
-	PONIES.eligibility = main.eligibility
 	root.add_child(main)
+	# The API resolves eligibility from the world group by script, not from the entry.
+	main.eligibility.name = "UnfplapEligibility"
+	main.add_child(main.eligibility)
+	main.eligibility.add_to_group("unfplap_world")
 	api = API.new()
 	api.name = "UnfplapApi"
 	root.add_child(api)

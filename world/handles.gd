@@ -30,3 +30,5 @@ var stool: STOOL = null
 var audio: AUDIO = null
 ## The act frame every act module reads; a bare record leaves it null.
 var act_owner: ACT_OWNER = null
+## The roster; a plain Node because the roster holds this record and may not preload it back.
+var ponies: Node = null

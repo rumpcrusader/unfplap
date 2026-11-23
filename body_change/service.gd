@@ -34,6 +34,8 @@ var _revisions: Dictionary = {}
 var _bound: Dictionary = {}
 var _active_by_source: Dictionary = {}
 var _active_by_body: Dictionary = {}
+## The roster the settings pass walks; a missing one applies no tail placement.
+var _ponies: PONIES = null
 
 
 func _ready() -> void:
@@ -51,13 +53,17 @@ func _exit_tree() -> void:
 ## A settings edit can change the re-seat toggle or a saved tail: the handling source applies its
 ## own wrapper once for every live body.
 func apply_settings() -> void:
-	for pony: Variant in PONIES.live_ponies():
+	if not is_instance_valid(_ponies):
+		return
+	for pony: Variant in _ponies.live_ponies():
 		if is_instance_valid(pony):
 			apply_tail_placement(pony)
 
 
-## Builds the built-in binding chain in fan-out order; a missing facade registers none.
-func wire(anatomy: Node, pantyhose: Node, stock_smack: Node) -> void:
+## Takes the facades the chain binds and the roster the settings pass walks; the composition root
+## is the only caller. A missing facade registers none.
+func wire(anatomy: Node, pantyhose: Node, stock_smack: Node, ponies: PONIES) -> void:
+	_ponies = ponies
 	if is_instance_valid(anatomy):
 		var anatomy_binding: ANATOMY_BINDING = ANATOMY_BINDING.new()
 		anatomy_binding.setup(anatomy)

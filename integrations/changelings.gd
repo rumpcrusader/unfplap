@@ -10,6 +10,8 @@ const CHANGELINGS_POLICY := preload("res://mods/unfplap/integrations/changelings
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
+const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
+const BODY_CHANGE_SERVICE := preload("res://mods/unfplap/body_change/service.gd")
 
 const MOD_ID := "changelings"
 const GROUP := "changelings_mod"
@@ -108,6 +110,20 @@ var _late_tail: Dictionary = {}
 var _late_tail_timer: Timer
 ## Pony -> the placement wrapper above her spring chain.
 var _tail_wrappers: Dictionary = {}
+## The World peers this provider reads; the composition root wires them before it attaches.
+var _ponies: PONIES = null
+var _eligibility: ELIGIBILITY = null
+var _body_change_service: BODY_CHANGE_SERVICE = null
+var _api_service: Node = null
+
+
+## Takes the roster, the eligibility rule, the body-change service and the cross-mod API.
+func wire(ponies: PONIES, eligibility: ELIGIBILITY, body_change: BODY_CHANGE_SERVICE,
+		api: Node) -> void:
+	_ponies = ponies
+	_eligibility = eligibility
+	_body_change_service = body_change
+	_api_service = api
 
 
 func setup() -> void:
@@ -654,7 +670,7 @@ func _late_tail_one(pony: Variant) -> void:
 	var root := _tail_root(node)
 	if is_instance_valid(root):
 		_notify_body_ready(node)
-		PONIES.prepare_late(pony)
+		_ponies.prepare_late(pony)
 		_late_tail.erase(pony)
 		return
 	var tries := int(_late_tail.get(pony, 0)) + 1
@@ -682,6 +698,10 @@ func shutdown() -> void:
 	_tail_wrappers.clear()
 	_form_signatures.clear()
 	_form_revisions.clear()
+	_ponies = null
+	_eligibility = null
+	_body_change_service = null
+	_api_service = null
 
 
 func _exit_tree() -> void:
@@ -785,7 +805,7 @@ func _shape_candidates() -> Array[String]:
 	for id: String in SETTINGS.CHARACTER_ORDER:
 		if not id.is_empty() and not out.has(id):
 			out.append(id)
-	for id: String in PONIES.live_character_ids():
+	for id: String in _ponies.live_character_ids():
 		if not id.is_empty() and not out.has(id):
 			out.append(id)
 	return out
@@ -805,7 +825,7 @@ func _all_shape_ids(candidates: Array[String]) -> Array[String]:
 func _is_adult_shape(id: String, candidates: Array[String]) -> bool:
 	if candidates.has(id):
 		return true
-	var eligibility := PONIES.eligibility
+	var eligibility := _eligibility
 	if not is_instance_valid(eligibility):
 		return false
 	return eligibility.eligible_id(id)
@@ -913,7 +933,7 @@ func _clear_change_read() -> void:
 
 
 func _body_change() -> Node:
-	return PONIES.body_change
+	return _body_change_service
 
 
 func _notify_source_changed() -> void:
@@ -935,7 +955,7 @@ func _notify_body_ready(pony: Node) -> void:
 func _prepare_change_body(pony: Node) -> void:
 	if not is_instance_valid(WORLD.world_root()) or not is_instance_valid(pony):
 		return
-	PONIES.prepare_late(pony)
+	_ponies.prepare_late(pony)
 	SETTINGS.apply_live()
 	WORLD.refresh_body_lod(pony)
 
@@ -987,7 +1007,7 @@ func _unregister() -> void:
 
 
 func _api() -> Node:
-	return PONIES.api
+	return _api_service
 
 
 func _mod_active() -> bool:

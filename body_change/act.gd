@@ -63,13 +63,20 @@ var form_hint_debug := false
 var memory: Node = null
 ## The act frame the swap record lives on; the runtime's composition passes it once.
 var act_owner: ACT_OWNER = null
+## The world body-change service the form reads go through; a suite may leave it null.
+var _body_change: BODY_CHANGE_SERVICE = null
+## The roster the watcher asks to adopt a body whose spawn hook was late.
+var _ponies: PONIES = null
 
 
 func _init(act_host: ACT_HOST, memory_in: Node = null,
-		act_owner_in: ACT_OWNER = null) -> void:
+		act_owner_in: ACT_OWNER = null, body_change_in: BODY_CHANGE_SERVICE = null,
+		ponies_in: PONIES = null) -> void:
 	host = act_host
 	memory = memory_in
 	act_owner = act_owner_in
+	_body_change = body_change_in
+	_ponies = ponies_in
 
 
 ## One watcher or suspended-act tick; it only returns the action the runtime applies.
@@ -287,8 +294,8 @@ func request(true_form: bool, shape_id: String, by_player: bool) -> Dictionary:
 	return {"ok": true, "reason": "", "message": "Changing to %s." % label}
 
 
-## The presented body's form, through `PONIES.body_change`; a host without the service (a suite
-## or a lab harness) falls back to the identity's typed default own form.
+## The presented body's form, through the wired body-change service; a host without the service
+## (a suite or a lab harness) falls back to the identity's typed default own form.
 func form() -> BODY_FORM.BodyForm:
 	var owner := service()
 	if owner != null:
@@ -312,10 +319,7 @@ func source() -> BODY_CHANGE_SOURCE:
 func service() -> BODY_CHANGE_SERVICE:
 	if not is_instance_valid(WORLD.world_root()):
 		return null
-	var value: Variant = PONIES.body_change
-	if value is BODY_CHANGE_SERVICE:
-		return value
-	return null
+	return _body_change if is_instance_valid(_body_change) else null
 
 
 ## The active change for one presented body, through the service's typed per-body read.
@@ -411,7 +415,7 @@ func _late_body_pending(swap: BODY_CHANGE) -> bool:
 		return false
 	if elapsed < BODY_SWAP_ADOPT_GRACE_S:
 		return true
-	return PONIES.adopt_pending_body(newcomer)
+	return is_instance_valid(_ponies) and _ponies.adopt_pending_body(newcomer)
 
 
 ## A change her AI starts inside the restore window can free the body under the runtime before

@@ -32,7 +32,8 @@ service facade and no runtime.
 after the services exist, and the same object reaches every runtime. Its fields are fixed, so it
 cannot answer a lookup, and a null field means the same absent peer a suite's bare runtime sees.
 `act_owner` is the record's one act-frame field (`docs/act_owner.md`); the act modules read the
-live runtime through it.
+live runtime through it. `ponies` is the roster (`docs/ponies.md`): a plain `Node` field because the
+roster holds this same record.
 
 ## Ownership
 

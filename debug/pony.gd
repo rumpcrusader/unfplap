@@ -9,7 +9,6 @@ const WORLD := preload("res://mods/unfplap/world/api.gd")
 const BOND_RECORD := preload("res://mods/unfplap/shared/bond_record.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
-const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const ACT_GATE := preload("res://mods/unfplap/act_gate/service.gd")
 
 ## The bond stages the sex-ready write never lowers: an engaged or married mare keeps her stage.
@@ -22,14 +21,15 @@ const TOGETHER_FLOOR_S := 3600.0
 
 ## The values the scene gate's status line prints: the act's own session values, plus the pony,
 ## the world, the relationship and the player body.
-static func context(pony: Node, id: String, act: Dictionary) -> Dictionary:
+static func context(pony: Node, id: String, act: Dictionary,
+		gate: ACT_GATE = null) -> Dictionary:
 	var identity: Variant = pony.get("identity") if is_instance_valid(pony) else null
 	var pony_id := id if not id.is_empty() else PONY_ID.from("", identity)
 	var display := "?"
 	if identity != null:
 		display = str(identity.get("display_name")) \
 			if identity.get("display_name") != null else pony_id
-	var relations: Variant = _relations(pony)
+	var relations: Variant = _relations(pony, gate)
 	var love_name := "?"
 	if is_instance_valid(pony):
 		love_name = WORLD.relationship().love_name(pony, pony_id)
@@ -234,8 +234,7 @@ static func _neutral_mood(host: Node, pony: Node3D, id: String) -> String:
 
 ## The act gate's relationship values for the debug line, or the empty defaults outside a live
 ## service.
-static func _relations(pony: Node) -> Variant:
-	var service: Variant = PONIES.act_gate
+static func _relations(pony: Node, service: ACT_GATE = null) -> Variant:
 	if not is_instance_valid(pony) or not is_instance_valid(service):
 		return ACT_GATE.Relations.new()
 	var verdict: Variant = service.get_verdict(pony, ACT_GATE.Mode.START)

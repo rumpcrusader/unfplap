@@ -61,9 +61,9 @@ Rules:
 ## Facade
 
 `act_gate/service.gd` extends `shared/service.gd`, the world-service base. The entry creates one
-instance per world after `eligibility`, calls `wire()`, and binds the gate into
-`PONIES`, `initiation`, `negotiation`, `scene_gate` and `debug`. The types are declared in the
-facade, so a consumer names them `ACT_GATE.Verdict`, `ACT_GATE.Row`, and so on.
+instance per world after `eligibility`, calls `wire()`, and binds the gate into the World record,
+`initiation`, `negotiation`, `scene_gate` and `debug`. The types are declared in the facade, so a
+consumer names them `ACT_GATE.Verdict`, `ACT_GATE.Row`, and so on.
 
 `ready(pony)` is the act key: the identity act target plus `relationship_ok`. `get_verdict()` is the
 typed truth table; the mode is recorded and every field is always computed. `consent()` answers one

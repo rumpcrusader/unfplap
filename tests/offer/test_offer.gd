@@ -371,7 +371,7 @@ func _check_lying_act_target() -> void:
 	check(service.current().pose == CATALOG.MISSIONARY
 		and service.current().source == "already_lying",
 		"the lying offer names the missionary source")
-	var targets: Targets = PONIES.eligibility
+	var targets: Targets = made["eligibility"]
 	targets.allowed = []
 	service.reconsider()
 	check(service.current() == null, "a lying non-target is not offered")
@@ -495,9 +495,7 @@ func _fixture(with_row := true) -> Dictionary:
 	game.mares = [near, far, stallion, outside]
 	var targets := Targets.new()
 	targets.allowed = [near, far, outside]
-	PONIES.eligibility = targets
-	PONIES.act_gate = FAKE_GATE.new()
-	PONIES.stock_smack = null
+	var gate := FAKE_GATE.new()
 	var runtime_nodes: Array[Node] = []
 	var near_runtime: FakeRuntime = null
 	for mare: FakeMare in [near, far, stallion, outside]:
@@ -523,19 +521,22 @@ func _fixture(with_row := true) -> Dictionary:
 	var negotiation := FakeNegotiation.new()
 	var owner := ACT_OWNER.new()
 	owner.wire(null, null)
+	var roster := PONIES.new()
+	roster.wire(HANDLES.new())
 	var service := OFFER.new()
 	service.name = "UnfplapOffer"
-	service.wire(negotiation, null, hud, owner)
+	service.wire(negotiation, null, hud, owner, roster, targets, gate)
 	root.add_child(game)
 	root.add_child(hud)
 	root.add_child(negotiation)
+	root.add_child(roster)
 	root.add_child(service)
 	WORLD.bind_world(game)
 	WORLD.bind_player(player)
 	return {"service": service, "game": game, "player": player, "hud": hud,
 		"negotiation": negotiation, "near": near, "far": far, "stallion": stallion,
 		"near_runtime": near_runtime, "row": row, "holder": holder, "owner": owner,
-		"runtimes": runtime_nodes}
+		"runtimes": runtime_nodes, "ponies": roster, "eligibility": targets, "gate": gate}
 
 
 func _mare(mare_name: String, at: Vector3) -> FakeMare:
@@ -549,11 +550,12 @@ func _mare(mare_name: String, at: Vector3) -> FakeMare:
 func _free(made: Dictionary) -> void:
 	var service: Node = made["service"]
 	service.on_world_closed()
-	PONIES.stock_smack = null
 	(made["owner"] as ACT_OWNER).clear_active(made["near_runtime"])
 	(made["owner"] as ACT_OWNER).free()
-	PONIES.eligibility = null
-	PONIES.act_gate = null
+	var roster: PONIES = made["ponies"]
+	roster.shutdown()
+	root.remove_child(roster)
+	roster.free()
 	WORLD.unbind()
 	var nodes: Array[Node] = [made["negotiation"], made["hud"], made["player"], made["game"],
 		made["far"], made["stallion"], made["near"]]

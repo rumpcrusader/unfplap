@@ -2,7 +2,6 @@ extends "res://mods/unfplap/shared/service.gd"
 ## Pantyhose & Panties world adapter: keeps worn panties and pantyhose clear of the optional
 ## anatomy, lets the cloth follow the rump wobble and starts each act undressed.
 
-const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
@@ -44,6 +43,8 @@ class Applied:
 
 ## Test seam for the pack-active check. Production sets it in `setup()`.
 var mod_active := Callable()
+## The anatomy facade the cloth follows; the composition root wires it before the first world.
+var _anatomy_service: ANATOMY = null
 
 var _game: Node
 var _discover_clock := 0.0
@@ -88,6 +89,11 @@ func setup() -> void:
 	CHANGE.on_changed(Callable(self, "apply_live_settings"))
 
 
+## Takes the anatomy facade; the composition root is the only caller.
+func wire(anatomy: ANATOMY) -> void:
+	_anatomy_service = anatomy
+
+
 ## Called by the entry when the world is ready.
 func on_world(host: Node) -> void:
 	_game = host
@@ -115,6 +121,7 @@ func on_world_closed() -> void:
 func shutdown() -> void:
 	CHANGE.off_changed(Callable(self, "apply_live_settings"))
 	on_world_closed()
+	_anatomy_service = null
 
 
 func _exit_tree() -> void:
@@ -714,7 +721,7 @@ func _hull_mesh(hull: Variant) -> ArrayMesh:
 # --------------------------------------------------------------------------- host
 
 func _anatomy() -> ANATOMY:
-	return PONIES.anatomy as ANATOMY
+	return _anatomy_service
 
 
 func _mod_active() -> bool:

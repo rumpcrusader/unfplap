@@ -115,6 +115,7 @@ func _free_fixture(made: Dictionary) -> void:
 	hair.free()
 	root.remove_child(pony)
 	pony.free()
+	session.free()
 
 
 ## The pose-start step clears the rig cache, the tail lay and the bed frame; the pose node, the

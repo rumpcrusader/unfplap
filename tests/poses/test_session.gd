@@ -132,10 +132,22 @@ func run() -> void:
 	finish()
 
 
+## The suite's sessions outlive their checks so a check can read one last state; free them here.
+func teardown() -> void:
+	for session: Node in _sessions:
+		session.free()
+	_sessions.clear()
+
+
+## Every session `_session()` builds, freed once in `teardown()` after the checks.
+var _sessions: Array[Node] = []
+
+
 func _session(pose: String) -> Dictionary:
 	var pony := FakePony.new()
 	root.add_child(pony)
 	var session: SESSION = SESSION.new()
+	_sessions.append(session)
 	session.bind(null, pony)
 	session.id = "twilight_sparkle"
 	# A start identity for the diagnostics and bed-frame checks; `begin()` still fills the view.

@@ -965,6 +965,9 @@ func _check_binding() -> void:
 	WORLD.bind_world(game)
 	WORLD.bind_player(null)
 	check(WORLD.world_root() == game and WORLD.player_rig() == null, "the player leaves on its own")
+	for mare: Node in list:
+		mare.free()
+	player.free()
 	game.queue_free()
 	WORLD.unbind()
 
@@ -1224,6 +1227,8 @@ func _check_accessors() -> void:
 	pony.queue_free()
 	bare.queue_free()
 	bed.queue_free()
+	seat.free()
+	boop.free()
 	save_menu.queue_free()
 	inventory.queue_free()
 	map_inventory.queue_free()
@@ -1436,6 +1441,9 @@ func _check_menu_and_headset() -> void:
 	game.queue_free()
 	inventory.queue_free()
 	population.queue_free()
+	save_menu.free()
+	case.free()
+	presentation.free()
 	WORLD.unbind()
 
 
@@ -1524,10 +1532,12 @@ func _check_desktop() -> void:
 	var node := Node.new()
 	root.add_child(node)
 	node.add_to_group("desktop_interactions")
-	WORLD.bind_world(FakeGame.new())
+	var game := FakeGame.new()
+	WORLD.bind_world(game)
 	check(WORLD.desktop() == node, "the desktop interactions node is found by group")
 	WORLD.unbind()
 	node.queue_free()
+	game.free()
 
 
 ## The one read that needs a live physics space: a mattress probe under a resting body.
@@ -1546,7 +1556,8 @@ func _check_bed_under() -> void:
 	bed.global_position = Vector3(0.0, 0.5, 0.0)
 	var player := FakePlayer.new()
 	root.add_child(player)
-	WORLD.bind_world(BareGame.new())
+	var game := BareGame.new()
+	WORLD.bind_world(game)
 	WORLD.bind_player(player)
 	await physics_frame
 	await physics_frame
@@ -1555,6 +1566,7 @@ func _check_bed_under() -> void:
 	check(WORLD.bed_under(Vector3(40.0, 0.6, 0.0)) == null, "the probe under nothing finds no bed")
 	bed.queue_free()
 	player.queue_free()
+	game.free()
 	WORLD.unbind()
 
 
@@ -2384,6 +2396,7 @@ func _check_director_and_story() -> void:
 
 	context.queue_free()
 	impressions.queue_free()
+	director.config.free()
 	director.queue_free()
 	tts.queue_free()
 	vocal.queue_free()

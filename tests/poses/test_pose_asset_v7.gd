@@ -313,6 +313,7 @@ func _check_resolution() -> void:
 	var reference: Dictionary = shipped.get("reference")
 	var ref_config: Dictionary = reference.get("config", {})
 	check(ref_config.size() == 6, "the reference config has the six keys")
+	service.free()
 
 
 ## The version 6 migration fixture: it loads, applies, and is refused for a ground view.

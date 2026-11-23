@@ -63,6 +63,8 @@ func _check_style() -> void:
 		"the prompt cap matches the game icon height")
 	var capped_text := capped.get_child(1) as Label
 	check(capped_text != null and capped_text.text == "Make love", "the capped row keeps its words")
+	for node: Node in [cap, wide_cap, icon, row, capped]:
+		node.free()
 
 
 func _check_form_hint() -> void:

@@ -108,6 +108,7 @@ func _check_follow() -> void:
 	var held := offset_of(driver)
 	driver.call("tick", 1.0, view, 0.0, frame, node)
 	check(near_v(offset_of(driver), held), "a settled follow does not overshoot")
+	node.free()
 
 
 func _check_press() -> void:
@@ -127,8 +128,11 @@ func _check_press() -> void:
 	check(pressed.length() > base.length(), "the press adds a live correction")
 	var idle: Variant = _make(points)
 	idle.call("begin", _view(), frame)
-	idle.call("tick", 0.5, _view(), 0.0, frame, FakePoseNode.new())
+	var idle_node := FakePoseNode.new()
+	idle.call("tick", 0.5, _view(), 0.0, frame, idle_node)
 	check(offset_of(idle).x < pressed.x, "zero depth does not press")
+	node.free()
+	idle_node.free()
 
 
 func _check_moving_bed() -> void:
@@ -153,6 +157,7 @@ func _check_moving_bed() -> void:
 		"the written offset carries with the bed's basis")
 	check(near_v(view.get("contact_target") as Vector3, points.mouth),
 		"the target follows the moved mouth")
+	node.free()
 
 
 func _check_missing_provider() -> void:
@@ -180,6 +185,7 @@ func _check_missing_provider() -> void:
 	check(not near_v(offset_of(driver), held), "a valid provider resumes the follow")
 	points.mouth = Vector3.INF
 	driver.call("tick", 0.2, view, 0.5, frame, node)
+	node.free()
 
 
 func _check_restore() -> void:
@@ -202,3 +208,4 @@ func _check_restore() -> void:
 	check(near_v(offset_of(driver), Vector3.ZERO), "restore clears the offset")
 	driver.call("restore", view, node)
 	check(node.contact_offset.is_zero_approx(), "a second restore is a no-op")
+	node.free()

@@ -151,6 +151,10 @@ func run() -> void:
 		"the final release keeps every extra owner cleared")
 	check(not session._started and session.view().id == "",
 		"the final release leaves the session idle")
+	fake_body.free()
+	body.free()
+	hair.free()
+	session.free()
 
 	if failures == 0:
 		print("MODIFIER_PROFILE_PASS")

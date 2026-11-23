@@ -626,6 +626,8 @@ func run() -> void:
 		"a third warm tick does no work")
 	standing_path.call("reset")
 	head_root.free()
+	head_pony.free()
+	body_pony.free()
 
 	# The pose-free engine: the same candidate gives the same frame through different paths, the
 	# sphere projects the intended oval point, and contact smoothing never delays the intended
@@ -681,6 +683,7 @@ func run() -> void:
 		"contact smoothing eases the sphere snap correction")
 	engine.call("reset")
 	engine_root.free()
+	engine_pony.free()
 
 	# Standing path: the flank centre and oval axes are pose geometry, supplied to the engine.
 	var flank_root := Node3D.new()

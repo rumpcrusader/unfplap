@@ -46,6 +46,12 @@ func _frame() -> Dictionary:
 	return {"session": session, "host": host, "context": context}
 
 
+## Release the frame's one Node: its context's gate.
+func _free_frame(made: Dictionary) -> void:
+	var context: RefCounted = made["context"]
+	(context.gate as Node).free()
+
+
 ## The hole command's one gate: the pose allows it, the act gate owns consent.
 class FakePose extends POSE_SESSION:
 	func request_command(_id: String) -> bool:
@@ -190,6 +196,7 @@ func run() -> void:
 	orphan.free()
 
 	_check_hole_command()
+	_free_frame(made)
 	finish()
 
 
@@ -231,5 +238,7 @@ func _check_hole_command() -> void:
 	root.remove_child(hud)
 	hud.free()
 	gate.free()
+	context.pose.free()
 	context.pose = null
 	input = null
+	_free_frame(made)

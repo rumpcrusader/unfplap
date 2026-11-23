@@ -286,6 +286,11 @@ func run() -> void:
 
 	pony.add_child(nav)
 	await _check_presentation_face(presentation, pony, facts, body, expressions)
+	facts.pony = null
+	boop.free()
+	secondary.free()
+	eye_motion.free()
+	main.eligibility.free()
 	root.remove_child(body)
 	body.free()
 

@@ -367,6 +367,8 @@ func _check_toast_line() -> void:
 	check(label != null and label.visible, "the toast shows the moment it is set")
 	check(label != null and label.text == "Find a footstool in a house.",
 		"the toast carries the caller's line")
+	# A SceneTreeTimer lives until it fires and cannot be freed from a suite: this one and the
+	# base's watchdog are the suite's engine-owned residue at exit.
 	await create_timer(0.25).timeout
 	check(label != null and not label.visible, "the toast hides when its duration runs out")
 	root.remove_child(hud)

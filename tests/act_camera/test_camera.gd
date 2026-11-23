@@ -256,6 +256,24 @@ func _fixture() -> Dictionary:
 	}
 
 
+## Release a `_fixture()` scene: the three services, then the player rig and the game.
+func _free_fixture(made: Dictionary) -> void:
+	(made["camera"] as Node).free()
+	(made["hands"] as Node).free()
+	(made["kiss"] as Node).free()
+	var main: FakeMain = made["main"]
+	var player: FakePlayer = made["player"]
+	var game: FakeGame = made["game"]
+	WORLD.unbind()
+	root.remove_child(game)
+	game.free()
+	main.remove_child(player)
+	main.remove_child(main.view)
+	player.free()
+	(main.view as Camera3D).free()
+	main.free()
+
+
 ## Fill the pose read model the camera reads instead of the old raw facts.
 func _pose(facts: RefCounted, family: String) -> void:
 	var view: RefCounted = VIEW.new()
@@ -334,6 +352,7 @@ func _check_session() -> void:
 	check(not bool(camera.call("begin_act", "standing", true, false)),
 		"a player-pony act takes no camera")
 	camera.call("finish_act")
+	_free_fixture(made)
 
 
 func _check_shot() -> void:
@@ -371,6 +390,7 @@ func _check_shot() -> void:
 	camera.lean_view_forward = 1.0
 	camera.lean_sway = 0.5
 	check(near(camera.call("shot_lean_forward"), 1.0), "the shot lean clamps at one")
+	_free_fixture(made)
 
 
 ## The missionary view is the act body's own eye, with no authored shot left to pick.
@@ -525,7 +545,7 @@ func _eye_fixture() -> Dictionary:
 	var camera: RefCounted = CAMERA_VIEW.new(facts)
 	camera.call("mount")
 	return {
-		"camera": camera, "facts": facts, "body": body, "pony": pony,
+		"camera": camera, "facts": facts, "body": body, "pony": pony, "kiss": kiss,
 		"main": main, "game": game, "player": player,
 	}
 
@@ -536,6 +556,7 @@ func _free_eye_fixture(made: Dictionary) -> void:
 	var pony: FakePony = made["pony"]
 	var game: FakeGame = made["game"]
 	var body: FakeActBody = made["body"]
+	(made["kiss"] as Node).free()
 	WORLD.unbind()
 	root.remove_child(pony)
 	pony.free()
@@ -634,6 +655,7 @@ func _check_lean() -> void:
 	check(hands.calls.has("reset") and kiss.calls.has("reset"),
 		"the lean reset drops the hands and the kiss")
 	check(near(camera.lean_forward, 0.0), "the lean reset returns to rest")
+	_free_fixture(made)
 
 
 ## Oral locks the body: no lean, no Q/E reach and no F lean kiss, while the caress keeps running.
@@ -676,6 +698,7 @@ func _check_oral_lean() -> void:
 	check(near(camera.lean_forward, 0.0) and near(camera.lean_side, 0.0)
 		and near(camera.lean_view_forward, 0.0) and near(camera.lean_view_side, 0.0),
 		"oral settles the lean at rest")
+	_free_fixture(made)
 
 
 ## A pose change retargets the shot family and retires the old lean action, while the camera session
@@ -702,6 +725,7 @@ func _check_retarget() -> void:
 	check(camera.lean_action_kind == "reach", "a steady repeat does not retarget again")
 	check(not is_same(facts.pose_view, view) and str(camera._hook_family) == "standing",
 		"the hook follows the live view")
+	_free_fixture(made)
 
 
 ## Her live rest head line is read relative to the player root, from the global rest pose. The
@@ -752,11 +776,7 @@ func _check_eye_line() -> void:
 
 	root.remove_child(pony)
 	pony.free()
-	main.remove_child(player)
-	main.remove_child(main.view)
-	player.free()
-	(main.view as Camera3D).free()
-	main.free()
+	_free_fixture(made)
 
 
 ## A princess body's entrance sits higher or lower and further back than the mare's, and the
@@ -823,6 +843,7 @@ func _check_free_look() -> void:
 	camera.call("tick_free_look")
 	check(near(camera.free_look_yaw, 0.0) and near(camera.free_look_pitch, 0.0),
 		"switching free look resets the rotation")
+	_free_fixture(made)
 
 
 func _check_motion() -> void:
@@ -847,6 +868,7 @@ func _check_motion() -> void:
 	_pose(facts, "standing")
 	camera.call("apply_motion")
 	check(view.calls.has("tick"), "standing dispatches the player-camera view")
+	_free_fixture(made)
 
 
 ## The shipped standing config with the test overrides, so the camera reads the same complete
@@ -886,7 +908,7 @@ func _check_standing_shot_offsets() -> void:
 	check(near(view.position.y, base.y + 0.02),
 		"the thrust bob moves the camera vertically")
 	check(near(view.position.x, base.x), "no side lean keeps the camera on its line")
-	main.queue_free()
+	_free_fixture(made)
 
 
 ## The standing camera re-reads the view's config only on a settings-group or pose-id change, so the
@@ -978,6 +1000,7 @@ func _check_standing_cache() -> void:
 		"the first wait stays armed until the pose config exists")
 	early_pony.free()
 	early_secondary.free()
+	early_kiss.free()
 
 
 func _check_neck() -> void:
@@ -997,15 +1020,9 @@ func _check_neck() -> void:
 	(made["facts"] as Variant).pony = pony
 	var midpoint: Vector3 = camera.call("neck_midpoint")
 	check(near(midpoint.y, 1.1), "the neck point is the midpoint of both neck bones")
-	var main := made["main"] as FakeMain
-	var player := made["player"] as FakePlayer
-	main.remove_child(player)
-	player.free()
-	main.remove_child(main.view)
-	(main.view as Camera3D).free()
-	main.free()
 	root.remove_child(pony)
 	pony.free()
+	_free_fixture(made)
 
 
 ## Every accessor the view reads: the live answer, and the typed zero when the member is gone.
@@ -1139,7 +1156,8 @@ func _check_view_writes() -> void:
 	facts.look_pitch = 0.1
 	facts.player_eye_height = 1.7
 	facts.presentation_config = {"camera_pitch_deg": 0.0, "glance_back_speed": 1.0}
-	facts.kiss = func() -> Variant: return FakeKiss.new()
+	var no_kiss := FakeKiss.new()
+	facts.kiss = func() -> Variant: return no_kiss
 	facts.pose = pose
 	facts.set_head_back = func(value: float) -> void: pose.head_back = value
 	var pose_view: RefCounted = VIEW.new()
@@ -1238,6 +1256,7 @@ func _check_view_writes() -> void:
 	main.free()
 	root.remove_child(game)
 	game.free()
+	no_kiss.free()
 
 
 ## The camera's rendered look write lands on the typed pose node: the standing look goes to the
@@ -1260,3 +1279,4 @@ func _check_look_target() -> void:
 	check(not pose.look_point.is_finite(),
 		"the bed gaze with no anatomy callback stays infinite")
 	pose.free()
+	_free_fixture(made)

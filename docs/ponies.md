@@ -36,7 +36,7 @@ that read.
 | `apply_live_settings()` | the live settings pass over every runtime, not only the act's |
 | `prompt_note(id)` | the live act/afterglow note and the cycle line for one stable id |
 | `live_character_ids()` / `installed_character_ids()` | the off-roster mares the Characters tab lists |
-| `on_world` / `on_world_closed` | the world enter and the world close |
+| `on_world` / `on_world_closed` | no bind on the enter, because the live set is the runtime group; the close ends the live act and frees the act owner's frame |
 | `shutdown()` | process exit: close the act, stop and free every runtime, drop the record and the factory |
 
 The roster preloads no runtime: the entry owns that file and sets `factory`. Every call into a

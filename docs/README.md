@@ -45,7 +45,7 @@ block; its `_compose()` constructs and binds them once per pony and attaches the
 
 | Service | Facade | Contract | Tests | Scope |
 |---|---|---|---|---|
-| World reads | `world/api.gd`, `world/game.gd` | `docs/world.md` | `tests/world/` | `world` |
+| World reads | `world/api.gd` | `docs/world.md` | `tests/world/` | `world` |
 | Pony runtimes | `ponies/service.gd` | `docs/ponies.md` | `tests/ponies/` | `world` |
 | Act frame | `act_owner/service.gd` | `docs/act_owner.md` | `tests/act_owner/` | `world` |
 | Identity eligibility | `eligibility/service.gd` | `docs/eligibility.md` | `tests/eligibility/` | `world` |
@@ -66,7 +66,7 @@ block; its `_compose()` constructs and binds them once per pony and attaches the
 | Act dialogue and prompt notes | `dialogue/service.gd` | `docs/dialogue.md` | `tests/dialogue/` | `pony` |
 | Readiness, strength, auto | `readiness/service.gd` | `docs/readiness.md` | `tests/readiness/` | `pony` |
 | Poses and skeleton | `poses/service.gd` | `docs/poses.md` | `tests/poses/` | `pony` |
-| Act camera and live view | `camera/service.gd`, `camera/view.gd` | `docs/camera.md` | `tests/act_camera/` | `pony` |
+| Act camera and live view | `camera/service.gd` | `docs/camera.md` | `tests/act_camera/` | `pony` |
 | Kiss | `kiss/service.gd` | `docs/kiss.md` | `tests/act_camera/`, `tests/face/`, `tests/hands/` | `pony` |
 | Act summary | `summary/service.gd` | `docs/summary.md` | `tests/summary/` | `pony` |
 | Afterglow | `afterglow/service.gd` | `docs/afterglow.md` | `tests/afterglow/` | `pony` |
@@ -85,7 +85,11 @@ block; its `_compose()` constructs and binds them once per pony and attaches the
 The facade header declares the service scope; each contract owns the service's responsibility and
 boundary. A facade is internal API; the only stable external surface is `docs/api.md`.
 
-## Shared modules and read models
+## Shared modules and public service modules
+
+A service-directory file is listed here only when another service or an orchestrator may preload it
+(the public list in `scripts/checks/graph.py`, or the runtime's own); a service-private module stays
+with its service's contract.
 
 | Module | Path | Contract | Tests |
 |---|---|---|---|
@@ -128,6 +132,8 @@ boundary. A facade is internal API; the only stable external surface is `docs/ap
 | Bond record | `shared/bond_record.gd` | `docs/world.md` | `tests/world/`, `tests/test_debug_pony.gd` |
 | VR touch bridge | `shared/touch_bridge.gd` | `docs/world.md` | `tests/test_vr_act.gd` |
 | Dock fit | `shared/dock_fit.gd` | `docs/world.md` | `tests/anatomy/`, `tests/world/` |
+| Body-change provider base | `body_change/source.gd` | `docs/body_change.md` | `tests/body_change/`, `tests/integrations/` |
+| Per-pony integration adapter | `integrations/act.gd` | `docs/integrations.md` | `tests/integrations/` |
 | World handles | `world/handles.gd` | `docs/world.md` | `tests/act/` |
 
 Shared modules are not services. Pure modules have no scene, lifecycle or service dependency. A

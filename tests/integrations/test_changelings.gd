@@ -159,7 +159,7 @@ func run() -> void:
 	PONIES.body_change = recorder
 	PONIES.eligibility = ELIGIBILITY.new()
 	var api := API.new()
-	api.name = "UnfplapAPI"
+	api.name = "UnfplapApi"
 	root.add_child(api)
 	PONIES.api = api
 	var gate := Gate.new()

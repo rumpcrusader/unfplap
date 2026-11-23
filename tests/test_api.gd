@@ -41,7 +41,7 @@ func run() -> void:
 	PONIES.eligibility = main.eligibility
 	root.add_child(main)
 	api = API.new()
-	api.name = "UnfplapAPI"
+	api.name = "UnfplapApi"
 	root.add_child(api)
 	owner = Node.new()
 	owner.name = "TestProvider"

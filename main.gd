@@ -184,7 +184,7 @@ func _build_services() -> void:
 	changelings = _add(CHANGELINGS.new(), "UnfplapChangelings")
 	changelings.setup()
 	body_change.register_source(changelings)
-	api = _add_node(API.new(), "UnfplapAPI")
+	api = _add_node(API.new(), "UnfplapApi")
 	# The debug actions run against the services above, so they are built last. They read the live
 	# act through the facades themselves; the entry hands them only the services they act through.
 	debug_actions = _add(DEBUG_ACTIONS.new(), "UnfplapDebugActions")

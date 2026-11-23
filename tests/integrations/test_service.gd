@@ -335,47 +335,47 @@ func _check_runtime_beat_hold() -> void:
 	var scene := _runtime_beat()
 	var runtime: Node = scene["runtime"]
 	var beat: Timer = scene["beat"]
-	runtime._bundle.hold.hold_beat("same")
-	runtime._bundle.hold.hold_beat("same")
-	runtime._bundle.hold.release_beat("same")
+	runtime.act.context.hold.hold_beat("same")
+	runtime.act.context.hold.hold_beat("same")
+	runtime.act.context.hold.release_beat("same")
 	check(not beat.paused, "a repeated owner releases once")
 	_free_runtime_beat(scene)
 
 	scene = _runtime_beat(true)
 	runtime = scene["runtime"]
 	beat = scene["beat"]
-	runtime._bundle.hold.hold_beat("first")
-	runtime._bundle.hold.release_beat("first")
+	runtime.act.context.hold.hold_beat("first")
+	runtime.act.context.hold.release_beat("first")
 	check(beat.paused, "an already-paused Beat stays paused")
 	_free_runtime_beat(scene)
 
 	scene = _runtime_beat()
 	runtime = scene["runtime"]
 	beat = scene["beat"]
-	runtime._bundle.hold.hold_beat("first")
-	runtime._bundle.hold.hold_beat("second")
-	runtime._bundle.hold.release_beat("first")
+	runtime.act.context.hold.hold_beat("first")
+	runtime.act.context.hold.hold_beat("second")
+	runtime.act.context.hold.release_beat("first")
 	check(beat.paused, "one remaining owner keeps the Beat paused")
-	runtime._bundle.hold.release_beat("second")
+	runtime.act.context.hold.release_beat("second")
 	check(not beat.paused, "the last release restores the Beat")
 	_free_runtime_beat(scene)
 
 	scene = _runtime_beat()
 	runtime = scene["runtime"]
 	beat = scene["beat"]
-	runtime._bundle.hold.hold_beat("first")
-	runtime._bundle.hold.hold_beat("second")
-	runtime._bundle.hold.release_all_beats()
+	runtime.act.context.hold.hold_beat("first")
+	runtime.act.context.hold.hold_beat("second")
+	runtime.act.context.hold.release_all_beats()
 	check(not beat.paused, "act teardown restores the Beat even with owners left")
 	_free_runtime_beat(scene)
 
 	scene = _runtime_beat(false, false)
 	runtime = scene["runtime"]
-	runtime._bundle.hold.hold_beat("first")
-	runtime._bundle.hold.release_beat("first")
-	check((runtime._bundle.hold._beat_holders as Array).is_empty(),
+	runtime.act.context.hold.hold_beat("first")
+	runtime.act.context.hold.release_beat("first")
+	check((runtime.act.context.hold._beat_holders as Array).is_empty(),
 		"a scene without a Beat releases the hold without an owner left")
-	check(runtime._bundle.hold._beat == null,
+	check(runtime.act.context.hold._beat == null,
 		"a scene without a Beat leaves no resolved timer")
 	_free_runtime_beat(scene)
 

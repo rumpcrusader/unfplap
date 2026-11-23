@@ -254,7 +254,7 @@ func _fixture() -> Dictionary:
 	var pose := FakePose.new()
 	var audio := FakeAudio.new()
 	var dialogue := FakeDialogue.new()
-	dialogue.facts = runtime._bundle.facts
+	dialogue.facts = runtime.act.context.facts
 	var act_camera := FakeCamera.new()
 	var kiss := FakeKiss.new()
 	runtime.pony = pony
@@ -273,21 +273,21 @@ func _fixture() -> Dictionary:
 		"warmth": "normal",
 	})
 	runtime.act.snapshot_settings()
-	runtime._bundle.reactions = reactions
-	runtime._bundle.wings = wings
-	runtime._bundle.pose = pose
-	pose.facts = runtime._bundle.facts
-	runtime._bundle.audio = audio
-	runtime._bundle.dialogue = dialogue
-	runtime._bundle.camera = act_camera
-	runtime._bundle.kiss = kiss
-	runtime._bundle.context.reactions = reactions
-	runtime._bundle.context.wings = wings
-	runtime._bundle.context.pose = pose
-	runtime._bundle.context.camera = act_camera
-	runtime._bundle.context.audio = audio
-	runtime._bundle.context.dialogue = dialogue
-	runtime._bundle.context.anatomy = presentation
+	runtime.act.context.reactions = reactions
+	runtime.act.context.wings = wings
+	runtime.act.context.pose = pose
+	pose.facts = runtime.act.context.facts
+	runtime.act.context.audio = audio
+	runtime.act.context.dialogue = dialogue
+	runtime.act.context.camera = act_camera
+	runtime.act.context.kiss = kiss
+	runtime.act.context.reactions = reactions
+	runtime.act.context.wings = wings
+	runtime.act.context.pose = pose
+	runtime.act.context.camera = act_camera
+	runtime.act.context.audio = audio
+	runtime.act.context.dialogue = dialogue
+	runtime.act.context.anatomy = presentation
 	runtime.act.reset_thrust_state()
 	root.add_child(main)
 	WORLD.bind_world(main)
@@ -344,8 +344,8 @@ func run() -> void:
 	view.contact_kind = "opening"
 	pose_facts.pose_view = view
 	pose.facts = pose_facts
-	runtime._bundle.facts.pose_view = view
-	runtime._bundle.impact.impact(_impact())
+	runtime.act.context.facts.pose_view = view
+	runtime.act.context.impact.impact(_impact())
 	check(audio.impacts.size() == 1 and bool(audio.impacts[0]["plap"]),
 		"a regular impact keeps the plap")
 	check(reactions.thrusts == 1 and reactions.tails == 1,
@@ -357,7 +357,7 @@ func run() -> void:
 
 	# The mouth contact keeps the reactions, drops the plap and skips the rump/tail jiggle.
 	view.contact_kind = "mouth"
-	runtime._bundle.impact.impact(_impact())
+	runtime.act.context.impact.impact(_impact())
 	check(audio.impacts.size() == 2 and not bool(audio.impacts[1]["plap"]),
 		"an oral impact drops the plap")
 	check(reactions.thrusts == 1 and reactions.tails == 1,
@@ -373,7 +373,7 @@ func run() -> void:
 	director.state = "speaking"
 	director._current = "rarity"
 	pony.speaking = true
-	runtime._bundle.phases.oral_speech_stop()
+	runtime.act.ticker.phases.oral_speech_stop()
 	check(dialogue.ends.size() == 1 and not bool(dialogue.ends[0][1]),
 		"the speech stop cancels her act line without letting it finish")
 	check(director.interrupts == 1, "the speech stop interrupts her own director turn")
@@ -395,12 +395,12 @@ func run() -> void:
 	# The soft kiss cue is one base-game soft kiss; the audio facade owns the cue and its level
 	# (`test_audio.gd` covers the stock volume and the soft variant).
 	boop.kisses = 0
-	runtime._bundle.audio.oral_kiss()
+	runtime.act.context.audio.oral_kiss()
 	check(audio.oral_kisses == 1, "the soft kiss reaches the audio facade")
 
 	# Her climax line is skipped while the mouth contact is live, and returns once released.
 	dialogue.reaction_calls = 0
-	runtime._bundle.readiness.pony_climaxes = 1
+	runtime.act.context.readiness.pony_climaxes = 1
 	runtime.act.view.climax_line(runtime.act)
 	check(dialogue.reaction_calls == 0, "no climax line is queued during the mouth contact")
 	view.contact_kind = "opening"
@@ -409,11 +409,11 @@ func run() -> void:
 
 	# Both withdrawal slides still fire: the mouth contact keeps the slide.
 	view.contact_kind = "mouth"
-	runtime._bundle.impact.move(-0.4, 0.1)
+	runtime.act.context.impact.move(-0.4, 0.1)
 	var oral_withdraws := audio.withdraws
 	check(oral_withdraws >= 1, "the withdrawal slide still fires during oral")
 	view.contact_kind = "opening"
-	runtime._bundle.impact.move(0.4, 0.2)
+	runtime.act.context.impact.move(0.4, 0.2)
 	check(audio.withdraws > oral_withdraws, "the regular withdrawal slide is unchanged")
 
 	# The bed face-sit contact uses the same quiet branch: no plap, no rump/tail jiggle, no
@@ -423,7 +423,7 @@ func run() -> void:
 	var face_wings := wings.thrusts
 	var face_vocal := audio.vocals
 	view.contact_kind = "face"
-	runtime._bundle.impact.impact(_impact())
+	runtime.act.context.impact.impact(_impact())
 	check(audio.impacts.size() == 3 and not bool(audio.impacts[2]["plap"]),
 		"a face-sit impact drops the plap")
 	check(reactions.thrusts == face_thrusts and reactions.tails == face_tails,
@@ -431,10 +431,10 @@ func run() -> void:
 	check(wings.thrusts == face_wings + 1 and audio.vocals == face_vocal + 1,
 		"a face-sit impact keeps the wings and the vocal")
 	var face_withdraws := audio.withdraws
-	runtime._bundle.impact.move(-0.4, 0.3)
+	runtime.act.context.impact.move(-0.4, 0.3)
 	check(audio.withdraws == face_withdraws, "a face-sit withdraw plays no withdrawal cue")
 	view.contact_kind = "opening"
-	runtime._bundle.impact.move(0.4, 0.4)
+	runtime.act.context.impact.move(0.4, 0.4)
 	check(audio.withdraws > face_withdraws, "the regular withdrawal cue returns after the face-sit")
 
 	root.remove_child(runtime)

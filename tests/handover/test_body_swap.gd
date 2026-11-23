@@ -391,13 +391,13 @@ func _pony(display_name: String, node_name := "Pony") -> FakePony:
 ## so the fixture keeps the act's form store empty like a running world does at spawn.
 ## Point the runtime's memory consumers at the suite's fake after the fixture built it.
 func _set_memory(runtime: Node, memory: Node) -> void:
-	runtime._bundle.memory = memory
-	runtime._bundle.context.memory = memory
-	runtime._bundle.handover.memory = memory
-	runtime._bundle.dialogue.memory = memory
-	runtime._bundle.summary.memory = memory
-	runtime._bundle.face.memory = memory
-	runtime._bundle.afterglow.memory = memory
+	runtime.act.context.memory = memory
+	runtime.act.context.memory = memory
+	runtime.act.context.handover.memory = memory
+	runtime.act.context.dialogue.memory = memory
+	runtime.act.context.summary.memory = memory
+	runtime.act.context.face.memory = memory
+	runtime.act.context.afterglow.memory = memory
 
 
 func _fixture() -> Dictionary:
@@ -421,15 +421,15 @@ func _fixture() -> Dictionary:
 	runtime.act.pose_id = CATALOG.STANDING
 	runtime.act.source = "test"
 	runtime.act._set_state(ACT_STATE.State.ACTIVE)
-	runtime._bundle.readiness.depth = 0.42
-	runtime._bundle.readiness.penetration_m = 0.11
-	runtime._bundle.readiness.pony_climaxes = 1
+	runtime.act.context.readiness.depth = 0.42
+	runtime.act.context.readiness.penetration_m = 0.11
+	runtime.act.context.readiness.pony_climaxes = 1
 	runtime.act.max_pony_climaxes = 3
 	runtime.act.event_id = "intimacy_test_mare_1"
 	runtime.act.serial = 1
 	runtime.act.preferences = SETTINGS.preferences("test_mare").raw()
 	runtime.act.features = {}
-	runtime._bundle.handover.set_form_hint_debug(true)
+	runtime.act.context.handover.set_form_hint_debug(true)
 	WORLD.bind_world(host)
 	PONIES.factory = func(_pony_node: Node) -> Node: return runtime
 	PONIES.attach(old_pony)
@@ -463,12 +463,11 @@ func _free_fixture(made: Dictionary) -> void:
 	var runtime: Variant = made["runtime"]
 	var old: Variant = made["old"]
 	var source: Variant = made["source"]
-	# A runtime's `_ready` defers its first identity and anatomy refresh; stop its frames and let
-	# those run before the services are freed, the way they would on a body that lives a frame.
+	# A body that leaves before its first frame takes the deferred refresh with it; a live runtime
+	# first loses its frames, the way a despawned body does.
 	if is_instance_valid(runtime):
 		runtime.set_process(false)
 		runtime.set_physics_process(false)
-	await process_frame
 	PONIES.shutdown()
 	if is_instance_valid(runtime) and not runtime.is_queued_for_deletion():
 		runtime.free()
@@ -520,12 +519,12 @@ func _check_observation() -> void:
 	var runtime: Node = f["runtime"]
 	var source: FakeSource = f["source"]
 	source.poll_calls = 0
-	runtime._bundle.handover.clock = 0.0
+	runtime.act.context.handover.clock = 0.0
 	runtime.act.swap.tick(0.1)
 	check(not runtime.act.suspended(), "no change leaves the act live")
 	check(source.poll_calls == 0, "the watcher never polls the provider")
 	source.changing = true
-	runtime._bundle.handover.clock = BODY_CHANGE_ACT.BODY_SWAP_POLL_S * 0.5
+	runtime.act.context.handover.clock = BODY_CHANGE_ACT.BODY_SWAP_POLL_S * 0.5
 	runtime.act.swap.tick(BODY_CHANGE_ACT.BODY_SWAP_POLL_S * 0.1)
 	check(not runtime.act.suspended(), "the watcher reads the change only at its cadence")
 	runtime.act.swap.tick(BODY_CHANGE_ACT.BODY_SWAP_POLL_S)
@@ -557,8 +556,8 @@ func _check_handover() -> void:
 	check(runtime.get_parent() == host, "the runtime leaves the old body for the host")
 	check(PONIES.body_swap_pending(), "ponies records the pending swap")
 	check(int(runtime.act.state) == ACT_STATE.State.ACTIVE, "the act state survives suspension")
-	check(absf(float(runtime._bundle.readiness.depth) - 0.42) < 0.0001, "depth survives suspension")
-	check(int(runtime._bundle.readiness.pony_climaxes) == 1, "climaxes survive suspension")
+	check(absf(float(runtime.act.context.readiness.depth) - 0.42) < 0.0001, "depth survives suspension")
+	check(int(runtime.act.context.readiness.pony_climaxes) == 1, "climaxes survive suspension")
 	check(str(runtime.act.event_id) == "intimacy_test_mare_1", "the event id survives suspension")
 
 	var new_pony := _pony("New Mare", "NewBody")
@@ -573,24 +572,24 @@ func _check_handover() -> void:
 	check(PONIES.runtime_for(old_pony) == null, "the old body's map entry is gone")
 	check(not PONIES.body_swap_pending(), "the pending swap is cleared")
 	check(int(runtime.act.state) == ACT_STATE.State.ACTIVE, "the act state survives resume")
-	check(absf(float(runtime._bundle.readiness.depth) - 0.42) < 0.0001, "depth survives resume")
-	check(int(runtime._bundle.readiness.pony_climaxes) == 1, "climaxes survive resume")
+	check(absf(float(runtime.act.context.readiness.depth) - 0.42) < 0.0001, "depth survives resume")
+	check(int(runtime.act.context.readiness.pony_climaxes) == 1, "climaxes survive resume")
 	check(str(runtime.act.event_id) == "intimacy_test_mare_1", "the event id survives resume")
 	check(str(runtime.act.display_name) == "New Mare", "the act takes the new display name")
 	check(new_pony.has_meta("sex_active"), "the new body carries the act flag")
 	var nav: FakeNav = new_pony.get_node("Navigator")
 	check(nav.command_owner == "unfplap:test_mare", "the new navigator is claimed")
-	check(runtime._bundle.pose.pony == new_pony, "the pose session binds the new body")
-	var view: Variant = runtime._bundle.pose.view()
+	check(runtime.act.context.pose.pony == new_pony, "the pose session binds the new body")
+	var view: Variant = runtime.act.context.pose.view()
 	check(view != null and str(view.id) == CATALOG.STANDING, "the pose is rebuilt at the act pose")
-	check(runtime._bundle.pose.pose() != null and runtime._bundle.pose.basis_amount() > 0.99,
+	check(runtime.act.context.pose.pose() != null and runtime.act.context.pose.basis_amount() > 0.99,
 		"the rebuilt pose starts settled")
 
 	runtime.act.force_stop()
 	check(int(runtime.act.state) == ACT_STATE.State.IDLE, "the one exit ends the act")
 	check(not PONIES.act_running(), "the one exit clears the active runtime")
 	check(not new_pony.has_meta("sex_active"), "the one exit clears the new body's flag")
-	check(runtime._bundle.hold.nav == null and runtime._bundle.hold.token.is_empty(),
+	check(runtime.act.context.hold.nav == null and runtime.act.context.hold.token.is_empty(),
 		"the one exit gives up the act's navigator lease")
 	await _free_fixture(f)
 	anatomy.free()
@@ -603,30 +602,30 @@ func _check_auto_survives_swap() -> void:
 	var host: FakeHost = f["host"]
 	var runtime: Node = f["runtime"]
 	var source: FakeSource = f["source"]
-	runtime._bundle.readiness.configure_auto(1.5, 0.8, "cosine", 0.2)
-	runtime._bundle.readiness.auto_thrust.pace = 2.75
-	runtime._bundle.readiness.auto_thrust.min_depth = 0.3
-	runtime._bundle.readiness.auto_thrust.max_depth = 0.7
-	runtime._bundle.readiness.auto_set_shape("saw")
-	runtime._bundle.readiness.toggle_auto(runtime._bundle.readiness.depth)
-	check(runtime._bundle.readiness.auto_active(), "auto is on before the swap")
+	runtime.act.context.readiness.configure_auto(1.5, 0.8, "cosine", 0.2)
+	runtime.act.context.readiness.auto_thrust.pace = 2.75
+	runtime.act.context.readiness.auto_thrust.min_depth = 0.3
+	runtime.act.context.readiness.auto_thrust.max_depth = 0.7
+	runtime.act.context.readiness.auto_set_shape("saw")
+	runtime.act.context.readiness.toggle_auto(runtime.act.context.readiness.depth)
+	check(runtime.act.context.readiness.auto_active(), "auto is on before the swap")
 	source.changing = true
 	runtime.act.swap.suspend(source.active_change())
-	check(not runtime._bundle.readiness.auto_active(), "the swap interrupts the running stroke")
+	check(not runtime.act.context.readiness.auto_active(), "the swap interrupts the running stroke")
 	var new_pony := _pony("Auto Mare", "AutoBody")
 	root.add_child(new_pony)
 	source.new_pony = new_pony
 	PONIES.attach(new_pony)
 	runtime.act.swap.tick(0.1)
-	check(runtime._bundle.readiness.auto_active(), "auto resumes after the adopted body")
-	check(absf(runtime._bundle.readiness.auto_pace() - 2.75) < 0.0001,
+	check(runtime.act.context.readiness.auto_active(), "auto resumes after the adopted body")
+	check(absf(runtime.act.context.readiness.auto_pace() - 2.75) < 0.0001,
 		"auto keeps its pace across the swap")
-	check(absf(runtime._bundle.readiness.auto_min_depth() - 0.3) < 0.0001,
+	check(absf(runtime.act.context.readiness.auto_min_depth() - 0.3) < 0.0001,
 		"auto keeps its bottom depth across the swap")
-	check(absf(runtime._bundle.readiness.auto_max_depth() - 0.7) < 0.0001,
+	check(absf(runtime.act.context.readiness.auto_max_depth() - 0.7) < 0.0001,
 		"auto keeps its peak depth across the swap")
-	check(runtime._bundle.readiness.auto_shape() == "saw", "auto keeps its shape across the swap")
-	check(not runtime._bundle.handover.auto_on, "the pending auto restore is cleared")
+	check(runtime.act.context.readiness.auto_shape() == "saw", "auto keeps its shape across the swap")
+	check(not runtime.act.context.handover.auto_on, "the pending auto restore is cleared")
 	await _free_fixture(f)
 
 
@@ -683,7 +682,7 @@ func _check_form_display_name() -> void:
 	check(not runtime.act.suspended(), "the borrowed form resumes the act")
 	check(str(runtime.act.display_name) == "Borrowed Form",
 		"the act caption takes the presented form's name")
-	check(str(runtime._bundle.facts.display_name) == "Borrowed Form",
+	check(str(runtime.act.context.facts.display_name) == "Borrowed Form",
 		"the act facts carry the presented form's name")
 	check(str(runtime.act.pony_id) == "test_mare", "the borrowed form keeps the stable pony id")
 	check(str(runtime.act.event_id) == "intimacy_test_mare_1",
@@ -702,7 +701,7 @@ func _check_form_display_name() -> void:
 	body_change.apply_form(new_pony, fallback)
 	check(str(runtime.act.display_name) == "Identity Name",
 		"an empty form name falls back to the identity display name")
-	check(str(runtime._bundle.facts.display_name) == "Identity Name",
+	check(str(runtime.act.context.facts.display_name) == "Identity Name",
 		"the fallback reaches the act facts")
 	check(str(runtime.act.prompt_note()).contains("your own body"),
 		"the dialogue note follows the return to the own body")
@@ -722,7 +721,7 @@ func _check_policy_events() -> void:
 	runtime.act._set_state(ACT_STATE.State.POSING_IN)
 	runtime.act.enter_active_act()
 	runtime.act._set_state(ACT_STATE.State.CLIMAX)
-	runtime._bundle.readiness.pony_climaxes = 1
+	runtime.act.context.readiness.pony_climaxes = 1
 	runtime.act.finish_climax()
 	runtime.act.begin_afterglow()
 
@@ -778,10 +777,10 @@ func _check_ai_change() -> void:
 	source.shape = "fluttershy"
 	# Nothing called request_form: the source is already changing, as her own AI leaves it.
 	source.changing = true
-	runtime._bundle.handover.clock = 0.0
+	runtime.act.context.handover.clock = 0.0
 	runtime.act.swap.tick(0.1)
 	check(runtime.act.suspended(), "an AI-started change suspends the live act")
-	check(runtime._bundle.handover.change.origin == BODY_CHANGE.Origin.AI, "an AI change is not the player's")
+	check(runtime.act.context.handover.change.origin == BODY_CHANGE.Origin.AI, "an AI change is not the player's")
 	var new_pony := _pony("New Mare", "AiBody")
 	root.add_child(new_pony)
 	source.new_pony = new_pony
@@ -792,13 +791,13 @@ func _check_ai_change() -> void:
 	runtime.act.swap.tick(0.1)
 	check(not runtime.act.suspended(), "the AI change resumes on the new body")
 	check(runtime.pony == new_pony, "the AI change keeps the act on the new body")
-	check(not runtime._bundle.handover.reveal_done, "an AI change is neutral")
+	check(not runtime.act.context.handover.reveal_done, "an AI change is neutral")
 	var memory: FakeMemory = host.memory
 	check(memory.impressions.is_empty(), "an AI change writes no reveal memory")
 	# A second change after the resume is a fresh handover, not a stale pending swap.
 	source.old_pony = new_pony
 	source.changing = true
-	runtime._bundle.handover.clock = 0.0
+	runtime.act.context.handover.clock = 0.0
 	runtime.act.swap.tick(0.1)
 	check(runtime.act.suspended(), "a second change after resume suspends again")
 	runtime.act.force_stop()
@@ -819,7 +818,7 @@ func _check_failed_change() -> void:
 	check(not runtime.act.suspended(), "a stopped change resumes")
 	check(runtime.pony == old_pony, "the old body keeps the act")
 	check(int(runtime.act.state) == ACT_STATE.State.ACTIVE, "the state survives the failed change")
-	check(absf(float(runtime._bundle.readiness.depth) - 0.42) < 0.0001, "depth survives the failed change")
+	check(absf(float(runtime.act.context.readiness.depth) - 0.42) < 0.0001, "depth survives the failed change")
 	runtime.act.force_stop()
 	await _free_fixture(f)
 
@@ -928,7 +927,7 @@ func _check_form_reveal() -> void:
 	runtime.act.swap.tick(0.1)
 	check(not runtime.act.suspended(), "the reveal resumes the same act")
 	check(runtime.pony == new_pony, "the reveal keeps the act on the new body")
-	check(runtime._bundle.handover.reveal_done, "the requested reveal is recorded once")
+	check(runtime.act.context.handover.reveal_done, "the requested reveal is recorded once")
 	check(policy.reveal_calls == 1, "the reveal asks the provider policy once")
 	check(int(policy.last_reveal.get("origin", -1)) == int(BODY_CHANGE.Origin.PLAYER),
 		"the reveal context is the player's origin")
@@ -938,9 +937,9 @@ func _check_form_reveal() -> void:
 		"the reveal context carries the typed change")
 	check(not bool(policy.last_reveal.get("reveal_used", true)),
 		"the reveal context is read before the once-per-act mark")
-	check(float(runtime._bundle.readiness.satisfaction) >= policy.heat - 0.01,
+	check(float(runtime.act.context.readiness.satisfaction) >= policy.heat - 0.01,
 		"the reveal spikes readiness by the policy's heat")
-	check(runtime._bundle.readiness.cue_override == policy.cue,
+	check(runtime.act.context.readiness.cue_override == policy.cue,
 		"the reveal cue comes from the policy")
 	var memory: FakeMemory = host.memory
 	check(memory.impressions.size() == 1, "the reveal writes one special impression")
@@ -982,8 +981,8 @@ func _check_shape_offer() -> void:
 	host.memory = FakeMemory.new()
 	_set_memory(runtime, host.memory)
 	source.shape = ""
-	runtime._bundle.handover.offer_tick()
-	check(runtime._bundle.handover.offer_done and runtime._bundle.handover.offer_pending,
+	runtime.act.context.handover.offer_tick()
+	check(runtime.act.context.handover.offer_done and runtime.act.context.handover.offer_pending,
 		"a true-form climax offers the shape change")
 	check(policy.offer_calls == 1, "the offer tick asks the policy once")
 	check(policy.prompt_calls == 1, "the offer prompt comes from the policy")
@@ -998,12 +997,12 @@ func _check_shape_offer() -> void:
 	check(bool(policy.last_offer.get("own", false)), "the offer context uses the own form")
 	check(not bool(policy.last_offer.get("offer_pending", true)),
 		"the offer context is read before the offer is marked")
-	runtime._bundle.handover.offer_tick()
+	runtime.act.context.handover.offer_tick()
 	check(policy.offer_calls == 1, "a made offer is not asked again")
-	runtime._bundle.handover.hint_tick()
-	check(str(runtime._bundle.handover.form_hint_log) == BODY_CHANGE_ACT.FORM_HINT_SHAPE,
+	runtime.act.context.handover.hint_tick()
+	check(str(runtime.act.context.handover.form_hint_log) == BODY_CHANGE_ACT.FORM_HINT_SHAPE,
 		"the offer names the pony in the debug log")
-	check(str(runtime._bundle.handover.form_hint()).is_empty(), "the offer stays off the HUD")
+	check(str(runtime.act.context.handover.form_hint()).is_empty(), "the offer stays off the HUD")
 	var director := FakeDirector.new()
 	director.name = "FakeDirector"
 	root.add_child(director)
@@ -1012,7 +1011,7 @@ func _check_shape_offer() -> void:
 	director._player_text = "Rarity"
 	runtime.act.ticker.talk(0.016)
 	check(source.shape_requests == ["rarity"], "the named mare starts the change")
-	check(not runtime._bundle.handover.offer_pending, "the offer is consumed by the name")
+	check(not runtime.act.context.handover.offer_pending, "the offer is consumed by the name")
 	check(source.active_change().origin == BODY_CHANGE.Origin.PLAYER,
 		"a named shape is the player's ask")
 	runtime.act.swap.tick(0.1)
@@ -1023,8 +1022,8 @@ func _check_shape_offer() -> void:
 	source.shape = "rarity"
 	PONIES.attach(new_pony)
 	runtime.act.swap.tick(0.1)
-	check(not runtime._bundle.handover.reveal_done, "a named shape is not an exceptional reveal")
-	check(not runtime._bundle.handover.offer_pending, "the player's named shape spends the offer")
+	check(not runtime.act.context.handover.reveal_done, "a named shape is not an exceptional reveal")
+	check(not runtime.act.context.handover.offer_pending, "the player's named shape spends the offer")
 	check(policy.accepted_calls == 1, "the named shape asks the accepted-offer policy")
 	check(int(policy.last_accepted.get("origin", -1)) == int(BODY_CHANGE.Origin.PLAYER),
 		"the accepted offer context is the player's origin")
@@ -1044,8 +1043,8 @@ func _check_named_shape_gate() -> void:
 	var runtime: Node = f["runtime"]
 	var source: FakeSource = f["source"]
 	source.shape = ""
-	runtime._bundle.handover.offer_tick()
-	check(runtime._bundle.handover.offer_pending, "the offer is pending before the name")
+	runtime.act.context.handover.offer_tick()
+	check(runtime.act.context.handover.offer_pending, "the offer is pending before the name")
 	var director := FakeDirector.new()
 	director.name = "FakeDirector"
 	root.add_child(director)
@@ -1055,7 +1054,7 @@ func _check_named_shape_gate() -> void:
 	runtime.act.ticker.talk(0.016)
 	runtime.act.swap.tick(0.1)
 	check(runtime.act.suspended(), "the named change suspends the act")
-	check(runtime._bundle.handover.change.target_form_id == "rarity", "the target survives the suspension")
+	check(runtime.act.context.handover.change.target_form_id == "rarity", "the target survives the suspension")
 	var new_pony := _pony("Test Mare", "ShapeGateBody")
 	root.add_child(new_pony)
 	source.new_pony = new_pony
@@ -1074,8 +1073,8 @@ func _check_named_shape_gate() -> void:
 	runtime.act.swap.tick(0.1)
 	check(not runtime.act.suspended(), "the target shape resumes the act")
 	check(int(runtime.act.state) == ACT_STATE.State.ACTIVE, "the act state survives the shape wait")
-	check(absf(float(runtime._bundle.readiness.depth) - 0.42) < 0.0001, "depth survives the shape wait")
-	check(not runtime._bundle.handover.offer_pending, "the player's named shape spends the offer")
+	check(absf(float(runtime.act.context.readiness.depth) - 0.42) < 0.0001, "depth survives the shape wait")
+	check(not runtime.act.context.handover.offer_pending, "the player's named shape spends the offer")
 	runtime.act.force_stop()
 	director.queue_free()
 	await _free_fixture(f)
@@ -1089,7 +1088,7 @@ func _check_watchdog_with_body() -> void:
 	var runtime: Node = f["runtime"]
 	var source: FakeSource = f["source"]
 	source.shape = ""
-	runtime._bundle.handover.offer_tick()
+	runtime.act.context.handover.offer_tick()
 	var director := FakeDirector.new()
 	director.name = "FakeDirector"
 	root.add_child(director)
@@ -1109,7 +1108,7 @@ func _check_watchdog_with_body() -> void:
 	check(not runtime.act.suspended(), "the watchdog resumes a body that never took the shape")
 	check(runtime.pony == new_pony, "the watchdog keeps the adopted body")
 	check(int(runtime.act.state) == ACT_STATE.State.ACTIVE, "the watchdog does not end a live body")
-	check(runtime._bundle.handover.offer_pending, "the failed watchdog shape restores the offer")
+	check(runtime.act.context.handover.offer_pending, "the failed watchdog shape restores the offer")
 	runtime.act.force_stop()
 	director.queue_free()
 	await _free_fixture(f)
@@ -1126,36 +1125,36 @@ func _check_offer_gate() -> void:
 	borrowed.form_id = "rarity"
 	borrowed.fit_id = "rarity"
 	body_change.apply_form(runtime.pony, borrowed)
-	runtime._bundle.handover.offer_tick()
-	check(not runtime._bundle.handover.offer_done, "a disguise gets no shape offer")
+	runtime.act.context.handover.offer_tick()
+	check(not runtime.act.context.handover.offer_done, "a disguise gets no shape offer")
 	source.shape = ""
 	var own := body_change.default_form(runtime.pony)
 	own.revision = borrowed.revision + 1
 	body_change.apply_form(runtime.pony, own)
-	runtime._bundle.readiness.pony_climaxes = 0
-	runtime._bundle.handover.offer_tick()
-	check(not runtime._bundle.handover.offer_done, "the offer waits for a climax")
-	runtime._bundle.readiness.pony_climaxes = 1
-	runtime._bundle.handover.offer_tick()
-	check(runtime._bundle.handover.offer_done and runtime._bundle.handover.offer_pending,
+	runtime.act.context.readiness.pony_climaxes = 0
+	runtime.act.context.handover.offer_tick()
+	check(not runtime.act.context.handover.offer_done, "the offer waits for a climax")
+	runtime.act.context.readiness.pony_climaxes = 1
+	runtime.act.context.handover.offer_tick()
+	check(runtime.act.context.handover.offer_done and runtime.act.context.handover.offer_pending,
 		"the offer is made once after a climax")
 	source.shape = "fluttershy"
-	runtime._bundle.handover.offer_pending = false
-	runtime._bundle.handover.reveal_done = false
-	runtime._bundle.handover.hint_tick()
-	check(str(runtime._bundle.handover.form_hint_log) == BODY_CHANGE_ACT.FORM_HINT_ASK,
+	runtime.act.context.handover.offer_pending = false
+	runtime.act.context.handover.reveal_done = false
+	runtime.act.context.handover.hint_tick()
+	check(str(runtime.act.context.handover.form_hint_log) == BODY_CHANGE_ACT.FORM_HINT_ASK,
 		"a disguise invites the reveal ask in the debug log")
-	check(str(runtime._bundle.handover.form_hint()).is_empty(), "the reveal ask stays off the HUD")
-	runtime._bundle.handover.reveal_done = true
-	runtime._bundle.handover.hint_tick()
-	check(str(runtime._bundle.handover.form_hint_log).is_empty(), "a used reveal hides the debug log")
-	check(str(runtime._bundle.handover.form_hint()).is_empty(), "a used reveal hides the HUD hint")
-	runtime._bundle.handover.reveal_done = false
-	runtime._bundle.handover.offer_pending = true
+	check(str(runtime.act.context.handover.form_hint()).is_empty(), "the reveal ask stays off the HUD")
+	runtime.act.context.handover.reveal_done = true
+	runtime.act.context.handover.hint_tick()
+	check(str(runtime.act.context.handover.form_hint_log).is_empty(), "a used reveal hides the debug log")
+	check(str(runtime.act.context.handover.form_hint()).is_empty(), "a used reveal hides the HUD hint")
+	runtime.act.context.handover.reveal_done = false
+	runtime.act.context.handover.offer_pending = true
 	runtime.act.force_stop()
-	check(not runtime._bundle.handover.offer_pending, "the act end drops the pending offer")
-	check(str(runtime._bundle.handover.form_hint_log).is_empty(), "the act end hides the debug log")
-	check(str(runtime._bundle.handover.form_hint()).is_empty(), "the act end hides the HUD hint")
+	check(not runtime.act.context.handover.offer_pending, "the act end drops the pending offer")
+	check(str(runtime.act.context.handover.form_hint_log).is_empty(), "the act end hides the debug log")
+	check(str(runtime.act.context.handover.form_hint()).is_empty(), "the act end hides the HUD hint")
 	await _free_fixture(f)
 
 
@@ -1165,22 +1164,22 @@ func _check_no_player_hint() -> void:
 	var f := _fixture()
 	var runtime: Node = f["runtime"]
 	var source: FakeSource = f["source"]
-	runtime._bundle.handover.set_form_hint_debug(false)
+	runtime.act.context.handover.set_form_hint_debug(false)
 	source.shape = ""
-	runtime._bundle.handover.offer_tick()
-	runtime._bundle.handover.hint_tick()
-	check(runtime._bundle.handover.offer_pending, "the offer is still made")
-	check(str(runtime._bundle.handover.form_hint()).is_empty(), "the release offer publishes no hint")
+	runtime.act.context.handover.offer_tick()
+	runtime.act.context.handover.hint_tick()
+	check(runtime.act.context.handover.offer_pending, "the offer is still made")
+	check(str(runtime.act.context.handover.form_hint()).is_empty(), "the release offer publishes no hint")
 	source.shape = "fluttershy"
-	runtime._bundle.handover.offer_pending = false
-	runtime._bundle.handover.reveal_done = false
-	runtime._bundle.handover.hint_tick()
-	check(str(runtime._bundle.handover.form_hint()).is_empty(), "a disguise publishes no reveal hint")
-	runtime._bundle.handover.set_form_hint_debug(true)
-	runtime._bundle.handover.hint_tick()
-	check(str(runtime._bundle.handover.form_hint_log) == BODY_CHANGE_ACT.FORM_HINT_ASK,
+	runtime.act.context.handover.offer_pending = false
+	runtime.act.context.handover.reveal_done = false
+	runtime.act.context.handover.hint_tick()
+	check(str(runtime.act.context.handover.form_hint()).is_empty(), "a disguise publishes no reveal hint")
+	runtime.act.context.handover.set_form_hint_debug(true)
+	runtime.act.context.handover.hint_tick()
+	check(str(runtime.act.context.handover.form_hint_log) == BODY_CHANGE_ACT.FORM_HINT_ASK,
 		"debug mode can name the ask in the log")
-	check(str(runtime._bundle.handover.form_hint()).is_empty(), "debug mode still publishes no HUD hint")
+	check(str(runtime.act.context.handover.form_hint()).is_empty(), "debug mode still publishes no HUD hint")
 	runtime.act.force_stop()
 	await _free_fixture(f)
 
@@ -1191,24 +1190,24 @@ func _check_hint_states() -> void:
 	var runtime: Node = f["runtime"]
 	var source: FakeSource = f["source"]
 	source.shape = "fluttershy"
-	runtime._bundle.handover.reveal_done = false
-	runtime._bundle.handover.hint_tick()
-	check(str(runtime._bundle.handover.form_hint_log) == BODY_CHANGE_ACT.FORM_HINT_ASK,
+	runtime.act.context.handover.reveal_done = false
+	runtime.act.context.handover.hint_tick()
+	check(str(runtime.act.context.handover.form_hint_log) == BODY_CHANGE_ACT.FORM_HINT_ASK,
 		"a disguise invites the ask in the debug log")
 	runtime.act._set_state(ACT_STATE.State.CLIMAX)
-	runtime._bundle.handover.hint_tick()
-	check(str(runtime._bundle.handover.form_hint_log).is_empty(), "the climax state clears the debug log")
+	runtime.act.context.handover.hint_tick()
+	check(str(runtime.act.context.handover.form_hint_log).is_empty(), "the climax state clears the debug log")
 	runtime.act._set_state(ACT_STATE.State.AFTERGLOW)
-	runtime._bundle.handover.hint_tick()
-	check(str(runtime._bundle.handover.form_hint_log).is_empty(), "the afterglow state clears the debug log")
+	runtime.act.context.handover.hint_tick()
+	check(str(runtime.act.context.handover.form_hint_log).is_empty(), "the afterglow state clears the debug log")
 	runtime.act._set_state(ACT_STATE.State.RESTORE)
-	runtime._bundle.handover.hint_tick()
-	check(str(runtime._bundle.handover.form_hint_log).is_empty(), "the restore state clears the debug log")
+	runtime.act.context.handover.hint_tick()
+	check(str(runtime.act.context.handover.form_hint_log).is_empty(), "the restore state clears the debug log")
 	runtime.act._set_state(ACT_STATE.State.ACTIVE)
-	runtime._bundle.handover.hint_tick()
-	check(str(runtime._bundle.handover.form_hint_log) == BODY_CHANGE_ACT.FORM_HINT_ASK,
+	runtime.act.context.handover.hint_tick()
+	check(str(runtime.act.context.handover.form_hint_log) == BODY_CHANGE_ACT.FORM_HINT_ASK,
 		"the active state restores the debug log")
-	check(str(runtime._bundle.handover.form_hint()).is_empty(), "the HUD hint stays empty through every state")
+	check(str(runtime.act.context.handover.form_hint()).is_empty(), "the HUD hint stays empty through every state")
 	runtime.act.force_stop()
 	await _free_fixture(f)
 
@@ -1220,8 +1219,8 @@ func _check_failed_named_offer() -> void:
 	var old_pony: FakePony = f["old"]
 	var source: FakeSource = f["source"]
 	source.shape = ""
-	runtime._bundle.handover.offer_tick()
-	check(runtime._bundle.handover.offer_pending, "the offer is pending before the name")
+	runtime.act.context.handover.offer_tick()
+	check(runtime.act.context.handover.offer_pending, "the offer is pending before the name")
 	var director := FakeDirector.new()
 	director.name = "FakeDirector"
 	root.add_child(director)
@@ -1230,21 +1229,21 @@ func _check_failed_named_offer() -> void:
 	director._player_text = "Rarity"
 	runtime.act.ticker.talk(0.016)
 	check(source.shape_requests == ["rarity"], "the named mare starts the change")
-	check(not runtime._bundle.handover.offer_pending, "the name consumes the offer")
-	runtime._bundle.handover.clock = 0.0
+	check(not runtime.act.context.handover.offer_pending, "the name consumes the offer")
+	runtime.act.context.handover.clock = 0.0
 	runtime.act.swap.tick(0.1)
 	check(runtime.act.suspended(), "the named change suspends the act")
 	source.changing = false
 	runtime.act.swap.tick(0.1)
 	check(not runtime.act.suspended(), "the failed named change resumes the old body")
 	check(runtime.pony == old_pony, "the old body keeps the act")
-	check(runtime._bundle.handover.offer_pending, "a failed named change puts the offer back")
-	runtime._bundle.handover.set_form_hint_debug(true)
-	runtime._bundle.handover.hint_tick()
-	runtime._bundle.handover.hint_tick()
-	check(str(runtime._bundle.handover.form_hint_log) == BODY_CHANGE_ACT.FORM_HINT_SHAPE,
+	check(runtime.act.context.handover.offer_pending, "a failed named change puts the offer back")
+	runtime.act.context.handover.set_form_hint_debug(true)
+	runtime.act.context.handover.hint_tick()
+	runtime.act.context.handover.hint_tick()
+	check(str(runtime.act.context.handover.form_hint_log) == BODY_CHANGE_ACT.FORM_HINT_SHAPE,
 		"the hint returns with the offer in the debug log")
-	check(str(runtime._bundle.handover.form_hint()).is_empty(), "the offer stays off the HUD")
+	check(str(runtime.act.context.handover.form_hint()).is_empty(), "the offer stays off the HUD")
 	runtime.act.force_stop()
 	director.queue_free()
 	await _free_fixture(f)
@@ -1260,7 +1259,7 @@ func _check_named_without_shape() -> void:
 	host.memory = FakeMemory.new()
 	_set_memory(runtime, host.memory)
 	source.shape = ""
-	runtime._bundle.handover.offer_tick()
+	runtime.act.context.handover.offer_tick()
 	var director := FakeDirector.new()
 	director.name = "FakeDirector"
 	root.add_child(director)
@@ -1280,16 +1279,16 @@ func _check_named_without_shape() -> void:
 	runtime.act.swap.tick(0.1)
 	check(not runtime.act.suspended(), "the settled failed shape resumes the new body")
 	check(runtime.pony == new_pony, "the failed shape keeps the new body")
-	check(not runtime._bundle.handover.reveal_done, "a named change with no shape is not a reveal")
+	check(not runtime.act.context.handover.reveal_done, "a named change with no shape is not a reveal")
 	var memory: FakeMemory = host.memory
 	check(memory.impressions.is_empty(), "a named change with no shape writes no reveal memory")
-	check(runtime._bundle.handover.offer_pending, "a failed named shape restores the offer")
-	runtime._bundle.handover.set_form_hint_debug(true)
-	runtime._bundle.handover.hint_tick()
-	runtime._bundle.handover.hint_tick()
-	check(str(runtime._bundle.handover.form_hint_log) == BODY_CHANGE_ACT.FORM_HINT_SHAPE,
+	check(runtime.act.context.handover.offer_pending, "a failed named shape restores the offer")
+	runtime.act.context.handover.set_form_hint_debug(true)
+	runtime.act.context.handover.hint_tick()
+	runtime.act.context.handover.hint_tick()
+	check(str(runtime.act.context.handover.form_hint_log) == BODY_CHANGE_ACT.FORM_HINT_SHAPE,
 		"the hint returns with the offer in the debug log")
-	check(str(runtime._bundle.handover.form_hint()).is_empty(), "the offer stays off the HUD")
+	check(str(runtime.act.context.handover.form_hint()).is_empty(), "the offer stays off the HUD")
 	runtime.act.force_stop()
 	director.queue_free()
 	await _free_fixture(f)
@@ -1303,10 +1302,10 @@ func _check_ai_change_keeps_offer() -> void:
 	var runtime: Node = f["runtime"]
 	var source: FakeSource = f["source"]
 	source.shape = ""
-	runtime._bundle.handover.offer_tick()
-	check(runtime._bundle.handover.offer_pending, "the offer is pending before her change")
+	runtime.act.context.handover.offer_tick()
+	check(runtime.act.context.handover.offer_pending, "the offer is pending before her change")
 	source.changing = true
-	runtime._bundle.handover.clock = 0.0
+	runtime.act.context.handover.clock = 0.0
 	runtime.act.swap.tick(0.1)
 	check(runtime.act.suspended(), "her own change suspends the offered act")
 	var ai_body := _pony("Test Mare", "AiOfferBody")
@@ -1317,12 +1316,12 @@ func _check_ai_change_keeps_offer() -> void:
 	PONIES.attach(ai_body)
 	runtime.act.swap.tick(0.1)
 	check(not runtime.act.suspended(), "her own change resumes the act")
-	check(runtime._bundle.handover.offer_pending, "her own change keeps the player's offer")
-	runtime._bundle.handover.set_form_hint_debug(true)
-	runtime._bundle.handover.hint_tick()
-	check(str(runtime._bundle.handover.form_hint_log) == BODY_CHANGE_ACT.FORM_HINT_SHAPE,
+	check(runtime.act.context.handover.offer_pending, "her own change keeps the player's offer")
+	runtime.act.context.handover.set_form_hint_debug(true)
+	runtime.act.context.handover.hint_tick()
+	check(str(runtime.act.context.handover.form_hint_log) == BODY_CHANGE_ACT.FORM_HINT_SHAPE,
 		"the debug log still names the player's offer")
-	check(str(runtime._bundle.handover.form_hint()).is_empty(), "the player's offer stays off the HUD")
+	check(str(runtime.act.context.handover.form_hint()).is_empty(), "the player's offer stays off the HUD")
 	var director := FakeDirector.new()
 	director.name = "FakeDirector"
 	root.add_child(director)
@@ -1333,7 +1332,7 @@ func _check_ai_change_keeps_offer() -> void:
 	check(source.shape_requests == ["rarity"], "the player's name reaches the source")
 	check(source.active_change().origin == BODY_CHANGE.Origin.PLAYER,
 		"the player's name is marked as the player's")
-	check(not runtime._bundle.handover.offer_pending, "the player's named shape spends the offer")
+	check(not runtime.act.context.handover.offer_pending, "the player's named shape spends the offer")
 	runtime.act.force_stop()
 	director.queue_free()
 	await _free_fixture(f)
@@ -1392,7 +1391,7 @@ func _check_restore_change() -> void:
 		"the act pony's change during restore finishes the act")
 	check(not runtime.act.suspended(), "a change during restore never suspends")
 	check(not PONIES.body_swap_pending(), "a change during restore records no pending swap")
-	check(runtime._bundle.handover.change == null, "the one exit drops the typed swap change")
+	check(runtime.act.context.handover.change == null, "the one exit drops the typed swap change")
 	check(not PONIES.act_running(), "the one exit clears the active runtime")
 	other.queue_free()
 	await _free_fixture(f)
@@ -1427,10 +1426,10 @@ func _check_idle_body_binding() -> void:
 	check(int(runtime.act.state) == ACT_STATE.State.IDLE, "an idle form bind leaves the state idle")
 	check(not runtime.act.suspended(), "an idle form bind never suspends")
 	check(runtime.pony == old_pony, "the idle body keeps its runtime")
-	check(runtime._bundle.pose.pony == old_pony, "the idle form bind binds the pose session")
-	check(runtime._bundle.face.pony == old_pony, "the idle form bind binds the face")
+	check(runtime.act.context.pose.pony == old_pony, "the idle form bind binds the pose session")
+	check(runtime.act.context.face.pony == old_pony, "the idle form bind binds the face")
 	check(PONIES.live_ponies().size() == 1, "the idle form bind creates no second runtime")
-	check(is_zero_approx(float(runtime._bundle.facts.player_eye_height)),
+	check(is_zero_approx(float(runtime.act.context.facts.player_eye_height)),
 		"an idle form bind applies no act stance")
 	var revised := body_change.default_form(old_pony)
 	revised.form_id = "rarity"
@@ -1442,7 +1441,7 @@ func _check_idle_body_binding() -> void:
 	check(body_change.form_for(old_pony) == revised, "the idle body takes the revised form")
 	check(str(runtime.act.display_name) == "Idle Borrowed Form",
 		"an idle form revision takes the presented form's name")
-	check(str(runtime._bundle.facts.display_name) == "Idle Borrowed Form",
+	check(str(runtime.act.context.facts.display_name) == "Idle Borrowed Form",
 		"the idle act facts carry the presented form's name")
 	check(not runtime.act.suspended() and not PONIES.body_swap_pending(),
 		"a same-node revision never starts a swap")
@@ -1476,11 +1475,11 @@ func _check_same_node_refresh() -> void:
 	check(not runtime.act.suspended() and not PONIES.body_swap_pending(),
 		"a live same-node revision starts no swap")
 	check(not PONIES.body_swap_pending(), "a live same-node revision starts no handover")
-	check(runtime._bundle.pose.pony == old_pony, "the live revision keeps the pose bound")
-	check(float(runtime._bundle.facts.player_eye_height) > 0.0,
+	check(runtime.act.context.pose.pony == old_pony, "the live revision keeps the pose bound")
+	check(float(runtime.act.context.facts.player_eye_height) > 0.0,
 		"the live revision refreshes the player stance")
 	check(body_change.form_for(old_pony) == revised, "the live body takes the revised form")
-	var first_target := float(runtime._bundle.facts.player_eye_height)
+	var first_target := float(runtime.act.context.facts.player_eye_height)
 	var revised_two := BODY_FORM.default_form(old_pony)
 	revised_two.form_id = "rarity"
 	revised_two.fit_id = "rarity"
@@ -1489,7 +1488,7 @@ func _check_same_node_refresh() -> void:
 	revised_two.body_scale = 1.0
 	revised_two.revision = 2
 	body_change.apply_form(old_pony, revised_two)
-	check(absf(float(runtime._bundle.facts.player_eye_height) - first_target) < 0.0001,
+	check(absf(float(runtime.act.context.facts.player_eye_height) - first_target) < 0.0001,
 		"a second revision does not compound the standing eye")
 	runtime.act.force_stop()
 	await _free_fixture(f)
@@ -1505,7 +1504,7 @@ func _check_origins() -> void:
 	check(source.active_change().origin == BODY_CHANGE.Origin.PROVIDER,
 		"a provider-origin request keeps its origin")
 	source.changing = false
-	runtime._bundle.handover.clock = 0.0
+	runtime.act.context.handover.clock = 0.0
 	runtime.act.swap.tick(0.1)
 	var player: Dictionary = runtime.act.request_form_change(false, "rarity", true)
 	check(bool(player.get("ok", false)), "a player-origin form request starts")

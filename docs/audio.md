@@ -16,9 +16,9 @@ policy. One world service owns the playback; one handle per act drives it.
 The entry's service list creates one `audio/api.gd`. It owns the cue pools, the base-game sound
 child, the live `mute_ponese_audio` read and its settings subscription for the process. The bound
 body, the bed, the vocal cooldown and her voice player belong to the `ActAudio` handle;
-`act/build.gd` constructs one per runtime from the world service, and every member no-ops without
-it, which is a suite's construction. Both the context field and the builder's `Bundle` field are
-`RefCounted`, so a suite can substitute its own handle.
+`runtime.gd` constructs one per pony from the world service in its composition function, and every
+member no-ops without it, which is a suite's construction. Both the context field and the
+constructed handle are `RefCounted`, so a suite can substitute its own handle.
 
 ## Act lifecycle
 

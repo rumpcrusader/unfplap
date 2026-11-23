@@ -29,8 +29,8 @@ The act modules read `context.hold` directly for the ordered steps (`keep_nav`, 
 `pause_face_turn`, `release_nav`, `restore_face_turn`, `release_carry`), and the start ledger
 claims the lease. The session keeps `hold_handle()` for the Negotiation bridge and property views
 over the service flags for the teardown reports and the suites. The service owns the state, not
-the runtime's. It is created by `act/build.gd` and works while the runtime is `IDLE`, because
-the negotiation runs before the act.
+the runtime's. It is created by the runtime's composition and works while the runtime is `IDLE`,
+because the negotiation runs before the act.
 
 ## Order
 

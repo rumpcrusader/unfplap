@@ -42,10 +42,10 @@ func run() -> void:
 
 	var runtime: Node = RUNTIME.new()
 	runtime.act._set_state(0) # IDLE
-	runtime._bundle.face.warm_note = true
+	runtime.act.context.face.warm_note = true
 	var note := str(runtime.act.prompt_note())
 	check(not note.is_empty(), "the warm note is produced after making love")
-	runtime._bundle.face.warm_note = false
+	runtime.act.context.face.warm_note = false
 	check(str(runtime.act.prompt_note()).is_empty(), "an ordinary idle note is empty")
 	runtime.free()
 

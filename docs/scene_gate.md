@@ -26,15 +26,15 @@ answers whether the *scene* is ready right now.
 
 `runtime.scene` is the offer-facing scene handle; `runtime.start` carries the hotkey/Agreement
 starts and the footstool hint, and `runtime.presentation` the stool and standing-presentation
-reads. The live scene context comes through the gate's `debug_context` callback, bound by
-`act/build.gd` to `runtime.act.debug_context()`: that gathers `debug/pony.gd`'s pony, world,
+reads. The live scene context comes through the gate's `debug_context` callback, bound by the
+runtime's composition to `runtime.act.debug_context()`: that gathers `debug/pony.gd`'s pony, world,
 relationship and player facts and adds the session's act values. The scene handle exposes
 `find_bed_under`, `free_of_affection`, `cuddle_active`, `hotkey_ready`, the small checks
 (`available`, `pose_supported`, `player_ready`, `navigator_allows`, `posture_allows`,
 `agreement_ready`) and the scene-only verdict; the stool pair, hint and Agreement start are the
 other two handles. The gate reads the bound `ACT_GATE` service (`gate_service`) for the policy
 verdict and for `ready(pony)`; a suite may still override `policy_verdict`. The runtime binds the
-gate through `act/build.gd` and re-binds it on every gate refresh. The tolerance stop owns its impression and face (`docs/summary.md`,
+gate in its composition and re-binds it on every gate refresh. The tolerance stop owns its impression and face (`docs/summary.md`,
 `docs/face.md`).
 
 The rows carry `ACT_GATE.Row` objects with the policy's own keys and reasons. The pure policy

@@ -75,7 +75,7 @@ func run() -> void:
 	var act: Variant = runtime.act.stool()
 	act.set("active", true)
 	act.set("count", 2)
-	var plan: Variant = runtime._bundle.frame.begin(FRAME.pose("standing"))
+	var plan: Variant = runtime.act.context.frame.begin(FRAME.pose("standing"))
 	check(plan is FRAME.PlayerPlan, "the standing plan is returned")
 	var prop: Variant = act.get("node")
 	check(prop is Node3D and is_instance_valid(prop), "the standing stool stack is built")

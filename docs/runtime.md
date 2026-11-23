@@ -1,44 +1,49 @@
 # Act runtime
 
-`runtime.gd` is the per-pony **Node host**. One exists for every non-player pony, parented under
-the pony and idle outside an act. It owns existence, parenting, the reparent across a body swap,
-the two engine frames and the world-close release; it owns no act rule and holds no act value.
+`runtime.gd` is the per-pony **Node host and Pony composition root**. One exists for every
+non-player pony, parented under the pony and idle outside an act. It owns existence, parenting, the
+reparent across a body swap, the two engine frames, the world-close release and the one composition
+of the systems; it owns no act rule and holds no act value.
 
 The act itself is four layers, all under `act/`:
 
 | Layer | Owner | Contract |
 |---|---|---|
-| Node | `runtime.gd` | lifetime, node operations, engine callbacks and the typed handles |
+| Node | `runtime.gd` | lifetime, node operations, composition, engine callbacks and the typed handles |
 | Session | `act/session.gd` | act state, timers, clock, act values, transitions and the two frame forwards |
 | Ledgers | `act/start.gd`, `act/exit.gd` | the ordered start recipe and the one teardown |
 | Modules | `act/tick.gd`, `act/view.gd`, `act/idle.gd`, `act/input.gd`, `act/phases.gd`, `act/agreement.gd`, `act/consent.gd`, `act/impact.gd`, `act/swap.gd`, `act/setup.gd`, `act/settings.gd` | schedule, view, idle, input protocol, presentation, the start ports, consent, stroke, swap seams and the start adapters |
 
-`act/build.gd` constructs every one of them once per pony and binds their typed hosts. The systems
-(readiness, poses, camera, audio, face, reactions, dialogue, summary, afterglow, anatomy, hands,
-kiss, wings, integrations, scene gate, scene hold, rest) own their own state and math.
+The runtime's composition function constructs every one of them once per pony and binds their typed
+hosts. The systems (readiness, poses, camera, audio, face, reactions, dialogue, summary, afterglow,
+anatomy, hands, kiss, wings, integrations, scene gate, scene hold, rest) own their own state and
+math.
 
 ## Node
 
 - Scope: per-pony. Constructed by `ponies/service.gd` through the entry's one factory on the body's
   attach hook; parented under the pony and recorded in the registry.
-- `_init(pony, world)` builds an empty World record when the entry passes none and calls
-  `ACT_BUILD.build(null, self, record)` once; the body arrives through the `pony` setter. The
-  entry's factory passes the record, and a bare `new()` reads every World field as absent.
+- `_init(pony, world)` builds an empty World record when the entry passes none and calls the
+  composition function once; the body arrives through the `pony` setter. The entry's factory passes
+  the record, and a bare `new()` reads every World field as absent.
 - `_ready()` sets process and physics on at priority `100` (after locomotion, the navigator and
-  attention), reads the identity, binds the pony through the bundle, caches the idle probe flag,
-  binds the face, re-presents the persistent anatomy with the stored form and retries the identity
-  and anatomy reads after the first frame.
+  attention), reads the identity, binds the pony through the typed fields, binds the face,
+  re-presents the persistent anatomy with the stored form and schedules the first-frame identity
+  and anatomy retry as one deferred call of its own.
+- The retry is one private call scheduled on the node: the engine drops it with the node, so a
+  runtime freed before its first frame never runs it against freed service children. It returns
+  early unless the runtime is in the tree and both the session and the world anatomy still exist.
 - `_physics_process(delta)` is one `act.tick(delta)`; `_process(delta)` is one `act.render(delta)`.
 - `pony` is the presented body; its setter rebinds the pose session and the act host through the
-  bundle. `live_id()` refreshes the identity and returns the stable act id.
+  runtime's fields. `live_id()` refreshes the identity and returns the stable act id.
 - `attach_to_body(parent)` reparents the live runtime under another node for the handover and sets
   `_swapping_parent`, so the `_exit_tree()` that `reparent()` fires is a no-op.
 - `adopt_body(new_pony)` adopts the handover's new body, binds it through the session
   (`bind_adopted_body`), ends a non-adult body through the one exit and refreshes the game LOD.
 - End: pony despawn, world close or mod shutdown. `_exit_tree()` releases the kiss forelegs, the
   stool, the tail tuck, the aftercare, the anatomy act and the face, and clears the pending
-  body-swap record. The audio pool and sound child belong to the world audio service and the
-  pose-scope tail tuck to its owner; the node creates neither.
+  body-swap record. The node creates its Pony service children; the audio pool and sound child
+  belong to the world audio service and the pose-scope tail tuck to its owner.
 
 The node's public surface is exactly:
 
@@ -146,51 +151,57 @@ The session dispatches; the owners keep the bodies. `act/view.gd` composes the a
 owners read: the face beat and rows, the climax line, the summary input, the prompt note, the debug
 context and the render pose write. `act/context.gd` carries the live systems and no callables.
 
-## Builder
+## Composition
 
-`act/build.gd` is the one composition root and a plain struct builder. `Bundle` holds typed fields
-plus `bind_pony(value)`, which the `pony` setter and `_ready()` call to rebind the pose session's
-body and id and the act host's pony. There is no second bind pass and no facade re-export.
+`runtime.gd` is the one composition root and `_compose()` is the only building: it runs once from
+`_init(pony, world)`, before the body is assigned. It holds the constructed objects as typed locals
+and keeps typed fields only for what the runtime itself drives afterwards: the session, the gate,
+the start handle, the face, the handover, the kiss, the act host, the afterglow, the pose session,
+the act context and the handover host. Nothing else is aliased, there is no bundle and no
+`Dictionary` of peers. The objects a local holds stay reachable through `act/context.gd` and the
+attached service Nodes.
 
-`build(pony, node, world)` constructs, in order:
+`_compose()` runs, in order:
 
-1. the early modules (`input`, `swap`, `tick`, `phases`, the pose session, the scene gate, rest,
-   the camera facade, readiness, summary, face, reactions, the act view, dialogue, afterglow, the
-   scene hold) and the empty typed hosts the bridge and the handover will hold;
-2. `_build_systems()`: the handover, wings, hands, kiss, integrations, the one live view, the two
-   standing body controllers, the camera and audio bindings;
-3. `_bind_act_frame()`: `act/host.gd` (node operations), `act/context.gd`, `act/settings.gd`,
-   `act/session.gd`, consent, impact, view, idle, exit, input, swap, phases, tick, setup, start,
-   agreement and their sibling handles;
-4. the service-owned host: `BodyChangeHost` implements its port from the
-   bundle, so there is no callback pass;
-5. `_bind_pose_hosts()` and `_bind_facts()`: the pose, readiness, face, reactions, gate, rest,
-   scene-hold, afterglow and act-view callbacks;
-6. the scene gate's bind and its one configuration.
+1. the early modules (`swap`, `tick`, `phases`, the pose session, the scene gate, rest, the camera
+   facade, readiness, summary, face, reactions, the act view, dialogue, afterglow, the scene hold),
+   the HUD, memory and stool read from the record, and the act audio handle;
+2. the per-act systems: the handover and its host, wings, hands, kiss, integrations, the one live
+   view, the two standing body controllers, the camera and audio bindings;
+3. `act/host.gd` (node operations), `act/context.gd` filled from the constructed objects,
+   `act/session.gd`, the handover host's typed fields, then frame, consent, impact, view, idle,
+   exit, input, swap, phases, tick, start and agreement and their sibling handles;
+4. the pose host callbacks, then the readiness, face, reactions, gate, rest, scene-hold, afterglow,
+   controller and act-view callbacks;
+5. the scene gate's bind, its one configuration, and the attach of the 13 Pony service Nodes in
+   their fixed order, each named, parented and put in the service group.
 
-The World services are injected, never static: `Bundle` holds the record and takes the HUD, memory
-and stool from it, and `act/context.gd` carries it so the act modules read `context.world.<field>`
-rather than the registry. `afterglow`, `summary`, `face`, `dialogue` and the handover receive
-memory through their constructor; `anatomy` receives the HUD in `setup(hud)`, `negotiation` and
+The World services are injected, never static: the record holds them, the HUD, memory and stool
+come from it, and `act/context.gd` carries it so the act modules read `context.world.<field>` rather
+than the registry. `afterglow`, `summary`, `face`, `dialogue` and the handover receive memory
+through their constructor; `anatomy` receives the HUD in `setup(hud)`, `negotiation` and
 `debug/actions` in their `wire()`, and `offer` at construction. A null field is an absent peer: the
 act modules guard every call, and a bare runtime remains valid.
 
+The `pony` setter and `_ready()` rebind through the runtime's own fields: the pose session's host
+and id, the act host's pony and the reactions' scene. There is no second bind pass and no facade
+re-export.
+
 Every callback names its owner rather than a runtime method:
 
-- act state and act values are session accessors (`b.act.state_value`, `b.act.act_id`, …);
-- a system value is its own service's method (`b.readiness.depth_value`,
-  `b.camera.view_controller`, `b.pose._bed_frame_value`, …);
+- act state and act values are session accessors (`act.state_value`, `act.act_id`, …);
+- a system value is its own service's method (`readiness.depth_value`,
+  `camera.view_controller`, `pose._bed_frame_value`, …);
 - node and scene operations are `act/host.gd` (`pony_value`, `runtime`, `director`, `mod_enabled`,
   `vr_scene`, `near_mesh`, `tier`);
 - logging is `shared/log.gd` (`debug`, `warning`, `error`, `block`);
 - anatomy reads are the session's handle forwards (`anatomy_mouth_point`, `anatomy_opening`,
   `anatomy_react`, `anatomy_set_mouth_viseme`) and the camera's `gaze_point`/`aim_eyes`.
 
-There is no `Callable(node, "_method")` left in the builder. The checker still validates any that
-would be introduced against `runtime.gd`'s functions.
-
-The body change receives the typed `body_change/act_host.gd`; no service locator or host
-dictionary is passed. Anatomy receives its API handle through the act context, not a host port.
+There is no `Callable(runtime, "_method")` in the composition: every receiver is a typed object or
+a typed local. The body change receives the typed `body_change/act_host.gd` through
+`act/host_live.gd`, which answers from the runtime's fields; no service locator or host dictionary
+is passed. Anatomy receives its API handle through the act context, not a host port.
 
 ## Schedule
 
@@ -474,12 +485,12 @@ fan-out invariants:
 - `runtime.gd` contains no settings read; `act/settings.gd` is the act's one snapshot boundary
   (`snapshot_values` and `live_preferences`), and every `SETTINGS.<member>` read there is a named
   allow-list row;
-- `runtime.gd` creates no child node; the world audio service's pool and the pose-scope tail tuck
-  are created by their owners;
+- `runtime.gd` parents exactly the Pony service children: `RUNTIME_CHILD_NODES` lists them by name
+  and is compared both ways with the one attach helper's calls, and only the composition function
+  may call it. The world audio service's pool and the pose-scope tail tuck are created by their
+  owners;
 - a file over 1,000 lines prints `SMELL large file` and does not fail; size is information, not a
   hard gate, and no line, function or preload cap exists;
-- every `Callable(node, ...)` in `act/build.gd` must name a function `runtime.gd` defines (the
-  current builder has none);
 - the one teardown (`act/exit.gd:run()`, called only by the exit's own routes and
   `act/consent.gd:stop_with_her()`, with `act/session.gd:force_stop()` exactly one line calling
   `exit.force_stop()`), the `free_pose()` order and its three exact callers (`act/exit.gd:run`,

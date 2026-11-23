@@ -327,18 +327,19 @@ refuses string dispatch in the entry: no `.call(`, `.get("` or `.set("`, and no 
 act, and it:
 
 - owns existence, parenting, the reparent across a body swap, the two engine-frame forwards and the
-  world-close release. `_init()` builds the bundle once; `_ready()` binds the pony, the face and the
-  anatomy; `_physics_process` is one `act.tick()`, `_process` one `act.render()`, and `_exit_tree()`
-  releases the kiss forelegs, the stool, the tail tuck, the aftercare, the anatomy act and the face;
+  world-close release. `_init()` composes the systems once; `_ready()` binds the pony, the face and
+  the anatomy; `_physics_process` is one `act.tick()`, `_process` one `act.render()`, and
+  `_exit_tree()` releases the kiss forelegs, the stool, the tail tuck, the aftercare, the anatomy
+  act and the face;
 - exposes exactly `act` (the `ActSession`), `scene` (the `SceneGate`), `start` and `presentation`
   (the two ports), `pony`, `live_id()`, `attach_to_body()`, `adopt_body()` and the engine
   callbacks. `NODE_SURFACE` and `NODE_PROPERTIES`
   in the static gate compare both directions, so a new public member and a stale row both
   fail;
-- hands all composition to `act/build.gd`, a plain struct builder with typed fields and
-  `bind_pony()`. It constructs the session, the modules, the typed hosts, the context and every
-  callback once per pony. `runtime.gd` stores the `Bundle`; it keeps no per-system field alias and
-  no private host callback;
+- owns the composition: its `_compose()` constructs the session, the modules, the typed hosts, the
+  context and every callback once per pony, then attaches the 13 Pony service Nodes in their fixed
+  order. It holds typed locals for everything the runtime does not drive itself and typed fields only
+  for what it does; there is no bundle, no per-system field alias and no private host callback;
 - keeps the act state in `act/session.gd`: the one `state` writer `_set_state()`, the timers, the
   clock, the act values and the two frame forwards. `act/settings.gd` owns the act's settings
   snapshot and its live apply; `act/view.gd` composes the values the owners read; the ledgers

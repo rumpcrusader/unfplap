@@ -303,8 +303,8 @@ timer or signal and calls `body_change.notify_source_changed(self)` when its cha
 The act handover reads two typed ports. `body_change/values_port.gd` is the read contract (the act
 values, the dialogue channel and the scene handles); `body_change/swap_port.gd` is the ordered
 release/resume seam, implemented directly by `act/swap.gd`. The combined `body_change/act_host.gd`
-adds `swap()`, and `act/build.gd` implements it once per pony as `BodyChangeHost`; the abstract
-methods make a missing implementation a parse error instead of a no-op callback.
+adds `swap()`, and `act/host_live.gd` implements it once per pony from the runtime's fields; the
+abstract methods make a missing implementation a parse error instead of a no-op callback.
 
 The act handover `body_change/act.gd` reads `body_change.active_change_for(pony)` on a `0.1 s`
 cadence for suspension, adoption, the restore guard and the watchdog, and returns one typed action;

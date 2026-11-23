@@ -62,15 +62,15 @@ func run() -> void:
 	runtime.act._set_state(4) # AFTERGLOW
 	runtime.act.pose_id = CATALOG.MISSIONARY
 	runtime.act.snapshot_settings()
-	runtime._bundle.readiness.pony_climaxes = 2
-	runtime._bundle.summary.summary = {
+	runtime.act.context.readiness.pony_climaxes = 2
+	runtime.act.context.summary.summary = {
 		"hud": "Great · she felt adored",
 		"thought": "He gave me what I needed; I felt wanted.",
 		"positive": true, "reward": true, "grade": "great",
 	}
 	check(HUD_LINES.cue_line_for(_hud_view(runtime), true).contains("Great"),
 		"missionary afterglow cue shows the summary")
-	runtime._bundle.afterglow.beat = "You are warm and quiet."
+	runtime.act.context.afterglow.beat = "You are warm and quiet."
 	var afterglow_note := str(runtime.act.prompt_note())
 	check(afterglow_note.contains("You are warm and quiet"), "afterglow uses its private beat")
 	check(not afterglow_note.contains("I felt wanted") and not afterglow_note.contains("This act"),
@@ -80,7 +80,7 @@ func run() -> void:
 	check(HUD_LINES.readiness_line_for(_hud_view(runtime), true).is_empty(),
 		"missionary afterglow does not duplicate the summary")
 	runtime.act.pose_id = CATALOG.STANDING
-	runtime._bundle.afterglow.close_left = 8.0
+	runtime.act.context.afterglow.close_left = 8.0
 	check(HUD_LINES.cue_line_for(_hud_view(runtime), true).contains("Stay close"),
 		"standing afterglow cue keeps the close prompt")
 	check(HUD_LINES.readiness_line_for(_hud_view(runtime), true).contains("Great"),
@@ -94,22 +94,22 @@ func run() -> void:
 
 	# The snapshot must carry the per-act counters the pure scorer expects.
 	var probe: Node = RUNTIME.new()
-	probe._bundle.readiness.act_touch_counts = {"smack": 2}
-	probe._bundle.readiness.act_touch_dislikes = {"smack": 2}
-	probe._bundle.readiness.act_talk_dislikes = 1
-	probe._bundle.readiness.act_player_lines = 0
-	probe._bundle.readiness.act_thrusts = 5
-	probe._bundle.readiness.act_intensity_total = 4
-	probe._bundle.readiness.act_intensity_right = 3
-	probe._bundle.readiness.act_pattern_total = 3
-	probe._bundle.readiness.act_pattern_right = 1
-	probe._bundle.readiness.act_liked_touch = 0
-	probe._bundle.readiness.act_liked_talk = 0
+	probe.act.context.readiness.act_touch_counts = {"smack": 2}
+	probe.act.context.readiness.act_touch_dislikes = {"smack": 2}
+	probe.act.context.readiness.act_talk_dislikes = 1
+	probe.act.context.readiness.act_player_lines = 0
+	probe.act.context.readiness.act_thrusts = 5
+	probe.act.context.readiness.act_intensity_total = 4
+	probe.act.context.readiness.act_intensity_right = 3
+	probe.act.context.readiness.act_pattern_total = 3
+	probe.act.context.readiness.act_pattern_right = 1
+	probe.act.context.readiness.act_liked_touch = 0
+	probe.act.context.readiness.act_liked_talk = 0
 	probe.act.ended_early = false
-	probe._bundle.readiness.pony_climaxes = 1
+	probe.act.context.readiness.pony_climaxes = 1
 	probe.act._act_seconds = 90.0
-	var inputs: SUMMARY.Inputs = probe._bundle.summary.summary_inputs(
-		probe.act.act_input().as_inputs(probe._bundle.readiness))
+	var inputs: SUMMARY.Inputs = probe.act.context.summary.summary_inputs(
+		probe.act.act_input().as_inputs(probe.act.context.readiness))
 	check(inputs.thrusts == 5, "snapshot carries real thrusts")
 	check(int((inputs.touch_dislikes as Dictionary).get("smack", 0)) == 2,
 		"snapshot carries disliked touch kinds")
@@ -236,20 +236,20 @@ func _check_commit() -> void:
 	runtime.act.preferences = {"intensity": "firm", "pattern": "steady", "talk": [],
 		"touch": [], "dislikes": []}
 	runtime.act._act_seconds = 90.0
-	runtime._bundle.readiness.act_thrusts = 10
-	runtime._bundle.readiness.pony_climaxes = 1
-	runtime._bundle.readiness.act_intensity_total = 5
-	runtime._bundle.readiness.act_intensity_right = 5
-	runtime._bundle.readiness.act_pattern_total = 5
-	runtime._bundle.readiness.act_pattern_right = 5
-	runtime._bundle.readiness.act_player_lines = 0
-	runtime._bundle.readiness.act_liked_talk = 0
-	runtime._bundle.readiness.act_liked_touch = 0
-	runtime._bundle.readiness.act_touch_dislikes = {}
+	runtime.act.context.readiness.act_thrusts = 10
+	runtime.act.context.readiness.pony_climaxes = 1
+	runtime.act.context.readiness.act_intensity_total = 5
+	runtime.act.context.readiness.act_intensity_right = 5
+	runtime.act.context.readiness.act_pattern_total = 5
+	runtime.act.context.readiness.act_pattern_right = 5
+	runtime.act.context.readiness.act_player_lines = 0
+	runtime.act.context.readiness.act_liked_talk = 0
+	runtime.act.context.readiness.act_liked_touch = 0
+	runtime.act.context.readiness.act_touch_dislikes = {}
 	runtime.act.ended_early = false
 	runtime.act.commit_summary(true)
-	check(not (runtime._bundle.summary.summary as Dictionary).is_empty(), "the runtime commits one summary")
-	check(str((runtime._bundle.summary.summary as Dictionary).get("grade", "")) == "good",
+	check(not (runtime.act.context.summary.summary as Dictionary).is_empty(), "the runtime commits one summary")
+	check(str((runtime.act.context.summary.summary as Dictionary).get("grade", "")) == "good",
 		"a clean act summary is good")
 	check(mods.saves >= 1, "the summary is saved to the mod state")
 	var section: Dictionary = mods.data.get("unfplap", {})
@@ -269,14 +269,14 @@ func _check_commit() -> void:
 
 	# A partner stop forces a severe bad summary and a history cooldown.
 	runtime.act.stopped_by_her = true
-	runtime._bundle.summary.summary = {}
-	runtime._bundle.summary.summary_done = false
-	runtime._bundle.readiness.act_touch_dislikes = {"smack": 2}
-	runtime._bundle.readiness.act_talk_dislikes = 0
+	runtime.act.context.summary.summary = {}
+	runtime.act.context.summary.summary_done = false
+	runtime.act.context.readiness.act_touch_dislikes = {"smack": 2}
+	runtime.act.context.readiness.act_talk_dislikes = 0
 	runtime.act.preferences = {"tolerance": "strict", "intensity": "soft", "pattern": "steady",
 		"talk": [], "touch": [], "dislikes": ["smack"]}
 	runtime.act.commit_summary(false)
-	var stopped_summary: Dictionary = runtime._bundle.summary.summary
+	var stopped_summary: Dictionary = runtime.act.context.summary.summary
 	check(str(stopped_summary.get("grade", "")) == "bad", "a partner stop is a bad summary")
 	check(bool(stopped_summary.get("severe", false)), "a partner stop is severe")
 	check(int(stopped_summary.get("romance", 0)) == -1, "a partner stop gives no romance")

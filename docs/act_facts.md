@@ -8,7 +8,7 @@ the runtime orchestrator and the scene adapters.
 ## Ownership
 
 - `shared/act_facts.gd` defines the fields and the no-op host callbacks.
-- `act/build.gd` creates it once per pony and binds each callback to its owner — a service method,
+- the runtime's composition creates it once per pony and binds each callback to its owner — a service method,
   a session accessor or an `act/host.gd` node op — so no callback names a runtime node method.
   `act/view.gd` refreshes the live values through `act/session.gd:refresh_view()`, the one call
   site. It runs once per phase: idle

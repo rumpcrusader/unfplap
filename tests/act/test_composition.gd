@@ -28,9 +28,9 @@ func run() -> void:
 		for hook: String in FRAME_HOOKS:
 			check(not child.has_method(hook), "%s declares no %s" % [child.name, hook])
 	check(attached == PONY_NAMES, "the 13 Pony services are attached once, in their fixed order")
-	check(runtime.get_node_or_null("UnfplapPoses") == runtime._bundle.pose,
+	check(runtime.get_node_or_null("UnfplapPoses") == runtime.act.context.pose,
 		"the named child is the constructed pose session")
-	check(runtime.get_node_or_null("UnfplapDialogue") == runtime._bundle.dialogue,
+	check(runtime.get_node_or_null("UnfplapDialogue") == runtime.act.context.dialogue,
 		"the named child is the constructed dialogue facade")
 	check(runtime.act.context.world == world, "the runtime hands its World record to the act context")
 	check(runtime.scene.gate_service == gate, "the scene gate reads the record's act gate")

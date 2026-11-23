@@ -61,7 +61,7 @@ The body-change service owns the source list, the form store, the apply path and
 forwards. The entry registers the providers and the service answers which source handles a pony;
 the runtime and the debug block see the typed source and policy surfaces, never the pack.
 
-The builder constructs one service per pony (`act/build.gd`) and passes its typed
+The runtime's composition constructs one service per pony and passes its typed
 `shared/act_facts.gd` view. The act modules call `begin()`, `tick()`, `afterglow()`,
 `apply_live_settings()` and `reset()` at the ordered lifecycle points; `act/exit.gd:run()` remains
 the only act teardown.
@@ -412,7 +412,7 @@ overlay reads them.
 
 | Host call | Purpose |
 |---|---|
-| `runtime.act.context.integrations` | the per-pony act facade, built once by `act/build.gd` |
+| `runtime.act.context.integrations` | the per-pony act facade, built once by the runtime's composition |
 | `begin()` | resolve bindings and start available providers after the act reaches `POSING_IN` |
 | `tick(delta)` | update context, watch optional bindings and apply provider tick actions |
 | `afterglow()` | apply the one afterglow action before Kissing's hold/fade |

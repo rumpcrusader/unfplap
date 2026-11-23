@@ -205,11 +205,11 @@ func _fixture() -> Dictionary:
 	runtime.pony = pony
 	runtime.act.pony_id = "test_mare"
 	runtime.act.pony_id = "test_mare"
-	runtime._bundle.hold.face_turn_rate_saved = 0.45
-	runtime._bundle.hold.face_turn_rate_owned = true
+	runtime.act.context.hold.face_turn_rate_saved = 0.45
+	runtime.act.context.hold.face_turn_rate_owned = true
 	pony.face_turn_rate = 0.0
-	runtime._bundle.hold.locked_player = true
-	runtime._bundle.hold.had_kiss_hold = false
+	runtime.act.context.hold.locked_player = true
+	runtime.act.context.hold.had_kiss_hold = false
 	player.set_meta("kiss_hold", true)
 	pony.set_meta("sex_active", true)
 	runtime.act.posture_owned = true
@@ -218,11 +218,11 @@ func _fixture() -> Dictionary:
 	runtime.act._set_state(2)
 	PONIES.set_active(runtime)
 	runtime.act.input.toggle_auto_thrust()
-	runtime._bundle.hold.nav = nav
+	runtime.act.context.hold.nav = nav
 	nav.command_owner = "unfplap:test_mare"
 	nav.wander_enabled = false
-	runtime._bundle.hold.nav_old_wander = false
-	runtime._bundle.hold.token = "unfplap:test_mare"
+	runtime.act.context.hold.nav_old_wander = false
+	runtime.act.context.hold.token = "unfplap:test_mare"
 	hud.set_inventory_hidden(true)
 	return {"runtime": runtime, "pony": pony, "player": player, "main": main, "hud": hud,
 		"world": world}
@@ -242,7 +242,7 @@ func run() -> void:
 	var player: FakePlayer = f["player"]
 	var main: FakeMain = f["main"]
 	var world: HANDLES = f["world"]
-	var nav: FakeNav = runtime._bundle.hold.nav
+	var nav: FakeNav = runtime.act.context.hold.nav
 	var inventory: FakeInventory = main.game.inventory
 
 	# The registry accessors hand back the runtime's real handles: the scene Node and the act ports.
@@ -265,10 +265,10 @@ func run() -> void:
 
 	runtime.act.exit.run(false)
 	check(pony.face_turn_rate == 0.45, "face-turn rate restored")
-	check(not runtime._bundle.hold.face_turn_rate_owned, "face-turn ownership cleared")
+	check(not runtime.act.context.hold.face_turn_rate_owned, "face-turn ownership cleared")
 	check(nav.command_owner == "", "navigator ownership released")
 	check(nav.wander_enabled == false, "navigator gives back the saved wander flag")
-	check(not runtime._bundle.hold.locked_player, "player lock released")
+	check(not runtime.act.context.hold.locked_player, "player lock released")
 	check(not player.has_meta("kiss_hold"), "kiss hold removed when the act set it")
 	check(not pony.has_meta("sex_active"), "sex_active cleared")
 	check(not (f["hud"] as CanvasLayer).inventory_hidden(), "inventory HUD restored")
@@ -333,7 +333,7 @@ func run() -> void:
 	var player3: FakePlayer = f3["player"]
 	player3._stand_eye = 1.6
 	player3._eye_height = 1.6
-	runtime3._bundle.frame.begin(FRAME.pose("standing"))
+	runtime3.act.context.frame.begin(FRAME.pose("standing"))
 	player3._stand_eye = 2.1
 	player3._eye_height = 2.1
 	runtime3.act.exit.run(false)
@@ -344,11 +344,11 @@ func run() -> void:
 	var f4 := _fixture()
 	var runtime4: Node = f4["runtime"]
 	var main4: FakeMain = f4["main"]
-	var nav4: FakeNav = runtime4._bundle.hold.nav
+	var nav4: FakeNav = runtime4.act.context.hold.nav
 	runtime4.pony = null
 	runtime4.act._set_state(4)
 	runtime4.act.exit.finish_restore()
-	check(not runtime4._bundle.hold.locked_player, "invalid pony still unlocks the player")
+	check(not runtime4.act.context.hold.locked_player, "invalid pony still unlocks the player")
 	check(nav4.command_owner == "", "invalid pony still releases the navigator")
 	check(int(runtime4.act.state) == 0, "invalid pony ends in IDLE")
 	check(not PONIES.act_running(), "invalid pony still clears the active runtime")
@@ -373,7 +373,7 @@ func run() -> void:
 	player6.rotation.y = 0.1
 	var pony_start: Transform3D = pony6.global_transform
 	var player_start: Transform3D = player6.global_transform
-	var plan6: Variant = runtime6._bundle.frame.begin(FRAME.pose("standing"))
+	var plan6: Variant = runtime6.act.context.frame.begin(FRAME.pose("standing"))
 	check(pony6.global_transform.is_equal_approx(pony_start),
 		"standing start keeps her in place")
 	var gap6: float = float(runtime6.act.swap.standing_gap())
@@ -392,7 +392,7 @@ func run() -> void:
 	pony6.identity = null
 	var placed6: Transform3D = player6.global_transform
 	var placed_yaw6 := player6.rotation.y
-	runtime6._bundle.frame.end()
+	runtime6.act.context.frame.end()
 	check(player6.global_position.is_equal_approx(placed6.origin),
 		"standing end leaves Anon in place")
 	check(is_equal_approx(player6.rotation.y, placed_yaw6),
@@ -412,7 +412,7 @@ func run() -> void:
 	var world6b: HANDLES = f6b["world"]
 	world6b.anatomy = anatomy6b
 	var gap6b: float = float(runtime6b.act.swap.standing_gap())
-	runtime6b._bundle.frame.begin(FRAME.pose("standing"))
+	runtime6b.act.context.frame.begin(FRAME.pose("standing"))
 	var base6b := Vector3(pony6b.global_position.x, 0.0, pony6b.global_position.z + gap6b)
 	check(player6b.global_position.is_equal_approx(base6b),
 		"the standing start leaves Anon behind her at the gap")
@@ -449,12 +449,12 @@ func run() -> void:
 		if str(child.name).begins_with("Unfplap"):
 			built += 1
 	check(built == 1, "the act installs its pose modifier on the body skeleton")
-	check(runtime8._bundle.pose.view().id == CATALOG_STANDING
-		and runtime8._bundle.pose.view().pose_state == 2,
+	check(runtime8.act.context.pose.view().id == CATALOG_STANDING
+		and runtime8.act.context.pose.view().pose_state == 2,
 		"the act fills the pose view")
 	runtime8.act.exit.free_pose()
-	check(runtime8._bundle.pose.view().id == ""
-		and runtime8._bundle.pose.view().pose_state == 0,
+	check(runtime8.act.context.pose.view().id == ""
+		and runtime8.act.context.pose.view().pose_state == 0,
 		"the act teardown clears the pose view")
 	var left := 0
 	for child: Node in body8.get_children():
@@ -465,14 +465,14 @@ func run() -> void:
 	# The one act exit runs the same pose ledger: the view returns to IDLE and a second exit is
 	# safe with no pose left behind.
 	runtime8.act.start._build_pose()
-	check(runtime8._bundle.pose.view().pose_state == 2, "a new act fills the pose view again")
+	check(runtime8.act.context.pose.view().pose_state == 2, "a new act fills the pose view again")
 	runtime8.act.exit.run(false)
 	var after_exit := 0
 	for child: Node in body8.get_children():
 		if str(child.name).begins_with("Unfplap"):
 			after_exit += 1
-	check(runtime8._bundle.pose.view().id == ""
-		and runtime8._bundle.pose.view().pose_state == 0,
+	check(runtime8.act.context.pose.view().id == ""
+		and runtime8.act.context.pose.view().pose_state == 0,
 		"the act exit leaves the pose view idle")
 	check(after_exit == 0, "the act exit leaves no act modifier on the body skeleton")
 	runtime8.act.exit.run(false)
@@ -480,7 +480,7 @@ func run() -> void:
 	for child: Node in body8.get_children():
 		if str(child.name).begins_with("Unfplap"):
 			after_exit += 1
-	check(runtime8._bundle.pose.view().pose_state == 0 and after_exit == 0,
+	check(runtime8.act.context.pose.view().pose_state == 0 and after_exit == 0,
 		"a second act exit is safe with no pose left behind")
 
 	# An edge aborted by the one act exit: the run is dropped, the view returns to IDLE and the
@@ -491,20 +491,20 @@ func run() -> void:
 	runtime8.act.features = {"standing_body_sway": true}
 	runtime8.act.start._build_pose()
 	var act_body8 := MISSIONARY_ANON.new()
-	runtime8._bundle.pose.act_body = act_body8
-	check(runtime8._bundle.pose.body_sway != null,
+	runtime8.act.context.pose.act_body = act_body8
+	check(runtime8.act.context.pose.body_sway != null,
 		"the act body test installs the standing body sway")
 	var edge: POSES.PoseResult = runtime8.act.input.request_pose(CATALOG_STANDING_TEST, "test")
 	check(edge.code == "ok", "the runtime starts the debug edge")
-	check(runtime8._bundle.pose.view().pose_state == 3,
+	check(runtime8.act.context.pose.view().pose_state == 3,
 		"the running edge puts the view in the transition state")
 	runtime8.act.exit.run(false)
-	check(runtime8._bundle.pose._run == null, "the act exit aborts the running edge")
-	check(runtime8._bundle.pose.view().id == ""
-		and runtime8._bundle.pose.view().pose_state == 0,
+	check(runtime8.act.context.pose._run == null, "the act exit aborts the running edge")
+	check(runtime8.act.context.pose.view().id == ""
+		and runtime8.act.context.pose.view().pose_state == 0,
 		"the act exit leaves the transition view idle")
-	check(runtime8._bundle.pose.pose_node == null, "the act exit frees the edge's pose node")
-	check(runtime8._bundle.pose.body_sway == null and runtime8._bundle.pose.act_body == null,
+	check(runtime8.act.context.pose.pose_node == null, "the act exit frees the edge's pose node")
+	check(runtime8.act.context.pose.body_sway == null and runtime8.act.context.pose.act_body == null,
 		"the act exit frees the extra modifier and the act body once")
 	check(act_body8.is_queued_for_deletion(), "the act body is detached before it is freed")
 
@@ -524,20 +524,20 @@ func run() -> void:
 	runtime8.act.start._build_pose()
 	runtime8.act.context.anatomy = FakePresentation.new()
 	runtime8.act.input._toggle_oral()
-	check(runtime8._bundle.pose.view().pose_state == 3
-		and runtime8._bundle.pose.view().edge_id == "standing__standing_oral",
+	check(runtime8.act.context.pose.view().pose_state == 3
+		and runtime8.act.context.pose.view().edge_id == "standing__standing_oral",
 		"the oral command starts the authored forward edge")
-	runtime8._bundle.pose.tick(0.8)
+	runtime8.act.context.pose.tick(0.8)
 	check(pony8.global_position.distance_to(oral_from) > 0.001,
 		"the oral turn moves her during the edge")
 	runtime8.act.exit.run(false)
-	check(runtime8._bundle.pose._run == null, "the act exit aborts the oral edge")
+	check(runtime8.act.context.pose._run == null, "the act exit aborts the oral edge")
 	check(pony8.global_position.is_equal_approx(oral_from),
 		"the act exit restores the captured oral root once")
-	check(runtime8._bundle.pose.view().id == ""
-		and runtime8._bundle.pose.view().pose_state == 0,
+	check(runtime8.act.context.pose.view().id == ""
+		and runtime8.act.context.pose.view().pose_state == 0,
 		"the act exit leaves the oral view idle")
-	check(not runtime8._bundle.pose.pose_config.has("oral_pitch"),
+	check(not runtime8.act.context.pose.pose_config.has("oral_pitch"),
 		"the act exit erases the oral keys")
 
 	# The oral feature gate refuses before the edge starts and leaves her where she is.
@@ -547,7 +547,7 @@ func run() -> void:
 	runtime8.act.start._build_pose()
 	var refused_from: Vector3 = pony8.global_position
 	runtime8.act.input._toggle_oral()
-	check(runtime8._bundle.pose._run == null,
+	check(runtime8.act.context.pose._run == null,
 		"the oral feature gate refuses before the edge starts")
 	check(pony8.global_position.is_equal_approx(refused_from),
 		"the refused oral edge moves nothing")
@@ -573,7 +573,7 @@ func run() -> void:
 	player9.rotation.y = 1.1
 	var player_start9: Transform3D = player9.global_transform
 	var headset9: Transform3D = \
-		(runtime9._bundle.frame.begin(FRAME.pose("standing")) as FRAME.PlayerPlan).root_transform
+		(runtime9.act.context.frame.begin(FRAME.pose("standing")) as FRAME.PlayerPlan).root_transform
 	var gap9: float = float(runtime9.act.swap.standing_gap())
 	var forward9: Vector3 = -cam9.global_basis.z
 	forward9.y = 0.0
@@ -593,11 +593,11 @@ func run() -> void:
 	var runtime10: Node = f10["runtime"]
 	var suspended := BODY_CHANGE.new()
 	suspended.state = BODY_CHANGE.State.ADOPTED
-	runtime10._bundle.handover.begin(suspended)
-	runtime10._bundle.handover.adopt(f10["pony"])
-	runtime10._bundle.handover.elapsed = 1.0
+	runtime10.act.context.handover.begin(suspended)
+	runtime10.act.context.handover.adopt(f10["pony"])
+	runtime10.act.context.handover.elapsed = 1.0
 	runtime10.act.exit.run(false)
-	check(runtime10._bundle.handover.change == null and not runtime10.act.suspended()
+	check(runtime10.act.context.handover.change == null and not runtime10.act.suspended()
 		and int(runtime10.act.state) == ACT_STATE.State.IDLE,
 		"the one exit clears a suspended typed body change")
 
@@ -613,27 +613,32 @@ func run() -> void:
 	runtime11.act.bind_body_services(pony11, form11)
 	check(int(runtime11.act.state) == 2, "a body bind leaves a live act live")
 	check(not runtime11.act.suspended(), "a body bind never suspends the act")
-	check(runtime11._bundle.pose.pony == pony11, "the body bind binds the pose session")
-	check(runtime11._bundle.face.pony == pony11, "the body bind binds the face")
+	check(runtime11.act.context.pose.pony == pony11, "the body bind binds the pose session")
+	check(runtime11.act.context.face.pony == pony11, "the body bind binds the face")
 	check(PONIES.active() == runtime11, "a body bind never runs the act exit")
 	form11.form_id = "rarity"
 	form11.fit_id = "rarity"
 	form11.revision = 1
 	runtime11.act.refresh_body_services(pony11, form11)
 	check(int(runtime11.act.state) == 2, "a same-node refresh leaves a live act live")
-	check(float(runtime11._bundle.facts.player_eye_height) > 0.0,
+	check(float(runtime11.act.context.facts.player_eye_height) > 0.0,
 		"a same-node refresh reapplies the stance")
 	check(PONIES.active() == runtime11, "a same-node refresh never runs the act exit")
-	runtime11._bundle.handover.context.form = form11
-	runtime11._bundle.handover.context.change = BODY_CHANGE.new()
+	runtime11.act.context.handover.context.form = form11
+	runtime11.act.context.handover.context.change = BODY_CHANGE.new()
 	runtime11.act.exit.run(false)
-	check(runtime11._bundle.handover.context.form == null
-		and runtime11._bundle.handover.context.change == null,
+	check(runtime11.act.context.handover.context.form == null
+		and runtime11.act.context.handover.context.change == null,
 		"the one exit clears the reused policy context")
 
-	# A runtime's `_ready` defers its first identity and anatomy refresh; let those run while the
-	# services are still attached, then free a runtime the way a body exit does.
-	await process_frame
+	# The first-frame refresh is the node's own deferred call and returns early outside the tree.
+	var no_frame: Node = RUNTIME.new()
+	no_frame._deferred_refresh()
+	check(no_frame.act.pony_id.is_empty(), "a deferred refresh outside the tree changes nothing")
+	no_frame.free()
+
+	# Free a runtime the way a body exit does: the deferred first-frame refresh belongs to the node,
+	# so the engine drops it instead of running it against the freed services.
 	for item: Dictionary in [f, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11]:
 		(item["runtime"] as Node).free()
 	if failures == 0:

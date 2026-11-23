@@ -52,9 +52,27 @@ ACT_SETTINGS_READS = {
     ("snapshot_values", "act_snapshot"): "the act's one bulk snapshot",
     ("live_preferences", "preferences"): "the live preference refresh",
 }
-# The runtime node parents no child: the act audio node and the pose-scope tail tuck are created by
-# their owners. A row is added only for a system-owned node the host itself must add.
-RUNTIME_CHILD_NODES = {}
+# The Pony services the runtime composes into its own tree: one row per child, and the comparison
+# runs both ways, so a new child and a dead row both fail. Only the composition function may call
+# the attach helper; the other nodes the runtime needs are created by their owners.
+RUNTIME_CHILD_NODES = {
+    "UnfplapPoses": "the per-pony pose session",
+    "UnfplapCamera": "the act camera and the lean/travel math",
+    "UnfplapHands": "the hand reach and palm fit",
+    "UnfplapKiss": "the kiss and the foreleg overrides",
+    "UnfplapFace": "the face, mood and eyes",
+    "UnfplapAfterglow": "the aftercare plan and the close window",
+    "UnfplapRest": "the bed rejoin",
+    "UnfplapSceneGate": "the offer-facing scene verdicts",
+    "UnfplapSceneHold": "the act's scene ownership",
+    "UnfplapReadiness": "satisfaction, mood and the auto stroke",
+    "UnfplapReactions": "the act's reaction lines",
+    "UnfplapSummary": "the act summary",
+    "UnfplapDialogue": "the dialogue channel and the prompt notes",
+}
+# The one attach call: `_attach(<local>, "<service name>")`, read for both the child set and the
+# composition function it must live in.
+RUNTIME_ATTACH = re.compile(r'\b_attach\(\s*[A-Za-z_]\w*\s*,\s*"([A-Za-z_]\w*)"\s*\)')
 # The runtime node's public functions: the entry's lifetime ops. `act`, `gate` and `pony` are
 # properties, not rows. A new public function is a facade regrowth; the comparison runs both ways.
 NODE_SURFACE = {
@@ -158,24 +176,6 @@ def check_callable_targets(failure: Failure) -> None:
             if scanned and method not in names:
                 failure.add("%s:%d binds Callable(%s, \"%s\") but %s defines no %s()" % (
                     rel(path), line, receiver, method, rel(script), method))
-
-    # The composition root receives the runtime node as a parameter, so its node callables have no
-    # typed field to resolve against. They name methods on `runtime.gd`; check them there, or a
-    # renamed host method silently returns its fallback forever.
-    builder = ROOT / "act" / "build.gd"
-    runtime_path = ROOT / "runtime.gd"
-    if builder.is_file() and runtime_path.is_file():
-        runtime_funcs = set(re.findall(
-            r"^(?:static\s+)?func\s+(\w+)\(",
-            _code_lines(read_text(str(runtime_path))), re.MULTILINE))
-        builder_text = _code_lines(read_text(str(builder)))
-        for match in CALLABLE_TARGET.finditer(builder_text):
-            if match.group(1) != "node":
-                continue
-            if match.group(2) not in runtime_funcs:
-                failure.add(
-                    "act/build.gd:%d binds Callable(node, \"%s\") but runtime.gd defines no %s()" % (
-                        line_of(builder_text, match.start()), match.group(2), match.group(2)))
 
 
 def check_owners(failure: Failure) -> None:
@@ -316,18 +316,26 @@ def check_runtime_shape(failure: Failure) -> None:
                 failure.add("the act settings allow-list row %s -> %s is stale (%s)" % (
                     key[0], key[1], reason))
 
-    # The runtime parents only the nodes a system owns; it constructs no scene of its own.
-    children: dict[str, int] = {}
+    # The runtime parents exactly the Pony service set, attached by `_attach()` from `_compose()`.
     for match in re.finditer(r"\badd_child\(", text):
         owner = enclosing_function(offsets, match.start())
-        children.setdefault(owner, line_of(text, match.start()))
-    for owner, line in sorted(children.items()):
-        if owner not in RUNTIME_CHILD_NODES:
-            failure.add("runtime.gd:%d creates a child node in %s(); only the documented "
-                        "system-owned nodes are parented here" % (line, owner))
-    for owner, reason in sorted(RUNTIME_CHILD_NODES.items()):
-        if owner not in children:
-            failure.add("the runtime child allow-list row %s is stale (%s)" % (owner, reason))
+        if owner != "_attach":
+            failure.add("runtime.gd:%d creates a child node in %s(); _attach() is the one attach "
+                        "site" % (line_of(text, match.start()), owner))
+    attached: dict[str, int] = {}
+    for match in RUNTIME_ATTACH.finditer(text):
+        owner = enclosing_function(offsets, match.start())
+        if owner != "_compose":
+            failure.add("runtime.gd:%d attaches a Pony service in %s(); the composition function "
+                        "is the one caller" % (line_of(text, match.start()), owner))
+            continue
+        attached.setdefault(match.group(1), line_of(text, match.start()))
+    for name in sorted(set(attached) - set(RUNTIME_CHILD_NODES)):
+        failure.add("runtime.gd:%d attaches %s; it is not a listed Pony service child" % (
+            attached[name], name))
+    for name, reason in sorted(RUNTIME_CHILD_NODES.items()):
+        if name not in attached:
+            failure.add("the runtime child allow-list row %s is stale (%s)" % (name, reason))
 
 
 def report_large_files() -> None:

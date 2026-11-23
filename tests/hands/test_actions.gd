@@ -69,15 +69,15 @@ func _check_tail_tuning() -> void:
 	tail_runtime.set("pony", tail_pony)
 	tail_runtime.act.pony_id = "twilight_sparkle"
 	tail_runtime.act.pose_id = CATALOG.STANDING
-	tail_runtime._bundle.pose._view.settings_group = CATALOG.STANDING
+	tail_runtime.act.context.pose._view.settings_group = CATALOG.STANDING
 	tail_runtime.act.presentation_config = {"tail": {"yaw_deg": 40.0, "pitch_deg": 10.0}}
-	tail_runtime._bundle.context.pose.sync_standing_config(POSES.SettingsBlock.from_dict(tail_runtime.act.presentation_config))
-	var cfg: Dictionary = tail_runtime._bundle.pose.pose_config
+	tail_runtime.act.context.pose.sync_standing_config(POSES.SettingsBlock.from_dict(tail_runtime.act.presentation_config))
+	var cfg: Dictionary = tail_runtime.act.context.pose.pose_config
 	check(near(float(cfg.get("tail_aside", 0.0)), deg_to_rad(40.0)), "tail yaw tunable reaches the pose")
 	check(near(float(cfg.get("tail_lift", 0.0)), deg_to_rad(10.0)), "tail pitch tunable reaches the pose")
 	tail_runtime.act.presentation_config = {}
-	tail_runtime._bundle.context.pose.sync_standing_config(POSES.SettingsBlock.from_dict(tail_runtime.act.presentation_config))
-	cfg = tail_runtime._bundle.pose.pose_config
+	tail_runtime.act.context.pose.sync_standing_config(POSES.SettingsBlock.from_dict(tail_runtime.act.presentation_config))
+	cfg = tail_runtime.act.context.pose.pose_config
 	check(near(float(cfg.get("tail_aside", 0.0)), deg_to_rad(35.0)), "tail yaw default")
 	check(near(float(cfg.get("tail_lift", 0.0)), deg_to_rad(25.0)), "tail pitch default")
 	tail_pony.free()
@@ -495,7 +495,7 @@ func run() -> void:
 	live_runtime.act.pose_id = CATALOG.STANDING
 	live_runtime.act.apply_live_settings()
 	check(live_runtime.act.features.has("hud_readouts"), "live settings refresh feature flags")
-	check(live_runtime._bundle.camera.camera_surge >= 0.0 and live_runtime._bundle.camera.camera_surge <= 1.0,
+	check(live_runtime.act.context.camera.camera_surge >= 0.0 and live_runtime.act.context.camera.camera_surge <= 1.0,
 		"live settings refresh camera thrust")
 	live_runtime.free()
 
@@ -752,9 +752,9 @@ func run() -> void:
 	plant_body.free()
 
 	var gate_runtime: Node = RUNTIME.new()
-	check(not gate_runtime._bundle.gate.start_verdict(CATALOG.MISSIONARY, "bed_side").show(),
+	check(not gate_runtime.act.context.gate.start_verdict(CATALOG.MISSIONARY, "bed_side").show(),
 		"missing pony blocks start")
-	var gate: Variant = gate_runtime._bundle.gate
+	var gate: Variant = gate_runtime.act.context.gate
 	check(not gate.call("offer_verdict", CATALOG.STANDING, "", null).offer_ok(),
 		"missing pony blocks offer")
 	var gate_rows: Array = gate.call("start_verdict", CATALOG.MISSIONARY, "bed_side").rows
@@ -780,10 +780,10 @@ func run() -> void:
 	cuddle_pony.set_meta("couch_cuddle", true)
 	cuddle_runtime.pony = cuddle_pony
 	cuddle_runtime.act._set_state(0) # IDLE
-	cuddle_runtime._bundle.gate.suppress_auto_cuddle()
+	cuddle_runtime.act.context.gate.suppress_auto_cuddle()
 	check(cuddle_pony.has_meta("couch_cuddle"), "idle runtime leaves native bed cuddles alone")
 	cuddle_runtime.act._set_state(2) # ACTIVE
-	cuddle_runtime._bundle.gate.suppress_auto_cuddle()
+	cuddle_runtime.act.context.gate.suppress_auto_cuddle()
 	check(not cuddle_pony.has_meta("couch_cuddle"), "active runtime suppresses auto cuddle")
 	cuddle_pony.free()
 	cuddle_runtime.free()

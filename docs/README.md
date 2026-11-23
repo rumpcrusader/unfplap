@@ -30,16 +30,15 @@ that is the lifecycle order of every broadcast. `runtime.gd` is the per-pony Nod
 for every non-player pony, idle and in an act, and owns lifetime, parenting, the two engine-frame
 forwards, the reparent across a body swap and the world-close release. Its own `act/` modules own
 the act state and values, the start recipe, the one teardown, the schedule, the view and the idle
-block; `act/build.gd` constructs and binds them once per pony.
+block; its `_compose()` constructs and binds them once per pony and attaches the Pony services.
 
 | Part | Entry | Contract | Tests |
 |---|---|---|---|
 | Entry | `main.gd` | `../ARCHITECTURE.md` | `tests/entry/` |
-| Per-pony Node host | `runtime.gd` | `docs/runtime.md` | `tests/` |
-| Per-pony composition | `act/build.gd` | `docs/runtime.md` | `tests/act/`, `tests/test_runtime_teardown.gd` |
+| Per-pony Node host and composition | `runtime.gd` | `docs/runtime.md` | `tests/`, `tests/act/`, `tests/test_runtime_teardown.gd` |
 | Act session | `act/session.gd` | `docs/runtime.md` | `tests/act/test_session.gd` |
 | Act ledgers | `act/start.gd`, `act/exit.gd` | `docs/runtime.md` | `tests/poses/test_start_setup.gd`, `tests/test_runtime_teardown.gd` |
-| Act modules | `act/tick.gd`, `act/view.gd`, `act/idle.gd`, `act/input.gd`, `act/phases.gd`, `act/agreement.gd`, `act/consent.gd`, `act/impact.gd`, `act/swap.gd`, `act/setup.gd`, `act/settings.gd`, `act/host.gd`, `act/context.gd` | `docs/runtime.md` | `tests/` |
+| Act modules | `act/tick.gd`, `act/view.gd`, `act/idle.gd`, `act/input.gd`, `act/phases.gd`, `act/agreement.gd`, `act/consent.gd`, `act/impact.gd`, `act/swap.gd`, `act/setup.gd`, `act/settings.gd`, `act/host.gd`, `act/host_live.gd`, `act/context.gd` | `docs/runtime.md` | `tests/` |
 
 ## Services
 

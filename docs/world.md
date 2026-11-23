@@ -374,7 +374,6 @@ behaviour exactly, and a game update that renames one is a change here rather th
 | `GAME.settle_excitement(excitement)` | the Beat's `_until` (private) | — | no write |
 | `GAME.set_expression(mouth, name, amount)` | the mouth rig's `set_expression` | — | no call |
 | `GAME.line_faces()` | the dialogue face table | `LineFaces`, the game's rows | empty rows |
-| `GAME.setting_string(settings, key)` | `Settings.get_value` | `String` | empty |
 | `GAME.knockdown_of(body)` | the body's `knockdown` | `Object` | `null` |
 | `GAME.start_knockdown(node, body, direction)` | `knockdown.start` | `bool` | `false` |
 | `GAME.cuddle_end(session)` | the cuddle session's `end(true)` | — | no call |

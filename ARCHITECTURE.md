@@ -96,10 +96,9 @@ Rules:
   profiler's block must not show added per-frame cost.
 
 `settings` is a game-layer service and a peer of `world`: neither imports the other. It may import
-shared pure modules and its own accessor `settings/game.gd`, which is its game boundary rather than
-a service. The one existing upward edge, `settings -> registry/service.gd` (provider defaults and
-per-mare rows), is recorded in `architecture/exceptions.json` and must shrink. Do not add a second
-upward edge, and do not treat the recorded row as a pattern.
+shared pure modules, its own accessor `settings/game.gd`, which is its game boundary rather than a
+service, and the `registry` store that holds the provider defaults and the per-mare rows. Reading a
+store is not an upward service edge, and `settings` still may not depend on a domain service.
 
 ## Scopes
 
@@ -386,7 +385,7 @@ act, and it:
 
 Every host callback names its owner rather than a runtime method: act state and act values are
 session accessors, a system value is that service's method, node and scene operations are
-`act/host.gd`, logging is `shared/log.gd`, and anatomy reads are `anatomy/act_bridge.gd`.
+`act/host.gd`, logging is `shared/log.gd`, and anatomy reads are `anatomy/act.gd`.
 
 It implements no system's rules and owns no system's mutable state: no scoring, pose math, camera
 shots, hand/kiss/wing behaviour, body-change detection or provider policy, raw input decoding,

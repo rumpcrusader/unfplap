@@ -16,9 +16,11 @@ restate a contract.
 | `main.gd` | `ARCHITECTURE.md`, `docs/runtime.md` |
 | `runtime.gd` | `docs/runtime.md` |
 | `act/**` | `docs/runtime.md` |
+| `act_gate/**` | `docs/act_gate.md` |
 | `act_owner/**` | `docs/act_owner.md` |
 | `world/api.gd` | `docs/world.md` |
 | `world/game.gd` | `docs/world.md` |
+| `world/handles.gd` | `docs/world.md` |
 | `settings/game.gd` | `docs/settings.md` |
 | `offer/service.gd` | `docs/offer.md` |
 | `api.gd` | `docs/api.md` |
@@ -28,6 +30,7 @@ restate a contract.
 | `*.sh`, `.gdlintrc`, `scripts/requirements-lint.txt`, `scripts/pack_report.py` | `docs/quality.md` |
 | `shared/act_facts.gd` | `docs/act_facts.md` |
 | `shared/act_state.gd` | `docs/runtime.md` |
+| `shared/pony_identity.gd` | `docs/runtime.md` |
 | `shared/act_keys.gd` | `docs/input.md` |
 | `shared/integrations.gd` | `docs/integrations.md` |
 | `shared/act_face.gd` | `docs/face.md` |
@@ -59,6 +62,7 @@ restate a contract.
 | `debug_actions/**` | `docs/debug_actions.md` |
 | `dialogue/**` | `docs/dialogue.md` |
 | `eligibility/**` | `docs/eligibility.md` |
+| `estrus/**` | `docs/estrus.md` |
 | `face/**` | `docs/face.md` |
 | `hands/**` | `docs/hands.md` |
 | `hud/game.gd` | `docs/hud.md` |
@@ -66,15 +70,18 @@ restate a contract.
 | `initiation/**` | `docs/initiation.md` |
 | `input/**` | `docs/input.md` |
 | `integrations/**` | `docs/integrations.md` |
+| `integrations/act.gd` | `docs/integrations.md` |
 | `integrations/changelings.gd`, `integrations/changelings_policy.gd` | `docs/integrations.md`, `docs/body_change.md` (`## Source extension point`, `## Provider policy`) |
 | `kiss/**` | `docs/kiss.md` |
 | `memory/**` | `docs/memory.md` |
 | `negotiation/**` | `docs/negotiation.md` |
 | `poses/**` | `docs/poses.md` |
+| `privacy/**` | `docs/privacy.md` |
 | `reactions/**` | `docs/reactions.md` |
 | `readiness/**` | `docs/readiness.md` |
 | `registry/**` | `docs/registry.md` |
 | `rest/**` | `docs/rest.md` |
+| `rest/bed.gd` | `docs/rest.md` |
 | `scene_gate/**` | `docs/scene_gate.md` |
 | `scene_hold/**` | `docs/scene_hold.md` |
 | `settings/**` | `docs/settings.md` |
@@ -82,6 +89,7 @@ restate a contract.
 | `stool/**` | `docs/stool.md` |
 | `summary/**` | `docs/summary.md` |
 | `vr/**` | `docs/vr.md` |
+| `vr/act.gd` | `docs/vr.md` |
 | `offer/**` | `docs/offer.md` |
 | `ponies/**` | `docs/ponies.md` |
 | `world/**` | `docs/world.md` |

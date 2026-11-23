@@ -27,6 +27,7 @@ func _ready() -> void:
 ## Takes the act frame; the composition root is the only caller.
 func wire(owner: ACT_OWNER) -> void:
 	act_owner = owner
+	assert(act_owner != null)
 
 
 func setup() -> void:

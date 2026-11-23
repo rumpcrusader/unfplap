@@ -38,6 +38,7 @@ from .scope import (
 from .sources import check_sources
 from .tests_rules import check_tests, test_suites
 from .typing import check_duck_typing, check_typing, write_debt, write_duck_typing
+from .wiring import check_wiring
 
 
 def _graph_group(failure: Failure) -> int:
@@ -90,6 +91,7 @@ STEPS = (
     ("act", check_act_owners),
     ("owners", check_owners),
     ("scope", _scope_group),
+    ("wiring", check_wiring),
     ("tests", check_tests),
     ("preloads", _preloads_group),
 )

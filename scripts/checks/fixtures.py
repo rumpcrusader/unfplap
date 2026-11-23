@@ -31,6 +31,15 @@ from .scope import (
     node_base_failures,
 )
 from .tests_rules import suite_result_failures
+from .wiring import (
+    injection_failures,
+    peer_field_failures,
+    peer_param_failures,
+    root_purity_failures,
+    wire_call_failures,
+    wire_purity_failures,
+    wire_sites_failures,
+)
 
 ALLOWED = (
     ("anatomy/controller.gd", "shared/act_state.gd"),
@@ -215,6 +224,99 @@ OTHER_INDEX_CASES = (
     ("other index valid", ["alpha"], None),
     ("other index row", ["alpha", "gamma"], "unknown service: gamma"),
 )
+# The wiring fixtures share one synthetic world: `alpha/api.gd` is the only facade, `main.gd` its
+# root. Each rule is driven in both directions so a gutted rule fails the self-test.
+WIRE_FACADES = {"alpha/api.gd": "alpha"}
+WIRE_SCOPES = {"alpha/api.gd": "world"}
+WIRE_ROOTS = {"world": "main.gd", "pony": "runtime.gd"}
+ALPHA_IMPORT = 'const ALPHA := preload("res://mods/unfplap/alpha/api.gd")\n'
+WIRE_CALL_CASES = (
+    ("wire in its root", "main.gd", "world",
+     ALPHA_IMPORT + "var alpha: ALPHA\n"
+     "func _build_world() -> void:\n\talpha = ALPHA.new()\n\talpha.wire()\n", None),
+    ("wire outside its root", "hud/service.gd", "world",
+     ALPHA_IMPORT + "var alpha: ALPHA\n"
+     "func _ready() -> void:\n\talpha.wire()\n", "only main.gd wires a world service"),
+    ("wire in the pony root", "runtime.gd", "pony",
+     ALPHA_IMPORT + "var alpha: ALPHA\n"
+     "func _compose() -> void:\n\talpha = ALPHA.new()\n\talpha.wire()\n", None),
+    ("wire outside the pony root", "main.gd", "pony",
+     ALPHA_IMPORT + "var alpha: ALPHA\n"
+     "func _build_world() -> void:\n\talpha.wire()\n", "only runtime.gd wires a pony service"),
+)
+WIRE_SITE_CASES = (
+    ("wire called once by its root", {"alpha/api.gd": ["main.gd"]}, ["alpha/api.gd"], None),
+    ("wire never called", {}, ["alpha/api.gd"], "no composition root calls it"),
+    ("wire called twice", {"alpha/api.gd": ["main.gd", "main.gd"]}, ["alpha/api.gd"],
+     "must be called once by main.gd"),
+    ("wire called by another file", {"alpha/api.gd": ["hud/service.gd"]}, ["alpha/api.gd"],
+     "must be called once by main.gd"),
+    ("wire called but undefined", {"alpha/api.gd": ["main.gd"]}, [], "is wired but defines no"),
+)
+PEER_PARAM_CASES = (
+    ("peers only in wire", ALPHA_IMPORT + "var _a: ALPHA\nvar _b: ALPHA\n"
+     "func wire(a: ALPHA, b: ALPHA) -> void:\n\t_a = a\n\t_b = b\n"
+     "func on_world(host: Node) -> void:\n\tpass\n"
+     "func shutdown() -> void:\n\t_a = null\n", None),
+    ("a second peer member", ALPHA_IMPORT + "var _a: ALPHA\nvar _b: ALPHA\n"
+     "func wire(a: ALPHA, b: ALPHA) -> void:\n\t_a = a\n\t_b = b\n"
+     "func bind(a: ALPHA) -> void:\n\t_b = a\n", "takes a peer outside wire()"),
+    ("a peer in a query", ALPHA_IMPORT + "var _a: ALPHA\n"
+     "func wire(a: ALPHA) -> void:\n\t_a = a\n"
+     "func rows(a: ALPHA) -> Array:\n\treturn a.rows()\n", "takes a peer outside wire()"),
+)
+INJECTION_CASES = (
+    ("one injection member", ALPHA_IMPORT + "var _a: ALPHA = null\n"
+     "func bind(a: ALPHA) -> void:\n\t_a = a\n", None),
+    ("two injection members", ALPHA_IMPORT + "var _a: ALPHA = null\n"
+     "func bind(a: ALPHA) -> void:\n\t_a = a\n"
+     "func bind_act(a: ALPHA) -> void:\n\t_a = a\n", "one facade, one wire()"),
+    ("a peer passed to a query", ALPHA_IMPORT + "var _a: ALPHA = null\n"
+     "func bind(a: ALPHA) -> void:\n\t_a = a\n"
+     "func rows(a: ALPHA) -> Array:\n\treturn a.rows()\n", None),
+)
+ROOT_PURITY_CASES = (
+    ("root constructs and wires", "_build_world",
+     ALPHA_IMPORT + "var alpha: ALPHA\nvar status: ALPHA\n"
+     "func _build_world() -> void:\n\talpha = ALPHA.new()\n\talpha.wire()\n"
+     "\t_attach(alpha, \"UnfplapAlpha\")\n\tstatus.status.connect(Callable(self, \"_on\"))\n", None),
+    ("root runs behaviour", "_build_world",
+     ALPHA_IMPORT + "var alpha: ALPHA\n"
+     "func _build_world() -> void:\n\talpha.apply_settings()\n", "calls apply_settings()"),
+    ("root reads a scene static", "_build_world",
+     "func _build_world() -> void:\n\tLOG.debug(\"boot\")\n", "reads LOG in _build_world()"),
+    ("pony root binds the record", "_compose",
+     ALPHA_IMPORT + "func _compose() -> void:\n\t_act.bind(_host, _context)\n\t_attach(_pose)\n",
+     None),
+    ("peer extraction in a wire argument", "_build_world",
+     ALPHA_IMPORT + "var alpha: ALPHA\nvar beta: ALPHA\n"
+     "func _build_world() -> void:\n\talpha = ALPHA.new()\n"
+     "\tbeta.wire(alpha.pantyhose())\n", None),
+    ("peer extraction outside wire", "_build_world",
+     ALPHA_IMPORT + "var alpha: ALPHA\n"
+     "func _build_world() -> void:\n\talpha = ALPHA.new()\n"
+     "\tvar read := alpha.pantyhose()\n", "calls pantyhose()"),
+)
+WIRE_PURITY_CASES = (
+    ("wire assigns its peers", "func wire(a: ALPHA, b: ALPHA) -> void:\n\t_a = a\n\t_b = b\n"
+     "\tassert(_a != null and _b != null)\n", None),
+    ("wire builds a child", "func wire(a: ALPHA) -> void:\n\t_a = a\n\tadd_child(a)\n",
+     "calls add_child() in wire()"),
+    ("wire reads the world", "func wire(a: ALPHA) -> void:\n\t_a = a\n"
+     "\tvar rig: Node = WORLD.player_rig()\n", "reads WORLD in wire()"),
+)
+PEER_FIELD_CASES = (
+    ("wire sets, shutdown clears", ALPHA_IMPORT + "var _a: ALPHA = null\n"
+     "func wire(a: ALPHA) -> void:\n\t_a = a\n\tassert(_a != null)\n"
+     "func shutdown() -> void:\n\t_a = null\n", None),
+    ("a second writer", ALPHA_IMPORT + "var _a: ALPHA = null\n"
+     "func wire(a: ALPHA) -> void:\n\t_a = a\n"
+     "func _ready() -> void:\n\t_a = null\n", "assigns the peer field _a in _ready()"),
+    ("a second clear", ALPHA_IMPORT + "var _a: ALPHA = null\n"
+     "func wire(a: ALPHA) -> void:\n\t_a = a\n"
+     "func on_world_closed() -> void:\n\t_a = null\n",
+     "assigns the peer field _a in on_world_closed()"),
+)
 PRELOAD_CASES = (
     ("preload block", "extends RefCounted\n## Header.\n\n"
      "const A := preload(\"res://a.gd\")\nconst B := preload(\"res://b.gd\")\n\nvar x := 1\n", 0),
@@ -377,6 +479,43 @@ def scope_cases() -> int:
     return failures
 
 
+def wiring_cases() -> int:
+    """Both directions for every wiring rule: the real tree's shape passes, a break is reported."""
+    failures = 0
+    for label, path, scope, text, wanted in WIRE_CALL_CASES:
+        scopes = {"alpha/api.gd": scope}
+        failures += expect(
+            label, wire_call_failures(path, text, scopes, WIRE_ROOTS), wanted)
+    for label, sites, definitions, wanted in WIRE_SITE_CASES:
+        failures += expect(
+            label, wire_sites_failures(sites, definitions, WIRE_SCOPES, WIRE_ROOTS), wanted)
+    for label, text, wanted in PEER_PARAM_CASES:
+        failures += expect(
+            label, peer_param_failures("alpha/api.gd", text, WIRE_FACADES), wanted)
+    for label, text, wanted in INJECTION_CASES:
+        failures += expect(label, injection_failures("alpha/api.gd", text, WIRE_FACADES), wanted)
+    for label, function, text, wanted in ROOT_PURITY_CASES:
+        failures += expect(
+            label, root_purity_failures("main.gd", text, function, facades=WIRE_FACADES), wanted)
+    for label, text, wanted in WIRE_PURITY_CASES:
+        failures += expect(label, wire_purity_failures("alpha/api.gd", text), wanted)
+    for label, text, wanted in PEER_FIELD_CASES:
+        failures += expect(label, peer_field_failures("alpha/api.gd", text), wanted)
+    return failures
+
+
+def wiring_case_count() -> int:
+    return sum(len(cases) for cases in (
+        WIRE_CALL_CASES,
+        WIRE_SITE_CASES,
+        PEER_PARAM_CASES,
+        INJECTION_CASES,
+        ROOT_PURITY_CASES,
+        WIRE_PURITY_CASES,
+        PEER_FIELD_CASES,
+    ))
+
+
 def scope_case_count() -> int:
     return sum(len(cases) for cases in (
         SCOPE_DECL_CASES,
@@ -422,11 +561,12 @@ def main() -> int:
     failures += preload_cases()
     failures += game_layer_cases()
     failures += scope_cases()
+    failures += wiring_cases()
     if failures:
         print("ARCH_RULES_FAIL %d" % failures)
         return 1
     print("ARCH_RULES_PASS %d" % (
         len(ALLOWED) + len(FORBIDDEN) + len(GAME_ALLOWED) + len(REEXPORTS)
         + len(NOTE_CASES) + len(MEMBER_CASES) + len(SUITE_RESULT_CASES) + len(PRELOAD_CASES)
-        + 8 + scope_case_count()))
+        + 8 + scope_case_count() + wiring_case_count()))
     return 0

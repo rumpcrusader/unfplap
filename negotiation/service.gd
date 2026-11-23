@@ -181,6 +181,8 @@ func wire(eligibility_service: ELIGIBILITY, gate_service: ACT_GATE, memory_servi
 	_act_owner = owner
 	hud = hud_service
 	_ponies = ponies_service
+	assert(eligibility != null and gate != null and memory != null)
+	assert(privacy != null and initiation != null and offer != null and _act_owner != null)
 
 
 ## Builds the one adapter and bridge as this service's children, then binds the typed host to them.

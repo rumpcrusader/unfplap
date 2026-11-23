@@ -158,6 +158,7 @@ func shutdown() -> void:
 ## The identity service, handed over once by the entry after both exist.
 func wire(eligibility: ELIGIBILITY) -> void:
 	_eligibility = eligibility
+	assert(_eligibility != null)
 
 
 ## The act key in one call: the identity target and the relationship row.

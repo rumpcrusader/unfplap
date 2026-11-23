@@ -28,6 +28,8 @@ func wire(anatomy: ANATOMY, body_change: BODY_CHANGE_SERVICE, ponies: PONIES,
 	_ponies = ponies
 	_eligibility = eligibility
 	_api = api
+	assert(_anatomy != null and _body_change != null)
+	assert(_ponies != null and _eligibility != null)
 	_pantyhose = PANTYHOSE.new()
 	_pantyhose.name = "UnfplapPantyhose"
 	_pantyhose.wire(_anatomy)

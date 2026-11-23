@@ -6,6 +6,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const HANDLES := preload("res://mods/unfplap/world/handles.gd")
 const ACT_GATE := preload("res://mods/unfplap/act_gate/service.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 const PONY_GROUP := "unfplap_pony_service"
 const PONY_NAMES := [
@@ -39,6 +40,23 @@ func run() -> void:
 	check(other.act.context.world == other_world and other.scene.gate_service == null,
 		"each runtime reads its own record, never a shared one")
 	other.free()
+	_check_scope_children()
 	gate.free()
 	runtime.free()
 	finish()
+
+
+## `_assert_children`: the composed set passes; a hand-built stray child is reported.
+func _check_scope_children() -> void:
+	var runtime: Node = RUNTIME.new()
+	var quiet: bool = LOG.enabled
+	LOG.enabled = true
+	check(int(runtime.call("_assert_children")) == 0,
+		"the composed Pony services pass the scope check")
+	var stray := Node.new()
+	stray.name = "Stray"
+	runtime.add_child(stray)
+	check(int(runtime.call("_assert_children")) == 1,
+		"a child outside the Pony service group is reported")
+	LOG.enabled = quiet
+	runtime.free()

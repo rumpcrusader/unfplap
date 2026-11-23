@@ -42,6 +42,8 @@ const SETTINGS_PAGE_PATH := "res://world/ui/settings_page.gd"
 const HOOKS: Array[String] = ["on_world", "on_world_closed", "on_player", "shutdown"]
 ## The one scope group every attached World service joins; see `ARCHITECTURE.md`.
 const WORLD_GROUP := "unfplap_world"
+## The one direct child outside that group: the cross-mod API is parented, not broadcast.
+const API_NODE := "UnfplapApi"
 
 ## The long-running services in construction order: every broadcast walks the list, so a service
 ## joins a broadcast by being here.
@@ -120,6 +122,9 @@ func _ready() -> void:
 	PERF.bind(Callable(SETTINGS.debug_perf, "get_bool"), self)
 	_build_process()
 	_build_world()
+	# The boot cross-checks run after the attach loop: the World scope set and the four hooks.
+	_assert_children()
+	_assert_hooks()
 	# The roster builds its runtimes through the one factory, so no other entry member holds a
 	# runtime. The roster is already wired and attached, so its settings listener is live.
 	ponies.factory = Callable(self, "_new_runtime")
@@ -219,7 +224,6 @@ func _build_world() -> void:
 	_attach(debug_actions, "UnfplapDebugActions")
 
 	anatomy.status.connect(Callable(hud, "anatomy_status"))
-	_assert_hooks()
 
 
 ## Build the one record the runtimes read: every field is a constructed service.
@@ -256,6 +260,19 @@ func _add_node(service: Node, node_name: String) -> Variant:
 	service.name = node_name
 	add_child(service)
 	return service
+
+
+## Log one error per direct child that is not a World service or the API node; returns the count.
+func _assert_children() -> int:
+	if not LOG.enabled:
+		return 0
+	var offenders := 0
+	for child: Node in get_children():
+		if child.name == API_NODE or child.is_in_group(WORLD_GROUP):
+			continue
+		LOG.error("child %s is not a %s service", [str(child.name), WORLD_GROUP])
+		offenders += 1
+	return offenders
 
 
 ## Log one error per list service that is missing a lifecycle hook; returns the offender count.

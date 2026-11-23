@@ -260,6 +260,7 @@ func _ready() -> void:
 ## The entry hands over the identity gate once; an unbound facade presents nothing.
 func wire(eligibility: ELIGIBILITY) -> void:
 	_eligibility = eligibility
+	assert(_eligibility != null)
 
 
 # --------------------------------------------------------------------------- roster

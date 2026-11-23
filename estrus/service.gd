@@ -41,6 +41,7 @@ func _ready() -> void:
 ## The anatomy API, handed over by the entry after both world services exist.
 func wire(anatomy: ANATOMY) -> void:
 	self.anatomy = anatomy
+	assert(self.anatomy != null)
 
 
 func on_world(_host: Node) -> void:

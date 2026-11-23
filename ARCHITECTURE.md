@@ -293,6 +293,42 @@ teardown to `free_pose()`. The order is `docs/poses.md`.
 
 ## Composition
 
+### The wiring contract
+
+Each scope has exactly one composition root: `main.gd:_build_world()` for the World services and
+`runtime.gd:_compose()` for the Pony ones. The root constructs every service of its scope, calls each
+service's one peer-injection member exactly once, then names and attaches it. No other shipped file
+constructs or wires a service; a suite is its own root for the service under test and passes fakes.
+
+`wire()` is the one injection verb: explicit typed parameters, the fields it sets, and an
+`assert(<peer> != null)` for every peer whose absence would break the service. A peer that is
+optional is declared `= null` and not asserted (the suites pass it as null on purpose). Wiring
+touches no tree and reads no scene: no `add_child`, `get_tree`, `get_node*`, `is_inside_tree`,
+`reparent`, `queue_free`, `set_process`, no `WORLD` and no `SETTINGS`. A service that builds its own
+private child nodes wires them itself; those are not peers.
+
+`wire()` sets and `shutdown()` clears. No other member writes a field that `wire()` fills, so a
+service can never be half-rewired and the root never nulls a service's fields.
+
+The root is pure: it may construct (`<T>.new()`), `wire`, name, `add_child`, join a scope group,
+`connect` and register a source, plus the root's own composition helpers. It reads no
+`WORLD`/`SETTINGS`/`LOG`/`PERF`, runs no behaviour and reads no scene. A peer's zero-argument
+read passed straight into `wire()` as an argument is composition, not behaviour. Behaviour that
+looks like setup belongs to the service's `_ready()`.
+
+The Pony services still take their peers through their one `bind`-family member rather than through
+`wire`; the gate enforces one peer-injection member per facade and the unified verb is the pending
+rename.
+
+### The two debug assertions
+
+A statically attached child can still miss its scope group, so each root cross-checks the tree once
+behind `LOG.enabled`. The entry logs one error for every direct child that is neither in
+`unfplap_world` nor the one exempt API node (named `UnfplapApi`); the runtime logs one error for
+every child that is not in `unfplap_pony_service`. Each returns its offender count, and both checks
+run only when **Enable debug** was on at boot, so a suite's hand-built root and a player's release
+run stay quiet.
+
 ### `main.gd`
 
 `main.gd` is the mod entry and composition root. It owns four things:
@@ -304,8 +340,9 @@ teardown to `free_pose()`. The order is `docs/poses.md`.
   joins it to `unfplap_world`. Construct → wire → name → attach is why the `wire` order stops
   mattering and why `_ready` runs wired: a service builds its private children and reads its peers
   there. The roots read no `WORLD`/`SETTINGS`/`LOG`/`PERF` and call no behaviour; the one
-  cross-service signal and the provider registration are the world root's only extras. The attach
-  order is the broadcast order, and `negotiation` attaches before `initiation` because
+  cross-service signal and the provider registration are the world root's only extras. The two
+  boot cross-checks (`_assert_children()` and `_assert_hooks()`) run in `_ready`, after it. The
+  attach order is the broadcast order, and `negotiation` attaches before `initiation` because
   `initiation.setup()` takes the adapter `negotiation._ready()` builds;
 - **the broadcasts and the frame order**: `_on_world`, `_on_player` and the release walk the list;
   `_process` keeps the frame order visible;
@@ -338,8 +375,9 @@ act, and it:
   fail;
 - owns the composition: its `_compose()` constructs the session, the modules, the typed hosts, the
   context and every callback once per pony, then attaches the 13 Pony service Nodes in their fixed
-  order. It holds typed locals for everything the runtime does not drive itself and typed fields only
-  for what it does; there is no bundle, no per-system field alias and no private host callback;
+  order. `_init` runs the one debug cross-check on that child set. It holds typed locals for
+  everything the runtime does not drive itself and typed fields only for what it does; there is no
+  bundle, no per-system field alias and no private host callback;
 - keeps the act state in `act/session.gd`: the one `state` writer `_set_state()`, the timers, the
   clock, the act values and the two frame forwards. `act/settings.gd` owns the act's settings
   snapshot and its live apply; `act/view.gd` composes the values the owners read; the ledgers

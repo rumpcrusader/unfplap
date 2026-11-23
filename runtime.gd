@@ -48,6 +48,7 @@ const ACT_AGREEMENT := preload("res://mods/unfplap/act/agreement.gd")
 const START_PORT := preload("res://mods/unfplap/shared/start_port.gd")
 const PRESENTATION_PORT := preload("res://mods/unfplap/shared/presentation_port.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 ## The scope assertion every Pony service carries; the runtime's children are the set.
 const PONY_GROUP := "unfplap_pony_service"
@@ -119,6 +120,7 @@ var _swapping_parent := false
 func _init(pony: Node = null, world: HANDLES = null) -> void:
 	_world = world if world != null else HANDLES.new()
 	_compose()
+	_assert_children()
 	_pony_node = pony if is_instance_valid(pony) else null
 
 
@@ -319,6 +321,19 @@ func _compose() -> void:
 	_attach(reactions, "UnfplapReactions")
 	_attach(summary, "UnfplapSummary")
 	_attach(dialogue, "UnfplapDialogue")
+
+
+## Log one error per direct child that is not a Pony service; returns the offender count.
+func _assert_children() -> int:
+	if not LOG.enabled:
+		return 0
+	var offenders := 0
+	for child: Node in get_children():
+		if child.is_in_group(PONY_GROUP):
+			continue
+		LOG.error("child %s is not a %s service", [str(child.name), PONY_GROUP])
+		offenders += 1
+	return offenders
 
 
 ## Name, parent and group one Pony service under the runtime; the composition is the only caller.

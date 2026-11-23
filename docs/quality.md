@@ -93,6 +93,18 @@ game-boundary and re-export rules. These rules exist so code cannot grow back ou
   and attach, and each service builds its own children and settings in `_ready()`. Neither root
   reads `WORLD`, `SETTINGS`, `LOG` or `PERF`, starts behaviour or dispatches by string; the gate
   fails on the first string dispatch.
+- **Wiring is single-place.** Each facade declares at most one `wire()`, and a facade that declares
+  one has the scope's root (`_build_world()`, `_compose()`) call it exactly once; no other file
+  constructs or wires a service. A facade has one peer-injection member, `wire` takes a peer
+  parameter nowhere else, and the lifecycle hooks and `_init` are the only exceptions. The root
+  calls only the composition verbs (construct, wire, name, `add_child`, `add_to_group`, `connect`,
+  register a source) and reads no `WORLD`/`SETTINGS`/`LOG`/`PERF`; a `wire()` body takes no tree
+  access and reads no scene. A field set from a `wire()` parameter is written only by `wire()` and
+  cleared only by `shutdown()`, and both directions of every rule are synthetic fixtures in the
+  self-test.
+- **The two debug assertions.** The entry logs one error per direct child outside `unfplap_world`
+  (the API node is the named exception); the runtime logs one per direct child outside
+  `unfplap_pony_service`. Both run behind `LOG.enabled` and return the offender count.
 - **The scope tree is static.** Every facade declares `Service:`/`Scope:`/`Contract:` and the
   Services table repeats the scope; a non-facade declares nothing except the frozen
   `shared/log.gd` and `shared/perf.gd` headers. A `world` or `pony` facade is a Node,

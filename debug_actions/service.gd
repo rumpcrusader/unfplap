@@ -116,6 +116,8 @@ func wire(body_change: BODY_CHANGE_SERVICE, initiation: INITIATION,
 	_eligibility = eligibility
 	_estrus = estrus
 	_pantyhose_rebuild = Callable(pantyhose, "rebuild_hull")
+	assert(body_change != null and initiation != null and negotiation != null)
+	assert(anatomy != null and pantyhose != null and owner != null)
 
 
 func _exit_tree() -> void:

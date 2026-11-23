@@ -130,6 +130,8 @@ func wire(eligibility: ELIGIBILITY, act_gate: ACT_GATE, privacy: PRIVACY,
 	_negotiation = negotiation
 	_offer = offer
 	_ponies = ponies
+	assert(eligibility != null and act_gate != null and privacy != null)
+	assert(negotiation != null and offer != null and _ponies != null)
 
 
 ## Builds the bounded classifier, the place node and the adapter read this service owns; `_ready`

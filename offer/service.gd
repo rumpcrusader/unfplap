@@ -96,6 +96,8 @@ func wire(negotiation: NEGOTIATION, privacy: PRIVACY, hud: Node, owner: ACT_OWNE
 	_act_gate = act_gate
 	_sensor.act_owner = owner
 	_sensor.ponies = ponies
+	assert(negotiation != null and hud != null and act_owner != null)
+	assert(_ponies != null and _eligibility != null and _act_gate != null)
 
 
 ## One idle frame: tick the fan sensor, sync the prompt row, then run the Agreement clock.

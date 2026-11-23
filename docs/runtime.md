@@ -189,6 +189,12 @@ The `pony` setter and `_ready()` rebind through the runtime's own fields: the po
 and id, the act host's pony and the reactions' scene. There is no second bind pass and no facade
 re-export.
 
+`_compose()` is a composition root, so it calls only the composition verbs: construct, `wire`/`bind`
+a typed host, `_attach`, and the record and field assignments the act modules read. It reads no
+`WORLD`, `SETTINGS`, `LOG` or `PERF` and runs no behaviour. After it returns, `_init` runs the one
+debug cross-check: every direct child must be in `unfplap_pony_service`, one error per offender,
+behind `LOG.enabled` so a suite's bare runtime stays quiet.
+
 Every callback names its owner rather than a runtime method:
 
 - act state and act values are session accessors (`act.state_value`, `act.act_id`, …);
@@ -492,6 +498,8 @@ fan-out invariants:
   and is compared both ways with the one attach helper's calls, and only the composition function
   may call it. The world audio service's pool and the pose-scope tail tuck are created by their
   owners;
+- `_compose()` calls only the composition verbs, and the one debug cross-check logs a child outside
+  `unfplap_pony_service`;
 - a file over 1,000 lines prints `SMELL large file` and does not fail; size is information, not a
   hard gate, and no line, function or preload cap exists;
 - the one teardown (`act/exit.gd:run()`, called only by the exit's own routes and

@@ -37,6 +37,7 @@ const LineRequest = FACTS.LineRequest
 ## Takes the eligibility peer; the composition root is the only caller.
 func wire(eligibility: ELIGIBILITY) -> void:
 	_eligibility_service = eligibility
+	assert(_eligibility_service != null)
 
 
 ## The act's typed stop reason for one stop text. The enum is the game-facing memory vocabulary;

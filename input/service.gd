@@ -66,6 +66,7 @@ func _exit_tree() -> void:
 func wire(offer_service: OFFER, owner: ACT_OWNER) -> void:
 	offer = offer_service
 	act_owner = owner
+	assert(act_owner != null)
 
 
 ## Rebuild the mod-owned act action from the captured `act_key` keycode and cache the input

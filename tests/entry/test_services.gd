@@ -9,6 +9,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 
 const MAIN := preload("res://mods/unfplap/main.gd")
 const SERVICE := preload("res://mods/unfplap/shared/service.gd")
+const LOG := preload("res://mods/unfplap/shared/log.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 
 ## Every hook call, in the order the entry made it: `<id>.<hook>`.
@@ -75,6 +76,7 @@ func run() -> void:
 	_check_exit(entry, first, last)
 	_check_attach()
 	_check_hooks()
+	_check_scope_children()
 
 	root.remove_child(body)
 	body.free()
@@ -159,6 +161,26 @@ func _check_attach() -> void:
 	var ordered: Array = builder.get("_services")
 	check(ordered.size() == 2 and ordered[1] == second,
 		"_attach appends in attach order, which is the broadcast order")
+	builder.free()
+
+
+## `_assert_children`: a direct child outside the world group is named; the API node is exempt.
+func _check_scope_children() -> void:
+	var builder: Variant = MAIN.new()
+	var api := Node.new()
+	api.name = "UnfplapApi"
+	builder.add_child(api)
+	builder.call("_attach", _stand_in("first"), "UnfplapFake")
+	var quiet: bool = LOG.enabled
+	LOG.enabled = true
+	check(int(builder.call("_assert_children")) == 0,
+		"a World service and the API node are the only direct children")
+	var stray := Node.new()
+	stray.name = "Stray"
+	builder.add_child(stray)
+	check(int(builder.call("_assert_children")) == 1,
+		"a direct child outside the world group is reported")
+	LOG.enabled = quiet
 	builder.free()
 
 

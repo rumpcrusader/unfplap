@@ -76,7 +76,8 @@ func run() -> void:
 	pony.name = "Rarity"
 	pony.identity = FakeIdentity.new()
 	pony.set_meta("relationship_id", "rarity")
-	pony.set_meta("relationship_runtime", FakeRelation.new())
+	var pony_relation := FakeRelation.new()
+	pony.set_meta("relationship_runtime", pony_relation)
 	root.add_child(pony)
 
 	check(main.eligibility.eligible(pony), "an adult mare is an act target")
@@ -206,7 +207,8 @@ func run() -> void:
 	filly_identity.filly = true
 	filly.identity = filly_identity
 	filly.set_meta("relationship_id", "scootaloo")
-	filly.set_meta("relationship_runtime", FakeRelation.new())
+	var filly_relation := FakeRelation.new()
+	filly.set_meta("relationship_runtime", filly_relation)
 	root.add_child(filly)
 	check(not main.eligibility.eligible(filly, ELIGIBILITY.Target.ACT),
 		"a filly is not an act target without an assertion")
@@ -255,6 +257,10 @@ func run() -> void:
 	check(not main.eligibility.eligible(pony), "cleared service rejects every pony")
 	main.eligibility.on_world(null)
 	check(main.eligibility.eligible(pony), "setup after clear restores the service")
+	main.eligibility.free()
+	warm.free()
+	pony_relation.free()
+	filly_relation.free()
 
 	if failures == 0:
 		print("ELIGIBILITY_API_PASS")

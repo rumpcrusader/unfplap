@@ -110,6 +110,8 @@ func run() -> void:
 	check(not PRIVACY_RULES.cuddle_private(false, false, true),
 		"a nearby pony blocks an outdoor cuddle")
 
+	provider.free()
+	unbound.free()
 	main.queue_free()
 	house.queue_free()
 	finish()

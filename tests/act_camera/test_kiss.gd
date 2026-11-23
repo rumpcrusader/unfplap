@@ -58,6 +58,7 @@ func run() -> void:
 
 	kiss._base_kiss_active = false
 	kiss._kiss_amount = 0.0
+	kiss.free()
 	if failures == 0:
 		print("KISS_PASS")
 	finish()

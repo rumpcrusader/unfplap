@@ -137,7 +137,9 @@ func _own_body() -> FakePony:
 	var chain := Node3D.new()
 	chain.name = "Chain"
 	attach.add_child(chain)
-	pony.own_meshes = [MeshInstance3D.new()]
+	var body_mesh := MeshInstance3D.new()
+	pony.add_child(body_mesh)
+	pony.own_meshes = [body_mesh]
 	return pony
 
 
@@ -490,7 +492,9 @@ func run() -> void:
 	var early_chain := Node3D.new()
 	early_chain.name = "Chain"
 	early_attach.add_child(early_chain)
-	early.own_meshes = [MeshInstance3D.new()]
+	var early_mesh := MeshInstance3D.new()
+	early.add_child(early_mesh)
+	early.own_meshes = [early_mesh]
 	root.add_child(early)
 	pack.actor = early
 	body_change.call("notify_body_ready", early)
@@ -740,6 +744,7 @@ func run() -> void:
 	WORLD.bind_world(main.game)
 	root.remove_child(game)
 	game.free()
+	population.free()
 
 	# The player origin travels on the change just started.
 	pack.actor = own
@@ -874,6 +879,7 @@ func run() -> void:
 	ponies.shutdown()
 	root.remove_child(ponies)
 	ponies.free()
+	eligibility.free()
 	root.remove_child(recorder)
 	recorder.free()
 	root.remove_child(main)

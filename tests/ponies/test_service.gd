@@ -171,6 +171,8 @@ func _free(made: Dictionary) -> void:
 		root.remove_child(node)
 		node.free()
 	(made["owner"] as Node).free()
+	var world: HANDLES = made["world"]
+	(world.eligibility as Node).free()
 
 
 func run() -> void:
@@ -248,7 +250,8 @@ func _check_player_pony() -> void:
 	roster.attach(player)
 	check(roster.runtime_for(player) == null, "the player's AnonPony gets no runtime")
 	var rigged := _pony("rigged", "RiggedBody")
-	rigged.rig = Node3D.new()
+	var rig_node := Node3D.new()
+	rigged.rig = rig_node
 	root.add_child(rigged)
 	roster.attach(rigged)
 	check(roster.runtime_for(rigged) == null, "a body that is the player's rig gets no runtime")
@@ -257,6 +260,7 @@ func _check_player_pony() -> void:
 	player.free()
 	root.remove_child(rigged)
 	rigged.free()
+	rig_node.free()
 	_free(f)
 
 
@@ -454,6 +458,7 @@ func _check_character_lists() -> void:
 	check(bare.installed_character_ids().is_empty(),
 		"without the service the installed list is empty")
 	bare.free()
+	real_eligibility.free()
 
 	roster.shutdown()
 	root.remove_child(pony)

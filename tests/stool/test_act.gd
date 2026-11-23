@@ -143,6 +143,7 @@ func _free(made: Dictionary) -> void:
 	var main: FakeMain = made["main"]
 	var game: FakeGame = made["game"]
 	var inventory: FakeInventory = made["inventory"]
+	(made["facade"] as Node).free()
 	root.remove_child(pony)
 	pony.free()
 	root.remove_child(player)

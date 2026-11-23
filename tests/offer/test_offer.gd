@@ -566,6 +566,10 @@ func _free(made: Dictionary) -> void:
 		node.free()
 	root.remove_child(service)
 	service.free()
+	for key: String in ["eligibility", "gate"]:
+		(made[key] as Node).free()
+
+
 ## The words of one prompt-row unit: its last label, after an optional key cap.
 func _unit_text(unit: Node) -> String:
 	var text := ""

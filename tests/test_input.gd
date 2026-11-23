@@ -360,6 +360,7 @@ func _check_action() -> void:
 
 	service.queue_free()
 	owner.clear_active(runtime)
+	owner.free()
 	main.queue_free()
 	offer.queue_free()
 	runtime.queue_free()
@@ -472,6 +473,7 @@ func _check_shield() -> void:
 
 	service.queue_free()
 	owner.clear_active(runtime)
+	owner.free()
 	main.queue_free()
 	runtime.queue_free()
 	SETTINGS.act_input_shield.set_bool(before)
@@ -567,6 +569,7 @@ func _check_act_hold() -> void:
 
 	service.queue_free()
 	owner.clear_active(runtime)
+	owner.free()
 	main.queue_free()
 	runtime.queue_free()
 	await process_frame
@@ -608,6 +611,7 @@ func _check_auto_layer() -> void:
 	await _release(KEY_Q)
 	service.queue_free()
 	owner.clear_active(runtime)
+	owner.free()
 	main.queue_free()
 	runtime.queue_free()
 	await process_frame
@@ -651,6 +655,7 @@ func _check_mouse() -> void:
 
 	service.queue_free()
 	owner.clear_active(runtime)
+	owner.free()
 	main.queue_free()
 	runtime.queue_free()
 	await process_frame
@@ -729,6 +734,7 @@ func _check_act_commands() -> void:
 
 	service.queue_free()
 	owner.clear_active(runtime)
+	owner.free()
 	main.queue_free()
 	runtime.queue_free()
 	SETTINGS.act_input_shield.set_bool(before)

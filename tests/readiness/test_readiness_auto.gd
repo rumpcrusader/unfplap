@@ -54,6 +54,7 @@ func _check_defaults() -> void:
 	readiness.configure_auto(1.0, 0.5, "cosine", 0.0)
 	check(readiness.auto_shape() == "cosine", "configure_auto replaces the shape")
 	check(not readiness.auto_panel_open(), "the layer starts closed")
+	readiness.free()
 
 
 func _check_toggle_and_step() -> void:
@@ -79,6 +80,7 @@ func _check_toggle_and_step() -> void:
 	state.value = STATE_IDLE
 	readiness.toggle_auto(0.3)
 	check(not readiness.auto_active(), "auto does not start outside ACTIVE/CLIMAX")
+	readiness.free()
 
 
 func _check_panel() -> void:
@@ -124,6 +126,7 @@ func _check_panel() -> void:
 	state.value = STATE_IDLE
 	readiness.auto_panel_tick(0.1, true, no_keys, 0.3)
 	check(not readiness.auto_panel_open(), "the layer closes outside the act")
+	readiness.free()
 
 
 func _check_panel_repeat() -> void:
@@ -151,6 +154,7 @@ func _check_panel_repeat() -> void:
 	for i: int in int(0.2 / dt):
 		actions.append_array(readiness.auto_panel_tick(dt, true, keys, 0.3))
 	check(actions.size() >= 2, "a held key keeps repeating")
+	readiness.free()
 
 
 func _check_reset() -> void:
@@ -167,3 +171,4 @@ func _check_reset() -> void:
 	check(near(readiness.auto_max_depth(), 0.8), "the reset restores the peak")
 	check(readiness.auto_shape() == "hold", "the reset keeps the last chosen shape")
 	check(not readiness.auto_panel_open(), "the reset closes the layer")
+	readiness.free()

@@ -147,6 +147,11 @@ func _free(made: Dictionary) -> void:
 	var player: FakePlayer = made["player"]
 	var main: FakeMain = made["main"]
 	var bed: Node3D = made["bed"]
+	var facade: REST = made["facade"]
+	var posture: Node = pony.posture
+	pony.posture = null
+	posture.free()
+	facade.free()
 	for child: Node in pony.get_children():
 		child.free()
 	root.remove_child(pony)

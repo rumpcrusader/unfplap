@@ -114,9 +114,15 @@ class _value extends RefCounted:
 
 
 func _free(made: Dictionary) -> void:
+	(made["hold"] as Node).free()
+	var reach: Node = made["reach"]
+	(reach.desktop_actions as Node).free()
+	reach.free()
+	(made["body"] as Node).free()
+	var game: FakeGame = made["game"]
+	game.kisser.free()
+	game.free()
 	(made["pony"] as Node).free()
-	(made["game"] as Node).free()
-	(made["reach"] as Node).free()
 	(made["main"] as Node).free()
 
 
@@ -271,6 +277,7 @@ func _check_negotiation() -> void:
 	check(request_nav.command_owner == "", "the adopted ledger releases the owner")
 	check(request_nav.wander_enabled, "the release restores the handed-over wander flag")
 	request_hold.release_affection()
+	act.free()
 	_free(handed)
 
 

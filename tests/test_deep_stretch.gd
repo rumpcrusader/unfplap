@@ -66,7 +66,8 @@ func _check_calls() -> void:
 		"a missing pony refuses")
 	check(BRIDGE.stretch(null, pony) == "Idle Life isn't running.",
 		"a missing entry refuses")
-	check(BRIDGE.stretch(PlainEntry.new(), pony) == "Idle Life isn't running.",
+	var plain_entry := PlainEntry.new()
+	check(BRIDGE.stretch(plain_entry, pony) == "Idle Life isn't running.",
 		"an entry without play refuses")
 	check(entry.plays.is_empty(), "no play call before a live stretch")
 
@@ -97,5 +98,6 @@ func _check_calls() -> void:
 	check(play_only.plays == 1, "the entry without _rows gets the play call")
 
 	pony.free()
+	plain_entry.free()
 	entry.free()
 	play_only.free()

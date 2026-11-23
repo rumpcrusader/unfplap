@@ -630,6 +630,8 @@ func _check_service() -> void:
 	scale_less.name = "ScaleLessBody"
 	WIRE.apply(scale_less, plain_form)
 	check(scale_less.get("body_scale") == null, "a body with no scale field is left alone")
+	plain_scale.free()
+	scale_less.free()
 
 	journal.clear()
 	borrowed.revision = 1

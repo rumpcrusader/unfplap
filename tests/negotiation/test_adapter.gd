@@ -134,6 +134,7 @@ func _fixture() -> Dictionary:
 
 
 func _free(made: Dictionary) -> void:
+	(made["game"] as Node).world_context.free()
 	for key: String in ["adapter", "main", "director"]:
 		var node: Node = made[key]
 		root.remove_child(node)
@@ -203,6 +204,7 @@ func _check_quiet() -> void:
 	check(not adapter.quiet(45.0), "the boolean gate follows the reason")
 	main.player = player
 	WORLD.bind_player(main.player)
+	menu.free()
 	_free(made)
 
 

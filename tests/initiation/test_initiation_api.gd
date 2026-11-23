@@ -270,6 +270,8 @@ func _free(made: Dictionary) -> void:
 		var node: Node = made[key]
 		root.remove_child(node)
 		node.free()
+	for key: String in ["eligibility", "gate", "privacy", "context"]:
+		(made[key] as Node).free()
 
 
 func run() -> void:
@@ -369,14 +371,21 @@ func _check_adapter_resolution() -> void:
 	roster.wire(null, null, null, null, null, null, null)
 	var service := INIT.new()
 	service.name = "UnfplapInitiation"
-	service.wire(FakeEligibility.new(), FakeGate.new(), FakePrivacy.new(), negotiation,
-		FakeOffer.new(), roster)
+	var eligibility := FakeEligibility.new()
+	var gate := FakeGate.new()
+	var privacy := FakePrivacy.new()
+	var offer := FakeOffer.new()
+	service.wire(eligibility, gate, privacy, negotiation, offer, roster)
 	check(service.get("_adapter") == null, "wire() leaves the adapter unresolved")
 	service.setup()
 	check(service.get("_adapter") == adapter, "setup() takes the live Negotiation adapter")
 	root.remove_child(service)
 	service.free()
 	roster.free()
+	eligibility.free()
+	gate.free()
+	privacy.free()
+	offer.free()
 	root.remove_child(adapter)
 	adapter.free()
 	root.remove_child(negotiation)

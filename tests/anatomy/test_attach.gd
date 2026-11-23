@@ -128,6 +128,7 @@ func run() -> void:
 	api.shutdown()
 	root.remove_child(api)
 	api.free()
+	eligibility.free()
 	for node: Node in [pony, body]:
 		root.remove_child(node)
 		node.free()

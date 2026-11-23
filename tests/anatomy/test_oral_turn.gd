@@ -93,5 +93,6 @@ func run() -> void:
 	check(not oral.has_method("pose_delta"), "the provider carries no pose keys")
 
 	pony.free()
+	mouth.free()
 	anatomy.free()
 	finish()

@@ -51,11 +51,13 @@ func run() -> void:
 
 	check(package.matches(package.pony, _option("missionary", "bed_side", bed)),
 		"the same mare and exact option match")
-	check(not package.matches(Node3D.new(), _option("missionary", "bed_side", bed)),
+	var other_mare := Node3D.new()
+	check(not package.matches(other_mare, _option("missionary", "bed_side", bed)),
 		"another mare does not match")
 	check(not package.matches(package.pony, _option("missionary", "already_lying", bed)),
 		"another source does not match")
-	check(not package.matches(package.pony, _option("missionary", "bed_side", Node3D.new())),
+	var other_bed := Node3D.new()
+	check(not package.matches(package.pony, _option("missionary", "bed_side", other_bed)),
 		"another bed does not match")
 	check(not package.matches(package.pony, _option("missionary", "bed_side", bed, true)),
 		"the cuddle flag is part of the match")
@@ -75,4 +77,6 @@ func run() -> void:
 
 	package.pony.free()
 	bed.free()
+	other_mare.free()
+	other_bed.free()
 	finish()

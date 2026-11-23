@@ -512,3 +512,5 @@ func _free(made: Dictionary) -> void:
 		node.free()
 	root.remove_child(service)
 	service.free()
+	for key: String in ["privacy", "eligibility", "gate"]:
+		(made[key] as Node).free()

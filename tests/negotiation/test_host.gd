@@ -304,7 +304,8 @@ func _bridge_fixture() -> Dictionary:
 	return {"bridge": bridge, "game": game, "pony": pony, "runtime": runtime,
 		"player": player, "eligibility": eligibility, "gate": gate, "facts": facts,
 		"service": bridge.service, "adapter": bridge.adapter, "initiation": bridge.initiation,
-		"offer": bridge.offer, "owner": world.act_owner, "ponies": roster}
+		"offer": bridge.offer, "owner": world.act_owner, "ponies": roster,
+		"memory": bridge.memory, "privacy": bridge.privacy}
 
 
 func _free_bridge(made: Dictionary) -> void:
@@ -316,8 +317,14 @@ func _free_bridge(made: Dictionary) -> void:
 	for key: String in ["service", "adapter", "initiation", "offer", "game"]:
 		var node: Node = made[key]
 		root.remove_child(node)
+		if key == "game" and node.world_context != null:
+			if node.world_context.impressions != null:
+				node.world_context.impressions.free()
+			node.world_context.free()
 		node.free()
 	(made["owner"] as Node).free()
+	for key: String in ["eligibility", "gate", "memory", "privacy"]:
+		(made[key] as Node).free()
 
 
 ## The real service bound to fakes through `bind()`, with a live director for the react line.
@@ -361,13 +368,14 @@ func _service_fixture() -> Dictionary:
 	root.add_child(roster)
 	WORLD.bind_world(game)
 	WORLD.bind_player(player)
-	service.wire(eligibility, gate, FakeMemory.new(), FakePrivacy.new(), initiation, offer,
-		owner, null, roster)
+	var memory := FakeMemory.new()
+	var privacy := FakePrivacy.new()
+	service.wire(eligibility, gate, memory, privacy, initiation, offer, owner, null, roster)
 	root.add_child(service)
 	return {"service": service, "game": game, "pony": pony, "runtime": runtime,
 		"player": player, "eligibility": eligibility, "gate": gate, "facts": facts,
 		"initiation": initiation, "offer": offer, "director": director, "owner": owner,
-		"ponies": roster}
+		"ponies": roster, "memory": memory, "privacy": privacy}
 
 
 func _free_service(made: Dictionary) -> void:
@@ -380,7 +388,13 @@ func _free_service(made: Dictionary) -> void:
 	for key: String in ["service", "director", "initiation", "offer", "game"]:
 		var node: Node = made[key]
 		root.remove_child(node)
+		if key == "game" and node.world_context != null:
+			if node.world_context.impressions != null:
+				node.world_context.impressions.free()
+			node.world_context.free()
 		node.free()
+	for key: String in ["eligibility", "gate", "memory", "privacy"]:
+		(made[key] as Node).free()
 
 
 func _option(pose: String) -> POSE_OPTIONS.Option:
@@ -407,8 +421,13 @@ func _check_wire_build() -> void:
 	var service := NEGOTIATION.new()
 	service.name = "UnfplapNegotiation"
 	var owner := _owner()
-	service.wire(FakeEligibility.new(), FakeGate.new(), FakeMemory.new(), FakePrivacy.new(),
-		FakeInitiation.new(), FakeOffer.new(), owner)
+	var eligibility := FakeEligibility.new()
+	var gate := FakeGate.new()
+	var memory := FakeMemory.new()
+	var privacy := FakePrivacy.new()
+	var initiation := FakeInitiation.new()
+	var offer := FakeOffer.new()
+	service.wire(eligibility, gate, memory, privacy, initiation, offer, owner)
 	check(service.get_child_count() == 0, "wire() builds no child")
 	check(not is_instance_valid(service.adapter()), "wire() builds no adapter")
 	root.add_child(service)
@@ -422,6 +441,12 @@ func _check_wire_build() -> void:
 	root.remove_child(service)
 	service.free()
 	owner.free()
+	eligibility.free()
+	gate.free()
+	memory.free()
+	privacy.free()
+	initiation.free()
+	offer.free()
 
 
 ## The bridge answers the typed host callbacks from the facades the entry binds.

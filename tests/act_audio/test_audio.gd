@@ -277,6 +277,7 @@ func run() -> void:
 	couch.free()
 	root.remove_child(pony)
 	pony.free()
+	tts.free()
 	root.remove_child(service)
 	service.free()
 

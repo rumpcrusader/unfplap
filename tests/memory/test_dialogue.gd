@@ -105,6 +105,7 @@ func run() -> void:
 	memory.cancel_line("unfplap:act:line:queued")
 	check("unfplap:act:line:queued" in director.cancelled, "cancel_line drops one line")
 
+	memory.free()
 	main.queue_free()
 	director.queue_free()
 

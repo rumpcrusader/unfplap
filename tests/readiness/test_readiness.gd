@@ -156,6 +156,7 @@ func run() -> void:
 	check(readiness.take_debug() == "warning", "the debug request is consumed once")
 	check(readiness.take_debug() == "", "the debug request clears")
 
+	readiness.free()
 	if failures == 0:
 		print("READINESS_PASS")
 	finish()

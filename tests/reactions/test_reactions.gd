@@ -160,6 +160,7 @@ func _check_defaults() -> void:
 	check(near(reactions.jiggle_center_back_m, 0.2), "configure takes the center backset")
 	check(near(reactions.jiggle_intensity, 0.4), "configure takes the thrust intensity")
 	check(near(reactions.jiggle_smack_intensity, 0.6), "configure takes the smack intensity")
+	reactions.free()
 
 
 func _check_body_coat_target() -> void:
@@ -203,6 +204,7 @@ func _check_body_coat_target() -> void:
 	SETTINGS.body_coat_deform.set_bool(was_on)
 	root.remove_child(near_mesh)
 	near_mesh.free()
+	reactions.free()
 	root.remove_child(anatomy)
 	anatomy.free()
 	root.remove_child(body)
@@ -231,6 +233,7 @@ func _check_radius() -> void:
 	reactions.restore_radius()
 	check(material.get_shader_parameter("jiggle_radius") == null,
 		"restoring clears the radius override")
+	reactions.free()
 	root.remove_child(mesh)
 	mesh.free()
 	root.remove_child(flank)
@@ -259,6 +262,7 @@ func _check_thrust() -> void:
 	check(not first_mark.visible, "the rump mark stays hidden as the jiggle center")
 	reactions.thrust(0.0)
 	check(near(flank._jiggle_amount, 0.0), "a zero-weight stroke settles to no wobble")
+	reactions.free()
 	root.remove_child(flank)
 	flank.free()
 	root.remove_child(pony)
@@ -288,6 +292,8 @@ func _check_smack() -> void:
 	reactions.tail_thrust(0.4)
 	check(near(tail.last_strength, 0.4 * 0.66 * 0.2),
 		"the thrust tail impulse scales with the stroke and the size")
+	reactions.free()
+	flank.free()
 	root.remove_child(tail)
 	tail.free()
 	root.remove_child(pony)
@@ -325,6 +331,7 @@ func _check_blush() -> void:
 	check(decal == null or (decal as Node).is_queued_for_deletion(),
 		"act end frees the blush decal")
 	FLANK_TOUCH.texture = was_texture
+	reactions.free()
 	root.remove_child(pony)
 	pony.free()
 
@@ -360,6 +367,7 @@ func _check_hearts() -> void:
 		"the dock burst moves the new hearts to the dock")
 	reactions.end_act()
 	check(reactions.tail == null, "act end drops the tail handle")
+	reactions.free()
 	root.remove_child(hair)
 	hair.free()
 	root.remove_child(boop)
@@ -378,6 +386,7 @@ func _check_rump_point() -> void:
 	reactions.bind_scene(pony)
 	check(reactions.rump_point().is_equal_approx(RUMP_CONE.approx_point(pony)),
 		"the skeleton-less rump point is the shared approximate anchor")
+	reactions.free()
 	root.remove_child(pony)
 	pony.free()
 

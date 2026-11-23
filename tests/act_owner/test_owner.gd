@@ -88,6 +88,7 @@ func _check_frame() -> void:
 	pony.free()
 	offer.free()
 	smack.free()
+	owner.free()
 
 
 ## Serials never repeat inside one process, even where the store cannot keep the write.

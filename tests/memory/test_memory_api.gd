@@ -160,6 +160,7 @@ func run() -> void:
 	var used_hit := memory.shared_memory("rarity", "", "", used)
 	check(not used_hit.found(), "a used peak is skipped")
 
+	memory.free()
 	game.queue_free()
 	context.queue_free()
 	impressions.queue_free()

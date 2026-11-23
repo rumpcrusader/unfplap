@@ -201,6 +201,13 @@ func _free(made: Dictionary) -> void:
 	var player: FakePlayer = made["player"]
 	var game: FakeGame = made["game"]
 	var bed: Node3D = made["bed"]
+	var gate: GATE = made["gate"]
+	var pose: FakePose = made["pose"]
+	var gate_service: FakeGate = made["gate_service"]
+	gate.free()
+	pose.free()
+	gate_service.free()
+	game.inventory.free()
 	root.remove_child(pony)
 	pony.free()
 	main.remove_child(player)
@@ -276,6 +283,8 @@ func _check_cuddle() -> void:
 	session.blend = 0.0
 	check(not bool(gate.call("cuddle_active")), "an ended session is inactive")
 	gate.configure(STATE_IDLE, "rarity", GATE.Features.from_dict({}))
+	pony.remove_meta("cuddle_session")
+	session.free()
 	_free(made)
 
 

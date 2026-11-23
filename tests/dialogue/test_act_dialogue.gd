@@ -263,6 +263,7 @@ func run() -> void:
 		check(int(main.memory.notes[0].get("kind", -1)) == MEMORY.NoteKind.APOLOGY,
 			"the apology note carries its kind")
 
+	history.free()
 	# A pending reminder queues one line and is marked announced.
 	var queued_before: int = main.memory.requests.size()
 	mods.data["unfplap"]["act_history"] = {
@@ -279,6 +280,7 @@ func run() -> void:
 	check(not bool(reminder_row.get("reminder_pending", true)),
 		"the queued reminder is marked announced")
 
+	history.free()
 	# A busy scene queues no reminder.
 	mods.data["unfplap"]["act_history"] = {
 		"fluttershy": {"hurt": 2, "last_at": 0.0, "complaint_pending": true},
@@ -290,6 +292,12 @@ func run() -> void:
 	check(main.memory.requests.size() == queued_before + 1, "a busy scene queues no reminder")
 	director.state = "idle"
 
+	history.free()
+	dialogue.free()
+	main.memory.free()
+	main.game.free()
+	main.free()
+	pony.free()
 	if failures == 0:
 		print("ACT_DIALOGUE_PASS")
 	finish()

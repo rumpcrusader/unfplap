@@ -337,6 +337,9 @@ PRELOAD_CASES = (
     ("dynamic asset load", "extends RefCounted\n## Header.\n\nfunc make(path):\n"
      "\treturn load(path)\n", 0),
 )
+# The two checks that build their cases in the function body: the doc index's six and the
+# game layer accessor's two.
+INLINE_CASE_COUNT = 6 + 2
 
 
 def index_row(sid: str, tests: str | None = None) -> str:
@@ -568,5 +571,5 @@ def main() -> int:
     print("ARCH_RULES_PASS %d" % (
         len(ALLOWED) + len(FORBIDDEN) + len(GAME_ALLOWED) + len(REEXPORTS)
         + len(NOTE_CASES) + len(MEMBER_CASES) + len(SUITE_RESULT_CASES) + len(PRELOAD_CASES)
-        + 8 + scope_case_count() + wiring_case_count()))
+        + INLINE_CASE_COUNT + scope_case_count() + wiring_case_count()))
     return 0

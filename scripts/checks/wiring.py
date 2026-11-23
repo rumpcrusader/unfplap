@@ -16,6 +16,7 @@ from .text import (
     enclosing_function,
     function_offsets,
     line_of,
+    mask_comments,
 )
 
 MOD_PREFIX = "res://mods/unfplap/"
@@ -68,15 +69,6 @@ def facade_map() -> dict[str, str]:
 def facade_scopes() -> dict[str, str]:
     """Facade path -> declared scope."""
     return {f"{sid}/{facade_for(sid)}": facade_scope(sid) for sid in SERVICES}
-
-
-def mask_comments(text: str) -> str:
-    """Comments blanked with the line structure kept, so offsets and line numbers stay valid."""
-    out: list[str] = []
-    for line in text.splitlines():
-        cut = len(line) if line.lstrip().startswith("#") else line.find("#")
-        out.append(line if cut < 0 else line[:cut] + " " * (len(line) - cut))
-    return "\n".join(out)
 
 
 def type_map(text: str) -> dict[str, str]:

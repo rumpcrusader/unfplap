@@ -149,8 +149,8 @@ def is_allowed(src: str, tgt: str) -> tuple[bool, str, Owner | None, Owner | Non
         return False, kind, so, to
     if so.kind == "service":
         if kind in ("self", "service", "shared", "store", "read model"):
-            # The settings service must not depend upward on a domain service. The current
-            # registry dependency is recorded as migration debt.
+            # Settings depends on no domain service; its registry read is a store edge, which
+            # this branch never sees.
             if so.id == "settings" and to.kind == "service" and to.id != "settings":
                 return False, "layer", so, to
             # The two game-layer services are peers: neither reads the other's facade.
@@ -209,7 +209,7 @@ def scan_violations() -> list[dict[str, str]]:
             "to": tgt,
             "kind": row_kind,
             "owner": so.id if so else "",
-            "reason": "migration baseline; fix in the boundary-cleanup phase",
+            "reason": "a new boundary exception; name the fix it waits for",
             "expires": "next-review",
         }
         if row_kind == "game-import":

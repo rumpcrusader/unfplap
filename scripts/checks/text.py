@@ -21,8 +21,12 @@ INFERRED_VAR = re.compile(r"^var\s+(\w+)\s*:=\s*([A-Za-z_]\w*)\.new\(", re.MULTI
 MOD_EXTENDS = re.compile(r'^extends\s+"(res://mods/unfplap/[^"]+\.gd)"', re.MULTILINE)
 
 
-def _code_part(line: str) -> str:
-    """The line up to an end-of-line comment, quotes respected."""
+def comment_index(line: str) -> int:
+    """The index of the `#` that opens a comment, or -1; quotes are respected.
+
+    Quotes are tracked one line at a time, so a `#` inside a multi-line string can truncate a
+    line, which only makes the scan miss a site.
+    """
     quote = ""
     index = 0
     while index < len(line):
@@ -36,9 +40,15 @@ def _code_part(line: str) -> str:
         elif char in ("\"", "'"):
             quote = char
         elif char == "#":
-            return line[:index]
+            return index
         index += 1
-    return line
+    return -1
+
+
+def _code_part(line: str) -> str:
+    """The line up to an end-of-line comment, quotes respected."""
+    cut = comment_index(line)
+    return line if cut < 0 else line[:cut]
 
 
 def _bracket_delta(line: str) -> int:
@@ -68,13 +78,22 @@ def _bracket_delta(line: str) -> int:
 
 def _code_lines(text: str) -> str:
     """Source with comment lines and end-of-line comments removed, so a doc example is not a
-    binding. A `#` inside a string can truncate a line, which only makes the scan miss a site."""
+    binding."""
     out: list[str] = []
     for line in text.splitlines():
         if line.lstrip().startswith("#"):
             continue
-        cut = line.find("#")
+        cut = comment_index(line)
         out.append(line if cut < 0 else line[:cut])
+    return "\n".join(out)
+
+
+def mask_comments(text: str) -> str:
+    """Comments blanked with the line structure kept, so offsets and line numbers stay valid."""
+    out: list[str] = []
+    for line in text.splitlines():
+        cut = comment_index(line)
+        out.append(line if cut < 0 else line[:cut] + " " * (len(line) - cut))
     return "\n".join(out)
 
 

@@ -6,6 +6,7 @@ var failures := 0
 var checks := 0
 ## The deadline for run(); only the harness self-test lowers it in before().
 var watchdog_seconds := 60.0
+var _watchdog: Timer = null
 var _finished := false
 var _start_ms := 0
 var _end := "run"
@@ -30,9 +31,14 @@ func _inside_own_data() -> bool:
 
 func _run_and_finish() -> void:
 	before()
-	# A run() that never returns fails here instead of leaving the runner without a result.
-	var timer: SceneTreeTimer = create_timer(watchdog_seconds)
-	timer.timeout.connect(_on_watchdog_timeout)
+	# A run() that never returns fails here instead of leaving the runner without a result. The
+	# timer is a node the suite owns: a SceneTreeTimer would outlive the suite at exit.
+	_watchdog = Timer.new()
+	_watchdog.one_shot = true
+	_watchdog.wait_time = watchdog_seconds
+	_watchdog.timeout.connect(_on_watchdog_timeout)
+	root.add_child(_watchdog)
+	_watchdog.start()
 	await run()
 	finish()
 
@@ -204,6 +210,10 @@ func finish() -> void:
 	if _finished:
 		return
 	_finished = true
+	if _watchdog != null:
+		_watchdog.stop()
+		_watchdog.queue_free()
+		_watchdog = null
 	teardown()
 	if checks == 0:
 		_end = "no-checks"

@@ -1,6 +1,5 @@
 extends RefCounted
 ## The act snapshot's reaction tuning; `configure()` reads one instance per act.
-## Contract: `docs/reactions.md`.
 
 var pose_family := ""
 var size_scale := 1.0

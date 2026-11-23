@@ -1,6 +1,5 @@
 extends RefCounted
 ## The four typed facets of one resolved per-mare profile.
-## Contract: `docs/settings.md` (`## Internal API`).
 
 const ROWS := preload("res://mods/unfplap/settings/rows.gd")
 

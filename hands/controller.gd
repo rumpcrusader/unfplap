@@ -1,8 +1,4 @@
 extends "res://mods/unfplap/hands/port.gd"
-## Service: hands
-## Contract: docs/hands.md
-## Scope: per-act
-## Import: hands/controller.gd only
 ## Composition root for the per-hand actions; it never places a palm.
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")

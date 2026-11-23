@@ -1,6 +1,5 @@
 extends RefCounted
 ## One retired settings key: where its stored value moves, or the converter that replaces it.
-## Contract: `docs/settings.md` (`## Internal API`).
 
 class Rule extends RefCounted:
 	var path: String

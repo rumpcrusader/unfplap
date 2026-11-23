@@ -1,8 +1,4 @@
 extends RefCounted
-## Service: hud
-## Contract: docs/hud.md `## Base-game access`
-## Scope: hud
-## Import: none (the caption node is duck-typed)
 ## The game's speech caption node, reduced to the fields the caption move reads and writes.
 
 

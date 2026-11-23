@@ -121,9 +121,9 @@ owner and scope are derived from its path. A module may keep a plain purpose sen
 
 The Node rule applies to facades only: a `world` or `pony` facade is a `Node` (or `CanvasLayer`, or
 `shared/service.gd`), while a `process` facade may be `RefCounted`. `world/api.gd` is the one World
-facade that is not a Node; the gate names it with `WORLD_STATIC` beside `HUD_FACADE`, not a header
-field. There is no `Import:` field: the top preload block is the dependency manifest and the graph
-gate reads it.
+facade that is not a Node; staticness is a gate constant naming that path beside `HUD_FACADE`, not a
+header field. There is no `Import:` field: the top preload block is the dependency manifest and the
+graph gate reads it.
 
 The old `Scope:` labelled every file. Only facade values are mapped; the module labels described a
 layer and are deleted with the module headers:

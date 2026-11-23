@@ -1,8 +1,4 @@
 extends RefCounted
-## Service: world
-## Contract: docs/world.md
-## Scope: world
-## Import: world/api.gd only
 ## Her expression controller, dialogue face and blush, bound to her node.
 
 const GAME := preload("res://mods/unfplap/world/game.gd")

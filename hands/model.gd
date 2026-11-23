@@ -1,8 +1,4 @@
 extends RefCounted
-## Service: hands
-## Contract: docs/hands.md
-## Scope: pure
-## Import: hands/model.gd only
 ## Private typed records and pure caress math for the hands package.
 
 const SELF := preload("res://mods/unfplap/hands/model.gd")

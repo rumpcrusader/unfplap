@@ -2,7 +2,6 @@ extends RefCounted
 ## Mare Initiation Reasoning: whether to offer, and which available option.
 ## Pure instruction, payload and parser; the adapter owns the model call.
 ## Context and the placeable options are the only inputs; no service, scene, clock or file.
-## Contract: `docs/initiation.md` (`## Reasoning`).
 
 const CONTEXT := preload("res://mods/unfplap/shared/context.gd")
 const DEFAULTS_DATA := preload("res://mods/unfplap/shared/defaults_data.gd")

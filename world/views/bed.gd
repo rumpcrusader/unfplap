@@ -1,8 +1,4 @@
 extends RefCounted
-## Service: world
-## Contract: docs/world.md
-## Scope: world
-## Import: world/api.gd only
 ## One rest-family node (a bed, its couch, one seat or the seating system) and the rows it answers.
 
 const GAME := preload("res://mods/unfplap/world/game.gd")

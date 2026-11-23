@@ -1,8 +1,4 @@
 extends RefCounted
-## Service: world
-## Contract: docs/world.md
-## Scope: world
-## Import: world/api.gd only
 ## The world context's story journal, its line store and its event list, bound to the context node.
 
 const GAME := preload("res://mods/unfplap/world/game.gd")

@@ -1,8 +1,4 @@
 extends RefCounted
-## Service: settings
-## Contract: docs/settings.md `## Base-game access`
-## Scope: settings
-## Import: base-game modules only
 ## Base-game boundary for the settings autoload, its page and the menu chrome.
 
 const MENU_STYLE := preload("res://world/ui/menu_style.gd")

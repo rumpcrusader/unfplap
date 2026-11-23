@@ -1,6 +1,5 @@
 extends "res://mods/unfplap/shared/body_binding.gd"
 ## The garment body binding: one worn-garment scan when a presented body changes form.
-## Scope: world; `body_change.wire()` registers one instance after the Pantyhose adapter exists.
 ## The adapter exposes only a world-side `scan()`, so one pass is all a change can do.
 ## See `docs/body_change.md` (`## Bindings`).
 

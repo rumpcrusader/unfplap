@@ -1,6 +1,4 @@
 extends RefCounted
-## Service: world
-## Contract: docs/world.md `## Base-game access`
 ## Stateless readers for the base-game and presentation members; the scene root is an argument.
 
 const MATTRESS := preload("res://world/life/couch/mattress.gd")

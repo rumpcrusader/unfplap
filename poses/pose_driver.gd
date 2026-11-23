@@ -1,6 +1,5 @@
 extends RefCounted
 ## The base the pose recipes and the oral delta extend.
-## Contract: `docs/poses.md`.
 
 
 ## True when the driver splits its base from its overlays, so a pose with a delta runs the base,

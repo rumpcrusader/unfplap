@@ -2,7 +2,6 @@ extends RefCounted
 ## Pure Context for act reasoning: the soft inputs both Mare reasoning stages and the Anon
 ## classifier receive. A Context never gates an offer or a start; it only informs the decision.
 ## The caller builds one snapshot from plain facts. No service, scene, setting, clock or file.
-## Contract: `docs/negotiation.md`.
 
 const ANSWER_ACCEPT := "accept"
 const ANSWER_REFUSE := "refuse"

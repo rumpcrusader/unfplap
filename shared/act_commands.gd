@@ -2,7 +2,6 @@ extends RefCounted
 ## The act's command vocabulary: one stable id per act command. Pure data: no scene, no service,
 ## no settings read, no file and no clock. `shared/pose_specs.gd` builds each pose's control profile
 ## from these ids, `input/service.gd` emits the discrete ones and `runtime.gd` dispatches them.
-## Contract: `docs/input.md` and `docs/poses.md`.
 
 const THRUST := "thrust"
 const LEAN := "lean"

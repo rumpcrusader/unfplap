@@ -1,8 +1,4 @@
 extends "res://mods/unfplap/hands/path_base.gd"
-## Service: hands
-## Contract: docs/hands.md
-## Scope: pure
-## Import: hands/paths/oral.gd only
 ## Standing oral: a single authored node per hand on her head side, no chain and no fallback.
 
 const PATH := preload("res://mods/unfplap/hands/paths/anchors.gd")

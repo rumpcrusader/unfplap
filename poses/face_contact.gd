@@ -1,6 +1,5 @@
 extends RefCounted
 ## The bed face-sit contact driver: her pose follows his live mouth.
-## Contract: `docs/poses.md`.
 
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const POSE_VIEW := preload("res://mods/unfplap/shared/pose_view.gd")

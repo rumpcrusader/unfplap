@@ -3,7 +3,6 @@ extends RefCounted
 ## Negotiation service is the only writer: it builds the package once, freezes it and closes it
 ## through its one close path. The Act service reads the handle id, the frozen values it needs and
 ## calls `cancel`; it never mutates the package. Pure data: no scene reads, no service, no clock.
-## Contract: `docs/negotiation.md`.
 
 const POSE_OPTIONS := preload("res://mods/unfplap/shared/pose_options.gd")
 const CLEARANCE := preload("res://mods/unfplap/shared/clearance.gd")

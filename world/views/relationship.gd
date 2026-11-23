@@ -1,8 +1,4 @@
 extends RefCounted
-## Service: world
-## Contract: docs/world.md
-## Scope: world
-## Import: world/api.gd only
 ## The scene's relationship runtime and its bond store, with the runtime already bound.
 
 const GAME := preload("res://mods/unfplap/world/game.gd")

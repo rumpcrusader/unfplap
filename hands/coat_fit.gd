@@ -1,8 +1,4 @@
 extends RefCounted
-## Service: hands
-## Contract: docs/hands.md
-## Scope: pure
-## Import: hands/coat_fit.gd only
 ## The one coat reader: one fitted sphere per authored area, skinned at runtime.
 
 const BODY_COAT := preload("res://mods/unfplap/shared/body_coat.gd")

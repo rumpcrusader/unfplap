@@ -1,8 +1,4 @@
 extends RefCounted
-## Service: world
-## Contract: docs/world.md
-## Scope: world
-## Import: world/api.gd only
 ## One pony's navigator leases, travel and facing, bound to her node or to the navigator itself.
 
 const GAME := preload("res://mods/unfplap/world/game.gd")

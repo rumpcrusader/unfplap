@@ -1,6 +1,5 @@
 extends RefCounted
 ## Pure pose state and edge math: transitions, request codes and one running edge.
-## Contract: `docs/poses.md`.
 
 const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 

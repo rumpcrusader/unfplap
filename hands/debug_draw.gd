@@ -1,8 +1,4 @@
 extends RefCounted
-## Service: hands
-## Contract: docs/hands.md
-## Scope: per-act
-## Import: hands/debug_draw.gd only
 ## The caress debug overlay: path anchors, contact target and the actual hand.
 
 const MODEL := preload("res://mods/unfplap/hands/model.gd")

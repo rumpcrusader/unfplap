@@ -1,6 +1,5 @@
 extends RefCounted
 ## One face moment's values, plus the typed shapes `shared/act_face.gd` answers with.
-## Contract: `docs/face.md`.
 
 ## The live climax shape's inputs, gathered from the readiness meter. The facade owns the shape.
 class ClimaxQuality extends RefCounted:

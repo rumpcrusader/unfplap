@@ -1,8 +1,4 @@
 extends "res://mods/unfplap/hands/path_base.gd"
-## Service: hands
-## Contract: docs/hands.md
-## Scope: pure
-## Import: hands/paths/standing.gd only
 ## Standing caress path: the marked-area chain with the procedural flank/rump fallback.
 
 const PATH := preload("res://mods/unfplap/hands/paths/anchors.gd")

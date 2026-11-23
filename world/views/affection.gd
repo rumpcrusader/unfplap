@@ -1,8 +1,4 @@
 extends RefCounted
-## Service: world
-## Contract: docs/world.md
-## Scope: world
-## Import: world/api.gd only
 ## The scene's stock kisser, bound, plus the affection, cuddle and carry nodes the act writes.
 
 const GAME := preload("res://mods/unfplap/world/game.gd")

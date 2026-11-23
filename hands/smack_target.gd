@@ -1,8 +1,4 @@
 extends RefCounted
-## Service: hands
-## Contract: docs/hands.md
-## Scope: per-act
-## Import: hands/smack_target.gd only
 ## Smack hand choice and pose target: the flank/cheek query, jitter and the coat frame.
 
 const MODEL := preload("res://mods/unfplap/hands/model.gd")

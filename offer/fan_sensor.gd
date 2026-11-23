@@ -1,5 +1,4 @@
 extends RefCounted
-## Contract: docs/offer.md
 ## The idle fan sensor: the standing fan, the lying candidate and the pony beside a seated Anon,
 ## as the transitions the offer reconsiders on. It reads the scene at the poll cadence.
 

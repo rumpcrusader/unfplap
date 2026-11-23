@@ -1,7 +1,6 @@
 extends RefCounted
 ## One pony's bond record, read once and written back through the store's own save.
 ## `world/views/relationship.gd` hands it out; the store keeps the untouched rows.
-## Contract: `docs/world.md`.
 
 var stage := "acquaintance"
 var familiarity := 0.0

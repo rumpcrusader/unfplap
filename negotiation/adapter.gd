@@ -1,7 +1,6 @@
 extends Node
 ## The one conversation-director bridge and model host for the negotiation routes; no service
 ## reads the director directly.
-## Contract: `docs/negotiation.md` (`## Director and model host`).
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const PROMPTS := preload("res://mods/unfplap/negotiation/prompts.gd")

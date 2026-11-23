@@ -1,6 +1,5 @@
 extends RefCounted
 ## One act's footstool handle: reach rule, case loans, stack lifetime and item return.
-## Contract: `docs/stool.md`
 
 const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")

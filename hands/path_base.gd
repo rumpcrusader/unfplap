@@ -1,8 +1,4 @@
 extends RefCounted
-## Service: hands
-## Contract: docs/hands.md
-## Scope: pure
-## Import: hands/path_base.gd only
 ## Base for a pose-specific caress path: ordered contacts, preferred first.
 
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")

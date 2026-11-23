@@ -2,7 +2,6 @@ extends SkeletonModifier3D
 ## Missionary: lay the visible tail flat on the mattress and straighten it, on whichever chain the
 ## skeleton owns. The tail stays out of the authored pose because tail rigs differ. The chain turns
 ## onto the bed plane and its root is never moved.
-## Contract: `docs/poses.md`.
 
 const TAIL_CHAIN := preload("res://mods/unfplap/poses/tail_chain.gd")
 const POSE_VIEW := preload("res://mods/unfplap/shared/pose_view.gd")

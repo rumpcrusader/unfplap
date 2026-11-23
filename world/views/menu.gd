@@ -1,8 +1,4 @@
 extends RefCounted
-## Service: world
-## Contract: docs/world.md
-## Scope: world
-## Import: world/api.gd only
 ## The bound world root's named menu panels, its HUD toast line and the stock UI cue.
 
 const GAME := preload("res://mods/unfplap/world/game.gd")

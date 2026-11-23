@@ -1,8 +1,4 @@
 extends RefCounted
-## Service: hands
-## Contract: docs/hands.md
-## Scope: per-act
-## Import: hands/caress.gd only
 ## Latch, stroke phase and contact credit for both palms.
 
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")

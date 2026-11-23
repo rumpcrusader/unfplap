@@ -1,8 +1,4 @@
 extends RefCounted
-## Service: hands
-## Contract: docs/hands.md
-## Scope: per-act
-## Import: hands/smack.gd only
 ## The smack swing, impact and pack-sound swap; the target comes from `smack_target.gd`.
 
 const SMACK_AUDIO := preload("res://mods/unfplap/shared/smack_cues.gd")

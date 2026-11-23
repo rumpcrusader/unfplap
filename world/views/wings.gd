@@ -1,8 +1,4 @@
 extends RefCounted
-## Service: world
-## Contract: docs/world.md
-## Scope: world
-## Import: world/api.gd only
 ## Her wing node and the excitement Beat that owns the stock spread, bound to either one.
 
 const GAME := preload("res://mods/unfplap/world/game.gd")

@@ -1,6 +1,5 @@
 extends RefCounted
 ## Typed read-only views of the settings documents, so a caller never indexes a raw dictionary.
-## Contract: `docs/settings.md` (`## Internal API`).
 ##
 ## `of` and `raw` are the JSON edge: the service stores plain dictionaries and wraps them here.
 

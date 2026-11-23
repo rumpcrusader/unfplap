@@ -1,6 +1,4 @@
 extends RefCounted
-## Service: negotiation, private. Contract: `docs/negotiation.md` (`## Bridge`).
-##
 ## Builds the typed `Host` the service runs on from the live world, and owns the Anon-offer watch.
 
 const PROMPTS := preload("res://mods/unfplap/negotiation/prompts.gd")

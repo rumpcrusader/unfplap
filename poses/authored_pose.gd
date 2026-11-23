@@ -1,6 +1,5 @@
 extends RefCounted
 ## The authored pose asset loader: v7 local-rest poses, v6 bed-space migration.
-## Contract: `docs/poses.md`.
 
 const SELF := preload("res://mods/unfplap/poses/authored_pose.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")

@@ -1,6 +1,5 @@
 extends RefCounted
 ## Pure act HUD text: cue, readiness, auto readout and `End` tint.
-## Contract: `docs/hud.md`
 
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 

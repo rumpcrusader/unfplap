@@ -1,6 +1,5 @@
 extends RefCounted
 ## One act's summary as the afterglow reads it; the scorer's dictionary is parsed at this edge.
-## Contract: `docs/afterglow.md`.
 
 ## False until a real summary fills the record; an absent summary answers an empty dictionary.
 var present := false

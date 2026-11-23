@@ -1,7 +1,6 @@
 extends RefCounted
 ## Live camera: standing side, bed-act sightline.
 ## The frame owns the player; this module owns the view and its live offsets.
-## Contract: `docs/camera.md`, `docs/act_facts.md`.
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")

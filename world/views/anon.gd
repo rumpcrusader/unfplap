@@ -1,8 +1,4 @@
 extends RefCounted
-## Service: world
-## Contract: docs/world.md
-## Scope: world
-## Import: world/api.gd only
 ## Anon's rig, form driver, controls, eye line and seated state, bound to his node.
 
 const GAME := preload("res://mods/unfplap/world/game.gd")

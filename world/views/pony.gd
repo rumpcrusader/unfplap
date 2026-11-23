@@ -1,8 +1,4 @@
 extends RefCounted
-## Service: world
-## Contract: docs/world.md
-## Scope: world
-## Import: world/api.gd only
 ## One pony's body reads and writes, bound to her node.
 
 const GAME := preload("res://mods/unfplap/world/game.gd")

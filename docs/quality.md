@@ -45,8 +45,8 @@ Comments are shape-gated, not prose-reviewed. `scripts/comments.py --check` runs
 `scripts/lint.sh` and in the source-checks CI job; tests and tools are excluded like gdlint. The
 rules:
 
-- a file header is at most five `##` lines: `Service:`/`Scope:`/`Contract:` plus one
-  purpose sentence;
+- a facade header is at most five `##` lines: `Service:`/`Scope:`/`Contract:` plus one
+  purpose sentence; a module header is its purpose sentence and nothing else;
 - any other `##` block is at most two lines: the promise, then one clause of why;
 - a `#` block is at most three lines;
 - no backticked private `_member` (Godot engine virtuals excepted);

@@ -1,8 +1,4 @@
 extends RefCounted
-## Service: hands
-## Contract: docs/hands.md
-## Scope: pure
-## Import: hands/contact.gd only
 ## Coat queries shared by every caress mode; base-game dictionaries are parsed here.
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")

@@ -1,8 +1,4 @@
 extends RefCounted
-## Service: world
-## Contract: docs/world.md
-## Scope: world
-## Import: world/api.gd only
 ## The game's mods registry, with the autoload host already bound.
 
 const GAME := preload("res://mods/unfplap/world/game.gd")

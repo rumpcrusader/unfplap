@@ -1,7 +1,6 @@
 extends RefCounted
 ## The single seam between the anatomy modules and the live world: every read goes through
 ## `world/api.gd` and its pony view. The API owns one and injects it into each module.
-## Contract: `docs/anatomy.md` (`## Rig contract`).
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const DOCK_FIT := preload("res://mods/unfplap/shared/dock_fit.gd")

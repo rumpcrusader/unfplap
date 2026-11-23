@@ -1,7 +1,6 @@
 extends "res://mods/unfplap/shared/service.gd"
 ## Pantyhose & Panties world adapter: keeps worn panties and pantyhose clear of the optional
 ## anatomy, lets the cloth follow the rump wobble and starts each act undressed.
-## Scope: world. It never preloads the entry or `runtime.gd` and never edits the pack.
 
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")

@@ -1,7 +1,6 @@
 extends RefCounted
 ## Pure pose-option builder: the capability table plus plain placement facts produce the options an
 ## offer may choose from. It never reads a scene, service, setting, clock or file.
-## Contract: `docs/scene_gate.md` (`## Pose options and placement`) and `docs/poses.md`.
 ##
 ## An option is `(pose, source, bed)`; an empty list means no offer.
 

@@ -1,8 +1,4 @@
 extends RefCounted
-## Service: world
-## Contract: docs/world.md
-## Scope: world
-## Import: world/api.gd only
 ## The bound inventory node: its briefcase store, world drops, shop scene and quick-slot HUD.
 
 const GAME := preload("res://mods/unfplap/world/game.gd")

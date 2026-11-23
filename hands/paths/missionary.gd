@@ -1,8 +1,4 @@
 extends "res://mods/unfplap/hands/path_base.gd"
-## Service: hands
-## Contract: docs/hands.md
-## Scope: pure
-## Import: hands/paths/missionary.gd only
 ## Missionary caress path: the authored area chain with the reach-aware walk back.
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")

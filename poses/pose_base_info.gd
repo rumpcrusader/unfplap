@@ -1,6 +1,5 @@
 extends RefCounted
 ## The pose base verdict the start log, the settled line and the debug rows all share.
-## Contract: `docs/poses.md`.
 
 const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 

@@ -1,8 +1,4 @@
 extends RefCounted
-## Service: hands
-## Contract: docs/hands.md
-## Scope: per-act
-## Import: hands/port.gd only
 ## Typed host seam between the hand coordinator and its action modules.
 
 const MODEL := preload("res://mods/unfplap/hands/model.gd")

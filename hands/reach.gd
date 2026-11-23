@@ -1,8 +1,4 @@
 extends RefCounted
-## Service: hands
-## Contract: docs/hands.md
-## Scope: per-act
-## Import: hands/reach.gd only
 ## The standing shoulder reach: hold, release blend and the smack hand cancellation.
 
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")

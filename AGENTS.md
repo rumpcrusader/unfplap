@@ -246,12 +246,12 @@ are in `ARCHITECTURE.md` (`## The service contract`).
   commit is only for docs no code change touched: a new contract, an index row, a sweep. Fix only
   the claims that became false; a claim that is still true is never reworded.
 - **Comments state what the code cannot.** A `##` block is at most two lines: the promise, then one
-  clause of why when the reason is not visible. A file header is at most five lines — the
-  `Service:`/`Scope:`/`Contract:` fields plus one purpose sentence; the owning doc carries
-  the rest. A `#` block is at most three lines and only for an invariant, an order constraint, a
-  game quirk or a workaround. Do not restate a doc sentence, a member name, a count, an ordinal or a
-  numeric value the code owns; a rename must never force a comment edit. The comment gate
-  enforces the shape in `scripts/lint.sh`.
+  clause of why when the reason is not visible. A facade header is at most five lines — the
+  `Service:`/`Scope:`/`Contract:` fields plus one purpose sentence. A module header is its purpose
+  sentence and nothing else; the owning doc carries the rest. A `#` block is at most three lines
+  and only for an invariant, an order constraint, a game quirk or a workaround. Do not restate a
+  doc sentence, a member name, a count, an ordinal or a numeric value the code owns; a rename must
+  never force a comment edit. The comment gate enforces the shape in `scripts/lint.sh`.
 - A doc names settings and behaviour, not copied numeric defaults; the shipped
   `settings/settings.json` is the source for the default and the declaration in
   `settings/service.gd` for the bounds.

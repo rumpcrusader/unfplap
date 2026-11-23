@@ -1,6 +1,5 @@
 extends RefCounted
 ## The negotiation model requests: the payload builders, the reply parsers and their instructions.
-## Contract: `docs/negotiation.md` (`## Decisions`).
 
 const CONTEXT := preload("res://mods/unfplap/shared/context.gd")
 const DEFAULTS_DATA := preload("res://mods/unfplap/shared/defaults_data.gd")

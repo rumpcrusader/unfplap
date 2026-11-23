@@ -1,8 +1,4 @@
 extends RefCounted
-## Service: debug
-## Contract: docs/debug.md `## Base-game access`
-## Scope: debug
-## Import: base-game modules only
 ## The game's menu chrome, reduced to the members the Debug block draws.
 
 const MENU_STYLE := preload("res://world/ui/menu_style.gd")

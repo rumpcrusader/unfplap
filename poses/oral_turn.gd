@@ -1,6 +1,5 @@
 extends RefCounted
 ## The standing oral turn: root/facing mirror, opening/mouth anchor, style motion, kiss idle.
-## Contract: `docs/poses.md`.
 
 const ORAL_ANCHOR_RATE := 0.8
 const ORAL_STYLE_MIN_S := 3.5

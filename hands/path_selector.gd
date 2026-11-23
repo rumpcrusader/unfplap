@@ -1,8 +1,4 @@
 extends RefCounted
-## Service: hands
-## Contract: docs/hands.md
-## Scope: per-act
-## Import: hands/path_selector.gd only
 ## Picks a provider by contact kind and keeps one cached per body.
 
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")

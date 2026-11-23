@@ -1,6 +1,5 @@
 extends "res://mods/unfplap/poses/pose_driver.gd"
 ## Standing skeleton recipe and the baked-base delta.
-## Contract: `docs/poses.md`.
 
 const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 

@@ -1,8 +1,4 @@
 extends RefCounted
-## Service: world
-## Contract: docs/world.md
-## Scope: world
-## Import: world/api.gd only
 ## The scene's conversation director and its world context: TTS, voice, impressions and the lines.
 
 const GAME := preload("res://mods/unfplap/world/game.gd")

@@ -1,8 +1,4 @@
 extends RefCounted
-## Service: world
-## Contract: docs/world.md
-## Scope: world
-## Import: world/api.gd only
 ## Her flank patch and touch body: the hull sync, the jiggle surface and its fold.
 
 const GAME := preload("res://mods/unfplap/world/game.gd")

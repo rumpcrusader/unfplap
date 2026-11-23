@@ -1,6 +1,5 @@
 extends "res://mods/unfplap/poses/pose_driver.gd"
 ## Standing oral procedural delta: the neck swing that keeps her muzzle along the shaft.
-## Contract: `docs/poses.md`.
 
 ## The head counters the neck's pitch and yaw so the muzzle does not follow the whole swing.
 const ORAL_HEAD_COUNTER := 0.75

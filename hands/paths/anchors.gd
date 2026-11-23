@@ -1,8 +1,4 @@
 extends RefCounted
-## Service: hands
-## Contract: docs/hands.md
-## Scope: pure
-## Import: hands/paths/anchors.gd only
 ## Sphere-anchored caress path: one fitted sphere per authored area, sampled analytically.
 
 const FIT := preload("res://mods/unfplap/hands/coat_fit.gd")

@@ -1,6 +1,5 @@
 extends SkeletonModifier3D
 ## SkeletonModifier3D evaluator for one pose pair and the live edge weight.
-## Contract: `docs/poses.md`.
 
 const RIG := preload("res://mods/unfplap/poses/pose_rig.gd")
 const DRIVER := preload("res://mods/unfplap/poses/pose_driver.gd")

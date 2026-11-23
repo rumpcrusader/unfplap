@@ -1,8 +1,4 @@
 extends RefCounted
-## Service: hands
-## Contract: docs/hands.md
-## Scope: pure
-## Import: hands/placement.gd only
 ## Pose-free palm placement: oval, sphere snap, smoothing and the single-point palm frame.
 
 const PERF := preload("res://mods/unfplap/shared/perf.gd")

@@ -894,7 +894,9 @@ func _check_standing_shot_offsets() -> void:
 	facts.size_name = "same height"
 	facts.presentation_config = {"camera_forward_m": 0.0, "camera_pitch_deg": 0.0}
 	facts.look_captured = true
-	facts.kiss = func() -> Variant: return made["kiss"]
+	# Binds the node, not the fixture dictionary: a captured `made` holds `facts` and closes a cycle.
+	var kiss_node: FakeKiss = made["kiss"]
+	facts.kiss = func() -> Variant: return kiss_node
 	view.position = Vector3(0.0, 1.7, 0.0)
 	var standing: RefCounted = CAMERA_VIEW.new(facts)
 	standing.call("prepare")

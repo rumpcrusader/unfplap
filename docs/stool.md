@@ -155,8 +155,9 @@ idle hint and the act start.
   picked up. The generated house footstools are static furniture and do not count.
 - `owned_count` includes case units, held items, placed furniture and world drops, so one stool
   anywhere stops the supply. The shop remains a valid way to get more for a larger stack.
-- The supply retries every `2 s` while no home is loaded, pauses with the tree and during an act,
-  and logs once if no home is available or the briefcase is full.
+- The supply retries every `2 s` while no home is loaded, pauses with the tree and during an act
+  (the frame comes from the wired act owner, `docs/act_owner.md`), and logs once if no home is
+  available or the briefcase is full.
 
 ## Settings and debug
 

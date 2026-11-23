@@ -4,6 +4,7 @@ extends RefCounted
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
+const ACT_OWNER := preload("res://mods/unfplap/act_owner/service.gd")
 const RUMP_CONE := preload("res://mods/unfplap/shared/rump_cone.gd")
 const PERF := preload("res://mods/unfplap/shared/perf.gd")
 
@@ -49,6 +50,8 @@ var _cursor := 0
 var _pony_form := false
 ## A world enter or a settings edit: the next update reports a transition.
 var _pending := true
+## The act frame the offer service hands over; a null owner reads as no act.
+var act_owner: ACT_OWNER = null
 
 
 ## One idle frame; only the poll cadence reads the fan. True when the offer must reconsider.
@@ -56,7 +59,8 @@ var _pending := true
 func update(delta: float, eye: Vector3, forward: Vector3, pony_form: bool,
 		force := false) -> bool:
 	_clock += delta
-	if PONIES.act_running() or not is_instance_valid(WORLD.world_root()) or not eye.is_finite():
+	if (act_owner.act_running() if is_instance_valid(act_owner) else false) \
+			or not is_instance_valid(WORLD.world_root()) or not eye.is_finite():
 		return _clear()
 	var mode_changed := pony_form != _pony_form
 	if not (force or _pending or mode_changed or _clock >= SENSOR_POLL_S):

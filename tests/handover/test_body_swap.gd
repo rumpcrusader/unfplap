@@ -19,6 +19,7 @@ const CONTROLLER := preload("res://mods/unfplap/anatomy/controller.gd")
 const ANATOMY_API := preload("res://mods/unfplap/anatomy/api.gd")
 const SUMMARY := preload("res://mods/unfplap/summary/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
+const ACT_OWNER := preload("res://mods/unfplap/act_owner/service.gd")
 const HANDLES := preload("res://mods/unfplap/world/handles.gd")
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
 const BODY_CHANGE_SERVICE := preload("res://mods/unfplap/body_change/service.gd")
@@ -400,6 +401,10 @@ func _set_memory(runtime: Node, memory: Node) -> void:
 	runtime.act.context.afterglow.memory = memory
 
 
+## The act frame of the current fixture; every `_fixture()` replaces it.
+var owner: ACT_OWNER = null
+
+
 func _fixture() -> Dictionary:
 	PONIES.shutdown()
 	var host := FakeHost.new()
@@ -411,6 +416,10 @@ func _fixture() -> Dictionary:
 	host.memory = memory
 	var world := HANDLES.new()
 	world.memory = memory
+	owner = ACT_OWNER.new()
+	owner.wire(world.offer, world.stock_smack)
+	world.act_owner = owner
+	PONIES.act_owner = owner
 	var runtime: Node = RUNTIME.new(null, world)
 	runtime.name = "UnfplapRuntime"
 	runtime.pony = old_pony
@@ -433,7 +442,7 @@ func _fixture() -> Dictionary:
 	WORLD.bind_world(host)
 	PONIES.factory = func(_pony_node: Node) -> Node: return runtime
 	PONIES.attach(old_pony)
-	PONIES.set_active(runtime)
+	owner.set_active(runtime)
 	var body_change := BODY_CHANGE_SERVICE.new()
 	body_change.name = "FakeBodyChange"
 	body_change.call("setup")
@@ -477,6 +486,8 @@ func _free_fixture(made: Dictionary) -> void:
 		source.free()
 	if is_instance_valid(host):
 		host.free()
+	if is_instance_valid(owner):
+		owner.free()
 
 
 func run() -> void:
@@ -529,9 +540,9 @@ func _check_observation() -> void:
 	check(not runtime.act.suspended(), "the watcher reads the change only at its cadence")
 	runtime.act.swap.tick(BODY_CHANGE_ACT.BODY_SWAP_POLL_S)
 	check(runtime.act.suspended(), "the announced change suspends on the cadence tick")
-	check(PONIES.body_swap_pending(), "the suspend records one pending swap")
+	check(owner.body_swap_pending(), "the suspend records one pending swap")
 	runtime.act.swap.tick(0.1)
-	check(PONIES.body_swap_pending(), "a suspended tick does not start a second handover")
+	check(owner.body_swap_pending(), "a suspended tick does not start a second handover")
 	check(source.poll_calls == 0, "the suspended wait never polls the provider either")
 	runtime.act.force_stop()
 	await _free_fixture(f)
@@ -554,7 +565,7 @@ func _check_handover() -> void:
 	runtime.act.swap.suspend(source.active_change())
 	check(runtime.act.suspended(), "the act suspends")
 	check(runtime.get_parent() == host, "the runtime leaves the old body for the host")
-	check(PONIES.body_swap_pending(), "ponies records the pending swap")
+	check(owner.body_swap_pending(), "the act owner records the pending swap")
 	check(int(runtime.act.state) == ACT_STATE.State.ACTIVE, "the act state survives suspension")
 	check(absf(float(runtime.act.context.readiness.depth) - 0.42) < 0.0001, "depth survives suspension")
 	check(int(runtime.act.context.readiness.pony_climaxes) == 1, "climaxes survive suspension")
@@ -570,7 +581,7 @@ func _check_handover() -> void:
 	check(runtime.get_parent() == new_pony, "the runtime moved under the new body")
 	check(PONIES.runtime_for(new_pony) == runtime, "ponies maps the new body to the same runtime")
 	check(PONIES.runtime_for(old_pony) == null, "the old body's map entry is gone")
-	check(not PONIES.body_swap_pending(), "the pending swap is cleared")
+	check(not owner.body_swap_pending(), "the pending swap is cleared")
 	check(int(runtime.act.state) == ACT_STATE.State.ACTIVE, "the act state survives resume")
 	check(absf(float(runtime.act.context.readiness.depth) - 0.42) < 0.0001, "depth survives resume")
 	check(int(runtime.act.context.readiness.pony_climaxes) == 1, "climaxes survive resume")
@@ -587,7 +598,7 @@ func _check_handover() -> void:
 
 	runtime.act.force_stop()
 	check(int(runtime.act.state) == ACT_STATE.State.IDLE, "the one exit ends the act")
-	check(not PONIES.act_running(), "the one exit clears the active runtime")
+	check(not owner.act_running(), "the one exit clears the active runtime")
 	check(not new_pony.has_meta("sex_active"), "the one exit clears the new body's flag")
 	check(runtime.act.context.hold.nav == null and runtime.act.context.hold.token.is_empty(),
 		"the one exit gives up the act's navigator lease")
@@ -801,7 +812,7 @@ func _check_ai_change() -> void:
 	runtime.act.swap.tick(0.1)
 	check(runtime.act.suspended(), "a second change after resume suspends again")
 	runtime.act.force_stop()
-	check(not PONIES.body_swap_pending(), "the one exit clears the repeated swap")
+	check(not owner.body_swap_pending(), "the one exit clears the repeated swap")
 	await _free_fixture(f)
 
 
@@ -852,8 +863,8 @@ func _check_watchdog() -> void:
 	old_pony.free()
 	runtime.act.swap.tick(BODY_CHANGE_ACT.BODY_SWAP_WATCHDOG_S + 1.0)
 	check(int(runtime.act.state) == ACT_STATE.State.IDLE, "the watchdog ends the act")
-	check(not PONIES.act_running(), "the watchdog clears the active runtime")
-	check(not PONIES.body_swap_pending(), "the watchdog clears the pending swap")
+	check(not owner.act_running(), "the watchdog clears the active runtime")
+	check(not owner.body_swap_pending(), "the watchdog clears the pending swap")
 	await _free_fixture(f)
 
 
@@ -876,7 +887,7 @@ func _check_invalid_shape() -> void:
 	source.new_pony = new_pony
 	PONIES.attach(new_pony)
 	check(int(runtime.act.state) == ACT_STATE.State.IDLE, "an ineligible shape ends the act")
-	check(not PONIES.act_running(), "an ineligible shape clears the active runtime")
+	check(not owner.act_running(), "an ineligible shape clears the active runtime")
 	check(not new_pony.has_meta("sex_active"), "an ineligible shape keeps no act flag")
 	await _free_fixture(f)
 
@@ -891,7 +902,7 @@ func _check_world_close() -> void:
 	runtime.act.swap.suspend(source.active_change())
 	runtime.act.force_stop()
 	check(int(runtime.act.state) == ACT_STATE.State.IDLE, "a world close during a swap ends the act")
-	check(not PONIES.body_swap_pending(), "a world close clears the pending swap")
+	check(not owner.body_swap_pending(), "a world close clears the pending swap")
 	await _free_fixture(f)
 
 
@@ -1065,7 +1076,7 @@ func _check_named_shape_gate() -> void:
 	check(runtime.act.suspended(), "the new body binds without resuming")
 	check(runtime.pony == new_pony, "the runtime owns the new body during the wait")
 	check(runtime.get_parent() == new_pony, "the runtime moves under the new body")
-	check(not PONIES.body_swap_pending(), "the adoption clears the pending swap")
+	check(not owner.body_swap_pending(), "the adoption clears the pending swap")
 	check(not HYBRID_NEAR_MESH.cache.has(near_key), "the adopted body's LOD is rebuilt")
 	runtime.act.swap.tick(0.1)
 	check(runtime.act.suspended(), "a missing shape keeps the act suspended")
@@ -1383,16 +1394,16 @@ func _check_restore_change() -> void:
 	runtime.act.swap.tick(0.1)
 	check(int(runtime.act.state) == ACT_STATE.State.RESTORE,
 		"another body's change leaves the restore alone")
-	check(not PONIES.body_swap_pending(), "another body's change records no pending swap")
+	check(not owner.body_swap_pending(), "another body's change records no pending swap")
 	source.old_pony = runtime.pony
 	source.changing = true
 	runtime.act.swap.tick(0.1)
 	check(int(runtime.act.state) == ACT_STATE.State.IDLE,
 		"the act pony's change during restore finishes the act")
 	check(not runtime.act.suspended(), "a change during restore never suspends")
-	check(not PONIES.body_swap_pending(), "a change during restore records no pending swap")
+	check(not owner.body_swap_pending(), "a change during restore records no pending swap")
 	check(runtime.act.context.handover.change == null, "the one exit drops the typed swap change")
-	check(not PONIES.act_running(), "the one exit clears the active runtime")
+	check(not owner.act_running(), "the one exit clears the active runtime")
 	other.queue_free()
 	await _free_fixture(f)
 
@@ -1443,7 +1454,7 @@ func _check_idle_body_binding() -> void:
 		"an idle form revision takes the presented form's name")
 	check(str(runtime.act.context.facts.display_name) == "Idle Borrowed Form",
 		"the idle act facts carry the presented form's name")
-	check(not runtime.act.suspended() and not PONIES.body_swap_pending(),
+	check(not runtime.act.suspended() and not owner.body_swap_pending(),
 		"a same-node revision never starts a swap")
 	await _free_fixture(f)
 
@@ -1472,9 +1483,9 @@ func _check_same_node_refresh() -> void:
 	body_change.apply_form(old_pony, revised)
 	check(int(runtime.act.state) == ACT_STATE.State.ACTIVE,
 		"a live same-node revision keeps the act state")
-	check(not runtime.act.suspended() and not PONIES.body_swap_pending(),
+	check(not runtime.act.suspended() and not owner.body_swap_pending(),
 		"a live same-node revision starts no swap")
-	check(not PONIES.body_swap_pending(), "a live same-node revision starts no handover")
+	check(not owner.body_swap_pending(), "a live same-node revision starts no handover")
 	check(runtime.act.context.pose.pony == old_pony, "the live revision keeps the pose bound")
 	check(float(runtime.act.context.facts.player_eye_height) > 0.0,
 		"the live revision refreshes the player stance")

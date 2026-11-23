@@ -11,7 +11,8 @@ const ACT_COMMANDS := preload("res://mods/unfplap/shared/act_commands.gd")
 const INPUT := preload("res://mods/unfplap/input/service.gd")
 const OFFER := preload("res://mods/unfplap/offer/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
-const PONIES := preload("res://mods/unfplap/ponies/service.gd")
+const ACT_OWNER := preload("res://mods/unfplap/act_owner/service.gd")
+const HANDLES := preload("res://mods/unfplap/world/handles.gd")
 
 
 
@@ -295,6 +296,13 @@ func _check_injection() -> void:
 
 
 ## The action lives in the InputMap, follows the setting and starts the act once.
+## A wired act owner for one block: the input service reads its frame through it.
+func _owner() -> ACT_OWNER:
+	var owner := ACT_OWNER.new()
+	owner.wire(null, null)
+	return owner
+
+
 func _check_action() -> void:
 	var before := int(SETTINGS.act_key.get_num())
 	SETTINGS.act_key.set_num(float(KEY_6))
@@ -303,8 +311,9 @@ func _check_action() -> void:
 	root.add_child(main)
 	var offer := FakeOffer.new()
 	root.add_child(offer)
+	var owner := _owner()
 	var service := INPUT.new()
-	service.offer = offer
+	service.wire(offer, owner)
 	main.add_child(service)
 	await process_frame
 
@@ -331,7 +340,7 @@ func _check_action() -> void:
 
 	var runtime := FakeRuntime.new()
 	offer.live = true
-	PONIES.set_active(runtime)
+	owner.set_active(runtime)
 	service.call("_input", key)
 	check(offer.starts == 1, "the act key does not start a second act while one is live")
 	offer.live = false
@@ -350,7 +359,7 @@ func _check_action() -> void:
 		"the act action returns after typing")
 
 	service.queue_free()
-	PONIES.clear_active(runtime)
+	owner.clear_active(runtime)
 	main.queue_free()
 	offer.queue_free()
 	runtime.queue_free()
@@ -366,11 +375,13 @@ func _check_shield() -> void:
 	var scene := _world()
 	var main := Node.new()
 	root.add_child(main)
+	var owner := _owner()
 	var service := INPUT.new()
+	service.wire(null, owner)
 	main.add_child(service)
 	var runtime := FakeRuntime.new()
 	runtime.state = 2
-	PONIES.set_active(runtime)
+	owner.set_active(runtime)
 	await process_frame
 	check(bool(service.get("_shield")), "the shield follows its setting")
 
@@ -460,7 +471,7 @@ func _check_shield() -> void:
 	check(not Input.is_physical_key_pressed(KEY_N), "N's raw state is cleared")
 
 	service.queue_free()
-	PONIES.clear_active(runtime)
+	owner.clear_active(runtime)
 	main.queue_free()
 	runtime.queue_free()
 	SETTINGS.act_input_shield.set_bool(before)
@@ -473,11 +484,13 @@ func _check_act_hold() -> void:
 	_world()
 	var main := Node.new()
 	root.add_child(main)
+	var owner := _owner()
 	var service := INPUT.new()
+	service.wire(null, owner)
 	main.add_child(service)
 	var runtime := FakeRuntime.new()
 	runtime.state = 4
-	PONIES.set_active(runtime)
+	owner.set_active(runtime)
 	await process_frame
 
 	_arm_hold(service, runtime)
@@ -540,9 +553,9 @@ func _check_act_hold() -> void:
 	check(runtime.cancels == 4, "the VR release rearms the hold")
 
 	# A new act drops a key still down from the last one.
-	PONIES.clear_active(runtime)
+	owner.clear_active(runtime)
 	service.call("_physics_process", 0.1)
-	PONIES.set_active(runtime)
+	owner.set_active(runtime)
 	Input.action_press(ACT_KEYS.ACTION)
 	service.call("_hold_act_tick", 0.5, runtime)
 	check(runtime.cancels == 4, "a new act needs a release before the hold")
@@ -553,7 +566,7 @@ func _check_act_hold() -> void:
 	check(runtime.cancels == 5, "the new act fires after the release")
 
 	service.queue_free()
-	PONIES.clear_active(runtime)
+	owner.clear_active(runtime)
 	main.queue_free()
 	runtime.queue_free()
 	await process_frame
@@ -565,11 +578,13 @@ func _check_auto_layer() -> void:
 	_world()
 	var main := Node.new()
 	root.add_child(main)
+	var owner := _owner()
 	var service := INPUT.new()
+	service.wire(null, owner)
 	main.add_child(service)
 	var runtime := FakeRuntime.new()
 	runtime.state = 2
-	PONIES.set_active(runtime)
+	owner.set_active(runtime)
 	await process_frame
 
 	await _hold(service, KEY_X)
@@ -592,7 +607,7 @@ func _check_auto_layer() -> void:
 	await _release(KEY_X)
 	await _release(KEY_Q)
 	service.queue_free()
-	PONIES.clear_active(runtime)
+	owner.clear_active(runtime)
 	main.queue_free()
 	runtime.queue_free()
 	await process_frame
@@ -605,11 +620,13 @@ func _check_mouse() -> void:
 	_world()
 	var main := Node.new()
 	root.add_child(main)
+	var owner := _owner()
 	var service := INPUT.new()
+	service.wire(null, owner)
 	main.add_child(service)
 	var runtime := FakeRuntime.new()
 	runtime.state = 2
-	PONIES.set_active(runtime)
+	owner.set_active(runtime)
 	await process_frame
 
 	var motion := InputEventMouseMotion.new()
@@ -633,7 +650,7 @@ func _check_mouse() -> void:
 	check(not root.is_input_handled(), "an idle runtime ignores the motion")
 
 	service.queue_free()
-	PONIES.clear_active(runtime)
+	owner.clear_active(runtime)
 	main.queue_free()
 	runtime.queue_free()
 	await process_frame
@@ -660,11 +677,13 @@ func _check_act_commands() -> void:
 	var scene := _world()
 	var main := Node.new()
 	root.add_child(main)
+	var owner := _owner()
 	var service := INPUT.new()
+	service.wire(null, owner)
 	main.add_child(service)
 	var runtime := FakeRuntime.new()
 	runtime.state = 2
-	PONIES.set_active(runtime)
+	owner.set_active(runtime)
 	await process_frame
 
 	for case: Array in [[KEY_V, ACT_COMMANDS.HOLE], [KEY_N, ACT_COMMANDS.ORAL]]:
@@ -709,7 +728,7 @@ func _check_act_commands() -> void:
 	await _release(KEY_V)
 
 	service.queue_free()
-	PONIES.clear_active(runtime)
+	owner.clear_active(runtime)
 	main.queue_free()
 	runtime.queue_free()
 	SETTINGS.act_input_shield.set_bool(before)

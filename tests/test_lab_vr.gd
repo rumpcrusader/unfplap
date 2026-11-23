@@ -13,7 +13,7 @@ extends "res://mods/unfplap/tests/test_lab.gd"
 ## desktop run the tracker is inert and nothing else changes: the rig is only XR under Monado.
 
 const VR_ACT := preload("res://mods/unfplap/vr/service.gd")
-const PONIES := preload("res://mods/unfplap/ponies/service.gd")
+const ACT_OWNER := preload("res://mods/unfplap/act_owner/service.gd")
 
 ## One full stroke of the fake waist, the same range vr_act maps to depth 1.
 const HIP_RANGE_M := VR_ACT.HIP_RANGE_M
@@ -325,9 +325,11 @@ func _main() -> Node:
 
 
 func _runtime() -> Node:
-	if _main() == null:
+	var entry := _main()
+	if entry == null:
 		return null
-	return PONIES.active()
+	var owner: ACT_OWNER = entry.get("act_owner")
+	return owner.active() if is_instance_valid(owner) else null
 
 
 func _pony() -> Node3D:

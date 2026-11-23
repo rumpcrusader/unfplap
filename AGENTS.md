@@ -16,6 +16,7 @@ restate a contract.
 | `main.gd` | `ARCHITECTURE.md`, `docs/runtime.md` |
 | `runtime.gd` | `docs/runtime.md` |
 | `act/**` | `docs/runtime.md` |
+| `act_owner/**` | `docs/act_owner.md` |
 | `world/api.gd` | `docs/world.md` |
 | `world/game.gd` | `docs/world.md` |
 | `settings/game.gd` | `docs/settings.md` |

@@ -47,7 +47,6 @@ const ACT_AGREEMENT := preload("res://mods/unfplap/act/agreement.gd")
 const START_PORT := preload("res://mods/unfplap/shared/start_port.gd")
 const PRESENTATION_PORT := preload("res://mods/unfplap/shared/presentation_port.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
-const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 
 ## The scope assertion every Pony service carries; the runtime's children are the set.
 const PONY_GROUP := "unfplap_pony_service"
@@ -145,7 +144,7 @@ func _compose() -> void:
 	# The per-act systems, in construction order; the handover and the anatomy bridge are built
 	# against these instances.
 	_handover_host = HOST_LIVE.new()
-	_handover = BODY_CHANGE_ACT.new(_handover_host, memory)
+	_handover = BODY_CHANGE_ACT.new(_handover_host, memory, _world.act_owner)
 	var wings: WING = WING.new(facts)
 	var hands: HANDS = HANDS.new(facts)
 	_kiss = KISS.new(facts)
@@ -407,7 +406,8 @@ func adopt_body(new_pony: Node) -> void:
 func _exit_tree() -> void:
 	if _swapping_parent:
 		return
-	PONIES.clear_body_swap(self)
+	if _world != null and is_instance_valid(_world.act_owner):
+		_world.act_owner.clear_body_swap(self)
 	_kiss.restore_forelegs()
 	_act.release_stool()
 	_host.end_tail_tuck()

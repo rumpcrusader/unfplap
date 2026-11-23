@@ -54,7 +54,8 @@ the live-change indexes and the default-form cache. A source owns its pack, the 
 its own observation cadence and its optional policy. A binding owns its attachment to the body.
 
 The service never owns the act state, the pose, the camera or the teardown, and it never calls
-`force_stop()` or an act exit. The runtime owns suspension, adoption and the one resume; the
+`force_stop()` or an act exit. The suspended act's swap record lives on the act owner
+(`docs/act_owner.md`), not here. The runtime owns suspension, adoption and the one resume; the
 service owns
 service construction and the idle path, and the service builds its own bindings from the facades
 the entry hands it. The identity's social state (memory, dialogue, preferences, eligibility, history

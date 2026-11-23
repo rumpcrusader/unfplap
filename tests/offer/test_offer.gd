@@ -16,6 +16,8 @@ const POSE_OPTIONS := preload("res://mods/unfplap/shared/pose_options.gd")
 const AGREEMENT := preload("res://mods/unfplap/shared/agreement.gd")
 const NEGOTIATION := preload("res://mods/unfplap/negotiation/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
+const ACT_OWNER := preload("res://mods/unfplap/act_owner/service.gd")
+const HANDLES := preload("res://mods/unfplap/world/handles.gd")
 const FAKE_GATE := preload("res://mods/unfplap/tests/support/fakes/fake_act_gate.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 
@@ -519,10 +521,11 @@ func _fixture(with_row := true) -> Dictionary:
 		game.add_child(hints)
 	var hud := FakeHud.new()
 	var negotiation := FakeNegotiation.new()
+	var owner := ACT_OWNER.new()
+	owner.wire(null, null)
 	var service := OFFER.new()
 	service.name = "UnfplapOffer"
-	service.wire(negotiation, null, hud)
-	PONIES.offer = service
+	service.wire(negotiation, null, hud, owner)
 	root.add_child(game)
 	root.add_child(hud)
 	root.add_child(negotiation)
@@ -531,7 +534,7 @@ func _fixture(with_row := true) -> Dictionary:
 	WORLD.bind_player(player)
 	return {"service": service, "game": game, "player": player, "hud": hud,
 		"negotiation": negotiation, "near": near, "far": far, "stallion": stallion,
-		"near_runtime": near_runtime, "row": row, "holder": holder,
+		"near_runtime": near_runtime, "row": row, "holder": holder, "owner": owner,
 		"runtimes": runtime_nodes}
 
 
@@ -547,10 +550,10 @@ func _free(made: Dictionary) -> void:
 	var service: Node = made["service"]
 	service.on_world_closed()
 	PONIES.stock_smack = null
-	PONIES.clear_active(made["near_runtime"])
+	(made["owner"] as ACT_OWNER).clear_active(made["near_runtime"])
+	(made["owner"] as ACT_OWNER).free()
 	PONIES.eligibility = null
 	PONIES.act_gate = null
-	PONIES.offer = null
 	WORLD.unbind()
 	var nodes: Array[Node] = [made["negotiation"], made["hud"], made["player"], made["game"],
 		made["far"], made["stallion"], made["near"]]

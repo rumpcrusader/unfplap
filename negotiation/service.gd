@@ -13,6 +13,7 @@ const ACT_GATE := preload("res://mods/unfplap/act_gate/service.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const PRIVACY := preload("res://mods/unfplap/privacy/api.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
+const ACT_OWNER := preload("res://mods/unfplap/act_owner/service.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const CLEARANCE := preload("res://mods/unfplap/shared/clearance.gd")
 const CONTEXT := preload("res://mods/unfplap/shared/context.gd")
@@ -160,19 +161,22 @@ var privacy: PRIVACY = null
 var hud: Node = null
 var initiation: Node = null
 var offer: Node = null
+## The act frame the bridge's watch gates on; `wire()` is the only writer.
+var _act_owner: ACT_OWNER = null
 
 
 ## Takes the peers this service calls; the composition root is the only caller. The adapter and the
 ## bridge are built in `_ready()`, after every peer is wired.
 func wire(eligibility_service: ELIGIBILITY, gate_service: ACT_GATE, memory_service: MEMORY,
 		privacy_service: PRIVACY, initiation_service: Node, offer_service: Node,
-		hud_service: Node = null) -> void:
+		owner: ACT_OWNER, hud_service: Node = null) -> void:
 	eligibility = eligibility_service
 	gate = gate_service
 	memory = memory_service
 	privacy = privacy_service
 	initiation = initiation_service
 	offer = offer_service
+	_act_owner = owner
 	hud = hud_service
 
 
@@ -194,6 +198,7 @@ func _ready() -> void:
 	_bridge.hud = hud
 	_bridge.initiation = initiation
 	_bridge.offer = offer
+	_bridge.act_owner = _act_owner
 	_bind_host()
 
 

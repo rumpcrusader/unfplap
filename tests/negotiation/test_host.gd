@@ -12,6 +12,8 @@ const ADAPTER := preload("res://mods/unfplap/negotiation/adapter.gd")
 const AGREEMENT := preload("res://mods/unfplap/shared/agreement.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
+const ACT_OWNER := preload("res://mods/unfplap/act_owner/service.gd")
+const HANDLES := preload("res://mods/unfplap/world/handles.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const ACT_GATE := preload("res://mods/unfplap/act_gate/service.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
@@ -240,6 +242,13 @@ class FakeDirector extends Node:
 
 
 ## The bridge on its own: fakes on every side, the world bound to a fake game.
+## A wired act owner for one fixture: the watch reads its frame.
+func _owner() -> ACT_OWNER:
+	var owner := ACT_OWNER.new()
+	owner.wire(null, null)
+	return owner
+
+
 func _bridge_fixture() -> Dictionary:
 	var game := FakeGame.new()
 	var pony := FakePony.new()
@@ -270,6 +279,7 @@ func _bridge_fixture() -> Dictionary:
 	bridge.privacy = FakePrivacy.new()
 	bridge.initiation = FakeInitiation.new()
 	bridge.offer = FakeOffer.new()
+	bridge.act_owner = _owner()
 	PONIES.shutdown()
 	PONIES.factory = func(_pony_node: Node) -> Node: return runtime
 	PONIES.attach(pony)
@@ -280,7 +290,7 @@ func _bridge_fixture() -> Dictionary:
 	return {"bridge": bridge, "game": game, "pony": pony, "runtime": runtime,
 		"player": player, "eligibility": eligibility, "gate": gate, "facts": facts,
 		"service": bridge.service, "adapter": bridge.adapter, "initiation": bridge.initiation,
-		"offer": bridge.offer}
+		"offer": bridge.offer, "owner": bridge.act_owner}
 
 
 func _free_bridge(made: Dictionary) -> void:
@@ -290,6 +300,7 @@ func _free_bridge(made: Dictionary) -> void:
 		var node: Node = made[key]
 		root.remove_child(node)
 		node.free()
+	(made["owner"] as Node).free()
 
 
 ## The real service bound to fakes through `bind()`, with a live director for the react line.
@@ -316,6 +327,7 @@ func _service_fixture() -> Dictionary:
 	gate.facts = facts
 	var initiation := FakeInitiation.new()
 	var offer := FakeOffer.new()
+	var owner := _owner()
 	PONIES.shutdown()
 	PONIES.factory = func(_pony_node: Node) -> Node: return runtime
 	PONIES.attach(pony)
@@ -325,16 +337,17 @@ func _service_fixture() -> Dictionary:
 		root.add_child(node)
 	WORLD.bind_world(game)
 	WORLD.bind_player(player)
-	service.wire(eligibility, gate, FakeMemory.new(), FakePrivacy.new(), initiation, offer)
+	service.wire(eligibility, gate, FakeMemory.new(), FakePrivacy.new(), initiation, offer, owner)
 	root.add_child(service)
 	return {"service": service, "game": game, "pony": pony, "runtime": runtime,
 		"player": player, "eligibility": eligibility, "gate": gate, "facts": facts,
-		"initiation": initiation, "offer": offer, "director": director}
+		"initiation": initiation, "offer": offer, "director": director, "owner": owner}
 
 
 func _free_service(made: Dictionary) -> void:
 	PONIES.shutdown()
 	WORLD.unbind()
+	(made["owner"] as Node).free()
 	for key: String in ["service", "director", "initiation", "offer", "game"]:
 		var node: Node = made[key]
 		root.remove_child(node)
@@ -364,8 +377,9 @@ func run() -> void:
 func _check_wire_build() -> void:
 	var service := NEGOTIATION.new()
 	service.name = "UnfplapNegotiation"
+	var owner := _owner()
 	service.wire(FakeEligibility.new(), FakeGate.new(), FakeMemory.new(), FakePrivacy.new(),
-		FakeInitiation.new(), FakeOffer.new())
+		FakeInitiation.new(), FakeOffer.new(), owner)
 	check(service.get_child_count() == 0, "wire() builds no child")
 	check(not is_instance_valid(service.adapter()), "wire() builds no adapter")
 	root.add_child(service)
@@ -378,6 +392,7 @@ func _check_wire_build() -> void:
 	check(service.get("_host") != null, "attaching binds the typed host to the bridge")
 	root.remove_child(service)
 	service.free()
+	owner.free()
 
 
 ## The bridge answers the typed host callbacks from the facades the entry binds.
@@ -462,11 +477,11 @@ func _check_watch() -> void:
 	service.tick(0.0)
 	var watch: Callable = adapter.get("_offer_watch")
 	check(watch.is_valid(), "the adapter holds the watch")
-	PONIES.set_active(runtime)
+	(made["owner"] as ACT_OWNER).set_active(runtime)
 	service.tick(0.0)
 	watch = adapter.get("_offer_watch")
 	check(not watch.is_valid(), "the adapter drops the watch")
-	PONIES.clear_active(runtime)
+	(made["owner"] as ACT_OWNER).clear_active(runtime)
 	service.on_world(null)
 	service.tick(0.0)
 	_free_service(made)

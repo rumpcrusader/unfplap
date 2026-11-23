@@ -32,6 +32,7 @@ const WORLD := preload("res://mods/unfplap/world/api.gd")
 const HANDLES := preload("res://mods/unfplap/world/handles.gd")
 const OFFER := preload("res://mods/unfplap/offer/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
+const ACT_OWNER := preload("res://mods/unfplap/act_owner/service.gd")
 const SETTINGS_UI := preload("res://mods/unfplap/settings/ui.gd")
 const API := preload("res://mods/unfplap/api.gd")
 const PONY_PATH := "res://world/characters/locomotion/pony_locomotion.gd"
@@ -82,6 +83,8 @@ var memory: MEMORY
 
 ## The idle act offer and its hint; see docs/offer.md.
 var offer: OFFER
+## The act frame: the live runtime, the serial floor and the pending body swap.
+var act_owner: ACT_OWNER
 ## Every Debug block button and wheel slot; see `docs/debug.md`.
 var debug_actions: DEBUG_ACTIONS
 ## The record every runtime reads the World from, built once after the services.
@@ -120,7 +123,8 @@ func _ready() -> void:
 	# The registry's composition handles, assigned once the world root exists and runs wired.
 	PONIES.eligibility = eligibility
 	PONIES.act_gate = act_gate
-	PONIES.bind(anatomy, body_change, offer, stock_smack, eligibility, act_gate, estrus, api)
+	PONIES.act_owner = act_owner
+	PONIES.bind(anatomy, body_change, stock_smack, eligibility, act_gate, estrus, api)
 	# The per-pony registry binds the services above once and builds its runtimes through the
 	# one factory, so no other entry member holds a runtime.
 	PONIES.factory = Callable(self, "_new_runtime")
@@ -171,21 +175,24 @@ func _build_world() -> void:
 	audio = AUDIO.new()
 	stock_smack = STOCK_SMACK.new()
 	changelings = CHANGELINGS.new()
+	act_owner = ACT_OWNER.new()
 	debug_actions = DEBUG_ACTIONS.new()
 
 	# Construct → record → wire → name → attach: the record is built once from the constructed
 	# services, so the runtimes read the same objects the entry wired.
 	_world = _build_record()
 
+	act_owner.wire(offer, stock_smack)
 	act_gate.wire(eligibility)
-	offer.wire(negotiation, privacy, hud)
-	input.wire(offer)
+	offer.wire(negotiation, privacy, hud, act_owner)
+	input.wire(offer, act_owner)
 	initiation.wire(eligibility, act_gate, privacy, negotiation, offer)
-	negotiation.wire(eligibility, act_gate, memory, privacy, initiation, offer, hud)
+	negotiation.wire(eligibility, act_gate, memory, privacy, initiation, offer, act_owner, hud)
 	anatomy.wire(eligibility)
 	estrus.wire(anatomy)
 	body_change.wire(anatomy, pantyhose, stock_smack)
-	debug_actions.wire(body_change, initiation, negotiation, anatomy, pantyhose, hud)
+	stool.wire(act_owner)
+	debug_actions.wire(body_change, initiation, negotiation, anatomy, pantyhose, act_owner, hud)
 
 	# `negotiation` attaches before `initiation`: the latter's `_ready` resolves the former's
 	# adapter.
@@ -193,6 +200,9 @@ func _build_world() -> void:
 	_attach(act_gate, "UnfplapActGate")
 	_attach(memory, "UnfplapMemory")
 	_attach(privacy, "UnfplapPrivacy")
+	# Attached after privacy and before negotiation: nothing reads the owner at attach, and the
+	# list order only has to keep it before `debug_actions`.
+	_attach(act_owner, "UnfplapActOwner")
 	_attach(negotiation, "UnfplapNegotiation")
 	_attach(hud, "UnfplapHUD")
 	_attach(offer, "UnfplapOffer")
@@ -228,6 +238,7 @@ func _build_record() -> HANDLES:
 	world.memory = memory
 	world.stool = stool
 	world.audio = audio
+	world.act_owner = act_owner
 	return world
 
 
@@ -265,9 +276,6 @@ func _on_world(host: Node) -> void:
 	for service: Node in _services:
 		if is_instance_valid(service):
 			service.on_world(host)
-	# The registry is not a list member: it drops the swap of the world that is gone. The world
-	# binds before the first service and unbinds after the last, because every service reads it.
-	PONIES.reset()
 
 
 func _on_world_closed(_host: Node) -> void:
@@ -327,7 +335,7 @@ func _process(delta: float) -> void:
 func _process_entry(delta: float) -> void:
 	# The caption move is an act-only path the HUD owns: the entry only reports the live state,
 	# and the HUD's process priority keeps the move after the caption's own _process.
-	var active: RUNTIME = PONIES.active() as RUNTIME
+	var active: RUNTIME = _world.act_owner.active() as RUNTIME
 	hud.caption_tick(active.act.state if is_instance_valid(active) else ACT_STATE.State.IDLE)
 	if not is_instance_valid(WORLD.player_rig()) and is_instance_valid(WORLD.world_root()):
 		var body: Variant = WORLD.game_player()

@@ -15,6 +15,7 @@ const AGREEMENT := preload("res://mods/unfplap/shared/agreement.gd")
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
+const ACT_OWNER := preload("res://mods/unfplap/act_owner/service.gd")
 const HANDLES := preload("res://mods/unfplap/world/handles.gd")
 const HUD := preload("res://mods/unfplap/hud/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
@@ -180,6 +181,9 @@ func _fixture() -> Dictionary:
 	var world := HANDLES.new()
 	world.hud = hud
 	world.memory = memory
+	var owner := ACT_OWNER.new()
+	owner.wire(world.offer, world.stock_smack)
+	world.act_owner = owner
 	var runtime: Node = RUNTIME.new(null, world)
 	var pony: FakePony = FakePony.new()
 	pony.posture = Node.new()
@@ -216,7 +220,7 @@ func _fixture() -> Dictionary:
 	runtime.act.pose_id = CATALOG_STANDING
 	runtime.act.source = "test"
 	runtime.act._set_state(2)
-	PONIES.set_active(runtime)
+	owner.set_active(runtime)
 	runtime.act.input.toggle_auto_thrust()
 	runtime.act.context.hold.nav = nav
 	nav.command_owner = "unfplap:test_mare"
@@ -225,7 +229,7 @@ func _fixture() -> Dictionary:
 	runtime.act.context.hold.token = "unfplap:test_mare"
 	hud.set_inventory_hidden(true)
 	return {"runtime": runtime, "pony": pony, "player": player, "main": main, "hud": hud,
-		"world": world}
+		"world": world, "owner": owner}
 
 
 class FakeHandle extends AGREEMENT.Handle:
@@ -242,6 +246,7 @@ func run() -> void:
 	var player: FakePlayer = f["player"]
 	var main: FakeMain = f["main"]
 	var world: HANDLES = f["world"]
+	var owner: ACT_OWNER = f["owner"]
 	var nav: FakeNav = runtime.act.context.hold.nav
 	var inventory: FakeInventory = main.game.inventory
 
@@ -281,7 +286,7 @@ func run() -> void:
 	check(int(runtime.act.state) == 0, "state returns to IDLE")
 	check(runtime.act.pose_id == "" and runtime.act.source == "" and runtime.act.bed == null,
 		"act ids cleared")
-	check(not PONIES.act_running(), "the one exit clears the active runtime")
+	check(not owner.act_running(), "the one exit clears the active runtime")
 
 	# A second teardown is a no-op, not a second restore.
 	runtime.act.exit.run(false)
@@ -351,7 +356,7 @@ func run() -> void:
 	check(not runtime4.act.context.hold.locked_player, "invalid pony still unlocks the player")
 	check(nav4.command_owner == "", "invalid pony still releases the navigator")
 	check(int(runtime4.act.state) == 0, "invalid pony ends in IDLE")
-	check(not PONIES.act_running(), "invalid pony still clears the active runtime")
+	check(not f4["owner"].act_running(), "invalid pony still clears the active runtime")
 
 	# Finalize is idempotent.
 	var f5 := _fixture()
@@ -420,19 +425,22 @@ func run() -> void:
 	# An idle sibling runtime must not take the borrowed quick slots from the act.
 	var f7 := _fixture()
 	var hud7: CanvasLayer = f7["hud"]
+	var owner7 := ACT_OWNER.new()
+	owner7.wire(null, null)
 	var acting7: Node = RUNTIME.new()
 	acting7.act._set_state(2) # ACTIVE
-	PONIES.set_active(acting7)
-	hud7.ensure_act_inventory_visible(PONIES.active())
+	owner7.set_active(acting7)
+	hud7.ensure_act_inventory_visible(owner7.active())
 	check(hud7.inventory_hidden(), "idle sibling leaves the active act's inventory HUD hidden")
 	acting7.act._set_state(0) # IDLE
-	hud7.ensure_act_inventory_visible(PONIES.active())
+	hud7.ensure_act_inventory_visible(owner7.active())
 	check(not hud7.inventory_hidden(), "idle safety restores the HUD once no act is active")
 	hud7.set_inventory_hidden(true)
-	PONIES.clear_active(acting7)
-	hud7.ensure_act_inventory_visible(PONIES.active())
+	owner7.clear_active(acting7)
+	hud7.ensure_act_inventory_visible(owner7.active())
 	check(not hud7.inventory_hidden(), "idle safety restores the HUD with no active runtime")
 	acting7.free()
+	owner7.free()
 
 	# The pose teardown detaches the act's modifiers before freeing them, so the skeleton has no
 	# live act child when `_free_pose()` returns.
@@ -615,7 +623,7 @@ func run() -> void:
 	check(not runtime11.act.suspended(), "a body bind never suspends the act")
 	check(runtime11.act.context.pose.pony == pony11, "the body bind binds the pose session")
 	check(runtime11.act.context.face.pony == pony11, "the body bind binds the face")
-	check(PONIES.active() == runtime11, "a body bind never runs the act exit")
+	check(f11["owner"].active() == runtime11, "a body bind never runs the act exit")
 	form11.form_id = "rarity"
 	form11.fit_id = "rarity"
 	form11.revision = 1
@@ -623,7 +631,7 @@ func run() -> void:
 	check(int(runtime11.act.state) == 2, "a same-node refresh leaves a live act live")
 	check(float(runtime11.act.context.facts.player_eye_height) > 0.0,
 		"a same-node refresh reapplies the stance")
-	check(PONIES.active() == runtime11, "a same-node refresh never runs the act exit")
+	check(f11["owner"].active() == runtime11, "a same-node refresh never runs the act exit")
 	runtime11.act.context.handover.context.form = form11
 	runtime11.act.context.handover.context.change = BODY_CHANGE.new()
 	runtime11.act.exit.run(false)
@@ -641,6 +649,7 @@ func run() -> void:
 	# so the engine drops it instead of running it against the freed services.
 	for item: Dictionary in [f, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11]:
 		(item["runtime"] as Node).free()
+		(item["owner"] as Node).free()
 	if failures == 0:
 		print("RUNTIME_TEARDOWN_PASS")
 	finish()

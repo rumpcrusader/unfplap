@@ -11,6 +11,7 @@ const STOCK_SMACK := preload("res://mods/unfplap/stock_smack/api.gd")
 const INTEGRATIONS := preload("res://mods/unfplap/integrations/service.gd")
 const STOOL := preload("res://mods/unfplap/stool/service.gd")
 const AUDIO := preload("res://mods/unfplap/audio/api.gd")
+const ACT_OWNER := preload("res://mods/unfplap/act_owner/service.gd")
 
 
 var anatomy: ANATOMY = null
@@ -27,3 +28,5 @@ var hud: Node = null
 var memory: Node = null
 var stool: STOOL = null
 var audio: AUDIO = null
+## The act frame every act module reads; a bare record leaves it null.
+var act_owner: ACT_OWNER = null

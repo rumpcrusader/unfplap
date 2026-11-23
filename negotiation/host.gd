@@ -9,6 +9,7 @@ const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const PRIVACY := preload("res://mods/unfplap/privacy/api.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
+const ACT_OWNER := preload("res://mods/unfplap/act_owner/service.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
 const RELATIONSHIP_CUE := preload("res://mods/unfplap/shared/relationship_cue.gd")
@@ -38,6 +39,8 @@ var privacy: PRIVACY = null
 var hud: Node = null
 var initiation: Node = null
 var offer: Node = null
+## The act frame the watch is armed around; a null owner reads as no act.
+var act_owner: ACT_OWNER = null
 ## True while the adapter's global Anon-offer watch is armed.
 var _watching := false
 
@@ -178,7 +181,8 @@ func _relation_note(id: String) -> String:
 func tick_watch() -> void:
 	if not is_instance_valid(adapter) or not is_instance_valid(service):
 		return
-	var free: bool = not PONIES.act_running() and not bool(service.is_locked())
+	var free: bool = not (act_owner.act_running() if is_instance_valid(act_owner) else false) \
+		and not bool(service.is_locked())
 	if free:
 		if not _watching:
 			_watching = true
@@ -189,7 +193,8 @@ func tick_watch() -> void:
 		_watching = false
 		adapter.unwatch_player()
 		LOG.debug("anon_watch disarmed reason=%s", [
-			"act" if PONIES.act_running() else "locked"])
+			"act" if (act_owner.act_running() if is_instance_valid(act_owner) else false) \
+				else "locked"])
 
 
 ## Drop the adapter's global watch, which still holds the world that is gone.

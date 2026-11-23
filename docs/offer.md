@@ -175,9 +175,11 @@ the `offer_sensor_read` child), its `fan_discover` and `fan_hash` children at th
 | `negotiation` | `negotiation/service.gd` | the Negotiation service; only its public `handle()`, `ready_offer()`, `is_locked()`, `hotkey_handle()`, `interrupt_for_hotkey()`, `cancel()` and `report()` reads are used |
 | `privacy` | `privacy/api.gd` | the live visibility provider, sampled fresh before a private Agreement auto-starts |
 | `hud` | `Node` | the desktop HUD, bound at construction; `show_prompt`/`hide_prompt` (toasts go through the bound `hud.toast()`) |
+| `act_owner` | `act_owner/service.gd` | the act frame the press and the sensor gate on (`docs/act_owner.md`) |
 
 `_ready()` joins the settings change notification and `_exit_tree()` leaves it, so an edit reaches
-`apply_settings()` with no entry path. The live runtime, act-target and act-running reads are the
-preloaded `PONIES` facade; a missing registry reads as no runtime, no act target and no act, so an
-unbound service reads no fan and starts nothing. A missing privacy provider reads as public, so a
-private Agreement does not start on a stale answer.
+`apply_settings()` with no entry path. The runtime, act-target and relationship reads are the
+preloaded `PONIES` facade; the act-running read is the wired act owner (`docs/act_owner.md`), which
+it also hands to its fan sensor. A missing registry reads as no runtime and no act target, and a
+missing owner as no act, so an unbound service reads no fan and starts nothing. A missing privacy
+provider reads as public, so a private Agreement does not start on a stale answer.

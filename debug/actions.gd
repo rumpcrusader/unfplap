@@ -15,6 +15,7 @@ const FACE := preload("res://mods/unfplap/face/service.gd")
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
 const BODY_CHANGE_SERVICE := preload("res://mods/unfplap/body_change/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
+const ACT_OWNER := preload("res://mods/unfplap/act_owner/service.gd")
 const POSES := preload("res://mods/unfplap/poses/service.gd")
 const INITIATION := preload("res://mods/unfplap/initiation/service.gd")
 const NEGOTIATION := preload("res://mods/unfplap/negotiation/service.gd")
@@ -62,6 +63,8 @@ var negotiation: NEGOTIATION = null
 var anatomy: ANATOMY = null
 var pantyhose: Node = null
 var hud: Node = null
+## The act frame the live reads name; `wire()` is the only writer.
+var act_owner: ACT_OWNER = null
 ## The pack's one hull rebuild, bound once so this node never imports a pack file.
 var _pantyhose_rebuild: Callable = Callable()
 
@@ -84,12 +87,13 @@ func _ready() -> void:
 ## Set by the entry: the services the buttons act through.
 func wire(body_change: BODY_CHANGE_SERVICE, initiation: INITIATION,
 		negotiation: NEGOTIATION, anatomy: ANATOMY,
-		pantyhose: Node, hud: Node = null) -> void:
+		pantyhose: Node, owner: ACT_OWNER, hud: Node = null) -> void:
 	self.body_change = body_change
 	self.initiation = initiation
 	self.negotiation = negotiation
 	self.anatomy = anatomy
 	self.pantyhose = pantyhose
+	self.act_owner = owner
 	self.hud = hud
 	_pantyhose_rebuild = Callable(pantyhose, "rebuild_hull")
 
@@ -116,12 +120,17 @@ func build_settings_block(list: VBoxContainer, font_size: int, tab: String) -> v
 ## The live act reads the actions need. Every one is a facade read, so the node builds its own.
 func _host() -> Host:
 	var built := Host.new()
-	built.act = func() -> Node: return PONIES.active()
+	built.act = Callable(self, "_live_act")
 	built.runtime_for = Callable(PONIES, "runtime_for")
 	built.runtimes = func() -> Array: return PONIES.live_ponies()
 	built.act_target = Callable(PONIES, "act_target")
 	built.reload_posed_base = Callable(POSES, "reload_authored_base")
 	return built
+
+
+## The Host callback: the frame's runtime, or null without an owner.
+func _live_act() -> Node:
+	return act_owner.active() if is_instance_valid(act_owner) else null
 
 
 ## The installed Idle Life entry node, when that mod is on; the deep-stretch action uses it.

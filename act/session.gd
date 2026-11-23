@@ -15,7 +15,7 @@ const POSE_SESSION := preload("res://mods/unfplap/poses/service.gd")
 const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 const BODY_CHANGE_POLICY := preload("res://mods/unfplap/shared/body_change_policy.gd")
-const PONIES := preload("res://mods/unfplap/ponies/service.gd")
+const PONY_IDENTITY := preload("res://mods/unfplap/shared/pony_identity.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
@@ -174,13 +174,13 @@ func pose_values(pose: String, look: Vector3, camera_at: Vector3, size_name: Str
 	return values
 
 func adopt_display_name(form: BODY_FORM.BodyForm, body: Variant) -> void:
-	display_name = PONIES.display_name_for(form, body if is_instance_valid(body) else null, pony_id)
+	display_name = PONY_IDENTITY.display_name(form, body if is_instance_valid(body) else null, pony_id)
 
 func refresh_identity() -> bool:
 	_cycle_dirty = true
-	var identity: PONIES.Identity = PONIES.Identity.new()
+	var identity: PONY_IDENTITY.Identity = PONY_IDENTITY.Identity.new()
 	if is_instance_valid(host.pony):
-		identity = PONIES.identity_of(host.pony)
+		identity = PONY_IDENTITY.identity_of(host.pony)
 		_identity_meta = str(host.pony.get_meta("relationship_id", ""))
 	if not identity.id.is_empty():
 		pony_id = identity.id

@@ -5,6 +5,10 @@
   ],
   "baseline": [
     {
+      "file": "act_owner/service.gd",
+      "count": 2
+    },
+    {
       "file": "anatomy/player_host.gd",
       "count": 1
     },
@@ -34,11 +38,11 @@
     },
     {
       "file": "integrations/changelings.gd",
-      "count": 8
+      "count": 7
     },
     {
       "file": "integrations/pantyhose.gd",
-      "count": 7
+      "count": 6
     },
     {
       "file": "integrations/service.gd",
@@ -58,7 +62,7 @@
     },
     {
       "file": "ponies/service.gd",
-      "count": 7
+      "count": 5
     },
     {
       "file": "poses/anon_thrust.gd",

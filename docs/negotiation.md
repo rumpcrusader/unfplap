@@ -127,9 +127,10 @@ used to be the entry's assembly:
 - the adapter's model calls and the world-context situation record.
 
 It reads only service facades and `WORLD`, and the fields the entry sets once through `wire()`:
-`service` (this facade), `adapter`, `eligibility`, `gate`, `memory`, `privacy`, `initiation` and
-`offer`. `initiation` and `offer` are plain nodes because each of them
-preloads this facade; everything else is the typed facade. `eligibility` and `gate` are the fields
+`service` (this facade), `adapter`, `eligibility`, `gate`, `memory`, `privacy`, `initiation`,
+`offer` and `act_owner`. `initiation` and `offer` are plain nodes because each of them preloads this
+facade; everything else is the typed facade, and `act_owner` is the frame its watch gates on
+(`docs/act_owner.md`). `eligibility` and `gate` are the fields
 a world enter rebinds, because the entry rebuilds those services.
 
 The watch is armed by `tick()`, which is the entry's idle frame: the exchange's TTL and privacy

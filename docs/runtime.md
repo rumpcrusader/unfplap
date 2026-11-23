@@ -67,11 +67,12 @@ The static gate holds this list as `NODE_SURFACE` (functions) and `NODE_PROPERTI
 | State | Owner |
 |---|---|
 | pony, parent, `_swapping_parent` | `runtime.gd` |
-| stable id, display name, serial | `ponies/service.gd` identity |
+| stable id, display name | `shared/pony_identity.gd`, read by the act |
+| live act, serial, swap record | `act_owner/service.gd`, read from the record |
 | act state, timers, clock, `pose_id`, `source`, `bed`, `event_id`, `serial`, act flags | `act/session.gd` |
 | act settings snapshot and live apply | `act/settings.gd`, reached through the session |
 | satisfaction, mood, cue, climax count, tolerance, heat | `readiness/service.gd` |
-| swap record, form offer/reveal/policy | `body_change/act.gd` |
+| form offer/reveal/policy | `body_change/act.gd` |
 | suspension flag | `body_change/act.gd`, read through `session.suspended()` |
 | pose, pose view, bones | `poses/service.gd` |
 | lean, surge/bob, free look | `camera/service.gd` |
@@ -136,7 +137,7 @@ Breath timing: `0.9 s` base while active, `0.85 s` during climax, `1.4 s` in aft
   handles `kiss_service()`, `reactions_service()`.
 
 `refresh_identity()` re-reads the stable identity from the presented body, adopts its display name
-through `PONIES.display_name_for()` and refreshes the scene gate. `live_id()` is one Node caller;
+through `shared/pony_identity.gd:display_name()` and refreshes the scene gate. `live_id()` is one Node caller;
 `cycle_phase()` re-reads it only when the body's relationship meta moved; the bond-day phase is
 cached for `CYCLE_REFRESH_S`, while the feature switch and the debug override stay live.
 
@@ -235,9 +236,9 @@ Act render, in call order: `refresh_view()`, `context.pose.sync_frame()`,
 write, the climax progress, the shot tick and the breath. `IDLE` runs only the standing
 presentation's render tick; a suspended act runs none of it.
 
-The entry's `_process` calls `PONIES.active()` and then `apply_camera_motion()` on it every frame;
-the runtime refreshes the view and the HUD card there through `act/view.gd`. The pose and camera
-timing is `docs/poses.md` and `docs/camera.md`. The frame schedule never calls an act exit except
+The entry's `_process` calls the record's `act_owner.active()` and then `apply_camera_motion()` on
+it every frame; the runtime refreshes the view and the HUD card there through `act/view.gd`. The
+pose and camera timing is `docs/poses.md` and `docs/camera.md`. The frame schedule never calls an act exit except
 through `act/exit.gd`'s own routes (`finish_restore`, `stop`, `force_stop`).
 
 ## Ledgers
@@ -346,7 +347,8 @@ the live systems: `tick`, `suspend`, `resume`, the ordered release and resume st
 and revised-form rebinds, the frame refit and `standing_gap()` for the offer and the suites. It
 never reparents the node or resumes by itself.
 
-- one pending swap is recorded in `ponies`; a second change is refused until it clears;
+- one pending swap is recorded on the act owner (`docs/act_owner.md`); a second change is refused
+  until it clears;
 - the runtime is reparented to the entry before the old body is freed;
 - the pose session, the anatomy act handle, the navigator lease, the face-turn hold, the act view,
   the kiss/hand contact, the wings, the carried body and the act-key hold are released; the

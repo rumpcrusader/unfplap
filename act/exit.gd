@@ -11,7 +11,7 @@ const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const AFTERGLOW := preload("res://mods/unfplap/afterglow/service.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
-const PONIES := preload("res://mods/unfplap/ponies/service.gd")
+const ACT_OWNER := preload("res://mods/unfplap/act_owner/service.gd")
 const REST := preload("res://mods/unfplap/rest/service.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
@@ -39,7 +39,9 @@ func run(rejoin_cuddle: bool) -> void:
 	# handover before the normal teardown; it is not a second exit path.
 	context.handover.abort()
 	context.handover.end_act()
-	PONIES.clear_body_swap(host.node)
+	var owner: ACT_OWNER = context.world.act_owner if context.world != null else null
+	if is_instance_valid(owner):
+		owner.clear_body_swap(host.node)
 	# Capture the bed before the session state is cleared: a normal end of a bed missionary act
 	# returns Anon and her to it, but only when it did not go badly.
 	var rejoin_bed: Node3D = null
@@ -78,7 +80,8 @@ func run(rejoin_cuddle: bool) -> void:
 	if is_instance_valid(WORLD.world_root()):
 		if is_instance_valid(context.hud):
 			context.hud.hide_all()
-		PONIES.clear_active(host.node)
+		if is_instance_valid(owner):
+			owner.clear_active(host.node)
 	session.finish_restore()
 	session.pose_id = ""
 	session.source = ""

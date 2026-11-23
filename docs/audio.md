@@ -28,7 +28,7 @@ constructed handle are `RefCounted`, so a suite can substitute its own handle.
 - `end_act()` restores her voice, silences the cues and the breath, and leaves the pool and the
   sound child for the next act. The world close silences the same players; `shutdown()` is the only
   path that unsubscribes the settings listener and frees the players.
-- One pool for the process assumes one act at a time (`PONIES.set_active`). The handle is per
+- One pool for the process assumes one act at a time (`act_owner.set_active`). The handle is per
   runtime, so a future simultaneous act needs the pool per handle and no consumer change.
 
 ## Strokes

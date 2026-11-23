@@ -3,8 +3,8 @@ extends Node
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
+const ACT_OWNER := preload("res://mods/unfplap/act_owner/service.gd")
 const ITEM := preload("res://mods/unfplap/stool/item.gd")
-const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const SERVICE := preload("res://mods/unfplap/stool/service.gd")
 const SPAWN_COUNT := 3
 const RANGE_M := 80.0
@@ -12,6 +12,8 @@ const RETRY_S := 2.0
 const STOOL_PROBE := Vector3(0.62, 0.46, 0.5)
 
 var system: SERVICE = null
+## The act frame the supply pauses for; the facade hands it over in `setup()`.
+var act_owner: ACT_OWNER = null
 var _clock := 0.0
 var _started := false
 var _spawned := 0
@@ -20,8 +22,9 @@ var _wait_logged := false
 var _full_logged := false
 
 
-func setup(system_node: SERVICE) -> void:
+func setup(system_node: SERVICE, owner: ACT_OWNER) -> void:
 	system = system_node
+	act_owner = owner
 	set_process(true)
 
 
@@ -54,7 +57,7 @@ func _tick() -> void:
 	var tree := get_tree()
 	if tree == null or tree.paused:
 		return
-	if PONIES.act_running():
+	if (act_owner.act_running() if is_instance_valid(act_owner) else false):
 		return
 	var player := WORLD.game_player()
 	if not is_instance_valid(player):

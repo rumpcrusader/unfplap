@@ -5,6 +5,7 @@ extends RefCounted
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
+const ACT_OWNER := preload("res://mods/unfplap/act_owner/service.gd")
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
 const BODY_CHANGE_POLICY := preload("res://mods/unfplap/shared/body_change_policy.gd")
 const BODY_CHANGE_SERVICE := preload("res://mods/unfplap/body_change/service.gd")
@@ -60,11 +61,15 @@ var form_hint_log := ""
 var form_hint_debug := false
 ## The world memory a form effect writes; the runtime's builder passes it once.
 var memory: Node = null
+## The act frame the swap record lives on; the runtime's composition passes it once.
+var act_owner: ACT_OWNER = null
 
 
-func _init(act_host: ACT_HOST, memory_in: Node = null) -> void:
+func _init(act_host: ACT_HOST, memory_in: Node = null,
+		act_owner_in: ACT_OWNER = null) -> void:
 	host = act_host
 	memory = memory_in
+	act_owner = act_owner_in
 
 
 ## One watcher or suspended-act tick; it only returns the action the runtime applies.
@@ -102,7 +107,7 @@ func begin(swap: BODY_CHANGE) -> void:
 	elapsed = 0.0
 	var view: Variant = host.pose_view()
 	pose = str(view.id) if view != null and not str(view.id).is_empty() else host.start_pose_id()
-	PONIES.begin_body_swap(host.runtime(), host.pony(), host.id(), swap)
+	_record_swap(swap)
 
 
 ## `ponies` adopts the new body before the watcher's resume. Adoption binds the record, not the
@@ -111,7 +116,7 @@ func adopt(swap_body: Node) -> void:
 	if not suspended or not is_instance_valid(swap_body):
 		return
 	new_pony = swap_body
-	PONIES.clear_body_swap(host.runtime())
+	_clear_swap()
 
 
 ## Release the old body for a change; the act keeps its state.
@@ -209,7 +214,7 @@ func finish() -> void:
 	shape_confirmed = false
 	elapsed = 0.0
 	clock = BODY_SWAP_POLL_S
-	PONIES.clear_body_swap(host.runtime())
+	_clear_swap()
 
 
 ## The act ended through the one exit: drop the swap record and the pending marker.
@@ -220,7 +225,19 @@ func abort() -> void:
 	shape_confirmed = false
 	auto_on = false
 	elapsed = 0.0
-	PONIES.clear_body_swap(host.runtime())
+	_clear_swap()
+
+
+## Record the suspension on the act owner; a bare runtime without one keeps no record.
+func _record_swap(swap: BODY_CHANGE) -> void:
+	if is_instance_valid(act_owner):
+		act_owner.begin_body_swap(host.runtime(), host.pony(), host.id(), swap)
+
+
+## Clear the record this act owns; another runtime's record is left alone.
+func _clear_swap() -> void:
+	if is_instance_valid(act_owner):
+		act_owner.clear_body_swap(host.runtime())
 
 
 ## The pending auto stroke state the resume restores. The runtime reads the generator; the record
@@ -416,7 +433,7 @@ func _restore_tick() -> int:
 ## to resume.
 func _fail(reason: String) -> int:
 	fail_reason = reason
-	PONIES.clear_body_swap(host.runtime())
+	_clear_swap()
 	suspended = false
 	change = null
 	new_pony = null

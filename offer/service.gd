@@ -22,6 +22,7 @@ const POSE_OPTIONS := preload("res://mods/unfplap/shared/pose_options.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const FAN_SENSOR := preload("res://mods/unfplap/offer/fan_sensor.gd")
+const ACT_OWNER := preload("res://mods/unfplap/act_owner/service.gd")
 
 ## The act-key hint in the prompt row. A press taps it like a base prompt, so it never reads as a
 ## hold.
@@ -43,6 +44,8 @@ var negotiation: NEGOTIATION = null
 var privacy: PRIVACY = null
 ## Set by the entry: the HUD, once the player rig arrives.
 var hud: Node = null
+## Set by the entry: the act frame the offer and its sensor gate on.
+var act_owner: ACT_OWNER = null
 
 ## The idle offer's playable offer and its blocked variant. Both are typed `PoseOffer` handles;
 ## null means none.
@@ -73,12 +76,14 @@ func _exit_tree() -> void:
 	CHANGE.off_changed(Callable(self, "apply_settings"))
 
 
-## Set by the entry: the Negotiation and privacy facades this offer reads and the HUD its hint
-## falls back to. The registry and the act reads are the preloaded `PONIES` facade.
-func wire(negotiation: NEGOTIATION, privacy: PRIVACY, hud: Node) -> void:
+## Set by the entry: the Negotiation and privacy facades this offer reads, the HUD its hint falls
+## back to and the act frame. The registry and the act-target reads are the `PONIES` facade.
+func wire(negotiation: NEGOTIATION, privacy: PRIVACY, hud: Node, owner: ACT_OWNER) -> void:
 	self.negotiation = negotiation
 	self.privacy = privacy
 	self.hud = hud
+	act_owner = owner
+	_sensor.act_owner = owner
 
 
 ## One idle frame: tick the fan sensor, sync the prompt row, then run the Agreement clock.
@@ -156,7 +161,7 @@ func hide_hint() -> void:
 ## The act key's one start entry. It always accepts and never refuses; a missing context pose is
 ## no attempt, since the tolerance stop owns the refusal path.
 func try_start() -> bool:
-	if PONIES.act_running():
+	if (act_owner.act_running() if is_instance_valid(act_owner) else false):
 		return false
 	# No idle input: a paused tree or a free cursor refuses the press before any read.
 	if not WORLD.can_interact():
@@ -254,7 +259,8 @@ func _start_agreement_offer(offer: POSE_OFFER, skip_presentation: bool) -> bool:
 ## The Agreement's automatic start: once the presentation settles and Anon is in position it
 ## consumes the handle with no key press. A live act, menu, paused tree or free cursor holds it back.
 func _tick_agreement_auto_start(delta: float) -> void:
-	if PONIES.act_running() or not is_instance_valid(negotiation):
+	if (act_owner.act_running() if is_instance_valid(act_owner) else false) \
+			or not is_instance_valid(negotiation):
 		return
 	# The clock ticks before the handle read, so the common frame pays one arithmetic step and a
 	# handle that shows up mid-poll is caught on the next tick.

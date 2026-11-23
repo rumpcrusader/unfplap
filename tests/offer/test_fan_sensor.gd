@@ -7,6 +7,8 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 
 const SENSOR := preload("res://mods/unfplap/offer/fan_sensor.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
+const ACT_OWNER := preload("res://mods/unfplap/act_owner/service.gd")
+const HANDLES := preload("res://mods/unfplap/world/handles.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 
 
@@ -262,12 +264,16 @@ func _check_reset_and_act() -> void:
 	sensor.reset()
 	check(sensor.update(0.2, eye, forward, false), "a reset reports the next read")
 	var holder := Node.new()
-	PONIES.set_active(holder)
+	var owner := ACT_OWNER.new()
+	owner.wire(null, null)
+	sensor.act_owner = owner
+	owner.set_active(holder)
 	check(not sensor.update(0.2, eye, forward, false), "a live act reports nothing")
 	check(sensor.candidates().is_empty(), "a live act clears the fan")
-	PONIES.clear_active(holder)
+	owner.clear_active(holder)
 	check(sensor.update(0.2, eye, forward, false), "the idle fan returns after the act")
 	holder.free()
+	owner.free()
 	_free(made, sensor)
 
 
@@ -277,7 +283,6 @@ func _fixture() -> Dictionary:
 	root.add_child(game)
 	var mare := _mare(Vector3.ZERO, "near")
 	game.mares = [mare]
-	PONIES.offer = null
 	PONIES.stock_smack = null
 	PONIES.eligibility = null
 	WORLD.bind_world(game)

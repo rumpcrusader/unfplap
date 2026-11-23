@@ -12,6 +12,8 @@ const LOG := preload("res://mods/unfplap/shared/log.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const PRIVACY := preload("res://mods/unfplap/privacy/api.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
+const ACT_OWNER := preload("res://mods/unfplap/act_owner/service.gd")
+const HANDLES := preload("res://mods/unfplap/world/handles.gd")
 const FAKE_GATE := preload("res://mods/unfplap/tests/support/fakes/fake_act_gate.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
@@ -199,11 +201,11 @@ func check_act_key() -> void:
 	var service: OFFER = made["service"]
 	var runtime: FakeRuntime = made["runtime"]
 	var hud: FakeHud = made["hud"]
-	PONIES.set_active(runtime)
+	made["owner"].set_active(runtime)
 	check(not service.try_start(), "a live act takes the act key")
 	check(runtime.hotkey_starts == 0, "a live act starts nothing")
 	check(service.current() == null, "the act key does not scan while an act is live")
-	PONIES.clear_active(runtime)
+	made["owner"].clear_active(runtime)
 	check(service.try_start(), "the act key starts the scanned offer")
 	check(runtime.hotkey_starts == 1, "the press runs the one hotkey attempt")
 	check(hud.hides > 0, "a started press clears the hint")
@@ -346,9 +348,9 @@ func check_auto_start() -> void:
 	# The clock waits for the cadence, and a live act does not advance it.
 	service.tick(OFFER.AGREEMENT_START_S * 0.5)
 	check(runtime.agreement_handles.is_empty(), "the clock waits for the cadence")
-	PONIES.set_active(runtime)
+	made["owner"].set_active(runtime)
 	service.tick(1.0)
-	PONIES.clear_active(runtime)
+	made["owner"].clear_active(runtime)
 	check(runtime.agreement_handles.is_empty(), "a live act holds the auto-start")
 	check(float(service.get("_agreement_clock")) < OFFER.AGREEMENT_START_S,
 		"a live act does not advance the clock")
@@ -452,13 +454,15 @@ func _fixture(with_world := true) -> Dictionary:
 	PONIES.eligibility = targets
 	PONIES.act_gate = FAKE_GATE.new()
 	PONIES.stock_smack = null
+	var owner := ACT_OWNER.new()
+	owner.wire(null, null)
 	var service := OFFER.new()
 	service.name = "UnfplapOffer"
-	service.wire(negotiation, privacy, hud)
-	PONIES.offer = service
+	service.wire(negotiation, privacy, hud, owner)
 	root.add_child(service)
 	return {"service": service, "pony": pony, "runtime": runtime, "game": game, "menu": menu,
-		"negotiation": negotiation, "hud": hud, "privacy": privacy, "nodes": world_nodes}
+		"negotiation": negotiation, "hud": hud, "privacy": privacy, "owner": owner,
+		"nodes": world_nodes}
 
 
 func _handle(runtime: Node, pony: Node3D) -> POSE_OFFER:
@@ -491,10 +495,10 @@ func _free(made: Dictionary) -> void:
 	var service: Node = made["service"]
 	service.on_world_closed()
 	PONIES.stock_smack = null
-	PONIES.clear_active(made["runtime"])
+	(made["owner"] as ACT_OWNER).clear_active(made["runtime"])
+	(made["owner"] as ACT_OWNER).free()
 	PONIES.eligibility = null
 	PONIES.act_gate = null
-	PONIES.offer = null
 	WORLD.unbind()
 	var nodes: Array[Node] = [made["game"], made["negotiation"], made["hud"], made["pony"],
 		made["runtime"]]

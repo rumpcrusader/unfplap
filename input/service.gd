@@ -8,7 +8,7 @@ extends "res://mods/unfplap/shared/service.gd"
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/service.gd")
 const OFFER := preload("res://mods/unfplap/offer/service.gd")
-const PONIES := preload("res://mods/unfplap/ponies/service.gd")
+const ACT_OWNER := preload("res://mods/unfplap/act_owner/service.gd")
 const ACT_KEYS := preload("res://mods/unfplap/shared/act_keys.gd")
 const ACT_COMMANDS := preload("res://mods/unfplap/shared/act_commands.gd")
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
@@ -29,6 +29,8 @@ const PASS_KEYS := [KEY_ENTER, KEY_KP_ENTER, KEY_ESCAPE, KEY_T,
 
 ## The idle offer's facade: the act key hands it the start.
 var offer: OFFER = null
+## The act frame: the live runtime whose keys this service routes.
+var act_owner: ACT_OWNER = null
 
 ## The act input shield, cached from `features.act_input_shield` on every settings change.
 var _shield: bool
@@ -60,9 +62,10 @@ func _exit_tree() -> void:
 		InputMap.erase_action(ACT_KEYS.ACTION)
 
 
-## Set once by the entry; the act key hands an idle press here.
-func wire(offer: OFFER) -> void:
-	self.offer = offer
+## Set once by the entry; the act key hands an idle press here and the frame owns the keys.
+func wire(offer_service: OFFER, owner: ACT_OWNER) -> void:
+	offer = offer_service
+	act_owner = owner
 
 
 ## Rebuild the mod-owned act action from the captured `act_key` keycode and cache the input
@@ -79,7 +82,7 @@ func apply_settings() -> void:
 
 
 func _physics_process(delta: float) -> void:
-	var runtime: Node = PONIES.active()
+	var runtime: Node = act_owner.active() if is_instance_valid(act_owner) else null
 	if is_instance_valid(runtime):
 		# Pause/settings must not end the act; the runtime simply stops processing while the
 		# tree is paused and resumes when the menu closes.
@@ -273,7 +276,7 @@ func _input(event: InputEvent) -> void:
 	# A panel that does not pause the tree (the map, the inventory) keeps its own keys.
 	if WORLD.menu_panel_open():
 		return
-	var runtime: Node = PONIES.active()
+	var runtime: Node = act_owner.active() if is_instance_valid(act_owner) else null
 	if event is InputEventMouseButton:
 		var mouse := event as InputEventMouseButton
 		if mouse.pressed and mouse.button_index == MOUSE_BUTTON_LEFT \

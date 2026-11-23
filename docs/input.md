@@ -45,7 +45,8 @@ The service is a Node; its contract is the Node lifecycle and the input callback
   live it hands every key press to `_act_key()`;
 - `apply_settings()` — rebuilds the `unfplap_act` action from the `act_key` setting and caches the
   shield flag;
-- `wire(offer)` — sets the idle offer the act key hands its press to;
+- `wire(offer, act_owner)` — sets the idle offer the act key hands its press to and the
+  act owner whose live runtime it routes;
 - `_act_key(runtime, key, state)` — the act's own keys (the anatomy keys emit their command ids),
   then the shield's catch-all;
 - `_consume(key)` — marks the key handled and, with the shield on, clears its polled state unless
@@ -64,7 +65,7 @@ label.
 
 ## Data ownership
 
-Nothing is saved. The service reads `PONIES.active()`, the debug facade's `wheel_open()`,
+Nothing is saved. The service reads the act owner's `active()`, the debug facade's `wheel_open()`,
 `WORLD.player_rig()`, `WORLD.menu_panel_open()` and the viewport focus owner, plus the `act_key` and
 `act_input_shield` settings. Its seated guard and movement hold read and write the rig's private
 members through the world facade. It does not store runtime state.

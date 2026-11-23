@@ -169,5 +169,5 @@ world enter and never repeats inside one world.
   start and the one exit call it unconditionally. The idle safety is the HUD's too:
   `ensure_act_inventory_visible(owner)` restores the card only while the registry's live act owner
   is absent or `IDLE`, because every idle sibling runtime sees the same borrowed flag and must not
-  take it from a running act. Each idle runtime passes `PONIES.active()` in its idle tick; the HUD
-  reads that owner's public `state` and does not import the registry.
+  take it from a running act. Each idle runtime passes its record's `act_owner.active()` in its
+  idle tick; the HUD reads that owner's public `state` and does not import the act owner.

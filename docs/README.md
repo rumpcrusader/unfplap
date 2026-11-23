@@ -46,6 +46,7 @@ block; its `_compose()` constructs and binds them once per pony and attaches the
 |---|---|---|---|---|
 | World reads | `world/api.gd`, `world/game.gd` | `docs/world.md` | `tests/world/` | `world` |
 | Pony runtimes | `ponies/service.gd` | `docs/ponies.md` | `tests/ponies/` | `world` |
+| Act frame | `act_owner/service.gd` | `docs/act_owner.md` | `tests/act_owner/` | `world` |
 | Identity eligibility | `eligibility/service.gd` | `docs/eligibility.md` | `tests/eligibility/` | `world` |
 | Act gate | `act_gate/service.gd` | `docs/act_gate.md` | `tests/act_gate/` | `world` |
 | Estrus cycle | `estrus/service.gd` | `docs/estrus.md` | `tests/estrus/` | `world` |

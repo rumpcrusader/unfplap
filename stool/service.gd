@@ -10,15 +10,23 @@ const ITEM := preload("res://mods/unfplap/stool/item.gd")
 const PROP := preload("res://mods/unfplap/stool/prop.gd")
 const SUPPLY := preload("res://mods/unfplap/stool/supply.gd")
 const ACT := preload("res://mods/unfplap/stool/act.gd")
+const ACT_OWNER := preload("res://mods/unfplap/act_owner/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 
 const ID := ITEM.ID
 
 var _supply: SUPPLY = null
+## The act frame the supply pauses for; `wire()` is the only writer.
+var act_owner: ACT_OWNER = null
 
 
 func _ready() -> void:
 	setup()
+
+
+## Takes the act frame; the composition root is the only caller.
+func wire(owner: ACT_OWNER) -> void:
+	act_owner = owner
 
 
 func setup() -> void:
@@ -26,7 +34,7 @@ func setup() -> void:
 		return
 	_supply = SUPPLY.new()
 	_supply.name = "UnfplapStoolSupply"
-	_supply.setup(self)
+	_supply.setup(self, act_owner)
 	add_child(_supply)
 
 

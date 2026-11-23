@@ -1,10 +1,12 @@
 extends "res://mods/unfplap/tests/support/suite.gd"
-## The pony registry: attach and detach, the live act pointer, the serial allocator, the prepare
-## hooks, the adoption order with its duplicate guard, the character lists and the teardown.
+## The pony registry: attach and detach, the prepare hooks, the adoption order with its duplicate
+## guard, the character lists and the teardown.
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/ponies/test_service.gd
 
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
+const ACT_OWNER := preload("res://mods/unfplap/act_owner/service.gd")
+const HANDLES := preload("res://mods/unfplap/world/handles.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
@@ -63,7 +65,6 @@ class FakeRuntime extends Node:
 
 	func force_stop() -> void:
 		stopped += 1
-		PONIES.clear_active(self)
 
 	func attach_to_body(parent: Node) -> void:
 		attached.append(parent)
@@ -124,13 +125,6 @@ class FakeSmack extends Node:
 		journal.append("end:" + str(pony.name))
 
 
-class FakeOffer extends Node:
-	var cleared := 0
-
-	func clear_current() -> void:
-		cleared += 1
-
-
 ## A source whose claimed body is the one it is changing into, like a body-change provider.
 class FakeSource extends Node:
 	var next: Node = null
@@ -165,16 +159,15 @@ func _bind() -> Dictionary:
 	var smack := FakeSmack.new()
 	smack.name = "FakeSmack"
 	root.add_child(smack)
-	var offer := FakeOffer.new()
-	offer.name = "FakeOffer"
-	root.add_child(offer)
+	var owner := ACT_OWNER.new()
+	owner.wire(null, null)
+	PONIES.act_owner = owner
 	var made: Array[FakeRuntime] = []
 	WORLD.bind_world(host)
 	PONIES.anatomy = anatomy
 	PONIES.eligibility = FakeEligibility.new()
 	PONIES.body_change = body_change
 	PONIES.stock_smack = smack
-	PONIES.offer = offer
 	PONIES.factory = func(pony: Node) -> Node:
 		var runtime := FakeRuntime.new()
 		runtime.name = "UnfplapRuntime"
@@ -182,15 +175,16 @@ func _bind() -> Dictionary:
 		made.append(runtime)
 		return runtime
 	return {"host": host, "anatomy": anatomy, "body_change": body_change, "smack": smack,
-		"offer": offer, "made": made}
+		"owner": owner, "made": made}
 
 
 func _free(made: Dictionary) -> void:
 	PONIES.shutdown()
-	for key: String in ["host", "anatomy", "body_change", "smack", "offer"]:
+	for key: String in ["host", "anatomy", "body_change", "smack"]:
 		var node: Node = made[key]
 		root.remove_child(node)
 		node.free()
+	(made["owner"] as Node).free()
 
 
 func run() -> void:
@@ -198,8 +192,6 @@ func run() -> void:
 	_check_attach()
 	_check_detach()
 	_check_player_pony()
-	_check_active()
-	_check_serial()
 	_check_prepare()
 	_check_adoption()
 	_check_duplicate_guard()
@@ -342,48 +334,6 @@ func _check_player_pony() -> void:
 	_free(f)
 
 
-## The act pointer, the offer reset and the stock smack handoff.
-func _check_active() -> void:
-	var f := _bind()
-	var smack: FakeSmack = f["smack"]
-	var offer: FakeOffer = f["offer"]
-	var pony := _pony("pinkie", "PinkieBody")
-	root.add_child(pony)
-	PONIES.attach(pony)
-	var runtime: Node = PONIES.runtime_for(pony)
-	check(not PONIES.act_running(), "no act owns the frame before a start")
-	check(PONIES.active() == null, "no act means no active runtime")
-	PONIES.set_active(runtime)
-	check(PONIES.act_running(), "a started act owns the frame")
-	check(PONIES.active() == runtime, "the active runtime is the started one")
-	check(offer.cleared == 1, "an act start drops the idle offer")
-	check(smack.journal == ["ready:PinkieBody", "start:PinkieBody"],
-		"the smack layer knows which body is acting")
-	PONIES.clear_active(null)
-	check(PONIES.active() == runtime, "another runtime cannot clear the act")
-	PONIES.clear_active(runtime)
-	check(not PONIES.act_running(), "the act end frees the frame")
-	check(smack.journal.back() == "end:PinkieBody", "the smack layer ends the same body")
-	PONIES.set_active(runtime)
-	PONIES.shutdown()
-	check(not PONIES.act_running(), "the teardown clears the act")
-	root.remove_child(pony)
-	pony.free()
-	_free(f)
-
-
-## Serials never repeat inside one process, even where the store cannot keep the write.
-func _check_serial() -> void:
-	var first := PONIES.allocate_serial()
-	var second := PONIES.allocate_serial()
-	var third := PONIES.allocate_serial()
-	check(first >= 1, "the first serial is a real number")
-	check(second > first and third > second, "serials climb in one process")
-	PONIES.shutdown()
-	var after := PONIES.allocate_serial()
-	check(after > third, "a teardown does not hand the same serial out again")
-
-
 ## Every prepare hook is idempotent; the late prepare needs a live entry.
 func _check_prepare() -> void:
 	var f := _bind()
@@ -415,6 +365,7 @@ func _check_prepare() -> void:
 func _check_adoption() -> void:
 	var f := _bind()
 	var anatomy: FakeAnatomy = f["anatomy"]
+	var owner: ACT_OWNER = f["owner"]
 	var pony := _pony("test_mare", "OldBody")
 	root.add_child(pony)
 	PONIES.attach(pony)
@@ -423,23 +374,23 @@ func _check_adoption() -> void:
 	var change := BODY_CHANGE.new()
 	change.source = source
 	runtime.pony = pony
-	PONIES.begin_body_swap(runtime, pony, "test_mare", change)
-	check(PONIES.body_swap_pending(), "a suspended act records one pending swap")
+	owner.begin_body_swap(runtime, pony, "test_mare", change)
+	check(owner.body_swap_pending(), "a suspended act records one pending swap")
 	check(PONIES.live_ponies().is_empty(), "the old body's registry entry goes at the suspend")
-	check(not PONIES.act_running(), "the pending swap is not an act start")
+	check(not owner.act_running(), "the pending swap is not an act start")
 
 	# A body with another id is not the one this act waits for.
 	var other := _pony("other_mare", "OtherBody")
 	root.add_child(other)
 	PONIES.attach(other)
-	check(PONIES.body_swap_pending(), "another id leaves the pending swap alone")
+	check(owner.body_swap_pending(), "another id leaves the pending swap alone")
 	check(PONIES.runtime_for(other) != runtime, "another id gets its own runtime")
 
 	var new_pony := _pony("test_mare", "NewBody")
 	root.add_child(new_pony)
 	source.next = new_pony
 	PONIES.attach(new_pony)
-	check(not PONIES.body_swap_pending(), "the new body adopts and clears the swap")
+	check(not owner.body_swap_pending(), "the new body adopts and clears the swap")
 	check(PONIES.runtime_for(new_pony) == runtime, "the new body keeps the same runtime")
 	check(runtime.get_parent() == new_pony, "the runtime moves under the new body")
 	check(runtime.attached == [new_pony], "the runtime is reparented once")
@@ -448,26 +399,26 @@ func _check_adoption() -> void:
 	check(anatomy.journal.count("present:NewBody") == 1, "anatomy presents the adopted body once")
 
 	# The runtime's own late adoption: the spawn hook never reached the attach.
-	PONIES.begin_body_swap(runtime, new_pony, "test_mare", change)
+	owner.begin_body_swap(runtime, new_pony, "test_mare", change)
 	var late_pony := _pony("test_mare", "LateBody")
 	root.add_child(late_pony)
 	source.next = late_pony
 	check(PONIES.adopt_pending_body(late_pony), "the watcher adopts the body the source claims")
 	check(PONIES.runtime_for(late_pony) == runtime, "the late body keeps the same runtime")
-	check(not PONIES.body_swap_pending(), "the late adoption clears the swap")
+	check(not owner.body_swap_pending(), "the late adoption clears the swap")
 
 	# An unclaimed id and a dead runtime both refuse quietly.
 	source.next = null
-	PONIES.begin_body_swap(runtime, late_pony, "test_mare", change)
+	owner.begin_body_swap(runtime, late_pony, "test_mare", change)
 	var stranger := _pony("stranger", "StrangerBody")
 	root.add_child(stranger)
 	check(not PONIES.adopt_pending_body(stranger), "an unclaimed id is not adopted")
-	PONIES.clear_body_swap(null)
-	check(PONIES.body_swap_pending(), "another runtime cannot clear the swap")
-	PONIES.clear_body_swap(runtime)
-	check(not PONIES.body_swap_pending(), "the owning runtime clears its swap")
-	PONIES.begin_body_swap(runtime, late_pony, "test_mare", null)
-	check(not PONIES.body_swap_pending(), "a null change records no swap")
+	owner.clear_body_swap(null)
+	check(owner.body_swap_pending(), "another runtime cannot clear the swap")
+	owner.clear_body_swap(runtime)
+	check(not owner.body_swap_pending(), "the owning runtime clears its swap")
+	owner.begin_body_swap(runtime, late_pony, "test_mare", null)
+	check(not owner.body_swap_pending(), "a null change records no swap")
 
 	PONIES.shutdown()
 	source.free()
@@ -481,6 +432,7 @@ func _check_adoption() -> void:
 func _check_duplicate_guard() -> void:
 	var f := _bind()
 	var anatomy: FakeAnatomy = f["anatomy"]
+	var owner: ACT_OWNER = f["owner"]
 	var pony := _pony("test_mare", "RaceOldBody")
 	root.add_child(pony)
 	PONIES.attach(pony)
@@ -496,7 +448,7 @@ func _check_duplicate_guard() -> void:
 	source.next = new_pony
 	var change := BODY_CHANGE.new()
 	change.source = source
-	PONIES.begin_body_swap(runtime, pony, "test_mare", change)
+	owner.begin_body_swap(runtime, pony, "test_mare", change)
 	check(PONIES.adopt_pending_body(new_pony),
 		"the suspended act still adopts the body although another runtime held it")
 	check(PONIES.runtime_for(new_pony) == runtime, "the act's runtime wins the body")
@@ -516,25 +468,25 @@ func _check_duplicate_guard() -> void:
 ## A world close ends the act through its owner, drops the swap and frees every runtime.
 func _check_world_close() -> void:
 	var f := _bind()
+	var owner: ACT_OWNER = f["owner"]
 	var pony := _pony("twilight", "TwilightBody")
 	root.add_child(pony)
 	PONIES.attach(pony)
 	var runtime: FakeRuntime = PONIES.runtime_for(pony)
-	PONIES.set_active(runtime)
+	owner.set_active(runtime)
 	var source := FakeSource.new()
 	var change := BODY_CHANGE.new()
 	change.source = source
-	PONIES.begin_body_swap(runtime, pony, "twilight", change)
+	owner.begin_body_swap(runtime, pony, "twilight", change)
 	# The adopted body registers the runtime again, as the real handover does.
 	PONIES.attach(pony)
 	PONIES.close_world()
 	check(runtime.stopped == 1, "the world close stops the act once")
-	check(not PONIES.act_running(), "the world close frees the frame")
-	check(not PONIES.body_swap_pending(), "the world close drops the pending swap")
+	check(not owner.act_running(), "the world close frees the frame")
+	check(not owner.body_swap_pending(), "the world close drops the pending swap")
 	var live: Array[Node] = PONIES.live_ponies()
 	check(live.size() == 1 and live[0] == pony,
 		"the world close keeps the bodies' runtimes; they leave with their bodies")
-	PONIES.reset()
 	PONIES.shutdown()
 	check(runtime.is_queued_for_deletion(), "the teardown frees the runtime")
 	check(PONIES.live_ponies().is_empty(), "the teardown empties the registry")

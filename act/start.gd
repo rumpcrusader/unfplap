@@ -12,10 +12,10 @@ const ACT_FRAME := preload("res://mods/unfplap/act/frame.gd")
 const ACT_EXIT := preload("res://mods/unfplap/act/exit.gd")
 const ACT_VIEW := preload("res://mods/unfplap/act/view.gd")
 const ACT_SETUP := preload("res://mods/unfplap/act/setup.gd")
+const ACT_OWNER := preload("res://mods/unfplap/act_owner/service.gd")
 const POSE_SESSION := preload("res://mods/unfplap/poses/service.gd")
 const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
-const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const REST := preload("res://mods/unfplap/rest/control.gd")
@@ -94,7 +94,8 @@ func run(pose: String, bed_in: Variant, act_source: String, skip_presentation :=
 	context.camera.reset_lean_state()
 	context.face.clear_face()
 	context.face.set_face(0.45, context.face.ACT_LIDS)
-	session.serial = PONIES.allocate_serial()
+	var owner: ACT_OWNER = context.world.act_owner if context.world != null else null
+	session.serial = owner.allocate_serial() if is_instance_valid(owner) else 0
 	session.event_id = "intimacy_%s_%d" % [session.pony_id, session.serial]
 	session.first_time = context.memory.first_time(session.pony_id, session.event_id) \
 		if context.memory != null else false
@@ -174,7 +175,8 @@ func run(pose: String, bed_in: Variant, act_source: String, skip_presentation :=
 	context.pose.pose_changed(context.pose.view())
 	context.integrations.begin()
 	session.face_beat("start")
-	PONIES.set_active(host.node)
+	if is_instance_valid(owner):
+		owner.set_active(host.node)
 	host.runtime().emit_signal("act_started", host.pony)
 	if is_instance_valid(context.hud):
 		session.sync_hud()

@@ -4,8 +4,8 @@ extends RefCounted
 ##
 ## See `docs/runtime.md`.
 
-const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const ACT_NODE := preload("res://mods/unfplap/act/host.gd")
+const ACT_OWNER := preload("res://mods/unfplap/act_owner/service.gd")
 const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")
 const ACT_SESSION := preload("res://mods/unfplap/act/session.gd")
 const PERF := preload("res://mods/unfplap/shared/perf.gd")
@@ -25,7 +25,8 @@ func bind(host_in: ACT_NODE, context_in: ACT_CONTEXT, session_in: ACT_SESSION) -
 func tick(delta: float) -> void:
 	# Last-resort safety: a missed exit path must not leave the quick slots hidden.
 	if is_instance_valid(context.hud):
-		context.hud.ensure_act_inventory_visible(PONIES.active())
+		var owner: ACT_OWNER = context.world.act_owner if context.world != null else null
+		context.hud.ensure_act_inventory_visible(owner.active() if is_instance_valid(owner) else null)
 	PERF.begin("runtime_presentation")
 	context.presentation.physics(delta)
 	PERF.end("runtime_presentation")

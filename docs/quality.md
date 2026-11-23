@@ -94,14 +94,15 @@ game-boundary and re-export rules. These rules exist so code cannot grow back ou
   reads `WORLD`, `SETTINGS`, `LOG` or `PERF`, starts behaviour or dispatches by string; the gate
   fails on the first string dispatch.
 - **Wiring is single-place.** Each facade declares at most one `wire()`, and a facade that declares
-  one has the scope's root (`_build_world()`, `_compose()`) call it exactly once; no other file
-  constructs or wires a service. A facade has one peer-injection member, `wire` takes a peer
-  parameter nowhere else, and the lifecycle hooks and `_init` are the only exceptions. The root
-  calls only the composition verbs (construct, wire, name, `add_child`, `add_to_group`, `connect`,
-  register a source) and reads no `WORLD`/`SETTINGS`/`LOG`/`PERF`; a `wire()` body takes no tree
-  access and reads no scene. A field set from a `wire()` parameter is written only by `wire()` and
-  cleared only by `shutdown()`, and both directions of every rule are synthetic fixtures in the
-  self-test.
+  one has the scope's root (`_build_world()`, `_compose()`) call it once, and no other file calls
+  `wire()`. The Pony facades' `bind`-family is the named exception while the rename is pending: the
+  gate accepts it as the facade's one peer-injection member and `_compose()` is its caller.
+  Construction is root-only. A facade has one peer-injection member, `wire` takes a peer parameter
+  nowhere else, and the lifecycle hooks and `_init` are the only exceptions. The root calls only
+  the composition verbs (construct, wire, name, `add_child`, `add_to_group`, `connect`, register a
+  source) and reads no `WORLD`/`SETTINGS`/`LOG`/`PERF`; a `wire()` body takes no tree access and
+  reads no scene. A field set from a `wire()` parameter is written only by `wire()` and cleared
+  only by `shutdown()`, and both directions of every rule are synthetic fixtures in the self-test.
 - **The two debug assertions.** The entry logs one error per direct child outside `unfplap_world`
   (the API node is the named exception); the runtime logs one per direct child outside
   `unfplap_pony_service`. Both run behind `LOG.enabled` and return the offender count.
@@ -119,13 +120,14 @@ game-boundary and re-export rules. These rules exist so code cannot grow back ou
 - **The runtime is a host, not a system.** `runtime.gd` declares no `state` field and assigns no
   `state` (the one writer is `act/session.gd:_set_state()`), decodes no raw input (`Input.`,
   `InputMap.`, `InputEvent*`, `KEY_*`, `MOUSE_MODE_*`, an input callback), reads no `SETTINGS.`
-  value, and calls no `add_child()`. Its public functions and properties are fixed by
-  `NODE_SURFACE` and `NODE_PROPERTIES`. The act's settings reads live in `act/settings.gd` at its
-  two snapshot boundaries (`snapshot_values`, `live_preferences`), each with a named allow-list row;
-  the world audio service's pool and the pose-scope tail tuck are created by their owners. Both allow-lists live
-  in the checker and are compared in both directions, so a new settings read or node fails the gate
-  and a row whose code is gone fails as stale. File size is reported as `SMELL large file`, never as
-  a cap.
+  value, and parents only the Pony services: `_attach()` is the one `add_child()` site, `_compose()`
+  its one caller, and the child allow-list is compared both ways. Its public functions and
+  properties are fixed by `NODE_SURFACE` and `NODE_PROPERTIES`. The act's settings reads live in
+  `act/settings.gd` at its two snapshot boundaries (`snapshot_values`, `live_preferences`), each
+  with a named allow-list row; the world audio service's pool and the pose-scope tail tuck are
+  created by their owners. Both allow-lists live in the checker and are compared in both
+  directions, so a new settings read or node fails the gate and a row whose code is gone fails as
+  stale. File size is reported as `SMELL large file`, never as a cap.
 
 The rest — one body-change fan-out, one `act/swap.gd:resume()`, one `act/exit.gd:run()`, the
 schedule's tick and fan-out order in `act/tick.gd`, the scene-only world facade and the suite

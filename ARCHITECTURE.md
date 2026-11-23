@@ -91,7 +91,9 @@ Rules:
 - A shared store may read `settings`; that is the one service read a shared module makes.
 - Only `main`, `runtime` and `api` may call arbitrary service facades.
 - If two services seem to need each other, the boundary is wrong or the orchestrator must mediate
-  with plain values. A cycle is not an acceptable design.
+  with plain values. `initiation ↔ negotiation` is the one documented pair: two-phase wiring makes
+  it work without a preload cycle and merging the two is the future fix, so it is legal and a new
+  pair is not.
 - No per-frame allocation in a facade or read model. Reuse context and event objects. The
   profiler's block must not show added per-frame cost.
 
@@ -114,6 +116,10 @@ Every object in the mod belongs to exactly one of four classes:
 Class is about ownership, not feature area: a per-act handle is Other even when it belongs to a
 World service's feature. `Other` is a derived class for everything without a facade; it is not a
 scope value.
+
+Lifetime follows the class: a Process value lives as long as the process, a World service is built
+once and only its state binds and resets per world, a Pony service exists with the runtime that
+composed it, and an Other value lives with its owner.
 
 Only a facade declares itself, with three fields directly under `extends`: `Service: <dir>`,
 `Scope: process|world|pony` and `Contract: docs/<id>.md`. A non-facade carries no declaration: its
@@ -271,13 +277,6 @@ give the mod two entry points and hide the real dependency.
 
 ## Lifetimes
 
-| Scope | Constructed by | Begun / ended by | Examples |
-|---|---|---|---|
-| World | the entry's service list, at boot | the list order on world enter, close and exit | eligibility, memory, negotiation, hud, offer, input, initiation, anatomy, body_change, integrations and its pack modules, stool, stock smack, debug actions; the cross-mod `api.gd` is parented but takes no broadcast |
-| Per-pony | the roster through the entry's one factory | pony despawn or world close | the runtime itself |
-| Per-pony handle | the runtime, once per pony | the runtime ledger or the negotiation hold | pose, camera, hands, kiss, face, history, afterglow, scene hold, rest |
-| Pure / read model | its owner | no teardown | preferences math, act view, the log sink and the profiler |
-
 A service doc declares its scope, constructor, begin/end and idempotency. A service that outlives
 one act must reset every act-owned value in its begin/reset path; a service that is created per
 act must release every node and subscription it created.
@@ -295,9 +294,12 @@ teardown to `free_pose()`. The order is `docs/poses.md`.
 ### The wiring contract
 
 Each scope has exactly one composition root: `main.gd:_build_world()` for the World services and
-`runtime.gd:_compose()` for the Pony ones. The root constructs every service of its scope, calls each
-service's one peer-injection member exactly once, then names and attaches it. No other shipped file
-constructs or wires a service; a suite is its own root for the service under test and passes fakes.
+`runtime.gd:_compose()` for the Pony ones. The root constructs every service of its scope, calls
+each service's one peer-injection member once, then names and attaches it. A service that also
+takes a live per-pony or per-act value is rebound on each body or state change, through that member
+or through a separately named one — the pose session's, the scene gate's; a rebind is not a second
+injection. Construction is root-only: a suite is its own root for the service under test and passes
+fakes.
 
 `wire()` is the one injection verb: explicit typed parameters, the fields it sets, and an
 `assert(<peer> != null)` for every peer whose absence would break the service. A peer that is
@@ -390,11 +392,12 @@ session accessors, a system value is that service's method, node and scene opera
 It implements no system's rules and owns no system's mutable state: no scoring, pose math, camera
 shots, hand/kiss/wing behaviour, body-change detection or provider policy, raw input decoding,
 audio creation, aftercare nodes, HUD strings, eligibility or gate rules, debug formatting,
-settings declarations or per-frame settings reads. The static gate enforces the
-shape: one `state` writer in `act/session.gd`, the fixed Node surface, no raw input, no settings
-read in `runtime.gd`, no child node, plus the one exit, the start recipe's order, the pose ledger's
-three callers, the fan-out order and the one resume. File size is reported as a smell, never a
-cap. `owner_of()` treats every `act/**` file as the runtime's own module: it may preload a service,
+settings declarations or per-frame settings reads. The static gate enforces the shape: one `state`
+writer in `act/session.gd`, the fixed Node surface, no raw input, no settings read in
+`runtime.gd`, children only from the Pony service allow-list, attached by `_attach()` from
+`_compose()`, plus the one exit, the start recipe's order, the pose ledger's three callers, the
+fan-out order and the one resume. File size is reported as a smell, never a cap.
+`owner_of()` treats every `act/**` file as the runtime's own module: it may preload a service,
 and a service that preloads it fails as a host import.
 
 The state flow, start, suspend/resume, tick and exit orders are documented in `docs/runtime.md`.
@@ -623,10 +626,9 @@ The static gate owns the static invariants: one teardown body in
 order and its three exact callers, the `act/tick.gd` fan-out order and the pose-before-facts write
 in its physics frame, the thin-runtime shape (one `state` writer in `act/session.gd`, the fixed
 `NODE_SURFACE`/`NODE_PROPERTIES`, no raw input, no settings read in `runtime.gd`, no runtime child
-node), the
-act-exit ban under `poses/`, the shell `errexit` prelude, the release files and the manifest, one
-settings declaration
-module, and the test-file rules in `docs/tests.md`. The typed act view boundary is a review rule:
+outside `RUNTIME_CHILD_NODES`), the act-exit ban under `poses/`, the shell `errexit` prelude, the
+release files and the manifest, one settings declaration module, and the test-file rules in
+`docs/tests.md`. The typed act view boundary is a review rule:
 presentation modules read `shared/act_facts.gd`, not the runtime node.
 
 Suites are not services: their layout, isolation, discovery and runner are `docs/tests.md`.

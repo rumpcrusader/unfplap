@@ -216,9 +216,10 @@ are in `ARCHITECTURE.md` (`## The service contract`).
   `settings/service.gd`, one shipped value in `settings/settings.json`, one typed read; the
   framework is `docs/settings.md`.
 - **No game-file edits and no JSON merges.** Everything lives under `res://mods/unfplap/`.
-- **The cross-mod API is frozen.** `api.gd`, `docs/api.md` and `tests/test_api.gd` are edited only
-  with the user's explicit approval; that approval starts the task and the edit follows the
-  same-commit rule.
+- **The cross-mod API is frozen.** `api.gd` and `docs/api.md` are edited only with the user's
+  explicit approval; that approval starts the task and the edit follows the same-commit rule.
+  `tests/test_api.gd` follows the same approval, and is edited only when the plan changes the API
+  contract or its fixtures.
 - **No global debug hotkeys.** `debug/service.gd` declares none; a debug action is a button in its
   Debug block and the game's dev keys stay the game's.
 - **Tests move with the code.** A change is not done while its suite reads the old private path,

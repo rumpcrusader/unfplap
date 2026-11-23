@@ -233,7 +233,7 @@ class ActAudio extends RefCounted:
 		_restore_voice()
 		if not _open or _world == null or not is_instance_valid(_pony) or not _world._muted:
 			return
-		var info: Dictionary = VOICE.classify(WORLD.director().voice_facts(_id))
+		var info: Dictionary = VOICE.classify(WORLD.director().voice_facts(_id, SETTINGS.tts_enabled()))
 		if not bool(info.get("effective_ponese", false)):
 			return
 		_voice_player = _find_voice_player(_pony)

@@ -71,8 +71,9 @@ the policy to the new body's own player.
 
 The routing classification is `shared/voice_status.gd`, a pure match over the facts it is handed.
 The world director view builds those facts from the live director's profile, its TTS node's mode and
-server answer, the game's switch and the game's own chatter routing. The view's debug context
-carries the routing line it reports, and the gate's debug text reads it from there.
+server answer and the game's own chatter routing; the game's TTS switch arrives as the second
+argument, which each caller reads from `SETTINGS.tts_enabled()`. The view's debug context carries
+the routing line it reports, and the gate's debug text reads it from there.
 
 ## Base-game vocal cache
 

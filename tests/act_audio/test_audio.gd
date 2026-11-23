@@ -8,7 +8,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const AUDIO := preload("res://mods/unfplap/audio/api.gd")
 const CATALOGUE := preload("res://mods/unfplap/audio/cues.gd")
-const GAME := preload("res://mods/unfplap/world/game.gd")
+const GAME := preload("res://mods/unfplap/settings/game.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const SOUND := preload("res://mods/unfplap/audio/sound.gd")
 const VOICE := preload("res://mods/unfplap/shared/voice_status.gd")
@@ -220,7 +220,7 @@ func run() -> void:
 	SETTINGS.apply_live()
 	check(is_equal_approx(voice.volume_db, -80.0),
 		"muting Ponese silences the live voice player")
-	check(VOICE.status_line(WORLD.director().voice_facts("rarity")).begins_with("voice "),
+	check(VOICE.status_line(WORLD.director().voice_facts("rarity", SETTINGS.tts_enabled())).begins_with("voice "),
 		"the debug line names the live voice routing")
 	SETTINGS.mute_ponese_audio.set_bool(false)
 	SETTINGS.apply_live()
@@ -240,6 +240,8 @@ func run() -> void:
 	# leaves the generated voice alone, and an absent autoload reads as TTS off.
 	var game_settings: Node = root.get_node_or_null("Settings")
 	check(GAME.tts_enabled(game_settings), "the shipped switch leaves the generated voice alone")
+	var saved_settings: Node = SETTINGS._game_settings
+	SETTINGS._game_settings = null
 	if game_settings != null:
 		root.remove_child(game_settings)
 	check(not GAME.tts_enabled(null), "an absent settings autoload reads as TTS off")
@@ -252,6 +254,7 @@ func run() -> void:
 	check(is_equal_approx(voice.volume_db, -6.0), "the mute off gives the volume back")
 	if game_settings != null:
 		root.add_child(game_settings)
+	SETTINGS._game_settings = saved_settings
 
 	# The act's end silences it and the next act reuses the same pool and players.
 	var first_plap: AudioStreamPlayer3D = (pool.get("_pools") as Dictionary)["plap_firm"][0]

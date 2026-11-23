@@ -85,7 +85,7 @@ caller that keeps one across a despawn therefore reads those zeroes rather than 
 
 `Anon` is bound by the facade to its player handle, so its player members take no node. The
 presentation and the hand or torso driver it acts on are still passed, because a caller may hold a
-different one. `height` reads the game's own settings node, so no caller resolves it.
+different one.
 
 `Bed` binds whichever of the four rest-family nodes holds the row a member reads: the bed itself for
 the bedding and the stock rest, the couch/rest that owns it for the seats and the guest entries, one
@@ -100,9 +100,9 @@ not the receiver.
 | `Face` | a pony body | `controller`, `touch`, `release_touch`, `stare`, `fluster`, `fluster_amount`, `dialogue_face`, `set_dialogue`, `finish_dialogue`, `clear_dialogue`, `sustain_blush`, `celebrate`, `set_expression`, `line_faces` |
 | `Wings` | her excitement Beat, or the wing node it owns | `node`, `hold`, `release_hold`, `set_open`, `spread`, `flutter`, `opened`, `set_opened`, `set_tuck`, `set_half` |
 | `Flank` | her `FlankTouch` node, or the touch body whose hulls need syncing | `sync`, `update_surface`, `surface_contact`, `touch_nearest`, `impact`, `wake_tick`, `start_jiggle`, `process`, `jiggle_amount`, `set_jiggle_amount`, `rump_blush_texture` |
-| `Anon` | the player rig, bound by the facade | `seat`, `controls_locked`, `set_controls_locked`, `set_presentation_enabled`, `force_stand_up`, `height`, `eye_height`, `set_eye_y`, `set_stand_eye`, `set_eye_height`, `pitch`, `set_pitch`, `form`, `clamp_view`, `form_is_young`, `form_is_pony`, `body`, `exclude_from_outline`, `q_held`, `set_q_held`, `set_space_hold`, `set_rest_held`, `sit_on`, `toggle_couch_sleep`, `set_hold_target`, `clear_hold_target`, `hand_frame`, `apply_torso_pose`, `set_rest_hand_targets`, `clear_rest_hand_targets`, `pose_driver`, `set_pose_driver`, `knockdown`, `start_knockdown` |
+| `Anon` | the player rig, bound by the facade | `seat`, `controls_locked`, `set_controls_locked`, `set_presentation_enabled`, `force_stand_up`, `eye_height`, `set_eye_y`, `set_stand_eye`, `set_eye_height`, `pitch`, `set_pitch`, `form`, `clamp_view`, `form_is_young`, `form_is_pony`, `body`, `exclude_from_outline`, `q_held`, `set_q_held`, `set_space_hold`, `set_rest_held`, `sit_on`, `toggle_couch_sleep`, `set_hold_target`, `clear_hold_target`, `hand_frame`, `apply_torso_pose`, `set_rest_hand_targets`, `clear_rest_hand_targets`, `pose_driver`, `set_pose_driver`, `knockdown`, `start_knockdown` |
 | `Bed` | a bed, the couch/rest that owns it, a seat on it or the seating system | `couch_pony_transform`, `couch_seats`, `couch_open`, `couch_invite`, `couch_approach`, `couch_mare_fits`, `couch_cooldown_until`, `couch_partner`, `rest_word`, `rest_bed`, `refresh`, `fits`, `has_guest`, `sleeper`, `front`, `accepts`, `willing`, `eligible`, `seat_free_for`, `seating_phase`, `release_seat`, `finish_guest`, `release_pony`, `surface_top`, `exit_point`, `stock_rest` |
-| `Director` | the scene's conversation director, found by the facade, and the world root it belongs to | `speaking`, `interrupt`, `clock`, `subsystem_active`, `lines`, `llm_config`, `new_llm`, `background_allowed`, `prepare_vocal`, `record_event`, `record_situation`, `tts_enabled`, `tts`, `tts_running`, `play_vocal`, `play_kiss`, `world_context`, `impressions`, `impression_mood`, `set_impression_mood`, `commit_impression`, `standing_line`, `voice_facts` |
+| `Director` | the scene's conversation director, found by the facade, and the world root it belongs to | `speaking`, `interrupt`, `clock`, `subsystem_active`, `lines`, `llm_config`, `new_llm`, `background_allowed`, `prepare_vocal`, `record_event`, `record_situation`, `tts`, `tts_running`, `play_vocal`, `play_kiss`, `world_context`, `impressions`, `impression_mood`, `set_impression_mood`, `commit_impression`, `standing_line`, `voice_facts` |
 | `Story` | the world-context node, resolved by the facade from the bound world | `journal`, `store`, `open`, `last_line_id`, `search`, `witnessed`, `line_text`, `events` |
 | `Inventory` | the game's inventory node, resolved by the facade from the bound world | `store`, `slots`, `loans`, `writable`, `available`, `take`, `put`, `grant`, `spawn_drop`, `item_scene`, `held_count`, `holding_case`, `hotbar`, `hotbar_visible`, `set_hotbar_visible`, `hotbar_layer`, `set_hotbar_layer_visible`, `place_hotbar`, `hud_hidden`, `set_hud_hidden` |
 | `Menu` | the bound world root | `panel`, `show_toast`, `sound` |
@@ -133,13 +133,12 @@ members' own reads.
 `Director` is the one view bound to two nodes. Its director members are bound to the scene's
 conversation director, which the facade finds by its group; the world context and the impressions
 are the bound world's, so `world_context`, `impressions` and the mood rows resolve them there rather
-than through a caller's node, while `tts_enabled` reads the game's settings autoload itself. The
-subsystem, TTS, vocal and boop nodes a member asks about are passed because they are not the
-receiver. `voice_facts` is the one composed member: it hands the pure voice classifier the
-director's profile, the TTS mode and server, the game's switch and the game's own routing answer, so
-no classifier reads a game node. `new_llm` builds a fresh client for a caller to name, configure and
-parent, and `background_allowed` answers the game's own policy, so the classifier and the adapter
-import no model or policy module. `Story` binds the world-context node itself, so the journal, its
+than through a caller's node. The subsystem, TTS, vocal and boop nodes a member asks about are passed
+because they are not the receiver. `voice_facts` is the one composed member: it hands the pure voice
+classifier the director's profile, the TTS mode and server, the switch its caller passes and the
+game's own routing answer, so no classifier reads a game node. `new_llm` builds a fresh client for a
+caller to name, configure and parent, and `background_allowed` answers the game's own policy, so the
+classifier and the adapter import no model or policy module. `Story` binds the world-context node itself, so the journal, its
 store and the event list take no node either.
 
 `Inventory` binds the inventory node the facade resolved, so the store, the world drop, the
@@ -376,8 +375,6 @@ behaviour exactly, and a game update that renames one is a change here rather th
 | `GAME.set_expression(mouth, name, amount)` | the mouth rig's `set_expression` | — | no call |
 | `GAME.line_faces()` | the dialogue face table | `LineFaces`, the game's rows | empty rows |
 | `GAME.setting_string(settings, key)` | `Settings.get_value` | `String` | empty |
-| `GAME.anon_height(settings)` | `Settings.anon_height_scale` | `float` | `NAN` |
-| `GAME.tts_enabled(settings)` | `Settings.tts_enabled` | `bool` | `false` |
 | `GAME.knockdown_of(body)` | the body's `knockdown` | `Object` | `null` |
 | `GAME.start_knockdown(node, body, direction)` | `knockdown.start` | `bool` | `false` |
 | `GAME.cuddle_end(session)` | the cuddle session's `end(true)` | — | no call |

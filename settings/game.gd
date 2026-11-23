@@ -73,6 +73,20 @@ static func setting_string(settings: Node, key: String) -> String:
 	return str(settings.call("get_value", key))
 
 
+## The game's Anon height scale; the ordinary 1.0 when the settings node has no such op.
+static func anon_height_scale(settings: Node) -> float:
+	if not is_instance_valid(settings) or not settings.has_method("anon_height_scale"):
+		return 1.0
+	return float(settings.call("anon_height_scale"))
+
+
+## The game's Ponese TTS switch; false when the settings node has no such op.
+static func tts_enabled(settings: Node) -> bool:
+	if not is_instance_valid(settings) or not settings.has_method("tts_enabled"):
+		return false
+	return bool(settings.call("tts_enabled"))
+
+
 ## One mod's data folder from the registry; empty when the host has no folder reader.
 static func mods_data_folder(mods: Node, id: String) -> String:
 	if not is_instance_valid(mods) or not mods.has_method("data_folder"):

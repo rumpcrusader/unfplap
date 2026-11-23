@@ -22,12 +22,6 @@ func _tree() -> SceneTree:
 	return Engine.get_main_loop() as SceneTree
 
 
-## The game's settings autoload, read at the root so a suite runtime without one answers NAN.
-func _settings() -> Node:
-	var tree := _tree()
-	return tree.root.get_node_or_null("Settings") if tree != null else null
-
-
 ## The seat his rig is held on; null when he stands.
 func seat() -> Node:
 	return GAME.seat_of(_player)
@@ -51,11 +45,6 @@ func set_presentation_enabled(presentation: Node, on: bool) -> void:
 ## Make a reclined Anon stand up; nothing happens without the rig's own op.
 func force_stand_up() -> void:
 	GAME.force_stand_up(_player)
-
-
-## The game's Anon height scale; NAN when the settings node cannot answer.
-func height() -> float:
-	return GAME.anon_height(_settings())
 
 
 ## The eye line his rig reports; NAN when the rig cannot answer.

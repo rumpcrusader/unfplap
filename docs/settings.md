@@ -66,10 +66,11 @@ through the entry. The act session takes the settings service's typed `ActSnapsh
 
 `settings/game.gd` is the settings service's one base-game accessor: typed reads and writes of the
 game's settings autoload, settings page, menu style, in-page picker and mods data folder. The
-settings facade resolves the two autoloads through it and reads the size preset and caption mode
-there; the settings pages take the menu style and picker from it, so no settings file preloads a
-base-game module. A handle is passed by the facade, never resolved by a consumer. `settings` and
-`world` are peers: settings does not import `world/api.gd`, and world does not import this facade.
+settings facade resolves the two autoloads through it and reads the size preset, caption mode, Anon
+height scale and TTS switch there; the settings pages take the menu style and picker from it, so no
+settings file preloads a base-game module. A handle is passed by the facade, never resolved by a
+consumer. `settings` and `world` are peers: settings does not import `world/api.gd`, and world does
+not import this facade.
 
 ## Contributing a setting
 

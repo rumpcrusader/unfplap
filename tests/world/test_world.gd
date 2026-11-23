@@ -195,18 +195,6 @@ class FakeBody extends Node3D:
 		eye_y = value
 
 
-## The game's settings autoload: the Anon height and the dotted-key reader.
-class FakeSettings extends Node:
-	var values := {"ponies/size": "canon"}
-	var height := 1.2
-
-	func get_value(key: String) -> Variant:
-		return values.get(key)
-
-	func anon_height_scale() -> float:
-		return height
-
-
 ## A house interior with the one bed builder the facade calls.
 class FakeHouse extends Node3D:
 	var bed: Variant = null
@@ -664,12 +652,6 @@ class FakeTts extends Node:
 
 	func has_server() -> bool:
 		return live
-
-
-## The game's settings autoload: only the TTS switch.
-class FakeTtsSwitch extends Node:
-	func tts_enabled() -> bool:
-		return true
 
 
 ## An approach or group exchange the director reports.
@@ -1576,15 +1558,10 @@ func _check_bed_under() -> void:
 	WORLD.unbind()
 
 
-## The kiss bridge and the rig and height readers: every member's live answer and its typed zero.
+## The kiss bridge and the rig readers: every member's live answer and its typed zero.
 func _check_kiss_and_settings() -> void:
-	var settings := FakeSettings.new()
-	root.add_child(settings)
 	var plain := Node.new()
 	root.add_child(plain)
-	check(is_equal_approx(GAME.anon_height(settings), 1.2), "Anon's height scale is read")
-	check(not is_finite(GAME.anon_height(plain)), "a node without the height answers NAN")
-	check(not is_finite(GAME.anon_height(null)), "no node answers no height")
 
 	var game := FakeGame.new()
 	root.add_child(game)
@@ -2129,13 +2106,6 @@ func _check_anon_view() -> void:
 	check(knockdown.starts.size() == 1 and knockdown.starts[0][0] == player,
 		"the knockdown takes his body")
 
-	var settings := root.get_node_or_null("Settings")
-	if settings == null:
-		check(is_nan(view.height()), "a runtime without settings answers no height")
-	else:
-		check(is_equal_approx(view.height(), GAME.anon_height(settings)),
-			"the view reads the game's Anon height")
-
 	WORLD.bind_player(player)
 	check(WORLD.anon() != view, "a player bind drops the Anon view")
 	check(WORLD.anon() == WORLD.anon(), "the new bind caches its own Anon view")
@@ -2368,15 +2338,8 @@ func _check_director_and_story() -> void:
 	check(view.play_vocal(vocal, "rarity", "m", null, -6.0), "the generated vocal plays")
 	check(view.play_kiss(boop, -22.0, true) and boop.kisses == 1, "the stock kiss plays")
 
-	var hidden := root.get_node_or_null("Settings")
-	if hidden != null:
-		hidden.name = "SettingsTestHidden"
-	var switch := FakeTtsSwitch.new()
-	switch.name = "Settings"
-	root.add_child(switch)
-	check(view.tts_enabled(), "the TTS switch reads the settings autoload")
 	tts.live = true
-	var facts: VOICE.Facts = view.voice_facts("fluttershy")
+	var facts: VOICE.Facts = view.voice_facts("fluttershy", true)
 	check(facts.profile == director.characters["fluttershy"]["profile"],
 		"the voice facts carry the director's profile")
 	check(facts.server and facts.tts_enabled and facts.global_mode == "auto",
@@ -2386,10 +2349,6 @@ func _check_director_and_story() -> void:
 	check(bool(routed.get("generated", false)) and not bool(routed.get("effective_ponese", true)),
 		"the voice facts classify as the game routes her")
 	check(VOICE.status_line(facts).begins_with("voice "), "the debug line names the routing")
-	root.remove_child(switch)
-	switch.free()
-	if hidden != null:
-		hidden.name = "Settings"
 
 	var story := WORLD.story()
 	check(story == WORLD.story(), "a story view is cached per bound context")

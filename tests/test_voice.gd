@@ -14,11 +14,6 @@ class FakeTts extends Node:
 		return true
 
 
-class FakeSettings extends Node:
-	func tts_enabled() -> bool:
-		return true
-
-
 class FakeDirector extends Node:
 	var characters: Dictionary = {}
 	var tts: Node = null
@@ -82,21 +77,15 @@ func run() -> void:
 	check(str(absent.get("global_mode", "")) == "ponese",
 		"a missing TTS node reads the Ponese mode")
 
-	# The Director view reads the live profile, mode, server and switch into the facts.
+	# The Director view reads the live profile, mode and server into the facts, and takes the switch.
 	var tts := FakeTts.new()
 	root.add_child(tts)
-	var existing: Node = root.get_node_or_null("Settings")
-	if existing != null:
-		existing.name = "SettingsTestHidden"
-	var settings := FakeSettings.new()
-	settings.name = "Settings"
-	root.add_child(settings)
 	var director := FakeDirector.new()
 	director.tts = tts
 	director.characters = {"fluttershy": {"profile": generated_profile}}
 	director.add_to_group("conversation_director")
 	root.add_child(director)
-	var live: VOICE.Facts = WORLD.director().voice_facts("fluttershy")
+	var live: VOICE.Facts = WORLD.director().voice_facts("fluttershy", true)
 	check(live.profile == generated_profile, "the live facts carry the director's profile")
 	check(live.global_mode == "auto" and live.server and live.tts_enabled,
 		"the live facts carry the TTS mode, its server and the game's switch")
@@ -107,11 +96,11 @@ func run() -> void:
 		"the live facts classify as the director routes her")
 	check(VOICE.status_line(live).begins_with("voice "),
 		"the live debug line names the routing")
-	check(str(VOICE.classify(WORLD.director().voice_facts("unknown")).get("status", "?")) == "",
+	check(str(VOICE.classify(WORLD.director().voice_facts("unknown", true)).get("status", "?")) == "",
 		"an unknown id reads an empty profile")
 
 	director.tts = null
-	var silent: VOICE.Facts = WORLD.director().voice_facts("fluttershy")
+	var silent: VOICE.Facts = WORLD.director().voice_facts("fluttershy", true)
 	check(not silent.server and silent.global_mode == "ponese",
 		"a director without a TTS node reads no server and the Ponese mode")
 	check(bool(VOICE.classify(silent).get("effective_ponese", false)),
@@ -120,10 +109,6 @@ func run() -> void:
 	director.remove_from_group("conversation_director")
 	root.remove_child(director)
 	director.free()
-	root.remove_child(settings)
-	settings.free()
-	if existing != null:
-		existing.name = "Settings"
 	tts.free()
 	WORLD.unbind()
 	if failures == 0:

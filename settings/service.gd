@@ -1143,6 +1143,14 @@ static func pony_size_name() -> String:
 static func caption_mode() -> String:
 	return GAME.setting_string(_game_settings_node(), "access/speech_text")
 
+## The game's Anon height scale; the ordinary 1.0 outside a live settings node.
+static func anon_height_scale() -> float:
+	return GAME.anon_height_scale(_game_settings_node())
+
+## The game's Ponese TTS switch; false outside a live settings node.
+static func tts_enabled() -> bool:
+	return GAME.tts_enabled(_game_settings_node())
+
 ## The cached autoload, resolved through the settings accessor; null outside a tree.
 static func _game_settings_node() -> Node:
 	if not is_instance_valid(_game_settings):

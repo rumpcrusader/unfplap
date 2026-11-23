@@ -186,13 +186,6 @@ static func force_stand_up(player: Node) -> void:
 		player.call("force_stand_up")
 
 
-## The game's Anon height scale; NAN when the settings node cannot answer.
-static func anon_height(settings: Node) -> float:
-	if not is_instance_valid(settings) or not settings.has_method("anon_height_scale"):
-		return NAN
-	return float(settings.call("anon_height_scale"))
-
-
 ## One mod's live state section, as the registry keeps the reference; empty without the reader.
 static func mods_state(mods: Node, id: String) -> ModState:
 	var out := ModState.new()
@@ -560,13 +553,6 @@ static func request_space(pony: Node, id: String) -> void:
 	var bonds := bonds_of(pony)
 	if bonds != null and bonds.has_method("request_space"):
 		bonds.call("request_space", id)
-
-
-## The game's Ponese mute setting; false when the autoload has no such op.
-static func tts_enabled(settings: Node) -> bool:
-	if not is_instance_valid(settings) or not settings.has_method("tts_enabled"):
-		return false
-	return bool(settings.call("tts_enabled"))
 
 
 ## The TTS node's own voice mode; an absent node answers the Ponese default.

@@ -22,16 +22,6 @@ func _bound() -> Node:
 	return _director
 
 
-func _tree() -> SceneTree:
-	return Engine.get_main_loop() as SceneTree
-
-
-## The game's settings autoload, read at the root so a suite runtime without one answers false.
-func _settings() -> Node:
-	var tree := _tree()
-	return tree.root.get_node_or_null("Settings") if tree != null else null
-
-
 ## True while the director is doing anything but idling.
 func speaking() -> bool:
 	return GAME.director_speaking(_director)
@@ -88,11 +78,6 @@ func record_situation(text: String, ids: Array[String], key: String) -> void:
 	GAME.record_situation(world_context(), text, ids, key)
 
 
-## The game's own TTS switch; false without a settings autoload.
-func tts_enabled() -> bool:
-	return GAME.tts_enabled(_settings())
-
-
 ## The director's TTS node; null when it has none.
 func tts() -> Node:
 	return GAME.tts_of(_director)
@@ -145,13 +130,13 @@ func standing_line(id: String) -> String:
 
 
 ## The live voice routing facts for one stable id, so the classifier itself reads no game node.
-func voice_facts(id: String) -> VOICE.Facts:
+func voice_facts(id: String, tts_enabled: bool) -> VOICE.Facts:
 	var out := VOICE.Facts.new()
 	var route := GAME.voice_route(_director, id)
 	out.profile = route.profile
 	out.global_mode = route.mode
 	out.server = route.server
-	out.tts_enabled = tts_enabled()
+	out.tts_enabled = tts_enabled
 	out.ponese = route.ponese
 	out.chatter = route.chatter
 	return out

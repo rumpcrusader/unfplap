@@ -62,7 +62,7 @@ class FakeMods extends Node:
 		return "user://mods/data/%s" % id
 
 
-## A settings autoload stand-in with the two values the accessors read.
+## A settings autoload stand-in with the values the accessors read.
 class FakeSettings extends Node:
 	func get_value(key: String) -> Variant:
 		match key:
@@ -71,6 +71,12 @@ class FakeSettings extends Node:
 			"access/speech_text":
 				return "caption"
 		return null
+
+	func anon_height_scale() -> float:
+		return 1.3
+
+	func tts_enabled() -> bool:
+		return true
 
 func run() -> void:
 	_check_load()
@@ -1710,6 +1716,13 @@ func _check_base_game_access() -> void:
 		"the size preset reads the game setting through the accessor")
 	check(SETTINGS.caption_mode() == "caption",
 		"the caption mode reads the game setting through the accessor")
+	check(is_equal_approx(SETTINGS.anon_height_scale(), 1.3),
+		"the Anon height scale reads the game setting through the accessor")
+	check(SETTINGS.tts_enabled(), "the TTS switch reads the game setting through the accessor")
+	SETTINGS._game_settings = plain
+	check(is_equal_approx(SETTINGS.anon_height_scale(), 1.0),
+		"a settings node without the height answers the ordinary 1.0")
+	check(not SETTINGS.tts_enabled(), "a settings node without the switch answers TTS off")
 	SETTINGS._game_settings = saved
 	page.free()
 	parent.free()

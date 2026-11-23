@@ -680,10 +680,7 @@ func size_scale() -> float:
 
 ## Anon's chosen height over the 6 ft rig every offset was tuned on (1.0 at default).
 func anon_height_scale() -> float:
-	var raw := WORLD.anon().height()
-	if not is_nan(raw):
-		return clampf(raw, 0.6, 1.4)
-	return 1.0
+	return clampf(SETTINGS.anon_height_scale(), 0.6, 1.4)
 
 
 ## "Same height as Anon" now sizes the pony from Anon's chosen height too. Other presets keep

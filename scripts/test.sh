@@ -270,6 +270,14 @@ for test_name in "${SELECTED[@]}"; do
 		failed=1
 		continue
 	fi
+	# A suite that reports failures=0 can still leave its fixtures behind; the exit log is the gate.
+	if grep -qE 'ObjectDB instances leaked|resources still in use' "$out" 2>/dev/null; then
+		printf 'FAIL %s (leak at exit)\n' "$test_name"
+		grep -E 'ObjectDB instances leaked|resources still in use' "$out" | head -n 10 | sed 's/^/  /'
+		failed_names+=("$test_name")
+		failed=1
+		continue
+	fi
 	if [[ "$failures_n" -eq 0 ]]; then
 		if [[ "$VERBOSE" -eq 1 ]]; then
 			printf 'PASS %s %s ms (checks=%s)\n' "$test_name" "${ms:-?}" "$checks_n"

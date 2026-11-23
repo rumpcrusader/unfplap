@@ -198,7 +198,10 @@ leaves no result fails with its exit status, and one the runner's timeout killed
 A full run (`--all` or no argument) runs the self-test first, so the gate proves the base still
 ends a hung suite.
 
-Every suite must also leave no `SCRIPT ERROR` or `Parse Error` in its log.
+Every suite must also leave no `SCRIPT ERROR` or `Parse Error` in its log, and no leak at exit: a log
+that carries `ObjectDB instances leaked` or `resources still in use` fails the suite, and the runner
+prints those lines under its name. There is no allowlist; a suite that builds a `Node` owns its
+release.
 
 Discovery has one implementation, `scripts/test.sh --list`: `tests/**/test_*.gd`,
 two levels deep, excluding the manual labs (`test_lab*.gd`, `test_stress_lab.gd`). `TEST_JOBS` sets

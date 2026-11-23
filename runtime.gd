@@ -11,6 +11,7 @@ const SCENE_GATE := preload("res://mods/unfplap/scene_gate/service.gd")
 const START_PORT := preload("res://mods/unfplap/shared/start_port.gd")
 const PRESENTATION_PORT := preload("res://mods/unfplap/shared/presentation_port.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
+const HANDLES := preload("res://mods/unfplap/world/handles.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 
 ## One act's presentation began. The entry connects this to the world integrations, so the
@@ -27,6 +28,8 @@ var pony: Node:
 		_bundle.bind_pony(value)
 
 var _pony_node: Node = null
+## The World services this pony's act reads; a bare `new()` gets an empty record.
+var _world: HANDLES = null
 ## The per-pony composition root's product: every system, host, module and typed collaborator.
 var _bundle: ACT_BUILD.Bundle = null
 
@@ -56,11 +59,12 @@ var presentation: PRESENTATION_PORT:
 var _swapping_parent := false
 
 
-## Four optional handles arrive from the entry: HUD, memory, stool and audio. A suite may leave
-## them out.
-func _init(hud: Node = null, memory: Node = null, stool: Node = null,
-		audio: Node = null) -> void:
-	_bundle = ACT_BUILD.build(null, self, hud, memory, stool, audio)
+## The World record is built here so the act modules read it unguarded; the parameter body stays
+## unbound until the setter hands it to the bundle.
+func _init(pony: Node = null, world: HANDLES = null) -> void:
+	_world = world if world != null else HANDLES.new()
+	_bundle = ACT_BUILD.build(null, self, _world)
+	_pony_node = pony if is_instance_valid(pony) else null
 
 
 func _ready() -> void:

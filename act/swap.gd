@@ -14,7 +14,6 @@ const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
-const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 const State := ACT_STATE.State
@@ -73,7 +72,7 @@ func rebind_body() -> void:
 	session.refresh_view()
 	session.refresh_anatomy()
 	context.reactions.bind_scene(host.pony as Node3D,
-		PONIES.anatomy, _flank())
+		context.world.anatomy, _flank())
 	var view := context.pose.view()
 	context.hands.pose_changed(view)
 	context.kiss.pose_changed(view)
@@ -196,7 +195,7 @@ func apply_resume_settings() -> void:
 
 
 func rebind_reactions() -> void:
-	context.reactions.bind_scene(host.pony as Node3D, PONIES.anatomy, _flank())
+	context.reactions.bind_scene(host.pony as Node3D, context.world.anatomy, _flank())
 	context.reactions.apply_radius()
 
 

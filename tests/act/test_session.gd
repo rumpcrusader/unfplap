@@ -6,11 +6,11 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 const SESSION := preload("res://mods/unfplap/act/session.gd")
 const HOST := preload("res://mods/unfplap/act/host.gd")
 const CONTEXT := preload("res://mods/unfplap/act/context.gd")
+const HANDLES := preload("res://mods/unfplap/world/handles.gd")
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const SCENE_GATE := preload("res://mods/unfplap/scene_gate/service.gd")
 const INPUT := preload("res://mods/unfplap/act/input.gd")
 const ACT_COMMANDS := preload("res://mods/unfplap/shared/act_commands.gd")
-const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const POSE_SESSION := preload("res://mods/unfplap/poses/service.gd")
 const FAKE_GATE := preload("res://mods/unfplap/tests/support/fakes/fake_act_gate.gd")
 
@@ -39,6 +39,7 @@ func _frame() -> Dictionary:
 	var host: RefCounted = HOST.new()
 	var context: RefCounted = CONTEXT.new()
 	context.gate = SCENE_GATE.new()
+	context.world = HANDLES.new()
 	var session: RefCounted = SESSION.new()
 	session.bind(host, context)
 	return {"session": session, "host": host, "context": context}
@@ -192,7 +193,7 @@ func _check_hole_command() -> void:
 	var host: RefCounted = made["host"]
 	var context: RefCounted = made["context"]
 	var gate := FAKE_GATE.new()
-	PONIES.act_gate = gate
+	context.world.act_gate = gate
 	var pony := Node3D.new()
 	root.add_child(pony)
 	host.pony = pony
@@ -216,7 +217,7 @@ func _check_hole_command() -> void:
 	check(input.command(ACT_COMMANDS.HOLE), "the hole command opens with anal consent")
 	check(anatomy.target_value == 1 and anatomy.anus_calls == 1,
 		"the allowed hole command turns the target")
-	PONIES.act_gate = null
+	context.world.act_gate = null
 	root.remove_child(pony)
 	pony.free()
 	root.remove_child(hud)

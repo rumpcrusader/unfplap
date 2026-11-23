@@ -13,7 +13,6 @@ const BODY_PROFILE := preload("res://mods/unfplap/shared/body_profile.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
-const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const STOOL := preload("res://mods/unfplap/stool/service.gd")
 const STOOL_ACT := preload("res://mods/unfplap/stool/act.gd")
@@ -462,7 +461,7 @@ func reset_pelvis() -> void:
 func new_body_is_adult() -> bool:
 	if not is_instance_valid(WORLD.world_root()):
 		return true
-	var service: ELIGIBILITY = PONIES.eligibility
+	var service: ELIGIBILITY = context.world.eligibility
 	if service == null:
 		return true
 	return service.eligible(host.pony, ELIGIBILITY.Target.ACT)

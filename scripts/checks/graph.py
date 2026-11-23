@@ -20,8 +20,9 @@ from .text import PRELOAD_CONST, _code_lines
 
 # Service files another owner may extend or preload as a documented extension point. The source
 # base is a provider contract, not a second facade; the anatomy body binding is the attachment
-# contract the body-change service constructs from the anatomy facade it is handed.
-PUBLIC_SERVICE_FILES = {"body_change/source.gd"}
+# contract the body-change service constructs from the anatomy facade it is handed; the world
+# handles are the Pony scope's typed view of the World.
+PUBLIC_SERVICE_FILES = {"body_change/source.gd", "world/handles.gd"}
 # The game layer: the only services allowed to touch the base game. Membership is by approval only;
 # `vr` is deferred. Each member owns exactly one `<service>/game.gd`, its only base-game boundary
 # and the only home of a base-game import or autoload literal; only that service's files import it.

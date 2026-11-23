@@ -4,6 +4,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
+const HANDLES := preload("res://mods/unfplap/world/handles.gd")
 const STOOL := preload("res://mods/unfplap/stool/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const FRAME := preload("res://mods/unfplap/act/frame.gd")
@@ -66,7 +67,9 @@ func run() -> void:
 	root.add_child(main)
 	root.add_child(main.stool)
 
-	var runtime: Node = RUNTIME.new(null, null, main.stool)
+	var world := HANDLES.new()
+	world.stool = main.stool
+	var runtime: Node = RUNTIME.new(null, world)
 	runtime.pony = pony
 	root.add_child(runtime)
 	var act: Variant = runtime.act.stool()

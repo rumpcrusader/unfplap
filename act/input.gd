@@ -13,7 +13,6 @@ const ACT_SUMMARY := preload("res://mods/unfplap/summary/score.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
-const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const DIALOGUE := preload("res://mods/unfplap/dialogue/service.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
@@ -243,9 +242,9 @@ func _toggle_oral() -> bool:
 
 
 func _consent(key: String) -> bool:
-	if not is_instance_valid(host.pony) or not is_instance_valid(PONIES.act_gate):
+	if not is_instance_valid(host.pony) or not is_instance_valid(context.world.act_gate):
 		return false
-	return PONIES.act_gate.consent(host.pony, key)
+	return context.world.act_gate.consent(host.pony, key)
 
 
 func _show_status(text: String) -> void:

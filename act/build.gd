@@ -31,7 +31,7 @@ const REACTIONS := preload("res://mods/unfplap/reactions/service.gd")
 const AUDIO := preload("res://mods/unfplap/audio/api.gd")
 const STOOL := preload("res://mods/unfplap/stool/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
-const PONIES := preload("res://mods/unfplap/ponies/service.gd")
+const HANDLES := preload("res://mods/unfplap/world/handles.gd")
 const ACT_NODE := preload("res://mods/unfplap/act/host.gd")
 const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")
 const ACT_SESSION := preload("res://mods/unfplap/act/session.gd")
@@ -59,7 +59,8 @@ class Bundle extends RefCounted:
 	var node: Node = null
 	## The presented body, kept in step by `bind_pony()`.
 	var pony: Node = null
-	## The world services the per-pony modules receive; null outside the entry's factory.
+	## The World services the per-pony modules receive; null outside the entry's factory.
+	var world: HANDLES = null
 	var hud: Node = null
 	var memory: Node = null
 	var stool: STOOL = null
@@ -117,7 +118,7 @@ class Bundle extends RefCounted:
 		if host != null:
 			host.pony = value
 		if is_instance_valid(reactions) and value is Node3D:
-			reactions.bind_scene(value as Node3D, PONIES.anatomy,
+			reactions.bind_scene(value as Node3D, world.anatomy if world != null else null,
 				(value as Node3D).get_node_or_null("FlankTouch"))
 
 
@@ -207,14 +208,14 @@ class BodyChangeHost extends "res://mods/unfplap/body_change/act_host.gd":
 
 ## Build the bundle once. `pony` is null at `_init()` because the registry assigns the body after
 ## the node is built; `bind_pony()` carries it then.
-static func build(pony: Node, node: Node, hud: Node = null, memory: Node = null,
-		stool: Node = null, audio: Node = null) -> Bundle:
+static func build(pony: Node, node: Node, world: HANDLES) -> Bundle:
 	var b := Bundle.new()
 	b.node = node
 	b.pony = pony if is_instance_valid(pony) else null
-	b.hud = hud
-	b.memory = memory
-	b.stool = stool as STOOL
+	b.world = world
+	b.hud = world.hud if world != null else null
+	b.memory = world.memory if world != null else null
+	b.stool = world.stool if world != null else null
 	# The early modules, in construction order. They exist before the act frame binds them because
 	# the anatomy bridge and the handover are built against these instances.
 	b.input = ACT_INPUT.new()
@@ -233,12 +234,12 @@ static func build(pony: Node, node: Node, hud: Node = null, memory: Node = null,
 	b.dialogue = ACT_DIALOGUE.new(b.facts, b.memory)
 	b.afterglow = AFTERGLOW.new(b.hud, b.memory)
 	b.hold = SCENE_HOLD.new()
-	b.audio = AUDIO.ActAudio.new(audio)
+	b.audio = AUDIO.ActAudio.new(world.audio if world != null else null)
 	_build_systems(b)
 	_bind_act_frame(node, b)
 	_bind_pose_hosts(node, b)
 	_bind_facts(node, b)
-	b.gate.bind(b.pony, b.pose, PONIES.act_gate)
+	b.gate.bind(b.pony, b.pose, world.act_gate if world != null else null)
 	b.gate.configure(b.act.state, b.act.pony_id,
 		SCENE_GATE.Features.from_dict(b.act.features))
 	_attach_services(node, b)
@@ -333,6 +334,7 @@ static func _build_act_context(b: Bundle) -> ACT_CONTEXT:
 	context.hud = b.hud
 	context.memory = b.memory
 	context.stool_service = b.stool
+	context.world = b.world
 	return context
 
 

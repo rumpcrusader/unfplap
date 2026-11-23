@@ -29,6 +29,7 @@ const STOOL := preload("res://mods/unfplap/stool/service.gd")
 const STOCK_SMACK := preload("res://mods/unfplap/stock_smack/api.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
+const HANDLES := preload("res://mods/unfplap/world/handles.gd")
 const OFFER := preload("res://mods/unfplap/offer/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const SETTINGS_UI := preload("res://mods/unfplap/settings/ui.gd")
@@ -83,6 +84,8 @@ var memory: MEMORY
 var offer: OFFER
 ## Every Debug block button and wheel slot; see `docs/debug.md`.
 var debug_actions: DEBUG_ACTIONS
+## The record every runtime reads the World from, built once after the services.
+var _world: HANDLES = null
 
 
 ## Live act/afterglow context for the game's normal dialogue prompt; the game calls a Node in the
@@ -170,6 +173,10 @@ func _build_world() -> void:
 	changelings = CHANGELINGS.new()
 	debug_actions = DEBUG_ACTIONS.new()
 
+	# Construct → record → wire → name → attach: the record is built once from the constructed
+	# services, so the runtimes read the same objects the entry wired.
+	_world = _build_record()
+
 	act_gate.wire(eligibility)
 	offer.wire(negotiation, privacy, hud)
 	input.wire(offer)
@@ -204,6 +211,24 @@ func _build_world() -> void:
 	anatomy.status.connect(Callable(hud, "anatomy_status"))
 	body_change.register_source(changelings)
 	_assert_hooks()
+
+
+## Build the one record the runtimes read: every field is a constructed service.
+func _build_record() -> HANDLES:
+	var world := HANDLES.new()
+	world.anatomy = anatomy
+	world.eligibility = eligibility
+	world.act_gate = act_gate
+	world.body_change = body_change
+	world.estrus = estrus
+	world.offer = offer
+	world.stock_smack = stock_smack
+	world.api = api
+	world.hud = hud
+	world.memory = memory
+	world.stool = stool
+	world.audio = audio
+	return world
 
 
 ## Join one World service to the tree and to the ordered list. The helper is the only attach site.
@@ -275,7 +300,7 @@ func _on_pony(pony: Node) -> void:
 ## The entry's one runtime construction, called once per attached body. The runtime file is the
 ## entry's preload, so the registry never imports it.
 func _new_runtime(pony: Node) -> Node:
-	var runtime: RUNTIME = RUNTIME.new(hud, memory, stool, audio)
+	var runtime: RUNTIME = RUNTIME.new(pony, _world)
 	runtime.name = "UnfplapRuntime"
 	runtime.pony = pony
 	if is_instance_valid(pantyhose):

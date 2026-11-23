@@ -27,6 +27,7 @@ const CAMERA_VIEW := preload("res://mods/unfplap/camera/view.gd")
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 const ACT_FRAME := preload("res://mods/unfplap/act/frame.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
+const HANDLES := preload("res://mods/unfplap/world/handles.gd")
 const STOOL := preload("res://mods/unfplap/stool/service.gd")
 const STOOL_ACT := preload("res://mods/unfplap/stool/act.gd")
 
@@ -57,6 +58,8 @@ var stool_service: STOOL = null
 ## The world HUD and memory the act modules read; null outside a runtime built with them.
 var hud: Node = null
 var memory: Node = null
+## The World services, as the entry built them; a bare runtime's record is empty, never null.
+var world: HANDLES = null
 ## The act's consent response: the tolerance warning, its line and the stop presentation.
 var consent: RefCounted = null
 ## The act's stroke presentation and its one post-move path.

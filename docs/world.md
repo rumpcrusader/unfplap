@@ -26,6 +26,12 @@ This contract covers:
 It does not cover an offer, a pose, an act start, a gate verdict or any act state. It preloads no
 service facade and no runtime.
 
+## Pony view
+
+`world/handles.gd` is the record every runtime reads its peers from: the World root builds it once,
+after the services exist, and the same object reaches every runtime. Its fields are fixed, so it
+cannot answer a lookup, and a null field means the same absent peer a suite's bare runtime sees.
+
 ## Ownership
 
 The facade is also the mod's one "is there a world" read: `ready()` answers it for the bound pair, and

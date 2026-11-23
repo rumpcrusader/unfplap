@@ -4,8 +4,8 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const ACT_GATE := preload("res://mods/unfplap/act_gate/service.gd")
-const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
+const HANDLES := preload("res://mods/unfplap/world/handles.gd")
 const STOOL := preload("res://mods/unfplap/stool/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const STORE := preload("res://world/inventory/inventory_store.gd")
@@ -115,14 +115,16 @@ func run() -> void:
 	WORLD.bind_world(main.game)
 	main.anatomy = FakeService.new()
 	main.stool = STOOL.new()
-	PONIES.anatomy = main.anatomy
-	PONIES.act_gate = fake_gate
+	var world := HANDLES.new()
+	world.anatomy = main.anatomy
+	world.act_gate = fake_gate
+	world.stool = main.stool
 	root.add_child(main)
 	root.add_child(pony)
 	root.add_child(player)
 	root.add_child(game)
 	root.add_child(inventory)
-	var runtime: Node = RUNTIME.new(null, null, main.stool)
+	var runtime: Node = RUNTIME.new(null, world)
 	runtime.pony = pony
 	# The scene gate gets its body from the runtime's own refresh, as it does on the idle frame.
 	runtime.act.refresh_gate()
@@ -184,7 +186,7 @@ func run() -> void:
 	SETTINGS.stool_gap_m.set_num(0.20)
 	SETTINGS.stool_height_m.set_num(0.20)
 	runtime.free()
-	PONIES.act_gate = null
+	world.act_gate = null
 	main.anatomy.free()
 	main.stool.free()
 	main.free()

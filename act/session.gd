@@ -212,7 +212,7 @@ func stool() -> STOOL_ACT:
 		return null
 	if context.stool == null:
 		context.stool = service.new_act()
-	context.stool.bind(service, host.pony as Node3D, WORLD.player_rig(), PONIES.anatomy as ANATOMY)
+	context.stool.bind(service, host.pony as Node3D, WORLD.player_rig(), context.world.anatomy)
 	return context.stool
 
 func release_stool() -> void:
@@ -422,9 +422,9 @@ func anatomy_set_mouth_viseme(letter: String) -> void:
 func begin_anatomy(view: ANATOMY.PoseView) -> void:
 	context.pose_view = view
 	context.stage = ANATOMY.ActStage.new()
-	context.anon = PONIES.anatomy.anon() if PONIES.anatomy != null else null
-	context.anatomy = PONIES.anatomy.begin_act(host.pony as Node3D, view) \
-		if PONIES.anatomy != null else null
+	context.anon = context.world.anatomy.anon() if context.world.anatomy != null else null
+	context.anatomy = context.world.anatomy.begin_act(host.pony as Node3D, view) \
+		if context.world.anatomy != null else null
 	context.facts.anon = context.anon
 	if context.anon != null:
 		context.anon.encounter(true)
@@ -541,8 +541,8 @@ func cycle_phase() -> String:
 	var override := CYCLE.override_for(pony_id)
 	if not override.is_empty():
 		return override
-	if is_instance_valid(PONIES.estrus):
-		return str(PONIES.estrus.phase(host.pony))
+	if is_instance_valid(context.world.estrus):
+		return str(context.world.estrus.phase(host.pony))
 	return CYCLE.NORMAL
 
 
@@ -554,7 +554,7 @@ func cycle_override() -> String:
 func cycle_note() -> String:
 	if not is_instance_valid(host.pony):
 		return ""
-	var service: Variant = PONIES.act_gate
+	var service: Variant = context.world.act_gate
 	return service.cycle_note(host.pony) if service != null else ""
 
 func reset_thrust_state() -> void:
@@ -793,15 +793,15 @@ func form_status(text: String) -> void:
 ## The stored form is re-presented, so a retry never resets a borrowed shape to the own form.
 func refresh_anatomy() -> void:
 	var pony: Node = host.pony if is_instance_valid(host.pony) else null
-	if not is_instance_valid(pony) or not is_instance_valid(PONIES.anatomy):
+	if not is_instance_valid(pony) or not is_instance_valid(context.world.anatomy):
 		return
 	var body := pony as Node3D
 	if not is_instance_valid(body):
 		return
 	var form: Variant = null
-	if is_instance_valid(PONIES.body_change):
-		form = PONIES.body_change.form_for(body)
-	PONIES.anatomy.present(body, form)
+	if is_instance_valid(context.world.body_change):
+		form = context.world.body_change.form_for(body)
+	context.world.anatomy.present(body, form)
 
 
 ## The adopted body's bind before the handover's one resume: the pose, face, identity name, view,

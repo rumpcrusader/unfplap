@@ -21,9 +21,9 @@ kiss, wings, integrations, scene gate, scene hold, rest) own their own state and
 
 - Scope: per-pony. Constructed by `ponies/service.gd` through the entry's one factory on the body's
   attach hook; parented under the pony and recorded in the registry.
-- `_init(hud, memory, stool)` calls `ACT_BUILD.build(null, self, hud, memory, stool)` once and
-  stores the returned bundle. The entry's factory passes the three world facades; a bare `new()`
-  leaves them null and the per-pony modules treat that as an absent HUD, memory or stool.
+- `_init(pony, world)` builds an empty World record when the entry passes none and calls
+  `ACT_BUILD.build(null, self, record)` once; the body arrives through the `pony` setter. The
+  entry's factory passes the record, and a bare `new()` reads every World field as absent.
 - `_ready()` sets process and physics on at priority `100` (after locomotion, the navigator and
   attention), reads the identity, binds the pony through the bundle, caches the idle probe flag,
   binds the face, re-presents the persistent anatomy with the stored form and retries the identity
@@ -152,7 +152,7 @@ context and the render pose write. `act/context.gd` carries the live systems and
 plus `bind_pony(value)`, which the `pony` setter and `_ready()` call to rebind the pose session's
 body and id and the act host's pony. There is no second bind pass and no facade re-export.
 
-`build(pony, node, hud, memory, stool)` constructs, in order:
+`build(pony, node, world)` constructs, in order:
 
 1. the early modules (`input`, `swap`, `tick`, `phases`, the pose session, the scene gate, rest,
    the camera facade, readiness, summary, face, reactions, the act view, dialogue, afterglow, the
@@ -168,11 +168,12 @@ body and id and the act host's pony. There is no second bind pass and no facade 
    scene-hold, afterglow and act-view callbacks;
 6. the scene gate's bind and its one configuration.
 
-The three world facades are injected, never static: `Bundle` holds `hud`, `memory` and `stool`;
-`act/context.gd` carries `hud`, `memory` and `stool_service`; `afterglow`, `summary`, `face`,
-`dialogue` and the handover receive memory through their constructor; `anatomy` receives the HUD in
-`setup(hud)`, `negotiation` and `debug/actions` in their `wire()`, and `offer` at construction. A
-null facade is an absent one: the act modules guard every call, and a bare runtime remains valid.
+The World services are injected, never static: `Bundle` holds the record and takes the HUD, memory
+and stool from it, and `act/context.gd` carries it so the act modules read `context.world.<field>`
+rather than the registry. `afterglow`, `summary`, `face`, `dialogue` and the handover receive
+memory through their constructor; `anatomy` receives the HUD in `setup(hud)`, `negotiation` and
+`debug/actions` in their `wire()`, and `offer` at construction. A null field is an absent peer: the
+act modules guard every call, and a bare runtime remains valid.
 
 Every callback names its owner rather than a runtime method:
 

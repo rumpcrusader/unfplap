@@ -6,6 +6,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
+const HANDLES := preload("res://mods/unfplap/world/handles.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const SUMMARY := preload("res://mods/unfplap/summary/service.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
@@ -225,7 +226,9 @@ func _check_commit() -> void:
 	WORLD.bind_world(main.game)
 	main.memory = MEMORY.new()
 	root.add_child(main)
-	var runtime: Node = RUNTIME.new(null, main.memory)
+	var world := HANDLES.new()
+	world.memory = main.memory
+	var runtime: Node = RUNTIME.new(null, world)
 	runtime.act.pony_id = "rarity"
 	runtime.act.pony_id = "rarity"
 	runtime.act.display_name = "Rarity"

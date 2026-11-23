@@ -223,7 +223,7 @@ func _remember_talk_turn() -> void:
 
 
 func _begin_anatomy(pose: String) -> void:
-	if PONIES.anatomy == null:
+	if context.world.anatomy == null:
 		return
 	var view := ANATOMY.PoseView.new()
 	view.family = session.start_family()

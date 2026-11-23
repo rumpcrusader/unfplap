@@ -15,6 +15,7 @@ const AGREEMENT := preload("res://mods/unfplap/shared/agreement.gd")
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
+const HANDLES := preload("res://mods/unfplap/world/handles.gd")
 const HUD := preload("res://mods/unfplap/hud/service.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const POSES := preload("res://mods/unfplap/poses/service.gd")
@@ -176,7 +177,10 @@ func _fixture() -> Dictionary:
 	var memory := FakeMemory.new()
 	var hud: CanvasLayer = HUD.new()
 	hud.name = "UnfplapHUD"
-	var runtime: Node = RUNTIME.new(hud, memory)
+	var world := HANDLES.new()
+	world.hud = hud
+	world.memory = memory
+	var runtime: Node = RUNTIME.new(null, world)
 	var pony: FakePony = FakePony.new()
 	pony.posture = Node.new()
 	pony.add_child(pony.posture)
@@ -220,7 +224,8 @@ func _fixture() -> Dictionary:
 	runtime._bundle.hold.nav_old_wander = false
 	runtime._bundle.hold.token = "unfplap:test_mare"
 	hud.set_inventory_hidden(true)
-	return {"runtime": runtime, "pony": pony, "player": player, "main": main, "hud": hud}
+	return {"runtime": runtime, "pony": pony, "player": player, "main": main, "hud": hud,
+		"world": world}
 
 
 class FakeHandle extends AGREEMENT.Handle:
@@ -236,6 +241,7 @@ func run() -> void:
 	var pony: FakePony = f["pony"]
 	var player: FakePlayer = f["player"]
 	var main: FakeMain = f["main"]
+	var world: HANDLES = f["world"]
 	var nav: FakeNav = runtime._bundle.hold.nav
 	var inventory: FakeInventory = main.game.inventory
 
@@ -285,7 +291,7 @@ func run() -> void:
 
 	# Every hint scan reads Base clearance; a failing scene reads none.
 	var gate := FakeGate.new()
-	PONIES.act_gate = gate
+	world.act_gate = gate
 	runtime.scene.gate_service = gate
 	runtime.act._set_state(0)
 	check(bool(runtime.scene.hotkey_ready(CATALOG_STANDING, "")),
@@ -309,7 +315,7 @@ func run() -> void:
 		"the standing hint recovers")
 	check(gate.ready_calls == 3 and gate.relationship_calls == 3,
 		"the recovered scene reads Base clearance once")
-	PONIES.act_gate = null
+	world.act_gate = null
 
 	# A forced stop at IDLE must not touch the player's captured look.
 	var f2 := _fixture()
@@ -403,7 +409,8 @@ func run() -> void:
 	pony6b.rotation.y = 0.0
 	player6b.global_position = Vector3(3.0, 0.0, 5.0)
 	var anatomy6b: ANATOMY_API = ANATOMY_API.new()
-	PONIES.anatomy = anatomy6b
+	var world6b: HANDLES = f6b["world"]
+	world6b.anatomy = anatomy6b
 	var gap6b: float = float(runtime6b.act.swap.standing_gap())
 	runtime6b._bundle.frame.begin(FRAME.pose("standing"))
 	var base6b := Vector3(pony6b.global_position.x, 0.0, pony6b.global_position.z + gap6b)
@@ -509,8 +516,9 @@ func run() -> void:
 	var oral_setting := SETTINGS.anatomy_oral.get_bool()
 	SETTINGS.anatomy_oral.set_bool(true)
 	var anatomy8: ANATOMY_API = ANATOMY_API.new()
-	PONIES.anatomy = anatomy8
-	PONIES.act_gate = FakeGate.new()
+	var world8: HANDLES = f8["world"]
+	world8.anatomy = anatomy8
+	world8.act_gate = FakeGate.new()
 	pony8.global_position = Vector3(2.0, 0.0, 3.0)
 	var oral_from: Vector3 = pony8.global_position
 	runtime8.act.start._build_pose()

@@ -19,6 +19,7 @@ const CONTROLLER := preload("res://mods/unfplap/anatomy/controller.gd")
 const ANATOMY_API := preload("res://mods/unfplap/anatomy/api.gd")
 const SUMMARY := preload("res://mods/unfplap/summary/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
+const HANDLES := preload("res://mods/unfplap/world/handles.gd")
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
 const BODY_CHANGE_SERVICE := preload("res://mods/unfplap/body_change/service.gd")
 const BODY_CHANGE_ACT := preload("res://mods/unfplap/body_change/act.gd")
@@ -408,7 +409,9 @@ func _fixture() -> Dictionary:
 	root.add_child(old_pony)
 	var memory := FakeMemory.new()
 	host.memory = memory
-	var runtime: Node = RUNTIME.new(null, memory)
+	var world := HANDLES.new()
+	world.memory = memory
+	var runtime: Node = RUNTIME.new(null, world)
 	runtime.name = "UnfplapRuntime"
 	runtime.pony = old_pony
 	old_pony.add_child(runtime)
@@ -437,6 +440,7 @@ func _fixture() -> Dictionary:
 	host.add_child(body_change)
 	host.body_change = body_change
 	PONIES.body_change = body_change
+	world.body_change = body_change
 	var source := FakeSource.new()
 	source.name = "FakeSource"
 	root.add_child(source)
@@ -451,7 +455,7 @@ func _fixture() -> Dictionary:
 	# none, so the chain is the runtime and LOD links an idle or live act runs on.
 	body_change.call("wire", null, null, null)
 	return {"host": host, "runtime": runtime, "old": old_pony, "source": source,
-		"body_change": body_change, "policy": policy}
+		"body_change": body_change, "policy": policy, "world": world}
 
 
 func _free_fixture(made: Dictionary) -> void:
@@ -544,6 +548,8 @@ func _check_handover() -> void:
 	var anatomy: ANATOMY_API = ANATOMY_API.new()
 	PONIES.anatomy = anatomy
 	host.anatomy = anatomy
+	var world: HANDLES = f["world"]
+	world.anatomy = anatomy
 
 	source.changing = true
 	runtime.act.swap.suspend(source.active_change())
@@ -862,6 +868,8 @@ func _check_invalid_shape() -> void:
 	eligibility.allow = false
 	host.eligibility = eligibility
 	PONIES.eligibility = eligibility
+	var world: HANDLES = f["world"]
+	world.eligibility = eligibility
 	source.changing = true
 	runtime.act.swap.suspend(source.active_change())
 	var new_pony := _pony("Young Shape", "YoungBody")

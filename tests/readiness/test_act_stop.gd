@@ -9,6 +9,7 @@ const WORLD := preload("res://mods/unfplap/world/api.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
+const HANDLES := preload("res://mods/unfplap/world/handles.gd")
 
 
 
@@ -156,7 +157,10 @@ func fixture(kind: String) -> Dictionary:
 	root.add_child(mods)
 	var hud := FakeHUD.new()
 	var memory := MEMORY.new()
-	var runtime: Node = RUNTIME.new(hud, memory)
+	var world := HANDLES.new()
+	world.hud = hud
+	world.memory = memory
+	var runtime: Node = RUNTIME.new(null, world)
 	var pony := FakePony.new()
 	pony.posture = Node.new()
 	pony.add_child(pony.posture)

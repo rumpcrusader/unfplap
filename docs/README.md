@@ -127,6 +127,7 @@ boundary. A facade is internal API; the only stable external surface is `docs/ap
 | Bond record | `shared/bond_record.gd` | `docs/world.md` | `tests/world/`, `tests/test_debug_pony.gd` |
 | VR touch bridge | `shared/touch_bridge.gd` | `docs/world.md` | `tests/test_vr_act.gd` |
 | Dock fit | `shared/dock_fit.gd` | `docs/world.md` | `tests/anatomy/`, `tests/world/` |
+| World handles | `world/handles.gd` | `docs/world.md` | `tests/act/` |
 
 Shared modules are not services. Pure modules have no scene, lifecycle or service dependency. A
 shared store may read `settings`; a read model is refreshed by its owner. `shared/service.gd` is

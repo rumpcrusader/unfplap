@@ -8,11 +8,11 @@ quality shape, the held post-act mood face node and the warm prompt note. It doe
 runtime state, the blush, the kiss, the HUD or the summary grade.
 
 `act/view.gd` gathers the act values for `act_beat_for()` (state, first-time flag, tolerance,
-climax mode, summary, blush flag) and `act_rows()`, and the climax shape from the readiness meter
-(`quality_for()`). `act/session.gd` calls `face_beat()` at the start, close, warning, climax,
-afterglow and stop moments; the runtime calls `eyes_for()` late in the tick, and the start and exit
-ledgers call `set_face()`/`clear_face()`/`end_face()` at the transitions. The aftercare's
-`start_post_act()` and the upset face are the ledgers' calls.
+climax mode, summary, blush flag) and `act_rows()`; the facade derives the climax shape from the
+readiness meter (`quality_for()`). `act/session.gd` calls `face_beat()` at the
+start, close, warning, climax, afterglow and stop moments; the runtime calls `eyes_for()` late in
+the tick, and the start and exit ledgers call `set_face()`/`clear_face()`/`end_face()` at the
+transitions. The aftercare's `start_post_act()` and the upset face are the ledgers' calls.
 
 `face/service.gd` is the facade and the only module another system calls. `shared/face_beat.gd` holds the
 typed beat context and its plan, summary and climax-quality records; `shared/act_face.gd` stays

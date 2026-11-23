@@ -36,10 +36,10 @@ class FakeImpressions extends "res://mods/unfplap/tests/support/fakes/fake_impre
 	pass
 
 
-class FakePeakSink extends Node:
+class FakePeakSink extends MEMORY:
 	var peaks: Array = []
 
-	func record_peak(peak: Variant) -> void:
+	func record_peak(peak: MEMORY.Peak) -> void:
 		peaks.append(peak)
 
 
@@ -178,7 +178,8 @@ func _check_peak_commit() -> void:
 	WORLD.bind_world(main.game)
 	main.memory = sink
 	root.add_child(main)
-	var summary := SUMMARY.new(sink)
+	var summary := SUMMARY.new()
+	summary.wire(sink, null, null)
 	check(not summary.peak_recorded, "the peak flag starts clear")
 	summary.summary = {"positive": true, "grade": "good"}
 	var context := SUMMARY.Context.new()

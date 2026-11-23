@@ -214,7 +214,7 @@ func run() -> void:
 	check(expressions.released == "unfplap_state", "clearing the face releases the touch")
 
 	# The climax quality shape is the facade's; the runtime only gathers its counters.
-	var quality: FACE.BEAT.ClimaxQuality = runtime.act.context.face.quality_for(runtime.act.context.readiness)
+	var quality: FACE.BEAT.ClimaxQuality = runtime.act.context.face.quality_for()
 	check(is_equal_approx(quality.intensity_total, 6.0), "climax quality keeps the gathered intensity")
 	check(is_equal_approx(quality.pattern_right, 6.0), "climax quality keeps the pattern matches")
 	check(int(quality.dislikes_total) == 0 and not quality.overwhelmed,

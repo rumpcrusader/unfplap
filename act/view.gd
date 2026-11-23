@@ -215,13 +215,13 @@ func _face_values(session: ACT_SESSION) -> FACE.ActValues:
 
 func face_beat(moment: String, session: ACT_SESSION) -> void:
 	context.face.ensure_bound(host.pony, host.node)
-	context.face.act_beat_for(moment, _face_values(session), context.readiness,
+	context.face.act_beat_for(moment, _face_values(session),
 		session.settings.debug_face())
 
 
 func face_rows(session: ACT_SESSION) -> Array[String]:
 	context.face.ensure_bound(host.pony, host.node)
-	return context.face.act_rows(_face_values(session), context.readiness)
+	return context.face.act_rows(_face_values(session))
 
 
 func pose_render(_session: ACT_SESSION) -> void:

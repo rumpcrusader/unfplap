@@ -604,14 +604,13 @@ func act_input() -> SUMMARY.ActInput:
 	return view.summary_input(self)
 
 func commit_summary(real_act: bool) -> void:
-	context.summary.commit_act(act_input(), context.readiness, real_act)
+	context.summary.commit_act(act_input(), real_act)
 
 func record_peak_memory() -> void:
-	context.summary.record_act_peak(act_input(), context.readiness, context.dialogue)
+	context.summary.record_act_peak(act_input())
 
 func commit_afterglow() -> void:
-	context.summary.commit_after_act(act_input(), context.readiness, context.dialogue,
-		display_name, serial, host.pony)
+	context.summary.commit_after_act(act_input(), display_name, serial, host.pony)
 
 func begin_afterglow() -> void:
 	LOG.debug("afterglow pose=%s pony=%s", [pose_id, host.pony_name()])

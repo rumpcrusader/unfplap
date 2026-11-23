@@ -14,13 +14,18 @@ const WORLD := preload("res://mods/unfplap/world/api.gd")
 ## The act states the lids answer. The runtime owns the enum; these are its values.
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
+const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 
-## The world memory the cue mood reads; the runtime's builder passes it once.
-var memory: Node = null
+## The world memory the cue mood reads; the runtime wires it once.
+var memory: MEMORY = null
+## The readiness meter the beat table's quality and rows read; the runtime wires it once.
+var readiness: READINESS = null
 
 
-func _init(memory_in: Node = null) -> void:
+## Hand the facade its peers; the runtime's composition is the only caller.
+func wire(memory_in: MEMORY, readiness_in: READINESS) -> void:
 	memory = memory_in
+	readiness = readiness_in
 
 ## The act values one face moment reads. The session fills one instance per pony; this facade
 ## owns the beat table and the shape it is given.
@@ -160,20 +165,20 @@ func act_beat(moment: String, context: BEAT, debug: bool) -> void:
 
 ## One act moment from the session's typed act values. The facade gathers the climax shape from
 ## the meter and owns the beat table; the session keeps only its own values.
-func act_beat_for(moment: String, values: ActValues, readiness: READINESS, debug: bool) -> void:
+func act_beat_for(moment: String, values: ActValues, debug: bool) -> void:
 	var context := BEAT.new()
 	context.first_time = values.first_time
 	context.tolerance = values.tolerance
 	if moment == "climax":
 		context.mode = values.climax_mode
-		context.quality = quality_for(readiness)
+		context.quality = quality_for()
 	elif moment == "afterglow":
 		context.summary = values.summary
 	act_beat(moment, context, debug)
 
 
 ## The live climax shape's inputs, gathered from the readiness meter.
-func quality_for(readiness: READINESS) -> BEAT.ClimaxQuality:
+func quality_for() -> BEAT.ClimaxQuality:
 	var values := BEAT.ClimaxQuality.new()
 	var touch_dislikes := 0
 	for count: Variant in readiness.act_touch_dislikes.values():
@@ -195,7 +200,7 @@ func quality_for(readiness: READINESS) -> BEAT.ClimaxQuality:
 
 ## The act-face rows for Show data's ACT section. The game's cue mood is read here; the state,
 ## the HUD mood and the flags come from the session and the meter.
-func act_rows(values: ActValues, readiness: READINESS) -> Array[String]:
+func act_rows(values: ActValues) -> Array[String]:
 	var base_mood := ""
 	if is_instance_valid(WORLD.world_root()) and not values.pony_id.is_empty():
 		base_mood = memory.cue_facts(values.pony_id, values.event_id).mood

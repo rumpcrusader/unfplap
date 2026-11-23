@@ -53,8 +53,8 @@ The purity boundary is deliberate:
 - The facade is the only file that preloads `memory/*`; no file outside `memory/service.gd` and
   `memory/` preloads `memory/*`.
 - The entry creates the service and passes the instance to the per-pony consumers: `dialogue`,
-  `summary`, `face`, `afterglow` and the handover receive it in their constructor through the
-  runtime's builder. There is no static handle. The facade reads `WORLD.world_root()` and the
+  `summary`, `face` and `afterglow` are handed it in `wire()` by the runtime's composition, the
+  handover at construction. There is no static handle. The facade reads `WORLD.world_root()` and the
   eligibility peer the entry wires in `wire()` per call and stores nothing. It is a world-list
   service, so it extends `shared/service.gd` and lives until the entry's shutdown.
 

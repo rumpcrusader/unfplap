@@ -14,6 +14,7 @@ const BEAT := preload("res://mods/unfplap/shared/face_beat.gd")
 const REACTIONS := preload("res://mods/unfplap/reactions/service.gd")
 const READINESS := preload("res://mods/unfplap/readiness/service.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
+const HUD := preload("res://mods/unfplap/hud/service.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
@@ -74,9 +75,9 @@ var reactions: REACTIONS = null
 var readiness: READINESS = null
 ## The pose session the row is applied to; the runtime wires it once with the peers.
 var pose: POSE_SESSION = null
-## The world HUD and memory the phase reports to; the runtime's builder passes them once.
-var hud: Node = null
-var memory: Node = null
+## The world HUD and memory the phase reports to; the runtime wires them once.
+var hud: HUD = null
+var memory: MEMORY = null
 ## The act the reward records. The session sets both at the phase start.
 var pony_id := ""
 var event_id := ""
@@ -87,19 +88,16 @@ var aftercare: AFTERCARE = null
 var _decay: Tween = null
 
 
-func _init(hud_in: Node = null, memory_in: Node = null) -> void:
-	hud = hud_in
-	memory = memory_in
-
-
-## The phase's act collaborators and the pose session, handed over once by the runtime's
-## composition; an unwired facade (a pure suite) skips the presentation.
+## The phase's act collaborators, the pose session, the world HUD and memory, handed over once by
+## the runtime's composition; an unwired facade (a pure suite) skips the presentation.
 func wire(face_in: FACE, reactions_in: REACTIONS, readiness_in: READINESS,
-		pose_in: POSE_SESSION) -> void:
+		pose_in: POSE_SESSION, hud_in: HUD, memory_in: MEMORY) -> void:
 	face = face_in
 	reactions = reactions_in
 	readiness = readiness_in
 	pose = pose_in
+	hud = hud_in
+	memory = memory_in
 	assert(face != null and reactions != null and readiness != null and pose != null)
 
 

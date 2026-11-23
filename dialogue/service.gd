@@ -97,8 +97,8 @@ const STATE_ACTIVE := ACT_STATE.State.ACTIVE
 const STATE_CLIMAX := ACT_STATE.State.CLIMAX
 
 var facts: ACT_FACTS = null
-## The world memory the line channel writes; the runtime's builder passes it once.
-var memory: Node = null
+## The world memory the line channel writes; the runtime wires it once.
+var memory: MEMORY = null
 
 var _scheduler: UTTERANCE_SCHEDULER = null
 var _serial := 0
@@ -117,8 +117,12 @@ var _last_cue_log_reason := ""
 var _climax_key := ""
 
 
-func _init(facts_context: ACT_FACTS = null, memory_in: Node = null) -> void:
+func _init(facts_context: ACT_FACTS = null) -> void:
 	facts = facts_context
+
+
+## Hand the line channel to the facade; the runtime's composition is the only caller.
+func wire(memory_in: MEMORY) -> void:
 	memory = memory_in
 
 

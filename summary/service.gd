@@ -14,12 +14,18 @@ const READINESS := preload("res://mods/unfplap/readiness/service.gd")
 const DIALOGUE := preload("res://mods/unfplap/dialogue/service.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
-## The world memory the summary commits to; the runtime's builder passes it once.
-var memory: Node = null
+## The world memory the summary commits to; the runtime wires it once.
+var memory: MEMORY = null
+## The readiness meter and the dialogue the peak reads; the runtime wires them once.
+var readiness: READINESS = null
+var dialogue: DIALOGUE = null
 
 
-func _init(memory_in: Node = null) -> void:
+## Hand the facade its peers; the runtime's composition is the only caller.
+func wire(memory_in: MEMORY, readiness_in: READINESS, dialogue_in: DIALOGUE) -> void:
 	memory = memory_in
+	readiness = readiness_in
+	dialogue = dialogue_in
 
 ## The scorer's input for one act. The readiness meter owns the counters; `from_dict` is the edge
 ## that reads the flat snapshot and `to_dict` is the pure scorer's own shape.
@@ -208,12 +214,12 @@ func summary_context(context: Inputs) -> Context:
 
 
 ## Score one act from its typed input. The readiness meter owns the counters.
-func commit_act(values: ActInput, readiness: READINESS, real_act: bool) -> void:
+func commit_act(values: ActInput, real_act: bool) -> void:
 	commit_summary(real_act, summary_context(values.as_inputs(readiness)))
 
 
 ## Store the strongest clean act per mare from the typed input and the last spoken line.
-func record_act_peak(values: ActInput, readiness: READINESS, dialogue: DIALOGUE) -> void:
+func record_act_peak(values: ActInput) -> void:
 	var context := summary_context(values.as_inputs(readiness))
 	context.satisfaction = readiness.peak_satisfaction
 	context.both_matches = readiness.act_both_matches
@@ -227,10 +233,9 @@ func record_act_peak(values: ActInput, readiness: READINESS, dialogue: DIALOGUE)
 
 
 ## The after-act record in one place: the summary, the peak and the witness pass.
-func commit_after_act(values: ActInput, readiness: READINESS, dialogue: DIALOGUE,
-		pony_name: String, serial: int, pony: Node) -> void:
-	commit_act(values, readiness, true)
-	record_act_peak(values, readiness, dialogue)
+func commit_after_act(values: ActInput, pony_name: String, serial: int, pony: Node) -> void:
+	commit_act(values, true)
+	record_act_peak(values)
 	if not is_instance_valid(WORLD.world_root()):
 		return
 	for row: MEMORY.Witness in memory.witnesses(values.pony_id, pony_name, serial, pony):

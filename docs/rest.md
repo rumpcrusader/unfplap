@@ -5,7 +5,7 @@ floor beside the bed and the restore posture.
 
 ## Ownership
 
-`rest/service.gd` (RefCounted) owns:
+`rest/service.gd` (Node) owns:
 
 - `place_on_bed` / `place_on_start`: place her on the mattress, wait up to three physics frames
   for support, then request `stand`;

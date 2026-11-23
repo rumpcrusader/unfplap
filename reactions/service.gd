@@ -1,4 +1,4 @@
-extends RefCounted
+extends Node
 ## Service: reactions
 ## Scope: pony
 ## Contract: docs/reactions.md

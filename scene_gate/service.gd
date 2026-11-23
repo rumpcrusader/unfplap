@@ -1,4 +1,4 @@
-extends RefCounted
+extends Node
 ## Service: scene_gate
 ## Scope: pony
 ## Contract: docs/scene_gate.md

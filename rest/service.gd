@@ -1,4 +1,4 @@
-extends RefCounted
+extends Node
 ## Service: rest
 ## Scope: pony
 ## Contract: docs/rest.md

@@ -92,7 +92,7 @@ func scene_ready(pony: Node, option: POSE_OPTIONS.Option, profile_ok: bool, sour
 		SCENE_GATE.FrozenPose.new(profile_ok, source_ok)))
 
 
-func hold_for(runtime: Node) -> RefCounted:
+func hold_for(runtime: Node) -> Node:
 	var presentation := PONIES.presentation_of(runtime) if is_instance_valid(runtime) else null
 	return presentation.hold_handle() if presentation != null else null
 

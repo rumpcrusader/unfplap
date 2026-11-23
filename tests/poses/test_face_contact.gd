@@ -1,6 +1,6 @@
 extends "res://mods/unfplap/tests/support/suite.gd"
 ## The bed face-sit contact driver: the begin capture, the mouth follow, the depth press, the
-## moving-bed carry, the missing-provider hold and the one restore. Pure RefCounted and fakes only.
+## moving-bed carry, the missing-provider hold and the one restore. A node-less facade and fakes only.
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/poses/test_face_contact.gd
 

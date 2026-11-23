@@ -459,6 +459,12 @@ func _free_fixture(made: Dictionary) -> void:
 	var runtime: Variant = made["runtime"]
 	var old: Variant = made["old"]
 	var source: Variant = made["source"]
+	# A runtime's `_ready` defers its first identity and anatomy refresh; stop its frames and let
+	# those run before the services are freed, the way they would on a body that lives a frame.
+	if is_instance_valid(runtime):
+		runtime.set_process(false)
+		runtime.set_physics_process(false)
+	await process_frame
 	PONIES.shutdown()
 	if is_instance_valid(runtime) and not runtime.is_queued_for_deletion():
 		runtime.free()
@@ -471,34 +477,34 @@ func _free_fixture(made: Dictionary) -> void:
 
 
 func run() -> void:
-	_check_observation()
-	_check_handover()
-	_check_auto_survives_swap()
-	_check_vocal_cache()
-	_check_form_display_name()
-	_check_policy_events()
-	_check_ai_change()
-	_check_failed_change()
-	_check_source_gone()
-	_check_watchdog()
-	_check_invalid_shape()
-	_check_world_close()
-	_check_form_reveal()
-	_check_shape_offer()
-	_check_named_shape_gate()
-	_check_watchdog_with_body()
-	_check_offer_gate()
-	_check_no_player_hint()
-	_check_hint_states()
-	_check_failed_named_offer()
-	_check_named_without_shape()
-	_check_ai_change_keeps_offer()
-	_check_late_adoption()
-	_check_restore_change()
-	_check_held_guard()
-	_check_idle_body_binding()
-	_check_same_node_refresh()
-	_check_origins()
+	await _check_observation()
+	await _check_handover()
+	await _check_auto_survives_swap()
+	await _check_vocal_cache()
+	await _check_form_display_name()
+	await _check_policy_events()
+	await _check_ai_change()
+	await _check_failed_change()
+	await _check_source_gone()
+	await _check_watchdog()
+	await _check_invalid_shape()
+	await _check_world_close()
+	await _check_form_reveal()
+	await _check_shape_offer()
+	await _check_named_shape_gate()
+	await _check_watchdog_with_body()
+	await _check_offer_gate()
+	await _check_no_player_hint()
+	await _check_hint_states()
+	await _check_failed_named_offer()
+	await _check_named_without_shape()
+	await _check_ai_change_keeps_offer()
+	await _check_late_adoption()
+	await _check_restore_change()
+	await _check_held_guard()
+	await _check_idle_body_binding()
+	await _check_same_node_refresh()
+	await _check_origins()
 	finish()
 
 
@@ -525,7 +531,7 @@ func _check_observation() -> void:
 	check(PONIES.body_swap_pending(), "a suspended tick does not start a second handover")
 	check(source.poll_calls == 0, "the suspended wait never polls the provider either")
 	runtime.act.force_stop()
-	_free_fixture(f)
+	await _free_fixture(f)
 
 
 ## One complete suspend → adopt → resume, then the one exit.
@@ -580,7 +586,7 @@ func _check_handover() -> void:
 	check(not new_pony.has_meta("sex_active"), "the one exit clears the new body's flag")
 	check(runtime._bundle.hold.nav == null and runtime._bundle.hold.token.is_empty(),
 		"the one exit gives up the act's navigator lease")
-	_free_fixture(f)
+	await _free_fixture(f)
 	anatomy.free()
 
 
@@ -615,7 +621,7 @@ func _check_auto_survives_swap() -> void:
 		"auto keeps its peak depth across the swap")
 	check(runtime._bundle.readiness.auto_shape() == "saw", "auto keeps its shape across the swap")
 	check(not runtime._bundle.handover.auto_on, "the pending auto restore is cleared")
-	_free_fixture(f)
+	await _free_fixture(f)
 
 
 ## The base game's vocal cache must not keep a freed player from the old body. The audio handle
@@ -647,7 +653,7 @@ func _check_vocal_cache() -> void:
 	service.shutdown()
 	root.remove_child(service)
 	service.free()
-	_free_fixture(f)
+	await _free_fixture(f)
 
 
 ## The presented form's name drives the act caption, not the identity's display name. The stable
@@ -694,7 +700,7 @@ func _check_form_display_name() -> void:
 		"the fallback reaches the act facts")
 	check(str(runtime.act.prompt_note()).contains("your own body"),
 		"the dialogue note follows the return to the own body")
-	_free_fixture(f)
+	await _free_fixture(f)
 
 
 ## Every generic act milestone reaches the provider policy through the runtime's one dispatch
@@ -749,7 +755,7 @@ func _check_policy_events() -> void:
 	check(int(policy.last_event.get("origin", -1)) == int(BODY_CHANGE.Origin.PLAYER),
 		"the settled form event carries the player's origin")
 	runtime.act.force_stop()
-	_free_fixture(f)
+	await _free_fixture(f)
 
 
 ## A change the source started on its own (her AI, not a `request_*` call): the live watcher
@@ -791,7 +797,7 @@ func _check_ai_change() -> void:
 	check(runtime.act.suspended(), "a second change after resume suspends again")
 	runtime.act.force_stop()
 	check(not PONIES.body_swap_pending(), "the one exit clears the repeated swap")
-	_free_fixture(f)
+	await _free_fixture(f)
 
 
 ## A change that stops with the old body alive resumes the same act on it.
@@ -809,7 +815,7 @@ func _check_failed_change() -> void:
 	check(int(runtime.act.state) == ACT_STATE.State.ACTIVE, "the state survives the failed change")
 	check(absf(float(runtime._bundle.readiness.depth) - 0.42) < 0.0001, "depth survives the failed change")
 	runtime.act.force_stop()
-	_free_fixture(f)
+	await _free_fixture(f)
 
 
 ## A source that goes inactive mid-change (the pack switched off) resumes the old body.
@@ -826,7 +832,7 @@ func _check_source_gone() -> void:
 	check(runtime.pony == old_pony, "the old body keeps the act when the source is gone")
 	check(int(runtime.act.state) == ACT_STATE.State.ACTIVE, "the state survives a gone source")
 	runtime.act.force_stop()
-	_free_fixture(f)
+	await _free_fixture(f)
 
 
 ## No new body and no old body: the watchdog ends through the one exit.
@@ -843,7 +849,7 @@ func _check_watchdog() -> void:
 	check(int(runtime.act.state) == ACT_STATE.State.IDLE, "the watchdog ends the act")
 	check(not PONIES.act_running(), "the watchdog clears the active runtime")
 	check(not PONIES.body_swap_pending(), "the watchdog clears the pending swap")
-	_free_fixture(f)
+	await _free_fixture(f)
 
 
 ## A new body that is not an adult mare ends cleanly instead of resuming.
@@ -865,7 +871,7 @@ func _check_invalid_shape() -> void:
 	check(int(runtime.act.state) == ACT_STATE.State.IDLE, "an ineligible shape ends the act")
 	check(not PONIES.act_running(), "an ineligible shape clears the active runtime")
 	check(not new_pony.has_meta("sex_active"), "an ineligible shape keeps no act flag")
-	_free_fixture(f)
+	await _free_fixture(f)
 
 
 ## Closing the world while the act is suspended is the same one exit, not a second teardown.
@@ -879,7 +885,7 @@ func _check_world_close() -> void:
 	runtime.act.force_stop()
 	check(int(runtime.act.state) == ACT_STATE.State.IDLE, "a world close during a swap ends the act")
 	check(not PONIES.body_swap_pending(), "a world close clears the pending swap")
-	_free_fixture(f)
+	await _free_fixture(f)
 
 
 ## The player's own ask during a disguise: the handover resumes the same act and the one
@@ -954,7 +960,7 @@ func _check_form_reveal() -> void:
 	check(policy.reveal_calls == 1, "the used reveal asks no second time")
 	runtime.act.force_stop()
 	director.queue_free()
-	_free_fixture(f)
+	await _free_fixture(f)
 
 
 ## Her offer after a climax, and a named shape: the act resumes on the disguise with no
@@ -1019,7 +1025,7 @@ func _check_shape_offer() -> void:
 	check(memory.peaks.is_empty(), "a named shape records no reveal peak")
 	runtime.act.force_stop()
 	director.queue_free()
-	_free_fixture(f)
+	await _free_fixture(f)
 
 
 ## A named shape waits for the new body's variant before resuming. The player's offer is spent
@@ -1064,7 +1070,7 @@ func _check_named_shape_gate() -> void:
 	check(not runtime._bundle.handover.offer_pending, "the player's named shape spends the offer")
 	runtime.act.force_stop()
 	director.queue_free()
-	_free_fixture(f)
+	await _free_fixture(f)
 
 
 ## The new body exists but never reports the shape before the watchdog: the act resumes on the
@@ -1098,7 +1104,7 @@ func _check_watchdog_with_body() -> void:
 	check(runtime._bundle.handover.offer_pending, "the failed watchdog shape restores the offer")
 	runtime.act.force_stop()
 	director.queue_free()
-	_free_fixture(f)
+	await _free_fixture(f)
 
 
 ## The offer gate and the act-HUD hint states.
@@ -1142,7 +1148,7 @@ func _check_offer_gate() -> void:
 	check(not runtime._bundle.handover.offer_pending, "the act end drops the pending offer")
 	check(str(runtime._bundle.handover.form_hint_log).is_empty(), "the act end hides the debug log")
 	check(str(runtime._bundle.handover.form_hint()).is_empty(), "the act end hides the HUD hint")
-	_free_fixture(f)
+	await _free_fixture(f)
 
 
 ## A release never publishes the form hint: the player finds the reveal and the gift by probing
@@ -1168,7 +1174,7 @@ func _check_no_player_hint() -> void:
 		"debug mode can name the ask in the log")
 	check(str(runtime._bundle.handover.form_hint()).is_empty(), "debug mode still publishes no HUD hint")
 	runtime.act.force_stop()
-	_free_fixture(f)
+	await _free_fixture(f)
 
 
 ## The cached hint is cleared by the state change, not only by the next ACTIVE tick.
@@ -1196,7 +1202,7 @@ func _check_hint_states() -> void:
 		"the active state restores the debug log")
 	check(str(runtime._bundle.handover.form_hint()).is_empty(), "the HUD hint stays empty through every state")
 	runtime.act.force_stop()
-	_free_fixture(f)
+	await _free_fixture(f)
 
 
 ## A named shape whose handover fails puts the offer back instead of spending it.
@@ -1233,7 +1239,7 @@ func _check_failed_named_offer() -> void:
 	check(str(runtime._bundle.handover.form_hint()).is_empty(), "the offer stays off the HUD")
 	runtime.act.force_stop()
 	director.queue_free()
-	_free_fixture(f)
+	await _free_fixture(f)
 
 
 ## A player-named change whose new body never reports the shape is a failed change: the act
@@ -1278,7 +1284,7 @@ func _check_named_without_shape() -> void:
 	check(str(runtime._bundle.handover.form_hint()).is_empty(), "the offer stays off the HUD")
 	runtime.act.force_stop()
 	director.queue_free()
-	_free_fixture(f)
+	await _free_fixture(f)
 
 
 ## Her own AI changes shape while the player's post-climax offer waits: the neutral handover
@@ -1322,7 +1328,7 @@ func _check_ai_change_keeps_offer() -> void:
 	check(not runtime._bundle.handover.offer_pending, "the player's named shape spends the offer")
 	runtime.act.force_stop()
 	director.queue_free()
-	_free_fixture(f)
+	await _free_fixture(f)
 
 
 ## The source clears its changing state before the new body's spawn reaches the entry. The
@@ -1351,7 +1357,7 @@ func _check_late_adoption() -> void:
 	check(PONIES.runtime_for(late_pony) == runtime, "the late body maps to the same runtime")
 	check(PONIES.live_ponies().size() == 1, "the late adoption creates no second runtime")
 	runtime.act.force_stop()
-	_free_fixture(f)
+	await _free_fixture(f)
 
 
 ## Her own change can start while the act is already restoring. The restore finishes through the
@@ -1381,7 +1387,7 @@ func _check_restore_change() -> void:
 	check(runtime._bundle.handover.change == null, "the one exit drops the typed swap change")
 	check(not PONIES.act_running(), "the one exit clears the active runtime")
 	other.queue_free()
-	_free_fixture(f)
+	await _free_fixture(f)
 
 
 ## A body another system is holding refuses the player's request instead of leaving a held body.
@@ -1395,7 +1401,7 @@ func _check_held_guard() -> void:
 	check(str(result.get("reason", "")) == "she is held", "the refusal names the hold")
 	old_pony.held = false
 	runtime.act.force_stop()
-	_free_fixture(f)
+	await _free_fixture(f)
 
 
 ## A form change on an idle body binds the runtime's systems without an act resume or an exit.
@@ -1432,7 +1438,7 @@ func _check_idle_body_binding() -> void:
 		"the idle act facts carry the presented form's name")
 	check(not runtime.act.suspended() and not PONIES.body_swap_pending(),
 		"a same-node revision never starts a swap")
-	_free_fixture(f)
+	await _free_fixture(f)
 
 
 ## A live act's same-node revision refreshes the eye, pose and camera without a resume.
@@ -1478,7 +1484,7 @@ func _check_same_node_refresh() -> void:
 	check(absf(float(runtime._bundle.facts.player_eye_height) - first_target) < 0.0001,
 		"a second revision does not compound the standing eye")
 	runtime.act.force_stop()
-	_free_fixture(f)
+	await _free_fixture(f)
 
 
 ## The runtime forwards the request origin unchanged: provider and player are distinct.
@@ -1499,4 +1505,4 @@ func _check_origins() -> void:
 		"a player-origin request keeps its origin")
 	source.changing = false
 	runtime.act.force_stop()
-	_free_fixture(f)
+	await _free_fixture(f)

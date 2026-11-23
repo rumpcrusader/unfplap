@@ -59,7 +59,7 @@ func run() -> void:
 	pony.hair_skeleton = hair
 	var bed := Node3D.new()
 	root.add_child(bed)
-	var session: RefCounted = SESSION.new()
+	var session: SESSION = SESSION.new()
 	session.bind(null, pony)
 	check(session.begin(_values({
 		"pose_id": CATALOG.MISSIONARY,
@@ -171,7 +171,7 @@ func _fill(view: RefCounted, from_id: String, to_id: String, id: String, family:
 
 
 ## A valid synthetic spec row in the session's registry cache.
-func _synthetic_spec(session: RefCounted, spec_id: String, profile: String) -> void:
+func _synthetic_spec(session: SESSION, spec_id: String, profile: String) -> void:
 	var row: Dictionary = SPECS.SPECS[CATALOG.MISSIONARY].duplicate(true)
 	row["id"] = spec_id
 	row["display_name"] = "Synthetic"

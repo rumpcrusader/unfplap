@@ -19,7 +19,7 @@ func run() -> void:
 	view.from_config = live
 	view.pose_config = live
 	facts.pose_view = view
-	var kiss: RefCounted = KISS.new(facts)
+	var kiss: KISS = KISS.new(facts)
 	kiss._kiss_amount = 0.32
 	kiss._base_kiss_active = true
 	kiss.pose_changed(view)

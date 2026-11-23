@@ -44,7 +44,7 @@ func _view(pose: String) -> RefCounted:
 
 func _facade(pose: String) -> Dictionary:
 	var host := Host.new()
-	var phase: RefCounted = AFTERGLOW.new()
+	var phase: AFTERGLOW = AFTERGLOW.new()
 	phase.caress_active = Callable(host, "is_caressing")
 	phase.bind_view(_view(pose))
 	var summary := AFTERGLOW.SUMMARY.new()
@@ -87,7 +87,7 @@ func run() -> void:
 
 	# The oral afterglow holds the turned pose but opens no standing close window.
 	var oral := _facade("standing_oral")
-	var oral_phase: RefCounted = oral["phase"]
+	var oral_phase: AFTERGLOW = oral["phase"]
 	check(not oral_phase.close_window, "the oral afterglow opens no close window")
 	check(is_zero_approx(oral_phase.close_left), "the oral close window never starts")
 	check(oral_phase.hint().is_empty(), "the oral afterglow shows no stay-close cue")
@@ -96,7 +96,7 @@ func run() -> void:
 		"the oral afterglow keeps the standing tail row")
 
 	var standing := _facade("standing")
-	var standing_phase: RefCounted = standing["phase"]
+	var standing_phase: AFTERGLOW = standing["phase"]
 	check(near(standing_phase.close_left, AFTERGLOW.STAY_CLOSE_SECONDS),
 		"standing close window starts")
 	var hint: String = standing_phase.hint()

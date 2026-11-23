@@ -1,4 +1,4 @@
-extends RefCounted
+extends Node
 ## Service: summary
 ## Scope: pony
 ## Contract: docs/summary.md

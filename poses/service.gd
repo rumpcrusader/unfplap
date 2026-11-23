@@ -1,4 +1,4 @@
-extends RefCounted
+extends Node
 ## Service: poses
 ## Scope: pony
 ## Contract: docs/poses.md
@@ -2102,5 +2102,5 @@ func _bed_frame_value() -> Variant:
 	return bed_frame
 
 
-func self_handle() -> RefCounted:
+func self_handle() -> Node:
 	return self

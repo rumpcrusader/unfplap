@@ -306,7 +306,7 @@ func run() -> void:
 	lean_facts.lean_view_side = 0.0
 	lean_facts.shot_lean_forward = 1.0
 	lean_facts.depth = 0.0
-	var lean_kiss: RefCounted = KISS.new(lean_facts)
+	var lean_kiss := KISS.new(lean_facts)
 	lean_facts.kiss = func() -> Variant: return lean_kiss
 	var lean_scale := 1.0
 	var lean_anon := STANDING_ANON.new(lean_facts)
@@ -340,9 +340,9 @@ func run() -> void:
 	sway_hip.free()
 	invalid_hip.free()
 	side_hip.free()
-	# The kiss callback closes a reference cycle; break it so the helpers are freed.
+	# The kiss callback closes a reference cycle; clear it, then free the service Node.
 	lean_facts.kiss = Callable()
-	lean_kiss = null
+	lean_kiss.free()
 
 	check(near(MODEL.CARESS_SPEED_RAD_S, 3.6), "caress speed")
 	var right_palm: Basis = HAND.palm_basis("right", Vector3.RIGHT, Vector3.FORWARD)
@@ -724,7 +724,7 @@ func run() -> void:
 	plant_facts.pose_view = _standing_view()
 	plant_facts.free_camera_active = true
 	plant_facts.features = {}
-	var plant_kiss: RefCounted = KISS.new(plant_facts)
+	var plant_kiss := KISS.new(plant_facts)
 	plant_facts.kiss = func() -> Variant: return plant_kiss
 	plant_facts.pony = Node3D.new()
 	root.add_child(plant_facts.pony)
@@ -742,7 +742,7 @@ func run() -> void:
 		and plant_right.global_position.is_equal_approx(Vector3(-0.2, 0.0, 0.0)),
 		"a lean pins the feet at their live stepping pose")
 	plant_facts.kiss = Callable()
-	plant_kiss = null
+	plant_kiss.free()
 	root.remove_child(plant_facts.pony)
 	plant_facts.pony.free()
 	plant_hip.free()

@@ -26,7 +26,7 @@ audio facade (`docs/audio.md`).
 | `reactions/context.gd` | the typed act tuning: pose family, size, climax length and the five `jiggle.*` values |
 | `runtime.gd` | binds the scene, snapshots the settings, calls the facade from the stroke/climax paths |
 
-The facade is a `RefCounted` scene adapter. It reads the base-game flank and boop members through
+The facade is a `Node` scene adapter. It reads the base-game flank and boop members through
 the world views and the `body_coat_deform` setting; the jiggle tuning is pushed in by
 `configure()` from the runtime's act snapshot. The block is complete, so the reaction context reads
 its five keys and the facade holds no fallback value. The anatomy API and the standing tail modifier are the facade's

@@ -33,7 +33,7 @@ class FakePony extends Node3D:
 		name = "Rarity"
 
 
-class FakeHold extends RefCounted:
+class FakeHold extends Node:
 	pass
 
 
@@ -69,7 +69,7 @@ class FakeRuntime extends Node:
 		agreement_calls.append([pose, source, bed, frozen])
 		return agreement_ok
 
-	func hold_handle() -> RefCounted:
+	func hold_handle() -> Node:
 		return FakeHold.new()
 
 	func clear_presentation() -> void:
@@ -400,7 +400,9 @@ func _check_host_callbacks() -> void:
 	check((bridge.placement_for(runtime) as POSE_OPTIONS.Placement) != null,
 		"the placement comes from the Proactive service")
 	check(bridge.privacy_private(made["pony"], false), "the privacy provider answers offers")
-	check(bridge.hold_for(runtime) is FakeHold, "the per-pony hold is the runtime's ledger")
+	var hold: Node = bridge.hold_for(runtime)
+	check(hold is FakeHold, "the per-pony hold is the runtime's ledger")
+	hold.free()
 	check(bridge.pose_placed(runtime, _option(CATALOG.STANDING)),
 		"the scene-only rows are the runtime's verdict")
 	runtime.scene_ok = false

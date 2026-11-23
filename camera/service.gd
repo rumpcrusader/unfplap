@@ -1,4 +1,4 @@
-extends RefCounted
+extends Node
 ## Service: camera
 ## Scope: pony
 ## Contract: docs/camera.md

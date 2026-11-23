@@ -98,7 +98,7 @@ func _fixture(pose_family := "standing", state := STATE_ACTIVE) -> Dictionary:
 	WORLD.bind_player(main.player)
 	main.game = game
 	WORLD.bind_world(main.game)
-	var hold: RefCounted = HOLD.new()
+	var hold: HOLD = HOLD.new()
 	var host := HOLD.Host.new()
 	host.pony = Callable(_value, "make").bind(pony)
 	host.state = Callable(_value, "make").bind(state)
@@ -135,7 +135,7 @@ func run() -> void:
 
 func _check_nav() -> void:
 	var made := _fixture()
-	var hold: RefCounted = made["hold"]
+	var hold: HOLD = made["hold"]
 	var nav: FakeNav = made["nav"]
 	nav.wander_enabled = false
 	check(hold.claim_nav("rarity"), "the claim takes an unreserved navigator")
@@ -165,7 +165,7 @@ func _check_nav() -> void:
 ## idempotent release. Also the transfer from a request lease and a second ledger adopting it.
 func _check_negotiation() -> void:
 	var made := _fixture("standing", STATE_IDLE)
-	var hold: RefCounted = made["hold"]
+	var hold: HOLD = made["hold"]
 	var pony: FakePony = made["pony"]
 	var nav: FakeNav = made["nav"]
 	var main: FakeMain = made["main"]
@@ -227,7 +227,7 @@ func _check_negotiation() -> void:
 	# A cuddle session owns the navigator. The negotiation takes the attention and affection
 	# hold only, leaves the session's owner and releases without touching it.
 	var cuddled := _fixture("standing", STATE_IDLE)
-	var cuddle_hold: RefCounted = cuddled["hold"]
+	var cuddle_hold: HOLD = cuddled["hold"]
 	var cuddle_nav: FakeNav = cuddled["nav"]
 	var cuddle_pony: FakePony = cuddled["pony"]
 	cuddle_nav.command_owner = "cuddle:1234"
@@ -250,7 +250,7 @@ func _check_negotiation() -> void:
 
 	# The proactive request hands its lease over; a second ledger can adopt the same owner.
 	var handed := _fixture("standing", STATE_IDLE)
-	var request_hold: RefCounted = handed["hold"]
+	var request_hold: HOLD = handed["hold"]
 	var request_nav: FakeNav = handed["nav"]
 	request_nav.command_owner = "unfplap:request:rarity"
 	request_nav.wander_enabled = false
@@ -276,7 +276,7 @@ func _check_negotiation() -> void:
 
 func _check_face_turn() -> void:
 	var made := _fixture()
-	var hold: RefCounted = made["hold"]
+	var hold: HOLD = made["hold"]
 	var pony: FakePony = made["pony"]
 	pony.face_turn_rate = 0.45
 	hold.pause_face_turn()
@@ -287,7 +287,7 @@ func _check_face_turn() -> void:
 	check(is_equal_approx(pony.face_turn_rate, 0.45), "the restore puts the rate back")
 	check(not hold.face_turn_rate_owned, "the restore clears ownership")
 	var idle := _fixture("bed")
-	var idle_hold: RefCounted = idle["hold"]
+	var idle_hold: HOLD = idle["hold"]
 	var idle_pony: FakePony = idle["pony"]
 	idle_hold.pause_face_turn()
 	check(is_equal_approx(idle_pony.face_turn_rate, 0.6), "a non-standing pose leaves the rate")
@@ -301,17 +301,17 @@ func _check_face_turn() -> void:
 
 func _check_attention() -> void:
 	var made := _fixture("standing", STATE_ACTIVE)
-	var hold: RefCounted = made["hold"]
+	var hold: HOLD = made["hold"]
 	var pony: FakePony = made["pony"]
 	hold.keep_attention()
 	check(pony.conversation_target == null, "an act clears the conversation target")
 	pony.conversation_target = "someone"
 	var idle := _fixture("standing", STATE_IDLE)
-	(idle["hold"] as RefCounted).keep_attention()
+	(idle["hold"] as HOLD).keep_attention()
 	check((idle["pony"] as FakePony).conversation_target == "someone",
 		"an idle pony keeps her conversation target")
 	var after := _fixture("standing", STATE_AFTERGLOW)
-	(after["hold"] as RefCounted).keep_attention()
+	(after["hold"] as HOLD).keep_attention()
 	check((after["pony"] as FakePony).conversation_target == "someone",
 		"afterglow keeps normal conversation attention")
 	_free(made)
@@ -321,7 +321,7 @@ func _check_attention() -> void:
 
 func _check_player() -> void:
 	var made := _fixture()
-	var hold: RefCounted = made["hold"]
+	var hold: HOLD = made["hold"]
 	var body: FakeBody = made["body"]
 	var kisser: FakeKisser = made["game"].kisser
 	body.seat = "chair"
@@ -345,7 +345,7 @@ func _check_player() -> void:
 
 func _check_carry() -> void:
 	var made := _fixture()
-	var hold: RefCounted = made["hold"]
+	var hold: HOLD = made["hold"]
 	var pony: FakePony = made["pony"]
 	var reach: Node = made["reach"]
 	var actions: FakeDesktopActions = reach.desktop_actions
@@ -362,7 +362,7 @@ func _check_carry() -> void:
 
 func _check_cuddle() -> void:
 	var made := _fixture()
-	var hold: RefCounted = made["hold"]
+	var hold: HOLD = made["hold"]
 	var pony: FakePony = made["pony"]
 	var session: FakeSession = made["session"]
 	session.enabled = false

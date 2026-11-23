@@ -83,7 +83,7 @@ func _fixture(pose: String, features: Dictionary, body_tail := false) -> Diction
 	var bed := Node3D.new()
 	bed.name = "Bed"
 	root.add_child(bed)
-	var session: RefCounted = SESSION.new()
+	var session: SESSION = SESSION.new()
 	session.bind(null, pony)
 	check(session.begin(_values({
 		"pose_id": pose,
@@ -101,7 +101,7 @@ func _fixture(pose: String, features: Dictionary, body_tail := false) -> Diction
 ## The staged teardown after the assertions: the leave steps are idempotent, so a fixture that
 ## already released its pose just runs the same three calls again.
 func _free_fixture(made: Dictionary) -> void:
-	var session: RefCounted = made["session"]
+	var session: SESSION = made["session"]
 	session.leave_pose_start()
 	session.leave_pose_body()
 	session.release_pose()
@@ -121,7 +121,7 @@ func _free_fixture(made: Dictionary) -> void:
 ## modifiers, the live config and the view survive. The pose-body step then drops the modifiers.
 func _check_missionary_scope() -> void:
 	var made := _fixture(CATALOG.MISSIONARY, {"missionary_body_motion": true})
-	var session: RefCounted = made["session"]
+	var session: SESSION = made["session"]
 	var view: RefCounted = session.view()
 	var config: Dictionary = session.pose_config
 	var pose_node: Node = session.pose_node
@@ -194,7 +194,7 @@ func _check_missionary_scope() -> void:
 ## release frees the pose node and the tail.
 func _check_standing_scope() -> void:
 	var made := _fixture(CATALOG.STANDING, {"standing_body_sway": true})
-	var session: RefCounted = made["session"]
+	var session: SESSION = made["session"]
 	var body: Skeleton3D = made["body"]
 	var view: RefCounted = session.view()
 	var config: Dictionary = session.pose_config
@@ -250,7 +250,7 @@ func _check_standing_scope() -> void:
 ## install on the body skeleton instead.
 func _check_body_tail_scope() -> void:
 	var made := _fixture(CATALOG.STANDING, {}, true)
-	var session: RefCounted = made["session"]
+	var session: SESSION = made["session"]
 	var body: Skeleton3D = made["body"]
 	var tail: Variant = session.tail
 	check(tail != null and tail.get_parent() == body,
@@ -258,7 +258,7 @@ func _check_body_tail_scope() -> void:
 	_free_fixture(made)
 
 	var bed_made := _fixture(CATALOG.MISSIONARY, {}, true)
-	var bed_session: RefCounted = bed_made["session"]
+	var bed_session: SESSION = bed_made["session"]
 	var bed_body: Skeleton3D = bed_made["body"]
 	var tail_lay: Variant = bed_session.tail_lay
 	check(tail_lay != null and tail_lay.get_parent() == bed_body,
@@ -270,7 +270,7 @@ func _check_body_tail_scope() -> void:
 ## every transition function stays clear of an act exit.
 func _check_transition_path() -> void:
 	var made := _fixture(CATALOG.STANDING, {"standing_body_sway": true})
-	var session: RefCounted = made["session"]
+	var session: SESSION = made["session"]
 	var view: RefCounted = session.view()
 	var config: Dictionary = session.pose_config
 	var pose_node: Node = session.pose_node
@@ -305,7 +305,7 @@ func _check_transition_path() -> void:
 ## switch begins and restores the face driver; the one act exit restores and frees once.
 func _check_facesit_transition() -> void:
 	var made := _fixture(CATALOG.MISSIONARY, {})
-	var session: RefCounted = made["session"]
+	var session: SESSION = made["session"]
 	var view: RefCounted = session.view()
 	var config: Dictionary = session.pose_config
 	var pose_node: Node = session.pose_node

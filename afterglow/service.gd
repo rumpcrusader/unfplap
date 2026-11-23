@@ -1,4 +1,4 @@
-extends RefCounted
+extends Node
 ## Service: afterglow
 ## Scope: pony
 ## Contract: docs/afterglow.md

@@ -22,7 +22,7 @@ const NO_STOOL_PAIR := Vector2i(-1, -1)
 @abstract func stool_state_text() -> String
 
 
-@abstract func hold_handle() -> RefCounted
+@abstract func hold_handle() -> Node
 
 
 @abstract func present_standing() -> bool

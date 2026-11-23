@@ -73,12 +73,12 @@ class FixtureHost extends Node:
 
 
 class FakePose extends "res://mods/unfplap/poses/service.gd":
-	var ready := true
+	var asset_ready := true
 	var reason := ""
 	var missing: Array[String] = []
 
 	func authored_ready(_pose := "") -> bool:
-		return ready
+		return asset_ready
 
 	func authored_reason(_pose := "") -> String:
 		return reason if not reason.is_empty() else "pose_asset"
@@ -143,7 +143,7 @@ class FakeForm extends Node:
 
 
 func _fixture() -> Dictionary:
-	var gate: RefCounted = GATE.new()
+	var gate: GATE = GATE.new()
 	var pony := FakePony.new()
 	var nav := FakeNav.new()
 	nav.name = "Navigator"
@@ -238,7 +238,7 @@ func run() -> void:
 
 func _check_conversation() -> void:
 	var made := await _fixture()
-	var gate: RefCounted = made["gate"]
+	var gate: GATE = made["gate"]
 	var pony: FakePony = made["pony"]
 	var player: FakePlayer = made["player"]
 	var main: FixtureHost = made["main"]
@@ -262,7 +262,7 @@ func _check_conversation() -> void:
 
 func _check_cuddle() -> void:
 	var made := await _fixture()
-	var gate: RefCounted = made["gate"]
+	var gate: GATE = made["gate"]
 	var pony: FakePony = made["pony"]
 	check(not bool(gate.call("cuddle_active")), "no cuddle is inactive")
 	pony.set_meta("cuddle_active", true)
@@ -293,7 +293,7 @@ class FakeSession extends Node:
 
 func _check_affection() -> void:
 	var made := await _fixture()
-	var gate: RefCounted = made["gate"]
+	var gate: GATE = made["gate"]
 	var affection: FakeAffection = made["affection"]
 	check(bool(gate.call("free_of_affection")), "no affection is free")
 	affection.kind = "kiss"
@@ -317,7 +317,7 @@ class FakeHoof extends RefCounted:
 
 func _check_navigator() -> void:
 	var made := await _fixture()
-	var gate: RefCounted = made["gate"]
+	var gate: GATE = made["gate"]
 	var nav: FakeNav = made["nav"]
 	nav.command_owner = ""
 	check(bool(gate.call("nav_owner_allows", "standing", "")), "an idle navigator is free")
@@ -356,7 +356,7 @@ func _check_navigator() -> void:
 
 func _check_player() -> void:
 	var made := await _fixture()
-	var gate: RefCounted = made["gate"]
+	var gate: GATE = made["gate"]
 	var player: FakePlayer = made["player"]
 	var bed: Node3D = made["bed"]
 	var inventory: FakeInventory = (made["game"] as FakeGame).inventory
@@ -406,7 +406,7 @@ class FakeRest extends RefCounted:
 
 func _check_bed() -> void:
 	var made := await _fixture()
-	var gate: RefCounted = made["gate"]
+	var gate: GATE = made["gate"]
 	var bed: Node3D = made["bed"]
 	check(gate.call("resolve_bed", "standing", "", null) == null, "standing has no bed")
 	check(gate.call("resolve_bed", "missionary", "bed_side", null) == bed,
@@ -440,7 +440,7 @@ func _check_bed() -> void:
 
 func _check_rows() -> void:
 	var made := await _fixture()
-	var gate: RefCounted = made["gate"]
+	var gate: GATE = made["gate"]
 	var pony: FakePony = made["pony"]
 	var rows: Array = gate.call("rows", "standing", "", null, "start", false)
 	var keys: Array[String] = []
@@ -483,7 +483,7 @@ func _check_rows() -> void:
 ## transient/hard split. No policy row is built.
 func _check_scene_only() -> void:
 	var made := await _fixture()
-	var gate: RefCounted = made["gate"]
+	var gate: GATE = made["gate"]
 	var pony: FakePony = made["pony"]
 	var nav: FakeNav = made["nav"]
 	var bed: Node3D = made["bed"]
@@ -557,7 +557,7 @@ func _check_scene_only() -> void:
 ## answers its own row. Base clearance is the only half the verdict does not carry.
 func _check_small_checks() -> void:
 	var made := await _fixture()
-	var gate: RefCounted = made["gate"]
+	var gate: GATE = made["gate"]
 	var pony: FakePony = made["pony"]
 	var nav: FakeNav = made["nav"]
 	var bed: Node3D = made["bed"]
@@ -654,12 +654,12 @@ func _check_small_checks() -> void:
 	check(_agrees(gate, "standing", "", null), "the interruption keeps both answers equal")
 	pony.interruption = ""
 
-	pose.ready = false
+	pose.asset_ready = false
 	check(not bool(gate.call("pose_supported", "standing", "")), "a missing asset blocks")
 	check(not _row_ok(_verdict(gate, "standing", "", null).rows, "pose_asset"),
 		"a missing asset fails its row")
 	check(_agrees(gate, "standing", "", null), "the asset keeps both answers equal")
-	pose.ready = true
+	pose.asset_ready = true
 
 	pose.missing = ["pony_hip"]
 	check(not bool(gate.call("pose_supported", "standing", "")), "a missing rig bone blocks")
@@ -711,12 +711,12 @@ func _check_small_checks() -> void:
 
 
 ## The scene-only verdict with a passing frozen capability.
-func _verdict(gate: RefCounted, pose: String, source: String, bed: Variant) -> Variant:
+func _verdict(gate: GATE, pose: String, source: String, bed: Variant) -> Variant:
 	return gate.call("scene_only_verdict", pose, source, bed, GATE.FrozenPose.new(true, true))
 
 
 ## True when the hint's small checks and the scene-only verdict agree.
-func _agrees(gate: RefCounted, pose: String, source: String, bed: Variant) -> bool:
+func _agrees(gate: GATE, pose: String, source: String, bed: Variant) -> bool:
 	return bool(gate.call("hotkey_ready", pose, source, bed)) == bool(_verdict(gate, pose, source,
 		bed).ok)
 
@@ -740,7 +740,7 @@ func _has_row(rows: Array, key: String) -> bool:
 ## scene block's stool/bed/stem choices. An internal pose fails the offer.
 func _check_profiles() -> void:
 	var made := await _fixture()
-	var gate: RefCounted = made["gate"]
+	var gate: GATE = made["gate"]
 	var pony: FakePony = made["pony"]
 	var main: FixtureHost = made["main"]
 	var bed: Node3D = made["bed"]
@@ -807,7 +807,7 @@ func _check_profiles() -> void:
 
 func _check_verdicts() -> void:
 	var made := await _fixture()
-	var gate: RefCounted = made["gate"]
+	var gate: GATE = made["gate"]
 	var pony: FakePony = made["pony"]
 	var policy: FakePolicy = made["policy"]
 	var context: FakeContext = made["context"]
@@ -868,7 +868,7 @@ class FakeKnockdown extends RefCounted:
 ## without one falls back to its knockdown.
 func _check_buck_or_push() -> void:
 	var made := await _fixture()
-	var gate: RefCounted = made["gate"]
+	var gate: GATE = made["gate"]
 	var pony: FakePony = made["pony"]
 	var player: FakePlayer = made["player"]
 	pony.global_position = Vector3(0.0, 0.0, 0.0)
@@ -887,7 +887,7 @@ func _check_buck_or_push() -> void:
 
 func _check_suppress() -> void:
 	var made := await _fixture()
-	var gate: RefCounted = made["gate"]
+	var gate: GATE = made["gate"]
 	var pony: FakePony = made["pony"]
 	var session := FakeSession.new()
 	session.name = "CuddleSession"

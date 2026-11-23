@@ -24,8 +24,8 @@ class FakeState extends RefCounted:
 	func state_now() -> int:
 		return value
 
-func _readiness(state: FakeState) -> RefCounted:
-	var readiness: RefCounted = READINESS.new()
+func _readiness(state: FakeState) -> READINESS:
+	var readiness: READINESS = READINESS.new()
 	readiness.state = Callable(state, "state_now")
 	readiness.configure_auto(1.5, 0.8, "thrust", 0.2)
 	readiness.reset_auto()

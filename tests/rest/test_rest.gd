@@ -100,7 +100,7 @@ class FakeRest extends Node3D:
 
 
 func _fixture() -> Dictionary:
-	var facade: RefCounted = REST.new()
+	var facade: REST = REST.new()
 	var pony := FakePony.new()
 	pony.posture = FakePosture.new()
 	var nav := FakeNav.new()
@@ -174,7 +174,7 @@ func run() -> void:
 
 func _check_wanted() -> void:
 	var made := _fixture()
-	var facade: RefCounted = made["facade"]
+	var facade: REST = made["facade"]
 	current_context["satisfaction"] = 40.0
 	check(bool(facade.call("rejoin_wanted", REST.Context.from_dict(current_context))),
 		"a good act with readiness above the aftercare floor wants the cuddle")
@@ -200,7 +200,7 @@ func _check_wanted() -> void:
 
 func _check_anchor() -> void:
 	var made := _fixture()
-	var facade: RefCounted = made["facade"]
+	var facade: REST = made["facade"]
 	var bed: Node3D = made["bed"]
 	var player: FakePlayer = made["player"]
 	player.global_position = Vector3(1.0, 1.0, 0.0)
@@ -234,7 +234,7 @@ func _check_anchor() -> void:
 
 func _check_rest_lookup() -> void:
 	var made := _fixture()
-	var facade: RefCounted = made["facade"]
+	var facade: REST = made["facade"]
 	var bed: Node3D = made["bed"]
 	var rest := FakeRest.new()
 	rest.name = "Rest"
@@ -262,7 +262,7 @@ func _check_rest_lookup() -> void:
 
 func _check_note() -> void:
 	var made := _fixture()
-	var facade: RefCounted = made["facade"]
+	var facade: REST = made["facade"]
 	var pony: FakePony = made["pony"]
 	var rest := FakeRest.new()
 	rest._mare_fits = true
@@ -279,7 +279,7 @@ func _check_note() -> void:
 
 func _check_restore() -> void:
 	var made := _fixture()
-	var facade: RefCounted = made["facade"]
+	var facade: REST = made["facade"]
 	var pony: FakePony = made["pony"]
 	var calls := [0]
 	facade.restore_scene = func() -> void: calls[0] += 1
@@ -294,7 +294,7 @@ func _check_restore() -> void:
 
 func _check_place() -> void:
 	var made := _fixture()
-	var facade: RefCounted = made["facade"]
+	var facade: REST = made["facade"]
 	var pony: FakePony = made["pony"]
 	current_context["state"] = 2
 	var anchor := Transform3D(Basis.IDENTITY, Vector3(0.0, 1.0, 0.0))
@@ -309,7 +309,7 @@ func _check_place() -> void:
 
 func _check_early_rejoin() -> void:
 	var made := _fixture()
-	var facade: RefCounted = made["facade"]
+	var facade: REST = made["facade"]
 	var bed: Node3D = made["bed"]
 	current_context["serial"] = 8
 	facade.call("rejoin_bed_cuddle", bed, 7)

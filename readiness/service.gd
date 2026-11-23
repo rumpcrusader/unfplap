@@ -1,4 +1,4 @@
-extends RefCounted
+extends Node
 ## Service: readiness
 ## Scope: pony
 ## Contract: docs/readiness.md

@@ -239,7 +239,7 @@ func run() -> void:
 	var nav: FakeNav = runtime._bundle.hold.nav
 	var inventory: FakeInventory = main.game.inventory
 
-	# The registry accessors hand back the runtime's real handles, which are RefCounted, not Nodes.
+	# The registry accessors hand back the runtime's real handles: the scene Node and the act ports.
 	check(PONIES.scene_of(runtime) == runtime.scene, "the scene accessor returns the live gate")
 	check(PONIES.start_of(runtime) == runtime.start, "the start accessor returns the live start handle")
 	check(PONIES.presentation_of(runtime) == runtime.presentation,
@@ -623,6 +623,9 @@ func run() -> void:
 		and runtime11._bundle.handover.context.change == null,
 		"the one exit clears the reused policy context")
 
+	# A runtime's `_ready` defers its first identity and anatomy refresh; let those run while the
+	# services are still attached, then free a runtime the way a body exit does.
+	await process_frame
 	for item: Dictionary in [f, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11]:
 		(item["runtime"] as Node).free()
 	if failures == 0:

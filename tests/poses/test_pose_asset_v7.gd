@@ -279,7 +279,7 @@ func _check_variants() -> void:
 
 ## The spec table's `asset` field and the base-chain resolution.
 func _check_resolution() -> void:
-	var service: RefCounted = SERVICE.new()
+	var service: SERVICE = SERVICE.new()
 	check(service.call("asset_for", SPECS.MISSIONARY) == "poses/missionary_pose.json",
 		"missionary resolves its asset")
 	var row: Dictionary = SPECS.spec(SPECS.MISSIONARY).duplicate(true)

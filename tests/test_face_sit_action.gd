@@ -74,7 +74,7 @@ func _fixture() -> Dictionary:
 	var view: Variant = VIEW.new()
 	view.id = CATALOG.MISSIONARY
 	view.pose_state = VIEW.STEADY
-	var pose: RefCounted = POSES.new()
+	var pose: POSES = POSES.new()
 	pose.bind(runtime, null)
 	pose.facts = runtime._bundle.facts
 	pose._view = view
@@ -90,7 +90,7 @@ func _fixture() -> Dictionary:
 
 func _free_fixture(made: Dictionary) -> void:
 	var runtime: Node = made["runtime"]
-	var pose: RefCounted = made["pose"]
+	var pose: POSES = made["pose"]
 	root.remove_child(runtime)
 	runtime.free()
 	if is_instance_valid(pose.act_body):
@@ -102,7 +102,7 @@ func _check_helper() -> void:
 	SETTINGS.anatomy_mode.set_choice("act")
 	var made := _fixture()
 	var runtime: Node = made["runtime"]
-	var pose: RefCounted = made["pose"]
+	var pose: POSES = made["pose"]
 	var view: Variant = made["view"]
 	runtime.act._set_state(0)
 	check(runtime.act.face_sit_error() == "no active act", "no idle act is refused")

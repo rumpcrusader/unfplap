@@ -1,4 +1,4 @@
-extends RefCounted
+extends Node
 ## Service: scene_hold
 ## Scope: pony
 ## Contract: docs/scene_hold.md

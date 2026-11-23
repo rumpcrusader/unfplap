@@ -656,7 +656,7 @@ func finish_climax() -> void:
 
 
 ## The act's scene ownership handle: the negotiation asks for it.
-func hold_handle() -> RefCounted:
+func hold_handle() -> Node:
 	return context.hold
 
 

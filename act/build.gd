@@ -48,6 +48,9 @@ const ACT_TICK := preload("res://mods/unfplap/act/tick.gd")
 const ACT_START := preload("res://mods/unfplap/act/start.gd")
 const ACT_AGREEMENT := preload("res://mods/unfplap/act/agreement.gd")
 
+## The scope assertion every Pony service carries; the runtime's children are the set.
+const PONY_GROUP := "unfplap_pony_service"
+
 
 ## The constructed per-pony objects. Fields only, plus the one pony rebind the runtime's setter and
 ## `_ready()` call: the components are bound by construction, not by a second pass.
@@ -238,6 +241,7 @@ static func build(pony: Node, node: Node, hud: Node = null, memory: Node = null,
 	b.gate.bind(b.pony, b.pose, PONIES.act_gate)
 	b.gate.configure(b.act.state, b.act.pony_id,
 		SCENE_GATE.Features.from_dict(b.act.features))
+	_attach_services(node, b)
 	return b
 
 
@@ -405,3 +409,27 @@ static func _bind_facts(node: Node, b: Bundle) -> void:
 	b.facts.on_touch = Callable(b.readiness, "touch")
 	b.facts.on_smack = Callable(b.reactions, "smack")
 	b.facts.pose_host = Callable(b.host, "runtime")
+
+
+## Name, parent and group one Pony service under the runtime. The builder is the only attach site.
+static func _attach(node: Node, service: Node, service_name: String) -> void:
+	service.name = service_name
+	node.add_child(service)
+	service.add_to_group(PONY_GROUP)
+
+
+## Attach the 13 Pony services to the runtime in their fixed order, after every binding exists.
+static func _attach_services(node: Node, b: Bundle) -> void:
+	_attach(node, b.pose, "UnfplapPoses")
+	_attach(node, b.camera, "UnfplapCamera")
+	_attach(node, b.hands, "UnfplapHands")
+	_attach(node, b.kiss, "UnfplapKiss")
+	_attach(node, b.face, "UnfplapFace")
+	_attach(node, b.afterglow, "UnfplapAfterglow")
+	_attach(node, b.rest, "UnfplapRest")
+	_attach(node, b.gate, "UnfplapSceneGate")
+	_attach(node, b.hold, "UnfplapSceneHold")
+	_attach(node, b.readiness, "UnfplapReadiness")
+	_attach(node, b.reactions, "UnfplapReactions")
+	_attach(node, b.summary, "UnfplapSummary")
+	_attach(node, b.dialogue, "UnfplapDialogue")

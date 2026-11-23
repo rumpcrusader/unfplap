@@ -245,7 +245,7 @@ func _fixture() -> Dictionary:
 	facts.state = STATE_ACTIVE
 	facts.features = {"idle_camera_sway": false}
 	_pose(facts, "bed")
-	var camera: RefCounted = CAMERA.new()
+	var camera: CAMERA = CAMERA.new()
 	var hands := FakeHands.new()
 	var kiss := FakeKiss.new()
 	var view := FakeView.new()

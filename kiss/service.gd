@@ -1,4 +1,4 @@
-extends RefCounted
+extends Node
 ## Service: kiss
 ## Scope: pony
 ## Contract: docs/kiss.md

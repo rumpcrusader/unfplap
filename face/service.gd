@@ -1,4 +1,4 @@
-extends RefCounted
+extends Node
 ## Service: face
 ## Scope: pony
 ## Contract: docs/face.md

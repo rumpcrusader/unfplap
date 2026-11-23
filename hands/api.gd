@@ -1,4 +1,4 @@
-extends RefCounted
+extends Node
 ## Service: hands
 ## Scope: pony
 ## Contract: docs/hands.md

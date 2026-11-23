@@ -135,7 +135,7 @@ func run() -> void:
 func _session(pose: String) -> Dictionary:
 	var pony := FakePony.new()
 	root.add_child(pony)
-	var session: RefCounted = SESSION.new()
+	var session: SESSION = SESSION.new()
 	session.bind(null, pony)
 	session.id = "twilight_sparkle"
 	# A start identity for the diagnostics and bed-frame checks; `begin()` still fills the view.
@@ -150,7 +150,7 @@ func _session(pose: String) -> Dictionary:
 
 func _check_config() -> void:
 	var made := _session(CATALOG.STANDING)
-	var session: RefCounted = made["session"]
+	var session: SESSION = made["session"]
 	var pony: FakePony = made["pony"]
 	session.set_pose_config(_block({"gaps": {"canon": 0.3}}))
 	check(near(float(session.pose_config.get("gaps", {}).get("canon", 0.0)), 0.3),
@@ -188,7 +188,7 @@ func _check_config() -> void:
 
 func _check_begin() -> void:
 	var made := _session(CATALOG.MISSIONARY)
-	var session: RefCounted = made["session"]
+	var session: SESSION = made["session"]
 	var pony: FakePony = made["pony"]
 	var body := Skeleton3D.new()
 	body.add_bone("pony_hips")
@@ -272,7 +272,7 @@ func _check_begin() -> void:
 ## A refused begin installs nothing at all: no body skeleton means no pose and no tail lay.
 func _check_begin_refused() -> void:
 	var made := _session(CATALOG.MISSIONARY)
-	var session: RefCounted = made["session"]
+	var session: SESSION = made["session"]
 	var pony: FakePony = made["pony"]
 	session.view().clear()
 	check(not session.begin(_values({
@@ -293,7 +293,7 @@ func _check_begin_refused() -> void:
 ## A standing begin with a bed attached saves no bed frame source: only a missionary frame follows.
 func _check_standing_begin() -> void:
 	var made := _session(CATALOG.STANDING)
-	var session: RefCounted = made["session"]
+	var session: SESSION = made["session"]
 	var pony: FakePony = made["pony"]
 	var body := Skeleton3D.new()
 	body.add_bone("pony_hips")
@@ -329,7 +329,7 @@ func _check_standing_begin() -> void:
 
 func _check_bed_frame() -> void:
 	var made := _session(CATALOG.MISSIONARY)
-	var session: RefCounted = made["session"]
+	var session: SESSION = made["session"]
 	var pony: FakePony = made["pony"]
 	var bed := Node3D.new()
 	root.add_child(bed)
@@ -360,7 +360,7 @@ func _check_bed_frame() -> void:
 
 func _check_ground_frame() -> void:
 	var made := _live_session(CATALOG.STANDING)
-	var session: RefCounted = made["session"]
+	var session: SESSION = made["session"]
 	var pony: FakePony = made["pony"]
 	var start: Transform3D = session.ground_frame
 	var basis_before := start.basis
@@ -384,7 +384,7 @@ func _check_ground_frame() -> void:
 ## The standing session resolves its own asset and reports the authored base.
 func _check_standing_asset() -> void:
 	var made := _live_session(CATALOG.STANDING)
-	var session: RefCounted = made["session"]
+	var session: SESSION = made["session"]
 	check(str(session.base_info().asset_path) == "poses/standing_pose.json",
 		"the standing session names the standing asset")
 	check(session.authored_ready(), "the standing asset is ready")
@@ -396,7 +396,7 @@ func _check_standing_asset() -> void:
 ## A missing standing asset is refused, and the shared cache is put back for the other suites.
 func _check_missing_standing_asset() -> void:
 	var made := _session(CATALOG.STANDING)
-	var session: RefCounted = made["session"]
+	var session: SESSION = made["session"]
 	var pony: FakePony = made["pony"]
 	var key := AUTHORED.resolve("poses/standing_pose.json")
 	var saved: Variant = AUTHORED._shared.get(key)
@@ -416,7 +416,7 @@ func _check_missing_standing_asset() -> void:
 ## The standing render write reaches the pose evaluator after the frame sync.
 func _check_standing_render_write() -> void:
 	var made := _live_session(CATALOG.STANDING)
-	var session: RefCounted = made["session"]
+	var session: SESSION = made["session"]
 	session.pose_node.amount = 1.0
 	session.pose_node.target_amount = 1.0
 	session.render_write(_render())
@@ -428,7 +428,7 @@ func _check_standing_render_write() -> void:
 ## The pose evaluator owns the 30 body bones, so the session replays the active sway after it.
 func _check_sway_render_write() -> void:
 	var made := _live_session(CATALOG.STANDING)
-	var session: RefCounted = made["session"]
+	var session: SESSION = made["session"]
 	var body: Skeleton3D = made["body"]
 	var standing := FakeSway.new()
 	session.body_sway = standing
@@ -442,7 +442,7 @@ func _check_sway_render_write() -> void:
 	_free_live(made)
 
 	var bed := _live_session(CATALOG.MISSIONARY)
-	var bed_session: RefCounted = bed["session"]
+	var bed_session: SESSION = bed["session"]
 	var bed_body: Skeleton3D = bed["body"]
 	var prone := FakeProneSway.new()
 	bed_session.prone_sway = prone
@@ -460,7 +460,7 @@ func _check_sway_render_write() -> void:
 
 func _check_bones() -> void:
 	var made := _session(CATALOG.STANDING)
-	var session: RefCounted = made["session"]
+	var session: SESSION = made["session"]
 	var pony: FakePony = made["pony"]
 	var body := Skeleton3D.new()
 	body.add_bone("pony_hips")
@@ -493,7 +493,7 @@ func _check_bones() -> void:
 
 func _check_diagnostics() -> void:
 	var made := _session(CATALOG.STANDING)
-	var session: RefCounted = made["session"]
+	var session: SESSION = made["session"]
 	var pony: FakePony = made["pony"]
 	check(near(session.basis_amount(), 0.0), "a missing pose has no weight")
 	var info: Variant = session.base_info()
@@ -537,7 +537,7 @@ func _check_diagnostics() -> void:
 ## and nothing outside the bed family.
 func _check_render_write() -> void:
 	var made := _session(CATALOG.MISSIONARY)
-	var session: RefCounted = made["session"]
+	var session: SESSION = made["session"]
 	var pony: FakePony = made["pony"]
 	var order: Array[String] = []
 	var body := FakeActBody.new()
@@ -566,7 +566,7 @@ func _check_render_write() -> void:
 ## One live session over a fake pony with a body skeleton and typed facts.
 func _live_session(pose: String) -> Dictionary:
 	var made := _session(pose)
-	var session: RefCounted = made["session"]
+	var session: SESSION = made["session"]
 	var pony: FakePony = made["pony"]
 	var body := Skeleton3D.new()
 	body.add_bone("pony_hips")
@@ -586,7 +586,7 @@ func _live_session(pose: String) -> Dictionary:
 
 
 func _free_live(made: Dictionary) -> void:
-	var session: RefCounted = made["session"]
+	var session: SESSION = made["session"]
 	session.release_pose()
 	var body: Skeleton3D = made["body"]
 	if is_instance_valid(body):
@@ -601,7 +601,7 @@ func _free_live(made: Dictionary) -> void:
 ## missing row or empty chain.
 func _check_effective_paths() -> void:
 	var made := _session(CATALOG.STANDING)
-	var session: RefCounted = made["session"]
+	var session: SESSION = made["session"]
 	var pony: FakePony = made["pony"]
 	var registry: RefCounted = session._registry
 	check(session._effective_driver(registry.spec(CATALOG.STANDING)) == POSE.STANDING_PATH,
@@ -629,7 +629,7 @@ func _check_effective_paths() -> void:
 ## completion and the settled target.
 func _check_state_machine() -> void:
 	var made := _live_session(CATALOG.STANDING)
-	var session: RefCounted = made["session"]
+	var session: SESSION = made["session"]
 	var view: RefCounted = session.view()
 	check(view.pose_state == VIEW.STEADY and session._state == VIEW.STEADY,
 		"the begin settles the session and the view steady")
@@ -734,7 +734,7 @@ func _check_state_machine() -> void:
 ## speech/viseme events, the settled delta, the afterglow contact release and the reverse restore.
 func _check_oral_edge() -> void:
 	var made := _live_session(CATALOG.STANDING)
-	var session: RefCounted = made["session"]
+	var session: SESSION = made["session"]
 	var pony: FakePony = made["pony"]
 	var view: RefCounted = session.view()
 	var speech_stops: Array = []
@@ -855,7 +855,7 @@ func _check_oral_edge() -> void:
 
 	# A refusal leaves the root and the view steady.
 	var refused_made := _live_session(CATALOG.STANDING)
-	var refused: RefCounted = refused_made["session"]
+	var refused: SESSION = refused_made["session"]
 	var refused_pony: FakePony = refused_made["pony"]
 	var refused_view: RefCounted = refused.view()
 	refused.mouth_point = func() -> Vector3: return refused_pony.to_global(Vector3.UP)
@@ -882,7 +882,7 @@ func _check_oral_edge() -> void:
 ## driver, the control set, the settled asset/config, the reverse restore and the act exit.
 func _check_facesit_edge() -> void:
 	var made := _live_session(CATALOG.MISSIONARY)
-	var session: RefCounted = made["session"]
+	var session: SESSION = made["session"]
 	var view: RefCounted = session.view()
 	var points := FakeFacePoints.new()
 	points.mouth = Vector3(0.0, 0.82, 0.65)
@@ -978,7 +978,7 @@ func _check_facesit_edge() -> void:
 ## requirement cases the shipped debug pair does not carry.
 func _check_refusals() -> void:
 	var made := _live_session(CATALOG.STANDING)
-	var session: RefCounted = made["session"]
+	var session: SESSION = made["session"]
 	var view: RefCounted = session.view()
 	var same: SESSION.PoseResult = session.request_pose(CATALOG.STANDING, "test", _request({"act_state": 2}))
 	check(same.code == "same", "the start pose is same")
@@ -1003,7 +1003,7 @@ func _check_refusals() -> void:
 	_free_live(made)
 
 	var fresh_made := _session(CATALOG.STANDING)
-	var fresh: RefCounted = fresh_made["session"]
+	var fresh: SESSION = fresh_made["session"]
 	var fresh_pony: FakePony = fresh_made["pony"]
 	fresh.facts = FakeFacts.new()
 	var not_steady: SESSION.PoseResult = fresh.request_pose(CATALOG.STANDING_TEST, "test",
@@ -1014,7 +1014,7 @@ func _check_refusals() -> void:
 	fresh_pony.free()
 
 	var refused_made := _live_session(CATALOG.STANDING)
-	var refused: RefCounted = refused_made["session"]
+	var refused: SESSION = refused_made["session"]
 	var refused_view: RefCounted = refused.view()
 	for case: Array in [
 		["synthetic_feature", {"features": ["missing_feature"]}, {}],
@@ -1033,7 +1033,7 @@ func _check_refusals() -> void:
 	_free_live(refused_made)
 
 	var missing_made := _live_session(CATALOG.STANDING)
-	var missing: RefCounted = missing_made["session"]
+	var missing: SESSION = missing_made["session"]
 	var missing_view: RefCounted = missing.view()
 	var missing_spec: Variant = _synthetic_spec(missing, "synthetic_missing")
 	missing_spec.base = ""
@@ -1052,7 +1052,7 @@ func _check_refusals() -> void:
 ## The real control profiles, the reserved `end`, the edge lock and the standing_test block.
 func _check_commands() -> void:
 	var made := _live_session(CATALOG.STANDING)
-	var session: RefCounted = made["session"]
+	var session: SESSION = made["session"]
 	for command_id: String in [ACT_COMMANDS.THRUST, ACT_COMMANDS.LEAN, ACT_COMMANDS.CARESS,
 			ACT_COMMANDS.KISS, ACT_COMMANDS.ORAL, ACT_COMMANDS.HOLE,
 			ACT_COMMANDS.POSE_BACK, ACT_COMMANDS.POSE_FORWARD, ACT_COMMANDS.END]:
@@ -1072,7 +1072,7 @@ func _check_commands() -> void:
 	_free_live(made)
 
 	var missionary_made := _live_session(CATALOG.MISSIONARY)
-	var missionary: RefCounted = missionary_made["session"]
+	var missionary: SESSION = missionary_made["session"]
 	for command_id: String in [ACT_COMMANDS.THRUST, ACT_COMMANDS.LEAN, ACT_COMMANDS.CARESS,
 			ACT_COMMANDS.KISS, ACT_COMMANDS.HOLE, ACT_COMMANDS.END]:
 		check(missionary.request_command(command_id),
@@ -1084,7 +1084,7 @@ func _check_commands() -> void:
 	_free_live(missionary_made)
 
 	var lock_made := _live_session(CATALOG.STANDING)
-	var lock_session: RefCounted = lock_made["session"]
+	var lock_session: SESSION = lock_made["session"]
 	_synthetic_spec(lock_session, "synthetic_lock", "standing")
 	_synthetic_edge(lock_session, CATALOG.STANDING, "synthetic_lock", {},
 		{"kind": "lock", "block": ["thrust"]})
@@ -1102,7 +1102,7 @@ func _check_commands() -> void:
 ## settings group of its own.
 func _check_target_snapshot() -> void:
 	var made := _live_session(CATALOG.STANDING)
-	var session: RefCounted = made["session"]
+	var session: SESSION = made["session"]
 	var view: RefCounted = session.view()
 	var result: SESSION.PoseResult = session.request_pose(CATALOG.STANDING_TEST, "test", _request({"act_state": 2}))
 	check(result.code == "ok", "the snapshot check starts the debug edge")
@@ -1124,7 +1124,7 @@ func _check_target_snapshot() -> void:
 ## on `apply_live_settings()` and adopts it into the live object on completion.
 func _check_settings_group_edge() -> void:
 	var made := _live_session(CATALOG.STANDING)
-	var session: RefCounted = made["session"]
+	var session: SESSION = made["session"]
 	var view: RefCounted = session.view()
 	_synthetic_spec(session, "synthetic_other_group", "standing", CATALOG.MISSIONARY)
 	_synthetic_edge(session, CATALOG.STANDING, "synthetic_other_group", {},
@@ -1164,7 +1164,7 @@ func _check_settings_group_edge() -> void:
 ## the missionary settings group, the shape a future face-sit uses.
 func _check_asset_adoption() -> void:
 	var made := _live_session(CATALOG.MISSIONARY)
-	var session: RefCounted = made["session"]
+	var session: SESSION = made["session"]
 	var view: RefCounted = session.view()
 	var missionary: Variant = AUTHORED.shared("poses/missionary_pose.json")
 	var standing: Variant = AUTHORED.shared("poses/standing_pose.json")
@@ -1219,7 +1219,7 @@ func _check_asset_adoption() -> void:
 ## live path once. The shared wrappers keep their identity and their own paths.
 func _check_asset_reload() -> void:
 	var made := _live_session(CATALOG.MISSIONARY)
-	var session: RefCounted = made["session"]
+	var session: SESSION = made["session"]
 	var target := "synthetic_face_reload"
 	_synthetic_bed_spec(session, target)
 	_synthetic_edge(session, CATALOG.MISSIONARY, target, {})
@@ -1249,7 +1249,7 @@ func _check_asset_reload() -> void:
 ## A release aborts a live edge; the view goes idle and a second release is a no-op.
 func _check_release_abort() -> void:
 	var made := _live_session(CATALOG.STANDING)
-	var session: RefCounted = made["session"]
+	var session: SESSION = made["session"]
 	var view: RefCounted = session.view()
 	var result: SESSION.PoseResult = session.request_pose(CATALOG.STANDING_TEST, "test", _request({"act_state": 2}))
 	check(result.code == "ok", "the abort check starts the debug edge")
@@ -1271,7 +1271,7 @@ func _check_release_abort() -> void:
 ## anatomy handle before it frees the service-owned body.
 func _check_pose_changed() -> void:
 	var made := _live_session(CATALOG.STANDING)
-	var session: RefCounted = made["session"]
+	var session: SESSION = made["session"]
 	var view: RefCounted = session.view()
 	var body := FakeActBody.new()
 	session.act_body = body
@@ -1296,7 +1296,7 @@ func _check_pose_changed() -> void:
 ## profile stays the adapter's own.
 func _check_anon_pair() -> void:
 	var made := _live_session(CATALOG.STANDING)
-	var session: RefCounted = made["session"]
+	var session: SESSION = made["session"]
 	var view: RefCounted = session.view()
 	var body := FakeActBody.new()
 	session.act_body = body
@@ -1343,7 +1343,7 @@ func _check_anon_pair() -> void:
 	_free_live(made)
 
 	var switch_made := _live_session(CATALOG.STANDING)
-	var switch_session: RefCounted = switch_made["session"]
+	var switch_session: SESSION = switch_made["session"]
 	var switch_view: RefCounted = switch_session.view()
 	var switch_body := FakeActBody.new()
 	switch_session.act_body = switch_body
@@ -1374,7 +1374,7 @@ func _check_anon_pair() -> void:
 ## the fan-out. The edge request and the pose-change seam keep the session alive.
 func _check_no_act_exit() -> void:
 	var made := _live_session(CATALOG.STANDING)
-	var session: RefCounted = made["session"]
+	var session: SESSION = made["session"]
 	var view: RefCounted = session.view()
 	var pose_node: Node = session.pose_node
 	var config: Dictionary = session.pose_config
@@ -1412,7 +1412,7 @@ func _same_config(a: Dictionary, b: Dictionary) -> bool:
 
 
 ## A synthetic valid spec row for a target the shipped table does not carry.
-func _synthetic_spec(session: RefCounted, spec_id: String, controls_set := "standing",
+func _synthetic_spec(session: SESSION, spec_id: String, controls_set := "standing",
 		settings_group := "standing") -> Variant:
 	var row: Dictionary = SPECS.SPECS[CATALOG.STANDING].duplicate(true)
 	row["id"] = spec_id
@@ -1432,7 +1432,7 @@ func _synthetic_spec(session: RefCounted, spec_id: String, controls_set := "stan
 
 ## A synthetic bed row on the standing driver and asset with the missionary settings group: the
 ## shape a future face-sit uses. Its scene block is a valid bed block, and it is not offered.
-func _synthetic_bed_spec(session: RefCounted, spec_id: String) -> Variant:
+func _synthetic_bed_spec(session: SESSION, spec_id: String) -> Variant:
 	var row: Dictionary = SPECS.SPECS[CATALOG.STANDING].duplicate(true)
 	row["id"] = spec_id
 	row["display_name"] = "Synthetic bed"
@@ -1456,7 +1456,7 @@ func _synthetic_bed_spec(session: RefCounted, spec_id: String) -> Variant:
 
 ## A synthetic validated edge into a synthetic target. `channels` adds or overrides a channel
 ## record on top of the held base and the controls switch.
-func _synthetic_edge(session: RefCounted, from_id: String, to_id: String, requires: Dictionary,
+func _synthetic_edge(session: SESSION, from_id: String, to_id: String, requires: Dictionary,
 		controls: Dictionary = {"kind": "switch", "at": 0.0, "set": "standing"},
 		channels: Dictionary = {}) -> Variant:
 	var edge_id := from_id + "__" + to_id

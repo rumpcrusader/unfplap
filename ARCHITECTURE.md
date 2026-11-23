@@ -63,7 +63,7 @@ res://world/..., res://player/...   game and engine
 | Cross-mod API | service facades, shared modules |
 | Scene read facade | `res://world/`, `res://player/`, shared modules and its own accessor module |
 | Base-game accessor | base-game modules and shared value types |
-| `settings` (game layer) | shared pure modules |
+| `settings` (game layer) | its own `game.gd`, shared pure modules |
 | Domain service | `settings`, shared modules, other service facades |
 | Shared store | `settings`, shared pure |
 | Read model | shared pure |
@@ -201,6 +201,7 @@ caller takes it as a host parameter.
 <service>/
   api.gd           # public contract (preferred)
   service.gd       # legacy public contract
+  game.gd          # base-game accessor, game-layer services only
   internal.gd      # private implementation
   ui.gd            # private scene adapter, if the service owns a panel
   data.json        # private data
@@ -473,6 +474,9 @@ The architecture gate is `scripts/check.sh --static`, run from `scripts/test.sh`
   while a runtime `load(path)` for an asset stays allowed;
 - rejects a base-game import outside a game-layer service's `game.gd`, and a `game.gd` import from
   outside its own service; every other module reads the game through a facade;
+- rejects a `game.gd` outside a game-layer service directory (`world`, `settings`, `debug`, `hud`);
+- rejects a `world`/`settings` facade import in either direction: the two game-layer services are
+  peers;
 - rejects the literal `/root/Settings` or `/root/Mods` outside `main.gd` and a game-layer
   `game.gd`;
 - rejects a cross-module preload-const reach-through; enums, nested classes and plain constants
@@ -492,8 +496,11 @@ The architecture gate is `scripts/check.sh --static`, run from `scripts/test.sh`
   game — and not a pattern; the `runtime.get` rows are the handle reads the typed accessors are
   replacing.
 
-The maintenance modes — the service graph, the debt writer, the exception writer and the
-duck-typing writer — are run directly on the checker module and documented in `docs/quality.md`.
+The gate's front door is `scripts/architecture.py`. Its maintenance modes run there, not through
+`scripts/check.sh`: `--group <name>` runs one rule group, `--graph` prints the service graph for
+review, `--audit-surface` lists the public facade functions without a `##` note, and
+`--write-exceptions`, `--write-debt` and `--write-duck-typing` regenerate their ledgers.
+`docs/quality.md` documents each.
 
 The static gate owns the static invariants: one teardown body in
 `act/exit.gd:run()` entered only through the exit's routes and the consent stop, with
@@ -526,7 +533,8 @@ block in an act and one outside it before and after, with **Enable debug** + **P
 1. Pick a stable snake_case id and one responsibility.
 2. Create `<id>/api.gd` with the facade header, a narrow typed API and the ownership fields.
 3. Keep every helper under `<id>/`; move a genuinely shared pure module to `shared/` instead of
-   making the facade a namespace.
+   making the facade a namespace. A game-layer member also owns `<id>/game.gd`, whose static
+   accessors are its only base-game reads and whose imports stay inside that service.
 4. Add `docs/<id>.md` with the ownership heading and the behaviour sections; the index row owns the
    contract and test router.
 5. Add `tests/<id>/`; keep pure-core tests separate from facade/API tests.
@@ -535,7 +543,7 @@ block in an act and one outside it before and after, with **Enable debug** + **P
 7. Add the service and its facade to `docs/README.md`.
 8. Extend `shared/service.gd` (or `body_change/source.gd` for a provider), override the lifecycle
    hooks it needs, and add one line to the entry's `_build_services()` list.
-9. Run the architecture checker and the full gate.
+9. Run `scripts/check.sh` and `scripts/test.sh`.
 10. Add an exception only if the boundary cannot be fixed in the same change. An exception needs
     an owner, a reason and an expiry; a stale exception fails.
 

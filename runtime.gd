@@ -29,7 +29,8 @@ const REACTIONS := preload("res://mods/unfplap/reactions/service.gd")
 const AUDIO := preload("res://mods/unfplap/audio/api.gd")
 const STOOL := preload("res://mods/unfplap/stool/service.gd")
 const HANDLES := preload("res://mods/unfplap/world/handles.gd")
-const PONIES := preload("res://mods/unfplap/ponies/service.gd")
+const HUD := preload("res://mods/unfplap/hud/service.gd")
+const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 const ACT_NODE := preload("res://mods/unfplap/act/host.gd")
 const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")
 const ACT_SESSION := preload("res://mods/unfplap/act/session.gd")
@@ -127,8 +128,8 @@ func _init(pony: Node = null, world: HANDLES = null) -> void:
 ## Construct every system, host and module, fill the act record, wire the typed hosts and attach
 ## the services in their fixed order.
 func _compose() -> void:
-	var hud: Node = _world.hud
-	var memory: Node = _world.memory
+	var hud: HUD = _world.hud
+	var memory: MEMORY = _world.memory
 	var stool: STOOL = _world.stool
 	var swap: ACT_SWAP = ACT_SWAP.new()
 	var tick: ACT_TICK = ACT_TICK.new()
@@ -150,7 +151,7 @@ func _compose() -> void:
 	# against these instances.
 	_handover_host = HOST_LIVE.new()
 	_handover = BODY_CHANGE_ACT.new(_handover_host, memory, _world.act_owner,
-		_world.body_change, _world.ponies as PONIES)
+		_world.body_change, _world.ponies)
 	var wings: WING = WING.new(facts)
 	var hands: HANDS = HANDS.new(facts)
 	_kiss = KISS.new(facts)

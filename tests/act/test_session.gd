@@ -12,6 +12,7 @@ const SCENE_GATE := preload("res://mods/unfplap/scene_gate/service.gd")
 const INPUT := preload("res://mods/unfplap/act/input.gd")
 const ACT_COMMANDS := preload("res://mods/unfplap/shared/act_commands.gd")
 const POSE_SESSION := preload("res://mods/unfplap/poses/service.gd")
+const HUD := preload("res://mods/unfplap/hud/service.gd")
 const FAKE_GATE := preload("res://mods/unfplap/tests/support/fakes/fake_act_gate.gd")
 
 const State := ACT_STATE.State
@@ -69,10 +70,17 @@ class FakeAnatomyHandle extends RefCounted:
 		target_value = 0
 
 
-class FakeHud extends Node:
+class FakeHud extends HUD:
 	var statuses: Array[String] = []
 
-	func anatomy_status(text: String, _seconds: float) -> void:
+	## The base builds the live card and subscribes to settings; this suite drives no card.
+	func _ready() -> void:
+		pass
+
+	func _exit_tree() -> void:
+		pass
+
+	func anatomy_status(text: String, _seconds := 2.0) -> void:
 		statuses.append(text)
 
 

@@ -15,7 +15,6 @@ const CONTEXT := preload("res://mods/unfplap/shared/context.gd")
 const CLASSIFIER := preload("res://mods/unfplap/initiation/classifier.gd")
 const ADAPTER := preload("res://mods/unfplap/negotiation/adapter.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
-const HANDLES := preload("res://mods/unfplap/world/handles.gd")
 
 
 
@@ -243,7 +242,7 @@ func _fixture() -> Dictionary:
 	var roster := PONIES.new()
 	roster.name = "UnfplapPonies"
 	root.add_child(roster)
-	roster.wire(HANDLES.new())
+	roster.wire(null, null, null, null, null, null, null)
 	roster.factory = func(_pony_node: Node) -> Node: return runtime
 	roster.attach(target)
 	for node: Node in [game, player, target, adapter, negotiation, offer]:
@@ -367,7 +366,7 @@ func _check_adapter_resolution() -> void:
 	root.add_child(negotiation)
 	root.add_child(adapter)
 	var roster := PONIES.new()
-	roster.wire(HANDLES.new())
+	roster.wire(null, null, null, null, null, null, null)
 	var service := INIT.new()
 	service.name = "UnfplapInitiation"
 	service.wire(FakeEligibility.new(), FakeGate.new(), FakePrivacy.new(), negotiation,

@@ -9,10 +9,14 @@ const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
+const ACT_GATE := preload("res://mods/unfplap/act_gate/service.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
+const BODY_CHANGE_SERVICE := preload("res://mods/unfplap/body_change/service.gd")
+const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
+const ESTRUS := preload("res://mods/unfplap/estrus/service.gd")
+const STOCK_SMACK := preload("res://mods/unfplap/stock_smack/api.gd")
 const ACT_OWNER := preload("res://mods/unfplap/act_owner/service.gd")
-const HANDLES := preload("res://mods/unfplap/world/handles.gd")
 
 ## The roster's own group, and the set of live runtimes it reads.
 const GROUP := "unfplap_ponies"
@@ -21,8 +25,14 @@ const RUNTIME_NAME := "UnfplapRuntime"
 
 ## (`Node pony`) -> Node, the entry's runtime factory. The runtime file stays the entry's preload.
 var factory := Callable()
-## The World services one attached body passes through; the composition root is the only caller.
-var _world: HANDLES = null
+## The World systems one attached body is fitted and adopted through; set once by the entry.
+var _anatomy: ANATOMY = null
+var _eligibility: ELIGIBILITY = null
+var _act_gate: ACT_GATE = null
+var _body_change: BODY_CHANGE_SERVICE = null
+var _estrus: ESTRUS = null
+var _stock_smack: STOCK_SMACK = null
+var _act_owner: ACT_OWNER = null
 ## The settings change listener.
 var _listener := func() -> void: _on_settings_changed()
 
@@ -36,10 +46,17 @@ func _exit_tree() -> void:
 	CHANGE.off_changed(_listener)
 
 
-## Takes the world record; the composition root is the only caller.
-func wire(world: HANDLES) -> void:
-	_world = world
-	assert(world != null)
+## Takes the systems above; the composition root is the only caller. A null peer is a no-op.
+func wire(anatomy: ANATOMY, eligibility: ELIGIBILITY, act_gate: ACT_GATE,
+		body_change: BODY_CHANGE_SERVICE, estrus: ESTRUS, stock_smack: STOCK_SMACK,
+		act_owner: ACT_OWNER) -> void:
+	_anatomy = anatomy
+	_eligibility = eligibility
+	_act_gate = act_gate
+	_body_change = body_change
+	_estrus = estrus
+	_stock_smack = stock_smack
+	_act_owner = act_owner
 
 
 ## A body entered the world; the player's own AnonPony is refused, an unclaimed body gets a runtime.
@@ -66,10 +83,10 @@ func attach(pony: Node) -> void:
 
 ## One body left the tree: drop its anatomy and its estrus schedule.
 func _on_body_exit(pony: Node) -> void:
-	if _world != null and is_instance_valid(_world.estrus):
-		_world.estrus.untrack(pony)
-	if _world != null and is_instance_valid(_world.anatomy):
-		_world.anatomy.withdraw(pony as Node3D)
+	if is_instance_valid(_estrus):
+		_estrus.untrack(pony)
+	if is_instance_valid(_anatomy):
+		_anatomy.withdraw(pony as Node3D)
 
 
 ## A mod that adds a node the first prepare needed, such as the changelings tail chain, calls this
@@ -140,7 +157,7 @@ func _live_runtimes() -> Array[Node]:
 ## True while the owner's pending swap is taking this body's runtime away; the roster skips it, the
 ## way the swap used to erase its entry at the suspend.
 func _departing(pony: Node) -> bool:
-	var owner: ACT_OWNER = _world.act_owner if _world != null else null
+	var owner: ACT_OWNER = _act_owner
 	var swap: ACT_OWNER.Swap = owner.pending_swap() if is_instance_valid(owner) else null
 	return swap != null and swap.old_pony == pony
 
@@ -179,7 +196,7 @@ func _base_order() -> Array[String]:
 ## Live adult mares outside the base roster, for the Characters selector.
 ## A despawned mare keeps her saved preset; an installed source still lists hers.
 func live_character_ids() -> Array[String]:
-	var service: ELIGIBILITY = _world.eligibility if _world != null else null
+	var service: ELIGIBILITY = _eligibility
 	var ids: Array[String] = []
 	for pony: Node in live_ponies():
 		if pony is Node3D and is_instance_valid(service) \
@@ -198,9 +215,9 @@ func live_character_ids() -> Array[String]:
 ## Mares an active installed source lists while she is away.
 ## The source owns its installation gate; the base roster is unchanged.
 func installed_character_ids() -> Array[String]:
-	if _world == null or not is_instance_valid(_world.body_change):
+	if not is_instance_valid(_body_change):
 		return []
-	return _world.body_change.installed_character_ids()
+	return _body_change.installed_character_ids()
 
 
 ## Adopt the body the suspended act's source reports when the spawn hook arrives too late for the
@@ -233,7 +250,7 @@ func on_world(_host: Node) -> void:
 
 ## The world closed: its live act ends through the one exit and the owner's frame is freed.
 func on_world_closed() -> void:
-	var owner: ACT_OWNER = _world.act_owner if _world != null else null
+	var owner: ACT_OWNER = _act_owner
 	if not is_instance_valid(owner):
 		return
 	var live: Node = owner.active()
@@ -246,7 +263,7 @@ func on_world_closed() -> void:
 	owner.clear_body_swap(live)
 
 
-## The entry is leaving: close the act, free every runtime and drop the record and the factory.
+## The entry is leaving: close the act, free every runtime and drop the peers and the factory.
 ## A fresh entry then wires its own.
 func shutdown() -> void:
 	CHANGE.off_changed(_listener)
@@ -259,43 +276,47 @@ func shutdown() -> void:
 		runtime.remove_from_group(RUNTIME_GROUP)
 		runtime.queue_free()
 	factory = Callable()
-	_world = null
+	_anatomy = null
+	_eligibility = null
+	_act_gate = null
+	_body_change = null
+	_estrus = null
+	_stock_smack = null
+	_act_owner = null
 
 
 ## Fit and prepare a new body before it can take a runtime or an act.
 ## The provider's form is mirrored before anatomy attaches; every hook is idempotent.
 func _prepare(pony: Node) -> void:
-	if _world == null:
-		return
-	if is_instance_valid(_world.body_change):
-		_world.body_change.notify_body_ready(pony)
+	if is_instance_valid(_body_change):
+		_body_change.notify_body_ready(pony)
 	_present_anatomy(pony)
-	if is_instance_valid(_world.estrus):
-		_world.estrus.track(pony)
-	if is_instance_valid(_world.stock_smack):
-		_world.stock_smack.pony_ready(pony)
-	if is_instance_valid(_world.eligibility):
-		_world.eligibility.warm(pony)
-	if is_instance_valid(_world.act_gate):
-		_world.act_gate.warm(pony)
+	if is_instance_valid(_estrus):
+		_estrus.track(pony)
+	if is_instance_valid(_stock_smack):
+		_stock_smack.pony_ready(pony)
+	if is_instance_valid(_eligibility):
+		_eligibility.warm(pony)
+	if is_instance_valid(_act_gate):
+		_act_gate.warm(pony)
 
 
 ## The one anatomy assignment, with the provider's stored form; the API gates the identity.
 func _present_anatomy(pony: Node) -> void:
-	if _world == null or not is_instance_valid(pony) or not is_instance_valid(_world.anatomy):
+	if not is_instance_valid(pony) or not is_instance_valid(_anatomy):
 		return
 	var body := pony as Node3D
 	if not is_instance_valid(body):
 		return
-	var form: Variant = _world.body_change.form_for(body) \
-		if is_instance_valid(_world.body_change) else null
-	_world.anatomy.present(body, form)
+	var form: Variant = _body_change.form_for(body) \
+		if is_instance_valid(_body_change) else null
+	_anatomy.present(body, form)
 
 
 ## Adopt the suspended act onto a newly spawned body. Runs after the adapter fitted it but before
 ## a runtime is created, so there is never a second act owner. Returns true when it adopted.
 func _adopt_pending(pony: Node) -> bool:
-	var owner: ACT_OWNER = _world.act_owner if _world != null else null
+	var owner: ACT_OWNER = _act_owner
 	var swap: ACT_OWNER.Swap = owner.pending_swap() if is_instance_valid(owner) else null
 	if swap == null or not is_instance_valid(pony):
 		return false
@@ -318,8 +339,8 @@ func _adopt_pending(pony: Node) -> bool:
 	if is_instance_valid(duplicate) and duplicate != runtime:
 		# A runtime created before adoption could only be a race; the suspended act is the owner.
 		# Its anatomy controller belongs to the duplicate, so withdraw it before the adopt.
-		if is_instance_valid(_world.anatomy):
-			_world.anatomy.withdraw(pony as Node3D)
+		if is_instance_valid(_anatomy):
+			_anatomy.withdraw(pony as Node3D)
 		var session: Variant = _session_of(duplicate)
 		if session != null:
 			session.force_stop()

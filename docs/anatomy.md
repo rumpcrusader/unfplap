@@ -65,7 +65,7 @@ It does not cover eligibility, act readiness, thrust scoring, pose or camera rul
 
 The internal entry points are:
 
-- The entry creates the service; the roster reads it from the World record and binds the controller
+- The entry creates the service; the roster takes it as a `wire()` peer and binds the controller
   on attach and seats the tail on every prepare, `_on_player` creates the player part, and the
   placement debug buttons forward to the service.
 - `anatomy/api.gd` owns the per-pony controllers, the player part, tail seat/visibility and the

@@ -17,7 +17,6 @@ const AGREEMENT := preload("res://mods/unfplap/shared/agreement.gd")
 const NEGOTIATION := preload("res://mods/unfplap/negotiation/service.gd")
 const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 const ACT_OWNER := preload("res://mods/unfplap/act_owner/service.gd")
-const HANDLES := preload("res://mods/unfplap/world/handles.gd")
 const FAKE_GATE := preload("res://mods/unfplap/tests/support/fakes/fake_act_gate.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 
@@ -522,7 +521,7 @@ func _fixture(with_row := true) -> Dictionary:
 	var owner := ACT_OWNER.new()
 	owner.wire(null, null)
 	var roster := PONIES.new()
-	roster.wire(HANDLES.new())
+	roster.wire(null, null, null, null, null, null, null)
 	var service := OFFER.new()
 	service.name = "UnfplapOffer"
 	service.wire(negotiation, null, hud, owner, roster, targets, gate)

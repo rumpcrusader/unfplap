@@ -26,7 +26,7 @@ that read.
 
 | Member | What it owns |
 |---|---|
-| `wire(world)` | the one record the roster reads its peers from |
+| `wire(anatomy, eligibility, act_gate, body_change, estrus, stock_smack, act_owner)` | the World peers one attached body passes through, set once by the composition root |
 | `factory` | `(Node pony) -> Node`, the entry's one runtime construction |
 | `attach(pony)` | the spawn hook: the player-body refusal, the prepare pass, the pending-swap adoption, then one runtime |
 | `prepare_late(pony)` | the prepare pass again for a body a mod completed after its first spawn; never creates a runtime |
@@ -37,7 +37,7 @@ that read.
 | `prompt_note(id)` | the live act/afterglow note and the cycle line for one stable id |
 | `live_character_ids()` / `installed_character_ids()` | the off-roster mares the Characters tab lists |
 | `on_world` / `on_world_closed` | no bind on the enter, because the live set is the runtime group; the close ends the live act and frees the act owner's frame |
-| `shutdown()` | process exit: close the act, stop and free every runtime, drop the record and the factory |
+| `shutdown()` | process exit: close the act, stop and free every runtime, drop the peers and the factory |
 
 The roster preloads no runtime: the entry owns that file and sets `factory`. Every call into a
 runtime is dynamic on a `Node`, so the roster only needs the methods the act contract publishes.
@@ -59,8 +59,7 @@ runtime is dynamic on a `Node`, so the roster only needs the methods the act con
    runtime enters the body's tree and one `runtime attached <name> id=<id>` line is logged;
 5. the body's `tree_exiting` withdraws its anatomy controller and untracks its estrus schedule.
 
-A body with no factory, no runtime or a record with a missing peer is a quiet no-op: a suite can
-wire any subset.
+A body with no factory, no runtime or an omitted peer is a quiet no-op: a suite can wire any subset.
 
 ## The live set
 
@@ -105,11 +104,10 @@ matched through its body's identity (`shared/pony_id.gd:of()`).
 
 ## Composition
 
-`wire(world)` takes the one `WorldHandles` record the entry built, so every peer is read at use and
-the record can change its fields between worlds without a rebind. `_ready()` joins the roster
-group and the settings change notification; `_exit_tree()` leaves the notification. `shutdown()`
-force-stops and frees every runtime in the group while the World services they read are alive, then
-drops the factory and the record.
+`wire()` takes the World peers one attached body passes through, each read at use. `_ready()` joins
+the roster group and the settings change notification; `_exit_tree()` leaves the notification.
+`shutdown()` force-stops and frees every runtime in the group while the World services they read are
+alive, then drops the factory and the peers.
 
 A world close ends the act owner's frame through `act/exit.gd:run`, drops its swap and keeps the
 runtimes; they leave with their bodies. The settings edit re-runs `apply_live_settings()` over

@@ -463,7 +463,8 @@ func _check_wire() -> void:
 func _check_runtime_binding() -> void:
 	var world := HANDLES.new()
 	var roster := PONIES.new()
-	roster.wire(world)
+	roster.wire(world.anatomy, world.eligibility, world.act_gate, world.body_change,
+		world.estrus, world.stock_smack, world.act_owner)
 	var host := FakeHost.new()
 	host.name = "RuntimeBindingHost"
 	var binding: RefCounted = RUNTIME_BINDING.new()

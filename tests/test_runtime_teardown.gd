@@ -94,7 +94,7 @@ class FakeGame extends Node:
 	var headset_view := false
 
 
-class FakeMemory extends Node:
+class FakeMemory extends MEMORY:
 	func cancel_act(_event_id: Variant = null, _keep_speaking: Variant = null) -> int:
 		return 0
 

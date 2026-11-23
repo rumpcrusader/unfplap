@@ -30,6 +30,8 @@ const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
 const HANDLES := preload("res://mods/unfplap/world/handles.gd")
 const STOOL := preload("res://mods/unfplap/stool/service.gd")
 const STOOL_ACT := preload("res://mods/unfplap/stool/act.gd")
+const HUD := preload("res://mods/unfplap/hud/service.gd")
+const MEMORY := preload("res://mods/unfplap/memory/service.gd")
 
 
 var pose: POSE_SESSION = null
@@ -56,8 +58,8 @@ var stool: STOOL_ACT = null
 ## The world-scope stool facade that creates the per-act handle above.
 var stool_service: STOOL = null
 ## The world HUD and memory the act modules read; null outside a runtime built with them.
-var hud: Node = null
-var memory: Node = null
+var hud: HUD = null
+var memory: MEMORY = null
 ## The World services, as the entry built them; a bare runtime's record is empty, never null.
 var world: HANDLES = null
 ## The act's consent response: the tolerance warning, its line and the stop presentation.

@@ -148,7 +148,8 @@ func _bind() -> Dictionary:
 	var roster := PONIES.new()
 	roster.name = "UnfplapPonies"
 	root.add_child(roster)
-	roster.wire(world)
+	roster.wire(world.anatomy, world.eligibility, world.act_gate, world.body_change,
+		world.estrus, world.stock_smack, world.act_owner)
 	var made: Array[FakeRuntime] = []
 	roster.factory = func(pony: Node) -> Node:
 		var runtime := FakeRuntime.new()
@@ -437,7 +438,9 @@ func _check_character_lists() -> void:
 	check(installed == ["chrysalis"], "the installed list comes from the body-change service")
 	check(roster.live_character_ids().has("chrysalis"),
 		"an installed mare is listed without a live body")
-	world.eligibility = ELIGIBILITY.new()
+	var real_eligibility := ELIGIBILITY.new()
+	roster.wire(world.anatomy, real_eligibility, world.act_gate, world.body_change, world.estrus,
+		world.stock_smack, world.act_owner)
 	var pony := _pony("sunny_star", "SunnyBody")
 	root.add_child(pony)
 	roster.attach(pony)
@@ -446,9 +449,11 @@ func _check_character_lists() -> void:
 		"a live adult mare with a runtime is listed")
 	roster.apply_live_settings()
 	check(runtime.live_settings == 1, "the live pass reaches a runtime that is not acting")
-	world.body_change = null
-	check(roster.installed_character_ids().is_empty(),
+	var bare := PONIES.new()
+	bare.wire(null, null, null, null, null, null, null)
+	check(bare.installed_character_ids().is_empty(),
 		"without the service the installed list is empty")
+	bare.free()
 
 	roster.shutdown()
 	root.remove_child(pony)

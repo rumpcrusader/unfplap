@@ -285,17 +285,17 @@ class FakePolicy extends "res://mods/unfplap/shared/body_change_policy.gd":
 		}
 
 
-class FakeMemory extends Node:
+class FakeMemory extends MEMORY:
 	var impressions: Array = []
 	var peaks: Array = []
 	var notes: Array = []
 	var lines: Array = []
 	var _service: Variant = MEMORY.new()
 
-	func form_reveal_impression(id: String, event_id: String) -> Variant:
+	func form_reveal_impression(id: String, event_id: String) -> MEMORY.Impression:
 		return _service.call("form_reveal_impression", id, event_id)
 
-	func form_reveal_peak(id: String, event_id: String, score: float) -> Variant:
+	func form_reveal_peak(id: String, event_id: String, score: float) -> MEMORY.Peak:
 		return _service.call("form_reveal_peak", id, event_id, score)
 
 	func commit(impression: Variant) -> void:
@@ -304,7 +304,7 @@ class FakeMemory extends Node:
 	func record_peak(peak: Variant) -> void:
 		peaks.append(peak)
 
-	func note(kind: int, id: String, event_id: String) -> void:
+	func note(kind: int, id: String, event_id: String, _reason := 0) -> void:
 		notes.append({"kind": kind, "id": id, "event_id": event_id})
 
 	func cancel_act(_event_id: String, _keep_speaking := true) -> int:
@@ -391,6 +391,12 @@ func _roster(made: Dictionary) -> PONIES:
 	return made["ponies"] as PONIES
 
 
+## The roster's peers come from the fixture's record, so a check that swaps one re-wires here.
+func _wire(roster: PONIES, world: HANDLES) -> void:
+	roster.wire(world.anatomy, world.eligibility, world.act_gate, world.body_change,
+		world.estrus, world.stock_smack, world.act_owner)
+
+
 ## A live act without the start sequence: the handover is the code under test, not the gate. The
 ## old body joins the registry through the real attach path, before the body-change service exists,
 ## so the fixture keeps the act's form store empty like a running world does at spawn.
@@ -429,7 +435,7 @@ func _fixture() -> Dictionary:
 	world.body_change = body_change
 	var roster := PONIES.new()
 	roster.name = "UnfplapPonies"
-	roster.wire(world)
+	_wire(roster, world)
 	root.add_child(roster)
 	world.ponies = roster
 	var runtime: Node = RUNTIME.new(null, world)
@@ -567,6 +573,7 @@ func _check_handover() -> void:
 	host.anatomy = anatomy
 	var world: HANDLES = f["world"]
 	world.anatomy = anatomy
+	_wire(_roster(f), world)
 
 	source.changing = true
 	runtime.act.swap.suspend(source.active_change())
@@ -886,6 +893,7 @@ func _check_invalid_shape() -> void:
 	host.eligibility = eligibility
 	var world: HANDLES = f["world"]
 	world.eligibility = eligibility
+	_wire(_roster(f), world)
 	source.changing = true
 	runtime.act.swap.suspend(source.active_change())
 	var new_pony := _pony("Young Shape", "YoungBody")

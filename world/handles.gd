@@ -8,10 +8,12 @@ const BODY_CHANGE_SERVICE := preload("res://mods/unfplap/body_change/service.gd"
 const ESTRUS := preload("res://mods/unfplap/estrus/service.gd")
 const OFFER := preload("res://mods/unfplap/offer/service.gd")
 const STOCK_SMACK := preload("res://mods/unfplap/stock_smack/api.gd")
-const INTEGRATIONS := preload("res://mods/unfplap/integrations/service.gd")
 const STOOL := preload("res://mods/unfplap/stool/service.gd")
 const AUDIO := preload("res://mods/unfplap/audio/api.gd")
 const ACT_OWNER := preload("res://mods/unfplap/act_owner/service.gd")
+const HUD := preload("res://mods/unfplap/hud/service.gd")
+const MEMORY := preload("res://mods/unfplap/memory/service.gd")
+const PONIES := preload("res://mods/unfplap/ponies/service.gd")
 
 
 var anatomy: ANATOMY = null
@@ -21,14 +23,10 @@ var body_change: BODY_CHANGE_SERVICE = null
 var estrus: ESTRUS = null
 var offer: OFFER = null
 var stock_smack: STOCK_SMACK = null
-var integrations: INTEGRATIONS = null
-## The cross-mod API node; its facade is an orchestrator, which a service-owned file may not preload.
-var api: Node = null
-var hud: Node = null
-var memory: Node = null
+var hud: HUD = null
+var memory: MEMORY = null
 var stool: STOOL = null
 var audio: AUDIO = null
 ## The act frame every act module reads; a bare record leaves it null.
 var act_owner: ACT_OWNER = null
-## The roster; a plain Node because the roster holds this record and may not preload it back.
-var ponies: Node = null
+var ponies: PONIES = null

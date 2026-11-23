@@ -15,7 +15,7 @@ class FakeGame extends Node:
 	pass
 
 
-class FakeMemory extends Node:
+class FakeMemory extends MEMORY:
 	var requests: Array = []
 	var notes: Array = []
 	var states := {}
@@ -47,7 +47,7 @@ class FakeMemory extends Node:
 		cancel_line_calls += 1
 		states[key] = MEMORY.LineState.ABSENT
 
-	func cancel_act(_event_id: String, _keep_speaking: bool) -> int:
+	func cancel_act(_event_id: String, _keep_speaking := true) -> int:
 		cancel_act_calls += 1
 		return 2
 

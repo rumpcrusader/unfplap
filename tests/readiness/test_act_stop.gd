@@ -9,6 +9,7 @@ const WORLD := preload("res://mods/unfplap/world/api.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
 const MEMORY := preload("res://mods/unfplap/memory/service.gd")
+const HUD := preload("res://mods/unfplap/hud/service.gd")
 const HANDLES := preload("res://mods/unfplap/world/handles.gd")
 
 
@@ -109,7 +110,14 @@ class FakeInventory extends RefCounted:
 		pass
 
 
-class FakeHUD extends Node:
+class FakeHUD extends HUD:
+	## The base builds the live card and subscribes to settings; this suite drives no card.
+	func _ready() -> void:
+		pass
+
+	func _exit_tree() -> void:
+		pass
+
 	func hide_all() -> void:
 		pass
 

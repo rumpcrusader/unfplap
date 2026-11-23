@@ -181,8 +181,8 @@ func _build_world() -> void:
 	# services, so the runtimes read the same objects the entry wired.
 	_world = _build_record()
 
-	# The roster needs every peer, so it takes the record before the services that read it.
-	ponies.wire(_world)
+	# The roster needs every peer, so it takes them before the services that read the record.
+	ponies.wire(anatomy, eligibility, act_gate, body_change, estrus, stock_smack, act_owner)
 	act_owner.wire(offer, stock_smack)
 	act_gate.wire(eligibility)
 	offer.wire(negotiation, privacy, hud, act_owner, ponies, eligibility, act_gate)
@@ -236,8 +236,6 @@ func _build_record() -> HANDLES:
 	world.estrus = estrus
 	world.offer = offer
 	world.stock_smack = stock_smack
-	world.integrations = integrations
-	world.api = api
 	world.hud = hud
 	world.memory = memory
 	world.stool = stool

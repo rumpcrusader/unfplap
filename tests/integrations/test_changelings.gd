@@ -167,7 +167,8 @@ func run() -> void:
 	var ponies := PONIES.new()
 	ponies.name = "UnfplapPonies"
 	root.add_child(ponies)
-	ponies.wire(handles)
+	ponies.wire(handles.anatomy, handles.eligibility, handles.act_gate, handles.body_change,
+		handles.estrus, handles.stock_smack, handles.act_owner)
 	var api := API.new()
 	api.name = "UnfplapApi"
 	root.add_child(api)
@@ -666,8 +667,9 @@ func run() -> void:
 	check(str(adapter.call("named_form", "Sunny Star")) == "sunny_star",
 		"a live off-roster adult mare resolves")
 	ponies.shutdown()
-	# The teardown drops the roster's record; the rest of the suite still reads the API.
-	ponies.wire(handles)
+	# The teardown drops the roster's peers; the rest of the suite still reads the API.
+	ponies.wire(handles.anatomy, handles.eligibility, handles.act_gate, handles.body_change,
+		handles.estrus, handles.stock_smack, handles.act_owner)
 	live_runtime.free()
 	root.remove_child(live_mare)
 	live_mare.free()

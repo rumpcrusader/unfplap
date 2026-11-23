@@ -182,10 +182,10 @@ attached service Nodes until the runtime leaves.
 
 The World services are injected, never static: the record holds them, the HUD, memory and stool
 come from it, and `act/context.gd` carries it so the act modules read `context.world.<field>` rather
-than the roster. `afterglow`, `summary`, `face`, `dialogue` and the handover receive memory
-through their constructor; `anatomy` receives the HUD in `setup(hud)`, `negotiation` and
-`debug_actions` in their `wire()`, and `offer` at construction. A null field is an absent peer: the
-act modules guard every call, and a bare runtime remains valid.
+than reaching into the roster, which takes its peers in `wire()`. `afterglow`, `summary`, `face`,
+`dialogue` and the handover receive memory through their constructor; `anatomy` receives the HUD
+in `setup(hud)`, `negotiation` and `debug_actions` in their `wire()`, and `offer` at construction.
+A null field is an absent peer: the act modules guard every call, and a bare runtime remains valid.
 
 The `pony` setter and `_ready()` rebind through the runtime's own fields: the pose session's host
 and id, the act host's pony and the reactions' scene. There is no second bind pass and no facade

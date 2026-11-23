@@ -249,6 +249,12 @@ func _owner() -> ACT_OWNER:
 	return owner
 
 
+## The roster's peers come from the fixture's record, the way the entry hands them.
+func _wire(roster: PONIES, world: HANDLES) -> void:
+	roster.wire(world.anatomy, world.eligibility, world.act_gate, world.body_change,
+		world.estrus, world.stock_smack, world.act_owner)
+
+
 func _bridge_fixture() -> Dictionary:
 	var game := FakeGame.new()
 	var pony := FakePony.new()
@@ -276,7 +282,7 @@ func _bridge_fixture() -> Dictionary:
 	world.act_gate = gate
 	world.act_owner = _owner()
 	var roster := PONIES.new()
-	roster.wire(world)
+	_wire(roster, world)
 	roster.factory = func(_pony_node: Node) -> Node: return runtime
 	roster.attach(pony)
 	var bridge := HOST.new()
@@ -345,7 +351,7 @@ func _service_fixture() -> Dictionary:
 	world.act_gate = gate
 	world.act_owner = owner
 	var roster := PONIES.new()
-	roster.wire(world)
+	_wire(roster, world)
 	roster.factory = func(_pony_node: Node) -> Node: return runtime
 	roster.attach(pony)
 	var service := NEGOTIATION.new()

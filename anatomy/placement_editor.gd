@@ -10,13 +10,19 @@ const IDENTITY := preload("res://mods/unfplap/anatomy/identity.gd")
 const PARTS := preload("res://mods/unfplap/anatomy/parts.gd")
 const RIG := preload("res://mods/unfplap/anatomy/rig.gd")
 
-var parts: PARTS
+## The parts record, held weakly: it owns this editor, so a strong link back would be a cycle.
+var _parts_ref: WeakRef = null
 var rig: RIG
 
 
 func setup(parts_node: PARTS, rig_node: RIG) -> void:
-	parts = parts_node
+	_parts_ref = weakref(parts_node)
 	rig = rig_node
+
+
+## The parts record, or null once it has cleared itself.
+func _parts() -> PARTS:
+	return _parts_ref.get_ref() as PARTS
 
 
 func placement_id(pony: Node) -> String:
@@ -34,9 +40,9 @@ func placement_values(id: String, fit_id: String = "") -> Dictionary:
 
 
 func placement_refresh() -> void:
-	if parts != null:
-		parts.apply_live()
-		parts.refresh_tails()
+	if _parts() != null:
+		_parts().apply_live()
+		_parts().refresh_tails()
 
 
 ## `tail_owned` is the body-change service's answer: a source-owned tail can be moved even when
@@ -49,10 +55,10 @@ func placement_debug(pony: Node, op: String, value := 0.0, tail_owned := false) 
 	if id != "default" and is_instance_valid(pony):
 		fit_id = IDENTITY.body_fit_id(pony)
 	if id != "default" and op.begins_with("dock_"):
-		if not parts.can_dock(pony):
+		if not _parts().can_dock(pony):
 			return "%s: no dock on this tail." % id
 	if id != "default" and op.begins_with("tail_"):
-		if not tail_owned and not parts.can_seat(pony):
+		if not tail_owned and not _parts().can_seat(pony):
 			return "%s: tail seat unavailable (no hair tail or dock)." % id
 	var rows := (SETTINGS.anatomy_placement_default("") if id == "default"
 		else SETTINGS.anatomy_placement(id, fit_id))
@@ -83,7 +89,7 @@ func placement_debug(pony: Node, op: String, value := 0.0, tail_owned := false) 
 
 func placement_show(pony: Node) -> String:
 	var parts_out := PackedStringArray([placement_debug(pony, "text")])
-	var report := parts.tail_report() if parts != null else ""
+	var report := _parts().tail_report() if _parts() != null else ""
 	if not report.is_empty():
 		parts_out.append(report)
 	return " | ".join(parts_out)

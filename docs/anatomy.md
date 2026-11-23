@@ -113,7 +113,8 @@ The handles are inner classes of `api.gd`:
   `hip_offset`, `note_hip_offset`, `debug_scale`, `reset_pelvis` and `encounter`.
 - `Garment` exposes `hull`, `transform`, `parent` and `visible`.
 
-`Parts` owns `controllers`, `forms`, the tail seat/visibility and the `PlayerHost`. Its roster
+`Parts` owns `controllers`, `forms`, the tail seat/visibility, the `PlayerHost` and the placement
+editor, which holds `Parts` weakly so a dropped facade leaves no cycle. Its roster
 verbs are `remember` (store the form), `attach` (build or refresh the controller and seat the tail together),
 `release` (drop both and keep the form) and `detach` (drop everything). A controller is constructed
 with `pony`, `form`, the `Rig`, a status callback and a dock-colour callback. The controller never

@@ -5,14 +5,14 @@ extends RefCounted
 ## An action is one table entry that runs a one-off operation, never a setting.
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
-const ACTIONS_NODE := preload("res://mods/unfplap/debug/actions.gd")
+const DEBUG_UI := preload("res://mods/unfplap/debug/ui.gd")
 
 ## The aimed mare: the mare closest to the camera's aim ray, inside this tube and range.
 const AIM_RANGE_M := 8.0
 const AIM_TUBE_M := 1.5
 
 ## The node that runs the actions; it publishes itself here on entry, so no caller passes it.
-static var target: ACTIONS_NODE = null
+static var target: Node = null
 
 ## Debug actions; `method` runs on `target`. The registry claims no global hotkeys, so only a
 ## settings button or a wheel slot fires one; entries sharing a `row` must stay adjacent.
@@ -307,11 +307,11 @@ static func _action_available(name: String, node: Node) -> bool:
 		return false
 	if str((entry as Dictionary).get("requires", "")) != "shape_source":
 		return true
-	if not is_instance_valid(node):
-		return false
-	# The actions node is the only target with this gate; the label seam takes any node.
+	# Any node that answers the gate may be passed; the executor is the one that does.
 	var gate: Variant = node
-	return gate.has_method("shape_source_active") and bool(gate.shape_source_active())
+	if not is_instance_valid(gate) or not gate.has_method("shape_source_active"):
+		return false
+	return bool(gate.call("shape_source_active"))
 
 
 static func wheel_title(page: String) -> String:
@@ -340,11 +340,11 @@ static func _action_text(name: String, node: Node, key: String, match_key: Strin
 		return text
 	if not is_instance_valid(node):
 		return text
-	# The label seam takes the actions node or any node that answers the phase read.
+	# The label seam takes the executor or any node that answers the phase read.
 	var phase_node: Variant = node
 	if not phase_node.has_method("debug_cycle_phase"):
 		return text
-	if str(phase_node.debug_cycle_phase()) != phase:
+	if str(phase_node.call("debug_cycle_phase")) != phase:
 		return text
 	return str(action.get(match_key, text))
 
@@ -380,33 +380,39 @@ static func wheel_gate(debug_on: bool, headless: bool, in_world: bool, paused: b
 	return captured and not menu_open and not typing and not left_held
 
 
-## One input event for the wheel. False when the mod has no actions node or the event is not the
+## One input event for the wheel. False when the mod has no executor or the event is not the
 ## wheel's.
 static func wheel_input(event: InputEvent) -> bool:
-	var actions := _node(null) as ACTIONS_NODE
+	var actions := _node(null)
 	if actions == null:
 		return false
-	return actions.debug_wheel_input(event)
+	return bool(actions.call("debug_wheel_input", event))
 
 
 ## True while the action wheel is open.
 static func wheel_open() -> bool:
-	var actions := _node(null) as ACTIONS_NODE
+	var actions := _node(null)
 	if actions == null:
 		return false
-	return actions.debug_wheel_open()
+	return bool(actions.call("debug_wheel_open"))
 
 
 ## One left click for the skeleton overlay; false when no joint is under the pointer.
 static func skeleton_click() -> bool:
-	var actions := _node(null) as ACTIONS_NODE
+	var actions := _node(null)
 	if actions == null:
 		return false
-	return actions.skeleton_click()
+	return bool(actions.call("skeleton_click"))
+
+
+## The Debug block builder: the entry hands this to the settings page, and the buttons run on the
+## live executor the table resolved.
+static func build_settings_block(list: VBoxContainer, font_size: int, tab: String) -> void:
+	DEBUG_UI.build_actions(list, font_size, _node(null), tab)
 
 
 ## The aimed mare: the mare closest to the camera's aim ray, or a cradled prop in Anon's arms
-## while he is not in pony form. `debug/actions.gd` and the placement editor share this rule.
+## while he is not in pony form. `debug_actions/service.gd` and the placement editor share this rule.
 static func aimed_pony(view: Camera3D) -> Node:
 	if not is_instance_valid(WORLD.player_rig()) or not WORLD.ready():
 		return null

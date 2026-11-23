@@ -2,7 +2,7 @@ extends RefCounted
 ## Debug-only: the bed helper behind the wheel action and Show data's rows.
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
-const PONY := preload("res://mods/unfplap/debug/pony.gd")
+const PONY := preload("res://mods/unfplap/debug_actions/pony.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 

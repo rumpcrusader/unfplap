@@ -17,8 +17,9 @@ const PRIVACY := preload("res://mods/unfplap/privacy/api.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const PERF := preload("res://mods/unfplap/shared/perf.gd")
 const BUILD_STAMP := preload("res://mods/unfplap/shared/build_stamp.gd")
-const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/actions.gd")
-const DEBUG_STRETCH := preload("res://mods/unfplap/debug/idle_stretch.gd")
+const DEBUG_ACTIONS := preload("res://mods/unfplap/debug_actions/service.gd")
+const DEBUG_TABLE := preload("res://mods/unfplap/debug/service.gd")
+const DEBUG_STRETCH := preload("res://mods/unfplap/debug_actions/idle_stretch.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
 const AUDIO := preload("res://mods/unfplap/audio/api.gd")
 const ESTRUS := preload("res://mods/unfplap/estrus/service.gd")
@@ -87,7 +88,7 @@ var offer: OFFER
 var ponies: PONIES
 ## The act frame: the live runtime, the serial floor and the pending body swap.
 var act_owner: ACT_OWNER
-## Every Debug block button and wheel slot; see `docs/debug.md`.
+## Every Debug block button and wheel slot; see `docs/debug_actions.md`.
 var debug_actions: DEBUG_ACTIONS
 ## The record every runtime reads the World from, built once after the services.
 var _world: HANDLES = null
@@ -325,7 +326,7 @@ func _new_runtime(pony: Node) -> Node:
 ## The settings page hook: no game-script extension is used, the settings UI owns the deferred
 ## injection. Every callable it takes is a facade's, so the page never calls back into the entry.
 func _on_settings_page(page: Node) -> void:
-	SETTINGS_UI.inject(page, Callable(debug_actions, "build_settings_block"),
+	SETTINGS_UI.inject(page, Callable(DEBUG_TABLE, "build_settings_block"),
 		Callable(ponies, "live_character_ids"), Callable(SETTINGS, "profile_participation"),
 		Callable(SETTINGS, "apply_live"), Callable(LOG, "debug"))
 

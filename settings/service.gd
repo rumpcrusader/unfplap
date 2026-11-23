@@ -1658,7 +1658,7 @@ static var draw_still_zones := flag("draw_still_zones", "anatomy.draw_still_zone
 	"Draw still zones",
 	"Overlay the vulva still-zone ellipsoid on the body coat.",
 	ANATOMY, "Holes").as_debug()
-## Draws nearby ponies' skeletons; `debug/actions.gd` owns the overlay.
+## Draws nearby ponies' skeletons; `debug_actions/service.gd` owns the overlay.
 static var skeleton_overlay := flag("skeleton_overlay", "anatomy.skeleton_overlay",
 	"Show skeleton overlay",
 	"Draw nearby ponies' body, face and hair/tail skeletons. Left-click a joint to print it. Requires Enable debug.",

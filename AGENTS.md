@@ -56,6 +56,7 @@ restate a contract.
 | `camera/**` | `docs/camera.md` |
 | `debug/game.gd` | `docs/debug.md` |
 | `debug/**` | `docs/debug.md` |
+| `debug_actions/**` | `docs/debug_actions.md` |
 | `dialogue/**` | `docs/dialogue.md` |
 | `eligibility/**` | `docs/eligibility.md` |
 | `face/**` | `docs/face.md` |

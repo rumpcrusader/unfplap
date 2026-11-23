@@ -181,7 +181,7 @@ The World services are injected, never static: the record holds them, the HUD, m
 come from it, and `act/context.gd` carries it so the act modules read `context.world.<field>` rather
 than the roster. `afterglow`, `summary`, `face`, `dialogue` and the handover receive memory
 through their constructor; `anatomy` receives the HUD in `setup(hud)`, `negotiation` and
-`debug/actions` in their `wire()`, and `offer` at construction. A null field is an absent peer: the
+`debug_actions` in their `wire()`, and `offer` at construction. A null field is an absent peer: the
 act modules guard every call, and a bare runtime remains valid.
 
 The `pony` setter and `_ready()` rebind through the runtime's own fields: the pose session's host
@@ -432,7 +432,7 @@ The input service decodes the keys and calls the act's input protocol, `runtime.
 | `H` | consumed; a stock hug cannot end the act's kiss |
 | `V` / `N` | anatomy hole / oral, gated by `docs/anatomy.md` |
 | Enter | the game chat during an act |
-| hold middle | the debug action wheel; release runs the highlighted action; see `docs/debug.md` |
+| hold middle | the debug action wheel; release runs the highlighted action; see `docs/debug_actions.md` |
 | any other key | consumed during an act; `Enter`, `T`, `Esc` and `F1`–`F12` stay live (`docs/input.md`) |
 
 During standing oral, `W`/`S`/`Q`/`E`, the `Q`/`E` shoulder reach and the `F` lean kiss are

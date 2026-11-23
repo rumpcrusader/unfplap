@@ -27,7 +27,7 @@ answers whether the *scene* is ready right now.
 `runtime.scene` is the offer-facing scene handle; `runtime.start` carries the hotkey/Agreement
 starts and the footstool hint, and `runtime.presentation` the stool and standing-presentation
 reads. The live scene context comes through the gate's `debug_context` callback, bound by the
-runtime's composition to `runtime.act.debug_context()`: that gathers `debug/pony.gd`'s pony, world,
+runtime's composition to `runtime.act.debug_context()`: that gathers `debug_actions/pony.gd`'s pony, world,
 relationship and player facts and adds the session's act values. The scene handle exposes
 `find_bed_under`, `free_of_affection`, `cuddle_active`, `hotkey_ready`, the small checks
 (`available`, `pose_supported`, `player_ready`, `navigator_allows`, `posture_allows`,
@@ -218,6 +218,6 @@ live act key never bucks, and no act-gate verdict carries a refusal.
 ## Debug
 
 `scene_gate.debug_line()` owns the status string: it reads the live values through the
-`debug_context` callback (`debug/pony.gd`'s gather plus the runtime's act values), the
+`debug_context` callback (`debug_actions/pony.gd`'s gather plus the runtime's act values), the
 row/verdict assembly, and the policy row reads. The offer handle's `debug_line()` is a thin forward. No
 scene row is recomputed twice in different ways.

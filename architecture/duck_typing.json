@@ -17,12 +17,16 @@
       "count": 1
     },
     {
-      "file": "debug/actions.gd",
-      "count": 3
+      "file": "debug/service.gd",
+      "count": 5
     },
     {
-      "file": "debug/pony.gd",
+      "file": "debug_actions/pony.gd",
       "count": 2
+    },
+    {
+      "file": "debug_actions/service.gd",
+      "count": 3
     },
     {
       "file": "initiation/service.gd",

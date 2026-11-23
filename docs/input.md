@@ -152,7 +152,8 @@ protocol sees an `InputEvent`; the service owns every decode, hold and key sampl
 
 ## Controls and debug
 
-The controls table is `docs/runtime.md`. Debug actions and the wheel are in `docs/debug.md`.
+The controls table is `docs/runtime.md`. The action table is `docs/debug.md` and the wheel
+`docs/debug_actions.md`.
 
 - A **middle mouse button press or release** is forwarded through `debug/service.gd`'s
   `wheel_input()` to the debug actions node. The press opens the wheel while allowed; the release

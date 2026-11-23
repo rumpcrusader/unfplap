@@ -1,6 +1,6 @@
 extends RefCounted
 ## Debug-only deep-stretch preview through the installed Idle Life mod; it calls the entry's play
-## and end callbacks and lets the pose own everything else. See `docs/debug.md`.
+## and end callbacks and lets the pose own everything else. See `docs/debug_actions.md`.
 
 ## The Idle Life entry script this bridge was written against (1.4.2) and the idle id.
 const ENTRY_PATH := "res://mods/idle_life/main.gd"

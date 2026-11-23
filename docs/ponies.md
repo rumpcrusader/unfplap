@@ -127,4 +127,4 @@ None. The act key belongs to `docs/input.md` and the idle scan to `docs/offer.md
 
 The Debug block reads the roster through its `Host` facade: `active()` from the act owner,
 `runtime_for()`, `live_ponies()` and the act-target rule from the eligibility service. See
-`docs/debug.md`.
+`docs/debug_actions.md`.

@@ -17,7 +17,7 @@ const UPDATE_HZ := 30.0
 const MAX_DISTANCE_M := 15.0
 const HOVER_MIN_PX := 9.0
 
-## The `debug/actions.gd` node; the overlay draws only while it is live.
+## The `debug_actions/service.gd` node; the overlay draws only while it is live.
 var actions: Node
 var enabled := false:
 	set(value):

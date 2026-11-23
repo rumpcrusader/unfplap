@@ -124,7 +124,7 @@ controller, not a snapshot.
 
 The Placement editor no longer selects a pony: `debug_placement(pony, op, value, tail_owned)` and
 `debug_show(pony)` take the body the debug caller aimed at. A source-owned tail is passed as
-`tail_owned` by `debug/actions.gd`, which also applies the source's wrapper after a write.
+`tail_owned` by `debug_actions/service.gd`, which also applies the source's wrapper after a write.
 
 `ActPresentation` stages the act with the caller-owned `PoseView` and `ActStage`. `act/tick.gd`
 calls `stage(delta, stage)` every frame from `POSING_IN` through `RESTORE`; `act/tick._fanout`
@@ -811,7 +811,8 @@ settings change.
   compressed.
 - **Show skeleton overlay** (`anatomy.skeleton_overlay`) is a persisted Anatomy → Debug flag. It
   draws nearby ponies' body, face and hair/tail skeletons only while **Enable debug** is on; click
-  a joint to print its bone data. The overlay itself is `debug/skeleton.gd`; see `docs/debug.md`.
+  a joint to print its bone data. The overlay itself is `debug_actions/skeleton.gd`; see
+  `docs/debug_actions.md`.
 - **Force/Clear heat** and **Force/Clear diestrus** are the cycle debug actions; their effect on
   the idle heat display is described in `## Idle heat`. The cycle owner is
   `docs/eligibility.md`.

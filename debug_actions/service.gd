@@ -1,7 +1,9 @@
 extends "res://mods/unfplap/shared/service.gd"
-## The debug actions: every Debug block button and wheel slot, the show-data collector, the wheel
-## gate and the skeleton overlay. The entry adds this one node; `debug/service.gd` dispatches to it
-## and the registry's `target` is this node. See `docs/debug.md`.
+## Service: debug_actions
+## Scope: world
+## Contract: docs/debug_actions.md
+## The debug executor: every Debug block button and wheel slot runs through it, and it collects
+## Show data, gates the wheel and draws the skeleton overlay.
 
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
@@ -23,13 +25,12 @@ const INITIATION := preload("res://mods/unfplap/initiation/service.gd")
 const NEGOTIATION := preload("res://mods/unfplap/negotiation/service.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
 const STOOL := preload("res://mods/unfplap/stool/service.gd")
-const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/service.gd")
-const DEBUG_BED := preload("res://mods/unfplap/debug/bed.gd")
-const DEBUG_PONY := preload("res://mods/unfplap/debug/pony.gd")
-const DEBUG_STRETCH := preload("res://mods/unfplap/debug/idle_stretch.gd")
-const DEBUG_SKELETON := preload("res://mods/unfplap/debug/skeleton.gd")
-const DEBUG_WHEEL := preload("res://mods/unfplap/debug/wheel.gd")
-const DEBUG_UI := preload("res://mods/unfplap/debug/ui.gd")
+const DEBUG_TABLE := preload("res://mods/unfplap/debug/service.gd")
+const DEBUG_BED := preload("res://mods/unfplap/debug_actions/bed.gd")
+const DEBUG_PONY := preload("res://mods/unfplap/debug_actions/pony.gd")
+const DEBUG_STRETCH := preload("res://mods/unfplap/debug_actions/idle_stretch.gd")
+const DEBUG_SKELETON := preload("res://mods/unfplap/debug_actions/skeleton.gd")
+const DEBUG_WHEEL := preload("res://mods/unfplap/debug_actions/wheel.gd")
 ## The debug name action cycles these shipped adult mares, so the lab can test more than one fit
 ## without a text prompt. Player-named shapes belong to the dialogue path.
 const FORM_DEBUG_SHAPES := ["fluttershy", "rarity", "applejack", "pinkie_pie", "twilight_sparkle"]
@@ -52,6 +53,15 @@ class Host extends RefCounted:
 	var act_target := Callable()
 	## -> String, the authored pose re-read behind Reload posed base; "" on success.
 	var reload_posed_base := Callable()
+
+
+## The wheel's one target read: the pony to act on, its name, where it came from and whether an
+## act is live.
+class WheelTarget extends RefCounted:
+	var pony: Node = null
+	var name := "No mare"
+	var source := "none"
+	var act := false
 
 
 ## The live act reads. Built in `_ready()` unless a suite bound its own.
@@ -83,7 +93,7 @@ var _form_shape_index := 0
 
 
 func _ready() -> void:
-	DEBUG_ACTIONS.target = self
+	DEBUG_TABLE.target = self
 	if host == null:
 		host = _host()
 	CHANGE.on_changed(Callable(self, "apply_settings"))
@@ -110,8 +120,8 @@ func wire(body_change: BODY_CHANGE_SERVICE, initiation: INITIATION,
 
 func _exit_tree() -> void:
 	CHANGE.off_changed(Callable(self, "apply_settings"))
-	if DEBUG_ACTIONS.target == self:
-		DEBUG_ACTIONS.target = null
+	if DEBUG_TABLE.target == self:
+		DEBUG_TABLE.target = null
 
 
 ## A settings edit: the wheel closes when debug mode goes off, and the skeleton overlay follows its
@@ -120,11 +130,6 @@ func apply_settings() -> void:
 	if not LOG.enabled:
 		close_debug_wheel()
 	sync_skeleton_overlay()
-
-
-## The entry's Debug block hook; it forwards to the shared builder in `debug/ui.gd`.
-func build_settings_block(list: VBoxContainer, font_size: int, tab: String) -> void:
-	DEBUG_UI.build_actions(list, font_size, self, tab)
 
 
 ## The live act reads the actions need. Every one is a facade read, so the node builds its own.
@@ -456,7 +461,7 @@ func action_show_data() -> String:
 	var target: Node = _aim()
 	if not is_instance_valid(target):
 		return "No pony under the crosshair."
-	var data := debug_data(target)
+	var data := _debug_data(target)
 	var rows: Array[String] = []
 	for section: Variant in data.get("sections", []):
 		if not section is Dictionary:
@@ -470,7 +475,7 @@ func action_show_data() -> String:
 
 
 ## The structured per-mare collector; its `ACT` section exists only for the live act's target.
-func debug_data(target: Node) -> Dictionary:
+func _debug_data(target: Node) -> Dictionary:
 	var data := {"target": target, "sections": []}
 	if not is_instance_valid(target):
 		return data
@@ -929,7 +934,7 @@ func debug_wheel_allowed() -> bool:
 	var tree := get_tree()
 	var viewport: Viewport = get_viewport() if tree != null else null
 	var focus: Control = viewport.gui_get_focus_owner() if viewport != null else null
-	return DEBUG_ACTIONS.wheel_gate(LOG.enabled,
+	return DEBUG_TABLE.wheel_gate(LOG.enabled,
 		DisplayServer.get_name() == "headless",
 		WORLD.ready(),
 		tree != null and tree.paused, WORLD.headset_view(), DisplayServer.window_is_focused(),
@@ -939,29 +944,28 @@ func debug_wheel_allowed() -> bool:
 
 
 ## The wheel's target: the active act's pony while an act runs, else the aimed mare.
-func debug_wheel_context() -> Dictionary:
-	var out := {"pony": null, "name": "No mare", "source": "none", "act": false}
+func debug_wheel_context() -> WheelTarget:
+	var out := WheelTarget.new()
 	var act: Node = _act()
 	if is_instance_valid(act):
-		out["act"] = true
+		out.act = true
 		var act_pony: Variant = act.get("pony")
-		if is_instance_valid(act_pony):
-			out["pony"] = act_pony
-			out["name"] = str((act_pony as Node).name)
-			out["source"] = "act"
-			return out
+		if is_instance_valid(act_pony) and act_pony is Node:
+			out.pony = act_pony as Node
+			out.name = str((act_pony as Node).name)
+			out.source = "act"
 		return out
 	var target: Node = _aim()
 	if is_instance_valid(target):
-		out["pony"] = target
-		out["name"] = str(target.name)
-		out["source"] = "aimed"
+		out.pony = target
+		out.name = str(target.name)
+		out.source = "aimed"
 	return out
 
 
 ## Run a wheel action and show its result as a toast, keeping the block in the log.
 func debug_wheel_action(name: String) -> String:
-	var result := DEBUG_ACTIONS.run_action(name, self)
+	var result := DEBUG_TABLE.run_action(name, self)
 	LOG.debug("wheel %s: %s", [name, result])
 	if not result.is_empty() and is_instance_valid(hud):
 		hud.toast(result, 3.0)
@@ -976,7 +980,7 @@ func skeleton_click() -> bool:
 
 ## The aimed mare: the closest mare to the camera's aim ray, else nothing.
 func _aim() -> Node:
-	return DEBUG_ACTIONS.aimed_pony(WORLD.camera())
+	return DEBUG_TABLE.aimed_pony(WORLD.camera())
 
 
 func _act() -> Node:

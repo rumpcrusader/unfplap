@@ -4,7 +4,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/test_deep_stretch.gd
 
-const BRIDGE := preload("res://mods/unfplap/debug/idle_stretch.gd")
+const BRIDGE := preload("res://mods/unfplap/debug_actions/idle_stretch.gd")
 
 
 

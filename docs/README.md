@@ -79,7 +79,8 @@ block; its `_compose()` constructs and binds them once per pony and attaches the
 | Settings | `settings/service.gd` | `docs/settings.md` | `tests/test_settings.gd` | `process` |
 | Mare registry | `registry/service.gd` | `docs/registry.md` | `tests/test_api.gd` | `process` |
 | Input | `input/service.gd` | `docs/input.md` | `tests/test_input.gd` | `world` |
-| Debug tooling | `debug/service.gd`, `debug/actions.gd` | `docs/debug.md` | `tests/test_debug_wheel.gd`, `tests/test_debug_pony.gd`, `tests/test_deep_stretch.gd` | `process` |
+| Debug tooling | `debug/service.gd` | `docs/debug.md` | `tests/test_debug_wheel.gd`, `tests/test_settings.gd` | `process` |
+| Debug actions executor | `debug_actions/service.gd` | `docs/debug_actions.md` | `tests/test_debug_pony.gd`, `tests/test_deep_stretch.gd`, `tests/test_face_sit_action.gd` | `world` |
 
 The facade header declares the service scope; each contract owns the service's responsibility and
 boundary. A facade is internal API; the only stable external surface is `docs/api.md`.

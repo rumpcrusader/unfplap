@@ -7,8 +7,8 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ## registry dispatch to the actions node.
 
 const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/service.gd")
-const DEBUG_WHEEL := preload("res://mods/unfplap/debug/wheel.gd")
-const DEBUG_ACTION_NODE := preload("res://mods/unfplap/debug/actions.gd")
+const DEBUG_WHEEL := preload("res://mods/unfplap/debug_actions/wheel.gd")
+const DEBUG_ACTION_NODE := preload("res://mods/unfplap/debug_actions/service.gd")
 
 
 
@@ -21,14 +21,14 @@ class PhaseNode extends Node:
 
 
 ## A stand-in for the actions node: the gate, the context and the slot dispatch.
-class WheelActions extends "res://mods/unfplap/debug/actions.gd":
+class WheelActions extends "res://mods/unfplap/debug_actions/service.gd":
 	var last_action := ""
 
 	func debug_wheel_allowed() -> bool:
 		return true
 
-	func debug_wheel_context() -> Dictionary:
-		return {"pony": null, "name": "No mare", "source": "none", "act": false}
+	func debug_wheel_context() -> DEBUG_ACTION_NODE.WheelTarget:
+		return DEBUG_ACTION_NODE.WheelTarget.new()
 
 	func debug_wheel_act_live() -> bool:
 		return false

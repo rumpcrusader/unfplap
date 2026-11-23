@@ -7,7 +7,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ## posture state, never a game file.
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
-const DEBUG_PONY := preload("res://mods/unfplap/debug/pony.gd")
+const DEBUG_PONY := preload("res://mods/unfplap/debug_actions/pony.gd")
 
 
 

@@ -151,9 +151,9 @@ negotiation reasoning, never a gate; `anal` and `oral` gate the anatomy targets'
 
 ## Debug
 
-`debug/pony.gd` reads the act gate's `relations` for its debug line; eligibility itself has no
+`debug_actions/pony.gd` reads the act gate's `relations` for its debug line; eligibility itself has no
 debug action and no console line. The Debug actions that used the old verdict now read the act
-gate: `docs/act_gate.md` and `docs/debug.md`.
+gate: `docs/act_gate.md` and `docs/debug_actions.md`.
 
 ## Known limits
 

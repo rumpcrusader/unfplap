@@ -1,18 +1,18 @@
 extends CanvasLayer
 ## The debug action wheel: hold the middle button in captured desktop play and release on a slot.
-## It never pauses the tree, claims a hotkey or writes a setting. See `docs/debug.md`.
+## It never pauses the tree, claims a hotkey or writes a setting. See `docs/debug_actions.md`.
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/service.gd")
-const ACTIONS_NODE := preload("res://mods/unfplap/debug/actions.gd")
+const ACTIONS_NODE := preload("res://mods/unfplap/debug_actions/service.gd")
 
-## The `debug/actions.gd` node that owns the gate, the context and the slots.
+## The executor node that owns the gate, the context and the slots.
 var actions: ACTIONS_NODE
 
 var _open := false
 var _page := "mare"
 var _slots: Array[String] = []
-var _context: Dictionary = {}
+var _source := "none"
 var _target: Node
 var _had_target := false
 var _aim := Vector2.ZERO
@@ -57,11 +57,11 @@ func is_open() -> bool:
 func open() -> bool:
 	if not _can_open():
 		return false
-	_context = actions.debug_wheel_context()
-	var pony: Variant = _context.get("pony")
-	_target = pony as Node if is_instance_valid(pony) else null
+	var context := actions.debug_wheel_context()
+	_target = context.pony
 	_had_target = is_instance_valid(_target)
-	_page = DEBUG_ACTIONS.wheel_root(bool(_context.get("act", false)))
+	_source = context.source
+	_page = DEBUG_ACTIONS.wheel_root(context.act)
 	_slots = DEBUG_ACTIONS.wheel_actions(_page, actions)
 	_aim = Vector2.ZERO
 	_hover = -1
@@ -200,7 +200,7 @@ func _context_name() -> String:
 
 
 func _context_source() -> String:
-	match str(_context.get("source", "none")):
+	match _source:
 		"aimed":
 			return "aimed mare"
 		"act":

@@ -579,8 +579,8 @@ the settings buttons and the wheel both resolve it through `action_label()`/`act
 
 The registry declares no global hotkeys, so the game's own dev keys (`F4`, `F9`, `F10`, `F11`) stay
 usable while the mod is loaded; `input/service.gd` still routes a declared `"hotkey"` for a future
-action that must fire while the world is unpaused. The action list, the wheel pages and
-per-service debug actions are in `docs/debug.md`.
+action that must fire while the world is unpaused. The action list and the wheel pages are in
+`docs/debug.md`; the executor's action behaviour is in `docs/debug_actions.md`.
 
 ## Perf probe
 

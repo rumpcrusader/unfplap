@@ -386,7 +386,7 @@ is written through `LOG.debug()` and obeys **Enable debug**.
 ## Controls and debug
 
 The Debug block's **Form: true form**, **Form: next named shape** and **Form: bring her out** drive
-the shipped provider from `docs/debug.md`. In a live act the two form actions go through
+the shipped provider from `docs/debug_actions.md`. In a live act the two form actions go through
 `runtime.act.request_form_change()` and the body handover; outside an act they ask the service, which
 forwards to the provider and runs the idle change path. Bring-out is not a change.
 

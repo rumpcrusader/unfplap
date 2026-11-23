@@ -453,18 +453,20 @@ block uses `SETTINGS.act_snapshot(group)` and receives it again on `apply_live_s
 settings service. The per-mare profiles live in the player's `characters.json`, split out of the
 settings document by that writer, until a characters service owns them.
 
-The debug service owns the console, the panel, the action registry (`debug/service.gd`), the
-action behavior (`debug/actions.gd`, the one node the entry adds), the action wheel
-(`debug/wheel.gd`), the stock bed cuddle helper (`debug/bed.gd`), the pony-preparation helper
-(`debug/pony.gd`), the Idle Life deep-stretch bridge (`debug/idle_stretch.gd`), the skeleton
-overlay and the action-button builder (`debug/ui.gd`). The settings panel passes the debug action
-builder into its Debug block. The entry only adds the actions node and binds its named reads of the
-live act; the wheel gate and the persisted skeleton flag's sync run in that node. The registry
-resolves the node through its `target` and its public functions are typed.
+The debug service is the Process action registry (`debug/service.gd`) with the action-button
+builder (`debug/ui.gd`) and its base-game accessor (`debug/game.gd`). The `debug_actions` World
+service is the one node the entry adds: it runs the registry's methods, and owns the action wheel
+(`debug_actions/wheel.gd`), the stock bed cuddle helper (`debug_actions/bed.gd`), the
+pony-preparation helper (`debug_actions/pony.gd`), the Idle Life deep-stretch bridge
+(`debug_actions/idle_stretch.gd`) and the skeleton overlay (`debug_actions/skeleton.gd`). The
+settings panel asks the registry for the debug action builder. The entry only adds and wires the
+executor node and binds its named reads of the live act; the wheel gate and the persisted skeleton
+flag's sync run in that node. The registry resolves the node through its `target` and its public
+functions are typed.
 
 `docs/settings.md` owns the framework and the declaration contract. Each service doc owns its
-settings, feature flags and debug actions. `docs/debug.md` owns the console, panel, overlay and
-lab keys.
+settings, feature flags and debug actions. `docs/debug.md` owns the registry, the console, the
+panel and the lab keys; `docs/debug_actions.md` owns the executor, the wheel and the overlay.
 
 ## Documentation
 

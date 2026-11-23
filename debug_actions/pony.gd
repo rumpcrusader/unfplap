@@ -3,7 +3,7 @@ extends RefCounted
 ## and `idle` clear a saved test actor's leftover tilt and navigator lease before a stock path
 ## runs; `idle` also requests the standing pose. `clear_busy` ends a live stock cuddle and drops
 ## the act metas. Nothing here is game state of its own except the metas it clears and the bond
-## record the sex-ready path writes; see `docs/debug.md`.
+## record the sex-ready path writes; see `docs/debug_actions.md`.
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const BOND_RECORD := preload("res://mods/unfplap/shared/bond_record.gd")
@@ -179,7 +179,7 @@ static func _raise_stage(record: BOND_RECORD) -> String:
 
 
 ## Write the game's own bond record. The row is the save field the relationship runtime reads;
-## this is a debug cheat, documented in docs/debug.md.
+## this is a debug cheat, documented in docs/debug_actions.md.
 static func _write_record(host: Node, pony: Node3D, id: String) -> Array[String]:
 	var out: Array[String] = []
 	if not is_instance_valid(host) or not is_instance_valid(pony):

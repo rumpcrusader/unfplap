@@ -115,6 +115,10 @@ Every setting also has `get_value()`, `set_value(v)`, `reset()`, `name`, `path`,
 `tab`, `group`, `default` and `debug`. `default` is the shipped value the declaration bound at
 start-up; `reset()` writes it back.
 
+Each setting holds the two calls its accessors need, and they look it up by **name**: a call that
+closed over the setting itself would make every declaration its own `RefCounted` cycle, which the
+engine can never collect. That is why the accessor body is a name lookup and not a captured object.
+
 A wrong accessor does not compile: `SETTINGS.mute_ponese_audio.get_num()` is a parse error, and so is a
 mistyped name. That is the main safety net; the tests only cover what the compiler cannot see.
 

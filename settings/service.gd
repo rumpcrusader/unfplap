@@ -284,15 +284,28 @@ static func _bind(s: Setting, n: String, path: String, label: String, help: Stri
 	if s.default != null and not _shipped_type_ok(s, s.default):
 		_shipped_fail("wrong shipped default type for %s" % path)
 		s.default = null
-	# Not a per-instance module reference: an inner class cannot see the outer script's statics,
-	# so each setting carries the two calls it needs.
-	s._get = func() -> Variant: return _setting_value(s)
-	s._set = func(value: Variant) -> void: _store(s, value)
+	# An inner class cannot see the outer script's statics, so each setting carries the two calls it
+	# needs. They resolve the setting by name: one that closed over `s` would make it its own cycle.
+	s._get = func() -> Variant: return _setting_by_name(n)
+	s._set = func(value: Variant) -> void: _store_by_name(n, value)
 	if _by_path.has(path):
 		LOG.error("settings: duplicate path %s", [path])
 	_registry.append(s)
 	_by_path[path] = s
 	_by_name[n] = s
+
+
+## The value of the setting one accessor names; null when no setting carries that name.
+static func _setting_by_name(n: String) -> Variant:
+	var found: Setting = _by_name.get(n)
+	return _setting_value(found) if found != null else null
+
+
+## Write the value of the setting one accessor names.
+static func _store_by_name(n: String, value: Variant) -> void:
+	var found: Setting = _by_name.get(n)
+	if found != null:
+		_store(found, value)
 
 
 ## True when the anatomy is shown at all: the `anatomy_mode` pill is not `never`.

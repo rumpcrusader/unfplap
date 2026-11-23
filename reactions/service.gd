@@ -20,7 +20,7 @@ const RUMP_BLUSH_STEP := 0.0525
 const RUMP_BLUSH_MAX := 0.375
 const RUMP_BLUSH_DECAY := 0.006
 
-## Scene handles. The runtime binds them; tests may inject a fake flank and anatomy.
+## Scene handles. The runtime binds the body and its flank; the composition wires the anatomy.
 var pony: Node3D = null
 var flank: Node = null
 var anatomy: ANATOMY = null
@@ -48,10 +48,15 @@ var _heart_times: Array[float] = []
 var _heart_counts: Array[int] = []
 
 
-## Bind the act's pony and the anatomy API; a test may inject its fake flank.
-func bind_scene(pony_node: Node3D, anatomy_api: ANATOMY, flank_ctl: Node = null) -> void:
-	pony = pony_node
+## The anatomy API the facade reads outside the scene. The scene bind carries the body and its
+## flank; a test may inject its fake.
+func wire(anatomy_api: ANATOMY) -> void:
 	anatomy = anatomy_api
+
+
+## The presented body and its flank; the runtime binds them on every body bind.
+func bind_scene(pony_node: Node3D, flank_ctl: Node = null) -> void:
+	pony = pony_node
 	if flank_ctl != null:
 		flank = flank_ctl
 	_follow_coat()

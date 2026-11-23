@@ -71,8 +71,7 @@ func rebind_body() -> void:
 	context.audio.rebind_body(host.pony, session.pony_id, session.bed)
 	session.refresh_view()
 	session.refresh_anatomy()
-	context.reactions.bind_scene(host.pony as Node3D,
-		context.world.anatomy, _flank())
+	context.reactions.bind_scene(host.pony as Node3D, _flank())
 	var view := context.pose.view()
 	context.hands.pose_changed(view)
 	context.kiss.pose_changed(view)
@@ -195,7 +194,7 @@ func apply_resume_settings() -> void:
 
 
 func rebind_reactions() -> void:
-	context.reactions.bind_scene(host.pony as Node3D, context.world.anatomy, _flank())
+	context.reactions.bind_scene(host.pony as Node3D, _flank())
 	context.reactions.apply_radius()
 
 

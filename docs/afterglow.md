@@ -36,9 +36,9 @@ Host callbacks, all optional so a test can build the facade without a runtime:
 | `caress_active() -> bool` | the hand controller has an active caress |
 | `write_satisfaction(value)` | the aftercare decay's meter write |
 
-The phase's act collaborators are bound once by the builder (`bind_act(face, reactions, readiness)`)
-and the act ids by the session (`set_act(pony_id, event_id)`); the close reward writes through
-them.
+The phase's act collaborators are wired once by the composition, the pose session among them for
+`apply_presentation()`, and the act ids by the session (`set_act(pony_id, event_id)`); the close
+reward writes through them.
 
 ## Ending
 

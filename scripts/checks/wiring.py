@@ -24,13 +24,13 @@ MOD_PREFIX = "res://mods/unfplap/"
 # by the runtime. `tests/` and `tools/` are not shipped, so they never reach this map.
 ROOT_FOR_SCOPE = {"process": "main.gd", "world": "main.gd", "pony": "runtime.gd"}
 # The composition verbs each root may call. The three roots construct, wire, name and attach; the
-# Pony root also binds the act record's typed hosts, and its one-off `bind_act`/`bind_host`/
-# `configure`/`from_dict` are the Pony facades' pre-`wire` injectors.
+# Pony root also binds the act record's typed hosts, and `bind`/`bind_host` take a host or a value,
+# `configure`/`from_dict` a value.
 ROOT_CALLS = {
     "_build_process": frozenset({"new", "_add_node"}),
     "_build_world": frozenset({"new", "wire", "_build_record", "_attach", "connect"}),
     "_compose": frozenset({
-        "new", "wire", "bind", "bind_act", "bind_host", "configure", "from_dict", "_attach"}),
+        "new", "wire", "bind", "bind_host", "configure", "from_dict", "_attach"}),
 }
 # Values and predicates a root may use; they build or test a value, they run no behaviour.
 ROOT_VALUE_CALLS = frozenset({"Callable", "is_instance_valid", "range", "str", "int", "float"})
@@ -59,6 +59,9 @@ PARAM = re.compile(r"([A-Za-z_]\w*)\s*:\s*([A-Za-z_][\w.]*)")
 CALL = re.compile(r"(?:([A-Za-z_]\w*)\s*\.\s*)?([A-Za-z_]\w*)\s*\(")
 ASSIGN = re.compile(r"^\s*(?:self\.)?([A-Za-z_]\w*)\s*=\s*([A-Za-z_]\w*)\s*$", re.MULTILINE)
 FUNCTION = re.compile(r"^(?:static\s+)?func\s+([A-Za-z_]\w*)\(")
+# A function-local typed var: the composition roots build their services this way.
+LOCAL_TYPED_VAR = re.compile(r"^[ \t]+var\s+([A-Za-z_]\w*)\s*:\s*([A-Za-z_]\w*)[ \t]*(?:=|$)",
+                             re.MULTILINE)
 
 
 def facade_map() -> dict[str, str]:
@@ -72,7 +75,11 @@ def facade_scopes() -> dict[str, str]:
 
 
 def type_map(text: str) -> dict[str, str]:
-    """A file's preloaded consts and module-level fields: name -> mod-relative script path."""
+    """A file's preloaded consts and its typed vars, module-level first: name -> mod-relative path.
+
+    A composition root builds several services in locals, so a local typed var must resolve for
+    the wire-site rule to see the call.
+    """
     consts = {
         match.group(1): match.group(2).removeprefix(MOD_PREFIX)
         for match in PRELOAD_CONST.finditer(text)
@@ -81,6 +88,9 @@ def type_map(text: str) -> dict[str, str]:
     for match in TYPED_VAR.finditer(text):
         if match.group(2) in consts:
             out[match.group(1)] = consts[match.group(2)]
+    for match in LOCAL_TYPED_VAR.finditer(text):
+        if match.group(2) in consts:
+            out.setdefault(match.group(1), consts[match.group(2)])
     for match in INFERRED_VAR.finditer(text):
         if match.group(2) in consts:
             out.setdefault(match.group(1), consts[match.group(2)])
@@ -215,7 +225,7 @@ def _injection_member(body: str, peer_params: set[str]) -> bool:
 
 
 def injection_failures(path: str, text: str, facades: dict[str, str] | None = None) -> list[str]:
-    """A facade has one peer-injection member; a second one is a second way to wire it."""
+    """The one member that stores a facade-typed parameter is the facade's `wire`."""
     facades = facade_map() if facades is None else facades
     if path not in facades:
         return []
@@ -224,9 +234,9 @@ def injection_failures(path: str, text: str, facades: dict[str, str] | None = No
         match.group(1): match.group(2).removeprefix(MOD_PREFIX)
         for match in PRELOAD_CONST.finditer(text)
     }
-    injections: list[str] = []
+    stray: list[str] = []
     for name, parameter_text in signatures(masked):
-        if name in WIRING_EXEMPT - {"wire"}:
+        if name in WIRING_EXEMPT:
             continue
         peer_params = {
             param for param, declared in params_of(parameter_text)
@@ -236,12 +246,12 @@ def injection_failures(path: str, text: str, facades: dict[str, str] | None = No
             continue
         _start, body = function_span(masked, name)
         if _injection_member(body, peer_params):
-            injections.append(name)
-    if len(injections) <= 1:
+            stray.append(name)
+    if not stray:
         return []
     return [
-        "%s has %d peer-injection members (%s); one facade, one wire()" % (
-            path, len(injections), ", ".join(sorted(injections)))
+        "%s stores a peer in %s(); the one peer-injection member is wire()" % (
+            path, ", ".join(sorted(stray)))
     ]
 
 

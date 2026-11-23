@@ -159,8 +159,9 @@ func _compose() -> void:
 	var standing_anon: STANDING_ANON = STANDING_ANON.new(facts)
 	var standing_presentation: STANDING_PRESENTATION = \
 		STANDING_PRESENTATION.new(facts, _world.eligibility)
-	camera.bind(facts, hands, _kiss, view)
+	camera.wire(facts, hands, _kiss, view)
 	camera.standing_anon = standing_anon
+	reactions.wire(_world.anatomy)
 	# The act's own host, record, session and modules, in binding order.
 	_host = ACT_NODE.new()
 	_host.bind(self)
@@ -268,7 +269,7 @@ func _compose() -> void:
 	readiness.shaft_length = Callable(phases, "shaft_length_m")
 	readiness.pose_family = Callable(_act, "pose_family")
 	_afterglow.caress_active = Callable(hands, "any_active")
-	_afterglow.bind_act(_face, reactions, readiness)
+	_afterglow.wire(_face, reactions, readiness, _pose)
 	_afterglow.bind_host(self)
 	_afterglow.write_satisfaction = Callable(readiness, "write_satisfaction")
 	_face.clock = Callable(_act, "clock_s")
@@ -304,7 +305,7 @@ func _compose() -> void:
 	facts.on_touch = Callable(readiness, "touch")
 	facts.on_smack = Callable(reactions, "smack")
 	facts.pose_host = Callable(_host, "runtime")
-	_gate.bind(null, _pose, _world.act_gate)
+	_gate.wire(_pose, _world.act_gate)
 	_gate.configure(_act.state, _act.pony_id,
 		SCENE_GATE.Features.from_dict(_act.features))
 	_attach(_pose, "UnfplapPoses")
@@ -352,7 +353,6 @@ func _bind_pony(value: Node) -> void:
 		_host.pony = value
 	if is_instance_valid(_context.reactions) and value is Node3D:
 		_context.reactions.bind_scene(value as Node3D,
-			_world.anatomy if _world != null else null,
 			(value as Node3D).get_node_or_null("FlankTouch"))
 
 

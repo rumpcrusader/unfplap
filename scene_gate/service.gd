@@ -14,11 +14,11 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const STATE_IDLE := ACT_STATE.State.IDLE
 
-## The act's scene handles. The runtime binds them on every gate call.
+## The act's scene handles. The presented body is rebound by the session on every gate refresh.
 var pony: Node3D = null
 ## The pose session, for the missionary asset/rig rows. Its facade answers both.
 var pose_session: POSE_SESSION = null
-## The act gate the policy rows and the Base clearance row read; the runtime binds it.
+## The act gate the policy rows and the Base clearance row read; the composition wires it.
 var gate_service: ACT_GATE = null
 
 ## The act identity and state the rows read.
@@ -99,12 +99,16 @@ class SceneVerdict:
 	var reasons: PackedStringArray = []
 
 
-## Bind the scene nodes and the pose session. A missing node fails the gate closed.
-func bind(pony_node: Node3D, session: POSE_SESSION,
-		gate: ACT_GATE = null) -> void:
-	pony = pony_node
+## The pose session and act gate the rows read, wired once by the runtime's composition.
+func wire(session: POSE_SESSION, gate: ACT_GATE = null) -> void:
 	pose_session = session
 	gate_service = gate
+	assert(pose_session != null)
+
+
+## The presented body. The session rebinds it on every gate refresh; a missing node fails closed.
+func bind_pony(pony_node: Node3D) -> void:
+	pony = pony_node
 
 
 ## The runtime's live gate values. The act state, id and feature snapshot change per act.

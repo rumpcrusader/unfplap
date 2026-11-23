@@ -153,8 +153,7 @@ func refresh_gate() -> void:
 	if context == null or context.gate == null:
 		return
 	var pony_node: Node3D = host.pony if host != null and is_instance_valid(host.pony) else null
-	var session: POSE_SESSION = context.pose if is_instance_valid(context.pose) else null
-	context.gate.bind(pony_node, session, context.gate.gate_service)
+	context.gate.bind_pony(pony_node)
 	context.gate.configure(state, pony_id, SCENE_GATE.Features.from_dict(features))
 
 func act_seconds() -> float:
@@ -638,7 +637,7 @@ func begin_afterglow() -> void:
 	context.face.release_stare()
 	context.face.set_face(0.85, context.face.AFTERGLOW_LIDS)
 	face_beat("afterglow")
-	if context.afterglow.apply_presentation(context.pose):
+	if context.afterglow.apply_presentation():
 		context.wings.begin_afterglow()
 
 func climax() -> void:

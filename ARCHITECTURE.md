@@ -317,9 +317,9 @@ The root is pure: it may construct (`<T>.new()`), `wire`, name, `add_child`, joi
 read passed straight into `wire()` as an argument is composition, not behaviour. Behaviour that
 looks like setup belongs to the service's `_ready()`.
 
-The Pony services still take their peers through their one `bind`-family member rather than through
-`wire`; the gate enforces one peer-injection member per facade and the unified verb is the pending
-rename.
+The Pony services take their peers through that one `wire()` like every other facade; a
+`bind`-family member takes a host, a body or a value, never a peer, and the gate fails an injection
+member that stores one.
 
 ### The two debug assertions
 

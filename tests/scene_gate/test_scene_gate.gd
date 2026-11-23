@@ -169,6 +169,7 @@ func _fixture() -> Dictionary:
 	bed.global_position = Vector3(0.0, -0.1, 0.0)
 	var pose := FakePose.new()
 	var stool := FakeStool.new()
+	var gate_service := FakeGate.new()
 	var affection := FakeAffection.new()
 	affection.name = "Affection"
 	pony.add_child(affection)
@@ -176,7 +177,8 @@ func _fixture() -> Dictionary:
 	root.add_child(main)
 	main.add_child(player)
 	main.add_child(game)
-	gate.bind(pony, pose)
+	gate.wire(pose, gate_service)
+	gate.bind_pony(pony)
 	gate.configure(STATE_IDLE, "rarity", GATE.Features.from_dict({}))
 	gate.stool_need = Callable(stool, "stool_need")
 	gate.stool_count = Callable(stool, "stool_count")
@@ -184,8 +186,6 @@ func _fixture() -> Dictionary:
 	var context := FakeContext.new()
 	gate.policy_verdict = Callable(policy, "verdict_for")
 	gate.debug_context = Callable(context, "context")
-	var gate_service := FakeGate.new()
-	gate.gate_service = gate_service
 	await physics_frame
 	return {
 		"gate": gate, "pony": pony, "nav": nav, "player": player, "game": game,

@@ -33,10 +33,11 @@ is computed by `camera/service.gd:gaze_point()` from the pose-owned act body and
 
 ## Typed view
 
-Every camera and view module reads `shared/act_facts.gd` and never the runtime node. The runtime
-binds the view and refreshes it once per phase (idle, physics after the pose tick and before the
-fan-out, render before the camera work, and `apply_camera_motion()`), and the modules read the
-camera fields (`lean_*`, `bob`, `lean`, `shot_lean_forward`, `free_camera_active`, `look_*`,
+Every camera and view module reads `shared/act_facts.gd` and never the runtime node. The composition
+wires the camera's peers and the one act view once, and the runtime refreshes the view once per
+phase (idle, physics after the pose tick and before the fan-out, render before the camera work, and
+`apply_camera_motion()`), and the modules read the camera fields
+(`lean_*`, `bob`, `lean`, `shot_lean_forward`, `free_camera_active`, `look_*`,
 `head_clearance`, `camera`, `bed_frame`, `viewport`) plus the `kiss_controller()`,
 `missionary_body()`, `authored_pose_asset()` and `mark_camera_basis_ready()` callbacks. The pose family, the contact kind
 (`view.contact_kind`) and the presentation lean profile come from `facts.pose_view`; the camera

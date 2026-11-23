@@ -249,7 +249,7 @@ func _fixture() -> Dictionary:
 	var hands := FakeHands.new()
 	var kiss := FakeKiss.new()
 	var view := FakeView.new()
-	camera.bind(facts, hands, kiss, view)
+	camera.wire(facts, hands, kiss, view)
 	return {
 		"camera": camera, "facts": facts, "main": main, "player": player,
 		"hands": hands, "kiss": kiss, "view": view, "game": game,

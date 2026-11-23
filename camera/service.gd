@@ -48,7 +48,7 @@ const STATE_AFTERGLOW := ACT_STATE.State.AFTERGLOW
 ## The typed act view. Presentation modules read it; the runtime refreshes it once per phase
 ## through `refresh_view()`.
 var facts: ACT_FACTS = null
-## The controllers the camera drives and asks. The runtime binds them on every service call.
+## The controllers the camera drives and asks, wired once with the view.
 var hands: HANDS = null
 var kiss: KISS = null
 ## The one act view. It owns the view node and every live offset; this facade owns the lean.
@@ -104,14 +104,15 @@ var free_look_pitch := 0.0
 var free_look_was := false
 
 
-## Bind the typed act view and the controllers the camera drives. The runtime refreshes these on
-## every service call, so a suite can build a runtime without entering the tree.
-func bind(facts_context: ACT_FACTS, hands_ctl: HANDS, kiss_ctl: KISS,
+## The collaborators the camera asks and the one act view, handed over once per runtime; none is
+## built here.
+func wire(facts_context: ACT_FACTS, hands_ctl: HANDS, kiss_ctl: KISS,
 		view_ctl: CAMERA_VIEW) -> void:
 	facts = facts_context
 	hands = hands_ctl
 	kiss = kiss_ctl
 	view = view_ctl
+	assert(facts != null and hands != null and kiss != null and view != null)
 
 
 ## The pose read model. A missing view reads as no family outside an act.

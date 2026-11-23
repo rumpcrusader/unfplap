@@ -2100,7 +2100,3 @@ func sync_start_config(group: String) -> void:
 ## pose handle the bridge calls.
 func _bed_frame_value() -> Variant:
 	return bed_frame
-
-
-func self_handle() -> Node:
-	return self

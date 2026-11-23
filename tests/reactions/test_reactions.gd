@@ -174,7 +174,8 @@ func _check_body_coat_target() -> void:
 	SETTINGS.body_coat_deform.set_bool(true)
 	var pony := FakePony.new()
 	var reactions := REACTIONS.new()
-	reactions.bind_scene(pony, anatomy, flank)
+	reactions.wire(anatomy)
+	reactions.bind_scene(pony, flank)
 	flank._jiggle_targets = []
 	anatomy.refreshes = 0
 	root.add_child(pony)
@@ -218,7 +219,7 @@ func _check_radius() -> void:
 	root.add_child(mesh)
 	flank._jiggle_targets = [[material, mesh]]
 	var reactions := REACTIONS.new()
-	reactions.bind_scene(null, null, flank)
+	reactions.bind_scene(null, flank)
 	reactions.configure(tune({"radius": 0.30}))
 	reactions.apply_radius()
 	check(near(float(material.get_shader_parameter("jiggle_radius")), 0.30),
@@ -248,7 +249,7 @@ func _check_thrust() -> void:
 	flank.add_child(first_mark)
 	flank.add_child(second_mark)
 	var reactions := REACTIONS.new()
-	reactions.bind_scene(pony, null, flank)
+	reactions.bind_scene(pony, flank)
 	reactions.configure(tune({"intensity": 0.2, "radius": 0.26}, "standing", 0.66))
 	reactions.thrust(0.8)
 	check(flank.jiggle_calls == 1, "a thrust starts one jiggle")
@@ -273,7 +274,7 @@ func _check_smack() -> void:
 	root.add_child(pony)
 	root.add_child(tail)
 	var reactions := REACTIONS.new()
-	reactions.bind_scene(pony, null, flank)
+	reactions.bind_scene(pony, flank)
 	reactions.bind_tail(tail)
 	reactions.configure(tune({"smack_intensity": 0.5}, "standing", 1.0))
 	reactions.smack(0.8)
@@ -301,7 +302,7 @@ func _check_blush() -> void:
 	var pony := FakePony.new()
 	root.add_child(pony)
 	var reactions := REACTIONS.new()
-	reactions.bind_scene(pony, null)
+	reactions.bind_scene(pony)
 	reactions.configure(tune({}, "bed"))
 	reactions.add_blush(1.0)
 	check(near(reactions.rump_blush, 0.0), "the missionary act has no rump blush")
@@ -339,7 +340,7 @@ func _check_hearts() -> void:
 	root.add_child(boop)
 	root.add_child(hair)
 	var reactions := REACTIONS.new()
-	reactions.bind_scene(pony, null)
+	reactions.bind_scene(pony)
 	reactions.configure(tune({}, "", 1.0, 5.0))
 	check(reactions.dock_point().is_equal_approx(Vector3.ZERO), "the dock follows the tail base")
 	hair.position = Vector3(1.0, 2.0, 3.0)
@@ -374,7 +375,7 @@ func _check_rump_point() -> void:
 	pony.global_position = Vector3(1.0, 0.0, 2.0)
 	pony.rotation_degrees = Vector3(0.0, 35.0, 0.0)
 	var reactions := REACTIONS.new()
-	reactions.bind_scene(pony, null)
+	reactions.bind_scene(pony)
 	check(reactions.rump_point().is_equal_approx(RUMP_CONE.approx_point(pony)),
 		"the skeleton-less rump point is the shared approximate anchor")
 	root.remove_child(pony)

@@ -33,15 +33,16 @@ relationship and player facts and adds the session's act values. The scene handl
 (`available`, `pose_supported`, `player_ready`, `navigator_allows`, `posture_allows`,
 `agreement_ready`) and the scene-only verdict; the stool pair, hint and Agreement start are the
 other two handles. The gate reads the bound `ACT_GATE` service (`gate_service`) for the policy
-verdict and for `ready(pony)`; a suite may still override `policy_verdict`. The runtime binds the
-gate in its composition and re-binds it on every gate refresh. The tolerance stop owns its impression and face (`docs/summary.md`,
+verdict and for `ready(pony)`; a suite may still override `policy_verdict`. The composition wires
+the pose session and the act gate once, and the session binds the presented body on every gate
+refresh. The tolerance stop owns its impression and face (`docs/summary.md`,
 `docs/face.md`).
 
 The rows carry `ACT_GATE.Row` objects with the policy's own keys and reasons. The pure policy
 never sees a bed, a navigator, a pose asset or the player body. The merge answers a typed
 `GateVerdict`: `policy` is the snapshot, `rows` every row, and `show()` / `offer_ok()` the start
-and proactive-offer answers. `bind()` takes the typed pose session and `configure()` the act's
-typed feature snapshot.
+and proactive-offer answers. `wire()` takes the typed pose session and the act gate, `bind_pony()`
+the presented body, and `configure()` the act's typed feature snapshot.
 
 The pose half reads `shared/pose_specs.gd`, never a pose-id comparison: `scene()` gives the frame,
 `requires_bed`, `stool`, `standing_free` and the authored act sources; `is_public()` and

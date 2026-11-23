@@ -505,7 +505,7 @@ func run() -> void:
 	root.add_child(jiggle_pony)
 	var fake_tail := FakeTail.new()
 	root.add_child(fake_tail)
-	smack.bind_scene(jiggle_pony, null)
+	smack.bind_scene(jiggle_pony)
 	smack.bind_tail(fake_tail)
 	smack.smack(0.8)
 	check(near(fake_tail.last_strength, 0.5), "smack carries the tail jiggle in standing")
@@ -526,7 +526,7 @@ func run() -> void:
 	root.add_child(mark_pony)
 	mark_pony.add_child(mark_flank)
 	var marks := REACTIONS.new()
-	marks.bind_scene(mark_pony, null)
+	marks.bind_scene(mark_pony)
 	marks.clear_stock_marks()
 	check(not mark_a.visible and not mark_b.visible,
 		"act start hides stock flank marks")
@@ -546,7 +546,7 @@ func run() -> void:
 	root.add_child(radius_mesh)
 	radius_flank._jiggle_targets = [[radius_mat, radius_mesh]]
 	var radius := REACTIONS.new()
-	radius.bind_scene(null, null, radius_flank)
+	radius.bind_scene(null, radius_flank)
 	radius.configure(tune({"radius": 0.30}))
 	radius.apply_radius()
 	check(near(float(radius_mat.get_shader_parameter("jiggle_radius")), 0.30),
@@ -648,7 +648,7 @@ func run() -> void:
 	var smack_amount := REACTIONS.new()
 	var smack_pony := Node3D.new()
 	root.add_child(smack_pony)
-	smack_amount.bind_scene(smack_pony, null, smack_flank)
+	smack_amount.bind_scene(smack_pony, smack_flank)
 	smack_amount.configure(tune({"smack_intensity": 0.5}))
 	smack_amount.smack(0.8)
 	check(near(float(smack_flank._jiggle_amount), 0.04),

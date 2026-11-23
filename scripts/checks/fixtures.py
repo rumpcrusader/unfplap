@@ -245,6 +245,12 @@ WIRE_CALL_CASES = (
     ("wire outside the pony root", "main.gd", "pony",
      ALPHA_IMPORT + "var alpha: ALPHA\n"
      "func _build_world() -> void:\n\talpha.wire()\n", "only runtime.gd wires a pony service"),
+    ("wire on a local in its root", "main.gd", "world",
+     ALPHA_IMPORT + "func _build_world() -> void:\n"
+     "\tvar alpha: ALPHA = ALPHA.new()\n\talpha.wire()\n", None),
+    ("wire on a local outside its root", "hud/service.gd", "world",
+     ALPHA_IMPORT + "func _ready() -> void:\n"
+     "\tvar alpha: ALPHA = ALPHA.new()\n\talpha.wire()\n", "only main.gd wires a world service"),
 )
 WIRE_SITE_CASES = (
     ("wire called once by its root", {"alpha/api.gd": ["main.gd"]}, ["alpha/api.gd"], None),
@@ -268,13 +274,18 @@ PEER_PARAM_CASES = (
      "func rows(a: ALPHA) -> Array:\n\treturn a.rows()\n", "takes a peer outside wire()"),
 )
 INJECTION_CASES = (
-    ("one injection member", ALPHA_IMPORT + "var _a: ALPHA = null\n"
-     "func bind(a: ALPHA) -> void:\n\t_a = a\n", None),
-    ("two injection members", ALPHA_IMPORT + "var _a: ALPHA = null\n"
-     "func bind(a: ALPHA) -> void:\n\t_a = a\n"
-     "func bind_act(a: ALPHA) -> void:\n\t_a = a\n", "one facade, one wire()"),
+    ("an injection member named bind", ALPHA_IMPORT + "var _a: ALPHA = null\n"
+     "func bind(a: ALPHA) -> void:\n\t_a = a\n", "the one peer-injection member is wire()"),
+    ("the same facade with wire", ALPHA_IMPORT + "var _a: ALPHA = null\n"
+     "func wire(a: ALPHA) -> void:\n\t_a = a\n", None),
+    ("wire and a bind that stores a peer", ALPHA_IMPORT + "var _a: ALPHA = null\n"
+     "var _b: ALPHA = null\n"
+     "func wire(a: ALPHA) -> void:\n\t_a = a\n"
+     "func bind_act(a: ALPHA) -> void:\n\t_b = a\n", "the one peer-injection member is wire()"),
+    ("a bind that takes a host", ALPHA_IMPORT + "var _host: Host = null\n"
+     "func bind(host: Host) -> void:\n\t_host = host\n", None),
     ("a peer passed to a query", ALPHA_IMPORT + "var _a: ALPHA = null\n"
-     "func bind(a: ALPHA) -> void:\n\t_a = a\n"
+     "func wire(a: ALPHA) -> void:\n\t_a = a\n"
      "func rows(a: ALPHA) -> Array:\n\treturn a.rows()\n", None),
 )
 ROOT_PURITY_CASES = (

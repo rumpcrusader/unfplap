@@ -162,7 +162,7 @@ func run() -> void:
 	held.act.context.pose.view().id = "standing"
 	held.act.context.pose.view().pose_state = VIEW.STEADY
 	held.act.context.afterglow.bind_view(held.act.context.pose.view())
-	var wings_row: bool = held.act.context.afterglow.apply_presentation(held.act.context.pose)
+	var wings_row: bool = held.act.context.afterglow.apply_presentation()
 	check(wings_row, "the afterglow row asks the session for the wing return")
 	check(fake_pose.written.is_empty(), "the afterglow runtime writes no pose mode")
 	check(near(fake_pose.amount, 1.0) and near(fake_pose.target_amount, 1.0),

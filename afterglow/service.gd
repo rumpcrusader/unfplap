@@ -67,11 +67,13 @@ var caress_active := Callable()
 var host: Node = null
 ## The satisfaction decay's write: `(value: float)`. The runtime clamps into the meter's range.
 var write_satisfaction := Callable()
-## The phase's act collaborators, bound once by the runtime. The close reward writes through
+## The phase's act collaborators, wired once by the runtime. The close reward writes through
 ## them; an unbound facade (a pure suite) skips the presentation.
 var face: FACE = null
 var reactions: REACTIONS = null
 var readiness: READINESS = null
+## The pose session the row is applied to; the runtime wires it once with the peers.
+var pose: POSE_SESSION = null
 ## The world HUD and memory the phase reports to; the runtime's builder passes them once.
 var hud: Node = null
 var memory: Node = null
@@ -90,11 +92,15 @@ func _init(hud_in: Node = null, memory_in: Node = null) -> void:
 	memory = memory_in
 
 
-## Bind the phase's act collaborators once. The runtime composes; the session sets the ids.
-func bind_act(face_in: FACE, reactions_in: REACTIONS, readiness_in: READINESS) -> void:
+## The phase's act collaborators and the pose session, handed over once by the runtime's
+## composition; an unwired facade (a pure suite) skips the presentation.
+func wire(face_in: FACE, reactions_in: REACTIONS, readiness_in: READINESS,
+		pose_in: POSE_SESSION) -> void:
 	face = face_in
 	reactions = reactions_in
 	readiness = readiness_in
+	pose = pose_in
+	assert(face != null and reactions != null and readiness != null and pose != null)
 
 
 ## The act the close reward records.
@@ -140,7 +146,7 @@ func presentation() -> PRESENTATION:
 
 ## Apply the row in its built order: pose weight, tail, HUD state.
 ## Returns whether the wing return is asked for; the session starts it through the wing owner.
-func apply_presentation(pose: POSE_SESSION) -> bool:
+func apply_presentation() -> bool:
 	var row := presentation()
 	if is_instance_valid(pose.pose()):
 		pose.pose().target_amount = 1.0

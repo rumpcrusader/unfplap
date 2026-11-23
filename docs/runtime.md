@@ -177,7 +177,7 @@ attached service Nodes until the runtime leaves.
    exit, input, swap, phases, tick, start and agreement and their sibling handles;
 4. the pose host callbacks, then the readiness, face, reactions, gate, rest, scene-hold, afterglow,
    controller and act-view callbacks;
-5. the scene gate's bind, its one configuration, and the attach of the 13 Pony service Nodes in
+5. the scene gate's wire and its one configuration, and the attach of the 13 Pony service Nodes in
    their fixed order, each named, parented and put in the service group.
 
 The World services are injected, never static: the record holds them, the HUD, memory and stool

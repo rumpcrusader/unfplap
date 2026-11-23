@@ -29,10 +29,11 @@ audio facade (`docs/audio.md`).
 The facade is a `Node` scene adapter. It reads the base-game flank and boop members through
 the world views and the `body_coat_deform` setting; the jiggle tuning is pushed in by
 `configure()` from the runtime's act snapshot. The block is complete, so the reaction context reads
-its five keys and the facade holds no fallback value. The anatomy API and the standing tail modifier are the facade's
-collaborators (`anatomy/api.gd` and `SkeletonModifier3D`); the pose builder binds the tail because
-it changes with the pose. The flank is discovered lazily from
-the pony's `FlankTouch`, so a stock smack outside an act still reaches the patched body coat.
+its five keys and the facade holds no fallback value. The anatomy API is the facade's peer, wired
+once by the composition, and the standing tail modifier is its collaborator
+(`SkeletonModifier3D`); the pose builder binds the tail because it changes with the pose. The flank
+is discovered lazily from the pony's `FlankTouch`, so a stock smack outside an act still reaches
+the patched body coat.
 
 The patched body coat is the runtime case: `FlankTouch` rebuilds its `_jiggle_targets` list on
 every slap, so the facade calls `anatomy.follow_body_coat(pony, flank)` after every

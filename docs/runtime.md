@@ -44,9 +44,8 @@ math.
   (`bind_adopted_body`), ends a non-adult body through the one exit and refreshes the game LOD.
 - End: pony despawn, world close or mod shutdown. `_exit_tree()` releases the kiss forelegs, the
   stool, the tail tuck, the aftercare, the anatomy act and the face, and clears the pending
-  body-swap record. Its last step releases the act record and the hands controller's module
-  links, so the `RefCounted` cycles the composition builds can be collected; nothing reads either
-  afterwards. The node creates its Pony service children; the audio pool and sound child belong to
+  body-swap record. Its last step releases the act record and the hands controller's links, so
+  the `RefCounted` graph the composition keeps can be collected; nothing reads either afterwards. The node creates its Pony service children; the audio pool and sound child belong to
   the world audio service and the pose-scope tail tuck to its owner.
 
 The node's public surface is exactly:

@@ -41,8 +41,8 @@ func _init(facts_context: ACT_FACTS = null) -> void:
 	_target = SMACK_TARGET.new(self)
 
 
-## Drop every peer and action module at runtime exit; the hands service calls it once. Each
-## module's port field points back here, so clearing the controller's links ends the cycle.
+## Drop every peer and action module at runtime exit; the hands service calls it once. No module
+## points back here strongly, so dropping these links frees the whole graph.
 func _release() -> void:
 	facts = null
 	_pony = null

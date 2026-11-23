@@ -20,7 +20,7 @@ func _init(facts: ACT_FACTS = null) -> void:
 	_controller = CONTROLLER.new(facts)
 
 
-## Drop the controller and its action-cycle references at runtime exit; the runtime calls it once.
+## Drop the controller and its module graph at runtime exit; the runtime calls it once.
 func _release() -> void:
 	if _controller != null:
 		_controller._release()

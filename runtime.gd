@@ -451,7 +451,7 @@ func _exit_tree() -> void:
 
 
 ## The world-close release runs last: the hands controller and the act record drop their peers, so
-## the composition's RefCounted cycles collect. It is not a teardown; nothing reads either after.
+## the composition's RefCounted graph collects. It is not a teardown; nothing reads either after.
 func _release_composition() -> void:
 	_context.hands._release()
 	_context.release()

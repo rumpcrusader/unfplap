@@ -12,7 +12,8 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const PERF := preload("res://mods/unfplap/shared/perf.gd")
 
-var _port: PORT = null
+## The coordinator, held weakly: it owns this module, so a strong link back would be a cycle.
+var _host_ref: WeakRef = null
 var _facts: ACT_FACTS = null
 var _debug: DEBUG_DRAW = null
 var _contexts: Array[MODEL.CaressContext] = [MODEL.CaressContext.new(), MODEL.CaressContext.new()]
@@ -34,9 +35,14 @@ var _profile_scale := -1.0
 
 
 func _init(port: PORT, facts: ACT_FACTS) -> void:
-	_port = port
+	_host_ref = weakref(port)
 	_facts = facts
 	_debug = DEBUG_DRAW.new(port)
+
+
+## The coordinator, or null once it has released this module.
+func _host() -> PORT:
+	return _host_ref.get_ref() as PORT
 
 
 func tick(delta: float) -> void:
@@ -46,11 +52,11 @@ func tick(delta: float) -> void:
 		end()
 		_oral_was_active = false
 		return
-	ANCHORS.prefit_tick(_port.pony())
+	ANCHORS.prefit_tick(_host().pony())
 	_oral_tick()
 	warm()
 	# Hold-X auto settings owns A/D and Z/C, so the keys freeze while the layer is open.
-	var frozen := _port.frozen()
+	var frozen := _host().frozen()
 	var keys: Array[bool] = [
 		Input.is_physical_key_pressed(KEY_A),
 		Input.is_physical_key_pressed(KEY_D),
@@ -72,7 +78,7 @@ func tick(delta: float) -> void:
 				LOG.debug("caress movement side=%s %s", [
 					MODEL.side_letter(side), "on" if _moving[index] else "off"])
 		# The slapping hand owns the hold target during its swing; a re-press starts after it.
-		if _port.smack_owns(side):
+		if _host().smack_owns(side):
 			continue
 		if _latched[index]:
 			if not _active[index]:
@@ -94,7 +100,7 @@ func _oral_tick() -> void:
 		if not _active[index]:
 			continue
 		var side := _side_for_index(index)
-		var frame := _port.hand_frame(side)
+		var frame := _host().hand_frame(side)
 		if frame.is_finite():
 			_oral_from[index] = frame
 			_oral_started[index] = Time.get_ticks_msec()
@@ -105,7 +111,7 @@ func _touch_tick(delta: float) -> void:
 	var step := MODEL.caress_touch_step(_touch_seconds, any_active(), delta)
 	_touch_seconds = step.seconds
 	for _index in step.events:
-		_port.touch("caress")
+		_host().touch("caress")
 
 
 ## Begin a held caress on one hand.
@@ -116,7 +122,7 @@ func start(side: MODEL.Side) -> void:
 	_active[index] = true
 	_latched[index] = true
 	_phase[index] = 0.0
-	_port.engine().reset_hand(side)
+	_host().engine().reset_hand(side)
 	LOG.debug("caress start side=%s", [MODEL.side_letter(side)])
 
 
@@ -124,8 +130,8 @@ func end_side(side: MODEL.Side) -> void:
 	var index := MODEL.side_index(side)
 	if index < 0 or not _active[index]:
 		return
-	_port.release_hold(side)
-	_port.engine().reset_hand(side)
+	_host().release_hold(side)
+	_host().engine().reset_hand(side)
 	LOG.debug("caress stop side=%s", [MODEL.side_letter(side)])
 	_active[index] = false
 	_latched[index] = false
@@ -165,7 +171,7 @@ func warm() -> bool:
 	if _pose_family() not in ["bed", "standing"]:
 		return false
 	# The background fit fills the cache one area per tick; build each hand only when it is ready.
-	if ANCHORS.prefit_pending(_port.pony()):
+	if ANCHORS.prefit_pending(_host().pony()):
 		return not _warm_sides.is_empty()
 	var side: MODEL.Side = _warm_sides.pop_front()
 	_set_hand(side, false)
@@ -195,15 +201,15 @@ func reset() -> void:
 
 
 func _set_hand(side: MODEL.Side, apply: bool) -> Transform3D:
-	var pony := _port.pony()
+	var pony := _host().pony()
 	if not is_instance_valid(pony):
 		return Transform3D.IDENTITY
-	var path := _port.path()
+	var path := _host().path()
 	if path == null:
 		return Transform3D.IDENTITY
 	var context := _context(side)
 	PERF.begin("caress_precise")
-	var target := _port.engine().frame(pony, path, side, context)
+	var target := _host().engine().frame(pony, path, side, context)
 	PERF.end("caress_precise")
 	if not target.is_finite() or target.origin.length_squared() < 0.0001:
 		return Transform3D.IDENTITY
@@ -217,8 +223,8 @@ func _set_hand(side: MODEL.Side, apply: bool) -> Transform3D:
 			_oral_started[index] = 0
 		else:
 			target = MODEL.caress_oral_blend(_oral_from[index], target, elapsed)
-	_port.hold(side, target)
-	var debug := _port.engine().debug_state(side)
+	_host().hold(side, target)
+	var debug := _host().engine().debug_state(side)
 	if debug != null:
 		_debug.draw(path, side, debug, target, context)
 	return target
@@ -229,7 +235,7 @@ func _context(side: MODEL.Side) -> MODEL.CaressContext:
 	var index := MODEL.side_index(side)
 	if index < 0:
 		return _contexts[0]
-	var scale := _port.body_scale()
+	var scale := _host().body_scale()
 	var context := _contexts[index]
 	context.side = side
 	context.lean = clampf(float(_facts.lean_forward), -1.0, 1.0) if _facts != null else 0.0
@@ -244,7 +250,7 @@ func _context(side: MODEL.Side) -> MODEL.CaressContext:
 	context.delta = float(_facts.physics_delta) if _facts != null else 0.016
 	context.contact_smooth = SETTINGS.contact_smooth.get_num()
 	context.normal_deg_s = SETTINGS.normal_deg_s.get_num()
-	context.debug = _port.debug()
+	context.debug = _host().debug()
 	context.path_id = SETTINGS.path_id.get_choice()
 	context.reach_shoulder_m = SETTINGS.caress_reach_shoulder_m.get_num()
 	return context
@@ -264,7 +270,7 @@ func _caress_profile() -> MODEL.CaressProfile:
 
 ## The missionary body supplies the world shoulder and its bone lengths.
 func _caress_reach(side: MODEL.Side) -> MODEL.ReachInfo:
-	var driver := _port.driver()
+	var driver := _host().driver()
 	if not is_instance_valid(driver) or not driver.has_method("caress_reach"):
 		return null
 	var value: Variant = Callable(driver, "caress_reach").call(MODEL.side_key(side))

@@ -35,7 +35,8 @@ class SoundState extends RefCounted:
 	var pitch_scale := 1.0
 
 
-var _port: PORT = null
+## The coordinator, held weakly: it owns this module, so a strong link back would be a cycle.
+var _host_ref: WeakRef = null
 var _active := false
 var _index := 0
 var _at := Vector3.INF
@@ -62,7 +63,12 @@ var _sound_installed := false
 
 
 func _init(port: PORT = null) -> void:
-	_port = port
+	_host_ref = weakref(port)
+
+
+## The coordinator, or null once it has released this module.
+func _host() -> PORT:
+	return _host_ref.get_ref() as PORT
 
 
 static func pitch_basis(straight: Basis, pitch_deg: float) -> Basis:
@@ -166,7 +172,7 @@ func tick(_delta: float) -> void:
 	if _side == MODEL.Side.NONE:
 		_active = false
 		return
-	var driver := _port.driver() if _port != null else null
+	var driver := _host().driver() if _host() != null else null
 	if not is_instance_valid(driver):
 		_end_swing()
 		return
@@ -177,7 +183,7 @@ func tick(_delta: float) -> void:
 		/ (SMACK_SWING_SECONDS * 1000.0), 0.0, 1.0)
 	var arc := sin(phase * PI)
 	var frame := _from.interpolate_with(_to, arc)
-	_port.hold(_side, frame)
+	_host().hold(_side, frame)
 	if not _impact_done and phase >= SMACK_CONTACT_PHASE:
 		_impact_done = true
 		_impact()
@@ -201,7 +207,7 @@ func reset() -> void:
 func _start_standing() -> void:
 	_rest = _from
 	if _from_coat:
-		var scale := _port.body_scale()
+		var scale := _host().body_scale()
 		_raised = raise_frame(_contact, _outward, _raise_m(),
 			SMACK_RAISE_BACK_M * scale, _back_dir(), _pitch_deg())
 	else:
@@ -222,35 +228,35 @@ func _phase_tick() -> void:
 		SMACK_PHASE_RAISE:
 			var t := clampf(elapsed / maxf(_raise_seconds, 0.001), 0.0, 1.0)
 			var frame := raise_blend(_from, _raised, _back_dir(), t)
-			_port.hold(_side, frame)
+			_host().hold(_side, frame)
 			if t >= 1.0:
 				_phase = SMACK_PHASE_STRIKE
 				_phase_started = now
 		SMACK_PHASE_STRIKE:
 			var t := clampf(elapsed / maxf(_strike_seconds, 0.001), 0.0, 1.0)
 			var frame := strike_blend(_raised, _contact, t)
-			_port.hold(_side, frame)
+			_host().hold(_side, frame)
 			if t >= 1.0:
-				_port.hold(_side, _contact)
+				_host().hold(_side, _contact)
 				_impact()
 				_impact_done = true
 				_phase = SMACK_PHASE_CONTACT
 				_phase_started = now
 		SMACK_PHASE_CONTACT:
-			_port.hold(_side, _contact)
+			_host().hold(_side, _contact)
 			if elapsed >= SMACK_CONTACT_HOLD_SECONDS:
 				_phase = SMACK_PHASE_RECOVER
 				_phase_started = now
 		SMACK_PHASE_RECOVER:
 			var t := clampf(elapsed / maxf(SMACK_REST_RETURN_SECONDS, 0.001), 0.0, 1.0)
 			var frame := recover_blend(_contact, _rest, t)
-			_port.hold(_side, frame)
+			_host().hold(_side, frame)
 			if t >= 1.0:
 				_finish()
 
 
 func _finish() -> void:
-	_port.release_hold(_side)
+	_host().release_hold(_side)
 	_active = false
 	_side = MODEL.Side.NONE
 	_at = Vector3.INF
@@ -262,7 +268,7 @@ func _end_swing() -> void:
 	if not _active:
 		return
 	if _side != MODEL.Side.NONE:
-		_port.release_hold(_side)
+		_host().release_hold(_side)
 	_active = false
 	_side = MODEL.Side.NONE
 	_at = Vector3.INF
@@ -284,9 +290,9 @@ func _impact_at(index: int, at: Vector3) -> void:
 	if not is_instance_valid(flank):
 		return
 	_install_sound()
-	var pony := _port.pony() if _port != null else null
+	var pony := _host().pony() if _host() != null else null
 	if not is_instance_valid(pony) or not pony.has_signal("physical_reaction"):
-		_port.flank_impact(index, at, SMACK_IMPACT_STRENGTH)
+		_host().flank_impact(index, at, SMACK_IMPACT_STRENGTH)
 		_notify_jiggle()
 		return
 	var sig: Signal = pony.physical_reaction
@@ -296,26 +302,26 @@ func _impact_at(index: int, at: Vector3) -> void:
 		var callable: Variant = entry.get("callable")
 		if callable is Callable and sig.is_connected(callable):
 			sig.disconnect(callable)
-	_port.flank_impact(index, at, SMACK_IMPACT_STRENGTH)
+	_host().flank_impact(index, at, SMACK_IMPACT_STRENGTH)
 	for link: Variant in links:
 		var entry: Dictionary = link
 		var callable: Variant = entry.get("callable")
 		if callable is Callable and not sig.is_connected(callable):
 			sig.connect(callable)
 	_notify_jiggle()
-	_port.touch("smack")
+	_host().touch("smack")
 
 
 func _notify_jiggle() -> void:
-	_port.impact(SMACK_IMPACT_STRENGTH)
+	_host().impact(SMACK_IMPACT_STRENGTH)
 
 
 func _flank() -> Node:
-	return _port.flank() if _port != null else null
+	return _host().flank() if _host() != null else null
 
 
 func _back_dir() -> Vector3:
-	var pony := _port.pony() if _port != null else null
+	var pony := _host().pony() if _host() != null else null
 	if not is_instance_valid(pony):
 		return Vector3.BACK
 	var back: Vector3 = pony.global_basis.z.normalized()
@@ -326,11 +332,11 @@ func _back_dir() -> Vector3:
 
 
 func _presentation() -> MODEL.SmackPresentation:
-	return _port.presentation() if _port != null else MODEL.SmackPresentation.new()
+	return _host().presentation() if _host() != null else MODEL.SmackPresentation.new()
 
 
 func _raise_m() -> float:
-	return maxf(0.0, _presentation().raise_m) * _port.body_scale()
+	return maxf(0.0, _presentation().raise_m) * _host().body_scale()
 
 
 func _pitch_deg() -> float:

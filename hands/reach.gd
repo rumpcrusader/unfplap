@@ -13,7 +13,8 @@ const LOG := preload("res://mods/unfplap/shared/log.gd")
 const REACH_HAND_BLEND_S := 0.35
 const REACH_HAND_RELEASE_S := 0.35
 
-var _port: PORT = null
+## The coordinator, held weakly: it owns this module, so a strong link back would be a cycle.
+var _host_ref: WeakRef = null
 var _facts: ACT_FACTS = null
 var _shoulder: MODEL.Side = MODEL.Side.NONE
 var _holding := false
@@ -30,13 +31,18 @@ var _coat := MODEL.CoatContext.new()
 
 
 func _init(port: PORT, facts: ACT_FACTS) -> void:
-	_port = port
+	_host_ref = weakref(port)
 	_facts = facts
+
+
+## The coordinator, or null once it has released this module.
+func _host() -> PORT:
+	return _host_ref.get_ref() as PORT
 
 
 ## Start or hold the shoulder reach on one hand.
 func start(side: MODEL.Side) -> void:
-	if _port == null or side == MODEL.Side.NONE:
+	if _host() == null or side == MODEL.Side.NONE:
 		return
 	_shoulder = side
 	_holding = true
@@ -54,7 +60,7 @@ func settle() -> void:
 	var side := _shoulder
 	_holding = false
 	_return_from = _hand_from
-	var current := _port.hand_frame(side)
+	var current := _host().hand_frame(side)
 	if current.is_finite():
 		_return_from = current
 	if not _hand_rest_valid or not _return_from.is_finite():
@@ -100,7 +106,7 @@ func reset() -> void:
 func _hold() -> void:
 	if _shoulder == MODEL.Side.NONE:
 		return
-	var pony := _port.pony()
+	var pony := _host().pony()
 	if not is_instance_valid(pony):
 		return
 	var shoulder := _shoulder_point(_shoulder)
@@ -110,12 +116,12 @@ func _hold() -> void:
 	var side_key := MODEL.side_key(side)
 	var reach_key := "reach:" + side_key
 	var delta := float(_facts.physics_delta) if _facts != null else 0.016
-	var engine := _port.engine()
+	var engine := _host().engine()
 	if engine == null:
 		return
 	if _hand_started <= 0:
 		engine.reset_hand(side, reach_key)
-	var clearance := PLACEMENT.palm_clearance_for(_port.body_scale(),
+	var clearance := PLACEMENT.palm_clearance_for(_host().body_scale(),
 		SETTINGS.hover_m.get_num())
 	var context := _coat_context(reach_key, delta)
 	# Palm flat on the shoulder coat: the shared hull frame keeps the fingers forward with the
@@ -125,7 +131,7 @@ func _hold() -> void:
 	if _hand_started <= 0:
 		_hand_started = Time.get_ticks_msec()
 		_hand_from = Transform3D.IDENTITY
-		var from_frame := _port.hand_frame(side)
+		var from_frame := _host().hand_frame(side)
 		if from_frame.is_finite():
 			_hand_from = from_frame
 		_hand_rest = _hand_from
@@ -141,14 +147,14 @@ func _hold() -> void:
 		LOG.debug("reach hand side=%s target=%s x=%s y=%s z=%s fingers=%s palm=%s", [
 			side_key, str(target.origin), str(target.basis.x), str(target.basis.y),
 			str(target.basis.z), str(-target.basis.z), str(palm_normal)])
-	_port.hold(side, frame)
+	_host().hold(side, frame)
 
 
 func _return_tick() -> void:
 	if _return_side == MODEL.Side.NONE:
 		_returning = false
 		return
-	var driver := _port.driver()
+	var driver := _host().driver()
 	if not is_instance_valid(driver):
 		_returning = false
 		return
@@ -156,13 +162,13 @@ func _return_tick() -> void:
 		/ (REACH_HAND_RELEASE_S * 1000.0), 0.0, 1.0)
 	if t >= 1.0:
 		_returning = false
-		_port.release_hold(_return_side)
+		_host().release_hold(_return_side)
 		_return_side = MODEL.Side.NONE
 		_hand_started = 0
 		_hand_from = Transform3D.IDENTITY
 		return
 	var frame := _return_from.interpolate_with(_hand_rest, smoothstep(0.0, 1.0, t))
-	_port.hold(_return_side, frame)
+	_host().hold(_return_side, frame)
 
 
 func _clear_hand() -> void:
@@ -177,23 +183,23 @@ func _clear_hand() -> void:
 	_hand_rest_valid = false
 	if side == MODEL.Side.NONE:
 		return
-	_port.release_hold(side)
+	_host().release_hold(side)
 
 
 func _shoulder_point(side: MODEL.Side) -> MODEL.ShoulderPoint:
 	if side == MODEL.Side.NONE:
 		return null
-	var path := _port.path()
+	var path := _host().path()
 	if path == null or not (path is FLANK_PATH):
 		return null
 	return (path as FLANK_PATH).shoulder_point(side)
 
 
 func _coat_context(key: String, delta: float) -> MODEL.CoatContext:
-	_coat.hover = PLACEMENT.palm_clearance_for(_port.body_scale(), SETTINGS.hover_m.get_num())
+	_coat.hover = PLACEMENT.palm_clearance_for(_host().body_scale(), SETTINGS.hover_m.get_num())
 	_coat.contact_smooth = SETTINGS.contact_smooth.get_num()
 	_coat.normal_deg_s = SETTINGS.normal_deg_s.get_num()
-	_coat.debug = _port.debug()
+	_coat.debug = _host().debug()
 	_coat.ignore.clear()
 	_coat.radial = true
 	_coat.regions.clear()

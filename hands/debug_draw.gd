@@ -5,21 +5,27 @@ const MODEL := preload("res://mods/unfplap/hands/model.gd")
 const PORT := preload("res://mods/unfplap/hands/port.gd")
 const PATH_BASE := preload("res://mods/unfplap/hands/path_base.gd")
 
-var _port: PORT = null
+## The coordinator, held weakly: it owns this module, so a strong link back would be a cycle.
+var _host_ref: WeakRef = null
 var _draw_mesh: MeshInstance3D = null
 var _depth_mesh: MeshInstance3D = null
 var _immediate: ImmediateMesh = null
 
 
 func _init(port: PORT) -> void:
-	_port = port
+	_host_ref = weakref(port)
+
+
+## The coordinator, or null once it has released this module.
+func _host() -> PORT:
+	return _host_ref.get_ref() as PORT
 
 
 func draw(path: PATH_BASE, side: MODEL.Side, chosen: MODEL.DebugState,
 		target: Transform3D, context: MODEL.CaressContext) -> void:
-	if not context.debug or _port == null:
+	if not context.debug or _host() == null:
 		return
-	var pony := _port.pony()
+	var pony := _host().pony()
 	if not is_instance_valid(pony) or not pony.is_inside_tree():
 		return
 	if path == null:
@@ -61,7 +67,7 @@ func draw(path: PATH_BASE, side: MODEL.Side, chosen: MODEL.DebugState,
 		_segment(immediate, target.origin, target.origin + target.basis.y * 0.06,
 			Color(1.0, 0.55, 0.15))
 	# White is the actual hand palm; gray is the gap between it and the requested target.
-	var hand := _port.hand_frame(side)
+	var hand := _host().hand_frame(side)
 	if hand.is_finite() and hand.origin.length_squared() > 0.0001:
 		_cross(immediate, hand.origin, Color.WHITE, 0.045)
 		_segment(immediate, hand.origin, target.origin, Color(0.6, 0.6, 0.6))

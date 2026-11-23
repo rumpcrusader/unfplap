@@ -10,12 +10,18 @@ const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
 const SMACK_UP_M := 0.08
 const SMACK_BACK_M := 0.08
 
-var _port: PORT = null
+## The coordinator, held weakly: it owns this module, so a strong link back would be a cycle.
+var _host_ref: WeakRef = null
 var _coat := MODEL.CoatContext.new()
 
 
 func _init(port: PORT = null) -> void:
-	_port = port
+	_host_ref = weakref(port)
+
+
+## The coordinator, or null once it has released this module.
+func _host() -> PORT:
+	return _host_ref.get_ref() as PORT
 
 
 ## The smack hand: the free hand while one is busy, a random one while both are.
@@ -103,13 +109,13 @@ func target(caress_left: bool, caress_right: bool, reach_left: bool, reach_right
 	out.caressing = caress_left if side == MODEL.Side.LEFT else caress_right
 	out.reaching = reach_left if side == MODEL.Side.LEFT else reach_right
 	out.from_coat = out.caressing or out.reaching
-	var flank := _port.flank() if _port != null else null
+	var flank := _host().flank() if _host() != null else null
 	if not is_instance_valid(flank) or not flank.has_method("impact"):
 		return out
-	if _port.driver() == null:
+	if _host().driver() == null:
 		return out
 	var hand_side := side
-	out.from_frame = _port.hand_frame(hand_side)
+	out.from_frame = _host().hand_frame(hand_side)
 	if not out.from_frame.is_finite():
 		return out
 	var at := Vector3.INF
@@ -119,13 +125,13 @@ func target(caress_left: bool, caress_right: bool, reach_left: bool, reach_right
 	if out.index < centers.size() and out.index < normals.size():
 		var centre := centers[out.index]
 		var normal_local := normals[out.index]
-		var pony := _port.pony()
+		var pony := _host().pony()
 		if is_instance_valid(pony):
 			# Map the pony's backward and world-up directions into the flank frame.
 			var back_local: Vector3 = (flank.global_basis.inverse() * pony.global_basis.z).normalized()
 			var up_local: Vector3 = (flank.global_basis.inverse() * Vector3.UP).normalized()
 			var angle := randf() * TAU
-			var radius := sqrt(randf()) * _port.smack_zone_radius()
+			var radius := sqrt(randf()) * _host().smack_zone_radius()
 			at = centre + back_local * (SMACK_BACK_M + cos(angle) * radius) \
 				+ up_local * (SMACK_UP_M + sin(angle) * radius)
 			var frame := CONTACT.flank_frame(flank)
@@ -145,14 +151,14 @@ func target(caress_left: bool, caress_right: bool, reach_left: bool, reach_right
 	out.normal = normal
 	if not at.is_finite():
 		return out
-	var pony := _port.pony()
-	var engine := _port.engine()
+	var pony := _host().pony()
+	var engine := _host().engine()
 	if not is_instance_valid(pony) or engine == null:
 		return out
 	var world_centre: Vector3 = CONTACT.flank_frame(flank) * at
 	var forward := -pony.global_basis.z.normalized()
 	var context := _coat_context(hand_side)
-	var clearance := PLACEMENT.palm_clearance_for(_port.body_scale(),
+	var clearance := PLACEMENT.palm_clearance_for(_host().body_scale(),
 		SETTINGS.hover_m.get_num())
 	out.target = engine.coat_frame(pony, hand_side, world_centre, normal,
 		finger_hint(out.caressing, forward), clearance, context)
@@ -161,10 +167,10 @@ func target(caress_left: bool, caress_right: bool, reach_left: bool, reach_right
 
 
 func _coat_context(side: MODEL.Side) -> MODEL.CoatContext:
-	_coat.hover = PLACEMENT.palm_clearance_for(_port.body_scale(), SETTINGS.hover_m.get_num())
+	_coat.hover = PLACEMENT.palm_clearance_for(_host().body_scale(), SETTINGS.hover_m.get_num())
 	_coat.contact_smooth = 0.0
 	_coat.normal_deg_s = 0.0
-	_coat.debug = _port.debug()
+	_coat.debug = _host().debug()
 	_coat.ignore.clear()
 	_coat.radial = true
 	_coat.regions.clear()
@@ -177,7 +183,7 @@ func _coat_context(side: MODEL.Side) -> MODEL.CoatContext:
 ## The standing smack target: the live caress point when the hand is already on the patch.
 func _standing_target(side: MODEL.Side, hand_world: Vector3,
 		caressing: bool) -> MODEL.FlankContact:
-	var engine := _port.engine()
+	var engine := _host().engine()
 	if caressing and engine != null:
 		var state := engine.contact_state(side)
 		if state != null and state.source == "flank":
@@ -185,7 +191,7 @@ func _standing_target(side: MODEL.Side, hand_world: Vector3,
 				var out := MODEL.FlankContact.new()
 				out.point = state.point
 				out.normal = state.normal.normalized()
-				out.local = CONTACT.flank_frame(_port.flank()).affine_inverse() * state.point
+				out.local = CONTACT.flank_frame(_host().flank()).affine_inverse() * state.point
 				return out
 	var focus := hand_world
 	if not caressing:
@@ -198,9 +204,9 @@ func _standing_target(side: MODEL.Side, hand_world: Vector3,
 	var point_world := hit.point
 	var normal := hit.normal
 	var local := hit.local
-	var radius := _port.smack_zone_radius()
+	var radius := _host().smack_zone_radius()
 	if radius > 0.0:
-		var pony := _port.pony()
+		var pony := _host().pony()
 		if not is_instance_valid(pony):
 			return hit
 		var up := Vector3.UP.slide(normal)
@@ -214,7 +220,7 @@ func _standing_target(side: MODEL.Side, hand_world: Vector3,
 		if contact.source == "flank":
 			point_world = contact.point
 			normal = contact.normal.normalized()
-			local = CONTACT.flank_frame(_port.flank()).affine_inverse() * point_world
+			local = CONTACT.flank_frame(_host().flank()).affine_inverse() * point_world
 	hit.point = point_world
 	hit.normal = normal
 	hit.local = local
@@ -223,7 +229,7 @@ func _standing_target(side: MODEL.Side, hand_world: Vector3,
 
 ## Nearest point on the posed FlankSurface patch; the body hull is deliberately not consulted.
 func _closest_flank_contact(point_world: Vector3) -> MODEL.FlankContact:
-	var flank := _port.flank() if _port != null else null
+	var flank := _host().flank() if _host() != null else null
 	if not is_instance_valid(flank):
 		return null
 	var surface: Variant = CONTACT.flank_surface(flank)
@@ -232,7 +238,7 @@ func _closest_flank_contact(point_world: Vector3) -> MODEL.FlankContact:
 	var frame := CONTACT.flank_frame(flank)
 	if not frame.is_finite():
 		return null
-	var pony := _port.pony()
+	var pony := _host().pony()
 	CONTACT.flank_update(pony, flank)
 	var faces := CONTACT.flank_faces(flank)
 	var normals := CONTACT.flank_vertex_normals(flank)
@@ -263,7 +269,7 @@ func _closest_flank_contact(point_world: Vector3) -> MODEL.FlankContact:
 
 ## World query point for a free-hand smack: the chosen cheek centre offset by the act's settings.
 func _lower_cheek_query(side: MODEL.Side) -> Vector3:
-	var flank := _port.flank() if _port != null else null
+	var flank := _host().flank() if _host() != null else null
 	if not is_instance_valid(flank):
 		return Vector3.INF
 	var centers := CONTACT.flank_centers(flank)
@@ -272,11 +278,11 @@ func _lower_cheek_query(side: MODEL.Side) -> Vector3:
 		return Vector3.INF
 	var world: Vector3 = CONTACT.flank_frame(flank) * centers[index]
 	var back := Vector3.BACK
-	var pony := _port.pony()
+	var pony := _host().pony()
 	if is_instance_valid(pony):
 		back = pony.global_basis.z.normalized()
-	var presentation := _port.presentation()
-	return world + query_offset(presentation.height_m, presentation.hind_m, _port.body_scale(),
+	var presentation := _host().presentation()
+	return world + query_offset(presentation.height_m, presentation.hind_m, _host().body_scale(),
 		Vector3.UP, back)
 
 

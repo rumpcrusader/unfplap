@@ -41,6 +41,20 @@ func _init(facts_context: ACT_FACTS = null) -> void:
 	_target = SMACK_TARGET.new(self)
 
 
+## Drop every peer and action module at runtime exit; the hands service calls it once. Each
+## module's port field points back here, so clearing the controller's links ends the cycle.
+func _release() -> void:
+	facts = null
+	_pony = null
+	_flank = null
+	_engine = null
+	_selector = null
+	_caress = null
+	_reach = null
+	_smack = null
+	_target = null
+
+
 ## One frame: settle a released reach; when `actionable`, also advance the caress and smack.
 func tick(delta: float, actionable: bool) -> void:
 	if facts == null:

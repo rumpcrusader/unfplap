@@ -73,8 +73,9 @@ service or to the poses.
 
 The hands service owns the per-act caress, reach and smack state and the two debug overlay nodes.
 It keeps no saved data: the state is per act and `reset()` clears it on the existing exit, start
-and body-swap paths. The runtime owns scoring and the act state; hands reports through the typed
-act view.
+and body-swap paths. The controller and its action modules hold each other, so the facade's
+private release drops those links on the runtime's exit path; `reset()` stays the per-act reset.
+The runtime owns scoring and the act state; hands reports through the typed act view.
 
 ## Data ownership
 

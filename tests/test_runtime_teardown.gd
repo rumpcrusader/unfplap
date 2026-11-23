@@ -641,6 +641,17 @@ func run() -> void:
 		and runtime11.act.context.handover.context.change == null,
 		"the one exit clears the reused policy context")
 
+	# The node's real world-close path releases the act record once, as its last step: `tree_exited`
+	# runs after `_exit_tree()`, so the session's typed context reads null while the node is alive.
+	var f12 := _fixture()
+	var runtime12: Node = f12["runtime"]
+	var released: Array[Variant] = []
+	runtime12.tree_exited.connect(func() -> void: released.append(runtime12.act.context))
+	root.add_child(runtime12)
+	root.remove_child(runtime12)
+	check(released.size() == 1 and released[0] == null,
+		"the world-close path releases the act record once")
+
 	# The first-frame refresh is the node's own deferred call and returns early outside the tree.
 	var no_frame: Node = RUNTIME.new()
 	no_frame._deferred_refresh()
@@ -649,7 +660,7 @@ func run() -> void:
 
 	# Free a runtime the way a body exit does: the deferred first-frame refresh belongs to the node,
 	# so the engine drops it instead of running it against the freed services.
-	for item: Dictionary in [f, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11]:
+	for item: Dictionary in [f, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12]:
 		(item["runtime"] as Node).free()
 		(item["owner"] as Node).free()
 	if failures == 0:

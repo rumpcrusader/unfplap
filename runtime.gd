@@ -435,3 +435,13 @@ func _exit_tree() -> void:
 	# integration: never leave the anatomy act handle or the per-pony controller behind.
 	_act.release_anatomy()
 	_face.shutdown()
+	_release_composition()
+
+
+## The world-close release runs last: the hands controller and the act record drop their peers, so
+## the composition's RefCounted cycles collect. It is not a teardown; nothing reads either after.
+func _release_composition() -> void:
+	_context.hands._release()
+	_context.release()
+	_act._release()
+	_act.context = null

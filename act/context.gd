@@ -77,3 +77,41 @@ var integrations: INTEGRATIONS_ACT = null
 ## The one live act view: the standing offsets, the glance and the missionary eye.
 var view: CAMERA_VIEW = null
 var rest: REST = null
+
+
+## Break the composition cycle at runtime exit; it clears references only and is not a teardown.
+## The record is uniformly empty afterwards, the module peers and the Node peers alike.
+func release() -> void:
+	pose = null
+	camera = null
+	readiness = null
+	audio = null
+	afterglow = null
+	face = null
+	reactions = null
+	dialogue = null
+	anatomy = null
+	anon = null
+	pose_view = null
+	stage = null
+	handover = null
+	gate = null
+	hold = null
+	stool = null
+	stool_service = null
+	hud = null
+	memory = null
+	world = null
+	consent = null
+	impact = null
+	frame = null
+	facts = null
+	kiss = null
+	summary = null
+	presentation = null
+	standing_anon = null
+	wings = null
+	hands = null
+	integrations = null
+	view = null
+	rest = null

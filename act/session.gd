@@ -120,6 +120,26 @@ func bind(host_in: ACT_NODE, context_in: ACT_CONTEXT) -> void:
 	host = host_in
 	context = context_in
 	settings.bind(host_in, context_in)
+
+
+## Drop the composition's module references at runtime exit; the runtime calls it once, last.
+## It is not a teardown: it clears references only, never an act value or a node.
+func _release() -> void:
+	# The two ledgers point at each other, the one link the module set does not drop on its own.
+	if exit != null:
+		exit.start = null
+	if start != null:
+		start.exit = null
+	host = null
+	context = null
+	start = null
+	view = null
+	input = null
+	ticker = null
+	exit = null
+	swap = null
+
+
 ## Start one act. The ledger owns the recipe and the order; the session only enters it.
 func begin(pose: String, bed_in: Variant, act_source: String, skip_presentation := false) -> bool:
 	if start == null:

@@ -39,9 +39,11 @@ func run() -> void:
 	var other: Node = RUNTIME.new(null, other_world)
 	check(other.act.context.world == other_world and other.scene.gate_service == null,
 		"each runtime reads its own record, never a shared one")
+	other.call("_release_composition")
 	other.free()
 	_check_scope_children()
 	gate.free()
+	runtime.call("_release_composition")
 	runtime.free()
 	finish()
 
@@ -59,4 +61,5 @@ func _check_scope_children() -> void:
 	check(int(runtime.call("_assert_children")) == 1,
 		"a child outside the Pony service group is reported")
 	LOG.enabled = quiet
+	runtime.call("_release_composition")
 	runtime.free()

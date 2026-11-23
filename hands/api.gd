@@ -20,6 +20,13 @@ func _init(facts: ACT_FACTS = null) -> void:
 	_controller = CONTROLLER.new(facts)
 
 
+## Drop the controller and its action-cycle references at runtime exit; the runtime calls it once.
+func _release() -> void:
+	if _controller != null:
+		_controller._release()
+		_controller = null
+
+
 ## One frame: settle a released reach; when `actionable`, also advance the
 ## caress and the smack. `actionable` false drops input-driven contact.
 func tick(delta: float, actionable: bool) -> void:

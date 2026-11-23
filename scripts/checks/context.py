@@ -82,9 +82,10 @@ def owner_of(path: str) -> Owner | None:
     path = path.strip().lstrip("./")
     if path in ORCHESTRATORS:
         return Owner(path[:-3], path, False, "orchestrator")
-    # The act modules are the runtime's own files: they may preload services, and a service that
-    # preloads them is a host import, not a service edge.
-    if path.startswith("act/"):
+    # The act modules are the runtime's own files and the VR act handle is the session's Other
+    # module: they may preload services, and a service that preloads one is a host import, not an
+    # edge.
+    if path.startswith("act/") or path.startswith("vr/"):
         return Owner("runtime", path, False, "orchestrator")
     if path.startswith("shared/"):
         name = path.split("/")[-1]

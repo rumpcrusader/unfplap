@@ -1,5 +1,5 @@
 extends "res://mods/unfplap/tests/support/suite.gd"
-## vr/service.gd: the VR standing act's controller bindings and fake-waist depth path.
+## vr/act.gd: the VR standing act's controller bindings and fake-waist depth path.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_vr_act.gd
 ##
 ## No XR runtime is needed. XRPositionalTracker inputs and poses work without an interface, so the
@@ -7,7 +7,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ## tracking. The controller reads are the only vr_act path a Monado session cannot press: its
 ## KHR simple controller profile binds only select and menu.
 
-const VR_ACT := preload("res://mods/unfplap/vr/service.gd")
+const VR_ACT := preload("res://mods/unfplap/vr/act.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
 const TOUCH_BRIDGE := preload("res://mods/unfplap/shared/touch_bridge.gd")
 

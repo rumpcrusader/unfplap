@@ -137,13 +137,13 @@ layer and are deleted with the module headers:
 | `debug` | `process` (the action table) |
 | `hud` | `world` |
 | `per-pony handle` | `pony` |
-| `per-act` | `world` (`integrations`); `vr` becomes Other |
+| `per-act` | `world` (`integrations`); `vr` is Other |
 | `world + per-act handles`, prose `world; …` | `world` |
 
 ## Game layer
 
 The game layer is the set of services allowed to interact with the base game: `world`, `settings`,
-`debug` and `hud`. Membership is approval-only; `vr` is deferred and has no `vr/game.gd`.
+`debug` and `hud`. Membership is approval-only.
 
 Each member owns exactly one `<service>/game.gd`. That file is the service's only base-game
 boundary and the only shipped place, besides `main.gd`, where the `/root/Settings` and `/root/Mods`

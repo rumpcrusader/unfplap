@@ -1,11 +1,10 @@
 extends Node
-## Optional VR standing act; not built on desktop.
-## The fork's auto-speed controls are deliberately not imported.
+## Optional VR standing act handle; not built on desktop.
 
 const ACT_COMMANDS := preload("res://mods/unfplap/shared/act_commands.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const TOUCH_BRIDGE := preload("res://mods/unfplap/shared/touch_bridge.gd")
-const SELF := preload("res://mods/unfplap/vr/service.gd")
+const SELF := preload("res://mods/unfplap/vr/act.gd")
 
 const HIP_RANGE_M := 0.16
 const STICK_DEAD := 0.5

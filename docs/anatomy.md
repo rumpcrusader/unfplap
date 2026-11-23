@@ -61,7 +61,7 @@ It does not cover eligibility, act readiness, thrust scoring, pose or camera rul
 | `anatomy/body_coat_patch.gd` | runtime patch of the rig coat and the merged-near palette shaders; swaps the jiggle include and call and adds the vulva cut |
 | `anatomy/anatomy.gdshader` | the per-pony anatomy material |
 | `anatomy/body_coat_deform.gdshaderinc` | the coat deform include used by the patch |
-| `vr/service.gd` | optional VR standing act, gated by the anatomy master; not anatomy behavior |
+| `vr/act.gd` | optional VR standing act, gated by the anatomy master; not anatomy behavior |
 
 The internal entry points are:
 
@@ -389,7 +389,7 @@ The pose-owned oral turn supplies the mouth and opening points through the act s
 `anatomy_mouth_point()` and `anatomy_opening()`. `poses/service.gd` owns the missionary Anon body;
 the act facts' `missionary_anon` callback reads it, so anatomy no longer carries that body. The
 gaze target and pupil aim move to `camera/service.gd:gaze_point()` and `:aim_eyes()`, which read
-the same act body. VR scene construction moves to `vr/service.gd:attach()`, called by the session
+the same act body. VR scene construction moves to `vr/act.gd:attach()`, called by the session
 with the act's typed callbacks.
 
 ### Shape drive

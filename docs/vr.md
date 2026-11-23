@@ -6,7 +6,7 @@ deliberately not imported.
 
 ## Ownership
 
-`vr/service.gd` is the VR controller. `act/session.gd:begin_vr()` calls its static `attach()`,
+`vr/act.gd` is the per-act VR handle. `act/session.gd:begin_vr()` calls its static `attach()`,
 which resolves the player, the `AnonBody` avatar, the `XRCamera3D`/`XROrigin3D` pair and the
 avatar's hip target from the live scene; a desktop launch or a missing rig returns null. The
 controller is a scene adapter with typed callables, never the runtime node: `toggle_hole`,

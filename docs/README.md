@@ -21,6 +21,7 @@ traps and extension points.
 | `prompts.md` | the shipped prompt document, its part/slot graph and the one renderer |
 | `tests.md` | the suite layout, conventions and the runner |
 | `quality.md` | the static gates: formatting policy, gdlint, complexity and shell-script rules |
+| `vr.md` | the optional standing VR act handle: what it binds, what it leaves to the act |
 
 ## Orchestrators
 
@@ -59,7 +60,6 @@ block; its `_compose()` constructs and binds them once per pony and attaches the
 | Hands | `hands/api.gd` | `docs/hands.md` | `tests/hands/` | `pony` |
 | Anatomy | `anatomy/api.gd` | `docs/anatomy.md` | `tests/anatomy/` | `world` |
 | Body change | `body_change/service.gd` | `docs/body_change.md` | `tests/body_change/` | `world` |
-| VR act | `vr/service.gd` | `docs/vr.md` | `tests/test_vr_act.gd` | — |
 | Idle act offer and start | `offer/service.gd` | `docs/offer.md` | `tests/offer/` | `world` |
 | Proactive requests | `initiation/service.gd` | `docs/initiation.md` | `tests/initiation/` | `world` |
 | Act memory | `memory/service.gd` | `docs/memory.md` | `tests/memory/` | `world` |

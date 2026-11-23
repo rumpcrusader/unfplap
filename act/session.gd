@@ -25,7 +25,7 @@ const SCENE_GATE := preload("res://mods/unfplap/scene_gate/service.gd")
 const CYCLE := preload("res://mods/unfplap/shared/cycle.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
 const ACT_COMMANDS := preload("res://mods/unfplap/shared/act_commands.gd")
-const VR_ACT := preload("res://mods/unfplap/vr/service.gd")
+const VR_ACT := preload("res://mods/unfplap/vr/act.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 const State := ACT_STATE.State
@@ -459,7 +459,7 @@ func release_anatomy() -> void:
 	context.stage = null
 
 
-## Build the optional VR controller; the VR service owns the scene lookup and the node.
+## Build the optional VR controller; the VR handle owns the scene lookup and the node.
 func begin_vr() -> void:
 	stop_vr()
 	vr = VR_ACT.attach(host.node, WORLD.player_rig())

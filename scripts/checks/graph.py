@@ -23,9 +23,9 @@ from .text import PRELOAD_CONST, _code_lines
 # contract the body-change service constructs from the anatomy facade it is handed; the world
 # handles are the Pony scope's typed view of the World.
 PUBLIC_SERVICE_FILES = {"body_change/source.gd", "world/handles.gd"}
-# The game layer: the only services allowed to touch the base game. Membership is by approval only;
-# `vr` is deferred. Each member owns exactly one `<service>/game.gd`, its only base-game boundary
-# and the only home of a base-game import or autoload literal; only that service's files import it.
+# The game layer: the only services allowed to touch the base game. Membership is by approval only.
+# Each member owns exactly one `<service>/game.gd`, its only base-game boundary and the only home of
+# a base-game import or autoload literal; only that service's files import it.
 GAME_LAYER = {"world", "settings", "debug", "hud"}
 # The accessor files the base-game import rule allows, one per game-layer member.
 GAME_SOURCES = ("world/game.gd", "settings/game.gd", "debug/game.gd", "hud/game.gd")

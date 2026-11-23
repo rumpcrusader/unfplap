@@ -521,7 +521,7 @@ func _fixture(with_row := true) -> Dictionary:
 	var negotiation := FakeNegotiation.new()
 	var service := OFFER.new()
 	service.name = "UnfplapOffer"
-	service.bind(negotiation, null, hud)
+	service.wire(negotiation, null, hud)
 	PONIES.offer = service
 	root.add_child(game)
 	root.add_child(hud)

@@ -243,7 +243,7 @@ class Garment extends RefCounted:
 
 var _rig: RIG
 var _parts: PARTS
-## The identity gate the roster verbs ask; the entry binds it once.
+## The identity gate the roster verbs ask; the entry hands it over once.
 var _eligibility: ELIGIBILITY = null
 var _anon: AnonBody = null
 ## pony -> its cached handle; a retained handle keeps its pony.
@@ -257,9 +257,9 @@ func _ready() -> void:
 	CHANGE.on_changed(Callable(self, "_on_settings_changed"))
 
 
-## The entry binds the identity gate once; an unbound facade presents nothing.
-func bind_eligibility(service: ELIGIBILITY) -> void:
-	_eligibility = service
+## The entry hands over the identity gate once; an unbound facade presents nothing.
+func wire(eligibility: ELIGIBILITY) -> void:
+	_eligibility = eligibility
 
 
 # --------------------------------------------------------------------------- roster

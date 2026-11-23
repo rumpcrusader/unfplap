@@ -45,7 +45,7 @@ func run() -> void:
 	var eligibility := FakeEligibility.new()
 	var api: API = API.new()
 	root.add_child(api)
-	api.bind_eligibility(eligibility)
+	api.wire(eligibility)
 	api.present(pony)
 	var controller := api._parts.controller(pony)
 	check(is_instance_valid(controller), "present creates one controller")

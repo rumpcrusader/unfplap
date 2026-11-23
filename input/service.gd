@@ -61,8 +61,8 @@ func _exit_tree() -> void:
 
 
 ## Set once by the entry; the act key hands an idle press here.
-func bind(offer_node: OFFER) -> void:
-	offer = offer_node
+func wire(offer: OFFER) -> void:
+	self.offer = offer
 
 
 ## Rebuild the mod-owned act action from the captured `act_key` keycode and cache the input

@@ -61,7 +61,7 @@ Rules:
 ## Facade
 
 `act_gate/service.gd` extends `shared/service.gd`, the world-service base. The entry creates one
-instance per world after `eligibility`, calls `bind_eligibility()`, and binds the gate into
+instance per world after `eligibility`, calls `wire()`, and binds the gate into
 `PONIES`, `initiation`, `negotiation`, `scene_gate` and `debug`. The types are declared in the
 facade, so a consumer names them `ACT_GATE.Verdict`, `ACT_GATE.Row`, and so on.
 

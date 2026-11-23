@@ -171,7 +171,7 @@ body and id and the act host's pony. There is no second bind pass and no facade 
 The three world facades are injected, never static: `Bundle` holds `hud`, `memory` and `stool`;
 `act/context.gd` carries `hud`, `memory` and `stool_service`; `afterglow`, `summary`, `face`,
 `dialogue` and the handover receive memory through their constructor; `anatomy` receives the HUD in
-`setup(hud)`, `negotiation` and `debug/actions` in their `bind()`, and `offer` at construction. A
+`setup(hud)`, `negotiation` and `debug/actions` in their `wire()`, and `offer` at construction. A
 null facade is an absent one: the act modules guard every call, and a bare runtime remains valid.
 
 Every callback names its owner rather than a runtime method:

@@ -45,7 +45,7 @@ asks its facade for the node the model calls run on. The Act service gets only t
 
 ## Facade
 
-`bind()` is the entry's one call: the facades it reads are handed over once and the service builds
+`wire()` is the entry's one call: the facades it reads are handed over once and the service builds
 the adapter and the `Host` from them. `on_world()` re-reads the eligibility service the entry
 rebuilds on every world enter, rebuilds the `Host` and drops the previous world's watch. `setup()`
 takes a `Host` directly and is the seam the suites use; the entry never calls it.
@@ -84,7 +84,7 @@ generation token.
 ## Director and model host
 
 `negotiation/adapter.gd` is the one director bridge and model host. This service builds one
-instance as its child in `bind()` and wires the `Host` model callbacks to it; the Proactive service
+instance as its child in `wire()` and wires the `Host` model callbacks to it; the Proactive service
 takes the same instance through `adapter()` and does not keep a second copy. It owns every private
 director read (`state`, `config`, `_player_text`, `_held_text`, the group, the approach and hearing
 state), the transcript hook, one answer watch and the bounded classifier calls. The quiet gate's
@@ -126,7 +126,7 @@ used to be the entry's assembly:
   target names;
 - the adapter's model calls and the world-context situation record.
 
-It reads only service facades and `WORLD`, and the fields the entry binds once through `bind()`:
+It reads only service facades and `WORLD`, and the fields the entry sets once through `wire()`:
 `service` (this facade), `adapter`, `eligibility`, `gate`, `memory`, `privacy`, `initiation` and
 `offer`. `initiation` and `offer` are plain nodes because each of them
 preloads this facade; everything else is the typed facade. `eligibility` and `gate` are the fields

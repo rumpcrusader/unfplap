@@ -258,7 +258,7 @@ total over the window, its calls and its worst call.
 
 ## Host boundary
 
-The entry adds the actions node and hands it the services it acts through with `bind(body_change,
+The entry adds the actions node and hands it the services it acts through with `wire(body_change,
 initiation, negotiation, anatomy, pantyhose, hud)` and the settings page's Debug block builder
 (`build_settings_block()`). The wheel's one-line result goes to the bound `hud.toast()`, not
 through a static sink. The live act state is these named reads, built by the node itself in `_ready()` from the

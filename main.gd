@@ -143,7 +143,7 @@ func _build_services() -> void:
 	PONIES.eligibility = eligibility
 	# The dynamic gate asks the identity question and owns every "right now" row.
 	act_gate = _add(ACT_GATE.new())
-	act_gate.bind_eligibility(eligibility)
+	act_gate.wire(eligibility)
 	PONIES.act_gate = act_gate
 	memory = _add(MEMORY.new())
 	privacy = _add(PRIVACY.new())
@@ -154,24 +154,24 @@ func _build_services() -> void:
 	hud = _add_hud(HUD.new(), "UnfplapHUD")
 	hud.apply_settings()
 	offer = _add(OFFER.new(), "UnfplapOffer")
-	offer.bind(negotiation, privacy, hud)
+	offer.wire(negotiation, privacy, hud)
 	offer.apply_settings()
 	# The act key and the seated-player guard exist before the player does; the offer above is
 	# the one service the input policy hands its press to.
 	input = _add(INPUT.new(), "UnfplapInput")
-	input.bind(offer)
+	input.wire(offer)
 	# The Proactive service owns the bounded classifier and takes the Negotiation facade: its
 	# adapter, lock, form view and Context. The bridge reads this service back, so it is bound
 	# once both exist.
 	initiation = _add(INITIATION.new(), "UnfplapInitiation")
-	initiation.bind(eligibility, act_gate)
-	initiation.setup(privacy, negotiation, offer)
-	negotiation.bind(eligibility, act_gate, memory, privacy, initiation, offer, hud)
+	initiation.wire(eligibility, act_gate, privacy, negotiation, offer)
+	initiation.setup()
+	negotiation.wire(eligibility, act_gate, memory, privacy, initiation, offer, hud)
 	estrus = _add(ESTRUS.new(), "UnfplapEstrus")
 	anatomy = _add(ANATOMY.new(), "UnfplapAnatomy")
 	anatomy.status.connect(Callable(hud, "anatomy_status"))
-	anatomy.bind_eligibility(eligibility)
-	estrus.bind(anatomy)
+	anatomy.wire(eligibility)
+	estrus.wire(anatomy)
 	body_change = _add(BODY_CHANGE_SERVICE.new(), "UnfplapBodyChange")
 	body_change.setup()
 	pantyhose = _add(PANTYHOSE.new(), "UnfplapPantyhose")
@@ -188,7 +188,7 @@ func _build_services() -> void:
 	# The debug actions run against the services above, so they are built last. They read the live
 	# act through the facades themselves; the entry hands them only the services they act through.
 	debug_actions = _add(DEBUG_ACTIONS.new(), "UnfplapDebugActions")
-	debug_actions.bind(body_change, initiation, negotiation, anatomy, pantyhose, hud)
+	debug_actions.wire(body_change, initiation, negotiation, anatomy, pantyhose, hud)
 	debug_actions.sync_skeleton_overlay()
 	PONIES.bind(anatomy, body_change, offer, stock_smack, eligibility, act_gate, estrus, api)
 	_assert_hooks()

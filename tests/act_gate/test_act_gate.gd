@@ -210,7 +210,7 @@ func _check_facade() -> void:
 	eligibility.on_world(null)
 	var gate := ACT_GATE.new()
 	gate.on_world(null)
-	gate.bind_eligibility(eligibility)
+	gate.wire(eligibility)
 
 	var pony := FakePony.new()
 	pony.name = "Rarity"
@@ -336,7 +336,7 @@ func _check_facade() -> void:
 	# The attach warm reads the relationship row once and skips a pony with no runtime.
 	var warm := ACT_GATE.new()
 	warm.on_world(null)
-	warm.bind_eligibility(eligibility)
+	warm.wire(eligibility)
 	var warm_pony := FakePony.new()
 	warm_pony.name = "WarmPony"
 	warm_pony.identity = FakeIdentity.new()

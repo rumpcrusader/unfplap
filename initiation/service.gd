@@ -118,24 +118,26 @@ var _reasoning_serial := 0
 var _reasoning_scope := ""
 
 
-func setup(privacy_node: PRIVACY = null, negotiation_node: NEGOTIATION = null,
-		offer_node: OFFER = null) -> void:
-	_privacy = privacy_node if is_instance_valid(privacy_node) else PRIVACY.new()
-	_negotiation = negotiation_node
+## The peers this service calls; the composition root is the only caller. The Negotiation adapter
+## is read here, so `setup()` follows this call at once.
+func wire(eligibility: ELIGIBILITY, act_gate: ACT_GATE, privacy: PRIVACY,
+		negotiation: NEGOTIATION, offer: OFFER) -> void:
+	self.eligibility = eligibility
+	self.act_gate = act_gate
+	_privacy = privacy if is_instance_valid(privacy) else PRIVACY.new()
+	_negotiation = negotiation
 	_adapter = _negotiation.adapter() if is_instance_valid(_negotiation) else null
-	_offer = offer_node
+	_offer = offer
+
+
+## Builds the bounded classifier and the place node this service owns; it takes no peers.
+func setup() -> void:
 	_classifier = CLASSIFIER.new()
 	_classifier.name = "UnfplapClassifier"
 	add_child(_classifier)
 	_venue = VENUE.new()
 	_venue.name = "UnfplapRequestPlace"
 	add_child(_venue)
-
-
-## Set by the entry: the two live gates, rebuilt on every world enter.
-func bind(eligibility_service: ELIGIBILITY, gate_service: ACT_GATE) -> void:
-	eligibility = eligibility_service
-	act_gate = gate_service
 
 
 ## The bounded classifier this service owns, or null. The negotiation's adapter makes the one

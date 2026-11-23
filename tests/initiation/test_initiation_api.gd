@@ -246,10 +246,9 @@ func _fixture() -> Dictionary:
 	root.add_child(main)
 	var service := INIT.new()
 	service.name = "UnfplapInitiation"
-	service.eligibility = eligibility
 	var gate := FakeGate.new()
-	service.act_gate = gate
-	service.setup(privacy, negotiation, offer)
+	service.wire(eligibility, gate, privacy, negotiation, offer)
+	service.setup()
 	root.add_child(service)
 	return {"main": main, "game": game, "context": context, "player": player,
 		"target": target, "nav": nav, "runtime": runtime, "eligibility": eligibility,

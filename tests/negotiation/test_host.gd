@@ -326,7 +326,7 @@ func _service_fixture() -> Dictionary:
 	WORLD.bind_world(game)
 	WORLD.bind_player(player)
 	root.add_child(service)
-	service.bind(eligibility, gate, FakeMemory.new(), FakePrivacy.new(), initiation, offer)
+	service.wire(eligibility, gate, FakeMemory.new(), FakePrivacy.new(), initiation, offer)
 	return {"service": service, "game": game, "pony": pony, "runtime": runtime,
 		"player": player, "eligibility": eligibility, "gate": gate, "facts": facts,
 		"initiation": initiation, "offer": offer, "director": director}

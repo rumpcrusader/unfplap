@@ -23,7 +23,7 @@ class Session extends RefCounted:
 	var wink_left := 0.0
 
 
-## The anatomy API the idle verbs reach; main binds it once both services exist.
+## The anatomy API the idle verbs reach; the entry hands it over once both services exist.
 var anatomy: ANATOMY = null
 var _enabled := true
 var _wink_min := 0.0
@@ -38,9 +38,9 @@ func _ready() -> void:
 	process_priority = 90
 
 
-## The anatomy API, bound by the entry after both world services exist.
-func bind(anatomy_api: ANATOMY) -> void:
-	anatomy = anatomy_api
+## The anatomy API, handed over by the entry after both world services exist.
+func wire(anatomy: ANATOMY) -> void:
+	self.anatomy = anatomy
 
 
 func on_world(_host: Node) -> void:

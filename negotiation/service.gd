@@ -151,7 +151,7 @@ var _serial := 0
 var _deadline := 0.0
 var _privacy_clock := 0.0
 
-## The services the bridge reads, bound once by the entry. `eligibility` and `gate` alone are
+## The services the bridge reads, wired once by the entry. `eligibility` and `gate` alone are
 ## handed over again on each world enter, because the entry constructs fresh ones.
 var eligibility: ELIGIBILITY = null
 var gate: ACT_GATE = null
@@ -164,7 +164,7 @@ var offer: Node = null
 
 ## The entry's one call: the services the bridge reads. The adapter and the bridge are built here
 ## and nowhere else, so the entry never assembles a `Host`.
-func bind(eligibility_service: ELIGIBILITY, gate_service: ACT_GATE, memory_service: MEMORY,
+func wire(eligibility_service: ELIGIBILITY, gate_service: ACT_GATE, memory_service: MEMORY,
 		privacy_service: PRIVACY, initiation_service: Node, offer_service: Node,
 		hud_service: Node = null) -> void:
 	eligibility = eligibility_service

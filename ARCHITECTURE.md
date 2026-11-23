@@ -298,7 +298,7 @@ teardown to `free_pose()`. The order is `docs/poses.md`.
 
 - **the primitives**: the settings load, the two debug switch binds and the loader lookup;
 - **the ordered service list**: `_build_services()` constructs every long-running service in one
-  literal list, one construction line and one `bind()` per service. The list order is the
+  literal list, one construction line and one `wire()` where it takes peers. The list order is the
   construction order and the broadcast order, so a consumer is built after the services it reads.
   The entry assigns only the registry's composition handles and the cross-mod factory; a service
   owns its own fields and rules;

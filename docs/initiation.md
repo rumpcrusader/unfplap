@@ -63,8 +63,9 @@ The purity boundary is deliberate:
   `shared/act_history.gd`.
 - No file outside `initiation/service.gd` and `initiation/` preloads `initiation/*` except the
   orchestrator, which owns the service.
-- The entry's service list creates the service (`setup(privacy, negotiation, offer)`), binds the
-  live `eligibility` and `act_gate` instances and drives it: `tick`, `on_world`/`on_world_closed`, `force`,
+- The entry's service list creates the service, wires it once (the live `eligibility` and
+  `act_gate` instances and its privacy, Negotiation and offer peers), runs its peerless `setup()`
+  and drives it: `tick`, `on_world`/`on_world_closed`, `force`,
   `cancel_approach`, `placement_for` and the outcome handoff. `runtime.gd` exposes
   `cuddle_active()` and the scene-only verdict; the offer facade answers which pony the act key
   would start (`docs/offer.md`), and the Negotiation facade answers the lock, the form view and
@@ -75,7 +76,7 @@ The purity boundary is deliberate:
 `initiation/service.gd` is the proactive request service.
 
 `eligibility` is the entry's live identity instance and `act_gate` the live dynamic one, both
-bound once at construction and read for the whole process; the identity target comes from
+wired once at construction and read for the whole process; the identity target comes from
 `eligibility` and the Base clearance relationship row from `act_gate`. `classifier_node()` is the
 node the Negotiation adapter runs its one bounded call on, and
 `classifier_available()` is the Anon-offer watch's gate. `on_world` and `on_world_closed` are the

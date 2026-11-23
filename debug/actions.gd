@@ -81,16 +81,16 @@ func _ready() -> void:
 
 
 ## Set by the entry: the services the buttons act through.
-func bind(body_change_service: BODY_CHANGE_SERVICE, initiation_service: INITIATION,
-		negotiation_service: NEGOTIATION, anatomy_service: ANATOMY,
-		pantyhose_service: Node, hud_service: Node = null) -> void:
-	body_change = body_change_service
-	initiation = initiation_service
-	negotiation = negotiation_service
-	anatomy = anatomy_service
-	pantyhose = pantyhose_service
-	hud = hud_service
-	_pantyhose_rebuild = Callable(pantyhose_service, "rebuild_hull")
+func wire(body_change: BODY_CHANGE_SERVICE, initiation: INITIATION,
+		negotiation: NEGOTIATION, anatomy: ANATOMY,
+		pantyhose: Node, hud: Node = null) -> void:
+	self.body_change = body_change
+	self.initiation = initiation
+	self.negotiation = negotiation
+	self.anatomy = anatomy
+	self.pantyhose = pantyhose
+	self.hud = hud
+	_pantyhose_rebuild = Callable(pantyhose, "rebuild_hull")
 
 
 func _exit_tree() -> void:

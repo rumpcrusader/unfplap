@@ -45,7 +45,7 @@ The service is a Node; its contract is the Node lifecycle and the input callback
   live it hands every key press to `_act_key()`;
 - `apply_settings()` — rebuilds the `unfplap_act` action from the `act_key` setting and caches the
   shield flag;
-- `bind(offer)` — sets the idle offer the act key hands its press to;
+- `wire(offer)` — sets the idle offer the act key hands its press to;
 - `_act_key(runtime, key, state)` — the act's own keys (the anatomy keys emit their command ids),
   then the shield's catch-all;
 - `_consume(key)` — marks the key handled and, with the shield on, clears its polled state unless

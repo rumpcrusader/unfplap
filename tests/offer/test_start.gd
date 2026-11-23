@@ -454,7 +454,7 @@ func _fixture(with_world := true) -> Dictionary:
 	PONIES.stock_smack = null
 	var service := OFFER.new()
 	service.name = "UnfplapOffer"
-	service.bind(negotiation, privacy, hud)
+	service.wire(negotiation, privacy, hud)
 	PONIES.offer = service
 	root.add_child(service)
 	return {"service": service, "pony": pony, "runtime": runtime, "game": game, "menu": menu,

@@ -155,9 +155,9 @@ func shutdown() -> void:
 	_eligibility = null
 
 
-## The identity service, bound once by the entry after both exist.
-func bind_eligibility(service: ELIGIBILITY) -> void:
-	_eligibility = service
+## The identity service, handed over once by the entry after both exist.
+func wire(eligibility: ELIGIBILITY) -> void:
+	_eligibility = eligibility
 
 
 ## The act key in one call: the identity target and the relationship row.

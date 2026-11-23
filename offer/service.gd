@@ -35,13 +35,13 @@ const AGREEMENT_START_S := 0.25
 const AGREEMENT_WAIT := 0
 const AGREEMENT_STARTED := 1
 
-## The Negotiation service bound by the entry; its live Agreement is offered before the scene
+## The Negotiation service handed over by the entry; its live Agreement is offered before the scene
 ## pass.
 var negotiation: NEGOTIATION = null
-## Set by the entry's `bind()`: the privacy provider, resampled before a private Agreement
+## Set by the entry: the privacy provider, resampled before a private Agreement
 ## auto-starts.
 var privacy: PRIVACY = null
-## Set by the entry's `bind()`: the HUD, once the player rig arrives.
+## Set by the entry: the HUD, once the player rig arrives.
 var hud: Node = null
 
 ## The idle offer's playable offer and its blocked variant. Both are typed `PoseOffer` handles;
@@ -74,10 +74,10 @@ func _exit_tree() -> void:
 
 ## Set by the entry: the Negotiation and privacy facades this offer reads and the HUD its hint
 ## falls back to. The registry and the act reads are the preloaded `PONIES` facade.
-func bind(negotiation_node: NEGOTIATION, privacy_node: PRIVACY, hud_node: Node) -> void:
-	negotiation = negotiation_node
-	privacy = privacy_node
-	hud = hud_node
+func wire(negotiation: NEGOTIATION, privacy: PRIVACY, hud: Node) -> void:
+	self.negotiation = negotiation
+	self.privacy = privacy
+	self.hud = hud
 
 
 ## One idle frame: tick the fan sensor, sync the prompt row, then run the Agreement clock.

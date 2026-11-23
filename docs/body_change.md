@@ -344,9 +344,9 @@ extend the policy once its behavior is specified.
 
 `body_change/source.gd` is the documented base-mod extension point for a new form provider,
 including a provider added to the base game. A provider extends the file by path (no `class_name`),
-is constructed by the entry, and is registered with the body-change service's `register_source()`.
-The service validates the base type before registration, so a source outside the contract cannot
-enter the source list.
+is constructed by the service that owns it, and is registered with the body-change service's
+`register_source()`. The service validates the base type before registration, so a source outside
+the contract cannot enter the source list.
 
 The extension can rely on the service for the form store, the apply path, the binding fan-out, the
 active-change index and the legacy mirror. It must supply its own:

@@ -24,8 +24,7 @@ const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
 const AUDIO := preload("res://mods/unfplap/audio/api.gd")
 const ESTRUS := preload("res://mods/unfplap/estrus/service.gd")
 const BODY_CHANGE_SERVICE := preload("res://mods/unfplap/body_change/service.gd")
-const PANTYHOSE := preload("res://mods/unfplap/integrations/pantyhose.gd")
-const CHANGELINGS := preload("res://mods/unfplap/integrations/changelings.gd")
+const INTEGRATIONS := preload("res://mods/unfplap/integrations/service.gd")
 const STOOL := preload("res://mods/unfplap/stool/service.gd")
 const STOCK_SMACK := preload("res://mods/unfplap/stock_smack/api.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
@@ -59,10 +58,8 @@ var estrus: ESTRUS
 ## Base body-change service: the per-body form store and the source/binding registries. Inert until
 ## `wire()` builds the bindings from the facades above and the providers register with it.
 var body_change: BODY_CHANGE_SERVICE
-## The Pantyhose & Panties world adapter; inert when that pack is absent.
-var pantyhose: PANTYHOSE
-## The changelings world adapter; inert when that pack is absent.
-var changelings: CHANGELINGS
+## The optional pack integrations: the two pack modules and the act-start undress hook.
+var integrations: INTEGRATIONS
 ## Footstool system facade: the standing reach rule, item, act prop and world supply.
 var stool: STOOL
 ## Act audio facade: the process-lifetime cue pool, the breath sound and her voice policy.
@@ -167,11 +164,10 @@ func _build_world() -> void:
 	estrus = ESTRUS.new()
 	anatomy = ANATOMY.new()
 	body_change = BODY_CHANGE_SERVICE.new()
-	pantyhose = PANTYHOSE.new()
+	integrations = INTEGRATIONS.new()
 	stool = STOOL.new()
 	audio = AUDIO.new()
 	stock_smack = STOCK_SMACK.new()
-	changelings = CHANGELINGS.new()
 	ponies = PONIES.new()
 	act_owner = ACT_OWNER.new()
 	debug_actions = DEBUG_ACTIONS.new()
@@ -191,13 +187,12 @@ func _build_world() -> void:
 		ponies)
 	anatomy.wire(eligibility)
 	estrus.wire(anatomy)
-	body_change.wire(anatomy, pantyhose, stock_smack, ponies)
-	pantyhose.wire(anatomy)
-	changelings.wire(ponies, eligibility, body_change, api)
+	integrations.wire(anatomy, body_change, ponies, eligibility, api)
+	body_change.wire(anatomy, integrations.pantyhose(), stock_smack, ponies)
 	stool.wire(act_owner)
 	memory.wire(eligibility)
-	debug_actions.wire(body_change, initiation, negotiation, anatomy, pantyhose, act_owner, hud,
-		ponies, eligibility, estrus)
+	debug_actions.wire(body_change, initiation, negotiation, anatomy, integrations.pantyhose(),
+		act_owner, hud, ponies, eligibility, estrus)
 
 	# `negotiation` attaches before `initiation`: the latter's `_ready` resolves the former's
 	# adapter.
@@ -216,16 +211,14 @@ func _build_world() -> void:
 	_attach(estrus, "UnfplapEstrus")
 	_attach(anatomy, "UnfplapAnatomy")
 	_attach(body_change, "UnfplapBodyChange")
-	_attach(pantyhose, "UnfplapPantyhose")
+	_attach(integrations, "UnfplapIntegrations")
 	_attach(stool, "UnfplapStool")
 	_attach(audio, "UnfplapAudio")
 	_attach(stock_smack, "UnfplapStockSmack")
 	_attach(ponies, "UnfplapPonies")
-	_attach(changelings, "UnfplapChangelings")
 	_attach(debug_actions, "UnfplapDebugActions")
 
 	anatomy.status.connect(Callable(hud, "anatomy_status"))
-	body_change.register_source(changelings)
 	_assert_hooks()
 
 
@@ -239,6 +232,7 @@ func _build_record() -> HANDLES:
 	world.estrus = estrus
 	world.offer = offer
 	world.stock_smack = stock_smack
+	world.integrations = integrations
 	world.api = api
 	world.hud = hud
 	world.memory = memory
@@ -318,8 +312,8 @@ func _new_runtime(pony: Node) -> Node:
 	var runtime: RUNTIME = RUNTIME.new(pony, _world)
 	runtime.name = "UnfplapRuntime"
 	runtime.pony = pony
-	if is_instance_valid(pantyhose):
-		runtime.act_started.connect(Callable(pantyhose, "act_started"))
+	if is_instance_valid(integrations):
+		runtime.act_started.connect(Callable(integrations, "act_started"))
 	return runtime
 
 

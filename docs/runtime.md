@@ -167,8 +167,9 @@ attached service Nodes.
 1. the early modules (`swap`, `tick`, `phases`, the pose session, the scene gate, rest, the camera
    facade, readiness, summary, face, reactions, the act view, dialogue, afterglow, the scene hold),
    the HUD, memory and stool read from the record, and the act audio handle;
-2. the per-act systems: the handover and its host, wings, hands, kiss, integrations, the one live
-   view, the two standing body controllers, the camera and audio bindings;
+2. the per-act systems: the handover and its host, wings, hands, kiss, the per-pony integrations
+   adapter (`integrations/act.gd`), the one live view, the two standing body controllers, the
+   camera and audio bindings;
 3. `act/host.gd` (node operations), `act/context.gd` filled from the constructed objects,
    `act/session.gd`, the handover host's typed fields, then frame, consent, impact, view, idle,
    exit, input, swap, phases, tick, start and agreement and their sibling handles;

@@ -137,7 +137,7 @@ layer and are deleted with the module headers:
 | `debug` | `process` (the action table) |
 | `hud` | `world` |
 | `per-pony handle` | `pony` |
-| `per-act` | `world` (`integrations`); `vr` is Other |
+| `per-act` | `vr` is Other; `integrations` is a `world` service with an Other adapter |
 | `world + per-act handles`, prose `world; …` | `world` |
 
 ## Game layer
@@ -180,9 +180,9 @@ state ownership and the scene adaptation for that service. A service that needs 
 class may extend it, but the public API must remain readable in the facade; prefer delegation over
 inherited public methods.
 
-A world-list service extends `shared/service.gd` for the four no-op lifecycle hooks. A per-pony or
-per-act service is constructed inside the runtime and has no world broadcast, so it does not extend
-the base. The cross-mod `api.gd` is frozen, is parented without joining the list, and carries no
+A world-list service extends `shared/service.gd` for the four no-op lifecycle hooks. A per-pony
+service is constructed inside the runtime and has no world broadcast, so it does not extend the
+base. The cross-mod `api.gd` is frozen, is parented without joining the list, and carries no
 hooks.
 
 The facade header names the service, its scope and its contract, in this order:
@@ -274,7 +274,7 @@ give the mod two entry points and hide the real dependency.
 
 | Scope | Constructed by | Begun / ended by | Examples |
 |---|---|---|---|
-| World | the entry's service list, at boot | the list order on world enter, close and exit | eligibility, memory, negotiation, hud, offer, input, initiation, anatomy, body_change, the world adapters, stool, stock smack, debug actions; the cross-mod `api.gd` is parented but takes no broadcast |
+| World | the entry's service list, at boot | the list order on world enter, close and exit | eligibility, memory, negotiation, hud, offer, input, initiation, anatomy, body_change, integrations and its pack modules, stool, stock smack, debug actions; the cross-mod `api.gd` is parented but takes no broadcast |
 | Per-pony | the roster through the entry's one factory | pony despawn or world close | the runtime itself |
 | Per-pony handle | the runtime, once per pony | the runtime ledger or the negotiation hold | pose, camera, hands, kiss, face, history, afterglow, scene hold, rest |
 | Pure / read model | its owner | no teardown | preferences math, act view, the log sink and the profiler |

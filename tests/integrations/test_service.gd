@@ -1,10 +1,15 @@
 extends "res://mods/unfplap/tests/support/suite.gd"
-## The integrations facade: binding resolution, save/restore, optional bindings, live feature
-## edits, shared excitement Beat ownership and idempotent reset.
+## The integrations split: the per-pony adapter's binding resolution, save/restore, optional
+## bindings, live feature edits and idempotent reset, and the World facade's pack modules.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/integrations/test_service.gd
 
-const SERVICE := preload("res://mods/unfplap/integrations/service.gd")
+const ADAPTER := preload("res://mods/unfplap/integrations/act.gd")
+const FACADE := preload("res://mods/unfplap/integrations/service.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
+const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
+const BODY_CHANGE_SERVICE := preload("res://mods/unfplap/body_change/service.gd")
+const PONIES := preload("res://mods/unfplap/ponies/service.gd")
+const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
 
 
 
@@ -70,6 +75,31 @@ class FakeFidgets extends Node3D:
 	var _root := 7
 	var _tap_next := 0.25
 
+
+## The pack-active seam both modules read; the facade fixture keeps both packs off.
+class PackGate extends RefCounted:
+	var on := false
+
+	func active() -> bool:
+		return on
+
+
+## Records the provider the facade registers, without the real source registry.
+class SourceRecorder extends BODY_CHANGE_SERVICE:
+	var sources: Array[Node] = []
+
+	func register_source(source: Node) -> bool:
+		sources.append(source)
+		return true
+
+
+## The pantyhose module's act-start seam: the facade must hand it the pony.
+class ActStartSpy extends "res://mods/unfplap/integrations/pantyhose.gd":
+	var ponies: Array[Node] = []
+
+	func act_started(pony: Node3D) -> void:
+		ponies.append(pony)
+
 func _setup(feature := true) -> Dictionary:
 	var pony := FakePony.new()
 	pony.name = "TestPony"
@@ -130,13 +160,14 @@ func run() -> void:
 	_check_climax_fidgets()
 	_check_world_only()
 	_check_runtime_beat_hold()
+	_check_facade()
 	finish()
 
 
 func _check_basic() -> void:
 	var scene := _setup()
 	var facts: FakeFacts = scene["facts"]
-	var service := SERVICE.new(facts)
+	var service := ADAPTER.new(facts)
 	var beat: Timer = scene["beat"]
 	var excitement: Variant = scene["excitement"]
 	var affection: Variant = scene["affection"]
@@ -182,7 +213,7 @@ func _check_basic() -> void:
 func _check_feature_off() -> void:
 	var scene := _setup(false)
 	var facts: FakeFacts = scene["facts"]
-	var service := SERVICE.new(facts)
+	var service := ADAPTER.new(facts)
 	var beat: Timer = scene["beat"]
 	var excitement: Variant = scene["excitement"]
 	service.begin()
@@ -197,7 +228,7 @@ func _check_feature_off() -> void:
 func _check_missing_required() -> void:
 	var scene := _setup()
 	var facts: FakeFacts = scene["facts"]
-	var service := SERVICE.new(facts)
+	var service := ADAPTER.new(facts)
 	var beat: Timer = scene["beat"]
 	var feelings: Node = scene["feelings"]
 	feelings.free()
@@ -211,7 +242,7 @@ func _check_missing_required() -> void:
 func _check_optional_late() -> void:
 	var scene := _setup()
 	var facts: FakeFacts = scene["facts"]
-	var service := SERVICE.new(facts)
+	var service := ADAPTER.new(facts)
 	var skeleton: Node = scene["skeleton"]
 	var excitement: Variant = scene["excitement"]
 	service.begin()
@@ -229,7 +260,7 @@ func _check_optional_late() -> void:
 func _check_live_toggle() -> void:
 	var scene := _setup()
 	var facts: FakeFacts = scene["facts"]
-	var service := SERVICE.new(facts)
+	var service := ADAPTER.new(facts)
 	var beat: Timer = scene["beat"]
 	var excitement: Variant = scene["excitement"]
 	service.begin()
@@ -256,7 +287,7 @@ func _check_live_toggle() -> void:
 func _check_two_owners() -> void:
 	var scene := _setup()
 	var facts: FakeFacts = scene["facts"]
-	var service := SERVICE.new(facts)
+	var service := ADAPTER.new(facts)
 	var beat: Timer = scene["beat"]
 	var excitement: Variant = scene["excitement"]
 	service.begin()
@@ -282,7 +313,7 @@ func _check_two_owners() -> void:
 func _check_missing_mid_act() -> void:
 	var scene := _setup()
 	var facts: FakeFacts = scene["facts"]
-	var service := SERVICE.new(facts)
+	var service := ADAPTER.new(facts)
 	var beat: Timer = scene["beat"]
 	var excitement: Variant = scene["excitement"]
 	var feelings: Node = scene["feelings"]
@@ -301,7 +332,7 @@ func _check_missing_mid_act() -> void:
 func _check_climax_fidgets() -> void:
 	var scene := _setup()
 	var facts: FakeFacts = scene["facts"]
-	var service := SERVICE.new(facts)
+	var service := ADAPTER.new(facts)
 	var skeleton: Node = scene["skeleton"]
 	var fidgets := _add_fidgets(skeleton)
 	facts.state = 3
@@ -405,20 +436,80 @@ func _free_runtime_beat(scene: Dictionary) -> void:
 	pony.free()
 
 
-## The Pantyhose & Panties entry is a world integration. It has no per-act provider, so the
-## facade must not create one even when its flags are on and the pack is active.
+## The Pantyhose & Panties pack is a world integration. Its adapter has no per-act provider, so
+## the per-pony adapter must not create one even when its flags are on and the pack is active.
 func _check_world_only() -> void:
 	var scene := _setup()
 	var facts: FakeFacts = scene["facts"]
 	facts.features = {"kissing_reactions": true, "pantyhose_undress": true,
 		"pantyhose_bulge": true}
 	facts.mods_active = {"pantyhose": true}
-	var service := SERVICE.new(facts)
+	var service := ADAPTER.new(facts)
 	service.begin()
 	check(not service.active_ids().has("pantyhose"),
 		"the Pantyhose world integration has no per-act provider")
 	check(service.active_ids().has("kissing"), "Kissing still runs beside it")
 	service.reset()
 	_free_scene(scene)
+
+
+## The World facade owns both pack modules: it builds and wires them, attaches them under
+## itself, registers the provider and forwards the runtime's act start.
+func _check_facade() -> void:
+	var anatomy := ANATOMY.new()
+	var body_change := SourceRecorder.new()
+	var ponies := PONIES.new()
+	var eligibility := ELIGIBILITY.new()
+	var gate := PackGate.new()
+	var facade := FACADE.new()
+	facade.name = "UnfplapIntegrations"
+	facade.wire(anatomy, body_change, ponies, eligibility, null)
+	var pantyhose: Node = facade.pantyhose()
+	var changelings: Node = facade.changelings()
+	check_not_null(pantyhose, "the facade builds the pantyhose module")
+	check_not_null(changelings, "the facade builds the changelings module")
+	check(pantyhose.get("_anatomy_service") == anatomy,
+		"the facade hands the pantyhose module its anatomy peer")
+	check(changelings.get("_ponies") == ponies
+		and changelings.get("_body_change_service") == body_change,
+		"the facade hands the changelings module its body-change peers")
+	pantyhose.set("mod_active", Callable(gate, "active"))
+	changelings.set("mod_active", Callable(gate, "active"))
+	root.add_child(facade)
+	check(pantyhose.get_parent() == facade,
+		"the facade attaches the pantyhose module under itself")
+	check(changelings.get_parent() == facade,
+		"the facade attaches the changelings module under itself")
+	check(facade.get_node_or_null("UnfplapPantyhose") == pantyhose,
+		"the pantyhose module keeps its node name")
+	check(facade.get_node_or_null("UnfplapChangelings") == changelings,
+		"the changelings module keeps its node name")
+	check(body_change.sources.size() == 1 and body_change.sources[0] == changelings,
+		"the facade registers the changelings provider")
+
+	var host := Node.new()
+	host.name = "FakeWorld"
+	root.add_child(host)
+	facade.on_world(host)
+	check(pantyhose.get("_game") == host, "the facade forwards on_world to the modules")
+	facade.on_player(host)
+	facade.on_world_closed()
+	check_null(pantyhose.get("_game"), "the facade forwards on_world_closed to the modules")
+
+	var spy := ActStartSpy.new()
+	facade.set("_pantyhose", spy)
+	var pony := Node3D.new()
+	root.add_child(pony)
+	facade.act_started(pony)
+	check(spy.ponies == [pony],
+		"the facade forwards the runtime's act start to the pantyhose module")
+	facade.set("_pantyhose", pantyhose)
+	facade.shutdown()
+	root.remove_child(pony)
+	pony.free()
+	spy.free()
+	root.remove_child(host)
+	host.free()
+	facade.free()
 
 

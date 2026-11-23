@@ -1,9 +1,9 @@
 extends RefCounted
 ## The pure provider contract for one supported external mod. A provider decides what the act needs
 ## to write; it never touches a scene, a node, the clock, the filesystem or the settings file. The
-## facade resolves bindings, reads the act facts and applies the returned actions.
+## adapter resolves bindings, reads the act facts and applies the returned actions.
 ##
-## Providers are private to the integrations service; only `integrations/service.gd` imports them.
+## Providers are private to the per-pony adapter; only `integrations/act.gd` imports them.
 
 ## Whether this provider should run for the current act and context.
 func available(_context: RefCounted) -> bool:

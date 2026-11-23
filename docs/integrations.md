@@ -6,30 +6,33 @@ whether or not the other mod is installed.
 
 ## Scope
 
-- `integrations/service.gd` is the per-act facade and the only per-act scene adapter.
-- `integrations/pantyhose.gd` is the world-side adapter for the Pantyhose & Panties 0.1.1 pack:
-  it lifts a worn piece over the anatomy, carries the coat's rump wobble into the worn cloth and
-  takes the lower garment off at an act start. The pack is never edited; the compatibility shaders
-  are a pinned copy under `integrations/shaders/`.
-- `integrations/garment_jiggle.gd` is the adapter's scene-side cloth-jiggle helper: it reads the
+- `integrations/service.gd` is the World facade: it owns the two optional pack modules, registers
+  the body-change provider and forwards the runtime's act start.
+- `integrations/act.gd` is the per-pony scene adapter: it resolves the catalog's bindings, saves the
+  originals and restores them at the act's lifecycle points.
+- `integrations/pantyhose.gd` is a module of the service, the world-side adapter for the Pantyhose
+  & Panties 0.1.1 pack: it lifts a worn piece over the anatomy, carries the coat's rump wobble into
+  the worn cloth and takes the lower garment off at an act start. The pack is never edited; the
+  compatibility shaders are a pinned copy under `integrations/shaders/`.
+- `integrations/garment_jiggle.gd` is the module's scene-side cloth-jiggle helper: it reads the
   coat's live wobble off a `FlankTouch` target material and carries it into one worn node's own
   model space through per-node instance uniforms; it preloads nothing and allocates nothing per
   frame.
 - `shared/integrations.gd` is the provider catalog: mod identity, verified version, feature names
   and binding paths.
-- `integrations/provider.gd`, `context.gd`, `action.gd` and `kissing.gd` are pure service
+- `integrations/provider.gd`, `context.gd`, `action.gd` and `kissing.gd` are pure adapter
   internals.
-- `integrations/changelings.gd` is a world-side body-change provider for the Queen Chrysalis
-  0.2.12 pack (`changelings`): it extends `body_change/source.gd`, lists her as an installed
-  provider mare, returns the typed body form for each body the pack brings, owns the placement
-  wrapper above her spring tail and supplies her own form names, shape lookup and player words.
-  It is not a catalog entry, has no settings, adds no Integrations tab section and needs no pack
-  rebuild.
+- `integrations/changelings.gd` is a module of the service, a world-side body-change provider for
+  the Queen Chrysalis 0.2.12 pack (`changelings`): it extends `body_change/source.gd`, lists her as
+  an installed provider mare, returns the typed body form for each body the pack brings, owns the
+  placement wrapper above her spring tail and supplies her own form names, shape lookup and player
+  words. It is not a catalog entry, has no settings, adds no Integrations tab section and needs no
+  pack rebuild.
 - `integrations/changelings_policy.gd` is the provider's offer/reveal policy: the offer timing and
   prompt, the reveal effects and the `form_reveal` memory mark. The base runtime executes the
   generic effects; the base service owns the mechanism (`docs/body_change.md`).
-- Two integrations are supported by the per-act service: the Kissing 1.2.9 reaction layer and the
-  Pantyhose & Panties 0.1.1 world garment adapter. Kissing's own kiss driver, guard, rear, reach,
+- Two integrations are supported: the Kissing 1.2.9 reaction layer through the per-pony adapter, and
+  the Pantyhose & Panties 0.1.1 garment module. Kissing's own kiss driver, guard, rear, reach,
   approach, step-back and memory recorder stay out of this service.
 - The Integrations settings tab always lists a supported mod, even when that mod is absent. The
   version is the one this adapter was verified with, not a semver compatibility promise; a later
@@ -37,30 +40,32 @@ whether or not the other mod is installed.
 
 ## Ownership
 
-The facade owns the per-act provider state, the binding resolution, the save/restore table and the
-lifecycle. A per-act catalog provider owns only policy: whether it applies, and which properties it
-wants set. A provider never reads a node, a tree, the clock, the filesystem, the settings file or
-the runtime's private fields.
+The per-pony adapter owns the per-act provider state, the binding resolution, the save/restore table
+and the lifecycle. A per-act catalog provider owns only policy: whether it applies, and which
+properties it wants set. A provider never reads a node, a tree, the clock, the filesystem, the
+settings file or the runtime's private fields.
 
-The world adapter owns its every-frame hull update, its cloth-jiggle pass and its fixed-fallback
-node discovery, the per-node material overrides, its cached feature/debug values and the act-start
-undress. The undress is the game's own `take_off` action when her executor exists, with the direct
-wardrobe calls as its fallback. It reads the anatomy facade the entry wires and the game through
-the root the entry hands it on `on_world`; it never preloads either host and never edits the pack.
+The service owns its two pack modules and their attach. The pantyhose module owns its every-frame
+hull update, its cloth-jiggle pass and its fixed-fallback node discovery, the per-node material
+overrides, its cached feature/debug values and the act-start undress. The undress is the game's own
+`take_off` action when her executor exists, with the direct wardrobe calls as its fallback. It reads
+the anatomy facade the service wires and the game through the root the entry hands it on `on_world`;
+it never preloads either host and never edits the pack.
 
-The changelings adapter owns its provider layer registration, the installed-mare list, the typed
+The changelings module owns its provider layer registration, the installed-mare list, the typed
 body form it returns for each of the pack's bodies, the `UnfplapTailPlacement` wrapper above her
-spring chain and the pack's own change state. It reads the API node the entry wires, and the
+spring chain and the pack's own change state. It reads the API node the service wires, and the
 pack's own public nodes and fields; it never edits the pack and never preloads a host. Its policy object
-owns the offer timing, prompt and reveal effects; the adapter's text hooks own the player's reveal
+owns the offer timing, prompt and reveal effects; the module's text hooks own the player's reveal
 and named-form words. Neither owns the form store or the binding fan-out.
 
 The body-change service owns the source list, the form store, the apply path and the optional
-forwards. The entry registers the providers and the service answers which source handles a pony;
-the runtime and the debug block see the typed source and policy surfaces, never the pack.
+forwards. The integrations service registers the shipped provider in its own `_ready`, and the
+body-change service answers which source handles a pony; the runtime and the debug block see the
+typed source and policy surfaces, never the pack.
 
-The runtime's composition constructs one service per pony and passes its typed
-`shared/act_facts.gd` view. The act modules call `begin()`, `tick()`, `afterglow()`,
+The runtime's composition constructs one per-pony adapter (`integrations/act.gd`) and passes its
+typed `shared/act_facts.gd` view. The act modules call `begin()`, `tick()`, `afterglow()`,
 `apply_live_settings()` and `reset()` at the ordered lifecycle points; `act/exit.gd:run()` remains
 the only act teardown.
 
@@ -70,7 +75,7 @@ the only act teardown.
 `mod_id`, `mod_name`, `author`, `verified_version`, `features` and `bindings`.
 
 A binding is a path from the act pony: each step is `{"property": "..."}` or `{"child": "..."}`.
-A step marked `"optional": true` makes the whole binding optional. The facade resolves every
+A step marked `"optional": true` makes the whole binding optional. The adapter resolves every
 binding at act start, re-checks required bindings each tick, and keeps optional bindings pending
 until their node appears. The catalog order is the tab order.
 
@@ -85,7 +90,7 @@ Kissing 1.2.9 binds:
 | `fidgets` | `skeleton` child `KissingFidgets` | no |
 
 Pantyhose & Panties 0.1.1 is a world integration: its `bindings` dictionary is empty, so the
-per-act facade never creates a provider for it. Its two features drive the world adapter below.
+per-pony adapter never creates a provider for it. Its two features drive the garment module below.
 
 ## Provider contract
 
@@ -99,7 +104,7 @@ func tick_actions(context: RefCounted, delta: float, out: Array) -> void
 func afterglow_actions(context: RefCounted, out: Array) -> void
 ```
 
-`holds_excitement()` asks the facade to acquire the runtime's shared excitement Beat hold while the
+`holds_excitement()` asks the adapter to acquire the runtime's shared excitement Beat hold while the
 provider runs. The runtime refcounts named owners, so the kiss service and a provider can hold the
 Beat at the same time; only the last release restores the original pause state. A provider never
 writes `Beat.paused` itself.
@@ -109,7 +114,7 @@ real stroke, act seconds, afterglow flag, Affection kind, the provider's reactio
 provider's external mod is active this launch, the runtime feature snapshot and binding presence.
 The external-mod flag comes from the runtime's `shared/act_facts.gd` `mod_active(id)` callback; a
 provider that does not need it ignores the field. `integrations/action.gd` carries a `set` (required binding),
-`bind` (optional binding) or `restore` action with one property and value. The facade saves each
+`bind` (optional binding) or `restore` action with one property and value. The adapter saves each
 original value before its first write and restores the saved values in reverse order on stop,
 feature-off, missing required binding, failed start, act end or `reset()`. A `restore` puts one
 saved original back without dropping the record, so a later write keeps the act-start value for the
@@ -122,7 +127,7 @@ the static gate rejects that import edge.
 
 `integrations/changelings.gd` extends `body_change/source.gd`, the typed provider base
 (`docs/body_change.md`, `## Source extension point`). A provider implements the base's virtual
-methods by path; it has no `class_name` and is registered by the entry's service list. The base
+methods by path; it has no `class_name` and is registered by the integrations service. The base
 answers the neutral default, so a provider overrides only what it supports.
 
 A provider owns its own pack read and its own forms:
@@ -147,9 +152,9 @@ The provider-policy execution is `docs/body_change.md`'s; the shipped policy's c
 `## Queen Chrysalis` below. Bonus climax has no implementation.
 
 A future regular-changelings pack gets its own provider under `integrations/`, constructed and
-registered the same way; it reads that pack's own public fields and leaves the runtime core and
-the base service unchanged. No second real provider is registered now, and no future pack id is
-added to unfplap.
+registered by the integrations service the same way; it reads that pack's own public fields and
+leaves the runtime core and the base service unchanged. No second real provider is registered now,
+and no future pack id is added to unfplap.
 
 ## Kissing provider
 
@@ -181,11 +186,11 @@ in scope. The act's own wing controller creates the open-wing node the shiver ne
 
 ## Pantyhose & Panties
 
-`integrations/pantyhose.gd` is the world adapter the entry creates. It is
-world-side rather than per-act: every frame it updates the hull transform and instance uniforms for
-each worn piece, so the cloth follows the anatomy with no scan lag. It re-discovers the
-`Wear_panties-*` and `Wear_pantyhose-*` nodes on a fixed fallback (0.5 s), and while the anatomy
-mesh is shown and the bulge flag is on, gives every surface of the shared piece an override of the
+`integrations/pantyhose.gd` is a module of the integrations service. It is world-side rather than
+per-act: every frame it updates the hull transform and instance uniforms for each worn piece, so
+the cloth follows the anatomy with no scan lag. It re-discovers the `Wear_panties-*` and
+`Wear_pantyhose-*` nodes on a fixed fallback (0.5 s), and while the anatomy mesh is shown and the
+bulge flag is on, gives every surface of the shared piece an override of the
 copied compatibility shader. The original material stays on the shared mesh; the override is per
 node, and every instance value is per node, so two mares never share a transform. The compatibility
 material is cached per source material and variant, so each fabric keeps its own look parameters
@@ -215,12 +220,12 @@ top-level world mesh that copies the anatomy mesh's transform, so the field can 
 when the anatomy is hidden (far mesh or `act` mode outside an act); the overlay state and the
 reason it is hidden are logged once per change with debug logs on.
 
-On `runtime.act_started` (connected by the entry) the adapter reads `wanted()` under the
-wardrobe's own `_season()` and
-collects the kinds she wears from this pack (`panties-*`, `pantyhose-*`). It sends one `take_off`
-action per kind through the game's action coordinator (`conversation_director.actions.commit`)
-with the director's current turn — the same path as one of her own `[take_off]` replies. The
-executor calls the pack's `set_worn()` and `dress()` synchronously inside that commit, so the
+On `runtime.act_started` (connected by the entry to the service's `act_started` hook) the module
+reads `wanted()` under the wardrobe's own `_season()` and collects the kinds she wears from this
+pack (`panties-*`, `pantyhose-*`). It sends one `take_off` action per kind through the game's
+action coordinator (`conversation_director.actions.commit`) with the director's current turn — the
+same path as one of her own `[take_off]` replies. The executor calls the pack's `set_worn()` and
+`dress()` synchronously inside that commit, so the
 nodes are gone before the first rendered act frame, and the game records the action outcome for
 her dialogue prompt. When the director, her executor or an accepted commit is unavailable, the
 adapter falls back to the same two wardrobe calls itself: `set_worn(kind, false)` for every worn
@@ -402,7 +407,7 @@ The tab's one Debug block (behind **Enable debug**) carries the Pantyhose hull r
 **Pantyhose: rebuild hull** action; Kissing has no debug rows.
 There is no installed/mismatch status and no other buttons. A flag edit during an act starts or
 stops the Kissing provider live through `apply_live_settings()`; the Pantyhose flags are cached by
-the world adapter on the same settings edit. Its cached flags, hull width/height, smoothing and
+the garment module on the same settings edit. Its cached flags, hull width/height, smoothing and
 margins are fields with no code default: `apply_live_settings()` fills them before the hull or an
 overlay reads them.
 
@@ -410,20 +415,21 @@ overlay reads them.
 
 | Host call | Purpose |
 |---|---|
-| `runtime.act.context.integrations` | the per-pony act facade, built once by the runtime's composition |
+| `runtime.act.context.integrations` | the per-pony act adapter (`integrations/act.gd`), built once by the runtime's composition |
 | `begin()` | resolve bindings and start available providers after the act reaches `POSING_IN` |
 | `tick(delta)` | update context, watch optional bindings and apply provider tick actions |
 | `afterglow()` | apply the one afterglow action before Kissing's hold/fade |
-| `apply_live_settings()` | restart or stop providers after a settings edit; refresh the world adapter's cached flags |
+| `apply_live_settings()` | restart or stop providers after a settings edit; refresh the garment module's cached flags |
 | `reset()` | restore every saved value after the base kiss reset in `act/exit.gd:free_pose()` |
 | `shared/act_facts.gd` | typed read model passed to the constructor; no per-frame settings read |
 | `hold_beat(owner)` / `release_beat(owner)` | acquire or release the runtime's shared excitement Beat hold |
-| the wired anatomy facade | `garment(pony)` and its `hull()`, `transform()`, `parent()` and `visible()`, plus `rebuild_garment()` |
-| `_game.mares` | the loaded mares the world adapter scans |
+| `runtime.act_started(pony)` | the entry connects it to the service's `act_started()` hook, which forwards to the garment module's undress |
+| the service-wired anatomy facade | `garment(pony)` and its `hull()`, `transform()`, `parent()` and `visible()`, plus `rebuild_garment()` |
+| `_game.mares` | the loaded mares the garment module scans |
 | `pony_wardrobe` group | the wardrobe's `wanted()`, `_season()`, `set_worn()` and `dress()` for the act undress |
 | `conversation_director.actions` | the action coordinator's `commit()` and `executors`, so the undress is a `take_off` action when her executor exists |
-| `shared/settings_change.gd` | calls the world adapter's `apply_live_settings()` after a settings edit, and the body-change service's per-body tail pass |
-| the wired API node | the changelings adapter's `register_mare()` / `unregister_mare()` |
+| `shared/settings_change.gd` | calls the garment module's `apply_live_settings()` after a settings edit, and the body-change service's per-body tail pass |
+| the service-wired API node | the changelings module's `register_mare()` / `unregister_mare()` |
 | the roster's `_prepare(pony)` | calls `body_change.notify_body_ready()` before the tail seat and anatomy bind, then adopts a pending act instead of creating a runtime |
 | the roster's `prepare_late(pony)` | re-runs the body-change prepare and the anatomy `present`/`reseat_tail` pass after a mod adds a node the first pass needed; late form/ownership only, no runtime and no tail wrapper |
 | `SETTINGS.apply_live()` | one settings pass after the settled form: the live anatomy controllers, the player part and the tail seats re-read, the body's LOD rebuilds |

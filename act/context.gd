@@ -22,7 +22,7 @@ const STANDING_PRESENTATION := preload("res://mods/unfplap/poses/standing_presen
 const STANDING_ANON := preload("res://mods/unfplap/poses/standing_anon.gd")
 const WING := preload("res://mods/unfplap/poses/wing_control.gd")
 const HANDS := preload("res://mods/unfplap/hands/api.gd")
-const INTEGRATIONS := preload("res://mods/unfplap/integrations/service.gd")
+const INTEGRATIONS_ACT := preload("res://mods/unfplap/integrations/act.gd")
 const CAMERA_VIEW := preload("res://mods/unfplap/camera/view.gd")
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 const ACT_FRAME := preload("res://mods/unfplap/act/frame.gd")
@@ -73,7 +73,7 @@ var presentation: STANDING_PRESENTATION = null
 var standing_anon: STANDING_ANON = null
 var wings: WING = null
 var hands: HANDS = null
-var integrations: INTEGRATIONS = null
+var integrations: INTEGRATIONS_ACT = null
 ## The one live act view: the standing offsets, the glance and the missionary eye.
 var view: CAMERA_VIEW = null
 var rest: REST = null

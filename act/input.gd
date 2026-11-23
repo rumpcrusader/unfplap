@@ -22,7 +22,8 @@ const State := ACT_STATE.State
 
 var host: ACT_HOST = null
 var context: ACT_CONTEXT = null
-var session: ACT_SESSION = null
+## The session, held weakly: it owns this protocol, so a strong link back would be a cycle.
+var _session_ref: WeakRef = null
 ## The one exit: cancel and the afterglow end are its routes, never a second teardown.
 var exit: Variant = null
 ## The queued early-end line, so one cancel owns one post-act reaction.
@@ -32,7 +33,12 @@ var end_early_key := ""
 func bind(host_in: ACT_HOST, context_in: ACT_CONTEXT, session_in: ACT_SESSION) -> void:
 	host = host_in
 	context = context_in
-	session = session_in
+	_session_ref = weakref(session_in)
+
+
+## The session, or null once it has released this protocol.
+func _session() -> ACT_SESSION:
+	return _session_ref.get_ref() as ACT_SESSION
 
 
 ## The mouse's vertical travel as hip travel. Readiness owns the conversion and the clamp.
@@ -87,12 +93,12 @@ func climaxes() -> int:
 
 ## The VR act's right primary click is the act key's hold.
 func vr_y_held() -> bool:
-	return session.vr_y_held()
+	return _session().vr_y_held()
 
 
 ## The act-key hold takes her to afterglow once she has climaxed, and cancels at zero.
 func request_afterglow() -> void:
-	session.begin_afterglow()
+	_session().begin_afterglow()
 
 
 ## The act-key hold inside the afterglow closes it and begins the one restore.
@@ -103,26 +109,26 @@ func end_afterglow() -> void:
 ## Cancel/end early. The early summary and its one memory mark, then the one restore and the one
 ## rolled post-act line.
 func cancel() -> void:
-	LOG.debug("cancel state=%d pony=%s", [session.state, host.pony_name()])
-	if session.state in [State.POSING_IN, State.ACTIVE]:
-		session.ended_early = true
-		session.commit_summary(false)
+	LOG.debug("cancel state=%d pony=%s", [_session().state, host.pony_name()])
+	if _session().state in [State.POSING_IN, State.ACTIVE]:
+		_session().ended_early = true
+		_session().commit_summary(false)
 		# The early summary already records this end. Keep the basic event only when the summary
 		# was skipped, so the story never holds the same end twice.
 		if context.summary.summary.is_empty() and context.memory != null:
-			context.memory.note(MEMORY.NoteKind.CANCELLED, session.pony_id, session.event_id)
-		context.dialogue.end_act(session.event_id, true)
+			context.memory.note(MEMORY.NoteKind.CANCELLED, _session().pony_id, _session().event_id)
+		context.dialogue.end_act(_session().event_id, true)
 		exit.restore_begin()
 		# Half the time she says nothing at all. When she does speak, it is a moment, not a
 		# review or a next-time list.
 		if randf() >= 0.5:
-			var act_id := session.event_id
-			var max_age := session.snapshot.cue_reaction_max_age_s
-			var expires := session.clock_s() + max_age
+			var act_id := _session().event_id
+			var max_age := _session().snapshot.cue_reaction_max_age_s
+			var expires := _session().clock_s() + max_age
 			var valid := DIALOGUE.Validity.of(func() -> bool:
-				if not is_instance_valid(host.pony) or session.event_id != act_id:
+				if not is_instance_valid(host.pony) or _session().event_id != act_id:
 					return false
-				if session.clock_s() <= expires:
+				if _session().clock_s() <= expires:
 					return true
 				return context.memory != null \
 					and context.memory.line_state(end_early_key) == MEMORY.LineState.SPEAKING)
@@ -130,7 +136,7 @@ func cancel() -> void:
 				ACT_SUMMARY.early_end_prompt(context.summary.summary), valid)
 			end_early_key = key
 			if not key.is_empty():
-				var now := session.clock_s()
+				var now := _session().clock_s()
 				context.dialogue.note_reaction(key, "", now + max_age)
 				LOG.debug("utterance kind=reaction key=%s", [key])
 			# The stopped act gets one post-act beat at most: suppress the later history line
@@ -138,9 +144,9 @@ func cancel() -> void:
 			# clear an older act's pending reminder.
 			var history: Dictionary = WORLD.mods().state(ACT_HISTORY.MOD_ID).rows
 			if not context.summary.summary.is_empty() \
-					and ACT_HISTORY.mark_announced(history, session.pony_id, "complaint"):
+					and ACT_HISTORY.mark_announced(history, _session().pony_id, "complaint"):
 				WORLD.mods().save()
-	elif session.state == State.AFTERGLOW:
+	elif _session().state == State.AFTERGLOW:
 		end_afterglow()
 
 
@@ -166,9 +172,9 @@ func request_pose(target_id: String, trigger := "",
 		request: POSE_SESSION.PoseRequest = null) -> POSE_SESSION.PoseResult:
 	var values := request.copy() if request != null else POSE_SESSION.PoseRequest.new()
 	if values.act_state < 0:
-		values.act_state = session.state
+		values.act_state = _session().state
 	if not values.features_set:
-		values.features = session.features
+		values.features = _session().features
 		values.features_set = true
 	return context.pose.request_pose(target_id, trigger, values)
 
@@ -202,7 +208,7 @@ func _toggle_hole() -> bool:
 		return false
 	if anatomy.target() == ANATOMY.Target.VULVA and anatomy.can_target_vulva():
 		if not _consent("anal"):
-			_show_status("%s is not into that" % session.display_name)
+			_show_status("%s is not into that" % _session().display_name)
 			return false
 		anatomy.target_anus()
 		return true
@@ -224,8 +230,8 @@ func _toggle_oral() -> bool:
 		consent = _consent("oral")
 		if consent:
 			request.consent = "oral"
-	request.act_state = session.state
-	request.features = session.features
+	request.act_state = _session().state
+	request.features = _session().features
 	request.features_set = true
 	var result: POSE_SESSION.PoseResult = context.pose.request_pose(target, "oral", request)
 	if result != null and result.ok:
@@ -235,7 +241,7 @@ func _toggle_oral() -> bool:
 		from_id, target, str(result.code if result != null else ""),
 		str(result.reason if result != null else "")])
 	if target == CATALOG.STANDING_ORAL and not consent:
-		_show_status("%s is not into that" % session.display_name)
+		_show_status("%s is not into that" % _session().display_name)
 	elif result != null:
 		_show_status(str(result.reason))
 	return false

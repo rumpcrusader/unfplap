@@ -134,7 +134,8 @@ schedule's tick and fan-out order in `act/tick.gd`, the scene-only world facade 
 allow-lists — is the checker's own source of truth; read `scripts/architecture.py` before changing
 the tree it guards. Its maintenance modes — `--group <name>` for one rule group, `--graph`,
 `--audit-surface`, `--write-exceptions`, `--write-debt` and `--write-duck-typing` — run directly on
-that module, not through the gate. The graph is for review and is not checked in.
+that module, not through the gate. The three writers are idempotent and preserve an existing
+exception row's reason, so a second run is a no-op. The graph is for review and is not checked in.
 
 ## Shell scripts
 

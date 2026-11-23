@@ -41,16 +41,16 @@
       "count": 2
     },
     {
+      "file": "integrations/act.gd",
+      "count": 9
+    },
+    {
       "file": "integrations/changelings.gd",
       "count": 7
     },
     {
       "file": "integrations/pantyhose.gd",
       "count": 6
-    },
-    {
-      "file": "integrations/act.gd",
-      "count": 9
     },
     {
       "file": "negotiation/host.gd",

@@ -192,7 +192,7 @@ def scan_reexports() -> list[dict[str, str]]:
                     "kind": "re-export",
                     "owner": owner.id if owner else "",
                     "reason": "separation of concerns; deferred",
-                    "expires": "phase-2",
+                    "expires": "next-review",
                 }
     return [found[key] for key in sorted(found)]
 
@@ -210,7 +210,7 @@ def scan_violations() -> list[dict[str, str]]:
             "kind": row_kind,
             "owner": so.id if so else "",
             "reason": "migration baseline; fix in the boundary-cleanup phase",
-            "expires": "phase-2",
+            "expires": "next-review",
         }
         if row_kind == "game-import":
             row["reason"] = "base-game import; drain through the GAME accessor in Task B"
@@ -252,8 +252,13 @@ def graph() -> None:
 
 
 def write_exceptions() -> None:
+    """Merge the current violations into the ledger, keeping a still-live row verbatim."""
     ARCH.mkdir(exist_ok=True)
-    rows = scan_violations()
+    saved = {
+        exception_key(row): row
+        for row in load_json(EXCEPTIONS, {"exceptions": []}).get("exceptions", [])
+    }
+    rows = [saved.get(exception_key(row), row) for row in scan_violations()]
     EXCEPTIONS.write_text(json.dumps({"exceptions": rows}, indent=2) + "\n", encoding="utf-8")
     print("ARCH_EXCEPTIONS_WRITTEN entries=%d" % len(rows))
     for row in rows:

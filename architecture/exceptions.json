@@ -5,32 +5,16 @@
       "to": "poses/tail_pose.gd",
       "kind": "service-private",
       "owner": "afterglow",
-      "reason": "migration baseline; fix in the boundary-cleanup phase",
-      "expires": "phase-2"
+      "reason": "permits the afterglow service to create the tail pose; fix when poses hands afterglow a tail handle",
+      "expires": "next-review"
     },
     {
       "from": "afterglow/service.gd",
       "to": "summary/score.gd",
       "kind": "service-private",
       "owner": "afterglow",
-      "reason": "migration baseline; fix in the boundary-cleanup phase",
-      "expires": "phase-2"
-    },
-    {
-      "from": "kiss/legs.gd",
-      "to": "poses/pose_rig.gd",
-      "kind": "service-private",
-      "owner": "kiss",
-      "reason": "migration baseline; fix in the boundary-cleanup phase",
-      "expires": "phase-2"
-    },
-    {
-      "from": "readiness/service.gd",
-      "to": "dialogue/utterance_scheduler.gd",
-      "kind": "service-private",
-      "owner": "readiness",
-      "reason": "migration baseline; fix in the boundary-cleanup phase",
-      "expires": "phase-2"
+      "reason": "permits the afterglow service to build its beat from the summary score; fix when summary hands afterglow a score handle",
+      "expires": "next-review"
     },
     {
       "from": "camera/service.gd",
@@ -38,7 +22,7 @@
       "kind": "re-export",
       "owner": "camera",
       "reason": "the pose type is a separation-of-concerns reach-in; fix when the camera takes a pose handle",
-      "expires": "phase-2"
+      "expires": "next-review"
     },
     {
       "from": "initiation/service.gd",
@@ -46,7 +30,15 @@
       "kind": "re-export",
       "owner": "initiation",
       "reason": "the adapter field is a separation-of-concerns reach-in; fix when the negotiation facade hands the adapter",
-      "expires": "phase-2"
+      "expires": "next-review"
+    },
+    {
+      "from": "kiss/legs.gd",
+      "to": "poses/pose_rig.gd",
+      "kind": "service-private",
+      "owner": "kiss",
+      "reason": "permits the kiss service to construct the pose rig; fix when poses hands kiss a pose handle",
+      "expires": "next-review"
     },
     {
       "from": "kiss/service.gd",
@@ -54,7 +46,15 @@
       "kind": "re-export",
       "owner": "kiss",
       "reason": "the missionary pose cast is a separation-of-concerns reach-in; fix when the kiss takes a pose handle",
-      "expires": "phase-2"
+      "expires": "next-review"
+    },
+    {
+      "from": "readiness/service.gd",
+      "to": "dialogue/utterance_scheduler.gd",
+      "kind": "service-private",
+      "owner": "readiness",
+      "reason": "permits readiness to read the dialogue scheduler's thresholds and cues; fix when dialogue hands readiness a scheduler handle",
+      "expires": "next-review"
     }
   ]
 }

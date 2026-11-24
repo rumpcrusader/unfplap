@@ -48,21 +48,21 @@ class PoseStart extends RefCounted:
 
 ## The standing tail, as consumers move it.
 class PoseTail extends RefCounted:
-	var _session: Variant = null
+	var _mods: Variant = null
 
-	func _init(session: Variant) -> void:
-		_session = session
+	func _init(mods: Variant) -> void:
+		_mods = mods
 
 	## The lift/flick weight the afterglow sets.
 	func target(value: float) -> void:
-		_session._set_tail_target(value)
+		_mods.tail_target(value)
 
 	func flick(count: int) -> void:
-		_session._flick_tail(count)
+		_mods.flick(count)
 
 	## The thrust wave the reaction facade adds at the stroke.
 	func thrust(weight: float) -> void:
-		_session._thrust_tail(weight)
+		_mods.thrust(weight)
 
 
 ## One asset or rig readiness answer.
@@ -75,27 +75,29 @@ class PoseVerdict extends RefCounted:
 ## The asset and rig verdicts the scene gate reads.
 class PoseReadiness extends RefCounted:
 	var _session: Variant = null
+	var _assets: Variant = null
 	var _rig_checked := false
 	var _rig_skeleton := 0
 	var _rig_revision := -1
 	var _rig_asset_path := ""
 	var _rig_missing_bones: Array[String] = []
 
-	func _init(session: Variant) -> void:
+	func _init(session: Variant, assets: Variant) -> void:
 		_session = session
+		_assets = assets
 
 	## The parsed asset a candidate names, or the live rendered asset when it is empty.
 	func asset(candidate := "") -> AUTHORED:
-		return _session._readiness_asset(candidate)
+		return _assets.readiness_asset(candidate)
 
 	## The candidate's pose-asset verdict, with the gate row's reason.
 	func asset_verdict(candidate := "") -> PoseVerdict:
 		var verdict := PoseVerdict.new()
-		var spec: Variant = _session._candidate_spec(candidate)
+		var spec: Variant = _assets.candidate_spec(candidate)
 		if spec == null:
 			verdict.reason = "pose_asset: no pose"
 			return verdict
-		var asset: Variant = _session._asset_for_spec(spec)
+		var asset: Variant = _assets.asset_for_spec(spec)
 		if asset == null:
 			verdict.reason = "pose_asset: no asset for %s" % str(spec.id)
 			return verdict
@@ -119,7 +121,7 @@ class PoseReadiness extends RefCounted:
 			return verdict
 		var skeleton := sk as Skeleton3D
 		var instance := skeleton.get_instance_id()
-		var asset_path: String = _session._asset_path_for(candidate)
+		var asset_path: String = _assets.asset_path_for(candidate)
 		if asset_path.is_empty():
 			asset_path = AUTHORED.PATH
 		if _rig_checked and instance == _rig_skeleton and _rig_revision == AUTHORED.revision \
@@ -130,7 +132,7 @@ class PoseReadiness extends RefCounted:
 			_rig_skeleton = instance
 			_rig_revision = AUTHORED.revision
 			_rig_asset_path = asset_path
-			_rig_missing_bones = _session._diagnostic_asset(candidate).missing_bones(skeleton)
+			_rig_missing_bones = _assets.diagnostic_asset(candidate).missing_bones(skeleton)
 			verdict.missing = _rig_missing_bones
 		verdict.ok = verdict.missing.is_empty()
 		verdict.reason = _rig_reason(verdict.missing)
@@ -177,34 +179,34 @@ class PoseDiagnostics extends RefCounted:
 
 ## The act's own Anon body, as consumers see it.
 class PoseActBody extends RefCounted:
-	var _session: Variant = null
+	var _act_body: Variant = null
 
-	func _init(session: Variant) -> void:
-		_session = session
+	func _init(act_body: Variant) -> void:
+		_act_body = act_body
 
 	## True while the adapter is installed and active.
 	func live() -> bool:
-		return _session._act_body_live()
+		return _act_body.live()
 
 	func mouth_point() -> Vector3:
-		return _session._act_body_mouth_point()
+		return _act_body.mouth_point()
 
 	func eye_point() -> Vector3:
-		return _session._act_body_eye_point()
+		return _act_body.eye_point()
 
 	## His placed avatar's world transform.
 	func transform() -> Transform3D:
-		return _session._act_body_transform()
+		return _act_body.transform()
 
 	func diag_row(face: Vector3, vulva: Vector3) -> String:
-		return _session._act_body_diag_row(face, vulva)
+		return _act_body.diag_row(face, vulva)
 
 	func refresh_palm() -> void:
-		_session._act_body_refresh_palm()
+		_act_body.refresh_palm()
 
 	## The adapter node, or null outside a bed act body.
 	func node() -> Node:
-		return _session._act_body_node()
+		return _act_body.node()
 
 
 ## The act's live view fields.
@@ -279,15 +281,15 @@ func _init(facts: ACT_FACTS = null) -> void:
 	_registry = REGISTRY.new()
 	_oral_turn = ORAL_TURN.new()
 	_face_driver = FACE_CONTACT.new()
-	_tail_handle = PoseTail.new(self)
-	_act_body_handle = PoseActBody.new(self)
-	_readiness = PoseReadiness.new(self)
-	_diagnostics = PoseDiagnostics.new(self)
 	_mods = MODIFIERS.new(self)
 	_mods.set_profiles(SPECS.MODIFIER_PROFILES)
 	_act_body_host = ACT_BODY_HOST.new(self)
 	_assets = ASSETS.new(self)
 	_space = SPACE.new(self)
+	_tail_handle = PoseTail.new(_mods)
+	_act_body_handle = PoseActBody.new(_act_body_host)
+	_readiness = PoseReadiness.new(self, _assets)
+	_diagnostics = PoseDiagnostics.new(self)
 	_bind_oral()
 	_bind_face()
 
@@ -472,16 +474,6 @@ static func reload_authored_base() -> String:
 	return AUTHORED.reload_file()
 
 
-## The spec a candidate names: the id's row, or the live view's row when the candidate is empty.
-func _candidate_spec(candidate: String = "") -> POSE_SPEC:
-	return _assets.candidate_spec(candidate)
-
-
-## The parsed asset for an already resolved spec.
-func _asset_for_spec(spec: POSE_SPEC) -> AUTHORED:
-	return _assets.asset_for_spec(spec)
-
-
 ## The path the rig gate and diagnostics name for a candidate.
 func _asset_path_for(candidate: String = "") -> String:
 	return _assets.asset_path_for(candidate)
@@ -524,7 +516,7 @@ func request_pose(target_id: String, trigger: String, consent := "") -> PoseResu
 	_target_presentation = SETTINGS.act_snapshot(group).presentation
 	_target_config = _config_for_group(group, _target_presentation)
 	_target_asset = _assets.asset_for_spec(target_spec)
-	_from_asset = _live_asset()
+	_from_asset = _assets.live_asset()
 	if _from_asset == null:
 		_from_asset = _assets.asset_for_spec(_registry.spec(from_id))
 	_run = run
@@ -921,16 +913,6 @@ func _sync_live_config() -> bool:
 	return true
 
 
-## The authored base for a candidate spec, else the live pose's, else the default missionary asset.
-func _diagnostic_asset(candidate: String = "") -> AUTHORED:
-	return _assets.diagnostic_asset(candidate)
-
-
-## The asset the live rig is rendering: the source through an edge, the target once it settles.
-func _live_asset() -> AUTHORED:
-	return _assets.live_asset()
-
-
 ## The parsed authored pose for the debug action and the pose lab. With no candidate this is the
 ## live rendered asset, not the target of a running edge.
 func _readiness_asset(candidate: String = "") -> AUTHORED:
@@ -1038,45 +1020,6 @@ func pose_changed() -> void:
 	_act_body_host.apply_channel(_view)
 
 
-## The test seam: replace the authored profile table with a synthetic one.
-func _set_modifier_profiles(table: Dictionary) -> void:
-	_mods.set_profiles(table)
-
-
-## True while the act body is installed and its adapter is active.
-func _act_body_live() -> bool:
-	return _act_body_host.live()
-
-
-## The act body's authored mouth point; INF when it is missing, inactive or non-finite.
-func _act_body_mouth_point() -> Vector3:
-	return _act_body_host.mouth_point()
-
-
-## The act body's authored eye point; INF when it is missing, inactive or non-finite.
-func _act_body_eye_point() -> Vector3:
-	return _act_body_host.eye_point()
-
-
-## The act body's placed avatar transform, or the identity when no body is installed.
-func _act_body_transform() -> Transform3D:
-	return _act_body_host.transform()
-
-
-## The act body's debug row, or "" when no body is installed.
-func _act_body_diag_row(face: Vector3, vulva: Vector3) -> String:
-	return _act_body_host.diag_row(face, vulva)
-
-
-func _act_body_refresh_palm() -> void:
-	_act_body_host.refresh_palm()
-
-
-## The act body's node, or null when none is installed.
-func _act_body_node() -> Node:
-	return _act_body_host.node()
-
-
 ## Detach a modifier before freeing it: `queue_free()` alone leaves it parented for the rest of the
 ## frame, still taking its pass, so a new act in that frame would run two.
 func _drop(node: Node) -> void:
@@ -1159,24 +1102,10 @@ func follow_space(family: String) -> void:
 	_space.sync(family)
 
 
-## The tail handle's one write: the lift/flick weight the afterglow sets.
-func _set_tail_target(value: float) -> void:
-	_mods.tail_target(value)
-
-
 ## The live standing glance's head throw-back; a released pose takes no write.
 func set_head_back(value: float) -> void:
 	if is_instance_valid(_pose_node):
 		_pose_node.head_back = value
-
-
-func _flick_tail(count: int) -> void:
-	_mods.flick(count)
-
-
-## The tail handle's thrust wave, scaled by the caller.
-func _thrust_tail(weight: float) -> void:
-	_mods.thrust(weight)
 
 
 ## A rebuilt pose starts settled. The body swap re-poses the surviving act inside the flame, so
@@ -1217,10 +1146,6 @@ func _pose_frame() -> Transform3D:
 ## True when a pose frame is real space: the absent frame carries an infinite origin.
 static func _has_frame(frame: Transform3D) -> bool:
 	return frame.origin.is_finite()
-
-
-func _reset_sway_base() -> void:
-	_mods.reset_sway()
 
 
 func _feature(name: String) -> bool:

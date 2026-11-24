@@ -68,10 +68,10 @@ class FakeActBody extends Node:
 class FakeActSession extends RefCounted:
 	var body: Node = null
 
-	func _act_body_live() -> bool:
+	func live() -> bool:
 		return is_instance_valid(body)
 
-	func _act_body_node() -> Node:
+	func node() -> Node:
 		return body
 
 

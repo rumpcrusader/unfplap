@@ -34,7 +34,7 @@ const TAIL := preload("res://mods/unfplap/poses/tail_pose.gd")
 class FakeTailHost extends RefCounted:
 	var last_strength := 0.0
 
-	func _thrust_tail(weight: float) -> void:
+	func thrust(weight: float) -> void:
 		last_strength = weight
 
 

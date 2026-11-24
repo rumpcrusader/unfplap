@@ -80,7 +80,7 @@ class FakeReadiness extends POSES.PoseReadiness:
 	var missing: Array[String] = []
 
 	func _init() -> void:
-		super(null)
+		super(null, null)
 
 	func asset_verdict(_pose := "") -> POSES.PoseVerdict:
 		var verdict := POSES.PoseVerdict.new()

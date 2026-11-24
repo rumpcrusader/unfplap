@@ -75,7 +75,7 @@ func run() -> void:
 	# missionary. It proves the reconcile without adding data.
 	var profiles: Dictionary = SPECS.MODIFIER_PROFILES.duplicate()
 	profiles["synthetic_tail"] = ["tail_lay"]
-	session._set_modifier_profiles(profiles)
+	session._mods.set_profiles(profiles)
 	check(not SPECS.MODIFIER_PROFILES.has("synthetic_tail"),
 		"the synthetic profile is not shipped data")
 	_synthetic_spec(session, "synthetic_tail", "synthetic_tail")

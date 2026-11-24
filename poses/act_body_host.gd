@@ -27,7 +27,7 @@ func apply_channel(view: POSE_VIEW) -> void:
 		return
 	if _session._run == null:
 		# Outside an edge the spec's profile is the hold and both assets are the live one.
-		var live: AUTHORED = _session._live_asset()
+		var live: AUTHORED = _session._assets.live_asset()
 		_body.set_pose_assets(live, live, 1.0)
 		_body.pose_changed(str(anon.get("profile", "")), 1.0)
 		return
@@ -152,5 +152,5 @@ func _install() -> void:
 		host.remove_child(body)
 		body.queue_free()
 		return
-	body.set_pose_assets(_session._live_asset(), _session._live_asset(), 1.0)
+	body.set_pose_assets(_session._assets.live_asset(), _session._assets.live_asset(), 1.0)
 	_body = body

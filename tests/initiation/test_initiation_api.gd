@@ -10,17 +10,13 @@ const OFFER := preload("res://mods/unfplap/offer/api.gd")
 const NEGOTIATION := preload("res://mods/unfplap/negotiation/api.gd")
 const PRIVACY := preload("res://mods/unfplap/privacy/api.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/api.gd")
+const ACT_GATE := preload("res://mods/unfplap/act_gate/api.gd")
+const MEMORY := preload("res://mods/unfplap/memory/api.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
-const CONTEXT := preload("res://mods/unfplap/shared/context.gd")
 const CLASSIFIER := preload("res://mods/unfplap/initiation/classifier.gd")
 const ADAPTER := preload("res://mods/unfplap/negotiation/adapter.gd")
 const PONIES := preload("res://mods/unfplap/ponies/api.gd")
 
-
-
-class FakeView extends RefCounted:
-	var form := "human"
-	var view := "desktop"
 
 
 class FakeEligibility extends ELIGIBILITY:
@@ -31,7 +27,21 @@ class FakeEligibility extends ELIGIBILITY:
 
 
 class FakeGate extends "res://mods/unfplap/tests/support/fakes/fake_act_gate.gd":
-	pass
+	func get_verdict(_pony: Node, mode: ACT_GATE.Mode = ACT_GATE.Mode.START):
+		var out := ACT_GATE.Verdict.new()
+		out.mode = mode
+		out.facts = ACT_GATE.Facts.new()
+		out.facts.id = "rarity"
+		out.facts.willing = true
+		return out
+
+
+class FakeMemory extends MEMORY:
+	func setup() -> void:
+		pass
+
+	func cue_facts(_id: String, _event_id: String) -> MEMORY.CueFacts:
+		return MEMORY.CueFacts.new()
 
 
 class FixtureHost extends Node:
@@ -39,10 +49,9 @@ class FixtureHost extends Node:
 	var game: Node
 
 
-## The Negotiation facade as the Proactive service sees it: the lock, the form view, the Context,
-## the typed Mare offer and the one adapter.
+## The Negotiation facade as the Proactive service sees it: the lock, the typed Mare offer and the
+## one adapter.
 class FakeNegotiation extends NEGOTIATION:
-	var view := NEGOTIATION.FormView.new()
 	var locked := false
 	var handed: NEGOTIATION.MareOffer = null
 	var handoff_ok := true
@@ -50,12 +59,6 @@ class FakeNegotiation extends NEGOTIATION:
 
 	func is_locked() -> bool:
 		return locked
-
-	func form_view() -> NEGOTIATION.FormView:
-		return view
-
-	func context(_pony: Node) -> CONTEXT.Context:
-		return CONTEXT.build({"willingness": true, "history": {"offer_weight": 0.7}})
 
 	func begin_mare_offer(mare_offer: NEGOTIATION.MareOffer) -> bool:
 		handed = mare_offer
@@ -221,6 +224,7 @@ func _fixture() -> Dictionary:
 	var eligibility := FakeEligibility.new()
 	var adapter := FakeAdapter.new()
 	var privacy := FakePrivacy.new()
+	var memory := FakeMemory.new()
 	var offer := FakeOffer.new()
 	game.world_context = context
 	game.mares = [target]
@@ -242,13 +246,13 @@ func _fixture() -> Dictionary:
 	var service := INIT.new()
 	service.name = "UnfplapInitiation"
 	var gate := FakeGate.new()
-	service.wire(eligibility, gate, privacy, negotiation, offer, roster)
+	service.wire(eligibility, gate, privacy, memory, negotiation, offer, roster)
 	service.setup()
 	root.add_child(service)
 	return {"main": main, "game": game, "context": context, "player": player,
 		"target": target, "nav": nav, "runtime": runtime, "eligibility": eligibility,
-		"gate": gate, "adapter": adapter, "privacy": privacy, "service": service, "offer": offer,
-		"negotiation": negotiation, "ponies": roster}
+		"gate": gate, "adapter": adapter, "privacy": privacy, "memory": memory,
+		"service": service, "offer": offer, "negotiation": negotiation, "ponies": roster}
 
 
 func _free(made: Dictionary) -> void:
@@ -261,7 +265,7 @@ func _free(made: Dictionary) -> void:
 		var node: Node = made[key]
 		root.remove_child(node)
 		node.free()
-	for key: String in ["eligibility", "gate", "privacy", "context"]:
+	for key: String in ["eligibility", "gate", "privacy", "memory", "context"]:
 		(made[key] as Node).free()
 
 
@@ -364,8 +368,9 @@ func _check_adapter_resolution() -> void:
 	var eligibility := FakeEligibility.new()
 	var gate := FakeGate.new()
 	var privacy := FakePrivacy.new()
+	var memory := FakeMemory.new()
 	var offer := FakeOffer.new()
-	service.wire(eligibility, gate, privacy, negotiation, offer, roster)
+	service.wire(eligibility, gate, privacy, memory, negotiation, offer, roster)
 	check(service.get("_adapter") == null, "wire() leaves the adapter unresolved")
 	service.setup()
 	check(service.get("_adapter") == adapter, "setup() takes the live Negotiation adapter")
@@ -375,6 +380,7 @@ func _check_adapter_resolution() -> void:
 	eligibility.free()
 	gate.free()
 	privacy.free()
+	memory.free()
 	offer.free()
 	root.remove_child(adapter)
 	adapter.free()
@@ -403,11 +409,12 @@ func _check_clearance_and_options() -> void:
 	var internal_pose: INIT.ForceResult = service.force(runtime, CATALOG.STANDING_ORAL)
 	check(not internal_pose.ok and internal_pose.reject.contains("pose:standing_oral"),
 		"an internal pose is never offered")
-	negotiation.view.view = "vr"
+	var game: FakeGame = made["game"]
+	game.headset_view = true
 	var vr_bed: INIT.ForceResult = service.force(runtime, CATALOG.MISSIONARY)
 	check(not vr_bed.ok and vr_bed.reject.contains("pose:missionary"),
 		"a pose the display cannot place is never offered")
-	negotiation.view.view = "desktop"
+	game.headset_view = false
 	runtime.hard_ok = false
 	runtime.scene_reasons = ["affection"]
 	var blocked: INIT.ForceResult = service.force(runtime, CATALOG.STANDING)

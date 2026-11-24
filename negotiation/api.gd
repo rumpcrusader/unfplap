@@ -43,8 +43,8 @@ const _COOLDOWN_S := 120.0
 const _PRIVACY_SAMPLE_S := 0.5
 
 
-## The player form and display the option builder filters on.
-class FormView:
+## The player form and display the Anon option builder filters on.
+class _FormView:
 	var form := "human"
 	var view := "desktop"
 
@@ -89,7 +89,7 @@ class Host:
 	## (runtime, PoseOptions.Option) -> bool: the scene-only placement check again, right before
 	## an Agreement forms. A missing callback refuses.
 	var pose_placed: Callable
-	## () -> FormView: the player's live form and display.
+	## () -> the player's live form and display, for the Anon option builder.
 	var form_view: Callable
 	## (runtime) -> RefCounted: the per-pony `scene_hold/api.gd` ledger.
 	var hold_for: Callable
@@ -449,22 +449,9 @@ func debug_rows(pony: Node) -> Array[String]:
 	return rows
 
 
-## The Context snapshot the Proactive service's reasoning reads. Both stages judge the same mare
-## from the same facts, so the bridge is the only source.
-func context(pony: Node) -> CONTEXT.Context:
-	if _host == null:
-		return CONTEXT.build({})
-	return _context(pony)
-
-
-## The player's live form and display for the pose option builder; the Proactive filters its own
-## candidates on the same view.
-func form_view() -> FormView:
-	return _form_view()
-
-
-func _form_view() -> FormView:
-	var out := FormView.new()
+## The player's live form and display for the Anon route's option builder.
+func _form_view() -> _FormView:
+	var out := _FormView.new()
 	out.form = "pony" if WORLD.anon().form_is_pony() else "human"
 	out.view = "vr" if WORLD.headset_view() else "desktop"
 	return out
@@ -809,9 +796,9 @@ func _context(pony: Node) -> CONTEXT.Context:
 func _options_for(runtime: Node) -> Array[POSE_OPTIONS.Option]:
 	var view: Variant = _host.form_view.call()
 	var placement: Variant = _host.placement_for.call(runtime)
-	if not view is FormView or not placement is POSE_OPTIONS.Placement:
+	if not view is _FormView or not placement is POSE_OPTIONS.Placement:
 		return []
-	var live := view as FormView
+	var live := view as _FormView
 	return POSE_OPTIONS.build(live.form, live.view, placement as POSE_OPTIONS.Placement)
 
 

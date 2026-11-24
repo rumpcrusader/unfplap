@@ -367,7 +367,7 @@ func _option(pose: String) -> POSE_OPTIONS.Option:
 func run() -> void:
 	_check_wire_build()
 	_check_host_callbacks()
-	_check_context_and_form()
+	_check_context_facts()
 	_check_watch()
 	_check_anon_line_guards()
 	_check_react_line()
@@ -447,23 +447,20 @@ func _check_host_callbacks() -> void:
 	_free_bridge(made)
 
 
-## The Context and the form view both reasoning stages read come from the service's own bridge.
-func _check_context_and_form() -> void:
+## The Context facts the service's reasoning reads come from the service's own bridge.
+func _check_context_facts() -> void:
 	var made := _service_fixture()
 	var service: NEGOTIATION = made["service"]
+	var bridge: HOST = service.get("_bridge")
 	var pony: FakePony = made["pony"]
-	var context := service.context(pony)
-	check(context.willingness, "the Context carries the willingness")
-	check(context.heat, "the Context carries heat")
-	check(context.private, "the Context carries the live privacy")
-	check(context.mood == "warm", "the Context carries the world-context mood")
-	check(not context.relation_note.is_empty(), "the Context carries the relationship note")
-	var view := service.form_view()
-	check(view.form == "human", "the form view names Anon's form")
-	check(view.view == "desktop", "the form view names the display")
-	check(is_instance_valid(service.adapter()), "the service owns its adapter")
-	check(service.adapter().name == "UnfplapNegotiationAdapter",
-		"the adapter is the service's child by its stable name")
+	var facts: Dictionary = bridge.context_facts(pony)
+	check(bool(facts.get("willingness", false)), "the facts carry the willingness")
+	check(bool(facts.get("heat", false)), "the facts carry heat")
+	check(bool(facts.get("private", false)), "the facts carry the live privacy")
+	check(str(facts.get("mood", "")) == "warm", "the facts carry the world-context mood")
+	check(not str(facts.get("relation_note", "")).is_empty(),
+		"the facts carry the relationship note")
+	check(bridge.context_facts(null).is_empty(), "a missing mare has no facts")
 	_free_service(made)
 
 

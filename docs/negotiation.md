@@ -50,9 +50,6 @@ the adapter and the `Host` from them. `on_world()` closes the previous world, re
 the new one and drops its watch; it rebinds no peer. `setup()` takes a `Host` directly and is the
 seam the suites use; the entry never calls it.
 
-`context(pony)` and `form_view()` are the two snapshots the Proactive service's reasoning reads, so
-both stages judge one mare from the same facts.
-
 ## Host boundary
 
 The host callbacks are, in order:

@@ -105,6 +105,7 @@ class Boxes:
 	var reason_done := Callable()
 	var answer_done := Callable()
 	var kinds: Array[String] = []
+	var contexts: Array = []
 	var scopes: Array[String] = []
 	var cancelled: Array[String] = []
 	var outcomes: Array = []
@@ -114,7 +115,6 @@ class Boxes:
 	var hold: FakeHold
 	var placement: POSE_OPTIONS.Placement
 	var placed: Array = []
-	var form_view = null
 	var context_facts: Dictionary = {"willingness": true}
 
 
@@ -126,7 +126,6 @@ func _fixture() -> Dictionary:
 	boxes.hold = FakeHold.new()
 	boxes.placement = POSE_OPTIONS.Placement.new()
 	boxes.placement.standing_free = true
-	boxes.form_view = NEGOTIATION.FormView.new()
 	var host := NEGOTIATION.Host.new()
 	host.now = func() -> float: return boxes.clock
 	host.eligible = func(_target: Node) -> bool: return boxes.eligible
@@ -137,10 +136,10 @@ func _fixture() -> Dictionary:
 	host.pose_placed = func(_target: Node, option) -> bool:
 		boxes.placed.append(option)
 		return boxes.place_ok
-	host.form_view = func(): return boxes.form_view
 	host.hold_for = func(_target: Node): return boxes.hold
 	host.classify = func(request, scope, done) -> bool:
 		boxes.kinds.append(str(request.kind))
+		boxes.contexts.append(request.context)
 		boxes.scopes.append(str(scope))
 		if boxes.classify_mode == "unavailable":
 			return false
@@ -150,6 +149,7 @@ func _fixture() -> Dictionary:
 		return true
 	host.reason = func(request, scope, done) -> bool:
 		boxes.kinds.append(str(request.kind))
+		boxes.contexts.append(request.context)
 		boxes.scopes.append(str(scope))
 		if boxes.reason_mode == "unavailable":
 			return false
@@ -170,6 +170,9 @@ func _fixture() -> Dictionary:
 	host.on_outcome = func(terminal) -> void: boxes.outcomes.append(terminal)
 	host.on_agreement = func(handle) -> void: boxes.agreements.append(handle)
 	var service := NEGOTIATION.new()
+	# The Anon option builder reads the player's live form; no world is bound here, so the real
+	# view answers the human/desktop pair the fixture's placement is built for.
+	host.form_view = Callable(service, "_form_view")
 	service.setup(host)
 	root.add_child(runtime)
 	return {"service": service, "boxes": boxes, "host": host, "runtime": runtime, "pony": pony}
@@ -260,6 +263,8 @@ func _check_anon_accept() -> void:
 	boxes.reason_decision = _decision("accept")
 	check(service.begin_anon_offer(runtime, "want to?"), "an Anon offer starts")
 	check(boxes.kinds == ["anon_offer", "mare_response"], "the classifier then the reasoning run")
+	check(boxes.contexts.size() == 2 and boxes.contexts[0].willingness,
+		"both stages carry the same Context snapshot")
 	check(service.handle() != null, "an accept forms the Agreement")
 	check(service.is_locked(), "the Agreement keeps the global lock")
 	check(boxes.outcomes.size() == 1 and _last_reason(boxes) == "",

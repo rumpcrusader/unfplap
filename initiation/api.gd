@@ -17,10 +17,13 @@ const COOLDOWNS := preload("res://mods/unfplap/initiation/cooldowns.gd")
 const CYCLE := preload("res://mods/unfplap/shared/cycle.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/api.gd")
 const ACT_GATE := preload("res://mods/unfplap/act_gate/api.gd")
+const MEMORY := preload("res://mods/unfplap/memory/api.gd")
 const CLEARANCE := preload("res://mods/unfplap/shared/clearance.gd")
 const CONTEXT := preload("res://mods/unfplap/shared/context.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const PRIVACY := preload("res://mods/unfplap/privacy/api.gd")
+const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
+const RELATIONSHIP_CUE := preload("res://mods/unfplap/shared/relationship_cue.gd")
 const OFFER := preload("res://mods/unfplap/offer/api.gd")
 const NEGOTIATION := preload("res://mods/unfplap/negotiation/api.gd")
 const PONIES := preload("res://mods/unfplap/ponies/api.gd")
@@ -101,6 +104,8 @@ var _scan_reason: Dictionary = {}
 var _scan_log_at: Dictionary = {}
 var _venue: VENUE
 var _privacy: PRIVACY
+## The act memory: this service's own Context note.
+var _memory: MEMORY = null
 ## The idle offer service; a cuddle must target the mare the act key would start.
 var _offer: OFFER
 ## The Negotiation service, which owns the exchange, the lock, the form and the Context.
@@ -122,15 +127,16 @@ var _reasoning_scope := ""
 
 ## The peers this service calls; the composition root is the only caller. The Negotiation adapter
 ## is resolved in `setup()`, because the negotiation has not attached when this runs.
-func wire(eligibility: ELIGIBILITY, act_gate: ACT_GATE, privacy: PRIVACY,
+func wire(eligibility: ELIGIBILITY, act_gate: ACT_GATE, privacy: PRIVACY, memory: MEMORY,
 		negotiation: NEGOTIATION, offer: OFFER, ponies: PONIES) -> void:
 	self.eligibility = eligibility
 	self.act_gate = act_gate
 	_privacy = privacy
+	_memory = memory
 	_negotiation = negotiation
 	_offer = offer
 	_ponies = ponies
-	assert(eligibility != null and act_gate != null and privacy != null)
+	assert(eligibility != null and act_gate != null and privacy != null and memory != null)
 	assert(negotiation != null and offer != null and _ponies != null)
 
 
@@ -380,9 +386,10 @@ func _candidate_for(runtime: Node, forced: bool, pose_request := "",
 	if not is_instance_valid(_negotiation):
 		reasons.append("no_form")
 		return null
-	var view := _negotiation.form_view()
+	var form := "pony" if WORLD.anon().form_is_pony() else "human"
+	var view := "vr" if WORLD.headset_view() else "desktop"
 	var placement: POSE_OPTIONS.Placement = _venue.placement_for(runtime)
-	var options := _options_for(placement, view, pose_request, reasons)
+	var options := _options_for(placement, form, view, pose_request, reasons)
 	if options.is_empty():
 		return null
 	if placement.cuddle:
@@ -416,9 +423,9 @@ func _candidate_for(runtime: Node, forced: bool, pose_request := "",
 
 ## The placeable options for this mare and the requested pose filter. The cuddle option comes
 ## only from an active cuddle's bed; a bed or standing offer comes from the venue.
-func _options_for(placement: POSE_OPTIONS.Placement, view: Variant, pose_request: String,
-		reasons: Array) -> Array[POSE_OPTIONS.Option]:
-	var built := POSE_OPTIONS.build(str(view.form), str(view.view), placement)
+func _options_for(placement: POSE_OPTIONS.Placement, form: String, view: String,
+		pose_request: String, reasons: Array) -> Array[POSE_OPTIONS.Option]:
+	var built := POSE_OPTIONS.build(form, view, placement)
 	var out: Array[POSE_OPTIONS.Option] = []
 	for option: POSE_OPTIONS.Option in built:
 		if not pose_request.is_empty() and option.pose != pose_request:
@@ -791,12 +798,60 @@ func _offer_targets_pony(pony: Node) -> bool:
 	return is_instance_valid(target) and target == pony
 
 
-## The Context snapshot the reasoning reads: the same facts the Negotiation judges, from its one
-## bridge.
+## This service's own Context join: the gate's facts, the memory cue, the world mood, the act
+## history, the live privacy and aftercare. The reasoning and the wording read the same snapshot.
 func _context(pony: Node) -> CONTEXT.Context:
-	if not is_instance_valid(_negotiation):
-		return CONTEXT.build({})
-	return _negotiation.context(pony)
+	var facts: Dictionary = {}
+	if not is_instance_valid(pony) or not is_instance_valid(act_gate):
+		return CONTEXT.build(facts)
+	var verdict: ACT_GATE.Verdict = act_gate.get_verdict(pony, ACT_GATE.Mode.OFFER)
+	if verdict == null or verdict.facts == null:
+		return CONTEXT.build(facts)
+	var typed := verdict.facts
+	var history := typed.history
+	var id := typed.id
+	facts["willingness"] = typed.willing
+	facts["history"] = {
+		"tier": history.tier, "hurt": history.hurt, "comfort": history.comfort,
+		"blocks_start": history.blocks_start, "blocks_offers": history.blocks_offers,
+		"offer_weight": history.offer_weight,
+	}
+	facts["cycle_phase"] = typed.cycle_phase
+	facts["heat"] = typed.heat
+	facts["aftercare"] = pony.has_meta("sex_aftercare")
+	facts["private"] = is_instance_valid(_privacy) and _privacy.is_private(pony)
+	facts["public_preference"] = typed.consent.public
+	facts["mood"] = _world_mood(id)
+	facts["relation_note"] = _relation_note(id)
+	facts["history_note"] = _history_note(id)
+	return CONTEXT.build(facts)
+
+
+## The world-context impression mood for one id, or "".
+func _world_mood(id: String) -> String:
+	if id.is_empty() or not is_instance_valid(WORLD.world_root()):
+		return ""
+	return WORLD.director().impression_mood(id, "")
+
+
+## The relationship prompt note for one id, or "".
+func _relation_note(id: String) -> String:
+	if id.is_empty() or not is_instance_valid(_memory) or not is_instance_valid(WORLD.world_root()):
+		return ""
+	var cue := _memory.cue_facts(id, "")
+	var row := cue.to_dict()
+	var note := RELATIONSHIP_CUE.note(row)
+	if note.is_empty():
+		return ""
+	return note + " " + RELATIONSHIP_CUE.tone_line(RELATIONSHIP_CUE.tone(row))
+
+
+## The act-history offer note for one id, or "".
+func _history_note(id: String) -> String:
+	if id.is_empty():
+		return ""
+	var rows: Dictionary = WORLD.mods().state(ACT_HISTORY.MOD_ID).rows
+	return ACT_HISTORY.ask_note(ACT_HISTORY.effective_row(rows, id, ACT_HISTORY.day_now()))
 
 
 ## The pure request facts for one wording call.

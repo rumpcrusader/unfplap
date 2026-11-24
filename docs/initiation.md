@@ -59,20 +59,19 @@ The purity boundary is deliberate:
   service imports it. Its model client comes from the director view, so the classifier imports no
   base-game module.
 - The facade is the only file that preloads `eligibility/api.gd`, `act_gate/api.gd`,
-  `privacy/api.gd`,
+  `privacy/api.gd`, `memory/api.gd`,
   `negotiation/api.gd`, `shared/clearance.gd`, `shared/context.gd`, `shared/pose_options.gd`,
   `shared/pose_catalog.gd` and `shared/cycle.gd`; `cooldowns.gd` preloads
   `shared/act_history.gd`.
 - No file outside `initiation/api.gd` and `initiation/` preloads `initiation/*` except the
   orchestrator, which owns the service.
 - The world root creates the service, wires it once (the live `eligibility` and `act_gate`
-  instances and its privacy, Negotiation and offer peers), attaches it after the Negotiation so
-  the `setup()` its `_ready()` runs resolves the live adapter, and drives it: `tick`,
+  instances and its privacy, memory, Negotiation and offer peers), attaches it after the
+  Negotiation so the `setup()` its `_ready()` runs resolves the live adapter, and drives it: `tick`,
   `on_world`/`on_world_closed`, `force`,
   `cancel_approach`, `placement_for` and the outcome handoff. `runtime.gd` exposes
   `cuddle_active()` and the scene-only verdict; the offer facade answers which pony the act key
-  would start (`docs/offer.md`), and the Negotiation facade answers the lock, the form view and
-  the Context.
+  would start (`docs/offer.md`), and the Negotiation facade answers the lock.
 
 ## Facade
 
@@ -228,9 +227,9 @@ approach or the ask, and asks her to stand; a cuddle keeps the session's own nav
 request's speed and pace overrides are restored before the handoff.
 
 The handoff builds the Negotiation facade's typed `MareOffer` from the decided values: the
-runtime, mare, option, Base clearance, visibility, the request lease token and release data, the
-offer line and the cuddle flag. `begin_mare_offer(offer)` is the one call; the Negotiation service
-owns the typed package from there. Order:
+runtime, mare, option, request lease and offer line. `begin_mare_offer(offer)` is the one call; the
+Negotiation service re-checks Base clearance and samples visibility there, then owns the typed
+package. Order:
 
 1. form the offer; a refusal releases the request lease and sets the `30 s` retry, and no line is
    spoken;
@@ -265,10 +264,9 @@ attempt when a new Anon offer or hotkey interrupts her walk.
 
 `initiation/prompts.gd` builds every line from a `FACTS.Request`, and the words are the `ask` nodes
 in `settings/prompts.json` (`docs/prompts.md`). This file chooses the branch: the pose opening, the
-privacy mode and the heat line. The facade supplies
-`relation_note` and `history_note` from `negotiation.context()`, the Negotiation's one Context
-snapshot of the act gate's facts, act history and the memory cue (`docs/memory.md`); the
-reasoning payload carries the same Context. Wording mode is decided once per builder by
+privacy mode and the heat line. The facade builds its own Context snapshot from the act gate's
+facts, act history and the memory cue (`docs/memory.md`), and both the wording and the reasoning
+payload read that one snapshot. Wording mode is decided once per builder by
 `policy.wording_mode(private)`: `free` speaks plainly and asks clearly, `indirect` hints while other
 ponies are around. The heat line is appended only in heat and is empty otherwise.
 

@@ -364,14 +364,6 @@ def check_entry_shape(failure: Failure) -> None:
             % line_of(text, match.start()))
 
 
-def check_static_instances(failure: Failure) -> None:
-    """A service is injected, never reached through a static `instance` handle."""
-    pattern = re.compile(r"^\s*static var\s+instance\b", re.MULTILINE)
-    for path in shipped_sources():
-        if pattern.search(read_text(str(path))):
-            failure.add("%s declares a static service instance; pass the facade instead" % rel(path))
-
-
 def check_service_bases(failure: Failure) -> None:
     """Every World service the world root constructs is a `shared/service.gd` descendant; the HUD
     is the one `CanvasLayer` and carries the four hooks itself."""

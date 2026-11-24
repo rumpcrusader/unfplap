@@ -29,6 +29,8 @@ from .scope import (
     fixed_name_failures,
     group_failures,
     node_base_failures,
+    static_state_failures,
+    world_alias_failures,
 )
 from .tests_rules import suite_result_failures
 from .wiring import (
@@ -138,6 +140,26 @@ SCOPE_BASE_CASES = (
     ("scope base world refcounted", "alpha/api.gd", "world", ["RefCounted"],
      "must extend Node"),
     ("scope base static world", "world/api.gd", "world", ["RefCounted"], None),
+)
+STATIC_CASES = (
+    ("world static var", "alpha/service.gd", "world",
+     "static var anatomy: Node = null\n", "declares `static var anatomy`"),
+    ("pony static var", "alpha/service.gd", "pony",
+     "static var peer: Node = null\n", "declares `static var peer`"),
+    ("process static var", "alpha/service.gd", "process",
+     "static var instance: Node = null\n", None),
+    ("read facade static var", "world/api.gd", "world",
+     "static var _game: Node = null\n", None),
+    ("instance facade clean", "alpha/service.gd", "world",
+     "var peer: Node = null\n", None),
+)
+WORLD_ALIAS_CASES = (
+    ("read facade alias", "alpha/service.gd",
+     'const WORLD := preload("res://mods/unfplap/world/api.gd")\n', None),
+    ("wrong alias", "alpha/service.gd",
+     'const WORLD := preload("res://mods/unfplap/ponies/service.gd")\n',
+     "is the one static read facade"),
+    ("string const", "alpha/service.gd", 'const WORLD := "world"\n', None),
 )
 CONSTRUCTION_CASES = (
     ("construction in world root", "main.gd",
@@ -465,6 +487,17 @@ def scoped_row(sid: str, scope: str) -> str:
         sid, sid, sid, sid, cell)
 
 
+def statics_cases() -> int:
+    """Both directions for the class rule: no static state on a world or pony facade, and `WORLD`
+    names only the read facade."""
+    failures = 0
+    for label, path, scope, text, wanted in STATIC_CASES:
+        failures += expect(label, static_state_failures(path, scope, text), wanted)
+    for label, path, text, wanted in WORLD_ALIAS_CASES:
+        failures += expect(label, world_alias_failures(path, text), wanted)
+    return failures
+
+
 def scope_cases() -> int:
     """Both directions for every scope rule: a passing fixture and a failing message."""
     failures = 0
@@ -479,6 +512,7 @@ def scope_cases() -> int:
             label, attach_failures(path, text, expected, "_attach", "_build_world"), wanted)
     for label, text, wanted in ENTRY_NAME_CASES:
         failures += expect(label, entry_name_failures("main.gd", text), wanted)
+    failures += statics_cases()
     for label, text, wanted in FIXED_NAME_CASES:
         failures += expect(label, fixed_name_failures("main.gd", text), wanted)
     for label, text, group, helper, wanted in GROUP_CASES:
@@ -536,6 +570,8 @@ def scope_case_count() -> int:
     return sum(len(cases) for cases in (
         SCOPE_DECL_CASES,
         SCOPE_BASE_CASES,
+        STATIC_CASES,
+        WORLD_ALIAS_CASES,
         CONSTRUCTION_CASES,
         ATTACH_CASES,
         ENTRY_NAME_CASES,

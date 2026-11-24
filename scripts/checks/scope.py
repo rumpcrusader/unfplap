@@ -39,6 +39,8 @@ PONY_HELPER = "_attach"
 WORLD_ROOT = "_build_world"
 PONY_ROOT = "_compose"
 FIXED_CHILD_NAMES = ("UnfplapRuntime", "UnfplapApi")
+STATIC_VAR = re.compile(r"^static\s+var\s+(\w+)", re.MULTILINE)
+WORLD_FACADE = "res://mods/unfplap/world/api.gd"
 
 EXTENDS = re.compile(r"^extends\s+(.+)$", re.MULTILINE)
 NEW_ASSIGN = re.compile(
@@ -420,3 +422,42 @@ def check_scope_cross(failure: Failure) -> None:
     for path in shipped_sources():
         name = rel(path)
         failure.extend(cross_scope_failures(name, read_text(str(path)), facades=facades))
+
+
+# --------------------------------------------------------------------------- rule 8: static state
+
+
+def static_state_failures(path: str, scope: str, text: str) -> list[str]:
+    """A world or pony facade is an instance; static state belongs to the process class and the one
+    static read facade."""
+    if scope not in NODE_SCOPES or path == WORLD_STATIC:
+        return []
+    out: list[str] = []
+    for match in STATIC_VAR.finditer(text):
+        out.append(
+            "%s:%d declares `static var %s`; a %s facade is an instance, not a registry" % (
+                path, line_of(text, match.start()), match.group(1), scope))
+    return out
+
+
+def world_alias_failures(path: str, text: str) -> list[str]:
+    """`WORLD` may name only the static read facade; a non-preload const (the settings section
+    name) is not an alias."""
+    out: list[str] = []
+    for match in PRELOAD_CONST.finditer(text):
+        if match.group(1) == "WORLD" and match.group(2) != WORLD_FACADE:
+            out.append(
+                "%s:%d aliases WORLD to %s; %s is the one static read facade" % (
+                    path, line_of(text, match.start()), match.group(2), WORLD_FACADE))
+    return out
+
+
+def check_scope_statics(failure: Failure) -> None:
+    scopes = facade_scopes()
+    for path in shipped_sources():
+        name = rel(path)
+        text = read_text(str(path))
+        scope = scopes.get(name)
+        if scope is not None:
+            failure.extend(static_state_failures(name, scope, text))
+        failure.extend(world_alias_failures(name, text))

@@ -21,7 +21,6 @@ from .entry import (
     check_owners,
     check_runtime_shape,
     check_service_bases,
-    check_static_instances,
     report_large_files,
 )
 from .failure import Failure, rel
@@ -34,6 +33,7 @@ from .scope import (
     check_scope_cross,
     check_scope_declarations,
     check_scope_groups,
+    check_scope_statics,
 )
 from .sources import check_sources
 from .tests_rules import check_tests, test_suites
@@ -59,6 +59,7 @@ def _scope_group(failure: Failure) -> None:
     check_scope_attachment(failure)
     check_scope_groups(failure)
     check_scope_cross(failure)
+    check_scope_statics(failure)
 
 
 def _typing_group(failure: Failure) -> None:
@@ -69,7 +70,6 @@ def _typing_group(failure: Failure) -> None:
 def _entry_group(failure: Failure) -> None:
     check_entry_shape(failure)
     check_service_bases(failure)
-    check_static_instances(failure)
 
 
 def _preloads_group(failure: Failure) -> None:

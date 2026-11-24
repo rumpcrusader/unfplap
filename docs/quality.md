@@ -118,6 +118,9 @@ game-boundary and re-export rules. These rules exist so code cannot grow back ou
   `main.gd` and `runtime.gd` construct and attach their scopes, through their attach helpers and
   their `unfplap_world`/`unfplap_pony_service` groups; a cross-scope private preload or
   construction fails.
+- **Static state follows the class.** A `process` facade may be static; a `world` or `pony` facade
+  holds no `static var`, `world/api.gd` being the one static read facade, and a `WORLD` alias
+  whose value is a `preload(...)` names that file.
 - **Only the entry names the entry.** No shipped `.gd` outside `main.gd` may contain
   `main.<member>`, `var main`, a `main.gd` preload or a `main` argument; `tests/` is exempt. A
   consumer preloads the facade it needs, reads `WORLD` for the scene, or takes a typed host

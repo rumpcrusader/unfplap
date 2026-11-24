@@ -557,7 +557,8 @@ The architecture gate is `scripts/check.sh --static`, run from `scripts/test.sh`
   and treats the rest of the directory as private;
 - checks that every service the entry adds extends `shared/service.gd`; the HUD is the allowed
   `CanvasLayer` and must define all four hooks;
-- rejects a static `instance` in a shipped service; world facades are injected or taken as host
+- rejects static state on a `world` or `pony` facade other than the `world/api.gd` read facade,
+  and a `WORLD` alias that preloads another script; world facades are injected or taken as host
   parameters;
 - scans `preload`, `extends "res://..."` and `load()` for mod paths and base-game paths;
 - requires every script dependency in every `.gd` to be a top-level `const … := preload(...)` in the

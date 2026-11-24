@@ -1,5 +1,5 @@
 extends SceneTree
-## Dev-only: exports the pose authored in `pose_lab.tscn` to the v7 runtime JSON and verifies the
+## Dev-only: exports the pose authored in `pose_lab.tscn` to the runtime JSON and verifies the
 ## round trip, the moved-frame runtime apply and the four size cases. It is the command-line twin
 ## of the lab's **Save pose** button.
 ##

@@ -5,7 +5,6 @@ const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 
 var base := "none"
 var reason := ""
-var version := 0
 var bones := 0
 var available := false
 var error := ""

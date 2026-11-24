@@ -556,11 +556,11 @@ func _check_diagnostics() -> void:
 	check(int(session.readiness()._rig_revision) == AUTHORED.revision, "the rig cache records the revision")
 	var spare: RefCounted = AUTHORED.new()
 	check(str(spare.call("load_file", AUTHORED.PATH)).is_empty(), "a spare asset loads")
-	check(int(spare.get("version")) > 0, "the spare asset carries its version")
+	check(bool(spare.get("available")), "the spare asset is available")
 	check(not str(spare.call("load_file",
 		"res://mods/unfplap/tests/fixtures/not_a_pose.txt")).is_empty(),
 		"a missing path fails the load")
-	check(int(spare.get("version")) == 0, "a failed load reports version 0")
+	check(not bool(spare.get("available")), "a failed load is not available")
 	session.leave_pose_start()
 	check(not session.readiness()._rig_checked, "the pose-start leave clears the rig cache")
 	root.remove_child(body)

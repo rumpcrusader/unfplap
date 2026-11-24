@@ -4,7 +4,7 @@ extends Node3D
 ##
 ## The **scene** is the authoring source: `Pony`, `Bed` and one Anon rig are saved in it and you
 ## pose the skeletons with the editor's Skeleton3D bone gizmo. **Save pose** exports the pose as a
-## v7 authored document under `poses/<id>_pose.json`, and that JSON is the only thing the game
+## authored document under `poses/<id>_pose.json`, and that JSON is the only thing the game
 ## reads. Never edit the JSON by hand; export it again instead.
 ##
 ## `Frame kind` selects a bed pose or a ground pose. Ground mode adds a floor and a `Contact`
@@ -24,11 +24,6 @@ const BAKE := preload("res://mods/unfplap/tools/pose_bake.gd")
 const RECIPE := preload("res://mods/unfplap/poses/standing_recipe.gd")
 
 const DEFAULT_POSE_ID := "missionary"
-## 7 stores local-rest deltas plus the anchor/contact placement. 6 is read for the migration.
-const POSE_VERSION := 7
-## 4 is the first bed-space version: transforms are relative to the bed frame. Reading that space is
-## tied to this floor, never to the current version, or an older file would be applied as lab world.
-const BED_SPACE_VERSION := 4
 ## The authored camera positions of the act's shot, node name -> shot key: the neutral start (lean
 ## 0), the pulled-back S end, the forward W end (the kiss), and the two side leans. Only the
 ## positions are exported; the runtime aims them at her live face and vulva.
@@ -86,7 +81,7 @@ const PONY_BONES := [
 
 @export_tool_button("Save pose") var save_pose: Callable = _save_pose
 @export_tool_button("Load pose") var load_pose: Callable = _load_pose
-@export_tool_button("Bake v7") var bake_v7: Callable = _bake_v7
+@export_tool_button("Bake standing") var bake_standing: Callable = _bake_standing
 @export_tool_button("Compare baked vs recipe") var compare_bake: Callable = _compare_baked
 @export_tool_button("Reset") var reset: Callable = _reset
 @export_tool_button("Capture") var capture: Callable = _capture
@@ -482,7 +477,7 @@ func pose_path() -> String:
 	return "res://mods/unfplap/poses/%s_pose.json" % pose_id
 
 
-## Dev preview: move the pony, the Anons and the shot cameras by the v7 anchor/contact rule — their
+## Dev preview: move the pony, the Anons and the shot cameras by the anchor/contact rule — their
 ## origins scale about the hips anchor and ride the contact lift; the authored basis is untouched.
 ## The originals are captured once, so returning to 1.0 restores the authored scene exactly.
 ## **Save pose** refuses while a preview is active.
@@ -609,16 +604,16 @@ func _save_pose() -> void:
 	if not write_error.is_empty():
 		push_error("PoseLab: %s" % write_error)
 		return
-	print("[poselab] saved %s (v%d frame=%s pony bones=%d anon=%s shots=%s)" % [
-		pose_path(), int(data.get("version", 0)), str(data.get("frame", "")),
+	print("[poselab] saved %s (frame=%s pony bones=%d anon=%s shots=%s)" % [
+		pose_path(), str(data.get("frame", "")),
 		(data["pony"]["bones"] as Dictionary).size(),
 		"yes" if data.has("anon") else "no", "yes" if data.has("shots") else "no"])
 
 
-## Bakes the v7 standing asset from the rig's rest pose plus the reference recipe, or saves the
+## Bakes the standing asset from the rig's rest pose plus the reference recipe, or saves the
 ## hand-authored pose for another id. The standing bake applies `apply_reference()` at the
 ## effective reference config; the game never uses this path.
-func _bake_v7() -> void:
+func _bake_standing() -> void:
 	if _pony == null or _pony_skel == null:
 		push_error("PoseLab: nothing to bake")
 		return
@@ -640,7 +635,7 @@ func _bake_v7() -> void:
 	_attach_scene_blocks(data, frame)
 	var write_error := BAKE.write_asset(data, pose_path())
 	if write_error.is_empty():
-		print("[poselab] baked %s (v7 frame=%s bones=%d)" % [pose_path(), _frame_kind(),
+		print("[poselab] baked %s (frame=%s bones=%d)" % [pose_path(), _frame_kind(),
 			(data["pony"]["bones"] as Dictionary).size()])
 	else:
 		print("[poselab] bake failed: %s" % write_error)
@@ -730,59 +725,16 @@ func _load_pose() -> void:
 		push_error("PoseLab: bad JSON in %s" % source)
 		return
 	var data: Dictionary = parsed as Dictionary
-	var version := int(data.get("version", 3))
-	if version >= POSE_VERSION:
-		_load_pose_v7(data)
-	else:
-		_load_pose_v6(data)
+	_load_pose_document(data)
 	_prepare_frame_nodes()
 	# The preview works from the authored transforms, so a fresh load is always the 1.0 baseline.
 	_preview_originals.clear()
 	_apply_preview()
-	print("[poselab] loaded %s (version %d frame %s)" % [source, version, _frame_kind()])
+	print("[poselab] loaded %s (frame %s)" % [source, _frame_kind()])
 
 
-## Version 6: bed space with the absolute body poses and the `pony.transform` placement.
-func _load_pose_v6(data: Dictionary) -> void:
-	frame_kind = "bed"
-	var frame := _pose_frame()
-	var version := int(data.get("version", 3))
-	# Version 3 stored world transforms; version 4 stores them in the bed frame.
-	var space := frame if version >= BED_SPACE_VERSION else Transform3D.IDENTITY
-	if _pony != null and data.get("pony") is Dictionary:
-		var pony: Dictionary = data["pony"]
-		_set_global(_pony, space * _str_to_transform(str(pony.get("transform", ""))))
-		_load_bones(_pony_skel, pony.get("bones", {}), false)
-	var rig := _export_anon()
-	if rig != null:
-		var block: Dictionary = {}
-		if data.get("anon") is Dictionary:
-			block = data["anon"]
-		elif data.get("anon3") is Dictionary:
-			block = data["anon3"]
-		elif data.get("anon1") is Dictionary:
-			block = data["anon1"]
-		if not block.is_empty():
-			var index := _anons.find(rig)
-			_set_global(rig, space * _str_to_transform(str(block.get("transform", ""))))
-			_load_targets(rig, block.get("targets", {}))
-			_load_bones(_anon_skels[index], block.get("bones", {}), false)
-	var shot_data: Variant = data.get("shots")
-	if shot_data is Dictionary:
-		for entry: Array in SHOT_NODES:
-			var key := str(entry[1])
-			if not (shot_data as Dictionary).has(key):
-				continue
-			var node := _ensure_shot_node(str(entry[0]))
-			_set_global(node, space * _str_to_transform(str((shot_data as Dictionary)[key])))
-	if _camera != null and data.get("camera") is Dictionary and version < BED_SPACE_VERSION:
-		var cam: Dictionary = data["camera"]
-		_set_global(_camera, _str_to_transform(str(cam.get("transform", ""))))
-		_camera.fov = float(cam.get("fov", _camera.fov))
-
-
-## Version 7: the frame named by the asset, the anchor/contact placement and the local-rest deltas.
-func _load_pose_v7(data: Dictionary) -> void:
+## The frame named by the asset, the anchor/contact placement and the local-rest deltas.
+func _load_pose_document(data: Dictionary) -> void:
 	var asset: Variant = AUTHORED.new()
 	var load_error := str(asset.call("load_data", data))
 	if not load_error.is_empty():
@@ -796,13 +748,13 @@ func _load_pose_v7(data: Dictionary) -> void:
 	if _pony != null:
 		var root_pose: Transform3D = frame * (asset.call("active_root") as Transform3D)
 		_set_global(_pony, root_pose)
-		_load_bones(_pony_skel, asset.call("active_bones") as Dictionary, true)
+		_load_bones(_pony_skel, asset.call("active_bones") as Dictionary)
 	var rig := _export_anon()
 	if rig != null and not str(asset.call("active_anon_mode")).is_empty():
 		var anon_pose: Transform3D = frame * (asset.call("active_anon_transform") as Transform3D)
 		_set_global(rig, anon_pose)
 		var index := _anons.find(rig)
-		_load_bones(_anon_skels[index], asset.call("active_anon_bones") as Dictionary, true)
+		_load_bones(_anon_skels[index], asset.call("active_anon_bones") as Dictionary)
 	if frame_kind == "bed":
 		var shot_data: Dictionary = asset.call("active_shots") as Dictionary
 		for entry: Array in SHOT_NODES:
@@ -919,7 +871,7 @@ func _select_anon3_skeleton() -> void:
 	_select_anon_by_name("Anon3")
 
 
-## Saves every allowed bone as a `local_rest` delta: `rest.affine_inverse() * pose`, the v7 shape.
+## Saves every allowed bone as a `local_rest` delta: `rest.affine_inverse() * pose`.
 ## `allowed` limits the export to the body bones the runtime bakes; empty means every bone (the
 ## Anon rig). A rest bone is stored with an identity delta, never skipped: the runtime writes only
 ## the bones the file holds and never resets the rest.
@@ -939,8 +891,8 @@ func _save_bones(sk: Skeleton3D, allowed: Array) -> Dictionary:
 	return out
 
 
-## Loads a v7 delta block onto the rig (`rest * delta`) or a v6 absolute local pose block.
-func _load_bones(sk: Skeleton3D, bones: Variant, delta: bool) -> void:
+## Loads a delta block onto the rig (`rest * delta`).
+func _load_bones(sk: Skeleton3D, bones: Variant) -> void:
 	if sk == null:
 		return
 	sk.reset_bone_poses()
@@ -953,30 +905,18 @@ func _load_bones(sk: Skeleton3D, bones: Variant, delta: bool) -> void:
 		var entry: Dictionary = (bones as Dictionary)[bone]
 		var rotation_value: Variant = entry.get("rotation")
 		var position_value: Variant = entry.get("position")
-		# The v7 loader hands typed values; a raw JSON document hands its string form.
+		# The loader hands typed values; a raw JSON document hands its string form.
 		var rotation: Quaternion = rotation_value if rotation_value is Quaternion \
 			else _str_to_quat(str(rotation_value))
 		var position: Vector3 = position_value if position_value is Vector3 \
 			else _str_to_vec(str(position_value))
-		if delta:
-			var rest := sk.get_bone_rest(i)
-			position = rest.basis * position + rest.origin
-			rotation = (rest.basis * Basis(rotation)).get_rotation_quaternion().normalized()
+		var rest := sk.get_bone_rest(i)
+		position = rest.basis * position + rest.origin
+		rotation = (rest.basis * Basis(rotation)).get_rotation_quaternion().normalized()
 		sk.set_bone_pose_rotation(i, rotation)
 		sk.set_bone_pose_position(i, position)
 		sk.set_bone_pose_scale(i, sk.get_bone_rest(i).basis.get_scale())
 	sk.force_update_all_bone_transforms()
-
-
-## Old version-3 files also carried the six IK target markers. Version 4 derives the Anon pose
-## from his bones, so the runtime no longer needs them; it still reads them for old files.
-func _load_targets(rig: Node3D, targets: Variant) -> void:
-	if not targets is Dictionary:
-		return
-	for name in (targets as Dictionary):
-		var target := rig.find_child(str(name), true, false)
-		if target is Node3D:
-			(target as Node3D).global_transform = _str_to_transform(str((targets as Dictionary)[name]))
 
 
 func _transform_to_str(value: Transform3D) -> String:

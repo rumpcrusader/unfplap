@@ -65,8 +65,6 @@ var _eye_saved := false
 var _eye_world := Transform3D.IDENTITY
 var _eye_cached := false
 var _lean_logged := false
-var _indices: Dictionary = {}
-var _index_skeleton := 0
 ## The union of the two authored bone blocks, resolved once per skeleton for the pair blend.
 var _asset_indices: Dictionary = {}
 var _asset_index_skeleton := 0
@@ -191,8 +189,6 @@ func remove() -> void:
 	_saved_bones.clear()
 	avatar = null
 	skeleton = null
-	_indices.clear()
-	_index_skeleton = 0
 	_asset_indices.clear()
 	_asset_index_skeleton = 0
 	_reach_log_state.clear()
@@ -256,7 +252,6 @@ func apply(bed_frame: Transform3D, body_scale: float) -> void:
 		live = AUTHORED.shared()
 	if not live.available:
 		return
-	var v7 := live.version >= 7
 	var pair := _asset_pair_ready()
 	var placed: Transform3D
 	if pair:
@@ -265,22 +260,13 @@ func apply(bed_frame: Transform3D, body_scale: float) -> void:
 		if not placed.is_finite():
 			return
 	else:
-		var placement: Transform3D
-		if v7:
-			if live.active_anon_mode() != "act_body":
-				return
-			placement = live.active_anon_transform()
-		else:
-			placement = live.anon_frame
-		if v7:
-			# The anchor/contact rule: the Anon origin scales about her hips anchor and rides the
-			# contact lift; his basis is unchanged.
-			var world := bed_frame * placement
-			placed = Transform3D(world.basis,
-				live.place_origin(world.origin, bed_frame, body_scale))
-		else:
-			placement.origin *= body_scale
-			placed = bed_frame * placement
+		if live.active_anon_mode() != "act_body":
+			return
+		# The anchor/contact rule: the Anon origin scales about her hips anchor and rides the
+		# contact lift; his basis is unchanged.
+		var world := bed_frame * live.active_anon_transform()
+		placed = Transform3D(world.basis,
+			live.place_origin(world.origin, bed_frame, body_scale))
 	# Being human, his body keeps its own scale and only his placement follows her size. The debug
 	# `Anon size match` blends that body toward hers: 0 human, 1 uniform with her.
 	var body := _scale
@@ -301,23 +287,9 @@ func apply(bed_frame: Transform3D, body_scale: float) -> void:
 		_cache_asset_indices(from_bones, to_bones)
 		blend_anon_bones(skeleton, from_bones, to_bones, asset_weight, _asset_indices)
 	else:
-		var bones: Dictionary = live.active_anon_bones() if v7 else live.anon_bones
+		var bones: Dictionary = live.active_anon_bones()
 		if not bones.is_empty():
-			_cache_indices(bones)
-			if v7:
-				live.apply_bones(skeleton, bones, 1.0)
-			else:
-				for key: Variant in _indices:
-					var entry: Variant = bones.get(key)
-					if not (entry is Dictionary):
-						continue
-					var bone := int(_indices[key])
-					skeleton.set_bone_pose_rotation(bone, (entry as Dictionary)["rotation"])
-					skeleton.set_bone_pose_position(bone, (entry as Dictionary)["position"])
-					# Own the scale too: the stock hiders multiply/overwrite it each modifier pass and rely
-					# on the animation to reset it. Without this the factor compounds and the body stretches
-					# or collapses. Parts they hide stay hidden by their own bones, not by ours.
-					skeleton.set_bone_pose_scale(bone, skeleton.get_bone_rest(bone).basis.get_scale())
+			live.apply_bones(skeleton, bones, 1.0)
 	# The authored hand frames, before the lean moves them: the plant keeps their height and lets
 	# only X/Z slide.
 	for side: String in ["Left", "Right"]:
@@ -338,12 +310,9 @@ func apply(bed_frame: Transform3D, body_scale: float) -> void:
 	_cache_eye()
 
 
-## True when both bound sides are v7 act-body assets: the pair blend owns both placements and both
-## bone blocks. A v6 read path and a mixed pair keep the live side's single path.
+## The pair blend needs two act-body sides; otherwise the live side drives alone.
 func _asset_pair_ready() -> bool:
 	if from_asset == null or to_asset == null:
-		return false
-	if from_asset.version < 7 or to_asset.version < 7:
 		return false
 	if from_asset.active_anon_mode() != "act_body":
 		return false
@@ -370,7 +339,7 @@ static func blend_placement(from: Transform3D, to: Transform3D, weight: float) -
 		from.origin.lerp(to.origin, blend))
 
 
-## Blend the two v7 local-rest bone blocks at the edge weight; a bone on only one side uses that
+## Blend the two local-rest bone blocks at the edge weight; a bone on only one side uses that
 ## side, and a missing bone or a non-finite pair is skipped rather than written.
 static func blend_anon_bones(sk: Skeleton3D, from_bones: Dictionary, to_bones: Dictionary,
 		weight: float, indices: Dictionary = {}) -> void:
@@ -420,7 +389,7 @@ static func _blend_anon_bone(sk: Skeleton3D, name: String, from_bones: Dictionar
 	sk.set_bone_pose_scale(bone, sk.get_bone_rest(bone).basis.get_scale())
 
 
-## One v7 entry's local-rest pose: `rest.basis * delta` and `rest.basis * position + rest.origin`.
+## One entry's local-rest pose: `rest.basis * delta` and `rest.basis * position + rest.origin`.
 static func _anon_local(sk: Skeleton3D, bone: int, entry: Dictionary) -> Transform3D:
 	var rest := sk.get_bone_rest(bone)
 	var rotation_value: Variant = entry.get("rotation", Quaternion.IDENTITY)
@@ -904,19 +873,6 @@ func _note_hip_offset(offset: Vector3) -> void:
 	var anon: Variant = facts.anon if facts != null else null
 	if anon != null:
 		anon.note_hip_offset(offset)
-
-
-## Bone indices are stable for the life of the skeleton, so resolve the names once per skeleton.
-func _cache_indices(bones: Dictionary) -> void:
-	var id := skeleton.get_instance_id()
-	if id == _index_skeleton and not _indices.is_empty():
-		return
-	_indices.clear()
-	for key: Variant in bones:
-		var bone := skeleton.find_bone(str(key))
-		if bone >= 0:
-			_indices[str(key)] = bone
-	_index_skeleton = id
 
 
 ## The union of the two authored blocks' bone indices, resolved once per skeleton. The shipped

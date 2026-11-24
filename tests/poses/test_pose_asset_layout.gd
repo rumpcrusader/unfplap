@@ -1,15 +1,14 @@
 extends "res://mods/unfplap/tests/support/suite.gd"
-## The version 7 authored asset: the schema and its refusals, the `local_rest` bone math, the
-## anchor/contact placement at four sizes, the v6 uniform scale, variants, the bed clearance and
-## the spec asset resolution. Synthetic assets keep the suite away from the shipped file's numbers.
+## The authored asset layout: the schema and its refusals, the `local_rest` bone math, the
+## anchor/contact placement at four sizes, variants, the bed clearance and the spec asset
+## resolution. Synthetic assets keep the suite away from the shipped file's numbers.
 ##   godot --headless --xr-mode off --path <project> \
-##     --script res://mods/unfplap/tests/poses/test_pose_asset_v7.gd
+##     --script res://mods/unfplap/tests/poses/test_pose_asset_layout.gd
 
 const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 const SERVICE := preload("res://mods/unfplap/poses/api.gd")
 const POSE_SPEC := preload("res://mods/unfplap/poses/pose_spec.gd")
 const SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
-const FIXTURE_V6 := "res://mods/unfplap/tests/poses/fixtures/missionary_pose_v6.json"
 
 const MISSIONARY_PATH := "res://mods/unfplap/poses/missionary_pose.json"
 const SIZES := [1.0, 1.35, 1.7, 2.3]
@@ -27,23 +26,20 @@ func run() -> void:
 	_check_placement()
 	_check_variants()
 	_check_resolution()
-	_check_v6()
-	_check_v6_scale()
 	_check_facesit_asset()
 	await _check_bed_clearance()
 	if failures == 0:
-		print("POSE_ASSET_V7_PASS")
+		print("POSE_ASSET_LAYOUT_PASS")
 	finish()
 
 
 ## A valid synthetic asset dictionary. Each call is fresh, so a case can mutate one field.
 func _asset() -> Dictionary:
 	return {
-		"version": 7,
 		"id": "standing",
 		"space": "local_rest",
 		"frame": "ground",
-		"rig": {"name": "hybrid_mare", "version": 1, "bones": 30},
+		"rig": {"name": "hybrid_mare", "bones": 30},
 		"reference": {
 			"size": "canon", "body_scale": 1.0,
 			"config": {
@@ -76,7 +72,7 @@ func _identity_bones() -> Dictionary:
 
 
 func _write(name: String, data: Variant) -> String:
-	var path := "user://unfplap_v7_%s.json" % name
+	var path := "user://unfplap_layout_%s.json" % name
 	var file := FileAccess.open(path, FileAccess.WRITE)
 	file.store_string(JSON.stringify(data, "\t"))
 	file.close()
@@ -101,28 +97,17 @@ func _refused(data: Variant, name: String, needle := "") -> void:
 func _check_schema() -> void:
 	var pose: Variant = _load(_asset(), "valid")
 	check(bool(pose.get("available")), "the synthetic asset loads: %s" % str(pose.get("error")))
-	check(int(pose.get("version")) == 7, "version 7")
 	check(str(pose.get("space")) == AUTHORED.SPACE_LOCAL_REST, "local_rest space")
 	check(bool(pose.call("usable", "ground")), "usable for its ground frame")
 	check(not bool(pose.call("usable", "bed")), "not usable for a bed frame")
 	check((pose.get("shots") as Dictionary).has("start"), "an authored shot is readable")
-	check(int(pose.get("rig_version")) == AUTHORED.RIG_VERSION, "the rig version is pinned")
 
-	var newer := _asset()
-	newer["version"] = 8
-	_refused(newer, "newer", "newer")
-	var older := _asset()
-	older["version"] = 5
-	_refused(older, "older", "older")
 	var space := _asset()
 	space["space"] = "world"
 	_refused(space, "space", "space")
 	var frame := _asset()
 	frame["frame"] = "orbit"
 	_refused(frame, "frame", "frame")
-	var rig := _asset()
-	(rig["rig"] as Dictionary)["version"] = 2
-	_refused(rig, "rig_version", "rig version")
 	var missing := _asset()
 	(missing["pony"]["bones"] as Dictionary).erase("pony_hips")
 	_refused(missing, "missing_bone", "missing body bone")
@@ -285,7 +270,6 @@ func _check_resolution() -> void:
 		"standing_oral inherits the standing asset")
 	var shipped: Variant = AUTHORED.shared(standing_asset)
 	check(bool(shipped.get("available")), "the standing asset loads: %s" % str(shipped.get("error")))
-	check(int(shipped.get("version")) == 7, "the standing asset is v7")
 	check(str(shipped.get("space")) == AUTHORED.SPACE_LOCAL_REST, "local_rest space")
 	check(str(shipped.get("frame")) == "ground", "the standing asset is a ground pose")
 	check(int(shipped.get("rig_bones")) == 30, "the standing rig is 30 bones")
@@ -299,21 +283,6 @@ func _check_resolution() -> void:
 	var ref_config: Dictionary = reference.get("config", {})
 	check(ref_config.size() == 6, "the reference config has the six keys")
 	service.free()
-
-
-## The version 6 migration fixture: it loads, applies, and is refused for a ground view.
-func _check_v6() -> void:
-	var pose: Variant = AUTHORED.new()
-	check(str(pose.call("load_file", FIXTURE_V6)).is_empty(), "the v6 fixture loads")
-	check(int(pose.get("version")) == 6, "the fixture reports version 6")
-	check(str(pose.get("space")) == "bed", "the fixture is bed space")
-	check(bool(pose.call("usable", "bed")), "the v6 asset is usable for a bed frame")
-	check(not bool(pose.call("usable", "ground")), "the v6 asset is refused for a ground view")
-	check(not (pose.get("pony_bones") as Dictionary).is_empty(), "the fixture carries the body")
-	var sk := _skeleton(1.0)
-	check(bool(pose.call("apply_pony", sk, 1.0, Transform3D.IDENTITY, 1.0)),
-		"the v6 migration path applies")
-	_free_skeleton(sk)
 
 
 ## A bare rig: an armature, hips and one spine bone. `rest` offsets put the hips under the root.
@@ -344,7 +313,7 @@ func _free_skeleton(sk: Skeleton3D) -> void:
 		sk.queue_free()
 
 
-## The shipped bed face-sit: the shape the D4 asset must carry, its v7 placement and the optional
+## The shipped bed face-sit: the shape the D4 asset must carry, its placement and the optional
 ## Anon/shot blocks. The numbers belong to the D4 lab, not to this suite.
 func _check_facesit_asset() -> void:
 	var path := "res://mods/unfplap/poses/bed_facesit_pose.json"
@@ -352,14 +321,12 @@ func _check_facesit_asset() -> void:
 	check(bool(pose.get("available")), "the face-sit asset loads: %s" % str(pose.get("error")))
 	if not bool(pose.get("available")):
 		return
-	check(int(pose.get("version")) == 7, "the face-sit asset is v7")
 	check(str(pose.get("id")) == "bed_facesit", "the face-sit id")
 	check(str(pose.get("space")) == AUTHORED.SPACE_LOCAL_REST, "the face-sit is local_rest")
 	check(str(pose.get("frame")) == "bed", "the face-sit is a bed pose")
 	check(bool(pose.call("usable", "bed")), "the face-sit is usable in bed space")
 	check(not bool(pose.call("usable", "ground")), "the face-sit is refused for a ground view")
 	check(str(pose.get("rig_name")) == AUTHORED.RIG_NAME, "the face-sit rig name")
-	check(int(pose.get("rig_version")) == AUTHORED.RIG_VERSION, "the face-sit rig version")
 	check(int(pose.get("rig_bones")) == AUTHORED.RIG_BONES, "the face-sit rig bone count")
 	check((pose.get("pony_bones") as Dictionary).size() == PONY_BONES.size(),
 		"the face-sit carries every body bone")
@@ -387,41 +354,6 @@ func _check_facesit_asset() -> void:
 		var placed: Vector3 = pose.call("place_origin", pose.call("contact_world", frame), frame, size)
 		check(near(placed.y, frame.origin.y, 0.00001),
 			"the face-sit contact sits on the mattress at %.2f" % size)
-
-
-## Version 6 is bed space with absolute local poses, so its placement scales uniformly with the
-## rig's pivot: the hips and the lateral/longitudinal axes follow the body scale, and a scaled
-## root basis would multiply the body twice.
-func _check_v6_scale() -> void:
-	var pose: Variant = AUTHORED.new()
-	pose.available = true
-	pose.pony_frame = Transform3D(Basis.IDENTITY, Vector3(0.0, 0.5, 0.0))
-	pose.pony_bones = {}
-	for name: String in PONY_BONES:
-		pose.pony_bones[name] = {"rotation": Quaternion.IDENTITY, "position": Vector3.ZERO}
-	pose.pony_bones["pony_hips"] = {"rotation": Quaternion.IDENTITY,
-		"position": Vector3(0.0, 0.1, 0.0)}
-
-	var canon := _skeleton(1.0)
-	var canon_world := _apply_v6(pose, canon)
-	check(near(canon_world.y, 0.6), "the canon v6 hips sit at the authored height: %.3f"
-		% canon_world.y)
-
-	var big := _skeleton(1.35)
-	var big_world := _apply_v6(pose, big)
-	check(near(big_world.y, 0.81), "the v6 placement scales the hips with the body: %.3f"
-		% big_world.y)
-	var root := AUTHORED.root_bone(big)
-	var determinant := big.get_bone_global_pose(root).basis.determinant()
-	check(near(determinant, 1.0), "the v6 root pose stays orthonormal: %.4f" % determinant)
-
-
-## The v6 pose placed on a synthetic rig and the hips' world position.
-func _apply_v6(pose: Variant, sk: Skeleton3D) -> Vector3:
-	check(bool(pose.call("apply_pony", sk, 1.0, Transform3D.IDENTITY,
-		sk.global_transform.basis.get_scale().x)), "the v6 asset applies")
-	var hips := sk.find_bone("pony_hips")
-	return sk.global_transform * sk.get_bone_global_pose(hips).origin
 
 
 ## A body that is not the mare's own hangs further from its armature root, so the mare's root
@@ -455,7 +387,6 @@ func _check_bed_clearance() -> void:
 		# The same asset on a ground pose applies no lift, and the same body in a bed pose does.
 		var ground: Variant = AUTHORED.new()
 		ground.available = true
-		ground.version = 7
 		ground.space = AUTHORED.SPACE_LOCAL_REST
 		ground.frame = "ground"
 		ground.anchor = {

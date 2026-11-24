@@ -1,5 +1,5 @@
 extends "res://mods/unfplap/tests/support/suite.gd"
-## The act-body adapter's authored pair: the placement blend, the v7 local-rest bone blend, the
+## The act-body adapter's authored pair: the placement blend, the local-rest bone blend, the
 ## borrowed avatar state and the service-bound pair setter. A bare Anon skeleton keeps it off every
 ## game scene.
 ##   godot --headless --xr-mode off --path <project> \
@@ -79,7 +79,7 @@ func _entry(angle: float, position: Vector3) -> Dictionary:
 	return {"rotation": Quaternion(Vector3.RIGHT, angle), "position": position}
 
 
-## The v7 local-rest pose the entry describes, for the expected values.
+## The local-rest pose the entry describes, for the expected values.
 func _local(sk: Skeleton3D, name: String, entry: Dictionary) -> Transform3D:
 	var bone := sk.find_bone(name)
 	var rest := sk.get_bone_rest(bone)

@@ -14,7 +14,6 @@ const BODY := preload("res://world/characters/hybrid_mare/body.glb")
 
 const STANDING_PATH := "res://mods/unfplap/poses/standing_pose.json"
 const MISSIONARY_PATH := "res://mods/unfplap/poses/missionary_pose.json"
-const MISSIONARY_V6 := "res://mods/unfplap/tests/poses/fixtures/missionary_pose_v6.json"
 const SIZES := [1.0, 1.35, 1.7, 2.3]
 
 const PONY_BONES := AUTHORED.PONY_BONES
@@ -37,7 +36,6 @@ func _check_capture() -> void:
 	var frame := Transform3D(Basis(Vector3.UP, 0.4), Vector3(1.0, 0.0, -0.5))
 	var contact := frame * Vector3(0.0, 0.0, 0.0)
 	var pose := BAKE.capture_pose(sk, frame, contact, {}, "canon", 1.0, "standing", "ground")
-	check(int(pose.get("version", 0)) == 7, "capture writes version 7")
 	check(str(pose.get("space", "")) == AUTHORED.SPACE_LOCAL_REST, "capture writes local_rest")
 	check(str(pose.get("frame", "")) == "ground", "capture writes the frame kind")
 	check(str(pose.get("id", "")) == "standing", "capture writes the id")
@@ -89,9 +87,8 @@ func _check_writer() -> void:
 	check(str(BAKE.write_asset(asset, path)).is_empty(), "the scratch asset writes")
 	var loader: Variant = AUTHORED.new()
 	check(str(loader.call("load_file", path)).is_empty(), "the scratch asset loads")
-	check(int(loader.get("version")) == 7, "the written asset is v7")
 	check(not str(BAKE.write_asset(asset,
-		"res://mods/unfplap/tests/poses/fixtures/missionary_pose_v6.json")).is_empty(),
+		"res://mods/unfplap/tests/poses/fixtures/bake_guard.json")).is_empty(),
 		"the writer refuses a fixture path")
 	_free(sk)
 
@@ -327,15 +324,13 @@ func _oral_places(sk: Skeleton3D) -> Dictionary:
 	return out
 
 
-## The v6 fixture and the shipped v7 missionary: canon body parity, the four-size body parity and
-## the Anon/shot anchor placement at canon and one non-canon size.
+## The shipped missionary: the four-size body parity and the Anon anchor placement at canon and
+## one non-canon size.
 func _check_missionary() -> void:
-	var v6: Variant = AUTHORED.new()
-	check(str(v6.call("load_file", MISSIONARY_V6)).is_empty(), "the missionary v6 fixture loads")
-	var v7: Variant = AUTHORED.new()
-	check(str(v7.call("load_file", MISSIONARY_PATH)).is_empty(), "the missionary v7 asset loads")
-	check(bool(v7.call("usable", "bed")), "the missionary v7 asset is a bed pose")
-	check(str(v7.get("anon_mode")) == "act_body", "the missionary v7 asset carries an act body")
+	var asset: Variant = AUTHORED.new()
+	check(str(asset.call("load_file", MISSIONARY_PATH)).is_empty(), "the missionary asset loads")
+	check(bool(asset.call("usable", "bed")), "the missionary asset is a bed pose")
+	check(str(asset.get("anon_mode")) == "act_body", "the missionary asset carries an act body")
 	var pony: Node3D = BODY.instantiate()
 	root.add_child(pony)
 	await process_frame
@@ -345,60 +340,38 @@ func _check_missionary() -> void:
 		return
 	var frame := Transform3D(Basis(Vector3.UP, 0.4), Vector3(1.0, 0.65, -2.0))
 
-	# Canon: the converted asset must land the v6 joints within 1 mm / 0.1°.
 	sk.reset_bone_poses()
 	sk.force_update_all_bone_transforms()
-	check(bool(v6.call("apply_pony", sk, 1.0, frame, 1.0)), "the v6 fixture applies")
+	check(bool(asset.call("apply_pony", sk, 1.0, frame, 1.0, "canon")), "the missionary applies")
 	sk.force_update_all_bone_transforms()
-	var before_world := _world_joints(sk)
-	var before_local := _local_poses(sk)
-	sk.reset_bone_poses()
-	sk.force_update_all_bone_transforms()
-	check(bool(v7.call("apply_pony", sk, 1.0, frame, 1.0, "canon")),
-		"the v7 missionary applies")
-	sk.force_update_all_bone_transforms()
-	var after_world := _world_joints(sk)
-	var after_local := _local_poses(sk)
-	var worst_pos := 0.0
-	var worst_deg := 0.0
-	for name: String in before_world:
-		worst_pos = maxf(worst_pos,
-			(before_world[name] as Vector3).distance_to(after_world[name] as Vector3))
-		var qa: Quaternion = (before_local[name] as Transform3D).basis \
-			.get_rotation_quaternion().normalized()
-		var qb: Quaternion = (after_local[name] as Transform3D).basis \
-			.get_rotation_quaternion().normalized()
-		worst_deg = maxf(worst_deg, rad_to_deg(qa.angle_to(qb)))
-	check(worst_pos <= 0.001, "the v6/v7 canon positions match: %.5f m" % worst_pos)
-	check(worst_deg <= 0.1, "the v6/v7 canon rotations match: %.4f deg" % worst_deg)
+	var canon_local := _local_poses(sk)
 
 	# Four sizes: the body pose is size-invariant, the contact stays on the mattress and the
 	# skeleton-space root stays orthonormal.
 	var original := pony.transform
-	var anchor: Transform3D = v7.call("anchor_world", frame)
-	var canon_local := after_local
+	var anchor: Transform3D = asset.call("anchor_world", frame)
 	var size_pos := 0.0
 	var size_deg := 0.0
 	for size: float in SIZES:
 		pony.transform.basis = original.basis * Basis.from_scale(Vector3.ONE * size)
 		sk.reset_bone_poses()
 		sk.force_update_all_bone_transforms()
-		check(bool(v7.call("apply_pony", sk, 1.0, frame, size, "canon")),
-			"the v7 missionary applies at %.2f" % size)
+		check(bool(asset.call("apply_pony", sk, 1.0, frame, size, "canon")),
+			"the missionary applies at %.2f" % size)
 		sk.force_update_all_bone_transforms()
 		var top := AUTHORED.root_bone(sk)
 		check(absf(sk.get_bone_global_pose(top).basis.determinant() - 1.0) <= 0.001,
 			"the missionary root stays orthonormal at %.2f" % size)
 		var hips := sk.find_bone("pony_hips")
 		var hips_world: Vector3 = sk.global_transform * sk.get_bone_global_pose(hips).origin
-		var lift := float(v7.call("body_lift", frame, size))
+		var lift := float(asset.call("body_lift", frame, size))
 		check(absf(hips_world.x - anchor.origin.x) <= 0.0001
 			and absf(hips_world.z - anchor.origin.z) <= 0.0001,
 			"the missionary hips stay over the anchor at %.2f" % size)
 		check(absf(hips_world.y - (anchor.origin.y + lift)) <= 0.0001,
 			"the missionary hips ride the lift at %.2f" % size)
-		var placed_contact: Vector3 = v7.call("place_origin",
-			v7.call("contact_world", frame), frame, size)
+		var placed_contact: Vector3 = asset.call("place_origin",
+			asset.call("contact_world", frame), frame, size)
 		check(absf(placed_contact.y - frame.origin.y) <= 0.0001,
 			"the missionary contact stays on the mattress at %.2f" % size)
 		var local := _local_poses(sk)
@@ -413,30 +386,17 @@ func _check_missionary() -> void:
 	check(size_pos <= 0.002, "the missionary body positions are size-invariant: %.5f m" % size_pos)
 	check(size_deg <= 0.5, "the missionary body rotations are size-invariant: %.4f deg" % size_deg)
 
-	# The Anon body places by the same anchor/contact rule; canon is unchanged.
-	var anon6: Transform3D = v6.get("anon_frame")
-	var anon7: Transform3D = v7.call("active_anon_transform")
-	var canon_anon: Vector3 = (frame * anon6).origin
-	var placed_anon: Vector3 = v7.call("place_origin", (frame * anon7).origin, frame, 1.0)
-	check(placed_anon.distance_to(canon_anon) <= 0.0001,
-		"the Anon placement is unchanged at canon")
+	# The Anon body places by the same anchor/contact rule.
+	var placement: Transform3D = asset.call("active_anon_transform")
+	var canon_anon: Vector3 = (frame * placement).origin
 	var size := 1.35
 	var here: Vector3 = anchor.origin
-	var lift := float(v7.call("body_lift", frame, size))
+	var lift := float(asset.call("body_lift", frame, size))
 	var expected_anon := here + (canon_anon - here) * size + Vector3.UP * lift
-	check((v7.call("place_origin", (frame * anon7).origin, frame, size) as Vector3)
+	check((asset.call("place_origin", (frame * placement).origin, frame, size) as Vector3)
 		.distance_to(expected_anon) <= 0.0001, "the Anon follows the anchor at %.2f" % size)
 	root.remove_child(pony)
 	pony.free()
-
-
-func _world_joints(sk: Skeleton3D) -> Dictionary:
-	var out := {}
-	for name: String in PONY_BONES:
-		var bone := sk.find_bone(name)
-		if bone >= 0:
-			out[name] = sk.global_transform * sk.get_bone_global_pose(bone).origin
-	return out
 
 
 func _local_poses(sk: Skeleton3D) -> Dictionary:

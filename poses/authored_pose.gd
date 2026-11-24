@@ -1,16 +1,13 @@
 extends RefCounted
-## The authored pose asset loader: v7 local-rest poses, v6 bed-space migration.
+## The authored pose asset loader: local-rest pose deltas.
 
 const SELF := preload("res://mods/unfplap/poses/authored_pose.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 const PATH := "res://mods/unfplap/poses/missionary_pose.json"
-const MIN_VERSION := 6
-const CURRENT_VERSION := 7
 const SPACE_LOCAL_REST := "local_rest"
 const SUPPORTED_FRAMES := ["bed", "ground"]
 const RIG_NAME := "hybrid_mare"
-const RIG_VERSION := 1
 const RIG_BONES := 30
 const ANON_RIG := "Anon3"
 
@@ -18,8 +15,8 @@ const ANON_RIG := "Anon3"
 const BED_SINK_M := 0.004
 const BED_LIFT_MIN_M := 0.005
 
-## The body bones the act owns, in the pose lab's order. Every v7 file carries all of them,
-## rest included: the runtime never resets a bone it is not given.
+## The body bones the act owns, in the pose lab's order. Every asset carries all of them, rest
+## included: the runtime never resets a bone it is not given.
 const PONY_BONES := [
 	"pony_hips",
 	"pony_spine1", "pony_spine2", "pony_spine3",
@@ -40,13 +37,11 @@ const BANNED_PREFIXES := ["pony_head", "pony_lid", "pony_ear", "pony_Wing", "pon
 ## True once a valid asset is parsed and `error` is empty.
 var available := false
 var error := ""
-var version := 0
 var path := PATH
 var id := ""
 var space := ""
 var frame := ""
 var rig_name := ""
-var rig_version := 0
 var rig_bones := 0
 ## `{size, body_scale, config}`: the bake reference the base was authored at.
 var reference: Dictionary = {}
@@ -54,8 +49,7 @@ var reference: Dictionary = {}
 var anchor: Dictionary = {}
 ## The armature root global pose in frame space at canon.
 var root := Transform3D.IDENTITY
-## Bone name -> `{rotation, position}`. Version 7 stores a local-rest delta; version 6 an absolute
-## local pose.
+## Bone name -> `{rotation, position}` as a rest-local delta.
 var pony_bones: Dictionary = {}
 ## The optional act body: mode, rig, transform and local-rest bone deltas.
 var anon_mode := ""
@@ -69,15 +63,10 @@ var has_shots := false
 ## Bed reference metadata (`size`, `mattress_top`); placement uses the live mattress frame.
 var bed_size := Vector3.ZERO
 var mattress_top := 0.0
-## `size_name` -> merged variant record. Empty for v1.
+## `size_name` -> merged variant record. Empty when the asset ships none.
 var variants: Dictionary = {}
 ## The variant selected by the last apply, for diagnostics.
 var variant := ""
-
-## Version 6 aliases: the bed-space root and Anon placements. A version 7 file mirrors `root` and
-## `anon_transform` here so version-aware consumers read one field.
-var pony_frame := Transform3D.IDENTITY
-var anon_frame := Transform3D.IDENTITY
 
 ## Bumped by every `load_file()`, including a failed reload. The pose session caches the rig gate
 ## against it, so "Reload posed base" re-checks the bones against the new asset in the same act.
@@ -152,17 +141,7 @@ func load_data(data: Dictionary) -> String:
 
 
 func _parse_data(data: Dictionary) -> String:
-	version = int(data.get("version", 0))
-	if version < MIN_VERSION:
-		error = "pose version %d is older than %d" % [version, MIN_VERSION]
-		return error
-	if version > CURRENT_VERSION:
-		error = "pose version %d is newer than %d" % [version, CURRENT_VERSION]
-		return error
-	if version < CURRENT_VERSION:
-		_load_v6(data)
-	else:
-		_load_v7(data)
+	_load_document(data)
 	if not error.is_empty():
 		available = false
 		return error
@@ -173,22 +152,18 @@ func _parse_data(data: Dictionary) -> String:
 func _reset() -> void:
 	available = false
 	error = ""
-	version = 0
 	id = ""
 	space = ""
 	frame = ""
 	rig_name = ""
-	rig_version = 0
 	rig_bones = 0
 	reference = {}
 	anchor = {}
 	root = Transform3D.IDENTITY
-	pony_frame = Transform3D.IDENTITY
 	pony_bones = {}
 	anon_mode = ""
 	anon_rig = ""
 	anon_transform = Transform3D.IDENTITY
-	anon_frame = Transform3D.IDENTITY
 	anon_bones = {}
 	shots = {}
 	has_shots = false
@@ -203,14 +178,9 @@ func _reset() -> void:
 	_parse_bad = ""
 
 
-## True when this asset may drive a pose whose own frame is `frame_kind`. Version 6 is bed space
-## only; version 7 must match the pose's frame.
+## True when this asset may drive a pose whose own frame is `frame_kind`.
 func usable(frame_kind: String) -> bool:
-	if not available:
-		return false
-	if version < CURRENT_VERSION:
-		return frame_kind == "bed"
-	return frame == frame_kind
+	return available and frame == frame_kind
 
 
 ## The skeleton's root bone (the armature), or -1.
@@ -322,13 +292,11 @@ func placed_root(world_frame: Transform3D, body_scale: float) -> Transform3D:
 
 
 ## Applies the base pose about the hips anchor, ramping from the game's current pose by `weight`
-## (the caller drives it). Version 6 keeps its uniform bed-space placement.
+## (the caller drives it).
 func apply_pony(sk: Skeleton3D, weight: float, world_frame: Transform3D, body_scale: float,
 		size_name := "") -> bool:
 	if not available or sk == null:
 		return false
-	if version < CURRENT_VERSION:
-		return _apply_v6(sk, weight, world_frame, body_scale)
 	_select(size_name, body_scale)
 	var root_index := root_bone(sk)
 	if root_index >= 0:
@@ -438,8 +406,8 @@ func _frame_pose(sk: Skeleton3D, bone: int, root_index: int, root_pose: Transfor
 	return global
 
 
-## Applies a bone block (the Anon act body) through the same local-rest rule. Version 6 entries are
-## absolute local poses. `weight` blends from what the rig holds.
+## Applies a bone block (the Anon act body) through the same local-rest rule. `weight` blends from
+## what the rig holds.
 func apply_bones(sk: Skeleton3D, bones: Dictionary, weight: float) -> bool:
 	if sk == null or bones.is_empty():
 		return false
@@ -485,44 +453,16 @@ func _select(size_name: String, body_scale: float) -> void:
 func _write_bone(sk: Skeleton3D, bone: int, entry: Dictionary, weight: float) -> void:
 	var rotation: Quaternion = entry["rotation"]
 	var position: Vector3 = entry["position"]
-	if version >= CURRENT_VERSION:
-		var rest := sk.get_bone_rest(bone)
-		var basis := rest.basis * Basis(rotation)
-		position = rest.basis * position + rest.origin
-		rotation = basis.get_rotation_quaternion().normalized()
+	var rest := sk.get_bone_rest(bone)
+	var basis := rest.basis * Basis(rotation)
+	position = rest.basis * position + rest.origin
+	rotation = basis.get_rotation_quaternion().normalized()
 	sk.set_bone_pose_rotation(bone, sk.get_bone_pose_rotation(bone).slerp(rotation, weight))
 	sk.set_bone_pose_position(bone, sk.get_bone_pose_position(bone).lerp(position, weight))
 	# Reset the scale to the rig's rest. The proportion and part-hiding modifiers multiply it every
 	# pass and lean on the animation to reset it; this write replaced that animation, so the factor
 	# would compound and stretch her neck and head.
 	sk.set_bone_pose_scale(bone, sk.get_bone_rest(bone).basis.get_scale())
-
-
-## Version 6: the bed-space absolute pose with the old uniform bed-space scaling. The one-release
-## migration path; the v7 path never uses it.
-func _apply_v6(sk: Skeleton3D, weight: float, world_frame: Transform3D, body_scale: float) -> bool:
-	var root_index := root_bone(sk)
-	if root_index >= 0:
-		var wanted: Transform3D = world_frame * _v6_place(pony_frame, body_scale)
-		var desired := sk.global_transform.affine_inverse() * wanted
-		var current := sk.get_bone_global_pose(root_index)
-		sk.set_bone_global_pose(root_index, current.interpolate_with(desired, weight))
-	_cache_indices(sk)
-	for key: Variant in _indices:
-		var name := str(key)
-		var entry: Variant = pony_bones.get(name)
-		if entry is Dictionary:
-			_write_bone(sk, int(_indices[key]), entry, weight)
-	return true
-
-
-## The version 6 rule: origin and basis both multiply by `body_scale`, a uniform scale about the
-## mattress centre. Version 7 replaced it with the anchor/contact placement.
-func _v6_place(value: Transform3D, body_scale: float) -> Transform3D:
-	var out := value
-	out.origin *= body_scale
-	out.basis = out.basis * Basis.from_scale(Vector3.ONE * body_scale)
-	return out
 
 
 ## Bone indices are stable for the life of the skeleton, so resolve the names once per skeleton.
@@ -539,51 +479,7 @@ func _cache_indices(sk: Skeleton3D) -> void:
 	_index_skeleton = skeleton_id
 
 
-func _load_v6(data: Dictionary) -> void:
-	id = str(data.get("id", "missionary"))
-	if id.is_empty():
-		id = "missionary"
-	space = "bed"
-	frame = "bed"
-	rig_name = RIG_NAME
-	rig_version = RIG_VERSION
-	rig_bones = RIG_BONES
-	reference = {"size": "canon", "body_scale": 1.0, "config": {}}
-	var pony: Variant = data.get("pony")
-	if not pony is Dictionary:
-		error = "pose has no pony block"
-		return
-	pony_frame = _transform((pony as Dictionary).get("transform", ""))
-	root = pony_frame
-	if not pony_frame.origin.is_finite() or not _finite_basis(pony_frame.basis):
-		error = "pose placement is not finite"
-		return
-	pony_bones = _bones((pony as Dictionary).get("bones", {}))
-	if not _parse_bad.is_empty():
-		error = _parse_bad
-		return
-	if pony_bones.is_empty():
-		error = "pose has no pony bones"
-		return
-	var anon: Variant = data.get("anon")
-	if anon is Dictionary:
-		anon_mode = "act_body"
-		anon_frame = _transform((anon as Dictionary).get("transform", ""))
-		anon_transform = anon_frame
-		anon_bones = _bones((anon as Dictionary).get("bones", {}))
-		if not _parse_bad.is_empty():
-			error = _parse_bad
-			return
-		anon_rig = str((anon as Dictionary).get("rig", ""))
-	var bed: Variant = data.get("bed")
-	if bed is Dictionary:
-		bed_size = _vec((bed as Dictionary).get("size", ""))
-		mattress_top = float((bed as Dictionary).get("mattress_top", 0.0))
-	shots = _parse_shots(data.get("shots"))
-	has_shots = not shots.is_empty()
-
-
-func _load_v7(data: Dictionary) -> void:
+func _load_document(data: Dictionary) -> void:
 	id = str(data.get("id", ""))
 	if id.is_empty():
 		error = "pose has no id"
@@ -601,13 +497,9 @@ func _load_v7(data: Dictionary) -> void:
 		error = "pose has no rig block"
 		return
 	rig_name = str((rig as Dictionary).get("name", ""))
-	rig_version = int((rig as Dictionary).get("version", 0))
 	rig_bones = int((rig as Dictionary).get("bones", 0))
 	if rig_name != RIG_NAME:
 		error = "pose rig '%s' is not %s" % [rig_name, RIG_NAME]
-		return
-	if rig_version != RIG_VERSION:
-		error = "pose rig version %d is not %d" % [rig_version, RIG_VERSION]
 		return
 	if rig_bones != RIG_BONES:
 		error = "pose rig bones %d is not %d" % [rig_bones, RIG_BONES]
@@ -659,8 +551,6 @@ func _load_v7(data: Dictionary) -> void:
 	if not variant_error.is_empty():
 		error = variant_error
 		return
-	pony_frame = root
-	anon_frame = anon_transform
 
 
 func _check_body_bones(bones: Dictionary) -> String:
@@ -712,7 +602,6 @@ func _parse_anon_into(value: Variant) -> String:
 	anon_rig = str(parsed["rig"])
 	anon_transform = parsed["transform"]
 	anon_bones = parsed["bones"]
-	anon_frame = anon_transform
 	return ""
 
 

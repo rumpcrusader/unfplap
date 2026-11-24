@@ -486,12 +486,11 @@ func _standing_config(overrides := {}) -> Dictionary:
 	return config
 
 
-## A synthetic v7 base for the standing driver: one observable bone and a ground frame. The
+## A synthetic base for the standing driver: one observable bone and a ground frame. The
 ## shipped asset's numbers belong to `test_pose_bake`; this suite only needs a base to exist.
 func _standing_base(made: Dictionary, bone := "pony_spine1", angle := 0.2) -> Variant:
 	var asset: Variant = AUTHORED.new()
 	asset.available = true
-	asset.version = 7
 	asset.space = "local_rest"
 	asset.frame = "ground"
 	asset.root = Transform3D.IDENTITY

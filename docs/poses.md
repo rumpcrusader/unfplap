@@ -1,7 +1,7 @@
 # Poses and skeleton
 
 This is the contract for the act's pose system: the pose document and its static capability table,
-the live session state machine, the authored edges and their per-channel tracks, the v7 authored
+the live session state machine, the authored edges and their per-channel tracks, the authored
 assets and their placement, the per-pose settings and the post-act posture. The player frame is
 this file's `## Player frame`; the act camera and the live view are `docs/camera.md`; the anatomy
 part is `docs/anatomy.md`;
@@ -30,9 +30,9 @@ contract. `camera/api.gd` and `camera/view.gd` own the view and its live offsets
 
 `poses/pose_rig.gd` is the bone cache and body-relative axes. `poses/tail_chain.gd` resolves the
 visible tail chain: the devkit hair chain `mTail1..mTail6` when present, otherwise the fitted body
-chain `pony_tail_01..pony_tail_05`. `poses/authored_pose.gd` loads a
-pose spec row's `asset` document (version 7 with the version 6 migration path); the missionary and
-standing rows own their files and a base row supplies the asset to its internal inheritors.
+chain `pony_tail_01..pony_tail_05`. `poses/authored_pose.gd` loads a pose spec row's `asset`
+document; the missionary and standing rows own their files and a base row supplies the asset to
+its internal inheritors.
 `poses/oral_turn.gd` is the pose-owned standing oral actor/frame turn,
 `poses/standing_oral_recipe.gd` its procedural delta and `poses/face_contact.gd` the bed face-sit
 contact driver. `poses/pose_driver.gd` is the typed driver protocol every recipe extends: the
@@ -101,17 +101,16 @@ pitch, eye line, look, controls or the act body's first placement
 
 A pose row's `asset` names its authored document under `poses/`; an internal row may leave it empty
 and inherit it through its `base` chain, or own its asset. The shipped internal rows inherit. The
-scene gate's `pose_asset`/`pose_rig` rows read the resolved
-document. `poses/authored_pose.gd` is the one loader; it reads version 7 and the version 6 bed-space
-migration path, and never converts a pose per frame. `poses/api.gd` exposes `warm_asset(path)`
-so a caller parses one authored asset into the shared cache before it reads it: the two offerable
-assets are warmed at world ready, under the loading cover, so the idle hint's `pose_asset` row does
+scene gate's `pose_asset`/`pose_rig` rows read the resolved document. `poses/authored_pose.gd` is
+the one loader; it reads the document and never converts a pose per frame. `poses/api.gd` exposes
+`warm_asset(path)` so a caller parses one authored asset into the shared cache before it reads it:
+the two offerable assets are warmed at world ready, under the loading cover, so the idle hint's `pose_asset` row does
 not load them inside its first scan. `reload_authored_base()` is the debug block's **Reload posed
 base**: it re-reads the base document from disk and returns the loader's complaint, or "" on
 success.
 
-Version 7 stores `space: "local_rest"`, the pose's `frame` (`bed` or `ground`), the `rig` name,
-version and bone count, the bake `reference` (`size`, `body_scale`, the config the base was authored
+The document stores `space: "local_rest"`, the pose's `frame` (`bed` or `ground`), the `rig` name
+and bone count, the bake `reference` (`size`, `body_scale`, the config the base was authored
 at), one `anchor` (the `pony_hips` global pose in frame space, a `contact` point in the hips frame
 and the `support` height), the armature `root`, the body bone deltas, and optional `anon`, `shots`,
 `bed` and `variants` blocks.
@@ -133,30 +132,27 @@ and the `support` height), the armature `root`, the body bone deltas, and option
 - **Variants.** A variant is keyed by `size_name` with its own `body_scale`; an unknown name snaps to
   the nearest variant scale. It replaces `anchor`, `root`, `anon` and `shots` and merges
   `pony.bones` per bone. `space`, `frame`, `rig` and `reference` belong to the base and may not be
-  changed by a variant. v1 ships no variants.
-- **Version 6.** Bed space with absolute local bone poses and the uniform `bed_frame * (pony_frame ×
-  body_scale)` placement. It is read for one release and is refused for a ground pose; nothing new
-  is authored in it.
+  changed by a variant. The shipped assets carry no variants.
 
 ## Authoring and the bake
 
 `tools/pose_lab.gd` is the authoring scene. `pose_id` derives the shipped `poses/<id>_pose.json`
 path, `frame_kind` selects a bed or ground pose, and `anon_mode` selects whether the Anon act body
 is exported. Ground mode adds a floor and a `Contact` marker, hides the bed and the shot nodes and
-derives the frame from the pony root. **Save pose** exports the hand-posed scene as v7;
-**Bake v7** applies the reference recipe at the effective reference config and writes the standing
-asset; **Compare baked vs recipe** prints the worst joint error. A preview other than 1.0 refuses
-to save.
+derives the frame from the pony root. **Save pose** exports the hand-posed scene as the authored
+document; **Bake standing** applies the reference recipe at the effective reference config and
+writes the standing asset; **Compare baked vs recipe** prints the worst joint error. A preview
+other than 1.0 refuses to save.
 
 `tools/pose_export.gd` is the command-line twin: it round-trips the shipped asset, runs the moved
 bed-frame apply and the four-size body check, and prints PASS/FAIL. `--out <path>` writes a scratch
 asset, `--check` leaves the shipped file alone and `--pose <id>` selects another shipped pose
 (`missionary` is the default).
 
-`tools/pose_bake.gd` is the standing bake. `capture_pose()` records the current pose as a v7
-document, `capture_asset()` applies `apply_reference()` at the reference config to the rig's rest
-pose first, `write_asset()` writes the deterministic JSON (test and fixture paths are refused), and
-`compare()` applies the baked asset and reports the worst error against the recipe.
+`tools/pose_bake.gd` is the standing bake. `capture_pose()` records the current pose as an asset,
+`capture_asset()` applies `apply_reference()` at the reference config to the rig's rest pose first,
+`write_asset()` writes the deterministic JSON (test and fixture paths are refused), and `compare()`
+applies the baked asset and reports the worst error against the recipe.
 
 `tools/pose_runtime_check.gd` runs the missionary recipe on the real body rig against one shipped
 asset in a moved bed frame and checks that the overlays preserve the authored joints; `--pose <id>`
@@ -167,13 +163,13 @@ shins down and her head over his chest.
 ## Bed face-sit
 
 `poses/bed_facesit_pose.json` is the internal bed face-sit asset. It is authored in the bed frame;
-its bone entries are v7 `local_rest` deltas. It is kept out of offers, settings and
+its bone entries are `local_rest` deltas. It is kept out of offers, settings and
 `CATALOG.all()`; the debug **Pose: face-sit** action is its only trigger. The arrangement is Anon
 on his back with his head under her hips; she kneels astride his head with her knees and shins on
 the mattress and her vulva on his mouth, and leans forward over his chest. The `anchor` is her
 `pony_hips` pose, its `contact` is the shin/knee support on the mattress, and `support` is the
-mattress top, so the v7 anchor/contact rule carries the four Pony size presets. The `anon` block is
-the full `Anon3` block: the bed-frame placement and the v7 local-rest bones; the five authored
+mattress top, so the anchor/contact rule carries the four Pony size presets. The `anon` block is
+the full `Anon3` block: the bed-frame placement and the local-rest bones; the five authored
 shots stay in the asset for the pose lab and the act's look path, which reads their bases while the
 view position stays at Anon's eye. There are no
 variants and no `provisional` flag. The asset's `--pose bed_facesit --check` round-trip and the
@@ -654,8 +650,8 @@ specs (`standing`, `standing_test`) keep the runtime's standing Anon controller.
 accepts `hold` (keep the adapter), `blend` (carry the live edge weight) and `switch` (name an
 authored profile); the adapter caches the last profile and weight. Outside an edge the service
 binds the live asset on both sides, so the adapter keeps its single placement and bone-block path.
-On a blend it evaluates both authored placements and both v7 local-rest bone blocks and mixes
-them at the edge weight; a v6 or mixed pair keeps the live side's single path. A switch binds the
+On a blend it evaluates both authored placements and both local-rest bone blocks and mixes
+them at the edge weight; a mixed pair keeps the live side's single path. A switch binds the
 target asset twice. The completion tick also binds the adopted asset before the next fan-out, so
 there is no one-frame source pose. A pose change never frees the
 adapter; the one act exit does.
@@ -735,15 +731,14 @@ Missionary is its own state, not the game's bed rest:
 
 ### Base pose
 
-- **Asset.** `poses/authored_pose.gd` reads version 7 of the JSON once per process and caches it.
+- **Asset.** `poses/authored_pose.gd` reads the JSON once per process and caches it.
   The file stores `local_rest` bone deltas, the hips anchor and contact, the armature root and the
   optional anon/shots/bed blocks; the asset's **frame** is bed space: origin at the middle of the
   mattress top, the bed's own axes, `+Z` the direction her head points. The runtime maps the frame
   onto the real bed with
   `bed_frame = Transform3D(bed basis * Basis(UP, PI), Vector3(bed x, drawn mattress top, bed z))`,
   so the pillow end (the shared bed frame's `-Z`) is where her head points. The bones are not bed
-  space: the loader applies `rest * delta`, and the anchor/contact rule places the root. Version 6
-  remains the one-release read path.
+  space: the loader applies `rest * delta`, and the anchor/contact rule places the root.
 - **The act owns the render.** The game re-poses the rig after our modifier pass (the clip tier's
   `enter`/`leave`, the posture and the terrain solver), so the modifier's write is not what the
   renderer sees. The runtime therefore applies the same recipe once more from `_process`, after
@@ -760,10 +755,9 @@ Missionary is its own state, not the game's bed rest:
   own them.
 - **The file carries every one of those bones, including the ones left at rest.** The runtime
   writes only what the file holds and never resets the rig, so a bone missing from the file keeps
-  the game's own pose and breaks the chain it hangs from. Version 7 stores every bone as a
-  `local_rest` delta, including the ones left at rest; the loader applies `rest * delta`. The lab
-  reads a v7 file as `local_rest` and only the v6 migration as bed space, so an older file is never
-  applied as lab world.
+  the game's own pose and breaks the chain it hangs from. Every bone is stored as a `local_rest`
+  delta, including the ones left at rest; the loader applies `rest * delta`. The lab reads the
+  document as `local_rest`, so a file is never applied as lab world.
 - **Own the scale too.** `FillyProportions` and the part hiders *multiply* a bone's pose scale
   every modifier pass (`set_bone_pose_scale(..., get_bone_pose_scale(...) * factor)`) and rely on
   the animation resetting it to rest each frame. The act replaces the animation, so every bone it
@@ -834,9 +828,9 @@ Missionary is its own state, not the game's bed rest:
   the first gaze correction.
 - The bed frame carries the body and the eye together on any bed; the authored shot positions are
   bed-relative lab data the act does not use, and its look path reads the shot bases.
-- **No fallback.** There is no second missionary pose. A missing/invalid asset, a version below 6
-  or no bed frame (the floating pose preview) means no pose is applied, and the act's `pose_asset`
-  gate refuses the start with `missionary pose unavailable: <reason>` in the log.
+- **No fallback.** There is no second missionary pose. A missing/invalid asset or no bed frame
+  (the floating pose preview) means no pose is applied, and the act's `pose_asset` gate refuses the
+  start with `missionary pose unavailable: <reason>` in the log.
 - **Reload.** The asset is shared for the process; the **Reload posed base** Debug block action
   re-reads the file in place, so the lab export → game reload loop works mid-act.
 
@@ -897,7 +891,7 @@ is `## Player frame`.
 - `poses/ear_twitch.gd` flicks both ear roots together on a thrust: a shared forward/back pitch and a
   sideways twitch that sends both ears outward or both toward the head. The per-ear sign comes
   from the root's lateral offset, with an eased envelope and cooldown.
-- The standing base is the v7 asset `poses/standing_pose.json`, baked from the body rig's rest pose
+- The standing base is the asset `poses/standing_pose.json`, baked from the body rig's rest pose
   with `apply_reference()` at the effective reference config. The live recipe applies only the
   difference from that reference; the default stance is the baked pose and matches the old
   procedural stance on every owned bone. The asset carries the 30 body bones, not `pony_head`, so

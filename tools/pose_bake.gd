@@ -1,5 +1,5 @@
 extends SceneTree
-## Dev-only bake tool: turns the body rig's rest pose into the shipped v7 `poses/standing_pose.json`
+## Dev-only bake tool: turns the body rig's rest pose into the shipped `poses/standing_pose.json`
 ## with the reference recipe, and compares a baked asset with that recipe. The game's own settled
 ## standing pose is `pony_gait_profile.gd`'s `standing`, bound from the same rest, so rest plus the
 ## recipe is the act's old procedural stance. A live capture is never the input: at `begin()` the
@@ -21,20 +21,18 @@ const STANDING_PATH := "res://mods/unfplap/poses/standing_pose.json"
 const PONY_BONES := AUTHORED.PONY_BONES
 
 
-## Records the current pose as a v7 asset. `world_frame` is the live bed or ground frame, and
+## Records the current pose as an asset. `world_frame` is the live bed or ground frame, and
 ## `contact_point` is the world support contact (the mattress or the ground). All values are stored
 ## as the JSON strings the runtime loader reads.
 static func capture_pose(skeleton: Skeleton3D, world_frame: Transform3D, contact_point: Vector3,
 		config: Dictionary = {}, size_name: String = "canon", body_scale: float = 1.0,
 		pose_id: String = "standing", frame_kind: String = "ground") -> Dictionary:
 	var data := {
-		"version": 7,
 		"id": pose_id,
 		"space": AUTHORED.SPACE_LOCAL_REST,
 		"frame": frame_kind,
 		"rig": {
 			"name": AUTHORED.RIG_NAME,
-			"version": AUTHORED.RIG_VERSION,
 			"bones": AUTHORED.RIG_BONES,
 		},
 		"reference": {

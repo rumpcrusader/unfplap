@@ -418,19 +418,12 @@ func _trace_before(sk: Skeleton3D, state: Dictionary) -> void:
 		diag_hips_start = g * sk.get_bone_global_pose(_rig.hips)
 	var frame: Transform3D = _frame()
 	var body_scale := float(state.get("body_scale", 1.0))
-	if authored.version >= 7:
-		diag_root_wanted = authored.placed_root(frame, body_scale)
-	else:
-		var placement := authored.pony_frame
-		var scaled: Transform3D = placement
-		scaled.origin *= body_scale
-		scaled.basis = scaled.basis * Basis.from_scale(Vector3.ONE * body_scale)
-		diag_root_wanted = frame * scaled
+	diag_root_wanted = authored.placed_root(frame, body_scale)
 	var entries := authored.pony_bones
 	var entry: Variant = entries.get("pony_hips") if entries is Dictionary else null
 	if entry is Dictionary:
 		var local := Transform3D(Basis((entry as Dictionary)["rotation"]), (entry as Dictionary)["position"])
-		if authored.version >= 7 and _rig.hips >= 0:
+		if _rig.hips >= 0:
 			local = sk.get_bone_rest(_rig.hips) * local
 		diag_hips_wanted = diag_root_wanted * local
 

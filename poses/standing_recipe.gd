@@ -44,7 +44,7 @@ func apply(rig, sk: Skeleton3D, weight: float, state: Dictionary) -> void:
 	apply_overlay(rig, sk, weight, state)
 
 
-## The baked base: the v7 asset plus the live-setting difference from its reference. False when
+## The baked base: the authored asset plus the live-setting difference from its reference. False when
 ## the asset or the ground frame is unavailable; there is no procedural fallback.
 func apply_base(rig, sk: Skeleton3D, weight: float, state: Dictionary) -> bool:
 	_config = state.get("config", {})

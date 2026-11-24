@@ -35,11 +35,8 @@ func run() -> void:
 		_finish()
 		return
 	check(bool(pose.get("available")), "asset available: %s" % str(pose.get("error")))
-	check(int(pose.get("version")) == AUTHORED.CURRENT_VERSION,
-		"version %d" % int(pose.get("version")))
 	check(str(pose.get("space")) == AUTHORED.SPACE_LOCAL_REST, "local_rest space")
 	check(str(pose.get("frame")) == "bed", "the missionary asset is a bed pose")
-	check(int(pose.get("rig_version")) == AUTHORED.RIG_VERSION, "rig version")
 	check(int(pose.get("rig_bones")) == AUTHORED.RIG_BONES, "rig bone count")
 	var bones: Dictionary = pose.get("pony_bones")
 	var banned: Array[String] = []

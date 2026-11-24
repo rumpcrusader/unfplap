@@ -145,13 +145,11 @@
 	},
 	"rig": {
 		"bones": 30,
-		"name": "hybrid_mare",
-		"version": 1
+		"name": "hybrid_mare"
 	},
 	"root": "Transform3D(1, -8.0556e-16, 2.623983e-08, 4.1323523e-15, 1, -1.2678407e-07, -2.623983e-08, 1.2678407e-07, 1, 0, 0, 0)",
 	"space": "local_rest",
 	"variants": {
 
-	},
-	"version": 7
+	}
 }

@@ -52,7 +52,7 @@ table, not a second owner: each rule has exactly one suite.
 | `tests/test_catalog.gd` | `tests/poses/test_pose_registry.gd` |
 | `tests/poses/test_pose_rig.gd` | `tests/poses/test_pose_asset.gd` |
 | `tests/poses/test_body_sway.gd`, `tests/poses/test_prone_sway.gd` | `tests/poses/test_pose_sway.gd` |
-| `tests/poses/test_pose_scale.gd` | `tests/poses/test_pose_asset_v7.gd` |
+| `tests/poses/test_pose_scale.gd` | `tests/poses/test_pose_asset_layout.gd` |
 | `tests/anatomy/test_facts.gd` | `tests/act_facts/test_act_facts.gd` |
 | `tests/anatomy/test_act_bridge.gd` | `tests/anatomy/test_api.gd` |
 | `tests/anatomy/test_appearance.gd` | `tests/anatomy/test_coat.gd` |
@@ -265,7 +265,7 @@ The pose suites are `tests/poses/test_pose_state.gd`, `test_pose_edge.gd`,
 `test_pose_registry.gd`, `test_pose_spec.gd`, `test_pose_view.gd`, `test_session.gd`,
 `test_pose_blend.gd`, `test_pose_teardown.gd`, `test_oral_turn.gd`, `test_face_contact.gd`,
 `tests/test_face_sit_action.gd` (the debug action and its refusal helper),
-`test_modifier_profile.gd`, `test_pose_asset.gd`, `test_pose_asset_v7.gd`, `test_pose_bake.gd`,
+`test_modifier_profile.gd`, `test_pose_asset.gd`, `test_pose_asset_layout.gd`, `test_pose_bake.gd`,
 `test_rotation.gd`, `test_pose_sway.gd` and `test_act_body.gd`; `docs/poses.md` says what each
 pins. `tests/test_act_commands.gd` pins the pure command vocabulary: unique lower_snake_case ids,
 the continuous/discrete partition of `ALL`, the helpers and the reserved `end`.

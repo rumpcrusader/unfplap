@@ -1,7 +1,7 @@
 """Fixture checks for the static gate's rules.
 
 The real tree is checked by ``architecture.py --check``; these fixtures pin the two directions of
-the anatomy and game boundaries, the re-export scan, the facade note rules and the doc index rows
+the anatomy and game boundaries, the re-export scan, the facade note rules and the doc naming rules
 with synthetic fixtures, so the gate fails when a rule silently disappears.
 """
 from __future__ import annotations
@@ -12,10 +12,8 @@ from pathlib import Path
 from .context import ROOT
 from .docs import (
     check_docs,
-    index_scope_failures,
     member_note_failures,
     type_note_failures,
-    unknown_index_rows,
 )
 from .failure import Failure
 from .graph import is_allowed, scan_reexports
@@ -115,19 +113,15 @@ SUITE_RESULT_CASES = (
     ("printed result line", "func run() -> void:\n\tprint(\"X_RESULT checks=1 failures=0\")\n", 1),
 )
 SCOPE_DECL_CASES = (
-    ("scope declaration valid", "extends Node\n## Service: alpha\n## Scope: world\n"
-     "## Contract: docs/alpha.md\n## A purpose.\n", "alpha", None),
-    ("scope declaration missing field", "extends Node\n## Service: alpha\n## Scope: world\n",
-     "alpha", "missing the ## Contract: field"),
-    ("scope declaration wrong service", "extends Node\n## Service: beta\n## Scope: world\n"
-     "## Contract: docs/alpha.md\n", "alpha", "expected its directory alpha"),
-    ("scope declaration bad scope", "extends Node\n## Service: alpha\n## Scope: other\n"
-     "## Contract: docs/alpha.md\n", "alpha", "expected one of process|world|pony"),
-    ("scope declaration extra field", "extends Node\n## Service: alpha\n## Scope: world\n"
-     "## Contract: docs/alpha.md\n## Import: shared/x.gd\n", "alpha",
-     "unknown field ## Import:"),
-    ("scope declaration non-facade", "extends Node\n## Service: alpha\n## Scope: world\n"
-     "## Contract: docs/alpha.md\n", None, "non-facade carries a declaration field"),
+    ("scope declaration valid", "extends Node\n## Scope: world\n## A purpose.\n", "alpha", None),
+    ("scope declaration missing field", "extends Node\n## A purpose.\n", "alpha",
+     "missing the ## Scope: field"),
+    ("scope declaration bad scope", "extends Node\n## Scope: other\n## A purpose.\n", "alpha",
+     "expected one of process|world|pony"),
+    ("scope declaration extra field", "extends Node\n## Scope: world\n## Import: shared/x.gd\n",
+     "alpha", "unknown field ## Import:"),
+    ("scope declaration non-facade", "extends Node\n## Scope: world\n", None,
+     "non-facade carries a declaration field"),
     ("scope declaration prose", "extends RefCounted\n## Pure: reads only what it is given.\n",
      None, None),
 )
@@ -242,15 +236,18 @@ CROSS_CASES = (
      'const POLICY := preload("res://mods/unfplap/eligibility/policy.gd")\n',
      {}, "preloads the world file eligibility/policy.gd from the process scope"),
 )
-INDEX_SCOPE_CASES = (
-    ("index scope valid", "world", {"alpha": "world"}, None),
-    ("index scope missing", "", {"alpha": "world"}, "has no Scope for alpha"),
-    ("index scope mismatch", "pony", {"alpha": "world"}, "the facade declares world"),
-    ("index scope unknown", "other", {"alpha": "world"}, "unknown Scope for alpha: other"),
-)
-OTHER_INDEX_CASES = (
-    ("other index valid", ["alpha"], None),
-    ("other index row", ["alpha", "gamma"], "unknown service: gamma"),
+# The doc naming rule: a service doc per directory, an allowlist for the project docs, no index.
+DOC_CASES = (
+    ("doc naming valid", ["alpha"], ["alpha"], ("api.md", "tests.md", "quality.md", "vr.md"),
+     (), None),
+    ("doc missing service doc", ["alpha"], ["alpha", "beta"], (), (),
+     "missing service doc: docs/beta.md"),
+    ("doc empty service doc", ["alpha"], ["alpha"], (), ("alpha",),
+     "empty service doc: docs/alpha.md"),
+    ("doc stray doc", ["alpha"], ["alpha"], ("stray.md",), (),
+     "docs/stray.md is not a service doc"),
+    ("doc no readme", ["alpha"], ["alpha"], ("README.md",), (),
+     "docs/README.md must not exist"),
 )
 # The wiring fixtures share one synthetic world: `alpha/api.gd` is the only facade, `main.gd` its
 # root. Each rule is driven in both directions so a gutted rule fails the self-test.
@@ -376,29 +373,20 @@ PRELOAD_CASES = (
     ("dynamic asset load", "extends RefCounted\n## Header.\n\nfunc make(path):\n"
      "\treturn load(path)\n", 0),
 )
-# The two checks that build their cases in the function body: the doc index's six and the
+# The two checks that build their cases in the function body: the doc naming rule's five and the
 # game layer accessor's two.
-INLINE_CASE_COUNT = 6 + 2
+INLINE_CASE_COUNT = 5 + 2
 
 
-def index_row(sid: str, tests: str | None = None) -> str:
-    return "| %s | `%s/api.gd` | `docs/%s.md` | `%s` |" % (
-        sid, sid, sid, tests or "tests/%s/" % sid)
-
-
-def docs_fixture(root: Path, services: list[str], rows: list[str],
-                 extra_docs: tuple[str, ...] = ()) -> Path:
+def docs_fixture(root: Path, services: list[str], extra_docs: tuple[str, ...],
+                 empty_docs: tuple[str, ...] = ()) -> Path:
     docs = root / "docs"
     docs.mkdir(parents=True)
     for sid in services:
-        (docs / f"{sid}.md").write_text("# %s\n\n## Scope\n" % sid, encoding="utf-8")
-        (root / "tests" / sid).mkdir(parents=True, exist_ok=True)
+        text = "" if sid in empty_docs else "# %s\n\n%s\n" % (sid, sid)
+        (docs / f"{sid}.md").write_text(text, encoding="utf-8")
     for name in extra_docs:
         (docs / name).write_text("# extra\n", encoding="utf-8")
-    table = "\n".join(rows)
-    (docs / "README.md").write_text(
-        "# docs\n\n## Services\n\n| Service | Facade | Contract | Tests |\n"
-        "|---|---|---|---|\n%s\n" % table, encoding="utf-8")
     return docs
 
 
@@ -414,24 +402,11 @@ def expect(label: str, failures: list[str], wanted: str | None) -> int:
     return 1
 
 
-def index_cases() -> int:
-    cases = (
-        ("index valid", ["alpha", "beta"], [index_row("alpha"), index_row("beta")], (), None),
-        ("index missing row", ["alpha", "beta"], [index_row("alpha")], (),
-         "no Services row for beta"),
-        ("index dead test path", ["alpha"], [index_row("alpha", "tests/gone/")], (),
-         "names no test path that exists"),
-        ("index doc not indexed", ["alpha"], [index_row("alpha")], ("stray.md",),
-         "does not index docs/stray.md"),
-        ("index extra row", ["alpha"], [index_row("alpha"), index_row("gamma")], (),
-         "unknown service: gamma"),
-        ("index duplicate row", ["alpha"], [index_row("alpha"), index_row("alpha")], (),
-         "2 Services rows for alpha"),
-    )
+def doc_cases() -> int:
     failures = 0
-    for label, services, rows, extra, wanted in cases:
+    for label, created, services, extra, empty, wanted in DOC_CASES:
         with tempfile.TemporaryDirectory() as tmp:
-            docs = docs_fixture(Path(tmp), services, rows, extra)
+            docs = docs_fixture(Path(tmp), created, extra, empty)
             failure = Failure()
             check_docs(failure, docs=docs, services=services)
             failures += expect(label, failure.messages, wanted)
@@ -478,19 +453,6 @@ def rule_cases() -> int:
     return failures
 
 
-def services_table(rows: list[str]) -> str:
-    return (
-        "# docs\n\n## Services\n\n| Service | Facade | Contract | Tests | Scope |\n"
-        "|---|---|---|---|---|\n%s\n" % "\n".join(rows)
-    )
-
-
-def scoped_row(sid: str, scope: str) -> str:
-    cell = "`%s`" % scope if scope else ""
-    return "| %s | `%s/api.gd` | `docs/%s.md` | `tests/%s/` | %s |" % (
-        sid, sid, sid, sid, cell)
-
-
 def statics_cases() -> int:
     """Both directions for the class rule: no static state on a world or pony facade, and `WORLD`
     names only the read facade."""
@@ -526,12 +488,6 @@ def scope_cases() -> int:
     for label, path, scope_map, text, facades, wanted in CROSS_CASES:
         failures += expect(
             label, cross_scope_failures(path, text, scope_map.get, facades), wanted)
-    for label, scope, scopes, wanted in INDEX_SCOPE_CASES:
-        text = services_table([scoped_row("alpha", scope)])
-        failures += expect(label, index_scope_failures(text, scopes), wanted)
-    for label, sids, wanted in OTHER_INDEX_CASES:
-        text = services_table([index_row(sid) for sid in sids])
-        failures += expect(label, unknown_index_rows(text, ["alpha"]), wanted)
     return failures
 
 
@@ -585,8 +541,6 @@ def scope_case_count() -> int:
         FIXED_NAME_CASES,
         GROUP_CASES,
         CROSS_CASES,
-        INDEX_SCOPE_CASES,
-        OTHER_INDEX_CASES,
     ))
 
 
@@ -615,7 +569,7 @@ def main() -> int:
         if ok:
             print("FAIL forbidden edge allowed: %s -> %s" % (src, tgt))
             failures += 1
-    failures += index_cases()
+    failures += doc_cases()
     failures += rule_cases()
     failures += preload_cases()
     failures += game_layer_cases()

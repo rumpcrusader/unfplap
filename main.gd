@@ -53,7 +53,7 @@ var _services: Array[Node] = []
 
 var hud: HUD
 var input: INPUT
-## Cross-mod API facade; see docs/api.md.
+## Cross-mod API facade.
 var api: API
 ## Anatomy system facade: one controller per pony, the player part and its tail seat.
 var anatomy: ANATOMY
@@ -68,32 +68,32 @@ var integrations: INTEGRATIONS
 var stool: STOOL
 ## Act audio facade: the process-lifetime cue pool, the breath sound and her voice policy.
 var audio: AUDIO
-## Outside-act stock smack sound layer; see `docs/stock_smack.md`.
+## Outside-act stock smack sound layer.
 var stock_smack: STOCK_SMACK
 var initiation: INITIATION
-## The conversation-director bridge; see `docs/director.md`.
+## The conversation-director bridge.
 var director: DIRECTOR
-## The one bounded model transport; see `docs/classifier.md`.
+## The one bounded model transport.
 var classifier: CLASSIFIER
 var privacy: PRIVACY
 ## The Act Negotiation service: the Anon offer, the Mare exchange, the Agreement, the lock and the
-## Anon-offer watch. See `docs/negotiation.md`.
+## Anon-offer watch.
 var negotiation: NEGOTIATION
-## Internal eligibility service; see docs/eligibility.md. Never part of the cross-mod API.
+## Internal eligibility service. Never part of the cross-mod API.
 var eligibility: ELIGIBILITY
-## The dynamic act gate: relationship, romance, cycle, history and consent. See docs/act_gate.md.
+## The dynamic act gate: relationship, romance, cycle, history and consent.
 var act_gate: ACT_GATE
 ## Internal memory service: act events, impressions, witnesses and the mod's own lines.
-## See docs/memory.md. Never part of the cross-mod API.
+## Never part of the cross-mod API.
 var memory: MEMORY
 
-## The idle act offer and its hint; see docs/offer.md.
+## The idle act offer and its hint.
 var offer: OFFER
 ## The roster: one runtime per pony body, and the attach and prepare hooks.
 var ponies: PONIES
 ## The act frame: the live runtime, the serial floor and the pending body swap.
 var act_owner: ACT_OWNER
-## Every Debug block button and wheel slot; see `docs/debug_actions.md`.
+## Every Debug block button and wheel slot.
 var debug_actions: DEBUG_ACTIONS
 ## The record every runtime reads the World from, built once after the services.
 var _world: HANDLES = null
@@ -142,7 +142,7 @@ func _ready() -> void:
 	mods.on_node(PONY_PATH, _on_pony)
 	mods.on_node(SETTINGS_PAGE_PATH, _on_settings_page)
 	# The HUD owns the caption path, the tracking and the move; the entry only registers the game
-	# hook. See `docs/hud.md`.
+	# hook.
 	mods.on_node(HUD.CAPTION_PATH, Callable(hud, "caption_node"))
 	mods.on_node(DEBUG_STRETCH.ENTRY_PATH, Callable(debug_actions, "on_idle_life"))
 	# Switched on mid-game: the world and player already exist.

@@ -1,8 +1,6 @@
 extends "res://mods/unfplap/shared/start_port.gd"
 ## The scene-only Agreement start and the act key's immediate start: the frozen-pose verdict, the
 ## presentation wait, the hotkey readiness and the footstool hint.
-##
-## See `docs/runtime.md`, `docs/offer.md`, `docs/negotiation.md` and `docs/scene_gate.md`.
 
 const ACT_HOST := preload("res://mods/unfplap/act/host.gd")
 const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")

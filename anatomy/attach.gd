@@ -2,8 +2,6 @@ extends RefCounted
 ## Persistent anatomy attachment: the mesh, anchor, dock, fluid and visibility. One per
 ## controller. It owns nodes only; the controller still owns placement, shapes, coat and
 ## appearance setup and teardown.
-##
-## See `docs/anatomy.md` (`## Architecture`).
 
 const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const CLIMAX_FLUID := preload("res://mods/unfplap/anatomy/fluid.gd")

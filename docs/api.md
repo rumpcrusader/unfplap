@@ -288,7 +288,7 @@ register.
 | `id` | yes | Stable identity/relationship id. Not `default` or `anon`; at most 64 characters; no `.` or `:`. |
 | `source` | yes | Provider mod id, for logs and `sources`. |
 | `name` | no | Settings label and `describe_mare().name` for an off-roster mare. A base-game name always wins. |
-| `preferences` | no | Accepted keys: `intensity`, `pattern`, `warmth`, `tolerance`, `teat_size`, `touch`, `talk`, `dislikes`, `notes`. Values and enum lists are in `docs/preferences.md`. |
+| `preferences` | no | Accepted keys: `intensity`, `pattern`, `warmth`, `tolerance`, `teat_size`, `touch`, `talk`, `dislikes`, `notes`. Values and enum lists are in `shared/preferences.gd`. |
 | `consent` | no | `public`, `anal`, `oral` booleans. Missing keys use the deterministic id defaults. `public` is a soft Context preference; it is not an offer or act gate. `docs/eligibility.md` owns the rules. |
 | `eligible` | no | Provider-only tri-state: `true` or `false` asserts the pony's age; absent lets the game's identity decide. It is never written to the player's files. `docs/eligibility.md` owns what it changes. |
 | `profile` | no | `participation` with `acts`, `anatomy` and `tail` booleans. Missing keys default to `true`. It is subtractive: `true` means "does not veto", never "grants". `docs/eligibility.md` owns the rules. |
@@ -299,7 +299,7 @@ register.
 | `smack_zone_radius` | no | Smack target radius in metres; clamped non-negative when read (`docs/hands.md`). |
 
 `act_prompts` and `event_prompts` are not descriptor keys: prompt text is one shipped document with
-no per-mare or provider layer (`docs/prompts.md`). A descriptor that sends either key registers
+no per-mare or provider layer. A descriptor that sends either key registers
 with `ok: true` and one `unknown key` warning per key; the value is never copied into the layer and
 changes no resolved value. `describe_mare()` does not return them.
 
@@ -326,8 +326,8 @@ api.register_mare(self, {
 
 The built-in display name still wins; the provider supplies defaults, not a rename. A player's
 saved edit wins. **Reset to default** restores her preferences and participation to the shipped
-profile plus the provider layer; it leaves consent, poses and timing alone. `docs/preferences.md`
-owns the Characters form, and `docs/settings.md` owns how the player's differences are stored.
+profile plus the provider layer; it leaves consent, poses and timing alone. `docs/settings.md`
+owns the Characters form and how the player's differences are stored.
 
 ## Resolution
 
@@ -345,11 +345,11 @@ Provider layers apply in this order, highest priority first:
 Provider layers stack in registration order: a later provider wins per field. Removing a layer
 reveals the one beneath it; unregistering the last restores the shipped/global values. The shipped
 profile and placement rows live in `settings/characters.json`; `docs/settings.md` owns the
-shipped/player split and `docs/preferences.md` owns the profile chain.
+shipped/player split and the profile chain.
 
 Provider layers are defaults; the player's saved data wins. `eligible` is provider-only. Removing
 a provider leaves the player's saved differences. `docs/settings.md` owns the player files and the
-sparse-difference rule; `docs/preferences.md` owns the Characters form and Reset.
+sparse-difference rule, the Characters form and Reset.
 
 ## `describe_mare`
 

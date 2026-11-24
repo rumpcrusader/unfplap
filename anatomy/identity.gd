@@ -2,7 +2,6 @@ extends RefCounted
 ## Pure anatomy helpers: the shared body profile and the off-roster id list, without a Node,
 ## scene or settings read.
 ## The adult capability is not here; the eligibility facade owns it.
-## See `docs/anatomy.md` (`## Attachment and identity`).
 
 const BODY_PROFILE := preload("res://mods/unfplap/shared/body_profile.gd")
 

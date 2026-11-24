@@ -1,7 +1,6 @@
 extends RefCounted
 ## One mare's anatomy placement: the saved transform, the calibrated lift and the pose trims.
 ## It owns placement state only; the controller supplies the mesh, the bone bind and the depth.
-## See `docs/anatomy.md` (`## Placement`).
 
 const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")

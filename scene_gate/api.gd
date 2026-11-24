@@ -1,7 +1,5 @@
 extends Node
-## Service: scene_gate
 ## Scope: pony
-## Contract: docs/scene_gate.md
 ## The scene half of the act gate: the rows, the small checks, the bed search, the verdicts and
 ## the buck. Eligibility owns the policy.
 

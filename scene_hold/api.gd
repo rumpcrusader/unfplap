@@ -1,7 +1,5 @@
 extends Node
-## Service: scene_hold
 ## Scope: pony
-## Contract: docs/scene_hold.md
 ## The scene ownership an act borrows and gives back.
 ## The runtime owns the act state; this ledger owns the flags and the release order.
 

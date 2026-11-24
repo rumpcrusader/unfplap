@@ -785,7 +785,7 @@ func _check_sections() -> void:
 
 ## A group needs at least three related settings. Fewer, and the setting belongs directly in the
 ## tab (or its Debug block) with no heading; a subgroup that small merges into its parent. A pose
-## feature flag moved to Poses keeps its pose section; see docs/settings.md.
+## feature flag moved to Poses keeps its pose section.
 func _check_groups() -> void:
 	for tab: String in [SETTINGS.GENERAL, SETTINGS.ANATOMY, SETTINGS.POSES, SETTINGS.WORLD]:
 		for debug: bool in [false, true]:

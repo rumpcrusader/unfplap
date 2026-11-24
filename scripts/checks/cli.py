@@ -11,7 +11,6 @@ from .docs import (
     check_api_docs,
     check_docs,
     check_facade_notes,
-    check_index_scopes,
 )
 from .entry import (
     check_boundaries,
@@ -50,7 +49,6 @@ def _docs_group(failure: Failure) -> None:
     check_docs(failure)
     check_facade_notes(failure)
     check_api_docs(failure)
-    check_index_scopes(failure)
 
 
 def _scope_group(failure: Failure) -> None:

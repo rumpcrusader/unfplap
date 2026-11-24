@@ -2,7 +2,7 @@ extends RefCounted
 ## The drawn body coat: the mesh and surface the coat shader and the caress should use.
 ##
 ## A source body can hide the game's MareBody and draw its own, so the hidden one is never touched;
-## this picks the visible coat instead. See `docs/anatomy.md` (`## Body coat deform`).
+## this picks the visible coat instead.
 
 const BODY_INCLUDE := "res://world/characters/hybrid_mare/flank_jiggle.gdshaderinc"
 ## The game coat surface, and the changelings pack's own coat surface.

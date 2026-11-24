@@ -5,6 +5,8 @@ extends RefCounted
 
 const DEFAULTS_DATA := preload("res://mods/unfplap/shared/defaults_data.gd")
 
+## The roster's adult mares, the original sixteen first. Two base adults are absent because their
+## identity flags do not match their written profiles.
 const ORDER := [
 	"twilight_sparkle",
 	"fluttershy",

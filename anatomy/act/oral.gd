@@ -1,7 +1,7 @@
 extends RefCounted
 ## The standing oral mouth/contact provider: her mouth point, the base opening, the D viseme and
 ## the clear action. It owns no turn, no mix, no facing and no pose keys; the pose service's oral
-## turn drives the frame and the contact anchor. Contract: `docs/anatomy.md`.
+## turn drives the frame and the contact anchor.
 
 const CONTROLLER := preload("res://mods/unfplap/anatomy/controller.gd")
 const RIG := preload("res://mods/unfplap/anatomy/rig.gd")

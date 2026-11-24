@@ -1,8 +1,6 @@
 extends RefCounted
 ## The idle side of the frame schedule; `act/tick.gd` still owns the ordered tick and calls in
 ## after its early return.
-##
-## See `docs/runtime.md`.
 
 const ACT_NODE := preload("res://mods/unfplap/act/host.gd")
 const ACT_OWNER := preload("res://mods/unfplap/act_owner/api.gd")

@@ -2,8 +2,6 @@ extends RefCounted
 ## The act's ordered frame schedule. The runtime node's `_physics_process` and `_process` forward
 ## here; this module owns the order, the chunk names and the one pose fan-out, and calls each
 ## step's owner. It implements no owner's rules.
-##
-## See `docs/runtime.md`.
 
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const ACT_HOST := preload("res://mods/unfplap/act/host.gd")

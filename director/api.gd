@@ -1,7 +1,5 @@
 extends "res://mods/unfplap/shared/service.gd"
-## Service: director
 ## Scope: world
-## Contract: docs/director.md
 ## The conversation-director bridge: the quiet gate, the lines, the situations and the two watches.
 
 const BRIDGE := preload("res://mods/unfplap/director/bridge.gd")

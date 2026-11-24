@@ -1,7 +1,5 @@
 extends "res://mods/unfplap/shared/service.gd"
-## Service: act_owner
 ## Scope: world
-## Contract: docs/act_owner.md
 ## The act frame: the live runtime, the serial floor and the one pending body swap.
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")

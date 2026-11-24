@@ -2,8 +2,6 @@ extends RefCounted
 ## The act view composition. It fills the typed read model (`shared/act_facts.gd`) from the
 ## session, the live systems and the plain act values, and gathers the HUD card's values. One per
 ## pony, bound once; the schedule and the act boundaries call it once per phase.
-##
-## See `docs/act_facts.md` and `docs/runtime.md`.
 
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")

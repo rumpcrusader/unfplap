@@ -1,7 +1,5 @@
 extends Node
-## Service: face
 ## Scope: pony
-## Contract: docs/face.md
 ## The act's single face owner: the beat table, the line-face rule and the held post-act face.
 ## Scene values arrive from the runtime; this facade never reads its node.
 

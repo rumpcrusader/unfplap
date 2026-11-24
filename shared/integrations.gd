@@ -23,7 +23,7 @@ const PROVIDERS := {
 		},
 	},
 	## The Pantyhose & Panties adapter is a world integration: no per-act provider, no bindings, its
-	## own every-frame pass. See `docs/integrations.md` (`## Pantyhose & Panties`).
+	## own every-frame pass.
 	"pantyhose": {
 		"mod_id": "pantyhose",
 		"mod_name": "Pantyhose & Panties",

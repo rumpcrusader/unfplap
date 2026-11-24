@@ -1,7 +1,7 @@
 extends RefCounted
 ## Pure Base clearance for act negotiation: the gates that run once per route, at offer formation
 ## and at hotkey attempt. The caller gathers the plain values; this file reads no service, scene,
-## setting, clock or file. Contract: `docs/act_gate.md` (`## Base clearance`).
+## setting, clock or file.
 
 const REASON_ELIGIBLE := "eligibility"
 const REASON_RELATIONSHIP := "relationship"

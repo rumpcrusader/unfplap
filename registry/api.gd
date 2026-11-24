@@ -1,7 +1,5 @@
 extends RefCounted
-## Service: registry
 ## Scope: process
-## Contract: docs/registry.md
 ## In-memory provider registry for mare templates.
 
 const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")

@@ -1,6 +1,6 @@
 extends RefCounted
 ## Pure act-gate fact schema. The service builds the dictionary and the policy reads it; facts are
-## a per-call snapshot, never cached or stored. See `docs/act_gate.md`.
+## a per-call snapshot, never cached or stored.
 
 const PARTICIPATION := preload("res://mods/unfplap/shared/participation.gd")
 const CONSENT := preload("res://mods/unfplap/shared/consent.gd")

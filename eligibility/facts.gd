@@ -1,7 +1,7 @@
 extends RefCounted
 ## Pure eligibility fact schema: the identity half and the adulthood predicates.
 ## The shell builds the dictionary and the policy reads it; this file has no scene access.
-## Facts are a per-call snapshot, never cached or stored. See `docs/eligibility.md`.
+## Facts are a per-call snapshot, never cached or stored.
 
 const PARTICIPATION := preload("res://mods/unfplap/shared/participation.gd")
 

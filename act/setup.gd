@@ -2,8 +2,6 @@ extends RefCounted
 ## The closed `start.setup` adapter set: the bed stand-up and the standing place. It never selects
 ## on a pose id; a new pose row adds its setup name and data, not a branch here. A missing or
 ## unknown name is a data error after the gate passed.
-##
-## See `docs/runtime.md` and `docs/poses.md`.
 
 const ACT_HOST := preload("res://mods/unfplap/act/host.gd")
 const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")

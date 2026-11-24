@@ -1,7 +1,5 @@
 extends Node
-## Service: kiss
 ## Scope: pony
-## Contract: docs/kiss.md
 ## Missionary and standing kiss. The runtime owns the act state; this controller owns the base
 ## AffectionPose bridge, the custom mouth aim, the foreleg pin and the kiss lean.
 

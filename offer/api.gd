@@ -1,7 +1,5 @@
 extends "res://mods/unfplap/shared/service.gd"
-## Service: offer
 ## Scope: world
-## Contract: docs/offer.md
 ## The idle act offer: what a press could start, and the start itself.
 
 const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
@@ -34,7 +32,7 @@ const NEEDS_STOOL_HINT := "Needs a footstool"
 ## The Agreement auto-start's readiness cadence.
 const AGREEMENT_START_S := 0.25
 ## The runtime's Agreement start answer: a wait leaves it for the next press, started and failed
-## both end it. Kept local because this service never preloads the runtime.
+## both end it. This service never preloads the runtime, so it restates the three outcomes here.
 const AGREEMENT_WAIT := 0
 const AGREEMENT_STARTED := 1
 

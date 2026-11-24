@@ -1,7 +1,5 @@
 extends Node
-## Service: rest
 ## Scope: pony
-## Contract: docs/rest.md
 ## Scene work for the bed/couch rest and the cuddle rejoin; the runtime owns the act state.
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")

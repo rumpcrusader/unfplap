@@ -1,5 +1,5 @@
 extends RefCounted
-## Scene adapter for the standing act's footstool stack. See docs/stool.md.
+## Scene adapter for the standing act's footstool stack.
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const ITEM := preload("res://mods/unfplap/stool/item.gd")

@@ -1,7 +1,7 @@
 extends RefCounted
 ## The typed proactive-request facts: the plain values the pure rules and the wording read. The
 ## facade builds one per call from the live episode; it never carries a Node, a timer or a
-## dictionary. See `docs/initiation.md`.
+## dictionary.
 
 class Request extends RefCounted:
 	## The pose she is offering.

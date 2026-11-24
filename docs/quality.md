@@ -45,24 +45,18 @@ Godot upgrade and re-run the gate.
 
 ## Comments
 
-Comments are shape-gated, not prose-reviewed. `scripts/comments.py --check` runs inside
-`scripts/lint.sh` and in the source-checks CI job; tests and tools are excluded like gdlint. The
-rules:
+Comments carry what the code cannot: rationale, traps, ordering constraints and game quirks. There
+is no size cap. `scripts/comments.py --check` runs inside `scripts/lint.sh` and in the source-checks
+CI job; tests and tools are excluded like gdlint. The rules:
 
-- a facade header is at most five `##` lines: `Service:`/`Scope:`/`Contract:` plus one
-  purpose sentence; a module header is its purpose sentence and nothing else;
-- any other `##` block is at most two lines: the promise, then one clause of why;
-- a `#` block is at most three lines;
 - no backticked private `_member` (Godot engine virtuals excepted);
 - every backticked `docs/x.md` must exist; heading anchors are not resolved, so a heading rename
   never edits a comment;
 - a comment sentence may not copy a sentence from `docs/*.md` or `ARCHITECTURE.md`.
 
 `--audit` prints every finding as JSON and `--self-test` runs the rule fixtures that `lint.sh`
-executes first. The gate checks shape and rename-safety only; whether a comment earns its place is
-review, under `AGENTS.md`. The reason for
-the caps is churn: a comment that names a member, a count or a doc sentence must be edited on every
-rename or refactor, and a two-line block cannot grow back into a second copy of the owning doc.
+executes first. The gate checks rename-safety and copied prose only; whether a comment earns its
+place is review, under `AGENTS.md`.
 
 ## Complexity
 
@@ -131,9 +125,9 @@ owns the concepts; this section owns the complete roster. Every rule has both di
 - **The two debug assertions.** The entry logs one error per direct child outside `unfplap_world`
   (the API node is the named exception); the runtime logs one per direct child outside
   `unfplap_pony_service`. Both run behind `LOG.enabled` and return the offender count.
-- **The scope tree is static.** Every facade declares `Service:`/`Scope:`/`Contract:` and the
-  Services table repeats the scope; a non-facade declares nothing except the frozen
-  `shared/log.gd` and `shared/perf.gd` headers. A `world` or `pony` facade is a Node,
+- **The scope tree is static.** Every facade declares the one `## Scope:` field; a non-facade
+  declares nothing except the frozen `shared/log.gd` and `shared/perf.gd` headers. A `world` or
+  `pony` facade is a Node,
   `CanvasLayer` or `shared/service.gd` (`world/api.gd` is the `WORLD_STATIC` exception). Only
   `main.gd` and `runtime.gd` construct and attach their scopes, through their attach helpers and
   their `unfplap_world`/`unfplap_pony_service` groups; a cross-scope private preload or
@@ -152,10 +146,10 @@ owns the concepts; this section owns the complete roster. Every rule has both di
   created by their owners. Both allow-lists live in the checker and are compared in both
   directions, so a new settings read or node fails the gate and a row whose code is gone fails as
   stale. File size is reported as `SMELL large file`, never as a cap.
-- **Every service has a contract chain.** Every service has a facade, a contract doc, a test
-  directory and exactly one index row; each contract has an ownership heading and names its facade;
-  every facade's public type carries a `##` note, and `api.gd`'s public surface is named in
-  `docs/api.md`.
+- **Every service is named and documented.** Every service's facade is `<id>/api.gd`, its doc is
+  `docs/<id>.md` and it is non-empty; every `docs/*.md` is a service doc or one of the project docs
+  (`api`, `tests`, `quality`, `vr`), and `docs/README.md` must not exist. Every facade's public type
+  carries a `##` note, and `api.gd`'s public surface is named in `docs/api.md`.
 - **The ledgers only shrink.** `architecture/exceptions.json` fails on a new violation or a stale
   exception. `architecture/typing_debt.json` fails when the weak-signature debt grows.
   `architecture/duck_typing.json` fails when a shipped file outside the accessor allowlist adds a
@@ -169,9 +163,9 @@ Each is a pure function with both directions in the self-test; `ARCHITECTURE.md`
 
 1. **Facade name.** A shipped service facade is `<id>/api.gd`; a `*/service.gd` outside `shared/`
    fails. `shared/service.gd` is the base class and keeps its name.
-2. **Declaration.** Every facade carries `Service:` equal to its directory, `Scope:` in
-   `process|world|pony` and `Contract: docs/<sid>.md`; a non-facade carries none, except
-   `shared/log.gd` and `shared/perf.gd`, whose frozen header is their contract.
+2. **Declaration.** Every facade carries `Scope:` in `process|world|pony`; any other field is an
+   unknown field, and a non-facade carries none, except `shared/log.gd` and `shared/perf.gd`, whose
+   frozen header is their contract.
 3. **Node base.** A `world` or `pony` facade extends `Node`, `CanvasLayer` or `shared/service.gd`
    directly or through a chain; a `process` facade may be anything. `WORLD_STATIC`
    (`world/api.gd`) is the one named exception.
@@ -189,9 +183,9 @@ Each is a pure function with both directions in the self-test; `ARCHITECTURE.md`
 8. **Static state.** A `world` or `pony` facade declares no `static var`; a `process` facade and
    `world/api.gd` may. A `WORLD` alias whose value is a `preload(...)` names `world/api.gd`.
 
-The `Other` class is derived: a directory with no facade is never indexed in the Services table and
-never constructed by a root. The index-scope check — every Services row's `Scope` cell equals its
-facade's `Scope:` — lives in the docs group.
+The `Other` class is derived: a directory with no facade is never constructed by a root. The docs
+group checks only the naming contract: a non-empty `docs/<id>.md` per service, the project-doc
+allowlist, and no `docs/README.md`.
 
 ### The static invariants
 

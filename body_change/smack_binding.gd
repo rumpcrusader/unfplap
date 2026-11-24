@@ -2,7 +2,6 @@ extends "res://mods/unfplap/shared/body_binding.gd"
 ## The stock smack body binding: hands a presented body to the outside-act smack layer again
 ## when its form changes, so a body the entry has not seen yet joins the pack stream.
 ## `pony_ready()` is idempotent, so a revision is a quiet no-op.
-## See `docs/body_change.md` (`## Bindings`) and `docs/audio.md`.
 
 ## The outside-act stock smack layer, for its public `pony_ready(pony)`.
 var adapter: Node = null

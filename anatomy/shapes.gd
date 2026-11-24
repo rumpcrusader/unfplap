@@ -2,8 +2,6 @@ extends RefCounted
 ## Persistent anatomy shape state: the mare bits mesh, the closed/idle/fill/grip drive, Anon's
 ## shaft mask and the anal keys. It owns the tweens on the anatomy node and exposes the
 ## opening queries the act and coat use.
-##
-## See `docs/anatomy.md` (`## Act anatomy`).
 
 const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const GEOMETRY := preload("res://mods/unfplap/anatomy/geometry.gd")

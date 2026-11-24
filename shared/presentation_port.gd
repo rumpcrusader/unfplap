@@ -1,7 +1,7 @@
 @abstract
 extends RefCounted
 ## The per-pony presentation handle: the footstool reads, the scene hold and the standing
-## presentation the offer reads and clears. See `docs/runtime.md`.
+## presentation the offer reads and clears.
 
 ## The default "no stool pair" for a call that found no per-act handle.
 const NO_STOOL_PAIR := Vector2i(-1, -1)

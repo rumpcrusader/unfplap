@@ -1,7 +1,5 @@
 extends "res://mods/unfplap/shared/service.gd"
-## Service: memory
 ## Scope: world
-## Contract: docs/memory.md
 ## The only file other systems preload or call; the peak store is the one persisted value.
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")

@@ -1,7 +1,5 @@
 extends Node
-## Service: summary
 ## Scope: pony
-## Contract: docs/summary.md
 ## Owns the scoring trigger, the grade-aware commit and the peak-memory record.
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")

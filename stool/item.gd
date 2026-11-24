@@ -1,5 +1,5 @@
 extends RefCounted
-## Pure briefcase ownership checks for the base-game footstool. See docs/stool.md.
+## Pure briefcase ownership checks for the base-game footstool.
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 

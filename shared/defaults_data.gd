@@ -37,7 +37,9 @@ static func characters() -> Dictionary:
 	return _characters_cache
 
 
-## The parsed prompts document, or `{}` when the file is missing or malformed.
+## The parsed prompts document, or `{}` when the file is missing or malformed. It is shipped,
+## read-only data: never a player file, never a settings-sync promotion target, and no provider may
+## override it.
 static func prompts() -> Dictionary:
 	if not _prompts_loaded:
 		_prompts_loaded = true

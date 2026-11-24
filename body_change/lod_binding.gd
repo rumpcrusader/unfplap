@@ -1,7 +1,6 @@
 extends "res://mods/unfplap/shared/body_binding.gd"
 ## The LOD body binding: re-arms a presented body's near mesh when its form is applied.
 ## The world read is `WORLD.refresh_body_lod()`; this file never preloads the game.
-## See `docs/body_change.md` (`## Bindings`).
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 

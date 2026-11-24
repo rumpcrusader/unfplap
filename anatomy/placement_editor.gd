@@ -1,7 +1,6 @@
 extends RefCounted
 ## The Anatomy Placement editor: the placement actions and the text report.
 ## The caller names the pony; the editor no longer selects one or reads the debug facade.
-## See `docs/anatomy.md` (`## Placement`).
 
 const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const PLACEMENT := preload("res://mods/unfplap/shared/anatomy_placement.gd")

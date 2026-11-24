@@ -1,106 +1,20 @@
 # unfplap — mod-specific agent guide
 
 Read `res://mods/AGENTS.md` first and follow its general Home: Equestria mod rules. This file adds
-the working knowledge for `unfplap` only. It holds the project rules and the path router; the
-concepts are in `ARCHITECTURE.md`, the commands in `WORKFLOW.md`, the service index in
-`docs/README.md`, and the per-service contracts under `docs/`.
+the working knowledge for `unfplap` only. It holds the project rules; the concepts are in
+`ARCHITECTURE.md`, the commands in `WORKFLOW.md`, and the service contracts under `docs/`.
 
-## Required reading by path
+## Finding the doc
 
-Do not start implementation until you have read the owning doc for the files you will touch. The
-table is the router: a doc not listed here is reached from `docs/README.md`, and this file does not
-restate a contract.
-
-| Paths | Read |
-|---|---|
-| `main.gd` | `ARCHITECTURE.md`, `docs/runtime.md` |
-| `runtime.gd` | `docs/runtime.md` |
-| `act/**` | `docs/runtime.md` |
-| `act_gate/**` | `docs/act_gate.md` |
-| `act_owner/**` | `docs/act_owner.md` |
-| `world/api.gd` | `docs/world.md` |
-| `world/game.gd` | `docs/world.md` |
-| `world/handles.gd` | `docs/world.md` |
-| `settings/game.gd` | `docs/settings.md` |
-| `offer/api.gd` | `docs/offer.md` |
-| `api.gd` | `docs/api.md` |
-| `tests/**` | `docs/tests.md` |
-| `tests/body_change/**` | `docs/tests.md`, `docs/body_change.md` |
-| `tests/offer/**` | `docs/tests.md`, `docs/offer.md` |
-| `*.sh`, `.gdlintrc`, `scripts/requirements-lint.txt`, `scripts/pack_report.py` | `docs/quality.md` |
-| `shared/act_facts.gd` | `docs/act_facts.md` |
-| `shared/act_state.gd` | `docs/runtime.md` |
-| `shared/act_report.gd` | `docs/api.md` |
-| `shared/pony_identity.gd` | `docs/runtime.md` |
-| `shared/act_keys.gd` | `docs/input.md` |
-| `shared/integrations.gd` | `docs/integrations.md` |
-| `shared/act_face.gd` | `docs/face.md` |
-| `shared/act_history.gd` | `docs/summary.md` |
-| `shared/act_motion.gd` | `docs/camera.md` |
-| `shared/anatomy_placement.gd` | `docs/anatomy.md` |
-| `shared/body_form.gd`, `shared/body_change.gd`, `shared/body_binding.gd`, `shared/body_change_policy.gd`, `shared/body_profile.gd` | `docs/body_change.md` (`shared/body_profile.gd` also `docs/anatomy.md`, `docs/camera.md`) |
-| `shared/character_preferences.gd`, `shared/preferences.gd` | `docs/preferences.md` |
-| `shared/defaults_data.gd` | `docs/settings.md` |
-| `shared/prompt_text.gd` | `docs/prompts.md` |
-| `shared/hands_*.gd` | `docs/hands.md` |
-| `shared/log.gd`, `shared/perf.gd` | no doc: the frozen file header is the contract |
-| `shared/build_stamp.gd` | its file header |
-| `shared/pose_catalog.gd` | `docs/poses.md` |
-| `shared/settings_change.gd` | `docs/settings.md` |
-| `shared/smack_cues.gd` | `docs/audio.md`, `docs/stock_smack.md` |
-| `shared/voice_status.gd` | `docs/audio.md` |
-| `shared/relationship_cue.gd` | `docs/dialogue.md` |
-| `shared/bond_record.gd`, `shared/touch_bridge.gd`, `shared/dock_fit.gd` | `docs/world.md` |
-| `shared/rump_cone.gd` | `docs/scene_gate.md` |
-| `afterglow/**` | `docs/afterglow.md` |
-| `anatomy/**` | `docs/anatomy.md` |
-| `audio/**` | `docs/audio.md` |
-| `stock_smack/**` | `docs/stock_smack.md` |
-| `body_change/**` | `docs/body_change.md` |
-| `camera/**` | `docs/camera.md` |
-| `debug/game.gd` | `docs/debug.md` |
-| `debug/**` | `docs/debug.md` |
-| `debug_actions/**` | `docs/debug_actions.md` |
-| `director/**` | `docs/director.md` |
-| `classifier/**` | `docs/classifier.md` |
-| `dialogue/**` | `docs/dialogue.md` |
-| `eligibility/**` | `docs/eligibility.md` |
-| `estrus/**` | `docs/estrus.md` |
-| `face/**` | `docs/face.md` |
-| `hands/**` | `docs/hands.md` |
-| `hud/game.gd` | `docs/hud.md` |
-| `hud/**` | `docs/hud.md` |
-| `initiation/**` | `docs/initiation.md` |
-| `input/**` | `docs/input.md` |
-| `integrations/**` | `docs/integrations.md` |
-| `integrations/act.gd` | `docs/integrations.md` |
-| `integrations/changelings.gd`, `integrations/changelings_policy.gd` | `docs/integrations.md`, `docs/body_change.md` (`## Source extension point`, `## Provider policy`) |
-| `kiss/**` | `docs/kiss.md` |
-| `memory/**` | `docs/memory.md` |
-| `negotiation/**` | `docs/negotiation.md` |
-| `poses/**` | `docs/poses.md` |
-| `privacy/**` | `docs/privacy.md` |
-| `reactions/**` | `docs/reactions.md` |
-| `readiness/**` | `docs/readiness.md` |
-| `registry/**` | `docs/registry.md` |
-| `rest/**` | `docs/rest.md` |
-| `rest/bed.gd` | `docs/rest.md` |
-| `scene_gate/**` | `docs/scene_gate.md` |
-| `scene_hold/**` | `docs/scene_hold.md` |
-| `settings/**` | `docs/settings.md` |
-| `settings/prompts.json` | `docs/prompts.md` |
-| `stool/**` | `docs/stool.md` |
-| `summary/**` | `docs/summary.md` |
-| `vr/**` | `docs/vr.md` |
-| `vr/act.gd` | `docs/vr.md` |
-| `offer/**` | `docs/offer.md` |
-| `ponies/**` | `docs/ponies.md` |
-| `world/**` | `docs/world.md` |
-| `assets/**`, `scripts/asset_pack*` | `assets/README.md`, `CREDITS.md` |
+The directory is the name: a service's directory `<id>/` is its doc `docs/<id>.md`, and its facade
+is always `<id>/api.gd`. A file under `act/`, `vr/`, `shared/`, `main.gd` or `runtime.gd` belongs to
+the system that owns it, or to its own frozen header. `docs/api.md` is the frozen cross-mod API
+contract; the project docs are named after their subject. There is no index, and a new service ships
+`docs/<id>.md`.
 
 Non-code tasks: a release is `.opencode/skills/release/SKILL.md`; syncing shipped defaults is
 `.opencode/skills/sync-settings/SKILL.md`; a boundary or dependency change starts at
-`ARCHITECTURE.md` and `docs/README.md`.
+`ARCHITECTURE.md`.
 
 ## Identity and scope
 
@@ -128,7 +42,7 @@ Read `WORKFLOW.md` before any task. Commit in small, testable units; never push.
 
 - **Docs follow the code, same commit.** Land the behavior, its tests and the sentences the change
   makes false in one commit. A standalone `docs:` commit is only for docs no code change touched: a
-  new contract, an index row, a sweep.
+  new contract or a sweep.
 - Settle the design before touching files. Once it is settled, apply every code edit first, then
   check the change. Before each commit run `scripts/test.sh <touched>`, `scripts/check.sh --parse`
   and `scripts/lint.sh`; run `scripts/check.sh` and `scripts/test.sh` once when the code phase is
@@ -150,7 +64,7 @@ Read `WORKFLOW.md` before any task. Commit in small, testable units; never push.
 
 1. The code, its tests and the doc text the change makes false are one code commit. A standalone
    `docs:` commit is only for docs no code change touched.
-2. A new doc is indexed in `docs/README.md` in the same commit.
+2. A new service ships `docs/<id>.md` in the same commit; there is no index row.
 3. Suites are added or retargeted; `scripts/test.sh <touched>` passes, `scripts/check.sh` is
    clean and `scripts/lint.sh` is clean before the commit.
 4. `scripts/test.sh` passes once, at the end of the code phase.
@@ -244,28 +158,27 @@ mechanics — facade, typing, state and reach-in rules — are in `ARCHITECTURE.
 
 ## Documentation
 
-- Every service has exactly one doc under `docs/`, indexed by exactly one row in `docs/README.md`.
-  A doc owns its responsibility and boundary, the decisions behind that boundary, invariants,
-  ordering constraints, traps and extension points. It never enumerates what a script, a
-  declaration or the index already carries: no API signature dumps, no dependency edges, no
-  setting rows, no debug-action rosters, no test lists, no numeric defaults, no call counts. Point
-  at the owner instead. A doc names another system in at most one clause; anything more is a link.
-- The index row owns the facade and the test paths; a contract does not repeat them.
+- The path is the name: a service's directory `<id>/` is its doc `docs/<id>.md`. There is no index
+  and no path router; a new service adds its doc, nothing else. `docs/api.md` is the frozen
+  cross-mod contract, and the project docs are named after their subject.
+- A doc owns its responsibility, its functional meaning (policy, behaviour and outcomes) and a
+  high-level map of its internals as roles. It never enumerates what a script, a declaration or a
+  file already carries: no file or member inventories, no formulas or step-by-step how, no
+  dependency edges, no setting rows, no debug-action rosters, no test lists, no numeric defaults,
+  no call counts. Concept names, setting names and control names stay where behaviour needs them.
 - A facade's non-underscore members are its surface; `_` marks internals. A `##` note above a
   facade's public type, and above every public member of `api.gd` that is not a preload const,
   states the rule the signature cannot. Public facade functions without a note stay advisory:
   `--audit-surface` prints them, and it is not a gate.
 - **Docs follow the code, same commit.** Documentation means both `.md` files and code comments. A
   claim a change makes false is fixed in the commit that makes it false. A standalone `docs:`
-  commit is only for docs no code change touched: a new contract, an index row, a sweep. Fix only
-  the claims that became false; a claim that is still true is never reworded.
-- **Comments state what the code cannot.** A `##` block is at most two lines: the promise, then one
-  clause of why when the reason is not visible. A facade header is at most five lines — the
-  `Service:`/`Scope:`/`Contract:` fields plus one purpose sentence. A module header is its purpose
-  sentence and nothing else; the owning doc carries the rest. A `#` block is at most three lines
-  and only for an invariant, an order constraint, a game quirk or a workaround. Do not restate a
-  doc sentence, a member name, a count, an ordinal or a numeric value the code owns; a rename must
-  never force a comment edit. The comment gate enforces the shape in `scripts/lint.sh`.
+  commit is only for docs no code change touched: a new contract or a sweep. Fix only the claims
+  that became false; a claim that is still true is never reworded.
+- **Comments state what the code cannot.** A comment carries the rationale, trap, ordering
+  constraint or game quirk the code cannot, and no size cap applies. Do not restate a doc sentence,
+  a member name, a count, an ordinal or a numeric value the code owns; a rename must never force a
+  comment edit. The comment gate checks private names, doc pointers and copied doc prose, in
+  `scripts/lint.sh`.
 - A doc names settings and behaviour, not copied numeric defaults; the shipped
   `settings/settings.json` is the source for the default and the declaration in
   `settings/api.gd` for the bounds.

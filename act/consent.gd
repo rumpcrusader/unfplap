@@ -2,8 +2,6 @@ extends RefCounted
 ## The act's consent response: one frame asks the readiness meter, then presents its cue, face beat
 ## and line; a stop leaves by the act's one exit. The meter's math stays in
 ## `readiness/tolerance.gd`.
-##
-## See `docs/runtime.md` and `docs/readiness.md`.
 
 const ACT_HOST := preload("res://mods/unfplap/act/host.gd")
 const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")

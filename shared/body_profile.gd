@@ -1,8 +1,7 @@
 extends RefCounted
 ## The shared body profile: the winking bodies' scale and placement anchor, the body-fit key that
 ## names the body a pony is wearing, and the entrance offset the standing act measures from. Pure:
-## it reads only the identity and the pony metadata it is given. See `docs/anatomy.md`
-## (`## Attachment and identity`) and `docs/camera.md` (`## Standing camera`).
+## it reads only the identity and the pony metadata it is given.
 
 ## The princess body scale and placement anchor for a known character: `[anchor y, anchor z, size]`.
 ## A copied body sets `character_id`; otherwise the identity id is the key.

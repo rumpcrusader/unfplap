@@ -1,17 +1,14 @@
-"""The documentation index, facade notes and the cross-mod API surface."""
+"""The documentation naming contract, facade notes and the cross-mod API surface."""
 from __future__ import annotations
 
 import re
 from pathlib import Path
 
-from .context import DOCS, ROOT, SCOPES, SERVICES, facade_for, facade_scope
+from .context import DOCS, ROOT, SERVICES, facade_for
 from .failure import Failure, rel
 
-# The index's service table is the one router: a row names the contract and the tests. The table
-# row is parsed, not a section in the contract.
-SERVICE_INDEX = "## Services"
-TABLE_ROW = re.compile(r"^\|(.*)\|\s*$", re.MULTILINE)
-SERVICE_IGNORE_DOCS = {"README.md", "api.md", "runtime.md"}
+# The docs that are not service contracts: the frozen cross-mod surface and the three project docs.
+PROJECT_DOCS = ("api", "tests", "quality", "vr")
 # A facade's public types carry a `##` note; api.gd's public members are the strict surface.
 PUBLIC_TYPE = re.compile(r"^(?:class|enum)\s+([A-Za-z_]\w*)\b", re.MULTILINE)
 API_MEMBER = re.compile(
@@ -22,111 +19,28 @@ def doc_path(sid: str) -> Path:
     return DOCS / f"{sid}.md"
 
 
-def parse_service_index(text: str) -> dict[str, list[dict[str, str]]]:
-    """The docs/README.md Services table, keyed by service id.
-
-    A row's Contract cell names the service's ``docs/<sid>.md``; its Tests cell is the router to
-    the live suites. The table is the one index row a service owns.
-    """
-    heading = re.search(r"^%s\s*$" % re.escape(SERVICE_INDEX), text, re.MULTILINE)
-    if not heading:
-        return {}
-    section = text[heading.end():]
-    next_heading = re.search(r"^## ", section, re.MULTILINE)
-    if next_heading:
-        section = section[:next_heading.start()]
-    rows: dict[str, list[dict[str, str]]] = {}
-    for match in TABLE_ROW.finditer(section):
-        cells = [cell.strip() for cell in match.group(1).split("|")]
-        if len(cells) < 4 or set(cells[0]) <= {"-", ":"}:
-            continue
-        contract = cells[2].strip("`")
-        found = re.fullmatch(r"docs/([a-z0-9_]+)\.md", contract)
-        if not found:
-            continue
-        rows.setdefault(found.group(1), []).append({
-            "contract": contract,
-            "tests": cells[3].strip("`"),
-            "scope": cells[4].strip("`") if len(cells) > 4 else "",
-        })
-    return rows
-
-
-def check_service_index(failure: Failure, text: str, docs: Path, services: list[str]) -> None:
-    """Every service owns exactly one index row whose contract and tests resolve."""
-    rows = parse_service_index(text)
-    for sid in services:
-        found = rows.get(sid, [])
-        if not found:
-            failure.add("docs/README.md has no Services row for %s" % sid)
-            continue
-        if len(found) > 1:
-            failure.add("docs/README.md has %d Services rows for %s" % (len(found), sid))
-            continue
-        row = found[0]
-        if not (docs / row["contract"].removeprefix("docs/")).is_file():
-            failure.add("docs/README.md row for %s names a missing contract: %s" % (
-                sid, row["contract"]))
-        paths = [path.strip(" `") for path in row["tests"].split(",")]
-        if not any((docs.parent / path).exists() for path in paths if path):
-            failure.add("docs/README.md row for %s names no test path that exists" % sid)
-    failure.extend(unknown_index_rows(text, services))
-
-
-def unknown_index_rows(text: str, services: list[str]) -> list[str]:
-    """A Services row names a directory with a facade; `Other` is never indexed."""
-    rows = parse_service_index(text)
-    return [
-        "docs/README.md indexes a Services row for an unknown service: %s" % sid
-        for sid in sorted(set(rows) - set(services))
-    ]
-
-
-def index_scope_failures(text: str, scopes: dict[str, str]) -> list[str]:
-    """Every Services row's Scope cell repeats its facade's declaration."""
-    out: list[str] = []
-    for sid, found in sorted(parse_service_index(text).items()):
-        declared = scopes.get(sid, "")
-        for row in found:
-            cell = row["scope"]
-            if not cell:
-                out.append("docs/README.md has no Scope for %s" % sid)
-            elif cell not in SCOPES:
-                out.append("docs/README.md has an unknown Scope for %s: %s" % (sid, cell))
-            elif declared and cell != declared:
-                out.append(
-                    "docs/README.md Scope for %s is %s, the facade declares %s" % (
-                        sid, cell, declared))
-    return out
-
-
-def check_index_scopes(failure: Failure) -> None:
-    index = (DOCS / "README.md").read_text(encoding="utf-8")
-    scopes = {sid: facade_scope(sid) for sid in SERVICES}
-    failure.extend(index_scope_failures(index, scopes))
-
-
 def check_docs(failure: Failure, docs: Path = DOCS, services: list[str] | None = None) -> int:
+    """Every service ships a non-empty doc named for its directory, and nothing else is a doc."""
     failures = 0
     services = SERVICES if services is None else services
-    index = (docs / "README.md").read_text(encoding="utf-8")
+    allowed = set(services) | set(PROJECT_DOCS)
+    if (docs / "README.md").exists():
+        failure.add("docs/README.md must not exist; a doc is named after its subject")
+        failures += 1
     for path in sorted(docs.glob("*.md")):
         if path.name == "README.md":
             continue
-        if path.name not in index:
-            failure.add("docs/README.md does not index docs/%s" % path.name)
+        if path.stem not in allowed:
+            failure.add("docs/%s is not a service doc or a project doc" % path.name)
             failures += 1
-    check_service_index(failure, index, docs, services)
     for sid in services:
         path = docs / f"{sid}.md"
-        if not path.exists():
-            failure.add("missing service contract: docs/%s.md" % sid)
+        if not path.is_file():
+            failure.add("missing service doc: docs/%s.md" % sid)
             failures += 1
             continue
-        text = path.read_text(encoding="utf-8")
-        if "## Ownership" not in text and "## Ownership and boundary" not in text \
-                and "## Scope" not in text:
-            failure.add("docs/%s.md is missing ## Ownership" % sid)
+        if not path.read_text(encoding="utf-8").strip():
+            failure.add("empty service doc: docs/%s.md" % sid)
             failures += 1
     return failures
 

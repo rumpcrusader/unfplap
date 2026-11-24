@@ -1,7 +1,5 @@
 extends "res://mods/unfplap/shared/service.gd"
-## Service: stock_smack
 ## Scope: world
-## Contract: docs/stock_smack.md
 ## The outside-act flank smack: the native player's pack layer while she is not in an act.
 
 const CUES := preload("res://mods/unfplap/shared/smack_cues.gd")

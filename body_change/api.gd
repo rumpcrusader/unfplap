@@ -1,7 +1,5 @@
 extends "res://mods/unfplap/shared/service.gd"
-## Service: body_change
 ## Scope: world
-## Contract: docs/body_change.md
 ## Per-body form store, provider and binding registries, binding fan-out.
 
 const ANATOMY_BINDING := preload("res://mods/unfplap/body_change/anatomy_binding.gd")

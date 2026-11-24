@@ -1,8 +1,7 @@
 extends RefCounted
 ## The visible tail chain for a pony. Devkit mares carry the tail on the hair skeleton as
 ## `mTail1..6`; fitted exports such as the princesses skin it to the body skeleton as
-## `pony_tail_01..05`. The pose modifiers use whichever chain the skeleton owns. Contract:
-## `docs/poses.md`.
+## `pony_tail_01..05`. The pose modifiers use whichever chain the skeleton owns.
 
 ## The devkit hair tail, root first.
 const HAIR_NAMES: Array[String] = ["mTail1", "mTail2", "mTail3", "mTail4", "mTail5", "mTail6"]

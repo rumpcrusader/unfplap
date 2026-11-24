@@ -2,7 +2,6 @@ extends RefCounted
 ## Pure proactive-request pacing and wording rules: the scan, the cooldown, the retry, the
 ## approach, the ask range and the free/indirect wording mode. No Node, tree, time, file, Settings
 ## or game access: the facade supplies plain values and keeps every timer.
-## See `docs/initiation.md`.
 
 ## Heat shortens the offer cooldown to this share of the usual wait.
 const HEAT_COOLDOWN := 0.25

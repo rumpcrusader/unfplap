@@ -1,7 +1,6 @@
 extends RefCounted
 ## The legacy metadata mirror for one presented body: body-fit key, mesh-hide marker, tail root
 ## and live body scale. The mirror is write-only; nothing reads a form back out of these keys.
-## See `docs/body_change.md` (`## Internal API`).
 
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")

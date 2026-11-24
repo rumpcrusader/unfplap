@@ -1,7 +1,5 @@
 extends Node
-## Service: reactions
 ## Scope: pony
-## Contract: docs/reactions.md
 ## Thrust and climax presentation: the rump jiggle, its coat target, the smack, the rump blush
 ## and the heart bursts.
 

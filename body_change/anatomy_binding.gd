@@ -1,7 +1,6 @@
 extends "res://mods/unfplap/shared/body_binding.gd"
 ## Forwards the presented body's form to the anatomy API, so the controller and the tail seat
 ## stay in step with it. The API gates the identity question itself.
-## See `docs/body_change.md` and `docs/anatomy.md` (`## Attachment and identity`).
 
 const API := preload("res://mods/unfplap/anatomy/api.gd")
 

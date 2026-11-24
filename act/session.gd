@@ -2,8 +2,6 @@ extends "res://mods/unfplap/shared/presentation_port.gd"
 ## The act's one state, timer, clock and value owner: a transition guards and dispatches, and the
 ## owner services do the work. Its typed one-liners are the contract callers use, not wrappers to
 ## move onto the owners.
-##
-## See `docs/runtime.md`.
 
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const AFTERGLOW_SUMMARY := preload("res://mods/unfplap/afterglow/summary.gd")

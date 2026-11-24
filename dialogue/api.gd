@@ -1,7 +1,5 @@
 extends Node
-## Service: dialogue
 ## Scope: pony
-## Contract: docs/dialogue.md
 ## The per-act dialogue facade: admission, prompt notes, the one director slot, reactions and
 ## bystanders.
 

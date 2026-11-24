@@ -1,7 +1,5 @@
 extends "res://mods/unfplap/shared/service.gd"
-## Service: debug_actions
 ## Scope: world
-## Contract: docs/debug_actions.md
 ## The debug executor: every Debug block button and wheel slot runs through it, and it collects
 ## Show data, gates the wheel and draws the skeleton overlay.
 

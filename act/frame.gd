@@ -1,8 +1,6 @@
 extends RefCounted
 ## The act's player frame: the one owner of Anon's placement, stance and restore. `begin()` places
 ## the act start, `refit()` re-solves the player for a new rig and `end()` gives him back once.
-##
-## See `docs/poses.md` (`## Player frame`) and `docs/runtime.md`.
 
 const ACT_HOST := preload("res://mods/unfplap/act/host.gd")
 const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")
@@ -299,7 +297,10 @@ func pose_gaps() -> Dictionary:
 	return row.rows("gaps").raw()
 
 
-## Her centre to Anon: the tuned gap, his height scale and the body's entrance offset.
+## Her centre to Anon: the tuned gap, his height scale and the body's entrance offset. The standing
+## gap is a placement view, not the contact distance: the start places Anon on her centreline
+## without fitting his whole body or measuring to her entrance, and the per-frame aim owns the
+## stroke's pelvis correction.
 static func gap_for(rig: Rig) -> float:
 	var gaps: Dictionary = rig.gaps
 	var size := rig.size_name

@@ -1,8 +1,7 @@
 extends RefCounted
 ## Per-act stroke and penetration state: the one depth tracker, the public 0..1 depth, the physical
 ## penetration in metres and the depth scale they share. It turns the tracker's raw readings into
-## the typed stroke/impact events the act presentation consumes. Readiness owns it; see
-## docs/readiness.md.
+## the typed stroke/impact events the act presentation consumes. Readiness owns it.
 
 const THRUST := preload("res://mods/unfplap/readiness/thrust.gd")
 

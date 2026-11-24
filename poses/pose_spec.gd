@@ -1,7 +1,7 @@
 extends RefCounted
 ## The typed pose spec: one validated wrapper per `shared/pose_specs.gd` row. Private to `poses/`;
 ## the registry caches one per id and the pose view carries the fields. It never reads settings,
-## files or the scene. Contract: `docs/poses.md`.
+## files or the scene.
 
 const SELF := preload("res://mods/unfplap/poses/pose_spec.gd")
 const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")

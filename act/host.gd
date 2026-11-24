@@ -2,8 +2,6 @@ extends RefCounted
 ## The node operations the act modules need from the runtime node. One per pony, built and bound
 ## by the runtime. The host owns the scene node and the presented pony; a module that needs the
 ## node reads a typed method here instead of reaching into the runtime.
-##
-## See `docs/runtime.md`.
 
 const TAIL_TUCK := preload("res://mods/unfplap/poses/tail_tuck.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")

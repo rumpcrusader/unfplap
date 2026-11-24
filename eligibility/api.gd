@@ -1,7 +1,5 @@
 extends "res://mods/unfplap/shared/service.gd"
-## Service: eligibility
 ## Scope: world
-## Contract: docs/eligibility.md
 ## Public eligibility API: the permanent identity answer and the provider profile layer.
 
 const SCENE := preload("res://mods/unfplap/eligibility/scene.gd")
@@ -15,7 +13,6 @@ const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const MARE_REGISTRY := preload("res://mods/unfplap/registry/api.gd")
 
 ## Capability targets: a consumer names its own target and never reads identity.
-## See `docs/eligibility.md` (`## Capability targets`).
 enum Target { ACT, ANATOMY, CHARACTER }
 ## Witness age categories.
 enum Age { NONE, YOUNG, ADULT }

@@ -1,7 +1,5 @@
 extends RefCounted
-## Service: settings
 ## Scope: process
-## Contract: docs/settings.md
 ## The one settings module: every global setting, the player data files, and the per-mare profiles.
 
 const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
@@ -20,7 +18,7 @@ const GAME := preload("res://mods/unfplap/settings/game.gd")
 ## Character names, order and preference templates live in `shared/character_preferences.gd`; the settings view
 ## and the runtime merge read them through these aliases.
 const CHARACTERS := preload("res://mods/unfplap/shared/character_preferences.gd")
-## Cross-mod provider layers; see docs/api.md. Provider data is in memory only.
+## Cross-mod provider layers. Provider data is in memory only.
 const MARE_REGISTRY := preload("res://mods/unfplap/registry/api.gd")
 
 const ID := "unfplap"
@@ -735,7 +733,7 @@ static var standing_stool := flag("standing_stool", "features.standing_stool",
 	"Enable footstool",
 	"A mare much taller than Anon needs a footstool for the standing act. Find one in a house or buy one at the shop.", GENERAL, "")
 ## During an act every key but the act's own is consumed and its pressed state cleared, so
-## even raw-key pollers see nothing; see docs/input.md.
+## even raw-key pollers see nothing.
 static var act_input_shield := flag("act_input_shield", "features.act_input_shield",
 	"Block other mods' hotkeys during act", "", GENERAL, "")
 ## Reveals every tab's Debug block and turns debug rows unclamped; the settings page reads
@@ -1757,8 +1755,7 @@ static var promiscuity := choice("promiscuity", "relationship.promiscuity",
 	["soulmates", "head_over_hooves", "marefriend", "new_couple", "crush", "any"],
 	["Soulmates", "Head Over Hooves", "Marefriend / Coltfriend", "New Couple", "Crush", "Any Adult"],
 	"Promiscuity", "Lowest relationship level for sex.", WORLD, "")
-## Gives mares the 30-day cycle: heat warms faster and offers sooner, diestrus is Context;
-## see docs/eligibility.md.
+## Gives mares the 30-day cycle: heat warms faster and offers sooner, diestrus is Context.
 static var estrus_cycle := flag("estrus_cycle", "features.estrus_cycle",
 	"Enable estrus cycle",
 	"Give mares a 30-day cycle: seven days of heat, two days turned off, then normal. In heat they warm faster and offer sooner; in diestrus they refuse sex.", WORLD, "")
@@ -1981,7 +1978,7 @@ static var kissing_reactions := flag("kissing_reactions", "features.kissing_reac
 	"Play the Kissing mod's horn, wing and earth-pony reactions during the act.",
 	INTEGRATIONS, "")
 
-# -- Pantyhose & Panties by mitty: the world garment adapter; see docs/integrations.md.
+# -- Pantyhose & Panties by mitty: the world garment adapter.
 
 ## Takes her panties and pantyhose off when an act starts and leaves her undressed
 ## afterwards.

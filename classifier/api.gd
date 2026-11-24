@@ -1,7 +1,5 @@
 extends "res://mods/unfplap/shared/service.gd"
-## Service: classifier
 ## Scope: world
-## Contract: docs/classifier.md
 ## The one bounded model transport: one client, one queue, one deadline and one cancellable call.
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")

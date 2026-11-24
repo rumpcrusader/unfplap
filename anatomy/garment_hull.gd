@@ -3,7 +3,6 @@ extends RefCounted
 ## A per-cell maximum-Z raster of the rest triangles leaves the inner canal behind the surface, so
 ## no normal filter is needed.
 ## It bakes the rest pose only, and is pure: no Node or settings read.
-## See `docs/anatomy.md` (`## Garment hull`).
 
 ## Extra room around the rest mesh so the shader's edge fade has a border.
 ## Y needs more room than X: the ponut and vulva bounds sit where the fade would cut the lift.

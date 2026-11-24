@@ -8,7 +8,9 @@ const BODY_PROFILE := preload("res://mods/unfplap/shared/body_profile.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 
 
-## One presented body's form. `form_id` is empty for the pony's own body.
+## One presented body's form. `form_id` is empty for the pony's own body. A form change never
+## changes identity: memory, dialogue, eligibility, preferences, history and the summary all read
+## the identity, never this record.
 class BodyForm extends RefCounted:
 	var pony_id: String = ""
 	var form_id: String = ""

@@ -1,7 +1,7 @@
 extends RefCounted
 ## Draws the Debug block's action buttons and the Anatomy placement-target pill. The settings panel
 ## supplies this builder and owns where the block goes; the buttons run on the debug actions node and
-## their registry stays in `debug/api.gd`. See docs/debug.md.
+## their registry stays in `debug/api.gd`.
 
 const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/api.gd")

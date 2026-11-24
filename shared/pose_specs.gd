@@ -1,6 +1,6 @@
 extends RefCounted
 ## The static pose capability table: one row per pose the act can run. Pure data: no service, no
-## settings read, no FileAccess and no scene. Contract: `docs/poses.md`.
+## settings read, no FileAccess and no scene.
 ##
 ## The profile vocabulary is fixed: add keys, never rename one, and extend the required-key list
 ## with a new key.

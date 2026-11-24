@@ -1,7 +1,6 @@
 extends RefCounted
 ## Idle heat animation only: the resting open shape and one wink burst. The estrus service owns
 ## the phase and the schedule; the shape module owns the tween.
-## See `docs/anatomy.md` (`## Idle heat`).
 
 var shapes: RefCounted
 ## The idle rest, pushed by estrus and never read from Settings here.

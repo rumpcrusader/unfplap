@@ -2,8 +2,6 @@ extends RefCounted
 ## The act's stroke presentation: the one post-move path, the stroke/impact fan-out and the
 ## physical penetration write. The readiness stroke state owns the math and the events; this owner
 ## turns one event batch into presentation in the order the act depends on.
-##
-## See `docs/runtime.md` and `docs/readiness.md`.
 
 const ACT_HOST := preload("res://mods/unfplap/act/host.gd")
 const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")

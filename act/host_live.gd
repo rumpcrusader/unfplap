@@ -1,8 +1,6 @@
 extends "res://mods/unfplap/body_change/act_host.gd"
 ## The handover's value contract as the live runtime answers it: every read points at the runtime's
 ## own typed fields, and the swap seam is the act's swap module.
-##
-## See `docs/runtime.md`.
 
 const ACT_NODE := preload("res://mods/unfplap/act/host.gd")
 const ACT_SESSION := preload("res://mods/unfplap/act/session.gd")

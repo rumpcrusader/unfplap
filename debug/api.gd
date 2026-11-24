@@ -1,7 +1,5 @@
 extends RefCounted
-## Service: debug
 ## Scope: process
-## Contract: docs/debug.md
 ## An action is one table entry that runs a one-off operation, never a setting.
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")

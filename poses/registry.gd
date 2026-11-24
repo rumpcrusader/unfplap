@@ -1,7 +1,7 @@
 extends RefCounted
 ## The pose registry: the validated spec table and the edge table. Private to `poses/`; the
 ## session caches one registry and the suites read it. It reads the authored edge documents once,
-## on the first lookup, and never mutates the catalog or settings. Contract: `docs/poses.md`.
+## on the first lookup, and never mutates the catalog or settings.
 
 const SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const POSE_SPEC := preload("res://mods/unfplap/poses/pose_spec.gd")

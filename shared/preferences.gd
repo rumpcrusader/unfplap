@@ -14,7 +14,8 @@ const TOUCHES := ["smack", "caress", "kiss"]
 const TALKS := ["praise", "reassurance", "dirty", "playful"]
 const WARMTHS := ["quick", "normal", "slow"]
 const TOLERANCES := ["forgiving", "normal", "strict"]
-## Her teat size: `auto` keeps whatever size her own body or name gave her.
+## Her teat size: a look, not a scoring axis. `auto` keeps whatever size her own body or name gave
+## her, and a change applies the next time she appears.
 const TEAT_SIZES := ["auto", "small", "medium", "large", "huge"]
 const TEAT_SIZE_VALUES := {"small": 0.0, "medium": 0.5, "large": 1.0, "huge": 1.4}
 ## The profile fields, in display order. The shipped values live in the characters document.

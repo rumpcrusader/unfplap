@@ -2,8 +2,6 @@ extends Node
 ## One per pony: **the host** and the Pony composition root. It exists, is parented under the body
 ## and reparented across a body swap, forwards both engine frames and releases what outlives an act.
 ## It constructs the systems and the typed record once, holding no act rule and no act value.
-##
-## See `docs/runtime.md`.
 
 const POSE_SESSION := preload("res://mods/unfplap/poses/api.gd")
 const REST_REJOIN := preload("res://mods/unfplap/rest/api.gd")
@@ -347,8 +345,8 @@ func _bind_pony(value: Node) -> void:
 			(value as Node3D).get_node_or_null("FlankTouch"))
 
 
-## The frames track the body: with none bound the runtime is inert, which is the suite fixture
-## state, and the game binds before the runtime enters.
+## The frames track the body: with none bound the runtime still composes and releases but ticks
+## nothing, which is the suite fixture state, and the game binds before the runtime enters.
 func _sync_frames() -> void:
 	var body_live := is_instance_valid(_pony_node)
 	set_process(body_live)

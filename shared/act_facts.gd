@@ -2,6 +2,11 @@ extends RefCounted
 ## The typed act context. The runtime owns one per act and rewrites it as the state and the camera
 ## change; presentation modules read this object instead of the runtime node. Callbacks are the
 ## host boundary for services, so tests can build a context without a runtime.
+##
+## The one typed value boundary between the orchestrator and the scene adapters: a single context
+## is reused for the whole act and never allocated per frame. A field only one module needs still
+## belongs here when it keeps that module off the runtime, and moving a field moves every consumer
+## and test in the same commit.
 
 # Session values.
 var state := 0

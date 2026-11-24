@@ -1,8 +1,6 @@
 extends RefCounted
 ## The act's one exit ledger: the returns run in the order the pose and camera were built, and an
 ## ownership flag decides what to restore, so a failed start restores only what it took.
-##
-## See `docs/runtime.md` and `docs/poses.md`.
 
 const ACT_HOST := preload("res://mods/unfplap/act/host.gd")
 const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")

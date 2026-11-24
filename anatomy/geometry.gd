@@ -2,8 +2,6 @@ extends RefCounted
 ## Pure anatomy geometry: the winking-mesh rebuild, the lip-radius stability rule, the body-local
 ## mapping and the V2 anal ring. It takes transforms, vertices and plain values; it reads no Node,
 ## scene or settings.
-##
-## See `docs/anatomy.md` (`## Act anatomy`).
 
 ## The authored `closed` shape also pulls the anal rim. The runtime rebuild masks that out.
 const WINK_ANAL_FROM_Y := 0.020

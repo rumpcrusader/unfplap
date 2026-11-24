@@ -1,7 +1,5 @@
 extends "res://mods/unfplap/shared/service.gd"
-## Service: integrations
 ## Scope: world
-## Contract: docs/integrations.md
 ## The optional pack integrations: the two pack modules and the act-start undress hook.
 
 const PANTYHOSE := preload("res://mods/unfplap/integrations/pantyhose.gd")

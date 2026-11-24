@@ -120,7 +120,7 @@ def base_chain(path: str) -> list[str]:
 
 
 def declaration_failures(path: str, text: str, sid: str | None) -> list[str]:
-    """A facade declares all three fields; a non-facade declares none (frozen headers excepted)."""
+    """A facade declares the Scope field and nothing else; a non-facade declares none."""
     fields = declaration_of(text)
     if sid is None:
         found = [
@@ -132,23 +132,15 @@ def declaration_failures(path: str, text: str, sid: str | None) -> list[str]:
             for field in found
         ]
     out: list[str] = []
-    for field in DECLARATION_FIELDS:
-        if field not in fields:
-            out.append("%s: a facade is missing the ## %s: field" % (path, field))
+    if "Scope" not in fields:
+        out.append("%s: a facade is missing the ## Scope: field" % path)
     for field in fields:
         if field not in DECLARATION_FIELDS:
             out.append("%s: a facade declares an unknown field ## %s:" % (path, field))
-    service = fields.get("Service", "")
-    if service and service != sid:
-        out.append("%s: ## Service: is %s, expected its directory %s" % (path, service, sid))
     scope = fields.get("Scope", "")
     if scope and scope not in SCOPES:
         out.append(
             "%s: ## Scope: is %s, expected one of %s" % (path, scope, "|".join(SCOPES)))
-    contract = fields.get("Contract", "")
-    expected = "docs/%s.md" % sid
-    if contract and contract != expected:
-        out.append("%s: ## Contract: is %s, expected %s" % (path, contract, expected))
     return out
 
 

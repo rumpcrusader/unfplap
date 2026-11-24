@@ -2,8 +2,7 @@ extends RefCounted
 ## Pure stable pony id: the relationship metadata first, then the identity id. Eligibility,
 ## runtime, preferences, placement, memory and the anatomy internals all key off this one rule.
 ##
-## It takes plain values and reads no Node, scene or settings file. See `docs/eligibility.md`
-## (`## Data ownership`).
+## It takes plain values and reads no Node, scene or settings file.
 
 
 static func from(meta_id: String, identity: Variant) -> String:

@@ -2,7 +2,6 @@ extends "res://mods/unfplap/shared/body_binding.gd"
 ## The runtime body binding: one world binding owns the per-pony runtime's body-bound systems.
 ## The runtime decides whether it is idle, live or suspended and never creates a second one.
 ## An unbind never runs the act exit.
-## See `docs/runtime.md` (`### Suspend, adopt and resume`) and `docs/body_change.md`.
 
 func binding_id() -> String:
 	return "runtime"

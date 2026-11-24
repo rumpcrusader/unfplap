@@ -1,5 +1,5 @@
 extends RefCounted
-## Footstool reach maths: gap, threshold test and stack count. See docs/stool.md.
+## Footstool reach maths: gap, threshold test and stack count.
 
 ## The vertical gap between her opening and his part, with each body measured from its own floor.
 ## On level ground this is simply her bits above her hooves minus his bits above his feet.

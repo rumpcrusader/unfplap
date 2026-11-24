@@ -47,7 +47,7 @@ WORLD_STATIC = "world/api.gd"
 FROZEN_HEADERS = ("shared/log.gd", "shared/perf.gd")
 # The three facade scopes. `Other` is derived from the path, never declared.
 SCOPES = ("process", "world", "pony")
-DECLARATION_FIELDS = ("Service", "Scope", "Contract")
+DECLARATION_FIELDS = ("Scope",)
 # The removed fields: still a declaration when they survive, on a facade or elsewhere.
 LEGACY_DECLARATION_FIELDS = ("Import", "Static")
 DECLARATION = re.compile(r"^##\s+([A-Z][A-Za-z]*):\s*(.*?)\s*$", re.MULTILINE)

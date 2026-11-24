@@ -2,7 +2,7 @@ extends RefCounted
 ## integration: per-mare participation. Which unfplap capabilities a mare takes part in.
 ##
 ## It is subtractive: a `true` value means "does not veto", never "grants". The block lives in the
-## character template, beside a provider's `eligible` assertion. See `docs/eligibility.md`.
+## character template, beside a provider's `eligible` assertion.
 
 ## The capability keys. One table drives the capability reads and the Characters form.
 const KEYS := ["acts", "anatomy"]

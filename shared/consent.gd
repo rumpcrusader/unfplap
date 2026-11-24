@@ -3,7 +3,7 @@ extends RefCounted
 ## anal and oral follow from her id so a fresh save gives the same answer until the player edits it.
 ##
 ## `KEYS` is the only consent key table; settings, the validator, the eligibility snapshot and the
-## Characters form all derive from it. See `docs/eligibility.md`.
+## Characters form all derive from it.
 
 const KEYS := ["public", "anal", "oral"]
 const LABELS := {

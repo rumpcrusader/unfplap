@@ -2,8 +2,6 @@ extends RefCounted
 ## The typed collaborators the runtime's own modules read. One per pony, built once by the runtime;
 ## the runtime points the fields at the live systems. No callables and no scene node. The act's own
 ## values live on `act/session.gd`, not here.
-##
-## See `docs/runtime.md`.
 
 const POSE_SESSION := preload("res://mods/unfplap/poses/api.gd")
 const ACT_CAMERA := preload("res://mods/unfplap/camera/api.gd")

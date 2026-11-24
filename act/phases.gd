@@ -1,8 +1,6 @@
 extends RefCounted
 ## The act's frame-level presentation and the small values the live systems write back to it; no
 ## owner's rules live here.
-##
-## See `docs/runtime.md`, `docs/face.md`, `docs/readiness.md` and `docs/anatomy.md`.
 
 const ACT_HOST := preload("res://mods/unfplap/act/host.gd")
 const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")

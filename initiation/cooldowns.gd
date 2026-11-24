@@ -1,7 +1,7 @@
 extends RefCounted
 ## The request cooldown store: one `Mods.state("unfplap").request_times` dictionary of
 ## id -> unix time, read through the world mods view. It composes the history offer cooldown with
-## the heat shortening. See `docs/initiation.md` (`## Data ownership`).
+## the heat shortening.
 
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")

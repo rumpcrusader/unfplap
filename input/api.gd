@@ -1,7 +1,5 @@
 extends "res://mods/unfplap/shared/service.gd"
-## Service: input
 ## Scope: world
-## Contract: docs/input.md
 ## Input and the seated-player Q guard. Runs in _input before desktop_player._unhandled_input.
 ## While an act is active it consumes the act keys and the interaction keys.
 
@@ -348,7 +346,7 @@ func _act_motion(runtime: Node, motion: InputEventMouseMotion) -> void:
 
 
 ## Route one key press while an act is live. The act's own keys act here; with the shield on,
-## every other key is taken from the game and from other mods (`docs/input.md`).
+## every other key is taken from the game and from other mods.
 func _act_key(runtime: Node, key: InputEventKey, state: int) -> void:
 	# integration: anatomy actions for a live act only; the runtime's command gate decides and the
 	# key is consumed either way.

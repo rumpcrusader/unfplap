@@ -1,7 +1,7 @@
-"""Comment shape: block size, private names, doc pointers and copied doc prose.
+"""Comment rules: private names, broken doc pointers and copied doc prose.
 
-Blocks are runs of line-leading comments, so a shape failure is reported once per block. The tree
-walk and the read cache come from the shared context; the command line stays in ``scripts/comments.py``.
+Blocks are runs of line-leading comments, so a failure is reported once per block. The tree walk
+and the read cache come from the shared context; the command line stays in ``scripts/comments.py``.
 """
 from __future__ import annotations
 
@@ -32,14 +32,9 @@ ENGINE_VIRTUALS = frozenset(
 )
 GRAM = 6
 MIN_SENTENCE_WORDS = 8
-HEADER_MAX = 5
-DOC_MAX = 2
-INLINE_MAX = 3
 SKIP_PREFIXES = ("tests/", "tools/")
 
 COMMENT_RE = re.compile(r"^\s*#")
-DOC_LINE_RE = re.compile(r"^\s*##")
-DECLARATION_RE = re.compile(r"^(?:extends\b|@tool\b|class_name\b)")
 BODY_RE = re.compile(r"^\s*#+ ?")
 POINTER_RE = re.compile(r"`(docs/[A-Za-z0-9_./-]+\.md)`")
 PRIVATE_SPAN_RE = re.compile(r"`(_[a-z][a-z0-9_]*(?:\(\))?)`")
@@ -61,8 +56,6 @@ class Block:
     line: int
     first: str
     lines: list[str]
-    doc: bool
-    header: bool
 
 
 @dataclass(frozen=True)
@@ -115,11 +108,6 @@ def is_comment(line: str) -> bool:
     return COMMENT_RE.match(line) is not None
 
 
-def is_code(line: str) -> bool:
-    stripped = line.strip()
-    return bool(stripped) and not is_comment(line) and DECLARATION_RE.match(stripped) is None
-
-
 def comment_body(line: str) -> str:
     return BODY_RE.sub("", line)
 
@@ -127,29 +115,17 @@ def comment_body(line: str) -> str:
 def comment_blocks(text: str) -> list[Block]:
     lines = text.splitlines()
     blocks: list[Block] = []
-    code_seen = False
-    header_taken = False
     index = 0
     while index < len(lines):
         if not is_comment(lines[index]):
-            code_seen = code_seen or is_code(lines[index])
             index += 1
             continue
         end = index
         while end < len(lines) and is_comment(lines[end]):
             end += 1
         raw = lines[index:end]
-        doc = DOC_LINE_RE.match(raw[0]) is not None
-        header = doc and not code_seen and not header_taken
-        header_taken = header_taken or header
         blocks.append(
-            Block(
-                index + 1,
-                raw[0].strip(),
-                [comment_body(line) for line in raw],
-                doc,
-                header,
-            )
+            Block(index + 1, raw[0].strip(), [comment_body(line) for line in raw])
         )
         index = end
     return blocks
@@ -188,13 +164,6 @@ def duplicate_of_docs(block: Block, docs: Docs) -> bool:
 
 def block_rules(block: Block, docs: Docs) -> list[str]:
     rules: list[str] = []
-    size = len(block.lines)
-    if block.header and size > HEADER_MAX:
-        rules.append("R1")
-    elif block.doc and not block.header and size > DOC_MAX:
-        rules.append("R2")
-    elif not block.doc and size > INLINE_MAX:
-        rules.append("R3")
     if private_name_in(block):
         rules.append("R4")
     if pointer_broken(block, docs):
@@ -225,16 +194,6 @@ def scan_paths(paths: list[str], docs: Docs) -> list[Finding]:
     ]
     findings.sort(key=lambda finding: (finding.path, finding.line, finding.rule))
     return findings
-
-
-def header_fixture(lines: int) -> str:
-    body = "".join(f"## note {index}\n" for index in range(1, lines + 1))
-    return body + "extends Node\n"
-
-
-def block_fixture(lines: int, before: str = "extends Node", marker: str = "#") -> str:
-    body = "".join(f"{marker} note {index}\n" for index in range(1, lines + 1))
-    return f"{before}\n{body}"
 
 
 def named_comment(name: str) -> str:
@@ -268,14 +227,7 @@ def self_test() -> int:
         "Measured wording about unrelated topics keeps these fixtures apart "
         "from the whole corpus entirely."
     )
-    crlf_indented = "extends Node\r\n" + "".join(f"    # note {i}\r\n" for i in range(1, 5))
     cases: list[tuple[str, str, str, set[str]]] = [
-        ("R1", "6-line header fires", header_fixture(6), {"R1"}),
-        ("R1", "5-line header passes", header_fixture(5), set()),
-        ("R2", "3-line doc block fires", block_fixture(3, "const X = 1", "##"), {"R2"}),
-        ("R2", "2-line doc block passes", block_fixture(2, "const X = 1", "##"), set()),
-        ("R3", "4-line implementation block fires", block_fixture(4), {"R3"}),
-        ("R3", "3-line implementation block passes", block_fixture(3), set()),
         ("R4", "private name fires", named_comment("_private"), {"R4"}),
         ("R4", "engine virtual passes", named_comment("_ready"), set()),
         ("R4", "virtual with call passes", named_comment("_ready()"), set()),
@@ -297,8 +249,12 @@ def self_test() -> int:
         ),
         ("R6", "copied sentence fires", f"extends Node\n# {copied}\n", {"R6"}),
         ("R6", "distinct sentence passes", f"extends Node\n# {distinct}\n", set()),
-        ("R1", "CRLF header fires", header_fixture(6).replace("\n", "\r\n"), {"R1"}),
-        ("R3", "indented CRLF block fires", crlf_indented, {"R3"}),
+        (
+            "R4",
+            "indented CRLF private name fires",
+            "extends Node\r\n    # mention `_private` in prose\r\n",
+            {"R4"},
+        ),
     ]
     failures = 0
     for rule, label, text, expected in cases:
@@ -329,7 +285,7 @@ def self_test() -> int:
 
 
 def audit(paths: int, findings: list[Finding]) -> None:
-    counts = {f"R{index}": 0 for index in range(1, 7)}
+    counts = {f"R{index}": 0 for index in range(4, 7)}
     for finding in findings:
         counts[finding.rule] += 1
     payload = {

@@ -1,5 +1,5 @@
 extends RefCounted
-## Typed `camera_thrust` values. Contract: `docs/camera.md` (`## Modes and lean`).
+## Typed `camera_thrust` values.
 
 
 ## The two amplitudes the thrust shot scales by, read once from the settings snapshot block.

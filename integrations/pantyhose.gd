@@ -9,7 +9,7 @@ const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const CUT_SHADER := preload("res://mods/unfplap/integrations/shaders/pantyhose_cut.gdshader")
 const SHEER_SHADER := preload("res://mods/unfplap/integrations/shaders/pantyhose_sheer.gdshader")
-## The per-node cloth jiggle; see `docs/integrations.md` (`## Pantyhose & Panties`).
+## The per-node cloth jiggle.
 const GARMENT_JIGGLE := preload("res://mods/unfplap/integrations/garment_jiggle.gd")
 const PERF := preload("res://mods/unfplap/shared/perf.gd")
 

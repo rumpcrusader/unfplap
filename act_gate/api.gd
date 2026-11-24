@@ -1,7 +1,5 @@
 extends "res://mods/unfplap/shared/service.gd"
-## Service: act_gate
 ## Scope: world
-## Contract: docs/act_gate.md
 ## The dynamic act gate: relationship, romance, willingness, cycle, history and consent.
 
 const POLICY := preload("res://mods/unfplap/act_gate/policy.gd")

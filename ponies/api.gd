@@ -1,7 +1,5 @@
 extends "res://mods/unfplap/shared/service.gd"
-## Service: ponies
 ## Scope: world
-## Contract: docs/ponies.md
 ## The roster that owns one runtime per pony body.
 
 const SETTINGS := preload("res://mods/unfplap/settings/api.gd")

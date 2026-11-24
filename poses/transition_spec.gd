@@ -2,7 +2,7 @@ extends RefCounted
 ## The typed pose transition edge: one validated wrapper per
 ## `poses/transitions/<from>__<to>.json` document. Private to `poses/`; the registry reads each
 ## file once, validates it and caches the wrapper, and `pose_state.gd` runs the validated
-## document. It never reads settings, files or the scene. Contract: `docs/poses.md`.
+## document. It never reads settings, files or the scene.
 
 const SELF := preload("res://mods/unfplap/poses/transition_spec.gd")
 const POSE_SPEC := preload("res://mods/unfplap/poses/pose_spec.gd")

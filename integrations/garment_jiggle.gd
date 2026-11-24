@@ -2,8 +2,6 @@ extends RefCounted
 ## The Pantyhose & Panties cloth jiggle: makes one worn node follow one pony's live `FlankTouch`
 ## wobble. That coat is the only simulator, so the cloth never runs a second spring out of phase;
 ## six per-node uniforms carry the coat's displacement in the worn node's own space.
-##
-## See `docs/integrations.md` (`## Pantyhose & Panties`).
 
 ## The stock `flank_jiggle.gdshaderinc` spread, in the target mesh's local units, until an act's
 ## reactions widen the coat's own.

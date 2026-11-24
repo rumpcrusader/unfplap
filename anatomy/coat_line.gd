@@ -1,7 +1,6 @@
 extends RefCounted
 ## Per-pony coat line: the mesh's own vertical axis, bent by the hind legs, with the shader
 ## bending every cross-section to match.
-## See `docs/anatomy.md` (`## Coat line`).
 
 const GEOMETRY := preload("res://mods/unfplap/anatomy/geometry.gd")
 

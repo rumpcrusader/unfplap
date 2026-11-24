@@ -34,7 +34,8 @@ static func render(prompt: Variant, values: Dictionary) -> String:
 	return _collapse(_render_composite(node, values, 0))
 
 
-## Every renderable prompt id in `document`, rendered with that id's own values by id.
+## Every renderable prompt id in `document`, rendered with that id's own values by id. The document
+## is grouped by feature, not by consumer, so one group can serve several modules.
 static func render_document(document: Dictionary, values_by_id: Dictionary) -> Dictionary:
 	var out := {}
 	for group: String in document:
@@ -181,6 +182,8 @@ static func _render_composite(node: Dictionary, values: Dictionary, depth: int) 
 	return str(rendered["text"])
 
 
+## A part is dropped, whitespace included, when a slot it references is empty; a direct slot token
+## renders empty and leaves the line's shape intact.
 static func _render_template(template: String, parts: Dictionary, slots: Dictionary,
 		values: Dictionary, cache: Dictionary, depth: int, as_part: bool) -> Dictionary:
 	var out := ""

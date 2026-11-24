@@ -1,8 +1,6 @@
 extends RefCounted
 ## The anatomy material, skin tones, teats and the midline skin strip. It owns the skinned part
 ## meshes and their visibility; the controller owns placement and shape state.
-##
-## See `docs/anatomy.md` (`## Appearance`).
 
 const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const TEAT_JIGGLE := preload("res://mods/unfplap/anatomy/teat_jiggle.gd")

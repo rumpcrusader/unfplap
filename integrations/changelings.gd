@@ -1,8 +1,6 @@
 extends "res://mods/unfplap/body_change/source.gd"
 ## Queen Chrysalis, by changelings: the typed body-change provider for her own body and the forms
 ## the pack brings.
-##
-## See `docs/integrations.md`.
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const BODY_PROFILE := preload("res://mods/unfplap/shared/body_profile.gd")

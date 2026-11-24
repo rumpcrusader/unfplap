@@ -1,7 +1,6 @@
 extends RefCounted
 ## Pure pose placement: plain world facts for one chosen option produce a typed ok/reason. It reads
-## no scene, service, setting, clock or file. Contract: `docs/scene_gate.md`
-## (`## Pose options and placement`).
+## no scene, service, setting, clock or file.
 ##
 ## Placement is live world feasibility; the pose capability froze at formation, the rest is live.
 

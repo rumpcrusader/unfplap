@@ -2,8 +2,6 @@ extends RefCounted
 ## The act's settings boundary: one snapshot per act and one live re-apply. One per pony, owned by
 ## `act/session.gd`: the session is the only reader of the act tunables, through this module.
 ## Values arrive once per act and again on `apply_live()`, never per frame.
-##
-## See `docs/runtime.md` and `docs/settings.md`.
 
 const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const REACTIONS_CONTEXT := preload("res://mods/unfplap/reactions/context.gd")

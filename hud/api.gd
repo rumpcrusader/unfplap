@@ -1,7 +1,5 @@
 extends CanvasLayer
-## Service: hud
 ## Scope: world
-## Contract: docs/hud.md
 ## Desktop HUD: prompt and a bottom-left controls/cue list.
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")

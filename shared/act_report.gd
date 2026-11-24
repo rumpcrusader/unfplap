@@ -1,6 +1,5 @@
 extends RefCounted
-## The two cross-mod act payloads: one live progress snapshot and one committed result. The
-## human contract is `docs/api.md`.
+## The two cross-mod act payloads: one live progress snapshot and one committed result.
 
 const SCHEMA := 1
 

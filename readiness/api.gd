@@ -1,7 +1,5 @@
 extends Node
-## Service: readiness
 ## Scope: pony
-## Contract: docs/readiness.md
 ## Act readiness: her satisfaction, mood and cue, the stroke score, touch/talk input, the
 ## neglect-tolerance meter and the counters the act summary reads.
 

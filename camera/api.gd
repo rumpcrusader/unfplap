@@ -1,7 +1,5 @@
 extends Node
-## Service: camera
 ## Scope: pony
-## Contract: docs/camera.md
 ## The act camera session: the lean and its smoothing, the thrust camera, the debug free look and
 ## the size/torso values the view and the hands read.
 

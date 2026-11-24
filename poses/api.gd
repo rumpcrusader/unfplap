@@ -1,7 +1,5 @@
 extends Node
-## Service: poses
 ## Scope: pony
-## Contract: docs/poses.md
 ## The act's pose session: the live pose and its space, the skeleton write, the act body, the
 ## teardown and the pose diagnostics.
 

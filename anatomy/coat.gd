@@ -2,8 +2,6 @@ extends RefCounted
 ## The rig and merged-near coat's runtime deform: the duplicate-and-patch, the vulva/anal spread,
 ## the vulva cut, the vulva no-jiggle zone and the debug overlay. It owns the coat material copies
 ## and restores the game shaders exactly.
-##
-## See `docs/anatomy.md` (`## Body coat deform`).
 
 const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const GEOMETRY := preload("res://mods/unfplap/anatomy/geometry.gd")

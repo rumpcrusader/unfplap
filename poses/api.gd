@@ -160,21 +160,21 @@ class PoseReadiness extends RefCounted:
 
 ## The debug rows and the settled log.
 class PoseDiagnostics extends RefCounted:
-	var _session: Variant = null
+	var _diag: DIAG = null
 	var _pose_logged := false
 	var _trace_frames := 0
 
-	func _init(session: Variant) -> void:
-		_session = session
+	func _init(diag: DIAG) -> void:
+		_diag = diag
 
 	func state_rows(state: int) -> Array[String]:
-		return DIAG.state_rows(_session, state)
+		return _diag.state_rows(state)
 
 	func log_settled(state: int, anon_diag: Callable) -> void:
-		DIAG.log_settled(_session, state, anon_diag, self)
+		_diag.log_settled(state, anon_diag, self)
 
 	func trace_sample(state: int) -> void:
-		DIAG.trace_sample(_session, state, self)
+		_diag.trace_sample(state, self)
 
 
 ## The act's own Anon body, as consumers see it.
@@ -220,6 +220,8 @@ var _tail_handle: PoseTail = null
 var _act_body_handle: PoseActBody = null
 ## The verdict and diagnostic handles; each owns the cache it fills.
 var _readiness: PoseReadiness = null
+## The diagnostics module the handle forwards to.
+var _diag: DIAG = null
 var _diagnostics: PoseDiagnostics = null
 ## The one pose read model for the act, and the registry that validates the static spec table.
 var _view: POSE_VIEW
@@ -289,7 +291,8 @@ func _init(facts: ACT_FACTS = null) -> void:
 	_tail_handle = PoseTail.new(_mods)
 	_act_body_handle = PoseActBody.new(_act_body_host)
 	_readiness = PoseReadiness.new(self, _assets)
-	_diagnostics = PoseDiagnostics.new(self)
+	_diag = DIAG.new(self, _assets, _space)
+	_diagnostics = PoseDiagnostics.new(_diag)
 	_bind_oral()
 	_bind_face()
 
@@ -397,7 +400,7 @@ func _begin(start: PoseStart) -> bool:
 	_space.begin(bed, pony)
 	if str(_view.frame) != "bed":
 		_pose_node.size_name = SETTINGS.pony_size_name()
-	DIAG.log_base(self)
+	_diag.log_base()
 	(skeleton as Skeleton3D).add_child(_pose_node)
 	var family := str(_view.family)
 	if family == "bed":
@@ -472,16 +475,6 @@ static func warm_asset(path: String) -> void:
 ## empty string on success, otherwise the reader's complaint.
 static func reload_authored_base() -> String:
 	return AUTHORED.reload_file()
-
-
-## The path the rig gate and diagnostics name for a candidate.
-func _asset_path_for(candidate: String = "") -> String:
-	return _assets.asset_path_for(candidate)
-
-
-## The pose id of the live rendered side: the source while an edge runs, the view's pose otherwise.
-func _live_spec_id() -> String:
-	return _assets.live_spec_id()
 
 
 ## One authored edge request, answered with `PoseResult`; a refusal changes nothing at all.
@@ -913,12 +906,6 @@ func _sync_live_config() -> bool:
 	return true
 
 
-## The parsed authored pose for the debug action and the pose lab. With no candidate this is the
-## live rendered asset, not the target of a running edge.
-func _readiness_asset(candidate: String = "") -> AUTHORED:
-	return _assets.readiness_asset(candidate)
-
-
 ## Re-read the live pose's asset in place, plus the running edge's target, or the default
 ## missionary asset when no pose is live. A running act picks the new pose up on its next frame.
 func reload_authored(candidate: String = "") -> String:
@@ -1084,7 +1071,7 @@ func write_render_frame(body_scale: float) -> void:
 	if family != "bed":
 		return
 	var frame: Transform3D = _space.frame(_view)
-	if _has_frame(frame):
+	if _space.has_frame(frame):
 		_act_body_host.apply_render(frame, body_scale)
 	var sk: Variant = pony.get("skeleton")
 	if is_instance_valid(_pose_node) and sk is Skeleton3D:
@@ -1136,16 +1123,6 @@ func aim_look(point: Vector3, kiss: float, climaxing: bool) -> void:
 	_pose_node.look_point = point
 	_pose_node.kiss = kiss
 	_pose_node.climaxing = climaxing
-
-
-## The live pose frame: the bed's mattress space or the pony root's ground space.
-func _pose_frame() -> Transform3D:
-	return _space.frame(_view)
-
-
-## True when a pose frame is real space: the absent frame carries an infinite origin.
-static func _has_frame(frame: Transform3D) -> bool:
-	return frame.origin.is_finite()
 
 
 func _feature(name: String) -> bool:

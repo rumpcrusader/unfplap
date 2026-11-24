@@ -6,24 +6,34 @@ const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
+var _session: Variant = null
+var _assets: Variant = null
+var _space: Variant = null
+
+
+func _init(session: Variant, assets: Variant, space: Variant) -> void:
+	_session = session
+	_assets = assets
+	_space = space
+
 
 ## Which missionary base is in charge and why, in one record so the log, the settled line and the
 ## debug action cannot drift apart.
-static func base_info(session: Variant) -> BASE_INFO:
+func base_info() -> BASE_INFO:
 	var info := BASE_INFO.new()
-	var live_id: String = session._live_spec_id()
-	var asset: AUTHORED = session._readiness_asset()
+	var live_id: String = _assets.live_spec_id()
+	var asset: AUTHORED = _assets.readiness_asset()
 	info.asset = asset
 	info.bones = asset.pony_bones.size()
 	info.available = asset.available
 	info.error = asset.error
-	info.frame = session._pose_frame()
-	info.frame_kind = str(session._view.frame)
+	info.frame = _space.frame(_session._view)
+	info.frame_kind = str(_session._view.frame)
 	info.shots = asset.has_shots
-	info.asset_path = session._asset_path_for(live_id)
+	info.asset_path = _assets.asset_path_for(live_id)
 	info.live_path = info.asset_path
-	info.target_path = session._asset_path_for(session._target_id) \
-		if session._target_spec != null else info.live_path
+	info.target_path = _assets.asset_path_for(_session._target_id) \
+		if _session._target_spec != null else info.live_path
 	info.asset_frame = asset.frame
 	info.variant = asset.variant
 	if live_id.is_empty():
@@ -31,11 +41,11 @@ static func base_info(session: Variant) -> BASE_INFO:
 	elif info.live_path.is_empty():
 		info.reason = "pose=%s" % live_id
 	elif not asset.available:
-		info.reason = session.readiness().asset_verdict(live_id).reason
-	elif not session._has_frame(info.frame):
-		info.reason = "no %s frame" % str(session._view.frame)
-	elif not asset.usable(str(session._view.frame)):
-		info.reason = session.readiness().asset_verdict(live_id).reason
+		info.reason = _session.readiness().asset_verdict(live_id).reason
+	elif not _space.has_frame(info.frame):
+		info.reason = "no %s frame" % str(_session._view.frame)
+	elif not asset.usable(str(_session._view.frame)):
+		info.reason = _session.readiness().asset_verdict(live_id).reason
 	else:
 		info.base = "authored"
 	return info
@@ -43,12 +53,12 @@ static func base_info(session: Variant) -> BASE_INFO:
 
 ## Render-time placement trace, printed from idle after every writer of the frame so it reads the
 ## pose the renderer is about to use; `diag_root` is the armature bone the placement is written to.
-static func trace_sample(session: Variant, state: int, handle: Variant) -> void:
-	var pony: Variant = session._pony()
-	if handle._trace_frames >= 2 or str(session._view.frame) != "bed" or state == 0:
+func trace_sample(state: int, handle: Variant) -> void:
+	var pony: Variant = _session._pony()
+	if handle._trace_frames >= 2 or str(_session._view.frame) != "bed" or state == 0:
 		return
-	var pose_node: Variant = session._pose_node
-	if not is_instance_valid(pose_node) or session._basis_amount() < 0.9:
+	var pose_node: Variant = _session._pose_node
+	if not is_instance_valid(pose_node) or _session._basis_amount() < 0.9:
 		return
 	var sk: Variant = pony.get("skeleton") if is_instance_valid(pony) else null
 	if not sk is Skeleton3D:
@@ -89,10 +99,10 @@ static func _transform_angle(a: Transform3D, b: Transform3D) -> float:
 
 ## Rig, modifier and posture diagnostics: which skeleton the modifier drives, which skeleton every
 ## mesh is actually bound to, whether the pose survives between frames, and who else is near the bed.
-static func rows(session: Variant, skeleton: Skeleton3D, info: BASE_INFO) -> Array[String]:
-	var pony: Variant = session._pony()
+func rows(skeleton: Skeleton3D, info: BASE_INFO) -> Array[String]:
+	var pony: Variant = _session._pony()
 	var out: Array[String] = []
-	var modifier: Variant = session._pose_node
+	var modifier: Variant = _session._pose_node
 	var parent: Node = modifier.get_parent() if is_instance_valid(modifier) else null
 	out.append("modifier=%s parent=%s match=%s frames=%d weight=%.2f base=%s readback=%.2f°" % [
 		"yes" if is_instance_valid(modifier) else "no",
@@ -188,31 +198,31 @@ static func rows(session: Variant, skeleton: Skeleton3D, info: BASE_INFO) -> Arr
 
 ## Multi-row pose diagnostic for the debug action: base source, asset state, bed frame and where
 ## the live pose actually put her (world and bed space).
-static func state_rows(session: Variant, state: int) -> Array[String]:
-	var pony: Variant = session._pony()
-	var info := base_info(session)
+func state_rows(state: int) -> Array[String]:
+	var pony: Variant = _session._pony()
+	var info := base_info()
 	var frame: Transform3D = info.frame
 	var out: Array[String] = []
 	out.append("pony=%s pose=%s state=%d weight=%.2f" % [
-		str(pony.name) if is_instance_valid(pony) else "?", str(session._view.id), state,
-		session._basis_amount()])
+		str(pony.name) if is_instance_valid(pony) else "?", str(_session._view.id), state,
+		_session._basis_amount()])
 	out.append("base=%s reason=%s %s path=%s frame=%s variant=%s bones=%d missing=%s shots=%s error=%s" % [
 		info.base, info.reason, "ok" if info.available else "error",
 		info.asset_path, info.asset_frame, info.variant, info.bones,
-		str(session.readiness().rig_verdict("").missing), "yes" if info.shots else "no", info.error])
+		str(_session.readiness().rig_verdict("").missing), "yes" if info.shots else "no", info.error])
 	var target_path := info.target_path
 	if not target_path.is_empty() and target_path != info.asset_path:
 		out.append("target=%s" % target_path)
 	out.append("frame=%s kind=%s scale=%.2f" % [
-		str(frame) if session._has_frame(frame) else "null", info.frame_kind,
-		_body_scale(session)])
+		str(frame) if _space.has_frame(frame) else "null", info.frame_kind,
+		_body_scale()])
 	var sk: Variant = pony.get("skeleton") if is_instance_valid(pony) else null
 	if not sk is Skeleton3D:
 		return out
 	var skeleton := sk as Skeleton3D
-	out.append_array(rows(session, skeleton, info))
+	out.append_array(rows(skeleton, info))
 	var space := Transform3D.IDENTITY
-	if session._has_frame(frame):
+	if _space.has_frame(frame):
 		space = frame.affine_inverse()
 	for pair: Array in [["hips", "pony_hips"], ["neck", "pony_neck1"], ["neck_mid", "pony_neck2"],
 			["head", "pony_head"], ["hoof_l", "pony_hoof_L"], ["hoof_r", "pony_hoof_R"]]:
@@ -227,26 +237,26 @@ static func state_rows(session: Variant, state: int) -> Array[String]:
 
 
 ## The base line written once when the act builds its pose.
-static func log_base(session: Variant) -> void:
-	var info := base_info(session)
+func log_base() -> void:
+	var info := base_info()
 	var frame: Transform3D = info.frame
-	var missing: Array[String] = session.readiness().rig_verdict("").missing
+	var missing: Array[String] = _session.readiness().rig_verdict("").missing
 	LOG.debug("pose base=%s reason=%s %s path=%s frame=%s variant=%s bones=%d missing=%d shots=%s frame_pose=%s scale=%.2f", [
 		info.base, info.reason,
 		"ok" if info.available else "error", info.asset_path,
 		info.asset_frame, info.variant, info.bones,
 		missing.size(), "yes" if info.shots else "no",
-		str(frame) if session._has_frame(frame) else "null", _body_scale(session)])
+		str(frame) if _space.has_frame(frame) else "null", _body_scale()])
 	if not missing.is_empty():
-		LOG.debug("pose rig %s", [session.readiness().rig_verdict("").reason])
+		LOG.debug("pose rig %s", [_session.readiness().rig_verdict("").reason])
 
 
 ## One line with where the pose actually put her, in world and bed space, once the weight settles.
-static func log_settled(session: Variant, state: int, anon_diag: Callable, handle: Variant) -> void:
-	var pony: Variant = session._pony()
-	if handle._pose_logged or str(session._view.frame) != "bed" or state == 0:
+func log_settled(state: int, anon_diag: Callable, handle: Variant) -> void:
+	var pony: Variant = _session._pony()
+	if handle._pose_logged or str(_session._view.frame) != "bed" or state == 0:
 		return
-	if session._basis_amount() < 0.9:
+	if _session._basis_amount() < 0.9:
 		return
 	handle._pose_logged = true
 	if not is_instance_valid(pony):
@@ -256,7 +266,7 @@ static func log_settled(session: Variant, state: int, anon_diag: Callable, handl
 		return
 	var skeleton := sk as Skeleton3D
 	var space := Transform3D.IDENTITY
-	var bed: Variant = session._bed_frame
+	var bed: Variant = _session._view.bed_frame
 	if bed is Transform3D:
 		space = (bed as Transform3D).affine_inverse()
 	var parts: Array[String] = []
@@ -270,8 +280,8 @@ static func log_settled(session: Variant, state: int, anon_diag: Callable, handl
 		parts.append("%s=w%s/b(%.3f,%.3f,%.3f)" % [
 			str(pair[0]), str(world), at.x, at.y, at.z])
 	LOG.debug("missionary settled base=%s weight=%.2f %s", [
-		base_info(session).base, session._basis_amount(), " ".join(parts)])
-	for row: String in rows(session, skeleton, base_info(session)):
+		base_info().base, _session._basis_amount(), " ".join(parts)])
+	for row: String in rows(skeleton, base_info()):
 		LOG.debug("missionary diag %s", [str(row)])
 	if anon_diag.is_valid():
 		var text := str(anon_diag.call())
@@ -280,8 +290,8 @@ static func log_settled(session: Variant, state: int, anon_diag: Callable, handl
 
 
 ## Absolute body scale from the rig's own pivot, 1.0 when the pony is gone.
-static func _body_scale(session: Variant) -> float:
-	var pony: Variant = session._pony()
+func _body_scale() -> float:
+	var pony: Variant = _session._pony()
 	var value: Variant = pony.get("body_scale") if is_instance_valid(pony) else null
 	return float(value) if value != null else 1.0
 

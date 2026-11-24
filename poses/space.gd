@@ -81,7 +81,7 @@ func reset() -> void:
 
 
 ## True when a pose frame is real space: the absent frame carries an infinite origin.
-static func has_frame(frame: Transform3D) -> bool:
+func has_frame(frame: Transform3D) -> bool:
 	return frame.origin.is_finite()
 
 

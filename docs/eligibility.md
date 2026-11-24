@@ -99,7 +99,7 @@ A consumer asks about its own target and never inspects identity:
 |---|---|---|
 | `Target.ACT` | `participation.acts` | act discovery, the standing invitation, the fan candidates |
 | `Target.ANATOMY` | `participation.anatomy` | the anatomy facade's `present`; the tail follows it |
-| `Target.CHARACTER` | none | the Characters selector, so an opted-out mare stays editable |
+| `Target.CHARACTER` | none | the Characters selector, the act gate's `adult` fact and a shape source's population body |
 
 The deprecated `tail` participation key is still returned by `get_profile()` but no target reads
 it. The tail is part of the anatomy presentation; `docs/anatomy.md` owns that rule.

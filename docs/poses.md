@@ -458,7 +458,7 @@ profile. A missing set allows only `end`. A lock channel's `block` list denies i
 non-empty `allow` list denies anything outside it; the lock is checked only inside the profile and
 cannot deny `end`. `pose_back`/`pose_forward` are reserved for pose navigation and no key emits them
 yet. The input protocol's `command("oral")` (`act/input.gd`) requests `standing_oral` from
-`standing` and the reverse edge from `standing_oral` through `request_pose`; it passes `consent: "oral"` only when `eligibility.consent(pony, "oral")` is
+`standing` and the reverse edge from `standing_oral` through `request_pose`; it passes `consent: "oral"` only when `act_gate.consent(pony, "oral")` is
 true, and its refusal reason is the input's HUD line.
 
 `apply_live_settings()` refreshes the target snapshot in place on a live settings edit: the same

@@ -104,7 +104,7 @@ with its service's contract.
 | Preferences | `shared/preferences.gd` | `docs/preferences.md` | `tests/readiness/`, `tests/test_character_preferences.gd` |
 | Character templates | `shared/character_preferences.gd` | `docs/preferences.md` | `tests/test_character_preferences.gd` |
 | Prompt text | `shared/prompt_text.gd` | `docs/prompts.md` | `tests/test_prompts.gd` |
-| Cycle | `shared/cycle.gd` | `docs/eligibility.md` | `tests/test_cycle.gd` |
+| Cycle | `shared/cycle.gd` | `docs/estrus.md` | `tests/test_cycle.gd` |
 | Participation | `shared/participation.gd` | `docs/eligibility.md` | `tests/test_participation.gd` |
 | Consent defaults | `shared/consent.gd` | `docs/eligibility.md` | `tests/eligibility/` |
 | Pony id | `shared/pony_id.gd` | `docs/eligibility.md` | `tests/test_pony_id.gd` |
@@ -114,7 +114,7 @@ with its service's contract.
 | Pose catalog | `shared/pose_catalog.gd` | `docs/poses.md` | `tests/poses/` |
 | Pose options | `shared/pose_options.gd` | `docs/poses.md`, `docs/scene_gate.md` | `tests/pose_options/` |
 | Pose placement | `shared/pose_placement.gd` | `docs/scene_gate.md` | `tests/pose_placement/` |
-| Base clearance | `shared/clearance.gd` | `docs/eligibility.md` | `tests/clearance/` |
+| Base clearance | `shared/clearance.gd` | `docs/act_gate.md` | `tests/clearance/` |
 | Negotiation context | `shared/context.gd` | `docs/negotiation.md` | `tests/context/` |
 | Privacy rules | `shared/privacy_rules.gd` | `docs/initiation.md` | `tests/privacy/` |
 | Anatomy placement | `shared/anatomy_placement.gd` | `docs/anatomy.md` | `tests/anatomy/` |

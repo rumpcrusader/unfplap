@@ -144,7 +144,7 @@ the grip and releases the fluid; the phase decides when a climax event calls it.
   `can_target_vulva()`/`can_target_mouth()`, so the input service only consumes a key when the
   anatomy offer is live.
 - `V` reads `target()`. From `VULVA`, if `can_target_vulva()` and the per-mare `anal` consent from
-  `eligibility.consent(pony, "anal")` pass, it calls `target_anus()`; otherwise it calls
+  `act_gate.consent(pony, "anal")` pass, it calls `target_anus()`; otherwise it calls
   `target_vulva()`. A refusal is the input's HUD line, not an anatomy signal.
 - `N` calls `can_target_mouth()`, requests the authored `standing ↔ standing_oral` edge through
   `poses/api.gd` with the per-mare `oral` consent, and shows the pose's refusal line. When

@@ -276,7 +276,7 @@ are known, and whose timing resolves; anything else returns null.
 A pose transition is an authored document at `poses/transitions/<from>__<to>.json`, imported only
 through `poses/transition_spec.gd` and cached by `poses/registry.gd`. The filename stem is the edge
 id and must equal the document's `id`, which is exactly `<from>__<to>`; both endpoints name spec
-rows in the same family and `from` and `to` differ. The document's `version` is 1.
+rows in the same family and `from` and `to` differ.
 
 Top-level fields: `id`, `from`, `to`, optional `requires`, optional `duration`, optional `easing`
 (`linear` or `smoothstep`), `channels`, optional `constraints` and optional `events`.

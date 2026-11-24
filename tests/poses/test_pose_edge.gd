@@ -290,7 +290,6 @@ func _check_facesit_runs() -> void:
 
 
 func _check_rejections() -> void:
-	_rejects(_mutated({"version": 2}), "a wrong version is rejected")
 	check(not TRANSITION_SPEC.errors("other", _forward(), SPECS.SPECS).is_empty(),
 		"a filename/id mismatch is rejected")
 	_rejects(_without("from"), "a missing from is rejected")
@@ -381,7 +380,7 @@ func _check_rejections() -> void:
 		"a viseme without a value is rejected")
 	_rejects(_mutated({"events": [{"at": -1.0, "kind": "speech_stop"}]}),
 		"a negative event at is rejected")
-	check(TRANSITION_SPEC.from_dict(FORWARD, _mutated({"version": 2}), SPECS.SPECS) == null,
+	check(TRANSITION_SPEC.from_dict("other", _forward(), SPECS.SPECS) == null,
 		"from_dict refuses an invalid document")
 
 

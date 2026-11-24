@@ -8,7 +8,6 @@ const SELF := preload("res://mods/unfplap/poses/transition_spec.gd")
 const POSE_SPEC := preload("res://mods/unfplap/poses/pose_spec.gd")
 const POSE_STATE := preload("res://mods/unfplap/poses/pose_state.gd")
 
-const VERSION := 1
 const CHANNELS := ["base", "anon", "contact", "camera", "controls", "audio", "presentation"]
 const KINDS := ["hold", "blend", "delta", "switch", "lock"]
 const EASINGS := ["linear", "smoothstep"]
@@ -16,7 +15,6 @@ const EVENT_KINDS := ["status", "speech_stop", "viseme"]
 const REQUIRES_KEYS := ["features", "consent", "forms", "views"]
 
 var id := ""
-var version := 0
 var from_id := ""
 var to_id := ""
 var requires: Dictionary = {}
@@ -44,9 +42,6 @@ static func from_dict(edge_id: String, document: Dictionary, specs: Dictionary =
 ## support checks but keeps the shape, id and timing rules, and timing resolves only after them.
 static func errors(edge_id: String, document: Dictionary, specs: Dictionary = {}) -> Array[String]:
 	var out: Array[String] = []
-	var version_value: Variant = document.get("version")
-	if not _is_number(version_value) or float(version_value) != float(VERSION):
-		out.append("version is not %d" % VERSION)
 	var from_value: Variant = document.get("from")
 	var to_value: Variant = document.get("to")
 	var id_value: Variant = document.get("id")
@@ -279,8 +274,6 @@ static func _is_number(value: Variant) -> bool:
 
 func _fill(edge_id: String, document: Dictionary) -> void:
 	id = edge_id
-	var version_value: Variant = document.get("version", 0)
-	version = int(version_value) if _is_number(version_value) else 0
 	from_id = str(document.get("from", ""))
 	to_id = str(document.get("to", ""))
 	var requires_value: Variant = document.get("requires", {})

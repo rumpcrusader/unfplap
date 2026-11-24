@@ -29,7 +29,6 @@ func run() -> void:
 ## One valid edge dictionary; every check starts from its own copy.
 func _edge() -> Dictionary:
 	return {
-		"version": 1,
 		"id": "standing__standing_test",
 		"from": "standing",
 		"to": "standing_test",

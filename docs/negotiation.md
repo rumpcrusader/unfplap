@@ -100,8 +100,8 @@ file.
 
 ## Bridge
 
-`negotiation/host.gd` is the private bridge between this service and the live world. It owns what
-used to be the entry's assembly:
+`negotiation/host.gd` holds the typed `Host` record and the private bridge between this service and
+the live world. The bridge owns what used to be the entry's assembly:
 
 - the `Host` callbacks that read another service or the scene: `now`, `eligible`,
   `relationship_ok`, `context_facts`, `privacy_private`, `placement_for`, `pose_placed`,

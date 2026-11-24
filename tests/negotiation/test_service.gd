@@ -6,6 +6,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/negotiation/test_service.gd
 
 const NEGOTIATION := preload("res://mods/unfplap/negotiation/api.gd")
+const HOST := preload("res://mods/unfplap/negotiation/host.gd")
 const AGREEMENT := preload("res://mods/unfplap/shared/agreement.gd")
 const PROMPTS := preload("res://mods/unfplap/negotiation/prompts.gd")
 const POSE_OPTIONS := preload("res://mods/unfplap/shared/pose_options.gd")
@@ -126,7 +127,7 @@ func _fixture() -> Dictionary:
 	boxes.hold = FakeHold.new()
 	boxes.placement = POSE_OPTIONS.Placement.new()
 	boxes.placement.standing_free = true
-	var host := NEGOTIATION.Host.new()
+	var host := HOST.Host.new()
 	host.now = func() -> float: return boxes.clock
 	host.eligible = func(_target: Node) -> bool: return boxes.eligible
 	host.relationship_ok = func(_target: Node) -> bool: return boxes.relationship

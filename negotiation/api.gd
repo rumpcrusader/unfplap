@@ -71,47 +71,6 @@ class Terminal:
 	var cooldown_s := 0.0
 
 
-## The host boundary. Every field is a named callback; nothing outside this service assembles one,
-## and no runtime field is read directly.
-class Host:
-	## Seconds. The service's one clock.
-	var now: Callable
-	## (pony) -> bool: the eligibility service's `eligible?` answer.
-	var eligible: Callable
-	## (pony) -> bool: the live relationship, romance and Promiscuity floor.
-	var relationship_ok: Callable
-	## (pony) -> Dictionary: the plain facts `shared/context.gd` builds from.
-	var context_facts: Callable
-	## (pony, cuddle) -> bool: the privacy provider's live predicate.
-	var privacy_private: Callable
-	## (runtime) -> PoseOptions.Placement: the plain placement facts.
-	var placement_for: Callable
-	## (runtime, PoseOptions.Option) -> bool: the scene-only placement check again, right before
-	## an Agreement forms. A missing callback refuses.
-	var pose_placed: Callable
-	## () -> the player's live form and display, for the Anon option builder.
-	var form_view: Callable
-	## (runtime) -> RefCounted: the per-pony `scene_hold/api.gd` ledger.
-	var hold_for: Callable
-	## (PROMPTS.Request, scope, done) -> bool: the dialogue classifier. `done` gets a
-	## PROMPTS.Reply.
-	var classify: Callable
-	## (PROMPTS.Request, scope, done) -> bool: the Mare reasoning call.
-	var reason: Callable
-	## (pony, scope, done) -> bool: the target's next spoken line, watched once.
-	var await_answer: Callable
-	## (scope) -> void: cancel one classifier scope.
-	var cancel_scope: Callable
-	## (text) -> void.
-	var toast: Callable
-	## (pony, reason) -> void: the shared reaction line.
-	var react: Callable
-	## (Terminal) -> void.
-	var on_outcome: Callable
-	## (Handle) -> void: the Agreement is ready for the Act service.
-	var on_agreement: Callable
-
-
 ## One live negotiation's private state. It is cleared when the Agreement forms.
 class Exchange:
 	var id := 0
@@ -135,7 +94,7 @@ class Exchange:
 	var cuddle := false
 	var expires_at := 0.0
 
-var _host: Host
+var _host: HOST.Host
 var _bridge: HOST = null
 var _voice: DIRECTOR = null
 var _phase := _PHASE_NONE
@@ -210,7 +169,7 @@ func on_world(_host: Node) -> void:
 func _bind_host() -> void:
 	if _bridge == null:
 		return
-	var host := Host.new()
+	var host := HOST.Host.new()
 	host.now = Callable(_bridge, "now")
 	host.eligible = Callable(_bridge, "eligible")
 	host.relationship_ok = Callable(_bridge, "relationship_ok")
@@ -232,7 +191,7 @@ func _bind_host() -> void:
 
 
 ## The suite seam: a typed host replaces the bridge the entry builds. The entry never calls it.
-func setup(host: Host) -> void:
+func setup(host: HOST.Host) -> void:
 	_host = host
 
 

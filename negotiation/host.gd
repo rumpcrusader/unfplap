@@ -19,6 +19,48 @@ const POSE_OPTIONS := preload("res://mods/unfplap/shared/pose_options.gd")
 ## The longest player line the Anon-offer classifier reads; a longer line is not an ask.
 const MAX_LINE := 600
 
+
+## The host boundary. Every field is a named callback; nothing outside this service assembles one,
+## and no runtime field is read directly.
+class Host:
+	## Seconds. The service's one clock.
+	var now: Callable
+	## (pony) -> bool: the eligibility service's `eligible?` answer.
+	var eligible: Callable
+	## (pony) -> bool: the live relationship, romance and Promiscuity floor.
+	var relationship_ok: Callable
+	## (pony) -> Dictionary: the plain facts `shared/context.gd` builds from.
+	var context_facts: Callable
+	## (pony, cuddle) -> bool: the privacy provider's live predicate.
+	var privacy_private: Callable
+	## (runtime) -> PoseOptions.Placement: the plain placement facts.
+	var placement_for: Callable
+	## (runtime, PoseOptions.Option) -> bool: the scene-only placement check again, right before
+	## an Agreement forms. A missing callback refuses.
+	var pose_placed: Callable
+	## () -> the player's live form and display, for the Anon option builder.
+	var form_view: Callable
+	## (runtime) -> RefCounted: the per-pony `scene_hold/api.gd` ledger.
+	var hold_for: Callable
+	## (PROMPTS.Request, scope, done) -> bool: the dialogue classifier. `done` gets a
+	## PROMPTS.Reply.
+	var classify: Callable
+	## (PROMPTS.Request, scope, done) -> bool: the Mare reasoning call.
+	var reason: Callable
+	## (pony, scope, done) -> bool: the target's next spoken line, watched once.
+	var await_answer: Callable
+	## (scope) -> void: cancel one classifier scope.
+	var cancel_scope: Callable
+	## (text) -> void.
+	var toast: Callable
+	## (pony, reason) -> void: the shared reaction line.
+	var react: Callable
+	## (Terminal) -> void.
+	var on_outcome: Callable
+	## (Handle) -> void: the Agreement is ready for the Act service.
+	var on_agreement: Callable
+
+
 ## The act state through the runtime's session handle; an invalid runtime is IDLE.
 func _state_of(runtime: Node) -> int:
 	var session: Variant = runtime.get("act") if is_instance_valid(runtime) else null

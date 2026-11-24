@@ -43,7 +43,9 @@ static func case_count(store: Object) -> int:
 	return total
 
 
-## Every owned footstool: case units, held units, placed furniture and world drops.
+## Every owned unit: case slots plus outstanding loans, which is where a held, placed or dropped
+## item lives. A generated house footstool is static furniture and is never owned; one owned unit
+## anywhere stops the supply.
 static func owned_count(store: Object) -> int:
 	if store == null:
 		return 0

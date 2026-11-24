@@ -116,7 +116,7 @@ func bind_view(view_in: RefCounted) -> void:
 
 
 ## Start a fresh afterglow for the live view. The row's `afterglow.close_window` opens the close
-## window immediately.
+## window immediately. Only a standing profile opens one; the bed and the bed face-sit hold without.
 func begin(summary: SUMMARY) -> void:
 	var afterglow: Variant = view.afterglow if view != null else null
 	close_window = bool((afterglow as Dictionary).get("close_window", false)) \
@@ -140,7 +140,8 @@ func presentation() -> PRESENTATION:
 	return row
 
 
-## Apply the row in its built order: pose weight, tail, HUD state.
+## Apply the row in its built order: pose weight, tail, HUD state. Nothing here re-poses the body:
+## the phase stays in the arrangement the act finished in and only settles its weight.
 ## Returns whether the wing return is asked for; the session starts it through the wing owner.
 func apply_presentation() -> bool:
 	var row := presentation()
@@ -232,7 +233,9 @@ func close_tick(delta: float) -> void:
 		_finish_close()
 
 
-## One AFTERGLOW frame: the close window counts. The anatomy handle is staged by the act tick.
+## One AFTERGLOW frame: the close window counts. The anatomy handle is staged by the act tick. The
+## note advertises no stay instruction and this phase never binds the game's action executor, so
+## that action cannot end or extend the afterglow.
 func phase_tick(delta: float, standing: bool) -> void:
 	if standing:
 		close_tick(delta)

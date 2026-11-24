@@ -118,8 +118,9 @@ func rejoin_bed_cuddle(bed_node: Node3D, act_serial: int) -> void:
 		if not WORLD.anon().toggle_couch_sleep():
 			LOG.debug("cuddle rejoin failed reason=recline")
 			return
-	# The front probe won't accept the mattress floor, so move her first.
+	# The stock front probe rejects a floor more than half a metre below her feet, so move her first.
 	stand_beside_bed(rest, guest_seat)
+	# The snuggle support reads the reclined hip targets; an earlier invite seats her standing.
 	await tree.create_timer(CUDDLE_REJOIN_SETTLE_S).timeout
 	var deadline := Time.get_ticks_msec() + int(CUDDLE_REJOIN_WINDOW_S * 1000.0)
 	var note := ""
@@ -134,6 +135,8 @@ func rejoin_bed_cuddle(bed_node: Node3D, act_serial: int) -> void:
 		if not bool(player.get_meta("couch_sleeping", false)):
 			LOG.debug("cuddle rejoin cancelled reason=stood_up")
 			return
+		# The stock accept path treats a social-talk lease as routine and its invite drops the
+		# seat argument, so open the bed here and pass the real guest seat.
 		if rest.open() and rest.invite(pony, guest_seat):
 			LOG.debug("cuddle rejoin invited bed=%s", [str(bed_node.name)])
 			return

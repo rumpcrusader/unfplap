@@ -1,269 +1,79 @@
-# Act summary and long-term history
+# Act summary and history
 
-This is the contract for the mod-owned post-act summary and the per-mare act history. It is the
-only place that decides whether an act was good, neutral or bad, and what that changes later. The
-event and impression the summary writes are owned by the memory system; see `docs/memory.md`.
-Readiness is `docs/readiness.md`; the afterglow phase is `docs/afterglow.md`; the face is
-`docs/face.md`.
+The summary service owns the mod's judgement of a finished act: whether it was good, neutral or bad,
+what the memory receives, and what the lasting per-mare history becomes. It is the only place that
+decides an act's worth, and the row it writes is read by every later system that cares about how she
+feels toward Anon. The act state, the readiness meter and the memory store are not its own.
 
-## Ownership
+## The grade
 
-`summary/api.gd` is the system facade. It owns the summary trigger and commit, the typed
-`Inputs`/`Context` records the pure scorer reads (`summary_inputs()`, `summary_context()`) and the
-peak-memory record. The stored ledger is read from `shared/act_history.gd` directly, by this facade
-and by every other consumer. `act/session.gd` keeps the act state machine; `act/view.gd` gathers the
-action counters and the scene values into the typed input the scorer reads; `act/exit.gd` owns the
-stop ledger, and the face and line presentation belong to `docs/face.md` and `docs/dialogue.md`.
-`summary/score.gd` and
-`shared/act_history.gd` remain the pure scoring and stored-row modules behind the facade. The
-neglect-tolerance meter is readiness and the idle history scan is dialogue; see
-`docs/readiness.md` and `docs/dialogue.md`.
+An act is scored from what actually happened: a climax, wanted talk, wanted touch, matched motion and
+not ending early. A component only applies when she cares about it, so a mare with no talk likes is
+never punished for a quiet act. Handling she disliked costs points, and repeated or varied disliked
+handling costs more; silence from a talk-seeker costs, and a missed touch or a mismatched motion keeps
+an act out of the good band without making it bad. A good act becomes great with more than one climax,
+no dislikes, no silence and no early end. A perfect but silent talk-seeker therefore lands neutral;
+repeated disliked handling plus silence is bad.
 
-## Per-act score
+An act that is both too short and has too few real thrusts is skipped. A forced stop never commits a
+summary. Only the intentional early end commits an early one, and only after enough time or a first
+real thrust; a neutral early end hurts less than a bad act.
 
-`summary/score.gd` is pure. It scores one act from the action counters the runtime collected:
+## What an act writes
 
-| Component | Weight | Passes when | Applies |
-|---|---:|---|---|
-| Climax | `0.30` | she reached at least one climax | always |
-| Talk | `0.20` | at least one liked talk category and no disliked talk | only if `preferences.talk` is non-empty |
-| Touch | `0.20` | at least one liked touch and no disliked touch | only if she has touch likes or dislikes |
-| Motion | `0.15` | a majority of scored real thrusts match both her intensity and pattern | only after the pattern window has at least three strokes |
-| Not early | `0.15` | not an intentional 0-climax early end | always |
+The summary becomes one impression carrying its romance and mood, and one relationship world-context
+event. An early end or partner stop records one event: the summary, or the basic cancel/stop fallback.
 
-Penalties:
+What the world sees is a neutral, renamable event line: the pair comes first so the profile can drop
+in her name, and from there on the pony is never "you", which keeps Recent activities readable. The
+thought stays inside her own head and voice and is what the profile shows as the last impression.
+The event carries at most one vague reason sentence, never a specific miss; the thought names none.
 
-- `0.10` per disliked touch or talk, capped at `0.20` for the act.
-- `0.15` extra when the same disliked touch kind happened twice, or there were three or more
-  disliked events.
-- `0.15` when she seeks talk and the player never spoke during the act.
-- `0.10` when a touch preference was never met, or motion did not match. This is a miss, not a
-  bad act on its own, but it keeps the act out of the good band.
+A completed act also starts the held post-act face, whose warm face and aftercare follow the same
+decision; a new act clears it. Staying close and caressing rewards a good or non-early neutral act
+and repairs hurt a little after a bad one.
 
-`quality = clamp((passed weight - penalties) / applicable weight, 0, 1)`.
+One strongest clean act per mare is kept as a peak: it needs a positive summary, no disliked handling
+and either a very high peak or many matched strokes. A later higher-scoring act replaces it. Its text
+is the last player exchange, or a generic warm beat when he did not speak.
 
-- **Good:** `quality >= 0.80`
-- **Neutral:** `0.20 < quality < 0.80`
-- **Bad:** `quality <= 0.20` (or severe handling plus another miss, which the penalties push below
-  the band)
-- **Great:** a good act with two or more climaxes, no dislikes, no silence and no early end.
+There is no break-up path: the last tier only refuses further acts.
 
-A talk-seeker who is otherwise perfect but silent lands around `0.65`: neutral, not bad. A single
-disliked touch lands around `0.70`: neutral, not bad. Repeated disliked handling plus silence lands
-at or below `0.20`: bad. A clean act with a motion mismatch stays out of the good band.
+## History
 
-Minimum evidence: an act shorter than `history.early_grace_s` (20 s) **and** with fewer than
-`history.min_thrusts` (2) real thrusts is skipped. Forced stops never commit a summary. Only the
-intentional early-end path commits an early summary, and only after the grace period or the first
-real thrust. A neutral early end adds `history.mild_hurt` (1) instead of a full bad-act penalty.
+Good and great acts add comfort and repair hurt; bad and severe acts add hurt and take comfort away;
+a neutral early end adds a mild hurt. Hurt fades over in-game days, a sincere apology repairs it once
+a day, and staying close after a bad act repairs some hurt. A player-requested reveal adds the comfort
+of a great act on top of a non-bad act and never softens a bad one; her own reveal and a named form
+add nothing. Both points are capped.
 
-`talk-seeker` means a non-empty `preferences.talk` list. Touch applies when she has a touch like or a
-touch dislike. A mare with an empty talk list is never punished for a quiet act.
-
-## Rewards
-
-The summary carries the once-per-act impression:
-
-| Grade | Romance | Mood |
-|---|---:|---|
-| Great / Good | `+2` | `happy` |
-| Neutral | `+1` | `relaxed` |
-| Bad | `-1` | `sad`, or `annoyed` when severe |
-| Early end, neutral | `0` | `relaxed` |
-| Early end, bad | `-1` | `sad` |
-
-An event line starts with the pair, `You and Anon `, so the profile can replace that prefix with
-`You and <name>`; after that prefix it uses no second-person pronouns for the pony, so the
-**Recent activities** line stays correct. The event text is what the AI reads as context; it
-carries at most one vague reason sentence (`Something about it stayed with her.`), never a
-specific miss, and the private thought names none.
-
-`memory.commit()` writes this to the game's impressions once. It also records the summary text as
-a `relationship` world-context event. The two lines have separate voices: the recorded `text` is the
-profile-safe world event, while `thought` is her private first-person impression (`He`/`I`) and is
-what the profile shows as **Last impression**. An early end is stated once, not repeated as a
-reason. Witness text follows the same rule (`Anon and <name> were seen...`), because it can appear
-in the observer's Recent activities too.
-
-An intentional early end and a partner stop each record **one** event: the summary when it is not
-skipped, otherwise the basic `cancel`/`stop` event as the fallback. The old flat `commit_climax`
-path is gone, so a bad act can no longer give `+2` romance.
-
-A completed act starts `face/mood_face.gd`: a good or non-early neutral act holds a relaxed face with
-the warm prompt note, and a bad act holds `sad`/`annoyed` instead. The 10 s aftercare hold always
-runs, but its positive tail-up body language is only used after a good act. A new act start
-clears it: the Act service removes the meta, frees the aftercare node and releases its navigator
-hold before claiming the new one. `stay_close_reward`
-gives its extra romance only on a good or non-early neutral act; after a bad act, staying close and
-caressing is a one-point hurt repair instead. The caress reward threshold is in `docs/hands.md`.
-
-### Memory and rewards
-
-- **First pony climax:** one world-context event; every climax gets a generated reaction.
-- **Once at afterglow:** `summary/api.gd:commit_after_act()` scores the act,
-  `memory.commit()` writes the grade-aware romance and mood, and
-  `memory.witnesses()` follows.
-- **Standing close reward:** `memory.commit()` (the `STAY_CLOSE` slot) records a private
-  impression. On a good or non-early neutral act, staying and caressing adds a happy mood, a
-  private thought and a small `romance` gain. After a bad act, staying and caressing repairs one
-  point of history hurt instead. The caress time threshold is in `docs/hands.md`.
-- **Peak act:** one strongest memory per mare is kept in
-  `Mods.state("unfplap").peak_memories`. It requires a positive summary, no disliked touch/talk and
-  either peak readiness >= 90 or six both-axis thrust matches. A later higher-scoring act replaces
-  it. The text is the last player exchange, or a generic warm beat if he did not speak.
-- **Zero-climax act-key end:** the early-stop/cancel path commits an early summary but no romance. The summary
-  can add hurt through this file; the early-stop reaction includes what she wanted.
-- Act lines that have not started speaking are cancelled at every climax/afterglow boundary and at
-  every act end. A line already speaking may finish. The intentional early-stop line is queued
-  after the act-line cancel.
-
-## History points
-
-`shared/act_history.gd` stores per mare in `Mods.state("unfplap").act_history`:
-
-```gdscript
-{
-  "version": 1,
-  "acts": 7, "good": 4, "bad": 2, "neutral": 1,
-  "hurt": 0, "comfort": 2,
-  "streak_good": 1, "streak_bad": 0,
-  "last_grade": "good", "last_quality": 0.92,
-  "last_reasons": ["silent_talk"],
-  "last_text": "You and Anon made love...",
-  "last_wants": "feel heard",
-  "last_at": 0.0, "last_day": 0.0,
-  "last_apology_day": -1.0,
-  "stop_until": 0.0, "last_stop_kind": "", "last_stop_at": 0.0,
-  "reminder_pending": false, "complaint_pending": false,
-  "announced_tier": 2,
-  "recent": [],
-}
-```
-
-`last_wants` is an emotional phrase (`feel heard`, `feel safe`, `feel wanted`, `feel met`,
-`feel satisfied`), never a direct instruction or a stroke mechanic. It is kept for the summary
-and debug; no prompt sends it to the model.
-
-`shared/act_history.gd` also keeps a process-wide `revision`, its mutation counter, bumped by every
-stored-row write (`commit`, `repair`, `apology_repair`, `reset` and `mark_announced`). Reads,
-sanitising and time decay do not bump it. Its reader is `tests/summary/test_act_history.gd`, which
-pins both halves of that contract.
-
-The live rule table is memoised per `SETTINGS.generation`: `rules()` returns the same table until a
-settings write rebuilds it, and every caller treats it as read-only. Tier and offer-weight checks
-are therefore dictionary reads, not a rebuild per check. The table is built only from the declared
-`history.*` and `tolerance.*` handles; the module keeps no copy of a default. The stop cooldown
-reads `tolerance.normal_cooldown_s` or `tolerance.strict_cooldown_s`, the same values the
-readiness meter uses, so the two systems cannot disagree.
-
-Only good and bad acts move the points, plus the exceptional requested reveal.
-
-| Event | Effect |
-|---|---|
-| Good act | `comfort +1`, `hurt -1` |
-| Great act | `comfort +2`, `hurt -2` |
-| Requested form reveal | `comfort +2` on top of a non-bad act |
-| Bad act | `hurt +1`, `comfort -1` |
-| Severe bad act | `hurt +2`, `comfort -1` |
-| Neutral early end | `hurt +1` |
-| Time | `hurt -1` per 2 in-game days |
-| Sincere apology | `hurt -1`, at most once per in-game day |
-| Stay close and caress after a bad act | `hurt -1` |
-
-`hurt` and `comfort` are capped at `8`.
-
-The player-requested reveal (`docs/body_change.md`, `## Provider policy`) is an exceptional positive
-beat: the summary input `form_reveal` adds the great-act comfort after the grade's own change and
-does not change the grade or soften a bad act. The reveal's heat, peak, cue and memory mark are the
-provider policy's effects; the summary's comfort comes only from its own `form_reveal` input. Her
-own reveal and a named form add nothing.
-
-## Tiers
-
-| Tier | Trigger |
-|---|---|
-| Steady | hurt 0–1 |
-| Uneasy | hurt 2–3 |
-| Hurt | hurt 4–5 |
-| Withdrawn | hurt 6+ |
-
-The tier names are presentation. Their effect on the pure policy table, proactive offers and the
-tolerance stop is in `docs/eligibility.md`. The wording a tier, an idle-scan line or an afterglow
-beat carries is the `history` and `beats` groups in `settings/prompts.json` (`docs/prompts.md`);
-the tier itself is chosen here.
-
-There is **no break-up path**. The highest tier's act gate is in `docs/eligibility.md`; it never
-calls `player_bonds.break_up()`.
+The tiers are steady, uneasy, hurt and withdrawn, and their names are presentation. What they change
+is real: the hurt tier and above stop proactive offers and lower the offer weight, the withdrawn tier
+refuses the player's ask, and a stop cooldown blocks both. The offer weight is context for her
+initiation reasoning, not a hard gate. Hurt and comfort move the weight in opposite directions, and a
+comfortable mare's offer cooldown is shorter.
 
 ## The mid-act stop
 
-The tolerance stop is the only mid-act stop. The old relationship/cycle/Promiscuity withdrawal is
-gone; a relationship, willingness or cycle change never ends a running act. The neglect-tolerance
-meter that triggers a stop is owned by readiness; its rules, tiers and settings are in
-`docs/readiness.md`. A stop is a dedicated path, not `cancel()`:
+The tolerance stop is the only mid-act stop; a relationship, willingness or cycle change never ends a
+running act. A stop is its own path, not a cancel: it forces a severe bad summary with no romance,
+records a withdrawal note, ends with no afterglow and no cuddle rejoin, and gives a stern line. The
+normal stop asks for space; the strict one also bucks her off the bed. Each sets a sex-only cooldown
+and leaves a tucked tail, and no aftercare runs.
 
-- it forces a severe bad summary (`stopped_by_her`, no romance, mood annoyed/angry) and `+2` hurt;
-- it records `memory.note(MEMORY.NoteKind.STOPPED, ..., MEMORY.StopReason.WITHDREW)`;
-- it ends through the forced path with no afterglow and no cuddle rejoin;
-- Normal: stern spoken line, no buck, no `request_space`, `tolerance.normal_cooldown_s` sex-only
-  cooldown;
-- Strict: stern line, `request_space`, buck/kick from bed, `tolerance.strict_cooldown_s` sex-only
-  cooldown;
-- `stop_until`'s act gate is in `docs/eligibility.md`;
-- no aftercare; the `angry`/`annoyed` mood face follows when a summary was written. A 20 s
-  tucked-tail effect hinged at the tail base follows her, owns no navigator, and is removed if a
-  new act starts.
+## Mood after the act
 
-The **Force neglect warning** and **Force neglect stop** debug actions drive the live act for
-testing.
-
-Offer weight is `clamp(0.70 + comfort * 0.05 - hurt * 0.12, 0, 1)`; a hurt-tier mare has no
-weight. It is Context for Mare Initiation Reasoning, not a hard gate. The base offer cooldown is
-`600 s`, reduced by `5%` per comfort point with a `300 s` floor; heat quarters it. The history
-tiers and their effect on the policy's offer read are in `docs/eligibility.md`.
-
-## Mood after a stop and a buck
-
-A mare's lasting mood in this game is the impression note (`world_context.impressions`), fresh for
-300 s. It is what `bonds.anger()` reads (`angry` 70, `annoyed` 40). It also gates resting
-closeness, hand feeding and her unprompted approaches. Her dialogue prompt and the relationship
-profile also show it.
-
-The mod writes or keeps that note on the moments the base game does not see:
-
-- the live strict tolerance stop calls `scene_gate.buck_or_push()` and the summary owns its
-  `angry` impression;
-- a normal tolerance stop holds `annoyed`; a strict stop holds `angry` (its summary impression).
-
-`face/mood_face.gd` displays the mood: it holds `annoyed`/`angry` on her face for the note's 300 s,
-yields to any spoken line face, and ends early when her AI commits a different mood. It owns no
-navigator and blocks nothing; the gates above do that.
+The game treats her impression note as her lasting mood. It stays fresh for a while, and while it
+does the game consults it for cuddling up, feeding her by hand and whether she comes to him. The mod
+also writes that note where the game would not, and the held face mirrors it, giving way to speech
+and holding no navigator.
 
 ## Feedback
 
-- The afterglow HUD shows the summary. Missionary puts it in the cue line; standing keeps the
-  close prompt in the cue and puts the summary on the readiness line. Early end shows no HUD.
-- `prompt_note()` carries the private history note while a hurt history is active, the 300 s
-  warm note after a good or non-early neutral act (`_face.warm_note`), the relationship note during the
-  act and afterglow, and one short random afterglow beat (or none). It does not recite the summary or her
-  first-person `thought`; the HUD and the impression keep those. Hurt/repair and offer prompts pass
-  `last_text` through `ACT_HISTORY.private_text()`, which keeps the reason and drops the repeated
-  act opening; they keep it private and forbid reciting it, and they never send `last_wants`.
-- An intentional early end gives one short reaction 50% of the time and marks its pending history
-  line announced, so the same act does not speak twice.
-- The pending reminder/complaint line and the apology repair run in the idle history scan owned by
-  dialogue; see `docs/dialogue.md`.
-- The debug log prints one `summary grade=... quality=... checks=... reasons=... tier=... hurt=...
-  comfort=...` line per act. The **Reset act history** debug action clears the row; **Show data**
-  prints it in its HISTORY section.
+The afterglow HUD shows the summary. The prompt note carries a hurt history, the warm note after a good
+act, the relationship line and one short afterglow beat; it never recites the summary or her private
+thought. An intentional early end sometimes gets one short reaction and marks its history line
+announced so the act does not speak twice.
 
-## Settings
-
-Act history always records. Its thresholds and weights are debug declarations, so stored values are
-never clamped; each one's `##` comment describes it. See `docs/settings.md`.
-
-## Verification / lab
-
-- One act per grade: summary log once, history row and tier, peak memory, mood face.
-- Early end (holding the act key at 0 climaxes) and a forced stop (Debug → Force neglect stop).
-- Apology and time decay in the lab.
+Act history always records; its thresholds and weights are debug declarations, so a stored value is
+never clamped. The debug actions reset the row and show it.

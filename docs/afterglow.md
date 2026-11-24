@@ -1,117 +1,56 @@
-# Afterglow and the standing close window
+# Afterglow
 
-## Scope
+The afterglow service owns the held post-act phase: the private beat, the standing close window and
+its reward, the presentation row the phase asks for, the satisfaction run-down and the aftercare. The
+act state and the transition into and out of the phase belong to the act session.
 
-`afterglow/api.gd` owns the held post-act phase: the private afterglow beat, the standing
-close window with its caress reward, the presentation row the phase asks for, and the reward's
-memory, history, face, heart and cue writes. It does not own the `AFTERGLOW` state or the phase's
-other presentation.
+## A held phase
 
-`act/session.gd` guards and dispatches the transition: `begin_afterglow()` orders the phase's calls,
-and the frame schedule (`act/tick.gd`) calls the facade's `phase_tick()` while the act is
-`AFTERGLOW`. The facade applies its own presentation row through
-`apply_presentation(pose)`; the session starts the wing return when the row asks for it. The
-facade's reward writes through its bound `face`, `reactions` and `readiness` and the act ids
-`set_act()` records.
+Only the player leaves the afterglow. Holding the act key ends it, and a cancel takes the same route;
+the pony never ends it herself and there is no end timer, so the moment lasts until the player lets it
+go. Leaving early closes the standing close window without its reward.
 
-`afterglow/api.gd` is the facade and the only module another system calls. The private records
-are `afterglow/summary.gd` (the typed act summary the phase reads) and `afterglow/presentation.gd`
-(the typed presentation row); the phase has no other useful sub-module.
+The phase keeps the pose the act ended in. Its presentation row carries no pose mode: it adjusts the
+live weight and the tail, and asks for the wing return, but the body is not rebuilt or posed again at
+the phase change. The tail follows the live pose family: standing lifts it and flicks it,
+bed lowers it and holds it still. The bed face-sit uses the passive row, opens no close window, and
+keeps its live pose and its face contact until the one exit.
 
-## Architecture
+On entry from standing oral, the mouth contact is released: the contact returns to the opening, the
+viseme clears and the soft-kiss timer stops. The turned root and facing stay until the one exit
+restores them. No reverse edge runs implicitly.
 
-| Piece | Owns |
-|---|---|
-| `afterglow/api.gd` | the private beat, the close-window timer and its reward decision, the presentation row |
-| `afterglow/summary.gd` | the typed summary the afterglow beat, the positive flag and the face context read |
-| `afterglow/presentation.gd` | the typed row: tail target and flicks, HUD state, wings |
-| `afterglow/aftercare.gd` | the ten-second hosted body language node |
-| `runtime.gd` | the state transition, the phase end, the scene presentation, the memory/history writes and the HUD refresh |
+The satisfaction meter runs down through the phase, and a new act kills a decay still in flight.
 
-Host callbacks, all optional so a test can build the facade without a runtime:
+## The close window
 
-| Callback | Meaning |
-|---|---|
-| `log(text)` | debug log |
-| `caress_active() -> bool` | the hand controller has an active caress |
-| `write_satisfaction(value)` | the aftercare decay's meter write |
+Only the standing profile opens the close window. Missionary, standing oral and the bed face-sit do
+not. While it runs it counts down and counts caress time together; at zero it grants exactly one
+reward, and only if she was caressed for long enough. The reward writes one memory impression, a
+history repair or a happy mood, a content face, a heart burst and a cue clear, each guarded on the
+collaborator that owns it. A hint shows the countdown and invites the caress while the window runs,
+then says she seems content.
 
-The phase's act collaborators are wired once by the composition, the pose session among them for
-`apply_presentation()`, and the act ids by the session (`set_act(pony_id, event_id)`); the close
-reward writes through them.
+## Aftercare
 
-## Ending
+A stop by her leaves the tail tucked and skips aftercare. After any other end the beat runs when the
+summary is healthy or the meter still sits above her threshold; a bad act does not get the positive
+tail-up. The aftercare node restores its own navigator lease, and a start may replace a node that has
+not run yet.
 
-Only the player ends the afterglow: holding the act key calls `act/input.gd:end_afterglow()`, and a
-cancel on the afterglow takes the same path through `act/exit.gd:end_afterglow()`. The pony never ends the phase herself and there is no end
-timer, so the held moment lasts until the player leaves it. Leaving early cancels the standing
-close window without its reward.
+## The game's stay action
 
-## Held pose
+The mod's note never offers the game's hold-position action, and nothing here wires that action up,
+so it cannot end or lengthen this phase. Only the player does.
 
-The afterglow holds the current pose: the pose the act ended in, unchanged. The presentation row
-carries no pose mode and no afterglow pose id, and `apply_presentation()` only settles the live
-weight and moves the tail handle alongside the HUD and wings. The pose evaluator keeps its current
-driver/delta pair and config; nothing rebuilds, releases or re-poses the body at the phase change.
-The close window comes from the view's `afterglow.close_window`. The phase has no `pose_changed`
-hook. The runtime and facade source must not name a pose mode.
+Normal dialogue resumes. The generated inside and stay-close lines are removed; the live note keeps
+the moment with one short private beat and the relationship line, while the HUD and the impression
+keep the full summary. The note never recites the summary and never appends a mechanical next-time
+wish. Pegasi and alicorns fold their wings back toward rest instead of holding the spread pose until
+the act ends.
 
-For `standing_oral` the held pose is the turned frame and the neck keys. On entry the session calls
-`release_mouth_contact()`: the contact returns to the opening, the viseme clears, the soft-kiss
-timer stops, and the turned root/facing stay until the one act exit restores them. No reverse edge
-runs implicitly, and the pose row's passive afterglow opens no close window.
+## Boundaries
 
-The tail target and flick count follow the active `view.family`: `standing` lifts the tail and
-flicks it, `bed` lowers it and keeps it still. `view.family` is `standing` for `standing`,
-`standing_test` and `standing_oral`, `bed` for missionary. Without a bound view the row reads the
-bed values; there is no start-pose fallback. The bed face-sit uses the `passive` row, opens no
-close window and keeps the live pose and its face contact until the one act exit.
-
-## `[stay]` action
-
-The mod's afterglow note does not advertise `[stay: SECONDS]`. The base game's ordinary
-hold-position action is unchanged, and the afterglow facade does not bind the game's action
-executor, so that action does not control the phase.
-
-## Close window
-
-- The pose row's `afterglow.close_window` opens it: standing declares it; missionary and
-  `standing_oral` do not. `begin()` sets `close_left = STAY_CLOSE_SECONDS` (8 s) when the profile
-  opens the window.
-- `close_tick()` adds to `close_caress_seconds` while the hand controller has an active caress and
-  subtracts the same delta from `close_left`.
-- At zero the window grants exactly one reward. `close_caress_earned` is true only with at least
-  `STAY_CLOSE_CARESS_SECONDS` (2.5 s) of caress. The facade's own reward writes the `STAY_CLOSE`
-  memory impression, the history repair, the content face, the heart burst and the cue clear, with
-  every write guarded on its bound collaborator.
-- `hint()` is `Stay close · Ns · caress` while the window runs and `She seems content.` after the
-  reward. An early end calls `cancel_close()`, which never rewards.
-- The view's raw `close_earned` is read by `hud/lines.gd:y_pink()` to turn the control card's
-  `End` fully pink.
-
-## Player afterglow
-
-Hold the act key:
-
-| State | Climaxes | Result |
-|---|---:|---|
-| `POSING_IN` | any | cancel |
-| `ACTIVE` | 0 | cancel / early stop |
-| `ACTIVE` | 1+ | afterglow |
-| `CLIMAX` | 1+ | afterglow |
-| `AFTERGLOW` | any | end afterglow |
-
-- The player cannot enter afterglow before the first pony climax.
-- One or more climaxes allows afterglow at any time.
-- A non-zero configured climax limit forces afterglow after that climax's 5 s effect.
-- Pegasi and alicorns slowly fold their wings back to rest during afterglow over 6 s rather than
-  holding the spread pose until the act ends.
-- Normal dialogue resumes in the afterglow. The `inside` and `stay_close` generated lines are
-  removed; the HUD timer and active caress time own the standing close invitation. The live prompt
-  note keeps the moment present without a scripted line: it carries one short random afterglow beat
-  (`ACT_SUMMARY.afterglow_beat()`, 40 % silence) and the private relationship note; the HUD and the
-  impression keep the full summary. The note does not recite the summary or append a mechanical
-  “next time” wish.
-- The afterglow lasts until the player holds the act key to end it; she never ends it herself. The
-  live prompt note tells her whether Anon is caressing her or leaning in; leaning counts as staying
-  close/hugging. A quiet moment adds no state sentence.
+The phase state, the transition and the teardown belong to the act session. This service owns no
+scene handle of its own beyond the host its aftercare children join, and it writes the close reward
+only through the collaborators the composition gives it.

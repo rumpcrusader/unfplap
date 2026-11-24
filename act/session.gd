@@ -742,7 +742,8 @@ func begin_afterglow() -> void:
 	context.handover.hint_tick()
 	context.handover.dispatch_event(BODY_CHANGE_POLICY.ActEvent.AFTERGLOW)
 	refresh_view()
-	# The oral afterglow releases the mouth contact and keeps the turned pose.
+	# The oral afterglow releases the mouth contact and keeps the turned pose until the one exit
+	# restores the frame.
 	context.pose.release_mouth_contact()
 	context.integrations.afterglow()
 	context.afterglow.set_act(pony_id, event_id)

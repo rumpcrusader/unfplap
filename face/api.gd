@@ -292,7 +292,7 @@ func set_act_face(face: String, hold_s: float) -> bool:
 	return true
 
 
-## Drop the act's own face and leave any line face alone.
+## Drop the act's own face and leave any line face alone, so a director line survives teardown.
 func end_face() -> void:
 	stare_release_until = 0.0
 	if act_face.is_empty():
@@ -359,6 +359,7 @@ func rows(context: BEAT) -> Array[String]:
 
 
 ## The post-act face and its warm note. A bad act shows the summary mood instead of a warm face.
+## With no summary the only fallback is the relaxed face, and only at her aftercare minimum.
 func start_post_act(context: BEAT) -> void:
 	warm_note = false
 	if context.stopped or not is_instance_valid(pony) or not _host_ok():

@@ -261,6 +261,9 @@ func commit_summary(real_act: bool, context: Context) -> void:
 	var result: Dictionary = ACT_HISTORY.commit(
 		WORLD.mods().state(ACT_HISTORY.MOD_ID).rows, id, outcome, ACT_HISTORY.day_now())
 	WORLD.mods().save()
+	# The base game reads her lasting mood from this note for 300 s, and the same note gates resting
+	# closeness, hand feeding and her unprompted approaches. The world event is the profile-safe,
+	# renamable line; the thought is her private first person.
 	var impression := MEMORY.Impression.new()
 	impression.id = id
 	impression.event_id = event_id

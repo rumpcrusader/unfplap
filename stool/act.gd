@@ -192,7 +192,7 @@ func state_text() -> String:
 
 
 ## Check out the case units the start needs. A short or unwritable case returns false and gives
-## back what it already took.
+## back what it already took; a gap beyond the available stack is never bypassed, it blocks.
 func take_items(need: int) -> bool:
 	var take := maxi(1, need)
 	tokens.clear()
@@ -220,7 +220,8 @@ func take_items(need: int) -> bool:
 
 
 ## Build the stack under the standing spot and return the raised player target. The runtime owns
-## the spot; this only places the prop and reports the lift.
+## the spot; this only places the prop and reports the lift. Step-up is the act start, and the exit
+## lowers the player in one cut, so no step animation runs.
 func place(target: Vector3, yaw: float, floor: float) -> Vector3:
 	if not active or facade == null:
 		return target
@@ -278,6 +279,8 @@ func release() -> void:
 			if returned:
 				LOG.debug("stool returned count=%d/%d slot=%d", [i + 1, tokens.size(), slot])
 			else:
+				# With no world transform the loan is restored into the case the next time it
+				# opens; a save mid-act restores loans but does not resume the act.
 				LOG.debug("stool item restore pending token=%s", [token])
 		tokens.clear()
 		slots.clear()

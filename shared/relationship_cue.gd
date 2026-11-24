@@ -40,7 +40,9 @@ static func _stage_phrase(stage: String) -> String:
 
 
 ## Relationship depth chooses how openly warm the line can be. A strained moment overrides
-## depth; this is a tone instruction, not a status label the pony may say aloud.
+## depth; this is a tone instruction, not a status label the pony may say aloud. With no romance an
+## acquaintance stays guarded and a friend opens to friendly; romance opens warmer, a first time
+## with romance is tender, and a marefriend is warm.
 static func tone(facts: Dictionary) -> String:
 	if bool(facts.get("careful", false)):
 		return "careful"

@@ -333,7 +333,8 @@ func history_tick(delta: float, pony: Node3D, pony_id: String, event_id: String,
 func _queue_utterance(kind: String, prompt_key: String, key_suffix: String) -> String:
 	if facts.state != STATE_ACTIVE or not _game_ok():
 		return ""
-	# integration: her mouth is busy during oral.
+	# integration: her mouth is busy during oral. A face contact (the bed face-sit) is not a mouth
+	# contact, so that pose still queues and speaks.
 	if facts.pose_view != null and str(facts.pose_view.contact_kind) == "mouth":
 		return ""
 	if _director() == null:
@@ -344,6 +345,7 @@ func _queue_utterance(kind: String, prompt_key: String, key_suffix: String) -> S
 		return ""
 	var face_note := ""
 	if kind == "cue":
+		# The cue prompt itself states the act's default voice; the hint only picks an expression.
 		face_note = ACT_FACE.prompt_note("cue", facts.mood)
 	var pose := str(facts.pose_view.id) if facts.pose_view != null else ""
 	var values := {

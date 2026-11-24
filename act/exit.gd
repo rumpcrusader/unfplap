@@ -175,7 +175,8 @@ func _rejoin_wanted() -> bool:
 	}))
 
 
-## Close the standing afterglow window and begin the one restore.
+## Close the standing afterglow window and begin the one restore. There is no end timer: the
+## player's act key is the only caller besides a cancel, so the phase waits for the player.
 func end_afterglow() -> void:
 	if session.state != State.AFTERGLOW:
 		return

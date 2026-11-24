@@ -306,6 +306,8 @@ static func _hud(grade: String, severe: bool) -> String:
 			return "Neutral · she wanted more"
 
 
+## Act text opens with the pair so the profile swaps in her name; after that prefix she is only
+## ever "she", so the Recent activities line stays correct. The early-end line names neither.
 static func _text(grade: String, ended_early: bool, reasons: Array[String]) -> String:
 	var text := "You and Anon made love. It was nice, but something was missing."
 	if ended_early:

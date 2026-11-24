@@ -666,6 +666,8 @@ func lean_kiss_tick() -> void:
 	if phase == "standing":
 		want = standing_kiss_wanted(f_held, float(facts.lean_side))
 	else:
+		# The lean map folds a side press into the forward target, so the forward lean alone cannot
+		# tell a side-only lean from a real one; the explicit key keeps a side lean from kissing.
 		want = f_held and Input.is_action_pressed("move_forward") \
 			and float(facts.lean_forward) >= MISSIONARY_KISS_LEAN
 	if not want:

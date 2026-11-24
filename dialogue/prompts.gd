@@ -16,7 +16,8 @@ static func in_act(state: int) -> bool:
 
 
 ## The presented-body line; a pony with no body-change source adds none, so ordinary dialogue
-## stays unchanged.
+## stays unchanged. This line is the prompt's authority for the current shape, because stored
+## events can still quote an earlier one.
 static func body_note(values: Dictionary) -> String:
 	if not bool(values.get("form_source", false)):
 		return ""

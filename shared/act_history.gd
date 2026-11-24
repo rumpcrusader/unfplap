@@ -292,7 +292,8 @@ static func blocks_offers(row: Dictionary) -> bool:
 	return tier_index(row) >= 2
 
 
-## A hard spoken refusal at the withdrawn tier. The player may still ask; she says no.
+## A hard spoken refusal at the withdrawn tier. The player may still ask; she says no. Nothing here
+## ends the relationship: the mod has no break-up path and never calls the game's break-up.
 static func blocks_start(row: Dictionary) -> bool:
 	if Time.get_unix_time_from_system() < float(row.get("stop_until", 0.0)):
 		return true

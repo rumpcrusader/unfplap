@@ -1,92 +1,49 @@
-# Act face and the held post-act mood face
+# Act face
 
-## Scope
+The face service owns the act's one expression owner: the beats at the act's moments, the rule that
+a spoken line owns the face, the stare release and eyelids, the smile with its hold, and the held
+post-act mood face with its warm note. It does not own blush, the kiss, the HUD or the summary grade.
 
-`face/api.gd` owns the act's one face: the beat table driven by the pure `shared/act_face.gd`, the
-line-face ownership rule, the stare release, the eyelids, the smile and its hold timer, the climax
-quality shape, the held post-act mood face node and the warm prompt note. It does not own the
-runtime state, the blush, the kiss, the HUD or the summary grade.
+## Beats
 
-`act/view.gd` gathers the act values for `act_beat_for()` (state, first-time flag, tolerance,
-climax mode, summary, blush flag) and `act_rows()`; the facade derives the climax shape from the
-readiness meter (`quality_for()`). `act/session.gd` calls `face_beat()` at the
-start, close, warning, climax, afterglow and stop moments; the runtime calls `eyes_for()` late in
-the tick, and the start and exit ledgers call `set_face()`/`clear_face()`/`end_face()` at the
-transitions. The aftercare's `start_post_act()` and the upset face are the ledgers' calls.
+The act sets a face at its moments: shy on a first time and relaxed on a repeat, anticipation as she
+nears, a climax face chosen from how the act is going, an afterglow face from the summary, and sad or
+annoyed on a warning or when she is overwhelmed. A warm, well-matched act may blush and part her
+lips; a weak or distressed one keeps the wide-eyed stare. A face with a hold finishes itself after
+the hold; an empty result does nothing.
 
-`face/api.gd` is the facade and the only module another system calls. `shared/face_beat.gd` holds the
-typed beat context and its plan, summary and climax-quality records; `shared/act_face.gd` stays
-pure and `face/mood_face.gd` stays the held-face node. The expression table is the caller's:
-`act_face` validates every name against the `line_faces` it is handed, and the Face view supplies
-it.
+The beat plan is pure and data-driven, and the expression table belongs to the caller: every name is
+validated against the table the caller hands in, so a face the game does not know is refused rather
+than applied.
 
-## Architecture
+## The line owns the face
 
-| Piece | Owns |
-|---|---|
-| `face/api.gd` | the act face, the line-face owner, the stare release, the lids and smile with their timer, the climax quality shape, the mood-face lifetime and the warm note |
-| `shared/face_beat.gd` | the typed beat context, the plan parser and the summary and climax-quality records |
-| `shared/act_face.gd` | pure: beat plans, climax style, blush, summary faces, prompt hints |
-| `face/mood_face.gd` | the 300 s held base-game face, its own `finished` signal and its blush |
-| `act/session.gd` | the act state and values the beats read |
-| `runtime.gd` | the Node host: it binds the face once and owns the node that parents the mood face and the hold timer |
+A spoken line's face always wins until it ends. The act's face refuses while another line owner holds
+the expression, so the act cannot talk over the director. Ending the act clears only the face the act
+set, so a director line survives teardown.
 
-Host callbacks, all optional so a test can build the facade without a runtime:
+The beat writer is the only path that sets a beat; it applies the face-debug flag before the table
+runs. The post-act mood face is independent of it.
 
-| Callback | Meaning |
-|---|---|
-| `log(text)` | debug log |
-| `clock() -> float` | the runtime's act clock (`_now_s()`) |
+## The stare and the lids
 
-The facade also binds `pony` and `host` once. `bind()` is called from `_ready`; a suite that builds
-a runtime without entering the tree calls `ensure_bound()` on its first facade call.
+The act releases the stare on a warm climax or while a kiss is active, then reasserts the state's
+lids: half-lidded through positioning and the act, wide at the climax, sleepier in the afterglow and
+sleepier again when the close window was rewarded. The release is applied once, so a reassert does
+not run every frame. The act runs no expression of its own while a kiss owns her face.
 
-## Beat table
+## The held post-act face
 
-| Moment | Face | Hold |
-|---|---|---|
-| start, first time | `shy` | 2.5 s |
-| start, repeat | `relaxed` | 2.5 s |
-| readiness reaches 65 | `anticipation` | 3 s |
-| climax, `fluster` | `shy` + `fluster(5.0)` | 5 s |
-| climax, `ooo` | `ooo` | 5 s |
-| climax, `wide` | none | — |
-| afterglow, positive | `affectionate` | 3 s |
-| afterglow, neutral non-early | `relaxed` | 3 s |
-| afterglow, bad | `sad`/`annoyed` | 3 s |
-| warning / overwhelmed | `sad` for forgiving, else `annoyed` | 3 s / 2.5 s |
+A completed act that is not a partner stop starts one held face. A summary supplies the face and the
+mood; a rewarded act at or above her aftercare minimum also gets the warm note and a soft blush. If
+no summary exists, a relaxed fallback appears only when her minimum is still met.
 
-The plan is `act_face.plan_for(moment, context, line_faces)`; an empty plan does nothing. A face
-with a hold calls `finish_dialogue(hold_s)`. A climax with `release_stare` sets
-`stare_release_until` to `clock() + hold + 0.9`.
+The face yields to any spoken line, ends when its freshness runs out, and ends early when her AI
+commits a different mood, so it never outlives the note it shows. It owns no navigator and blocks
+nothing. A partner stop gets the refusal face and no blush, and a new act clears the held face.
 
-## Line-face ownership
+## Failures and lifetime
 
-- `set_act_face()` refuses while `dialogue_face()` is non-empty and not the face the act set. The
-  session's `set_face()`/`end_act_face()` are the same call; the `end_face()` rule only clears the
-  face the act set, so a director line survives teardown.
-- `face_beat()` is the only place the session writes a beat. It gathers the act values and
-  calls `act_beat()`, which reads `_feature("face_debug")`, sets `debug_enabled` and runs the beat
-  table. The post-act mood face stays independent.
-
-## Stare and blush
-
-`eyes_tick()` releases the stare while `stare_release_until` is in the future or while a kiss is
-active, then reasserts the state's lids: half-lidded through `POSING_IN`/`ACTIVE`, wide at
-`CLIMAX`, sleepier in `AFTERGLOW` and sleepier again when the close window was rewarded. The lid
-values are the facade's constants; the session passes the state and the flags. `set_face()` and
-the act view own the smile and the blush; `blush_for()` is in `shared/act_face.gd` and reads
-`act_phase()`.
-
-## Post-act mood face
-
-`start_post_act()` starts the held face only when the act is not a stop and the host is in the
-tree. A positive or non-early neutral summary uses `ACT_FACE.face_for_summary_hold()` and a
-`0.35` blush when `summary.reward` is true and the final satisfaction is at least
-`aftercare_min`. A face with no summary uses `relaxed` when the satisfaction reaches the minimum.
-The mood face node is `face/mood_face.gd`; the facade owns its `finished` signal, the `warm_note` flag
-and the `_left`/`face`/`mood` reads for the debug row.
-
-`start_upset()` starts the same node with the refusal face and no blush. `end_mood_face()` calls
-`_finish("replaced")` and clears the warm note. A new act clears the held face. The node receives
-the main handle and the `log` callback from the facade; it never reads the runtime node.
+With no controller, no tree or an unknown face nothing is applied, and a missing bind is repaired on
+the first call. The hold timer lives under the runtime host and is freed with it; the mood-face node
+frees itself when it finishes. The act face and the held face are dropped on shutdown.

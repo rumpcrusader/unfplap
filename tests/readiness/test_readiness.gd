@@ -156,6 +156,47 @@ func run() -> void:
 	check(readiness.take_debug() == "warning", "the debug request is consumed once")
 	check(readiness.take_debug() == "", "the debug request clears")
 
+	# The act's meter is one record taken at the verdict. Every source carries a distinct value, so
+	# a forgotten field or a transposed pair fails here instead of in her history.
+	readiness.act_thrusts = 3
+	readiness.pony_climaxes = 5
+	readiness.act_liked_talk = 7
+	readiness.act_talk_dislikes = 11
+	readiness.act_liked_touch = 13
+	readiness.act_touch_dislikes = {"smack": 17}
+	readiness.act_player_lines = 19
+	readiness.act_intensity_total = 23
+	readiness.act_intensity_right = 29
+	readiness.act_pattern_total = 31
+	readiness.act_pattern_right = 37
+	readiness.peak_satisfaction = 41.5
+	readiness.act_both_matches = 43
+	readiness.act_dislikes = 47
+	readiness.last_player_talk = "stay with me"
+	var meter := readiness.act_output()
+	check(meter.thrusts == 3, "the meter keeps the real thrusts")
+	check(meter.pony_climaxes == 5, "the meter keeps the pony climaxes")
+	check(meter.talk_liked == 7, "the meter keeps the liked talk")
+	check(meter.talk_dislikes == 11, "the meter keeps the disliked talk")
+	check(meter.touches_liked == 13, "the meter keeps the liked touches")
+	check(int(meter.touch_dislikes.get("smack", 0)) == 17, "the meter keeps the disliked touches")
+	check(meter.player_lines == 19, "the meter keeps the player lines")
+	check(meter.intensity_total == 23 and meter.intensity_right == 29,
+		"the meter keeps the intensity pair")
+	check(meter.pattern_total == 31 and meter.pattern_right == 37,
+		"the meter keeps the pattern pair")
+	check(near(meter.peak_satisfaction, 41.5), "the meter keeps the peak satisfaction")
+	check(meter.both_matches == 43, "the meter keeps the both-axis matches")
+	check(meter.dislikes == 47, "the meter keeps the dislike count")
+	check(meter.liked_touch == 13, "the meter keeps the peak's liked touch")
+	check(meter.liked_talk == 7, "the meter keeps the peak's liked talk")
+	check(meter.player_talk == "stay with me", "the meter keeps his last line")
+	readiness.act_touch_dislikes["smack"] = 99
+	readiness.act_thrusts = 101
+	check(int(meter.touch_dislikes.get("smack", 0)) == 17,
+		"the meter's dislike map is detached from the live counter")
+	check(meter.thrusts == 3, "the meter is a snapshot, not a view of the live counters")
+
 	readiness.free()
 	if failures == 0:
 		print("READINESS_PASS")

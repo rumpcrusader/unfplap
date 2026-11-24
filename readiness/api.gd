@@ -1,7 +1,7 @@
 extends Node
 ## Scope: pony
 ## Act readiness: her satisfaction, mood and cue, the stroke score, touch/talk input, the
-## neglect-tolerance meter and the counters the act summary reads.
+## neglect-tolerance meter and the counters one act's meter records.
 
 const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
@@ -10,6 +10,7 @@ const AUTO_THRUST := preload("res://mods/unfplap/readiness/auto_thrust.gd")
 const AUTO_PANEL := preload("res://mods/unfplap/readiness/auto_panel.gd")
 const TOLERANCE := preload("res://mods/unfplap/readiness/tolerance.gd")
 const THRUST_STATE := preload("res://mods/unfplap/readiness/thrust_state.gd")
+const ACT_METER := preload("res://mods/unfplap/shared/act_meter.gd")
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
@@ -429,6 +430,30 @@ func reset(profile: Profile) -> void:
 	_tolerance_controller().reset(profile.tolerance)
 	_tolerance_pending = null
 	debug_request = ""
+
+
+## The act's meter, taken while the act is still whole: the summary scores it once and the peak
+## reads it at the same verdict. The dislike map is copied so the record cannot change under either.
+func act_output() -> ACT_METER:
+	var out := ACT_METER.new()
+	out.thrusts = act_thrusts
+	out.pony_climaxes = pony_climaxes
+	out.talk_liked = act_liked_talk
+	out.talk_dislikes = act_talk_dislikes
+	out.touches_liked = act_liked_touch
+	out.touch_dislikes = act_touch_dislikes.duplicate(true)
+	out.player_lines = act_player_lines
+	out.intensity_total = act_intensity_total
+	out.intensity_right = act_intensity_right
+	out.pattern_total = act_pattern_total
+	out.pattern_right = act_pattern_right
+	out.peak_satisfaction = peak_satisfaction
+	out.both_matches = act_both_matches
+	out.dislikes = act_dislikes
+	out.liked_touch = act_liked_touch
+	out.liked_talk = act_liked_talk
+	out.player_talk = last_player_talk
+	return out
 
 
 func configure(profile: Profile, override_s: float, overwhelmed_s: float,

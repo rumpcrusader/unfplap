@@ -1,8 +1,8 @@
 extends "res://mods/unfplap/tests/support/suite.gd"
 ## The Negotiation bridge: the typed host the service builds from its facades, the Context both
 ## reasoning stages read, the global Anon-offer watch and its guard table, the react line per
-## close reason, the terminal outcome routing and the Agreement handoff. Fake scene, director,
-## classifier and services; no model.
+## close reason and the terminal outcome routing. Fake scene, director, classifier and services;
+## no model.
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/negotiation/test_host.gd
 
@@ -44,19 +44,12 @@ class FakeRuntime extends Node:
 	var state := 0
 	var scene_ok := true
 	var verdict_calls := 0
-	var presented := 0
-	var cleared := 0
-	var started := 0
-	var gate: Variant = null
 	var scene: Variant = null
-	var start: Variant = null
 	var presentation: Variant = null
 	var act: Variant = null
 
 	func _init() -> void:
-		gate = self
 		scene = self
-		start = self
 		presentation = self
 		act = self
 
@@ -67,23 +60,6 @@ class FakeRuntime extends Node:
 
 	func hold_handle() -> Node:
 		return FakeHold.new()
-
-	func clear_presentation() -> void:
-		cleared += 1
-
-	func present_standing() -> bool:
-		presented += 1
-		return true
-
-	func start_agreement(_handle: Variant) -> int:
-		started += 1
-		return 1
-
-	func force_stop() -> void:
-		pass
-
-	func apply_live_settings() -> void:
-		pass
 
 
 class FakeAdapter extends ADAPTER:
@@ -152,13 +128,6 @@ class FakeInitiation extends Node:
 
 	func classifier_node() -> Node:
 		return classifier
-
-
-class FakeOffer extends Node:
-	var cleared := 0
-
-	func clear_current() -> void:
-		cleared += 1
 
 
 class FakeEligibility extends ELIGIBILITY:
@@ -287,10 +256,9 @@ func _bridge_fixture() -> Dictionary:
 	bridge.memory = FakeMemory.new()
 	bridge.privacy = FakePrivacy.new()
 	bridge.initiation = FakeInitiation.new()
-	bridge.offer = FakeOffer.new()
 	bridge.act_owner = world.act_owner
 	bridge.ponies = roster
-	for node: Node in [game, bridge.service, bridge.adapter, bridge.initiation, bridge.offer]:
+	for node: Node in [game, bridge.service, bridge.adapter, bridge.initiation]:
 		root.add_child(node)
 	root.add_child(roster)
 	WORLD.bind_world(game)
@@ -298,7 +266,7 @@ func _bridge_fixture() -> Dictionary:
 	return {"bridge": bridge, "game": game, "pony": pony, "runtime": runtime,
 		"player": player, "eligibility": eligibility, "gate": gate, "facts": facts,
 		"service": bridge.service, "adapter": bridge.adapter, "initiation": bridge.initiation,
-		"offer": bridge.offer, "owner": world.act_owner, "ponies": roster,
+		"owner": world.act_owner, "ponies": roster,
 		"memory": bridge.memory, "privacy": bridge.privacy}
 
 
@@ -308,7 +276,7 @@ func _free_bridge(made: Dictionary) -> void:
 	root.remove_child(roster)
 	roster.free()
 	WORLD.unbind()
-	for key: String in ["service", "adapter", "initiation", "offer", "game"]:
+	for key: String in ["service", "adapter", "initiation", "game"]:
 		var node: Node = made[key]
 		root.remove_child(node)
 		if key == "game" and node.world_context != null:
@@ -345,7 +313,6 @@ func _service_fixture() -> Dictionary:
 	var gate := FakeGate.new()
 	gate.facts = facts
 	var initiation := FakeInitiation.new()
-	var offer := FakeOffer.new()
 	var owner := _owner()
 	var world := HANDLES.new()
 	world.eligibility = eligibility
@@ -357,18 +324,18 @@ func _service_fixture() -> Dictionary:
 	roster.attach(pony)
 	var service := NEGOTIATION.new()
 	service.name = "UnfplapNegotiation"
-	for node: Node in [game, director, initiation, offer]:
+	for node: Node in [game, director, initiation]:
 		root.add_child(node)
 	root.add_child(roster)
 	WORLD.bind_world(game)
 	WORLD.bind_player(player)
 	var memory := FakeMemory.new()
 	var privacy := FakePrivacy.new()
-	service.wire(eligibility, gate, memory, privacy, initiation, offer, owner, null, roster)
+	service.wire(eligibility, gate, memory, privacy, initiation, owner, null, roster)
 	root.add_child(service)
 	return {"service": service, "game": game, "pony": pony, "runtime": runtime,
 		"player": player, "eligibility": eligibility, "gate": gate, "facts": facts,
-		"initiation": initiation, "offer": offer, "director": director, "owner": owner,
+		"initiation": initiation, "director": director, "owner": owner,
 		"ponies": roster, "memory": memory, "privacy": privacy}
 
 
@@ -379,7 +346,7 @@ func _free_service(made: Dictionary) -> void:
 	roster.free()
 	WORLD.unbind()
 	(made["owner"] as Node).free()
-	for key: String in ["service", "director", "initiation", "offer", "game"]:
+	for key: String in ["service", "director", "initiation", "game"]:
 		var node: Node = made[key]
 		root.remove_child(node)
 		if key == "game" and node.world_context != null:
@@ -405,7 +372,6 @@ func run() -> void:
 	_check_anon_line_guards()
 	_check_react_line()
 	_check_outcome_routing()
-	_check_agreement_handoff()
 	finish()
 
 
@@ -420,8 +386,7 @@ func _check_wire_build() -> void:
 	var memory := FakeMemory.new()
 	var privacy := FakePrivacy.new()
 	var initiation := FakeInitiation.new()
-	var offer := FakeOffer.new()
-	service.wire(eligibility, gate, memory, privacy, initiation, offer, owner)
+	service.wire(eligibility, gate, memory, privacy, initiation, owner)
 	check(service.get_child_count() == 0, "wire() builds no child")
 	check(not is_instance_valid(service.adapter()), "wire() builds no adapter")
 	root.add_child(service)
@@ -440,7 +405,6 @@ func _check_wire_build() -> void:
 	memory.free()
 	privacy.free()
 	initiation.free()
-	offer.free()
 
 
 ## The bridge answers the typed host callbacks from the facades the entry binds.
@@ -599,61 +563,24 @@ func _check_react_line() -> void:
 	_free_service(made)
 
 
-## Every terminal outcome clears the presentation and reaches the Proactive pacing.
+## The terminal outcome reaches the Proactive pacing through its one handoff.
 func _check_outcome_routing() -> void:
 	var made := _service_fixture()
 	var service: NEGOTIATION = made["service"]
 	var initiation: FakeInitiation = made["initiation"]
-	var runtime: FakeRuntime = made["runtime"]
-	var pony: FakePony = made["pony"]
 	var terminal := NEGOTIATION.Terminal.new()
-	terminal.pony = pony
 	terminal.pony_id = "rarity"
 	terminal.reason = AGREEMENT.REASON_COUNTER_OFFER
 	terminal.cooldown_s = 0.0
 	service.call("_on_outcome_terminal", terminal)
-	check(runtime.cleared == 1, "the outcome clears the presentation")
 	check(initiation.outcomes.size() == 1, "the outcome reaches the Proactive")
+	var lower := NEGOTIATION.Terminal.new()
+	lower.pony_id = "rarity"
+	lower.reason = "privacy"
+	lower.cooldown_s = 0.0
+	service.call("_on_outcome_terminal", lower)
+	check(initiation.outcomes.size() == 2
+		and str(initiation.outcomes[1].reason) == "privacy", "the reason is kept")
 	service.call("_on_outcome_terminal", null)
-	check(runtime.cleared == 1 and initiation.outcomes.size() == 1,
-		"a missing terminal changes nothing")
-	_free_service(made)
-
-
-## The Agreement handoff presents the standing pose at once and clears the shared offer window.
-func _check_agreement_handoff() -> void:
-	var made := _service_fixture()
-	var service: NEGOTIATION = made["service"]
-	var offer: FakeOffer = made["offer"]
-	var runtime: FakeRuntime = made["runtime"]
-	var pony: FakePony = made["pony"]
-	var handle := AGREEMENT.Handle.new()
-	handle.id = 1
-	handle.generation = 1
-	handle.pony = pony
-	handle.pony_id = "rarity"
-	handle.option = _option(CATALOG.STANDING)
-	service.call("_on_agreement_handle", handle)
-	check(runtime.presented == 1, "a standing Agreement presents at once")
-	check(offer.cleared == 1, "the shared offer window is cleared")
-	var missionary := AGREEMENT.Handle.new()
-	missionary.id = 2
-	missionary.generation = 2
-	missionary.pony = pony
-	missionary.pony_id = "rarity"
-	missionary.option = _option(CATALOG.MISSIONARY)
-	service.call("_on_agreement_handle", missionary)
-	check(runtime.presented == 1, "a bed Agreement starts no presentation")
-	check(offer.cleared == 2, "the offer window is cleared for every Agreement")
-	var orphan := AGREEMENT.Handle.new()
-	orphan.id = 3
-	orphan.generation = 3
-	orphan.pony = null
-	orphan.pony_id = ""
-	orphan.option = _option(CATALOG.STANDING)
-	service.call("_on_agreement_handle", orphan)
-	check(runtime.presented == 1, "an Agreement with no runtime presents nothing")
-	check(offer.cleared == 2, "an Agreement with no runtime clears no offer")
-	service.call("_on_agreement_handle", null)
-	check(offer.cleared == 2, "a missing handle changes nothing")
+	check(initiation.outcomes.size() == 2, "a missing terminal changes nothing")
 	_free_service(made)

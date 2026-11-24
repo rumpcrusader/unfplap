@@ -19,7 +19,6 @@ const CLEARANCE := preload("res://mods/unfplap/shared/clearance.gd")
 const CONTEXT := preload("res://mods/unfplap/shared/context.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const PERF := preload("res://mods/unfplap/shared/perf.gd")
-const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const POSE_OPTIONS := preload("res://mods/unfplap/shared/pose_options.gd")
 const POSE_PLACEMENT := preload("res://mods/unfplap/shared/pose_placement.gd")
 const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
@@ -67,7 +66,6 @@ class MareOffer:
 
 ## The terminal outcome reported to the Proactive service and the debug log.
 class Terminal:
-	var pony: Node = null
 	var pony_id := ""
 	var reason := ""
 	var cooldown_s := 0.0
@@ -157,7 +155,6 @@ var _memory: MEMORY = null
 var _privacy: PRIVACY = null
 var _hud: Node = null
 var _initiation: Node = null
-var _offer: Node = null
 ## The act frame the bridge's watch gates on.
 var _act_owner: ACT_OWNER = null
 ## The roster the terminal outcome and the Agreement handle read runtimes through.
@@ -167,19 +164,18 @@ var _ponies: PONIES = null
 ## Takes the peers this service calls; the composition root is the only caller. The adapter and the
 ## bridge are built in `_ready()`, after every peer is wired.
 func wire(eligibility_service: ELIGIBILITY, gate_service: ACT_GATE, memory_service: MEMORY,
-		privacy_service: PRIVACY, initiation_service: Node, offer_service: Node,
+		privacy_service: PRIVACY, initiation_service: Node,
 		owner: ACT_OWNER, hud_service: Node = null, ponies_service: PONIES = null) -> void:
 	_eligibility = eligibility_service
 	_gate = gate_service
 	_memory = memory_service
 	_privacy = privacy_service
 	_initiation = initiation_service
-	_offer = offer_service
 	_act_owner = owner
 	_hud = hud_service
 	_ponies = ponies_service
 	assert(_eligibility != null and _gate != null and _memory != null)
-	assert(_privacy != null and _initiation != null and _offer != null and _act_owner != null)
+	assert(_privacy != null and _initiation != null and _act_owner != null)
 
 
 ## Builds the one adapter and bridge as this service's children, then binds the typed host to them.
@@ -199,7 +195,6 @@ func _ready() -> void:
 	_bridge.privacy = _privacy
 	_bridge.hud = _hud
 	_bridge.initiation = _initiation
-	_bridge.offer = _offer
 	_bridge.act_owner = _act_owner
 	_bridge.ponies = _ponies
 	_bind_host()
@@ -502,26 +497,18 @@ func _react_line(pony: Node, reason: String) -> void:
 		key, func() -> bool: return is_instance_valid(pony) and pony.is_inside_tree(), false)
 
 
-## Every terminal outcome reaches the Proactive pacing and clears the runtime's presentation; the
-## act start is the one ending that is never reported here.
+## The terminal outcome reaches the Proactive pacing through this one line.
 func _on_outcome_terminal(terminal: Terminal) -> void:
 	if terminal == null:
 		return
 	LOG.debug("negotiation outcome id=%s reason=%s cooldown=%.0f", [
 		terminal.pony_id, "none" if terminal.reason.is_empty() else terminal.reason,
 		terminal.cooldown_s])
-	var pony: Variant = terminal.pony
-	if is_instance_valid(pony):
-		var runtime: Variant = _ponies.runtime_for(pony) if _ponies != null else null
-		var presentation := _ponies.presentation_of(runtime) \
-			if _ponies != null and is_instance_valid(runtime) else null
-		if presentation != null:
-			presentation.clear_presentation()
 	if is_instance_valid(_initiation) and _initiation.has_method("on_negotiation_outcome"):
 		_initiation.on_negotiation_outcome(terminal)
 
 
-## The Agreement is ready: the target runtime consumes it through its one start path.
+## The Agreement is formed: the offer's tick starts its standing presentation and consumes it.
 func _on_agreement_handle(handle: AGREEMENT.Handle) -> void:
 	if handle == null:
 		return
@@ -533,20 +520,6 @@ func _on_agreement_handle(handle: AGREEMENT.Handle) -> void:
 	LOG.debug("agreement formed id=%s trigger=%s pose=%s private=%s", [
 		pony_id, _trigger_name(_trigger()),
 		option.pose if option != null else "none", str(handle.private)])
-	var runtime: Variant = _ponies.runtime_for(handle.pony) \
-		if is_instance_valid(handle.pony) and _ponies != null else null
-	var start := _ponies.start_of(runtime) if _ponies != null and is_instance_valid(runtime) else null
-	if start == null:
-		cancel(handle, AGREEMENT.REASON_CANCELLED)
-		return
-	var presentation := _ponies.presentation_of(runtime) \
-		if _ponies != null and is_instance_valid(runtime) else null
-	# The presentation is act-owned: it starts now, and the auto-start waits for it to settle.
-	if option != null and str(option.pose) == CATALOG.STANDING \
-			and (presentation == null or not bool(presentation.present_standing())):
-		LOG.debug("agreement present failed pony=%s", [str(handle.pony.name)])
-	if is_instance_valid(_offer):
-		_offer.clear_current()
 
 
 # --------------------------------------------------------------------------- state
@@ -629,7 +602,6 @@ func _report_outcome(pony: Node, reason: String, cooldown: float) -> void:
 	if _host == null or not _host.on_outcome.is_valid():
 		return
 	var terminal := Terminal.new()
-	terminal.pony = pony
 	terminal.pony_id = _pony_id(pony)
 	terminal.reason = reason
 	terminal.cooldown_s = cooldown

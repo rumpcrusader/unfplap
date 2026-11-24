@@ -36,7 +36,6 @@ var memory: MEMORY = null
 var privacy: PRIVACY = null
 var hud: Node = null
 var initiation: Node = null
-var offer: Node = null
 ## The act frame the watch is armed around; a null owner reads as no act.
 var act_owner: ACT_OWNER = null
 ## The roster that answers the per-pony runtime and its handles.

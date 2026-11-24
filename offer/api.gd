@@ -69,6 +69,8 @@ var _native_hints_node: Node
 var _native_hint_row: HBoxContainer
 ## The Agreement auto-start's readiness clock, in seconds since the last consumed handle.
 var _agreement_clock := 0.0
+## The runtime whose standing presentation this side started, or null.
+var _presented_runtime: Node = null
 
 
 func _ready() -> void:
@@ -96,9 +98,10 @@ func wire(negotiation: NEGOTIATION, hud: Node, owner: ACT_OWNER,
 	assert(_ponies != null and _eligibility != null and _act_gate != null)
 
 
-## One idle frame: tick the fan sensor, sync the prompt row, then run the Agreement clock.
-## The act key's immediate read is `reconsider()` after a forced sense.
+## One idle frame: the presentation first, then the fan sensor, the prompt row and the
+## Agreement clock. The act key's immediate read is `reconsider()` after a forced sense.
 func tick(delta: float) -> void:
+	_sync_presentation()
 	PERF.begin("offer_sensor")
 	var changed := _sense(delta)
 	PERF.end("offer_sensor")
@@ -303,6 +306,38 @@ func _agreement_ready(handle: AGREEMENT.Handle) -> bool:
 		SCENE_GATE.FrozenPose.new(bool(handle.pose_profile_ok), bool(handle.pose_source_ok))))
 
 
+## The standing presentation is act-owned but starts here, before any interaction gate, so a menu
+## cannot suppress the turn. It starts once per Agreement and clears when the handle vanishes.
+func _sync_presentation() -> void:
+	var handle := negotiation.handle() if is_instance_valid(negotiation) else null
+	if handle == null:
+		_clear_presentation()
+		return
+	if is_instance_valid(_presented_runtime):
+		return
+	var option := handle.option
+	if option == null or str(option.pose) != CATALOG.STANDING:
+		return
+	var runtime: Node = _ponies.runtime_for(handle.pony) \
+		if is_instance_valid(handle.pony) else null
+	if not is_instance_valid(runtime):
+		return
+	_presented_runtime = runtime
+	var presentation := _ponies.presentation_of(runtime)
+	if presentation == null or not bool(presentation.present_standing()):
+		LOG.debug("agreement present failed pony=%s", [str(handle.pony.name)])
+
+
+## Take the presentation started here away again; a runtime that is gone needs nothing.
+func _clear_presentation() -> void:
+	if not is_instance_valid(_presented_runtime):
+		return
+	var presentation := _ponies.presentation_of(_presented_runtime)
+	_presented_runtime = null
+	if presentation != null:
+		presentation.clear_presentation()
+
+
 ## The runtime's Agreement start result, forwarded to the Negotiation service.
 func _report_agreement(handle: AGREEMENT.Handle, started: bool) -> void:
 	if is_instance_valid(negotiation):
@@ -341,6 +376,7 @@ func on_world(_host: Node) -> void:
 ## A world enter or a world close: drop the offer, the one-shot flags, the sensor and the hint row
 ## of the world that is gone.
 func on_world_closed() -> void:
+	_clear_presentation()
 	_offer = null
 	_offer_blocked = null
 	_sensor.reset()

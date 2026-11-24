@@ -191,7 +191,7 @@ func _build_world() -> void:
 	# because construction order no longer matters; the pair is a future merge candidate, not
 	# a violation.
 	initiation.wire(eligibility, act_gate, privacy, negotiation, offer, ponies)
-	negotiation.wire(eligibility, act_gate, memory, privacy, initiation, offer, act_owner, hud,
+	negotiation.wire(eligibility, act_gate, memory, privacy, initiation, act_owner, hud,
 		ponies)
 	anatomy.wire(eligibility)
 	estrus.wire(anatomy)

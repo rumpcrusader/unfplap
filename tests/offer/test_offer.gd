@@ -71,6 +71,8 @@ class FakeMare extends Node3D:
 class FakeRuntime extends Node:
 	var gate_ready := true
 	var hotkey_calls := 0
+	var presented := 0
+	var cleared := 0
 	var stool := {"need": 0, "have": 0}
 	var gap: Variant = 0.0
 	var case_count := 0
@@ -116,6 +118,17 @@ class FakeRuntime extends Node:
 	func hint_stool() -> Dictionary:
 		return stool
 
+	func present_standing() -> bool:
+		presented += 1
+		return true
+
+	func clear_presentation() -> void:
+		cleared += 1
+
+	func agreement_ready(_pose: String, _source: String, _bed: Variant,
+			_frozen: Variant) -> bool:
+		return false
+
 	func stool_gap_m() -> Variant:
 		return gap
 
@@ -159,6 +172,7 @@ func run() -> void:
 	_check_hint_row()
 	_check_hud_fallback()
 	_check_agreement_first()
+	_check_presentation()
 	_check_lying_act_target()
 	_check_bed_side()
 	_check_hide_while_act_live()
@@ -346,6 +360,38 @@ func _check_agreement_first() -> void:
 	check(service.current() != null and service.current().trigger.is_empty(),
 		"an Agreement that is not ready falls back to the scene scan")
 	negotiation.live = null
+	_free(made)
+
+
+## The standing presentation starts on the first live standing Agreement, outside the interaction
+## gate, and clears when the handle vanishes or the world closes.
+func _check_presentation() -> void:
+	var made := _fixture()
+	var service: OFFER = made["service"]
+	var negotiation: FakeNegotiation = made["negotiation"]
+	var runtime: FakeRuntime = made["near_runtime"]
+	var near: FakeMare = made["near"]
+	var handle := AGREEMENT.Handle.new()
+	handle.id = 1
+	handle.generation = 1
+	handle.pony = near
+	handle.pony_id = "near"
+	var option := POSE_OPTIONS.Option.new()
+	option.pose = CATALOG.STANDING
+	handle.option = option
+	negotiation.live = handle
+	service.tick(0.016)
+	check(runtime.presented == 1, "a standing Agreement presents on the first tick")
+	service.tick(0.016)
+	check(runtime.presented == 1, "the presentation starts once per Agreement")
+	negotiation.live = null
+	service.tick(0.016)
+	check(runtime.cleared == 1, "a vanished handle clears the presentation")
+	negotiation.live = handle
+	service.tick(0.016)
+	check(runtime.presented == 2, "the next Agreement presents again")
+	service.on_world_closed()
+	check(runtime.cleared == 2, "a world close clears the presentation")
 	_free(made)
 
 

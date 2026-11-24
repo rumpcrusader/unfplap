@@ -16,6 +16,7 @@ This contract covers:
 - the hint unit in the game's prompt row, its HUD fallback and the blocked toasts;
 - the act key's one press, the typed start path and its Agreement exact match;
 - the live Agreement start, its wait/start/fail answer and the auto-start clock with its guards;
+- the standing presentation of a live Agreement: its one start, its clear and the world close;
 - the `OFFER ...`, `OFFER blocked ...`, `hotkey ...` and `agreement ...` log lines and the offer's
   perf chunks.
 
@@ -36,7 +37,7 @@ gate (`docs/scene_gate.md`).
 | `try_start()` | the act key's one entry: the act-live guard, the forced sensor read and the press |
 | `start_pose_offer(offer)` | the one typed start path: blocked, Agreement trigger or hotkey attempt |
 | `agreement_offer(handle)` | the live Agreement as the act key's typed offer |
-| `clear_current()` | drop the playable offer after a start or a formed Agreement |
+| `clear_current()` | drop the playable offer after a start |
 | `hide_hint()` | drop both offers and take the hint away while an act owns the frame |
 | `apply_settings()` | drop the resolved prompt row and forget the sensor's senses |
 | `on_world(host)` | the world entry: close the old world, then warm the two offerable assets |
@@ -118,6 +119,8 @@ Negotiation tick.
 | A body swap or a new runtime | a new instance id | a new sense; the attach warm |
 | An act starts | the entry stops ticking the offer and calls `hide_hint()` | the sensor is idle |
 | The act key | `try_start()` | a forced sensor read and `reconsider()` |
+| A standing Agreement appears | the offer's tick, before the sensor | the standing presentation starts once |
+| The live Agreement ends or the world closes | the offer's tick and `on_world_closed()` | the presentation is cleared |
 | A live Agreement becomes ready | the 0.25 s auto-start clock | `can_start()` and the scene rows |
 
 ## Facade
@@ -129,15 +132,16 @@ live Agreement as the previous frame's `negotiation.tick()` left it.
 
 `offer_target()` reads the current offer and never re-evaluates: the sensor owns the transitions,
 and a press is the only forced read. The invalidation rules are the entry's: a world enter and a
-world close call `on_world_closed()`, an act start and a formed Agreement call `clear_current()`,
-and an act live in the frame calls `hide_hint()`.
+world close call `on_world_closed()`, an act start calls `clear_current()`, and an act live in the
+frame calls `hide_hint()`.
 
 ## Data ownership
 
 Nothing is persisted. The sensor's per-mare senses and candidate list, the offer and its footstool
 pair, the two logged keys, the one-shot toast flag, the player's last seat, the resolved hints node
-and prompt row and the auto-start clock live for one world; `on_world_closed()` clears all but the
-clock, which is a frame timer that self-corrects on the next poll.
+and prompt row, the presented runtime and the auto-start clock live for one world; a world close
+stops the presentation and clears all but the clock, which is a frame timer that self-corrects on
+the next poll.
 
 ## Settings
 

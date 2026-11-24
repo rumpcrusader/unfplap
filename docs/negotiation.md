@@ -34,7 +34,7 @@ presentation, the act start, the scene rows or the pose placement gate. Those be
 - the terminal outcome and the offer cooldown;
 - the typed `Host` it runs on and the one adapter (`negotiation/adapter.gd`) that answers the
   model calls;
-- the Agreement handoff: the standing presentation, the one react line and the offer clear.
+- the Agreement handoff's log line and the one react line.
 
 `shared/agreement.gd` is the pure package and handle. The service is its only writer.
 `negotiation/prompts.gd` is the pure model request layer: the request kinds, the payload builders
@@ -75,7 +75,7 @@ The host callbacks are, in order:
 | `toast` | `(text) -> void` | player feedback through the HUD toast line |
 | `react` | `(pony, reason) -> void` | the shared interruption line |
 | `on_outcome` | `(Terminal) -> void` | the Proactive pacing |
-| `on_agreement` | `(Handle) -> void` | the Agreement handoff: the standing presentation and the offer clear |
+| `on_agreement` | `(Handle) -> void` | the formed Agreement, logged here |
 
 A model callback is called once. A late result after a terminal transition is ignored by the
 generation token.
@@ -126,10 +126,9 @@ used to be the entry's assembly:
 - the adapter's model calls and the world-context situation record.
 
 It reads only service facades and `WORLD`, and the fields the facade sets once from its `wire()`
-peers: `service` (this facade), `adapter`, `eligibility`, `gate`, `memory`, `privacy`, `initiation`,
-`offer` and `act_owner`. `initiation` and `offer` are plain nodes because each of them preloads this
-facade; everything else is the typed facade, and `act_owner` is the frame its watch gates on
-(`docs/act_owner.md`).
+peers: `service` (this facade), `adapter`, `eligibility`, `gate`, `memory`, `privacy`, `initiation`
+and `act_owner`. `initiation` is a plain node because it preloads this facade; everything else is
+the typed facade, and `act_owner` is the frame its watch gates on (`docs/act_owner.md`).
 
 The watch is armed by `tick()`, which is the entry's idle frame: the exchange's TTL and privacy
 sample first, then the bridge's watch as its own `entry_watch` perf chunk. The watch is armed only
@@ -217,10 +216,8 @@ handle is harmless because its id and generation no longer match. Cancellation i
 `cancel(handle, reason)`, because the handle carries no callback. The offer service, the Act
 service's only caller, reports the `runtime.start.start_agreement()` answer as `Started`/`StartFailed`
 through `report(handle, started)`; the service closes the Agreement, releases the lock and releases
-the hold unless the Act adopted it on `Started`. The service's Agreement handoff starts the standing
-presentation (act-owned) and clears the shared offer window, so the hint goes with the Agreement;
-the act key and the auto-start consume the handle through `runtime.start.start_agreement()`; a wait keeps
-the Agreement live. A handle whose runtime is gone is cancelled with `cancelled`.
+the hold unless the Act adopted it on `Started`. The act key and the auto-start consume the handle
+through `runtime.start.start_agreement()`; a wait keeps the Agreement live.
 
 `can_start()` is the one readiness read. It answers false unless the Agreement is formed, its
 handle is valid and it has not expired. A private Agreement whose visibility is gone is cancelled

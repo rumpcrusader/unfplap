@@ -160,9 +160,9 @@ Read `WORKFLOW.md` before any task. Commit in small, testable units; never push.
 
 ## Service API
 
-Every service facade — `<service>/api.gd` preferred, `<service>/service.gd` legacy — and every
-public handle it returns follows these. The mechanics — facade, typing, state and reach-in rules —
-are in `ARCHITECTURE.md` (`## The service contract`).
+Every service facade is `<service>/api.gd`, and every public handle it returns follows these. The
+mechanics — facade, typing, state and reach-in rules — are in `ARCHITECTURE.md`
+(`## The service contract`).
 
 - **The surface is defined by the consumer, and the service adapts to it.** A member exists only
   because a caller's job needs it and is traceable to that caller; when a consumer needs something,

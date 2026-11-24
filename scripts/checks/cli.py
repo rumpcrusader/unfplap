@@ -32,6 +32,7 @@ from .scope import (
     check_scope_construction,
     check_scope_cross,
     check_scope_declarations,
+    check_scope_facade_names,
     check_scope_groups,
     check_scope_statics,
 )
@@ -53,6 +54,7 @@ def _docs_group(failure: Failure) -> None:
 
 
 def _scope_group(failure: Failure) -> None:
+    check_scope_facade_names(failure)
     check_scope_declarations(failure)
     check_scope_bases(failure)
     check_scope_construction(failure)

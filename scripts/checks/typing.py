@@ -19,7 +19,7 @@ from .context import (
 )
 from .failure import Failure, rel
 
-# A public accessor module outside a `service.gd` facade joins the weak-signature scan.
+# A public accessor module outside a facade joins the weak-signature scan.
 TYPING_EXTRA = ("world/game.gd", "settings/game.gd", "debug/game.gd", "hud/game.gd")
 
 DUCK_CALL = re.compile(r'\.call\("[A-Za-z_]')

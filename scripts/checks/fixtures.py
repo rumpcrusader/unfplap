@@ -26,6 +26,7 @@ from .scope import (
     cross_scope_failures,
     declaration_failures,
     entry_name_failures,
+    facade_name_failures,
     fixed_name_failures,
     group_failures,
     node_base_failures,
@@ -141,25 +142,30 @@ SCOPE_BASE_CASES = (
      "must extend Node"),
     ("scope base static world", "world/api.gd", "world", ["RefCounted"], None),
 )
+FACADE_NAME_CASES = (
+    ("facade name api", "alpha/api.gd", None),
+    ("facade name service", "alpha/service.gd", "the facade name is api.gd"),
+    ("facade name base", "shared/service.gd", None),
+)
 STATIC_CASES = (
-    ("world static var", "alpha/service.gd", "world",
+    ("world static var", "alpha/api.gd", "world",
      "static var anatomy: Node = null\n", "declares `static var anatomy`"),
-    ("pony static var", "alpha/service.gd", "pony",
+    ("pony static var", "alpha/api.gd", "pony",
      "static var peer: Node = null\n", "declares `static var peer`"),
-    ("process static var", "alpha/service.gd", "process",
+    ("process static var", "alpha/api.gd", "process",
      "static var instance: Node = null\n", None),
     ("read facade static var", "world/api.gd", "world",
      "static var _game: Node = null\n", None),
-    ("instance facade clean", "alpha/service.gd", "world",
+    ("instance facade clean", "alpha/api.gd", "world",
      "var peer: Node = null\n", None),
 )
 WORLD_ALIAS_CASES = (
-    ("read facade alias", "alpha/service.gd",
+    ("read facade alias", "alpha/api.gd",
      'const WORLD := preload("res://mods/unfplap/world/api.gd")\n', None),
-    ("wrong alias", "alpha/service.gd",
+    ("wrong alias", "alpha/api.gd",
      'const WORLD := preload("res://mods/unfplap/ponies/api.gd")\n',
      "is the one static read facade"),
-    ("string const", "alpha/service.gd", 'const WORLD := "world"\n', None),
+    ("string const", "alpha/api.gd", 'const WORLD := "world"\n', None),
 )
 CONSTRUCTION_CASES = (
     ("construction in world root", "main.gd",
@@ -378,7 +384,7 @@ INLINE_CASE_COUNT = 6 + 2
 
 
 def index_row(sid: str, tests: str | None = None) -> str:
-    return "| %s | `%s/service.gd` | `docs/%s.md` | `%s` |" % (
+    return "| %s | `%s/api.gd` | `docs/%s.md` | `%s` |" % (
         sid, sid, sid, tests or "tests/%s/" % sid)
 
 
@@ -483,7 +489,7 @@ def services_table(rows: list[str]) -> str:
 
 def scoped_row(sid: str, scope: str) -> str:
     cell = "`%s`" % scope if scope else ""
-    return "| %s | `%s/service.gd` | `docs/%s.md` | `tests/%s/` | %s |" % (
+    return "| %s | `%s/api.gd` | `docs/%s.md` | `tests/%s/` | %s |" % (
         sid, sid, sid, sid, cell)
 
 
@@ -501,6 +507,8 @@ def statics_cases() -> int:
 def scope_cases() -> int:
     """Both directions for every scope rule: a passing fixture and a failing message."""
     failures = 0
+    for label, path, wanted in FACADE_NAME_CASES:
+        failures += expect(label, facade_name_failures(path), wanted)
     for label, text, sid, wanted in SCOPE_DECL_CASES:
         failures += expect(label, declaration_failures("fixture.gd", text, sid), wanted)
     for label, path, scope, chain, wanted in SCOPE_BASE_CASES:
@@ -570,6 +578,7 @@ def scope_case_count() -> int:
     return sum(len(cases) for cases in (
         SCOPE_DECL_CASES,
         SCOPE_BASE_CASES,
+        FACADE_NAME_CASES,
         STATIC_CASES,
         WORLD_ALIAS_CASES,
         CONSTRUCTION_CASES,

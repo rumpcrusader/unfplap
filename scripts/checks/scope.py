@@ -67,6 +67,21 @@ def facade_scopes() -> dict[str, str]:
     }
 
 
+# --------------------------------------------------------------------------- the facade name
+
+
+def facade_name_failures(path: str) -> list[str]:
+    """The one facade name is `api.gd`; the base class under `shared/` keeps its name."""
+    if not path.endswith("/service.gd") or path.startswith("shared/"):
+        return []
+    return ["%s: the facade name is api.gd" % path]
+
+
+def check_scope_facade_names(failure: Failure) -> None:
+    for path in shipped_sources():
+        failure.extend(facade_name_failures(rel(path)))
+
+
 def extends_parent(path: str) -> str:
     """The parent a mod file extends, as a mod-relative path or an engine type name."""
     target = ROOT / path

@@ -25,9 +25,9 @@ SOURCE_SKIP_DIRS = {
 # Every `.gd` in the repository: only the generated and fetched trees are not source.
 ALL_SOURCE_SKIP_DIRS = {".git", ".godot", "dist", "assets", "sources"}
 
-# A service facade is `api.gd` when present, otherwise the legacy `service.gd`. The preference is
-# explicit so a non-facade `api.gd` is never mistaken for a service entry point.
-FACADE_NAMES = ("api.gd", "service.gd")
+# A service facade carries one name, `api.gd`, so an entry point is never ambiguous. The base class
+# under `shared/` is not a facade and keeps its own name.
+FACADE_NAMES = ("api.gd",)
 # A store holds a resolved document another service reads directly, with no scene work of its own.
 STORE_SERVICES = {"registry"}
 ORCHESTRATORS = {"main.gd", "runtime.gd", "api.gd"}
@@ -78,7 +78,7 @@ def facade_for(sid: str) -> str:
     for name in FACADE_NAMES:
         if (ROOT / sid / name).is_file():
             return name
-    return "service.gd"
+    return "api.gd"
 
 
 def declaration_block(text: str) -> str:

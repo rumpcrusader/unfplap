@@ -81,11 +81,11 @@ owns the concepts; this section owns the complete roster. Every rule has both di
 ### Graph and boundaries
 
 - **Every mod path has an owner.** A shipped `.gd` must resolve through `owner_of()` to a service
-  (`<id>/service.gd`, or `anatomy/api.gd` for the anatomy package, and everything under
-  `<id>/`), `shared/`, one of the three orchestrators `main.gd`, `runtime.gd` and `api.gd`, or one
-  of the two Other trees `act/` and `vr/`, whose files carry the `other` kind: an Other module may
-  preload a service, and a service that preloads it is a host import and refused. Any other shipped
-  path has no owner and is refused; an edge naming one is classified external.
+  (`<id>/api.gd` and everything under `<id>/`), `shared/`, one of the three orchestrators
+  `main.gd`, `runtime.gd` and `api.gd`, or one of the two Other trees `act/` and `vr/`, whose files
+  carry the `other` kind: an Other module may preload a service, and a service that preloads it is
+  a host import and refused. Any other shipped path has no owner and is refused; an edge naming
+  one is classified external.
 - **Every anatomy file reads the game through `GAME`.** No anatomy file may preload a base-game
   module; no anatomy file may preload another mod service except `settings/api.gd`; and no
   outside file may preload an anatomy file except `anatomy/api.gd`.
@@ -167,24 +167,26 @@ owns the concepts; this section owns the complete roster. Every rule has both di
 
 Each is a pure function with both directions in the self-test; `ARCHITECTURE.md` owns the model.
 
-1. **Declaration.** Every facade carries `Service:` equal to its directory, `Scope:` in
+1. **Facade name.** A shipped service facade is `<id>/api.gd`; a `*/service.gd` outside `shared/`
+   fails. `shared/service.gd` is the base class and keeps its name.
+2. **Declaration.** Every facade carries `Service:` equal to its directory, `Scope:` in
    `process|world|pony` and `Contract: docs/<sid>.md`; a non-facade carries none, except
    `shared/log.gd` and `shared/perf.gd`, whose frozen header is their contract.
-2. **Node base.** A `world` or `pony` facade extends `Node`, `CanvasLayer` or `shared/service.gd`
+3. **Node base.** A `world` or `pony` facade extends `Node`, `CanvasLayer` or `shared/service.gd`
    directly or through a chain; a `process` facade may be anything. `WORLD_STATIC`
    (`world/api.gd`) is the one named exception.
-3. **Construction.** Only a scope's root constructs its services: `main.gd` for Process and World,
+4. **Construction.** Only a scope's root constructs its services: `main.gd` for Process and World,
    `runtime.gd` for Pony. A facade const constructed anywhere else fails. The Process services are
    static, so the root constructs only the API Node.
-4. **Attachment.** `main.gd` attaches every World facade through `_attach` and names it;
+5. **Attachment.** `main.gd` attaches every World facade through `_attach` and names it;
    `runtime.gd` attaches every Pony facade through `_attach`. The entry sets no name on itself (the
    loader owns the host name), and `UnfplapRuntime` and `UnfplapApi` are the fixed child names.
-5. **Groups.** `unfplap_world` is added only by `main.gd`'s attach helper and
+6. **Groups.** `unfplap_world` is added only by `main.gd`'s attach helper and
    `unfplap_pony_service` only by `runtime.gd`'s.
-6. **Cross-scope.** A Pony file may preload a World facade, and a World file may preload a Pony
+7. **Cross-scope.** A Pony file may preload a World facade, and a World file may preload a Pony
    facade for a `wire` type or a static read. A cross-scope private file fails; a cross-scope
    construction fails. `world/handles.gd` is public through `PUBLIC_SERVICE_FILES`.
-7. **Static state.** A `world` or `pony` facade declares no `static var`; a `process` facade and
+8. **Static state.** A `world` or `pony` facade declares no `static var`; a `process` facade and
    `world/api.gd` may. A `WORLD` alias whose value is a `preload(...)` names `world/api.gd`.
 
 The `Other` class is derived: a directory with no facade is never indexed in the Services table and

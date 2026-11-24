@@ -14,7 +14,7 @@ document a service. The index is `docs/README.md`; each service's contract is
 | Per-pony host | `runtime.gd`: one per non-player pony, idle and in an act; existence, parenting, the two engine-frame forwards, the body-swap reparent and the world-close release. |
 | Service | One authority over mutable state behind one facade. |
 | Service base | `shared/service.gd`: the four lifecycle hooks as no-ops. |
-| Facade | `<service>/api.gd`, or `<service>/service.gd`; the only file another part of the mod imports. |
+| Facade | `<service>/api.gd`: the only file another part of the mod imports. |
 | Service internals | Private modules under `<service>/`; nothing outside imports them. |
 | Shared module | Pure data or math, a store, or a read model under `shared/`; no lifecycle. |
 | Scene read facade | `world/api.gd`: the live scene reads, bound by the entry. It answers where and what, never whether. |
@@ -74,8 +74,7 @@ main.gd / runtime.gd          entry and orchestration
 api.gd                        cross-mod facade
 world/api.gd                  scene read facade
 <service>/game.gd             base-game accessors (game layer)
-<service>/api.gd              service facades (preferred)
-<service>/service.gd          service facade (the name when api.gd is absent)
+<service>/api.gd              service facades
 <service>/**                  private service implementation
 shared/**                     pure modules, stores, read models
 res://world/..., res://player/...   game and engine
@@ -318,8 +317,8 @@ One rule is architecture's own: `shared/log.gd`, `shared/perf.gd`, `api.gd`, `do
 ## Adding a service
 
 1. Pick a stable snake_case id and one responsibility.
-2. Create the facade — `<id>/api.gd`, or `<id>/service.gd` when the id already uses that name —
-   with the header, a narrow typed API and the ownership fields.
+2. Create the facade `<id>/api.gd` with the header, a narrow typed API and the ownership
+   fields.
 3. Keep every helper under `<id>/`; move a genuinely shared pure module to `shared/`. A game-layer
    member also owns `<id>/game.gd`, whose typed accessors are its only base-game reads.
 4. Add `docs/<id>.md` and its one row in `docs/README.md`; the row owns the contract and test

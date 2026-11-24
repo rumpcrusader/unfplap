@@ -1,245 +1,90 @@
 # Act readiness, strength and auto thrust
 
-This is the contract for the act's readiness loop: the measured stroke, the physical strength
-value, satisfaction/mood/cues, the pony climax count, the touch/talk assist and the automatic
-stroke. The long-term summary and history are `docs/summary.md`; cue admission and prompt assembly
-are `docs/dialogue.md`; the HUD text is `docs/hud.md`; the camera response is `docs/camera.md`.
+Readiness is the act's readiness loop: the measured stroke, the physical strength value,
+satisfaction, mood and cues, the pony's climax count, the touch and talk assist, the
+neglect-tolerance meter and the automatic stroke. The long-term summary and history belong to
+`summary`, cue admission and the prompt to `dialogue`, the HUD shorthand to `hud` and the camera's
+response to `camera`.
 
-## Ownership
+## The stroke
 
-`readiness/api.gd` is the system facade. It owns the scoring state, the public act values
-`satisfaction`, `mood`, `cue` and `pony_climaxes`, and the neglect-tolerance meter; the act session
-keeps the state machine and the face beats, and `act/consent.gd` presents a tolerance decision.
-`begin_climax()` owns the climax count, mood and cue; `end_climax()` owns the post-climax reset;
-`clear_cues()` drops the live cue for the held afterglow and the close reward. The runtime calls `readiness.stroke()`, `touch()`, `talk()` and `tick()`;
-readiness owns the counters the summary reads and the one-second impact window. It
-also owns the auto-thrust generator, the hold-X panel policy and their defaults. The act hands it
-the per-mare profile as the facade's typed `Profile` record; the profile math and defaults stay in
-`shared/preferences.gd`.
+A stroke is continuous movement in one direction, closing on a real reversal or after a short
+stillness. Its bottom is a separate event: it fires at the reversal or after a brief stall without
+real progress, and it drives the jiggle, wings, blush, ear twitch and the body slap, so the slap
+and the flinch arrive with the movement rather than at the close. The close is the only event that
+scores.
 
-`readiness/thrust.gd`, `readiness/auto_thrust.gd`, `readiness/auto_panel.gd` and
-`readiness/tolerance.gd` are pure modules behind the facade. `input/api.gd` reads the input
-and calls the runtime's protocol; the runtime forwards the mouse travel and the sampled keys and
-applies the depth through `_thrust_move`, so audio, camera, jiggle and presentation keep one path.
+A thrust is an inward stroke that travels far enough and lasts long enough. Tiny jitter, pullbacks
+and outward strokes are presentation: they update no axis and score nothing.
 
-The auto surface:
+## Strength, depth and intensity
 
-| Facade call | Contract |
-|---|---|
-| `configure_auto(pace, max_depth, shape, min_depth)` | push the act's `auto_thrust.*` snapshot; `reset_auto()` returns to it; the body-swap snapshot keeps the chosen shape |
-| `reset_auto()` / `stop_auto()` | a fresh act / the act phases that end it; `stop_auto()` keeps the live pace, band and shape |
-| `toggle_auto(depth)` | `X`; starts the generator at the hand's current depth |
-| `auto_step(delta)` | one generated depth, or `NAN` while off; the runtime applies it |
-| `auto_wheel(direction)` | the wheel notch |
-| `auto_panel_tick(delta, x_down, keys, depth)` | the hold-X policy; applies the row nudges and the tap, returns the remaining actions |
-| `auto_panel_open()`, `auto_shape()`, `auto_*_depth()`, `auto_pace()` | the HUD and the settings-shape reads |
-| `auto_set_shape(name)` | the runtime's `Z` settings write lands here too |
+His strength is the physical impact value. Travel matters most and average speed scales it, with a
+floor that keeps a slow full-depth stroke soft and a cap so one fast sample cannot saturate it.
+Visual response follows strength, while the flank wobble follows travel, so a full stroke swings
+the same at any speed.
 
-## What the player does
+The body slap is gated on true contact and tiered by the speed at the bottom. That speed counts
+only the intervals that actually deepened, so a pause or jitter at the bottom cannot dilute the
+tier: a touching stroke below the firm tier is a slow press and stays silent.
 
-- Mouse vertical motion feeds the measured penetration in metres. `thrust.orientation` flips the
-  direction; `"up"` means mouse up deepens. `thrust.pixels_per_cm` is the
-  sensitivity (`20–400`), so a full stroke is his shaft length and the signed
-  `Back-out gap` sets the resting depth (positive rests behind her, negative starts inside).
-- `X` toggles auto thrust in `ACTIVE`/`CLIMAX` on a tap. `readiness/auto_thrust.gd` drives
-  `wave(shape, phase)` at `pace` thrusts per second between `min_depth` and `max_depth`, and the
-  runtime feeds the same depth tracker the mouse feeds. It adds no separate score or heat path:
-  intensity, pattern, readiness, audio and presentation are the manual ones. The wheel sets pace;
-  the hold-X layer sets the band and shape, and the mouse does nothing while auto runs. The band
-  keeps the tracker travel at `max_depth - min_depth - 0.06` (`REVERSAL_HYSTERESIS`) and is never
-  narrower than `0.18`, so every stroke still counts; the peak is at least `0.20`. `Auto shape`
-  (debug) picks the stroke waveform: `Normal`, `Thrust`, `Tease`, `Saw` or `Hold`; it applies live
-  and every shape returns to the bottom, so the tracker only ever sees depth.
-- **Hold `X`** while auto is on and the control card swaps to the auto settings: `Q`/`A` min depth
-  ±5 %, `W`/`S` max depth ±5 %, `E`/`D` pace ±0.25/s, `Z` cycles `Auto shape` (written to
-  settings). The layer stays open while X is held, survives a re-press within `0.28 s` of release,
-  and freezes the lean, the caress keys and the kiss while it is open. `R`/`F` are reserved for a
-  future tail control.
-- Mouse right or `G` smacks either cheek. See `docs/hands.md`.
-
-## Stroke, impact and thrust
-
-- A **stroke** is continuous movement in one direction. It closes on a real reversal
-  (`REVERSAL_HYSTERESIS = 0.06`) or `STROKE_TIMEOUT_S = 0.18 s` without movement. Its **bottom**
-  is a separate `impact` event: it fires on the reversal or after `IMPACT_STALL_S = 0.04 s` of no
-  real progress, and it drives the jiggle, wings, blush, ear twitch and the plap, so the sound
-  lands with the motion instead of 180 ms late. The close only scores.
-- The **body slap is gated on true contact and tiered by its speed**. At the bottom the tracker
-  reports `impact_speed`: the average inward speed over the deepest 10 % of the stroke's travel,
-  counting only intervals that actually deepened, so a pause or jitter at the bottom cannot dilute
-  it. The runtime measures `skin_gap_m = max(reach - penetration, 0)` and plaps only when the gap
-  reaches zero. The bag is `firm` from `PLAP_FIRM_SPEED` and `rough` from `PLAP_ROUGH_SPEED`; below
-  firm a touching stroke is a slow press and stays silent. The slide and the bed fabric play on
-  every real thrust.
-- A **thrust** is an inward stroke with `travel >= THRUST_MIN_TRAVEL = 0.12` and
-  `duration >= MIN_THRUST_DURATION = 0.04 s`. The minimum auto peak travels 0.14 and therefore
-  counts as a real soft thrust. Tiny jitter, pullbacks and outward strokes are presentation only:
-  they do not update the axes or score readiness.
-- `strength = clamp(travel × clamp(speed / 8.0, 0.15, 1.5), 0, 1)` is the physical impact value.
-  The `0.15` floor lets a slow full-depth stroke stay soft on the physical axis; average speed
-  drives strength, peak speed is logged and capped at `2 × average speed`, but one fast sample
-  cannot saturate it by itself.
-- The **intensity preference** is read from the stroke's travel: `soft` (< 0.35), `firm`
-  (< 0.65), `rough`. The depth and tempo axes are independent, so a deep slow stroke is rough and
-  a shallow fast stroke is soft. The physical strength above stays the foley/impact/wobble value;
-  the body slap's bag comes from `impact_speed`, not from this band.
-- Visual impact is `min(1, strength × 2.0)`, so normal and fast thrusts keep the tuned wing, ear
-  and blush response while slow or shallow strokes stay lighter; the foley scales from `strength`
-  directly. The rump/tail wobble is separate: `THRUST.jiggle_amount(travel, strength)` follows
-  travel, so a full stroke wobbles the same at any speed, and the soft band fades the gentlest
-  strokes to `0.04`, under the stock jiggle's own `0.3` floor. The camera is on its own
-  speed-driven channel, not this impact value.
-- `satisfaction` is her arousal/readiness 0–100. At 100 she climaxes; the player chooses afterglow
-  separately. Readiness rises in discrete chunks from real thrusts, not on a passive timer.
-
-## Pattern
-
-Classified over the last 3–4 real inward thrusts. Fewer than 3 means “no pattern yet”; only the
-intensity axis can match. Pattern is tempo only; depth does not decide the rhythm.
-
-```text
-teasing  mean duration > 0.45 s
-quick    mean duration < 0.30 s
-steady   otherwise
-```
+The intensity preference is read from travel and the pattern from tempo. The axes are independent,
+so a deep slow stroke is rough and a shallow fast one is soft, and the physical strength stays the
+foley and impact value rather than the preference band.
 
 ## Readiness
 
-`satisfaction` is readiness. It starts at 0 and caps at 100. The optional HUD readouts
-(`hud_readouts`) show `Wants: firm & steady | You: …`.
-
-```text
-both axes match       +1.4 per real thrust × warmth
-one axis matches      +0.7 per real thrust × warmth
-neither matches       no gain; stopping and waiting simply pauses progress
-liked touch / talk    +6.0 once, capped at ASSIST_CAP = 60
-requested reveal      +30.0 once, not assist-capped
-disliked touch/talk   -6.0 once and 1.2 s overwhelmed
-```
-
-- The player-requested reveal (`docs/runtime.md`, `## Body swap`) adds its one-off spike in
-  `ACTIVE`; because it is not assist-capped it can carry her over `PONY_CLIMAX_AT` on the next
-  tick. Her own reveal and a named shape add nothing.
-- Real thrusts are rate-limited to one scored thrust every `0.2 s`; faster input is presentation.
-- A liked touch or talk opens an 8 s receptive window: real thrusts gain `×1.25`.
-- Touch shares one 4 s scoring cooldown. Alternating caress, kiss and smack does not bypass it.
-  Talk has its own 8 s scoring cooldown.
-- Touch/talk cannot take her past `ASSIST_CAP = 60`. At the cap, caress says “She needs more
-  than your hands”; talk says “She needs you to move.”
-- The pattern/intensity memory clears after 1.2 s without a real thrust.
-- Readiness never decays on its own. Only a disliked touch or talk subtracts. No hard stop from
-  a mismatch; stopping and waiting simply pauses progress.
+Satisfaction is readiness, and it rises in discrete chunks from real thrusts rather than on a
+passive timer. Hitting both preferred axes gains the most; one matching axis still gains something,
+while a full mismatch gains nothing at all and stopping merely pauses it. A liked touch or talk adds
+once and caps the assist short of a climax, so only real thrusting can finish her; a disliked one
+subtracts and leaves her overwhelmed for a moment. Touch shares one scoring cooldown across caress,
+kiss and smack, and talk has its own, so alternating inputs cannot bypass either. The meter never
+decays on its own, and a mismatch is never a hard stop.
 
 ## Mood and cues
 
-```text
-warming       readiness < 40
-wanting       40 <= readiness < 65
-close         readiness >= 65
-climax        the pony is in her 5 s climax
-overwhelmed   a disliked touch/talk landed recently
-```
+Mood follows readiness through warming, wanting and close, with a climax mood and an overwhelmed
+state of its own. The base cue asks the player to keep going, a liked or disliked touch or talk
+sets its own line, and the assist-cap lines say plainly that hands or words cannot add more.
 
-- `CLOSE_AT = 65` is only the “she is close” cue.
-- `PONY_CLIMAX_AT = 100` triggers the pony's climax.
-- Cue admission, stability, the shared slot and the prompt are `docs/dialogue.md`; the prompt text
-  itself is `docs/prompts.md`. The HUD shorthand
-  is `docs/hud.md`.
-- The base fallback cue is `She wants you to keep going.` A neutral touch sets no override; a
-  neutral talk sets `She listens.` The two assist-cap lines mean the touch/talk assist is already
-  at `ASSIST_CAP = 60` and only real thrusting can add more.
-- `features.estrus_cycle` multiplies each real thrust chunk by `×1.6` while she is in
-  heat; `shared/cycle.gd` derives the phase from the world day and her id. Diestrus blocks starting and
-  offers. `warmth` and the receptive window still stack on top. The gate is in
-  `docs/eligibility.md`.
+## The pony's climax
 
-## Pony climax
-
-- At 100 readiness she climaxes. The user-facing `thrust.max_pony_climaxes` setting
-  sets the limit; `0` is unlimited.
-- The act enters `CLIMAX` for `CLIMAX_SECONDS = 5`; `readiness.begin_climax()` counts the climax
-  and sets its cue, and `end_climax()` resets the meter when the state returns to `ACTIVE`.
-- The player can keep thrusting during those 5 s. The thrust is presentation only: it does not
-  update intensity, pattern or readiness.
-- Each climax sends a unique world-context event and a unique generated reaction.
-- When the 5 s ends:
-  - below the configured limit, or unlimited: return to `ACTIVE`, set readiness to `0`, clear
-    pattern;
-  - at a non-zero configured limit: enter `AFTERGLOW` automatically.
-
-The afterglow phase and the standing close window are `docs/afterglow.md`.
+At full readiness she climaxes. The configured limit may be zero for an unlimited act. The act
+enters its climax state for a fixed span, counting the climax and setting its cue, and the player
+may keep thrusting through it: that thrust is presentation and changes no score. When the span ends
+she either returns to the act with the meter reset, or, at a configured limit, the act moves on to
+afterglow.
 
 ## Neglect tolerance
 
-`preferences.tolerance` is per mare: `forgiving`, `normal` or `strict`. The Characters sub-tab
-edits it as **Neglect tolerance**. Rarity is strict and Fluttershy is
-forgiving. The old `timid`/`neutral` values still resolve to `forgiving`/`normal`.
-
-`readiness/tolerance.gd` is a pure per-act meter. It runs only during `POSING_IN`/`ACTIVE` and
-declares no rule values: `rules()` builds all twelve keys from the `tolerance.*` settings handles, so
-a settings edit reaches warnings, relief, decay and both stop cooldowns on the next generation.
-
-- every actual disliked touch/talk adds `tolerance.dislike_amount`;
-- every actual liked touch/talk subtracts `tolerance.like_relief`;
-- a held caress is a discrete action; its five-second meter is in `docs/hands.md`;
-- passive decay subtracts `tolerance.decay_amount` every `tolerance.decay_seconds`;
-- warning stages are one-shot per act; compensation can lower distress and avoid a stop but does
-  not replay a warning.
-
-| Tier | Warnings | Stop |
-|---|---|---|
-| Forgiving | one at `tolerance.forgiving_warning` | never |
-| Normal | at `tolerance.normal_warning_1`, then `normal_warning_2` | at `tolerance.normal_stop` |
-| Strict | at `tolerance.strict_warning` | at `tolerance.strict_stop` |
-
-Readiness queues at most one decision per frame (`take_tolerance_decision()`); the decision is a
-typed record (`warning`, `stop`, `distress`, `kind`), and `act/consent.gd:tick()` returns `NONE`,
-`WARN` or `STOP`. A warning presents itself as a HUD cue
-and one short spoken line; a stop is the one verb the runtime applies through `_stop_with_her()`.
-Warnings and the stop line always speak. The stop's summary, memory note, cooldown and mood are in
-`docs/summary.md`; its buck/push is `docs/scene_gate.md`.
-
-The **Force neglect warning** and **Force neglect stop** debug actions drive the live act for
-testing.
+Tolerance is a per-mare preference tier (forgiving, normal, strict); the per-act thresholds are
+debug declarations, so an edit reaches the meter on its next generation. Each real disliked touch
+or talk adds distress, each liked one relieves it, and passive time decays it. Warnings are one-shot
+per act: compensation can lower distress and avoid a stop, but it never replays a warning. A
+forgiving mare is never stopped, a normal one warns twice and then stops, and a strict one warns
+once and stops sooner. The meter yields at most one decision per frame, and a stop is the only
+decision the act acts on, through its own stop path.
 
 ## Auto thrust
 
-- `readiness/auto_thrust.gd` is a pure generator: `pace` (1.0–3.75/s), `min_depth` (0–0.82),
-  `max_depth` (0.20–1), `curve` (`cosine`, `thrust`, `tease`, `saw`, `hold`). Every shape starts
-  at the bottom and returns to the bottom. The facade's auto defaults and the generator's four
-  values carry no code default: `configure_auto()` fills them from the act snapshot and
-  `reset()` takes all four explicitly.
-- `readiness/auto_panel.gd` is the pure hold-X layer: tap/hold detection, the 0.28 s grace, key repeats and
-  the four live rows.
-- `input/api.gd` reads `Input` and passes the key states to `act/input.gd:auto_panel_input()`
-  (`runtime.act.input`); readiness returns the actions and the generated depth. The mouse does
-  nothing while auto is on. The wheel sets pace through the same protocol's
-  `auto_thrust_wheel()`.
-- The panel's `toggle` and min/max/pace nudges are applied inside readiness. The one remaining
-  action is `shape_next`: the runtime writes `SETTINGS.curve` and calls `auto_set_shape()`.
-- The debug log prints one `auto layer` line per player adjustment, never per frame; a shape
-  change adds its own `auto shape` line.
-- `X` is live in `ACTIVE`/`CLIMAX`; `begin_afterglow()`, `act/exit.gd:restore_begin()` and the one
-  exit stop it, and `_reset_thrust_state()` restores the act-start defaults.
-- A body swap stops the running stroke but preserves the four live values and the on/off state.
-  `act/swap.gd:remember_auto()` records the flag and calls `stop_auto()`, the resume re-reads
-  settings without replacing the chosen `Z` shape, and the adopted body restarts auto at the
-  current depth. A later fresh act
-  still begins from the settings defaults.
-- The auto readout is `Auto · 20–80% · 1.50/s · Normal` (see `docs/hud.md`).
+The automatic stroke generates the depth the mouse would, through the same tracker, so it adds no
+score, heat or presentation path of its own: intensity, pattern, readiness, audio and the body all
+follow the manual rules. A tap of X starts and stops it at the hand's current depth; the wheel sets
+the pace; holding X opens a small layer for the band and the shape while it freezes the lean, the
+caress keys and the kiss. The band keeps each stroke wider than the tracker's reversal gap and the
+smallest peak still reaches a thrust's travel, so nothing generated is too shallow to count; every
+shape returns to the bottom, so the tracker only ever sees depth. The mouse does nothing meanwhile.
+
+A body swap stops the running stroke but keeps the live band, pace, shape and the on/off intent; the
+resumed act restarts it at the current depth, while a fresh act starts from the settings defaults.
+
+## The cycle
+
+The estrus feature multiplies every scored thrust while she is in heat. The phase and the diestrus
+start block are the act gate's, not this service's.
 
 ## Settings
 
-The thrust, auto-thrust, cooldown, receptive-window and cue-pacing declarations are in
-`settings/api.gd`, each described by its `##` comment. See `docs/settings.md` for the framework.
-
-The per-mare neglect-tolerance tier is a preference field, not a global setting: edit it in
-**Characters**. The thresholds, like relief, decay and stop cooldowns, are the `tolerance.*` debug
-declarations.
-
-## Verification / lab
-
-- Manual stroke: slow/fast, shallow/deep, the intensity and pattern axes, the readiness line and
-  the climax limit.
-- Auto: tap X, hold X, the four rows, the wheel, shape cycle, mouse lockout and reset between acts.
-- Touch/talk: liked/disliked, the cap, the receptive window and the overwhelmed beat.
+The thrust, cooldown, receptive-window and cue-pacing values are settings declarations with their
+own bounds; the tolerance tier is a per-mare Characters preference.

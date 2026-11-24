@@ -288,6 +288,9 @@ func reset_auto() -> void:
 	auto_panel.reset()
 
 
+## The act phases that end the auto stroke. The generator's live pace, band and shape are left as
+## the player tuned them, so a body swap can restart the same stroke; only a fresh act starts over
+## from the settings defaults.
 func stop_auto() -> void:
 	auto_on = false
 	auto_thrust.stop()

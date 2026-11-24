@@ -1,227 +1,80 @@
 # Act gate
 
-The dynamic half of the act gate: the one service that answers "may this mare act right now". It
-reads the identity answer from `eligibility`, then the live relationship, romance, willingness,
-Promiscuity floor, player form, cycle, act history and per-mare consent. This file is the single
-technical contract for the service; the scene rows are `docs/scene_gate.md` and the identity rules
-are `docs/eligibility.md`.
+The act gate is the dynamic half of the permission question and the one authority on whether this
+mare may act right now. It takes the permanent identity answer from `eligibility`, leaves the live scene to
+`scene_gate`, and owns everything in between: the relationship and romance read, the Promiscuity
+floor, the cycle, her willingness, her act history, her per-mare consent and the heat note the
+dialogue prompt appends. A consumer asks it for a capability or for the typed verdict; nothing else
+answers these questions.
 
-The internal API is `act_gate/api.gd`. It stores nothing but its own attach-warm marks, and it
-never writes the game, the settings or the history.
+It stores no verdict and no setting, and never writes the game, the settings or the act history;
+its only state is a per-body warm mark that the world clears.
 
-## Scope
+## What an answer is made of
 
-This contract covers:
-
-- the act-key readiness answer (`ready`) and the Base clearance relationship row;
-- the typed verdict every negotiation stage reads;
-- per-mare action consent, including the public preference;
-- the heat/diestrus note the dialogue prompt appends;
-- the fact readers behind those answers.
-
-It does not cover identity, the provider assertion or participation (that is `eligibility`), the
-live scene rows (that is `scene_gate`), readiness or tolerance (`docs/readiness.md`).
-
-## Architecture
-
-| File | Role |
-|---|---|
-| `act_gate/api.gd` | public API and the scene adapter: the typed verdict, the relationship row and consent |
-| `act_gate/policy.gd` | pure truth table: facts dictionary plus mode -> verdict dictionary and the Promiscuity floor |
-| `act_gate/facts.gd` | pure dynamic fact schema and merge |
-| `docs/act_gate.md` | this contract |
-
-The purity boundary is deliberate: `policy.gd` and `facts.gd` have no `Node`, `Time`, `SceneTree`,
-`FileAccess`, `SETTINGS` preload or scene preload. The service composes their results from the live
-game, the settings and the shared stores. It is a leaf reader of the world and of `eligibility`;
-The static gate rejects an anatomy or estrus edge.
-
-## Data ownership
-
-The gate stores no verdict and no setting. Its only state is a set of per-body attach-warm marks,
-cleared with the world. Every fact is read per call; the verdict is never cached.
-
-| Data | Stored where | Owner |
-|---|---|---|
-| Relationship stage, love, willingness, romance, adults | game save (`player_bonds`, impressions) | base game |
-| Promiscuity floor | `settings.json` -> `relationship.promiscuity` | `settings/api.gd` |
-| Per-mare consent | `characters.json` -> `characters.<id>.consent` | `settings/api.gd` plus `shared/consent.gd` |
-| Cycle phase | derived, never saved | `shared/cycle_state.gd` |
-| Act history | `Mods.state("unfplap").act_history` | `shared/act_history.gd` |
-| Gate facts and verdict | nowhere | `act_gate/api.gd` per call |
-
-Rules:
-
-- `act_gate/api.gd` never calls `SETTINGS.save_*`, `ACT_HISTORY.commit` or
-  `Mods.save_changed`.
-- `facts.consent` is a snapshot of the resolved consent block. `consent(pony, key)` re-resolves
-  live through `SETTINGS.consent(id)`.
-- `Facts` is a snapshot, not a cache. `Verdict` is rebuilt per call.
-
-## Facade
-
-`act_gate/api.gd` extends `shared/service.gd`, the world-service base. The entry creates one
-instance per world after `eligibility`, calls `wire()`, and binds the gate into the World record,
-`initiation`, `negotiation`, `scene_gate` and `debug`. The types are declared in the facade, so a
-consumer names them `ACT_GATE.Verdict`, `ACT_GATE.Row`, and so on.
-
-`ready(pony)` is the act key: the identity act target plus `relationship_ok`. `get_verdict()` is the
-typed truth table; the mode is recorded and every field is always computed. `consent()` answers one
-key of `shared/consent.gd` for a live pony. `cycle_note()` appends the heat or diestrus sentence
-while the gate's base holds. `warm(pony)` reads the clearance row once per attached body so the
-first offer does not pay the cold bond read. A cleared service answers no to every verb.
-
-## Facts
-
-`Facts` is a typed object on `Verdict.facts`:
-
-```text
-id, eligible, adult, participation,
-has_relationship, registered_adult, romance_eligible, stage, love_level, willing,
-promiscuity, player_young, player_pony,
-cycle_phase, cycle_allows, heat, history, consent
-```
-
-`adult` is the identity answer from `eligibility` (`Target.CHARACTER`), never re-derived here.
-`eligible` and `participation` are the resolved profile blocks for the stable id. `cycle_phase`
-comes from `shared/cycle_state.gd`, so the estrus service and this gate agree: the debug override
-first, then `features.estrus_cycle` and her relationship bond day. A pony with no relationship
-runtime reads normal. `history` is resolved by `shared/act_history.gd`; `consent` by
-`SETTINGS.consent(id)`. `registered_adult` follows the provider's tri-state assertion when one is
-set, and otherwise the game's `bonds.adults` entry.
-
-Not in facts: the preference profile, poses, prompts, timing values, prompt names, mood, first-time
-state or request cooldowns.
-
-## Verdict
-
-```text
-mode: Mode
-base: bool
-show: bool             # the policy's start hint
-offer: bool            # proactive offer allowed
-offer_weight: float
-facts: Facts
-actions: Actions       # public, anal, oral
-relations: Relations   # id, stage, love_level, willing,
-                       # promiscuity, cycle_phase, heat, base
-rows: Array[Row]       # key, ok, reason, effect
-```
-
-`reasons()` returns the failed rows' reasons; `rows_text()` renders the rows. `Row.effect` is the
-`Effect` enum, not a string. The live hotkey reads only `ready()`; `show`, `offer` and
-`offer_weight` are the pure policy's hint and offer reads behind the debug line and the truth
-table.
+Every fact is read from its owner when the question is asked, so a changed bond, a settings edit or
+a body that stopped being eligible shows up on the next ask; nothing is cached between calls. The
+answer is a snapshot, and the verdict built from it is rebuilt each time.
 
 ## Base clearance
 
-`relationship_ok(pony)` is the Base clearance relationship row: a live relationship runtime,
-romance eligibility and the Promiscuity floor. It reads only the relationship runtime, romance
-eligibility, the love level and the floor; it never reads willingness, history, cycle, player form
-or consent. That narrow read is why the idle hint and the proactive scan do not rebuild her bond
-facts every pass.
+Base clearance is the relationship row: a live relationship runtime, romance eligibility, and the
+Promiscuity floor the player picked. It deliberately ignores willingness, her history, the cycle,
+the player's form and consent, and that narrow read is what lets the idle hint re-run it on every
+pass without rebuilding her bond facts. The love level comes from the game's own ladder cache,
+falling back to its ladder for a pony it has not recorded yet. The row cannot see a player-form
+change, so romance eligibility is read live and gates it first: a young player still fails.
 
-The love level comes from the game's own ladder cache (`world_context.state.bond_levels`, kept
-current by `relationship_runtime._level_check()` on every impression and bond change), with
-`relationship_runtime.ladder()` as the fallback for a pony the game has not recorded yet. It cannot
-see a player-form change, which empties the game's love row without a signal; romance eligibility is
-read live and gates the row first, so a young player still fails clearance.
+The act key is that identity act target plus Base clearance, and a cleared service answers no to
+every question.
 
-`shared/clearance.gd` combines `eligible`, `relationship_ok` and `available` into the typed
-`Result` with the failed rows in order. The gate never inspects the clearance result.
+## The verdict
 
-## Modes and truth table
+The typed verdict is the fuller answer: a recorded mode, every fact, the per-action consent flags,
+the relationship values the reasoning reads, the rows and their effects, and the two policy hints.
+`show` is the start hint and `offer` the proactive offer, with the offer weight beside it. Every
+field is computed on every call and the mode only records which question was asked; the live routes
+use the act key and Base clearance, while the hints and the weight belong to the pure policy behind
+the debug line and the reasoning.
 
-`base` = adult identity + relationship runtime + registered adult + adult player + romance eligible
-+ Promiscuity level pass.
+Every row carries a reason and an effect, and the reason names the fact that failed. A block refuses
+a start and an offer, a refusal fails the policy's willingness row, a history refusal and an offer
+block report what her history suppresses, and the public flag is reported without ever failing.
 
-| Condition | `show` | `offer` |
-|---|---|---|
-| not `base` | no | no |
-| `participation.acts` false | no | no |
-| `!willing` | no | no |
-| `willing`, history withdrawn/stop | yes | no |
-| `willing`, history hurt (tier 2) | yes | no |
-| diestrus | no | no |
+## The Promiscuity floor
 
-Rules:
+The selected floor is the lowest love level that can start an act: a stranger, a crush, a new
+couple, a marefriend, head over hooves, or soulmates. `Any Adult` removes only this floor;
+adulthood, the relationship runtime and romance eligibility still apply. An unknown value falls
+back to the marefriend tier rather than opening the gate.
 
-- The live routes do not consume `show`, `offer` or `offer_weight`. Base clearance uses `ready()`
-  and `relationship_ok()`; Context carries the soft facts.
-- `participation.acts` is a block, not a refusal: a player who opts out of acts never gets a buck,
-  a history refusal or a mood note. It is a boundary, not a mood beat.
+## Willingness, history and refusal
 
-Rows and effects:
+The game's own kiss willingness is the authority; the gate does not reimplement it. The act-history
+store owns the points and tiers behind the history rows. What those rows mean here is narrow: a
+withdrawn or hurt tier and an active stop silence the proactive offer and the offer weight, and
+they colour what the reasoning is told, but they never refuse the player's press on a live route.
+The physical refusal belongs to the act's own consent stop.
 
-| Effect | Meaning |
-|---|---|
-| `block` | the policy gate refuses a start and an offer; the hotkey hint is scene-only |
-| `refuse` | the pure policy's `relation` row fails; no live route bucks |
-| `history_refuse` | the pure policy's `history` row fails; no live route speaks a refusal |
-| `offer_block` | the policy offer is blocked by history or an active stop |
-| `flag` | public/privacy flag; never a failure |
+Participation is a boundary rather than a mood: a player who opts out of acts never produces an
+offer, and the gate reports it as a block so no other system invents a different reason.
 
-Reason keys: `adult`, `relationship`, `form`, `romance`, `promiscuity`, `participation`, `relation`,
-`cycle`, `history`, `history_offers`, `public`.
+## Per-mare consent
 
-## Promiscuity
+Consent is resolved per mare from the shared defaults, a provider layer and the player's
+differences, and the gate only reads it. The keys are independent: public is a soft signal for the
+reasoning and never gates an act or overrides offer privacy, while anal and oral gate their action
+keys. The anatomy feature switches are capability gates, not consent.
 
-The selected `relationship.promiscuity` is the lowest love level that can start an act. The ladder
-is:
+## The cycle
 
-```text
-Soulmates 4, Head Over Hooves 3, Marefriend/Coltfriend 2, New Couple 1, Crush 0, Any Adult -1
-```
+The cycle note appends the heat or diestrus line to the normal dialogue prompt, inside or outside
+an act, and stays empty where the base would stay shut. The phase is the shared derivation the
+estrus service also reads, so the two cannot disagree; the debug Force/Clear actions feed that
+override without bypassing any gate.
 
-An unknown value falls back to Marefriend. `Any Adult` skips only this floor; adulthood, the
-relationship runtime and romance eligibility still apply.
+## Debug and settings
 
-## Kiss willingness and history
-
-`bonds.welcomes(id, "kiss")` is the base-game authority; the gate does not reimplement it. The
-`relation` row is the willingness row of the pure policy table; it also feeds `show`. There is no
-buck or history refusal on a live route: the live act key accepts, and the tolerance strict stop
-owns the physical stop and its impression (`docs/readiness.md`, `docs/summary.md`).
-
-`shared/act_history.gd` owns the point math and tiers (`docs/summary.md`). The gate consumes
-`blocks_start` (withdrawn tier or an active `stop_until`), `blocks_offers` (hurt tier or higher, or
-an active `stop_until`) and `offer_weight` (the history Context weight for Mare Initiation
-Reasoning). On every route these are Context, not live gates; the tolerance `stop_until` is the
-only hard pre-start gate.
-
-## Per-mare action consent
-
-`settings.consent(id)` resolves deterministic per-id defaults from `shared/consent.gd`, a provider
-layer's `consent` block and the player's differences. `consent(pony, key)` reads one resolved key
-and never writes it. `public`, `anal` and `oral` are independent:
-
-- **Public** is a soft Context preference for reasoning on the negotiation routes. It is not an
-  offer privacy override and never gates an act.
-- **Anal** gates `V`; **oral** gates `N`.
-- Feature flags (`features.anatomy_holes`, `features.anatomy_oral`) are capability gates, not
-  consent.
-
-## Cycle note
-
-`cycle_note(pony)` returns the heat or diestrus sentence for the normal dialogue prompt, during and
-outside acts, and is empty while the gate's base would stay shut. The phase itself is the shared
-`shared/cycle_state.gd` derivation the estrus service also uses. The debug actions
-**Force/Clear heat** and **Force/Clear diestrus** feed the override; none of them bypasses the gate.
-
-## Debug
-
-`runtime.scene.debug_line()` prints the live context, `show`, `offer`, the scene rows, `can_start`
-and the reasons; it reads this gate's verdict and does not re-derive it.
-`Verdict.rows_text()` returns the same policy view without scene rows. The Debug actions
-**Trigger bed offer** and **Trigger standing offer** use the same service.
-
-## Settings
-
-The gate reads the settings live through its owners and declares none of its own:
-
-- `relationship.promiscuity` for the love floor;
-- `features.estrus_cycle` for the cycle derivation;
-- `features.anatomy_holes` / `features.anatomy_oral` for the anatomy action gates, which the
-  anatomy handle reads.
-
-Consent is per mare, not a global setting.
+The runtime's debug line prints this verdict rather than re-deriving it, and the trigger-offer
+debug actions go through the same service. The gate declares no setting: it reads the Promiscuity
+floor and the estrus switch through their owner.

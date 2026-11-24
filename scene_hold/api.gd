@@ -15,6 +15,8 @@ const TOKEN_ACT := "unfplap:"
 const TOKEN_NEGOTIATION := "unfplap:negotiation:"
 
 ## Ownership state. The runtime keeps read views for its old field names and the reports.
+## Each flag says what this ledger actually took, which is what lets a start that aborted halfway
+## give the same ownership back through the same teardown a normal end uses.
 var nav: Node = null
 var token := ""
 var nav_old_wander := true
@@ -374,6 +376,8 @@ func end_cuddle() -> void:
 
 ## Acquire a named hold on the game's excitement Beat: the first holder saves the current
 ## pause state and every holder keeps it paused. Repeating an owner is idempotent.
+## A caller asks under its own name rather than writing the timer: a release then knows another
+## owner may still need the Beat paused and only the final one resumes it.
 func hold_beat(owner: String) -> void:
 	if owner.is_empty() or _beat_holders.has(owner):
 		return

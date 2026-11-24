@@ -382,6 +382,8 @@ func _process_entry(delta: float) -> void:
 		offer.hide_hint()
 		return
 
+	# The offer ticks before the rest of the idle frame: a Proactive cuddle check reads the offer
+	# this call just produced, not the one from last frame.
 	offer.tick(delta)
 	if is_instance_valid(initiation):
 		PERF.begin("entry_initiation")

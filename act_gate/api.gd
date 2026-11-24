@@ -168,6 +168,8 @@ func ready(pony: Node) -> bool:
 
 ## The relationship row of Base clearance: live relationship, romance, the Promiscuity floor.
 ## Only those facts: willingness, history, cycle, player form and consent are the verdict's.
+## The idle hint re-runs this row on every pass, so staying clear of the fuller fact read is what
+## keeps that pass cheap.
 func relationship_ok(pony: Node) -> bool:
 	if not _live or not is_instance_valid(pony):
 		return false

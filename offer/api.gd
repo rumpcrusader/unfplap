@@ -526,7 +526,8 @@ func _relationship_ok(pony: Node) -> bool:
 		and _act_gate.relationship_ok(pony)
 
 
-## The scene checks the hint and the press share, without the composite's duplicate reads.
+## The scene checks the hint and the press share, without the composite's duplicate reads. The
+## cheap refusals come first and the clearance row last, so a busy scene never pays the bond read.
 func _candidate_ready(runtime: Node, pose: String, source: String, bed: Variant) -> bool:
 	var gate := _ponies.scene_of(runtime)
 	if gate == null or not gate.available():

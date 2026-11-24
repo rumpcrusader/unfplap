@@ -193,6 +193,9 @@ func offer_verdict(pose: String, act_source: String, bed_in: Node3D = null,
 
 ## The scene-only start of an accepted Agreement: no policy rebuild, no formation row.
 ## `player` and `bed_gate` stay transient; every other row is hard.
+## The rows a formed Agreement already answered are gone for good reasons: the act clears aftercare
+## itself at start, and the form and view were settled by the Agreement and are applied by the act,
+## so re-testing them here would refuse a pair the formation already accepted.
 func scene_only_verdict(pose: String, act_source: String, bed: Node3D = null,
 		frozen: FrozenPose = null, stool_need: int = -1, stool_have: int = -1) -> SceneVerdict:
 	var rows_out: Array[ACT_GATE.Row] = []
@@ -757,6 +760,9 @@ func nav_pose_gate(pose: String, act_source: String, hold_exempt := false) -> bo
 	return true
 
 
+## The mattress itself admits a guest by its own size rule, read against her body scale when the
+## stock bed offers her the spot. Nothing here overrides that measure; a mare the bed cannot fit
+## never reaches these rows lying down, and the size answer stays the bed's.
 func bed_gate(pose: String, act_source: String, found: Node3D) -> bool:
 	if not _is_bed_pose(pose):
 		return true
@@ -864,6 +870,8 @@ func player_ready_for(pose: String, act_source: String, bed_in: Node3D) -> bool:
 
 
 ## The pose's scene block. An unknown row reads the fail-closed default.
+## No branch here tests a pose name; each answer comes from the shared spec row, so a new pose needs
+## no edit in this file.
 func _scene(pose: String) -> Dictionary:
 	return POSE_SPECS.scene(pose)
 

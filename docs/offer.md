@@ -1,187 +1,79 @@
 # Idle act offer
 
-`offer/api.gd` (Node, world scope) owns the idle act offer and the start it leads to: the fan
-sensor and the scene fingerprint that trigger it, the standing fan candidates behind it, the typed
-offer the act key would start, the footstool block, the "Make love" hint beside the game's prompt
-row, the live Agreement offer, the act key's one press and the Agreement auto-start. It answers what
-the act key could start here and it starts that act.
+The offer service owns the idle act offer and the start it leads to: what the act key could start
+here, the hint beside the game's prompt row, the press, and a live Agreement's automatic start. It
+is the discovery and press authority for a start that already has a scene; the rows behind that
+scene are `scene_gate`.
 
-## Scope
+## Discovery
 
-This contract covers:
+The standing candidate is found by a fan behind Anon rather than by aim: a half-angle to each side
+of her backward axis, within reach of an approximate rump anchor, nearest first. A squared
+eye-to-body distance rejects the mares out of reach before any rump math. A human Anon's missionary
+candidate is the pony lying in the other seat of his couch rest; for AnonPony it is the pony already
+lying within sight and on a bed.
 
-- the per-frame fan sensor, its transitions, the standing fan candidates and the bed-side candidate;
-- the single-call business checks the `reconsider()` pass and the Agreement readiness run;
-- the typed playable offer, the blocked variant and the `offer_target()` query;
-- the hint unit in the game's prompt row, its HUD fallback and the blocked toasts;
-- the act key's one press, the typed start path and its Agreement exact match;
-- the live Agreement start, its wait/start/fail answer and the auto-start clock with its guards;
-- the standing presentation of a live Agreement: its one start, its clear and the world close;
-- the `OFFER ...`, `OFFER blocked ...`, `hotkey ...` and `agreement ...` log lines and the offer's
-  perf chunks.
+The sensor polls at its own cadence, and the act key or a new seat forces a read. A transition is a
+changed candidate set, lying or bed-side candidate, offer target or scene fingerprint, so the hint
+follows a pony who stood up, was picked up, fell asleep or lost her navigator; a crowd rotates
+through a small budget instead of hashing every candidate in one frame.
 
-It does not cover the runtime's start sequence (`docs/runtime.md`), the Proactive request pacing
-(`docs/initiation.md`), the Negotiation exchange and the Agreement package
-(`docs/negotiation.md`), the standing reach rule (`docs/stool.md`) or the scene rows behind the
-gate (`docs/scene_gate.md`).
+## One evaluation
 
-## Ownership
+An evaluation takes a live Agreement that is already ready first, because it is a yes; one still
+waiting leaves the scene pass free to find the hotkey attempt. Then come the bed-side or
+already-lying missionary candidate and the standing fan nearest first, each with the same business
+checks: the act-target capability, the stool pair read once, the small scene checks, and Base
+clearance last. Nothing is cached between passes and no row objects are built here, so a changed
+scene re-allows or re-refuses on the next pass.
 
-| Member | What it owns |
-|---|---|
-| `tick(delta)` | the fan sensor tick, the hint that follows it and the Agreement auto-start clock |
-| `reconsider()` | one full evaluation: the live Agreement, the bed-side and already-lying candidates, the standing fan |
-| `current()` | the playable `PoseOffer` the act key would start, or null |
-| `blocked()` | the standing offer with its blocked record, or null |
-| `offer_target()` | the current offer's pony, read without a re-evaluation |
-| `try_start()` | the act key's one entry: the act-live guard, the forced sensor read and the press |
-| `start_pose_offer(offer)` | the one typed start path: blocked, Agreement trigger or hotkey attempt |
-| `agreement_offer(handle)` | the live Agreement as the act key's typed offer |
-| `clear_current()` | drop the playable offer after a start |
-| `hide_hint()` | drop both offers and take the hint away while an act owns the frame |
-| `apply_settings()` | drop the resolved prompt row and forget the sensor's senses |
-| `on_world(host)` | the world entry: close the old world, then warm the two offerable assets |
-| `on_world_closed()` | the world enter and close: no offer, no sensor, no one-shot flag, no hint row |
+## The hint
 
-The sensor reads the fan at `SENSOR_POLL_S`; the act key forces a read, and so does a new seat. A
-squared eye-to-body distance rejects the mares out of reach before the rump math, and the standing
-fan and the AnonPony lying candidate are collected in distance or facing order. A human Anon's
-bed-side candidate is the pony in the other seat of his couch rest. The sensor reports a transition
-when the candidate set, the lying or bed-side candidate, the offer target or a candidate's scene
-fingerprint changes. Each poll rebuilds the fan; a changed set baselines every candidate at once,
-the offer target, the lying candidate and the bed-side candidate are compared every poll, and the
-other in-fan candidates rotate through a small budget so a crowd cannot stack every hash in one
-frame. The hash covers the runtime state, posture, held, seated, sleeping, aftercare, cuddle,
-affection, conversation, the navigator owner, the player's press guards, the inventory and the
-player form.
+The hint is one unit beside the game's own prompt row, carrying the player's act key, so it reads
+as one more thing the game offers; VR and a world without that row fall back to the HUD prompt. A
+standing candidate who needs footstools shows the "Needs a footstool" note instead, with a toast
+that says what to find; both appear once per target, not once per poll. With no offer the hint goes
+away and its logged key resets, so the same offer speaks again when it returns.
 
-`reconsider()` then runs one pass: the live Agreement, the bed-side and already-lying candidates,
-and the standing fan candidates nearest first. There is no cached gate verdict and no row list: the
-standing candidate's stool pair is read once, the small scene checks (`available`,
-`pose_supported`, `player_ready`, `navigator_allows`, `posture_allows`) are one call each, and
-the eligibility service's `eligible(pony, Target.ACT)` is the act-target read and the act gate's
-`relationship_ok()` is the Base clearance row. The composite `hotkey_ready()` stays the press's path. A live Agreement is checked
-first: it is already a yes, so the rump fan and the scene pass do not rediscover it.
+## The press
 
-An offer of either kind keeps its logged key, and no offer at all clears both keys, so the same
-offer logs again when it comes back. The blocked note has one toast per world: `_last_blocked_key`
-dedupes the log line and `_stool_hint_toast_shown` the toast.
+The act key has one entry. A live act takes the press and stops there; a paused tree or a released
+cursor turns the press away before it reads anything; anything else forces a sensor read and a
+fresh evaluation, so a press never starts a stale offer. No offer means no attempt; a blocked one
+toasts and starts nothing.
 
-## The start path
+The typed offer carries its pose, source, bed and trigger, so the start reads them from the record
+rather than from a pose name. A hotkey attempt asks the scene gate for readiness and Base clearance
+with no policy snapshot and no offer cooldown: the press accepts when the scene does, and the
+physical refusal belongs to the tolerance stop. Before that attempt it asks the negotiation service
+whether the press matches a live Agreement exactly, which starts at once and skips the presentation,
+and any other live exchange ends there. A started attempt clears the hint; a blocked one keeps it.
 
-`try_start()` is the act key's only entry. A live act takes the press and nothing else runs; a
-paused tree or a loose cursor refuses it before any read. A press otherwise forces a sensor read and
-a fresh `reconsider()`, so it never starts a stale offer. No offer means no attempt: the
-`hotkey no context pose` line and the "There is nothing to start here." toast. A blocked offer shows
-its recorded toast and starts nothing.
+## The live Agreement
 
-`start_pose_offer(offer)` is the one typed start path. The offer carries its pose, source, bed and
-trigger, so it never names a pose. It dispatches:
+A formed Agreement is offered as a typed start of its own: the scene-only rows against the pose
+pair frozen at formation, with no new policy verdict. A wait keeps the Agreement and the hint for
+another press; a start or a failure ends it and reports the result to the negotiation service. The
+offer restates the runtime's start answer for itself because a service never preloads the runtime.
 
-- `trigger == "agreement"` → the live Agreement start;
-- anything else → the hotkey attempt.
+An Agreement also starts without any key. A readiness clock in the common idle frame consumes a
+live one once the negotiation declares it ready and the live scene rows pass, so the standing
+presentation has settled and Anon is in position. The clock runs before the handle read, so a
+handle that appears between polls is caught on the next one. A live act holds the clock, as does an
+open menu, a halted tree or a free cursor after the clock was consumed. The readiness decision
+belongs to the negotiation, and the rows to the scene gate.
 
-**The hotkey attempt** is `runtime.start.start_hotkey()`: the scene gate's `hotkey_ready()` (the
-small scene checks plus Base clearance), with no policy snapshot, no offer cooldown and no buck. The
-act key first asks the Negotiation service's `press()`: its exact `(pose, source, bed)` match starts
-the live Agreement immediately and skips the presentation, and anything else live is ended there
-with `Interrupted(hotkey)` before the immediate attempt runs. A started attempt clears the hint; a
-blocked one keeps it.
+The standing presentation is started here, ahead of every interaction gate, so an open menu cannot
+hold it back; it runs once per Agreement and is undone when the handle disappears or the world
+closes.
 
-**The live Agreement start** is `runtime.start.start_agreement(handle)`: only the scene-only rows with
-the frozen pose capability. `AGREEMENT_WAIT` keeps the hint and the Agreement for the next press.
-A started or failed attempt clears the hint and hands the result to the Negotiation service
-(`report(handle, started)`), which closes the Agreement as `Started` or `StartFailed`. The offer
-restates the runtime's three answers as `AGREEMENT_WAIT`/`AGREEMENT_STARTED` because a service
-never preloads the runtime; `tests/offer/test_start.gd` fails if the two ever disagree.
+## Lifetime and settings
 
-**The Agreement auto-start** consumes a live Agreement with no key press. The readiness clock
-runs in the common idle frame, before the handle read, so a handle that appears between polls is
-consumed on the next one, `AGREEMENT_START_S` later at most. A live act holds it and does not
-advance the clock; an open menu panel, a paused tree or a loose desktop cursor holds it after the
-clock was consumed. The Negotiation service's `can_start()` decides the Agreement's own readiness
-and cancels a private one that lost its visibility; the offer then runs the scene gate's
-`agreement_ready()` rows with the frozen pose pair, because the scene gate is the readiness
-authority and the service keeps no row of its own. The steady privacy sample belongs to the
-Negotiation tick.
+Nothing is persisted: the sensor's senses, the offer, its logged keys, the toast flag, the last
+seat, the resolved hint row, the presented runtime and the clock live for one world. A settings
+edit drops the resolved hint row and forgets the sensor's senses, so the next idle frame rebuilds
+the hint with the new act-key label and re-evaluates with the new values. The label is read when a
+hint is built, never per frame.
 
-## Triggers
-
-| Trigger | Detection | Action |
-|---|---|---|
-| Enter or leave a standing fan | the sensor's poll | `reconsider()` |
-| A lying mare in front for AnonPony | the sensor's lying candidate | `reconsider()` |
-| A pony lies down or leaves beside Anon | the sensor's bed-side candidate and its fingerprint | `reconsider()` |
-| A candidate's or the target's scene state | the fingerprints at `SENSOR_POLL_S` | `reconsider()` |
-| The player sits or stands at a bed | the seat read once per frame | a forced sensor read, then `reconsider()` |
-| A settings edit | `shared/settings_change.gd` | `apply_settings()` drops the row and resets the sensor |
-| A world enter or close | `on_world()`/`on_world_closed()` | the sensor reset |
-| A body swap or a new runtime | a new instance id | a new sense; the attach warm |
-| An act starts | the entry stops ticking the offer and calls `hide_hint()` | the sensor is idle |
-| The act key | `try_start()` | a forced sensor read and `reconsider()` |
-| A standing Agreement appears | the offer's tick, before the sensor | the standing presentation starts once |
-| The live Agreement ends or the world closes | the offer's tick and `on_world_closed()` | the presentation is cleared |
-| A live Agreement becomes ready | the 0.25 s auto-start clock | `can_start()` and the scene rows |
-
-## Facade
-
-The entry ticks the offer first in the idle branch, before `initiation.tick()` and
-`negotiation.tick()`, so the Proactive cuddle check reads the frame's offer and the hints are
-current for the frame. The Agreement auto-start clock runs inside that one call, so it reads the
-live Agreement as the previous frame's `negotiation.tick()` left it.
-
-`offer_target()` reads the current offer and never re-evaluates: the sensor owns the transitions,
-and a press is the only forced read. The invalidation rules are the entry's: a world enter and a
-world close call `on_world_closed()`, an act start calls `clear_current()`, and an act live in the
-frame calls `hide_hint()`.
-
-## Data ownership
-
-Nothing is persisted. The sensor's per-mare senses and candidate list, the offer and its footstool
-pair, the two logged keys, the one-shot toast flag, the player's last seat, the resolved hints node
-and prompt row, the presented runtime and the auto-start clock live for one world; a world close
-stops the presentation and clears all but the clock, which is a frame timer that self-corrects on
-the next poll.
-
-## Settings
-
-No setting is declared here. The hint's key cap comes from `controls.act_key` through
-`ACT_KEYS.label()`, read when a hint unit is built and never per frame. The settings change
-notification calls `apply_settings()` on every edit, which drops the resolved row and forgets the
-sensor's senses, so the next idle frame rebuilds the row with the new label and re-evaluates the
-offer with the new values.
-
-## Controls and debug
-
-The act key is the only control. On the standing blocked note the key starts nothing and shows the
-recorded toast; a press otherwise forces a sensor read and starts the current offer through the one
-typed start path. The Agreement needs no key at all: it auto-starts when it is ready.
-
-**Enable debug** on prints one `OFFER pony=<name> pose=<pose> source=<source> bed=<bed> pending=<bool>`
-line per change of the offer and one
-`OFFER blocked pony=<name> reason=needs_stool gap=<m|n/a> need=<n> have=<n>` line per blocked target.
-The start path adds `hotkey no context pose`, `hotkey immediate id=<id> pose=<pose> source=<source>`,
-`hotkey start blocked id=<id> pose=<pose> source=<source>`,
-`agreement start id=<id> pose=<pose> skip_presentation=<bool> result=<n>`,
-`agreement start waiting pose=<pose> source=<source>`,
-`agreement auto-start id=<id> pose=<pose>` and `agreement auto-start pony=<name> pose=<pose>`.
-**Enable debug** + **Print perf logs** adds the `offer_sensor` chunk (every idle frame, wrapping
-the `offer_sensor_read` child), its `fan_discover` and `fan_hash` children at the poll,
-`offer_reconsider` (one transition, wrapping the `offer_agreement` and `offer_stool` children) and
-`entry_hint` to the profiler's block.
-
-## Host boundary
-
-| Callback | Type | Contract |
-|---|---|---|
-| `negotiation` | `negotiation/api.gd` | the Negotiation service; only its public `handle()`, `can_start()`, `press()` and `report()` reads are used |
-| `hud` | `Node` | the desktop HUD, bound at construction; `show_prompt`/`hide_prompt` (toasts go through the bound `hud.toast()`) |
-| `act_owner` | `act_owner/api.gd` | the act frame the press and the sensor gate on (`docs/act_owner.md`) |
-| `ponies` | `ponies/api.gd` | the roster the runtime, scene, start and presentation reads go through (`docs/ponies.md`); handed to the fan sensor too |
-| `eligibility` | `eligibility/api.gd` | the act-target capability |
-| `act_gate` | `act_gate/api.gd` | the Base clearance relationship row |
-
-`_ready()` joins the settings change notification and `_exit_tree()` leaves it, so an edit reaches
-`apply_settings()` with no entry path. The act-running read is the wired act owner
-(`docs/act_owner.md`). A missing roster reads as no runtime and no act target, and a missing owner
-as no act, so an unbound service reads no fan and starts nothing.
+With the debug switch on, one line reports each new offer, each blocked target and the press that
+followed.

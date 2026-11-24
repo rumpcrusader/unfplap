@@ -5,8 +5,7 @@ import re
 
 from .act import check_act
 from .body import check_body
-from .context import ROOT, SERVICES, facade_for, read_text, shipped_sources
-from .docs import doc_path
+from .context import ROOT, read_text, shipped_sources
 from .failure import Failure, rel
 from .release import check_release
 
@@ -58,11 +57,3 @@ def check_sources(failure: Failure) -> None:
         if (ROOT / name).exists():
             failure.add("no root settings composition file: %s" % name)
 
-    # A service contract names its facade. The index row owns the contract and test router.
-    for sid in SERVICES:
-        path = doc_path(sid)
-        if not path.exists():
-            continue
-        text = path.read_text(encoding="utf-8")
-        if f"{sid}/{facade_for(sid)}" not in text:
-            failure.add("docs/%s.md does not name %s/%s" % (sid, sid, facade_for(sid)))

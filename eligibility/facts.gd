@@ -44,6 +44,8 @@ static func adult_mare(has_identity: bool, is_player_pony: bool, is_filly: bool,
 
 ## None when she is neither a witness adult nor a young one.
 ## The provider assertion beats the identity flag either way.
+## A stallion is an adult for this answer alone: he may witness, while every capability target
+## asks for a mare, so the witness category never turns him into one.
 static func age_kind(has_identity: bool, is_player_pony: bool, is_filly: bool,
 		eligible: Variant) -> int:
 	if not has_identity or is_player_pony:

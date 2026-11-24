@@ -1,6 +1,9 @@
 extends "res://mods/unfplap/shared/service.gd"
 ## Scope: world
 ## The act frame: the live runtime, the serial floor and the one pending body swap.
+##
+## A suite or a bare runtime may hold no owner instance and reads as no act, so nothing here needs a
+## stand-in.
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
@@ -95,6 +98,8 @@ func body_swap_pending() -> bool:
 
 
 ## The suspended act's record for the roster, or null.
+## While this names a body as the old one, the roster leaves that body out of its live list: its
+## act is already moving to the new body, so the old one must not read as a live act anymore.
 func pending_swap() -> Swap:
 	return _swap
 

@@ -56,6 +56,8 @@ class Consent extends RefCounted:
 
 ## One mare's resolved provider/player profile. `eligible` is the provider-only tri-state assertion.
 class Profile extends RefCounted:
+	## A provider alone can set it: the player's stored block has no field for it, so Reset returns
+	## her participation to the template and this assertion survives.
 	var eligible: EligibilityAssertion = EligibilityAssertion.IDENTITY
 	var participation: Participation = Participation.new()
 	var consent: Consent = Consent.new()

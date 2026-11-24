@@ -13,10 +13,13 @@ settings tab's Debug block; its two player rows are **Enable Oral** and **Enable
 
 `poses/api.gd` is the pose session facade. It owns the live state machine (`IDLE`/`ENTERING`/
 `STEADY`/`TRANSITIONING`/`EXITING`), the active edge and its clock, the per-pose configs and the
-target snapshot, the skeleton pose modifier, the authored bases, the bed and ground frames and their
-follow, the extra modifiers (tail, tail lay, body sway, prone sway, ear twitch), the pony bone
-snapshots, the pose-scope teardown steps and four typed handles: the act body, the standing tail,
-the asset/rig verdicts and the debug rows. The raw pose node and its config are private; the
+target snapshot, the skeleton pose modifier, the pony bone snapshots, the pose-scope teardown steps
+and four typed handles: the act body, the standing tail, the asset/rig verdicts and the debug rows.
+Its private modules own the parts that do not need the facade's own state: `poses/diagnostics.gd`
+the debug readouts, `poses/assets.gd` the spec and asset lookup, `poses/space.gd` the bed and
+ground frames, `poses/modifiers.gd` the tail, the sways and the ear twitch, and
+`poses/act_body_host.gd` the act's Anon body. The raw pose node and
+its config are private; the
 camera's standing glance writes the head throw-back through `set_head_back()` and its rendered look
 through `aim_look()`. The runtime owns the act state, the start ordering and the one teardown
 ledger; it constructs the session with the act facts and reads its `view()` for the

@@ -11,6 +11,7 @@ const DIAG := preload("res://mods/unfplap/poses/diagnostics.gd")
 const MODIFIERS := preload("res://mods/unfplap/poses/modifiers.gd")
 const ACT_BODY_HOST := preload("res://mods/unfplap/poses/act_body_host.gd")
 const ASSETS := preload("res://mods/unfplap/poses/assets.gd")
+const SPACE := preload("res://mods/unfplap/poses/space.gd")
 const TRANSITION_SPEC := preload("res://mods/unfplap/poses/transition_spec.gd")
 const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
@@ -22,12 +23,7 @@ const FACE_CONTACT := preload("res://mods/unfplap/poses/face_contact.gd")
 const SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const REGISTRY := preload("res://mods/unfplap/poses/registry.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
-const WORLD := preload("res://mods/unfplap/world/api.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
-
-## The absent pose frame: a real transform whose infinite origin no reader mistakes for space.
-const NO_FRAME := Transform3D(Basis.IDENTITY, Vector3.INF)
-
 
 ## One pose request's verdict; `ok` is true only for the accepted code.
 class PoseResult extends RefCounted:
@@ -212,7 +208,6 @@ class PoseActBody extends RefCounted:
 
 
 ## The act's live view fields.
-var _bed_node: Node3D = null
 ## True between a successful `begin()` and `release_pose()`. The runtime keeps one session per pony.
 var _started := false
 ## The live pose config, one object shared by the view and the evaluator.
@@ -260,15 +255,8 @@ var _act_body_host: ACT_BODY_HOST = null
 ## The camera position the standing tail chooses its side against, from the begin context.
 var _tail_anchor := Vector3.INF
 
-## Bed space for the authored pose. The runtime reads it through `_pose_session.bed_frame`.
-var _bed_frame: Variant = null
-var _bed_frame_source := Transform3D.IDENTITY
-var _bed_frame_source_saved := false
-## Ground space for a ground pose, seeded from the pony root at pose start. It tracks the root's
-## position and yaw every tick.
-var _ground_frame: Variant = null
-var _ground_frame_source := Transform3D.IDENTITY
-var _ground_frame_source_saved := false
+## The live bed or ground space and its follow.
+var _space: SPACE = null
 
 
 ## The pose's spec/asset resolution and reload.
@@ -299,6 +287,7 @@ func _init(facts: ACT_FACTS = null) -> void:
 	_mods.set_profiles(SPECS.MODIFIER_PROFILES)
 	_act_body_host = ACT_BODY_HOST.new(self)
 	_assets = ASSETS.new(self)
+	_space = SPACE.new(self)
 	_bind_oral()
 	_bind_face()
 
@@ -375,7 +364,6 @@ func _begin(start: PoseStart) -> bool:
 	_state = POSE_STATE.next(_state, "begin")
 	var start_id := start.pose_id
 	var bed: Variant = _facts.bed if _facts != null else null
-	_bed_node = bed if bed is Node3D else null
 	_diagnostics._pose_logged = false
 	_diagnostics._trace_frames = 0
 	_pose_node = POSE.new()
@@ -404,29 +392,8 @@ func _begin(start: PoseStart) -> bool:
 	_pose_node.look_point = start.look
 	_pose_node.amount = 0.0
 	_pose_node.target_amount = 1.0
-	if str(_view.frame) == "bed":
-		var bed_space := _missionary_pose_frame()
-		if _has_frame(bed_space):
-			_bed_frame = bed_space
-			_bed_frame_source_saved = is_instance_valid(_bed_node)
-		else:
-			_bed_frame = null
-			_bed_frame_source_saved = false
-		if _bed_frame_source_saved:
-			_bed_frame_source = (_bed_node as Node3D).global_transform
-		_pose_node.bed_frame = _bed_frame
-		_view.bed_frame = _bed_frame
-	else:
-		var ground := _ground_pose_frame()
-		if _has_frame(ground):
-			_ground_frame = ground
-			_ground_frame_source_saved = is_instance_valid(pony)
-		else:
-			_ground_frame = null
-			_ground_frame_source_saved = false
-		if _ground_frame_source_saved:
-			_ground_frame_source = (pony as Node3D).global_transform
-		_pose_node.ground_frame = _ground_frame
+	_space.begin(bed, pony)
+	if str(_view.frame) != "bed":
 		_pose_node.size_name = SETTINGS.pony_size_name()
 	DIAG.log_base(self)
 	(skeleton as Skeleton3D).add_child(_pose_node)
@@ -450,7 +417,7 @@ func _begin(start: PoseStart) -> bool:
 	# A row whose base contact is already `face` starts the live mouth follow here, only to capture
 	# the residual: the authored asset is already on the bed.
 	if str(_view.contact_kind) == "face":
-		_face_driver.begin(_view, _bed_frame)
+		_face_driver.begin(_view, _space.frame(_view))
 		_face_tick(0.0)
 	return true
 
@@ -777,7 +744,7 @@ func _apply_contact_switch(kind: String) -> void:
 	var previous := str(_view.contact_kind)
 	_view.contact_kind = kind
 	if kind == "face":
-		_face_driver.begin(_view, _bed_frame)
+		_face_driver.begin(_view, _space.frame(_view))
 	elif previous == "face":
 		_face_driver.restore(_view, _pose_node)
 	if kind != "mouth" and _facts != null and _facts.set_mouth_viseme.is_valid():
@@ -801,7 +768,7 @@ func _face_tick(delta: float) -> void:
 	var level := 0.0
 	if _facts != null:
 		level = clampf(_facts.depth, 0.0, 1.0)
-	_face_driver.tick(maxf(delta, 0.0), _view, level, _bed_frame, _pose_node)
+	_face_driver.tick(maxf(delta, 0.0), _view, level, _space.frame(_view), _pose_node)
 
 
 func _switch_target(channel: String) -> String:
@@ -970,68 +937,10 @@ func _readiness_asset(candidate: String = "") -> AUTHORED:
 	return _assets.readiness_asset(candidate)
 
 
-## Ground space for an authored ground pose, seeded from the pony root. Like the bed frame with its
-## bed, it is carried by the root from then on.
-func _ground_pose_frame() -> Transform3D:
-	var pony := _pony()
-	if not is_instance_valid(pony):
-		return NO_FRAME
-	return Transform3D(pony.global_basis.orthonormalized(), pony.global_position)
-
-
 ## Re-read the live pose's asset in place, plus the running edge's target, or the default
 ## missionary asset when no pose is live. A running act picks the new pose up on its next frame.
 func reload_authored(candidate: String = "") -> String:
 	return _assets.reload(candidate)
-
-## Bed space for the authored pose: the middle of the real mattress top, in the bed's axes, the
-## pillow end at -Z. An absent frame means no bed pose is live, so the procedural driver stays out.
-func _missionary_pose_frame() -> Transform3D:
-	if str(_view.frame) != "bed" or not is_instance_valid(_bed_node):
-		return NO_FRAME
-	var fallback: float = float(_bed_node.get_meta("mattress_top", 0.6)) + float(_bed_node.global_position.y)
-	var points: Array[Vector3] = [_bed_node.global_position]
-	var top: float = WORLD.bed(_bed_node).surface_top(points, fallback)
-	if not is_finite(top):
-		return NO_FRAME
-	var at: Vector3 = _bed_node.global_position
-	var basis: Basis = _bed_node.global_basis.orthonormalized() * Basis(Vector3.UP, PI)
-	return Transform3D(basis, Vector3(at.x, top, at.z))
-
-
-## Carry the bed-space pose, act body and anatomy placement with a bed that moves under the act
-## (CloudDrift); the delta is rigid, so the top height is not measured again.
-func _sync_bed_frame() -> void:
-	if str(_view.frame) != "bed" or not is_instance_valid(_bed_node) \
-			or not _bed_frame_source_saved or not _bed_frame is Transform3D:
-		return
-	var now: Transform3D = _bed_node.global_transform
-	if now.is_equal_approx(_bed_frame_source):
-		return
-	var delta: Transform3D = now * _bed_frame_source.affine_inverse()
-	_bed_frame = delta * (_bed_frame as Transform3D)
-	_bed_frame_source = now
-	if is_instance_valid(_pose_node):
-		_pose_node.bed_frame = _bed_frame
-	_view.bed_frame = _bed_frame
-
-
-## Turn the ground frame with the pony root each tick; the oral turn moves the root, so the frame
-## turns with her exactly once.
-func _sync_ground_frame() -> void:
-	var pony := _pony()
-	if str(_view.frame) != "ground" or not is_instance_valid(pony) \
-			or not _ground_frame_source_saved or not _ground_frame is Transform3D:
-		return
-	var now: Transform3D = (pony as Node3D).global_transform
-	if now.is_equal_approx(_ground_frame_source):
-		return
-	var delta: Transform3D = now * _ground_frame_source.affine_inverse()
-	_ground_frame = delta * (_ground_frame as Transform3D)
-	_ground_frame_source = now
-	if is_instance_valid(_pose_node):
-		_pose_node.ground_frame = _ground_frame
-
 
 ## Snapshot before the act changes her posture or the pose writes bones.
 func snapshot_bones() -> void:
@@ -1078,13 +987,7 @@ func leave_pose_start() -> void:
 	if _face_driver != null and _face_driver.active:
 		_face_driver.restore(_view, _pose_node)
 	_mods.release_tail_lay()
-	_bed_frame = null
-	_bed_frame_source_saved = false
-	_bed_frame_source = Transform3D.IDENTITY
-	_view.bed_frame = null
-	_ground_frame = null
-	_ground_frame_source_saved = false
-	_ground_frame_source = Transform3D.IDENTITY
+	_space.reset()
 
 
 ## Drop the live-installed extra modifiers, keeping the pose node, the standing tail, the config and
@@ -1113,12 +1016,7 @@ func release_pose() -> void:
 	_started = false
 	_pose_config.clear()
 	_readiness._reset()
-	_bed_frame = null
-	_bed_frame_source_saved = false
-	_bed_frame_source = Transform3D.IDENTITY
-	_ground_frame = null
-	_ground_frame_source_saved = false
-	_ground_frame_source = Transform3D.IDENTITY
+	_space.reset()
 	_tail_anchor = Vector3.INF
 	_view.clear()
 	_oral_turn.reset()
@@ -1234,7 +1132,7 @@ func write_render_frame(body_scale: float) -> void:
 	if family == "standing":
 		# Same order as the bed family: sync the ground frame, write the pose after every writer of
 		# the frame, then replay the sway on top of that write.
-		_sync_ground_frame()
+		_space.sync("ground")
 		var standing_sk: Variant = pony.get("skeleton")
 		if is_instance_valid(_pose_node) and standing_sk is Skeleton3D:
 			_apply_render(standing_sk as Skeleton3D)
@@ -1242,7 +1140,7 @@ func write_render_frame(body_scale: float) -> void:
 		return
 	if family != "bed":
 		return
-	var frame: Transform3D = _bed_frame if _bed_frame is Transform3D else NO_FRAME
+	var frame: Transform3D = _space.frame(_view)
 	if _has_frame(frame):
 		_act_body_host.apply_render(frame, body_scale)
 	var sk: Variant = pony.get("skeleton")
@@ -1258,10 +1156,7 @@ func trigger_ear_twitch(impact: float) -> void:
 
 ## The pose frame the live family reads: the bed frame or the ground frame.
 func follow_space(family: String) -> void:
-	if family == "bed":
-		_sync_bed_frame()
-	else:
-		_sync_ground_frame()
+	_space.sync(family)
 
 
 ## The tail handle's one write: the lift/flick weight the afterglow sets.
@@ -1316,11 +1211,7 @@ func aim_look(point: Vector3, kiss: float, climaxing: bool) -> void:
 
 ## The live pose frame: the bed's mattress space or the pony root's ground space.
 func _pose_frame() -> Transform3D:
-	if str(_view.frame) == "ground":
-		return _ground_frame if _ground_frame is Transform3D else NO_FRAME
-	if str(_view.frame) == "bed":
-		return _bed_frame if _bed_frame is Transform3D else NO_FRAME
-	return NO_FRAME
+	return _space.frame(_view)
 
 
 ## True when a pose frame is real space: the absent frame carries an infinite origin.

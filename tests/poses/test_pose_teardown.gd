@@ -130,7 +130,7 @@ func _check_missionary_scope() -> void:
 		"the begin installs the pose node")
 	check(tail_lay != null, "the missionary begin installs the tail lay")
 	check(prone_sway != null, "the missionary begin installs the prone sway")
-	check(session._bed_frame is Transform3D, "the missionary begin saves the bed frame")
+	check(session._space._bed_frame is Transform3D, "the missionary begin saves the bed frame")
 	check(view.pose_state == VIEW.STEADY and view.id == CATALOG.MISSIONARY,
 		"the live pose fills the view")
 	check(not config.is_empty() and is_same(config, view.pose_config),
@@ -143,7 +143,7 @@ func _check_missionary_scope() -> void:
 	check(session._mods._tail_lay == null and tail_lay.get_parent() == null
 		and tail_lay.is_queued_for_deletion(),
 		"the pose-start leave frees the tail lay")
-	check(session._bed_frame == null and not session._bed_frame_source_saved,
+	check(session._space._bed_frame == null and not session._space._bed_saved,
 		"the pose-start leave clears the bed frame")
 	check(session._pose_node == pose_node and pose_node.get_parent() != null,
 		"the pose-start leave keeps the pose node")
@@ -174,7 +174,7 @@ func _check_missionary_scope() -> void:
 		"the final release clears the view identity and leaves the facts' features")
 	check(session._pose_config.is_empty() and config.is_empty(),
 		"the final release clears the live config")
-	check(session._bed_frame == null and not session._started,
+	check(session._space._bed_frame == null and not session._started,
 		"the final release clears the remaining pose state")
 	check(view.pose_state == VIEW.IDLE and view.id == "",
 		"the final release returns the view to idle")
@@ -212,11 +212,11 @@ func _check_standing_scope() -> void:
 	check(near(float(tail.get("_thrust_strength")), 0.5), "the tail handle thrusts the live tail")
 	check(view.pose_state == VIEW.STEADY and view.id == CATALOG.STANDING,
 		"the standing begin fills the view")
-	check(session._ground_frame is Transform3D,
+	check(session._space._ground_frame is Transform3D,
 		"the standing begin captures the ground frame")
 
 	session.leave_pose_start()
-	check(session._ground_frame == null,
+	check(session._space._ground_frame == null,
 		"the pose-start leave clears the ground frame")
 	check(session._mods._body_sway == body_sway and body_sway.get_parent() == body,
 		"the pose-start leave keeps the extra modifiers")
@@ -247,7 +247,7 @@ func _check_standing_scope() -> void:
 		"the standing final release frees the tail")
 	check(session._pose_config.is_empty() and view.pose_state == VIEW.IDLE and view.id == "",
 		"the standing final release clears the config and the view")
-	check(session._ground_frame == null,
+	check(session._space._ground_frame == null,
 		"the standing final release clears the ground frame")
 	_free_fixture(made)
 

@@ -287,7 +287,7 @@ func _check_begin() -> void:
 		"the release leaves the act identity to the facts")
 	check(session._facts.features.is_empty(), "the release leaves the features to the facts")
 	check(session._pose_config.is_empty(), "the pose release clears the live config")
-	check(session._bed_frame == null, "the pose-start leave clears the bed frame")
+	check(session._space._bed_frame == null, "the pose-start leave clears the bed frame")
 	check(session.view().id == "" and session.view().pose_state == VIEW.IDLE,
 		"the pose release clears the view")
 	check(session.view().pose_config.is_empty(), "the pose release drops the view config")
@@ -335,9 +335,9 @@ func _check_standing_begin() -> void:
 		"look_point": Vector3.ZERO,
 		"camera_position": Vector3.INF,
 	})), "the standing begin succeeds")
-	check(not session._bed_frame_source_saved, "a standing begin saves no bed frame source")
-	check(session._ground_frame is Transform3D, "the standing begin captures the ground frame")
-	check(session._ground_frame_source_saved, "the standing begin saves the ground frame source")
+	check(not session._space._bed_saved, "a standing begin saves no bed frame source")
+	check(session._space._ground_frame is Transform3D, "the standing begin captures the ground frame")
+	check(session._space._ground_saved, "the standing begin saves the ground frame source")
 	check(session._pose_node.authored != null and bool(session._pose_node.authored.get("available")),
 		"the standing begin installs the standing asset")
 	check(is_same(session.view().authored, session._pose_node.authored),
@@ -365,28 +365,28 @@ func _check_bed_frame() -> void:
 	var pony: FakePony = made["pony"]
 	var bed := Node3D.new()
 	root.add_child(bed)
-	session._bed_node = bed
-	session._bed_frame = Transform3D(Basis.IDENTITY, Vector3(0.0, 1.0, 0.0))
-	session._bed_frame_source = Transform3D.IDENTITY
-	session._bed_frame_source_saved = true
+	session._space._bed_node = bed
+	session._space._bed_frame = Transform3D(Basis.IDENTITY, Vector3(0.0, 1.0, 0.0))
+	session._space._bed_source = Transform3D.IDENTITY
+	session._space._bed_saved = true
 	bed.position = Vector3(1.0, 0.0, 0.0)
-	session._sync_bed_frame()
-	check((session._bed_frame as Transform3D).origin.is_equal_approx(Vector3(1.0, 1.0, 0.0)),
+	session.follow_space("bed")
+	check((session._space._bed_frame as Transform3D).origin.is_equal_approx(Vector3(1.0, 1.0, 0.0)),
 		"the bed frame follows the bed")
 	check(session.view().bed_frame is Transform3D and (session.view().bed_frame as Transform3D)
 		.origin.is_equal_approx(Vector3(1.0, 1.0, 0.0)),
 		"the view carries the followed bed frame")
 	bed.position = Vector3(1.0, 0.0, 0.0)
-	session._sync_bed_frame()
-	check((session._bed_frame as Transform3D).origin.is_equal_approx(Vector3(1.0, 1.0, 0.0)),
+	session.follow_space("bed")
+	check((session._space._bed_frame as Transform3D).origin.is_equal_approx(Vector3(1.0, 1.0, 0.0)),
 		"a still bed leaves the frame alone")
-	session._bed_frame_source_saved = false
+	session._space._bed_saved = false
 	bed.position = Vector3(2.0, 0.0, 0.0)
-	session._sync_bed_frame()
-	check((session._bed_frame as Transform3D).origin.is_equal_approx(Vector3(1.0, 1.0, 0.0)),
+	session.follow_space("bed")
+	check((session._space._bed_frame as Transform3D).origin.is_equal_approx(Vector3(1.0, 1.0, 0.0)),
 		"an unsaved bed source skips the follow")
 	session.leave_pose_start()
-	check(session._bed_frame == null, "the pose-start leave clears the bed frame")
+	check(session._space._bed_frame == null, "the pose-start leave clears the bed frame")
 	check(session.view().bed_frame == null, "the pose-start leave clears the view's bed frame")
 	root.remove_child(bed)
 	bed.free()
@@ -398,22 +398,22 @@ func _check_ground_frame() -> void:
 	var made := _live_session(CATALOG.STANDING)
 	var session: SESSION = made["session"]
 	var pony: FakePony = made["pony"]
-	var start: Transform3D = session._ground_frame
+	var start: Transform3D = session._space._ground_frame
 	var basis_before := start.basis
 	pony.global_position += Vector3(1.0, 0.0, -0.5)
-	session._sync_ground_frame()
-	check((session._ground_frame as Transform3D).origin.is_equal_approx(
+	session.follow_space("ground")
+	check((session._space._ground_frame as Transform3D).origin.is_equal_approx(
 		start.origin + Vector3(1.0, 0.0, -0.5)), "the ground frame follows the root")
 	pony.rotate_y(0.5)
-	session._sync_ground_frame()
-	check(not (session._ground_frame as Transform3D).basis.is_equal_approx(basis_before),
+	session.follow_space("ground")
+	check(not (session._space._ground_frame as Transform3D).basis.is_equal_approx(basis_before),
 		"the ground frame follows the root yaw")
-	var still: Transform3D = session._ground_frame
-	session._sync_ground_frame()
-	check((session._ground_frame as Transform3D).is_equal_approx(still),
+	var still: Transform3D = session._space._ground_frame
+	session.follow_space("ground")
+	check((session._space._ground_frame as Transform3D).is_equal_approx(still),
 		"a still root leaves the frame alone")
 	session.release_pose()
-	check(session._ground_frame == null, "the release clears the ground frame")
+	check(session._space._ground_frame == null, "the release clears the ground frame")
 	_free_live(made)
 
 
@@ -484,7 +484,7 @@ func _check_sway_render_write() -> void:
 	bed_session._mods._prone_sway = prone
 	bed_session._pose_node.amount = 1.0
 	bed_session._pose_node.target_amount = 1.0
-	bed_session._bed_frame = Transform3D.IDENTITY
+	bed_session._space._bed_frame = Transform3D.IDENTITY
 	bed_session._pose_node.bed_frame = Transform3D.IDENTITY
 	bed_session.write_render_frame(1.0)
 	check(prone.calls == 1 and prone.skeletons[0] == bed_body,
@@ -580,7 +580,7 @@ func _check_render_write() -> void:
 	body.sink = order
 	root.add_child(body)
 	session._act_body_host._body = body
-	session._bed_frame = Transform3D.IDENTITY
+	session._space._bed_frame = Transform3D.IDENTITY
 	session._view.family = "bed"
 	session.write_render_frame(0.66)
 	check(order == ["anon"], "the render write places the Anon body")
@@ -781,7 +781,7 @@ func _check_oral_edge() -> void:
 	session._facts.play_mouth_kiss = func() -> void: kisses.append(true)
 	var from: Vector3 = pony.global_position
 	var from_basis: Basis = pony.global_transform.basis.orthonormalized()
-	var frame_start: Transform3D = session._ground_frame
+	var frame_start: Transform3D = session._space._ground_frame
 	session._facts.features = {"anatomy_oral": true}
 	var forward: SESSION.PoseResult = session.request_pose(CATALOG.STANDING_ORAL, "oral", "oral")
 	check(forward.ok, "the oral forward request is accepted")
@@ -812,8 +812,8 @@ func _check_oral_edge() -> void:
 		"the oral turn moves her toward the mirrored anchor")
 	check(view.facing_amount > 0.0 and view.facing_amount < 1.0,
 		"the oral turn publishes its eased facing")
-	session._sync_ground_frame()
-	check(not (session._ground_frame as Transform3D).origin.is_equal_approx(frame_start.origin),
+	session.follow_space("ground")
+	check(not (session._space._ground_frame as Transform3D).origin.is_equal_approx(frame_start.origin),
 		"the oral turn moves the ground frame")
 	session.tick(0.45)
 	check(view.contact_kind == "mouth", "the contact switches to the mouth at 0.9")
@@ -873,8 +873,8 @@ func _check_oral_edge() -> void:
 		"the reverse clears the facing amount")
 	check(pony.global_transform.basis.orthonormalized().is_equal_approx(from_basis),
 		"the reverse restores the captured facing")
-	session._sync_ground_frame()
-	check((session._ground_frame as Transform3D).origin.is_equal_approx(frame_start.origin),
+	session.follow_space("ground")
+	check((session._space._ground_frame as Transform3D).origin.is_equal_approx(frame_start.origin),
 		"the reverse returns the ground frame")
 	check(not session._pose_config.has("oral_pitch") and not view.to_config.has("oral_pitch"),
 		"the reverse erases the oral keys")
@@ -921,7 +921,7 @@ func _check_facesit_edge() -> void:
 	var points := FakeFacePoints.new()
 	points.mouth = Vector3(0.0, 0.82, 0.65)
 	points.opening = Vector3(0.0, 0.34, 0.45)
-	session._bed_frame = Transform3D(Basis.IDENTITY, Vector3(0.0, 0.65, 0.0))
+	session._space._bed_frame = Transform3D(Basis.IDENTITY, Vector3(0.0, 0.65, 0.0))
 	session._facts.missionary_anon = func() -> Variant: return points
 	session._facts.anatomy_opening = points.opening
 	var previous_anatomy := SETTINGS.anatomy_mode.get_choice()

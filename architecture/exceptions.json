@@ -17,14 +17,6 @@
       "expires": "next-review"
     },
     {
-      "from": "camera/api.gd",
-      "to": "poses/skeleton_pose.gd",
-      "kind": "re-export",
-      "owner": "camera",
-      "reason": "the pose type is a separation-of-concerns reach-in; fix when the camera takes a pose handle",
-      "expires": "next-review"
-    },
-    {
       "from": "initiation/api.gd",
       "to": "negotiation/adapter.gd",
       "kind": "re-export",

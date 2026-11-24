@@ -25,10 +25,10 @@ calls the frame's `begin()` and the camera's `begin_act()`, `act/exit.gd:run()` 
 `end()`, the view's `unmount()` and the camera's `finish_act()`.
 
 The look point is the camera's too: `write_look_target()` picks the missionary gaze, blends toward
-the kissing mouth by the kiss's own fade and writes the pose's `look_point`, `kiss` and `climaxing`
-for the rendered frame. The pose node arrives as `poses/api.gd`'s `POSE` and the three fields
-are written directly, never by name. The runtime calls it after the pose render write and the eye
-view's own write, so the next frame's head solves against this frame's lean. The gaze target
+the kissing mouth by the kiss's own fade and hands the point, the kiss weight and the climax flag
+through the facts' `aim_look` callback for the rendered frame. The pose service writes the pose
+node's fields, never the camera. The runtime calls it after the pose render write and the eye view's own write, so
+the next frame's head solves against this frame's lean. The gaze target
 is computed by `camera/api.gd:gaze_point()` from the pose-owned act body and the kiss.
 
 ## Typed view

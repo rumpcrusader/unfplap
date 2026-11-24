@@ -17,8 +17,8 @@ target snapshot, the skeleton pose modifier, the authored bases, the bed and gro
 follow, the extra modifiers (tail, tail lay, body sway, prone sway, ear twitch), the pony bone
 snapshots, the pose rig check, the pose diagnostics, the retarget hook and the pose-scope teardown
 steps. The runtime owns the act state, the start ordering and the one teardown ledger; it constructs
-the session with the act facts and reads its `pose()` and `view()` for the start/teardown and the
-standing gap, not as the consumer contract. The camera's standing glance
+the session with the act facts and reads its `view()` for the start/teardown and the standing gap,
+not as the consumer contract. The camera's standing glance
 writes the live pose's head throw-back through `set_head_back()`. Presentation modules read
 the pose view through `shared/act_facts.gd`.
 
@@ -73,7 +73,7 @@ pitch, eye line, look, controls or the act body's first placement
   tuned value, scaled with Anon's own height for Same Height, plus the body's entrance back offset
   and `presentation.standing.gap_offset_m`.
 - **The base aim** reads her authored target neck in world space, after
-  `poses/api.gd:apply_target_once()` puts her in the target pose; the fallback is her live eye
+  `poses/api.gd:stance_neck_point()` puts her in the target pose for the read; the fallback is her live eye
   line above his floor. The entered pitch is clamped to `±1` rad.
 - **The stance** is player state: yaw, `_pitch`, `_stand_eye`/`_eye_height` through `_set_eye_y`,
   and the captured look in the typed view. A player who is a pony, a seated player and a headset rig
@@ -978,8 +978,8 @@ The aftercare lifetime, positive tail-up rule and the held mood face are in `doc
   bed or ground frame; for the bed family it places the act's Anon body, writes her pose and
   replays the prone sway; for the standing family it writes her pose and replays the body sway
   after every game writer. It then calls `camera/api.gd`'s `write_look_target()`, which owns the
-  look point (the missionary gaze, the kissing-mouth blend and the authored-Anon fallback) and the
-  pose's kiss and climax weights.
+  look point (the missionary gaze, the kissing-mouth blend and the authored-Anon fallback) and hands
+  it, the kiss weight and the climax flag to `poses/api.gd:aim_look()` for the rendered frame.
 - `act/tick.gd:_tick`: presentation, timers, facing lock, glances, auto-cuddle suppression.
 - the entry's `_process`: calls `active_runtime.act.apply_camera_motion()` every rendered frame.
   Keep this single owner.

@@ -146,9 +146,7 @@ func presentation() -> PRESENTATION:
 ## Returns whether the wing return is asked for; the session starts it through the wing owner.
 func apply_presentation() -> bool:
 	var row := presentation()
-	if is_instance_valid(pose.pose()):
-		pose.pose().target_amount = 1.0
-		pose.pose().amount = 1.0
+	pose.settle()
 	pose.set_tail_target(row.tail_target)
 	if row.tail_flicks > 0:
 		pose.flick_tail(row.tail_flicks)

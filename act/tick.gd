@@ -195,7 +195,7 @@ func render(delta: float) -> void:
 		session.pose_render_write()
 		context.pose.idle_sample(session.state)
 		context.view.clamp_look()
-		context.camera.write_look_target(context.pose.pose())
+		context.camera.write_look_target()
 		if session.state == State.CLIMAX:
 			session.refresh_climax_progress()
 		context.camera.tick_shot(delta, session.state, context.view.speed(),

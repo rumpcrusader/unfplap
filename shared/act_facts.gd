@@ -121,6 +121,8 @@ var set_look := Callable()
 var set_forced_glance := Callable()
 var set_camera_basis_ready := Callable()
 var set_head_back := Callable()
+## The render frame's look write; the camera hands it the point and the two weights.
+var aim_look := Callable()
 ## The live conversation director, or absent outside a scene.
 var director := Callable()
 ## The act's processed-time clock, so line pacing freezes with the tree.

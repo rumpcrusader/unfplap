@@ -10,7 +10,6 @@ const HANDS := preload("res://mods/unfplap/hands/api.gd")
 const KISS := preload("res://mods/unfplap/kiss/api.gd")
 const CAMERA_VIEW := preload("res://mods/unfplap/camera/view.gd")
 const CAMERA_CONFIG := preload("res://mods/unfplap/camera/config.gd")
-const POSES := preload("res://mods/unfplap/poses/api.gd")
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 const POSE_VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
@@ -162,8 +161,8 @@ func pose_changed(pose_view: POSE_VIEW) -> void:
 
 ## Aim the pose's look point for this rendered frame, after the pose write but before the shot, so
 ## the head solve follows this frame's lean.
-func write_look_target(pose: POSES.POSE) -> void:
-	if not is_instance_valid(pose) or facts == null or not is_instance_valid(WORLD.player_rig()):
+func write_look_target() -> void:
+	if facts == null or not is_instance_valid(WORLD.player_rig()):
 		return
 	if kiss == null:
 		return
@@ -172,6 +171,7 @@ func write_look_target(pose: POSES.POSE) -> void:
 		eye = view.view()
 	var custom_kiss: bool = kiss.custom_visible()
 	var kiss_view: Camera3D = kiss.mouth_view()
+	var point := _look_point
 	if is_instance_valid(eye):
 		if custom_kiss and is_instance_valid(kiss_view):
 			if pose_family() == "bed":
@@ -179,20 +179,21 @@ func write_look_target(pose: POSES.POSE) -> void:
 				var mouth: Vector3 = kiss.target(kiss_view)
 				var gaze := gaze_point()
 				if mouth.is_finite() and gaze.is_finite():
-					pose.look_point = gaze.lerp(mouth, clampf(kiss.amount(), 0.0, 1.0))
+					point = gaze.lerp(mouth, clampf(kiss.amount(), 0.0, 1.0))
 				else:
-					pose.look_point = gaze
+					point = gaze
 			else:
-				pose.look_point = kiss.target(kiss_view)
+				point = kiss.target(kiss_view)
 		elif pose_family() == "bed":
 			# Look at the authored Anon, not at the game camera: his body is placed by the act,
 			# and the player rig the camera belongs to is standing off the bed.
-			pose.look_point = gaze_point()
+			point = gaze_point()
 		else:
-			pose.look_point = eye.global_position
-	pose.kiss = kiss.amount() if custom_kiss else 0.0
-	pose.climaxing = int(facts.state) == STATE_CLIMAX
-	_look_point = pose.look_point
+			point = eye.global_position
+	_look_point = point
+	if facts.aim_look.is_valid():
+		facts.aim_look.call(point, kiss.amount() if custom_kiss else 0.0,
+			int(facts.state) == STATE_CLIMAX)
 
 
 ## Her missionary gaze target: the act body's eye, then the kiss's mouth, or ZERO.

@@ -201,10 +201,7 @@ func restore_begin() -> void:
 	context.face.clear_face()
 	context.face.end_face()
 	context.wings.release()
-	var pose: Variant = context.pose.pose()
-	if is_instance_valid(pose):
-		pose.target_amount = 0.0
-	context.pose.set_tail_target(0.0)
+	context.pose.fade_out()
 	context.camera.release_back()
 	context.view.reset_facing()
 	if is_instance_valid(context.hud):

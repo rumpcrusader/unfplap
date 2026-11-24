@@ -117,6 +117,7 @@ A missing callback is a no-op, so a test can build the object without a runtime.
 | `set_forced_glance` | set the forced over-shoulder glance |
 | `set_camera_basis_ready` | mark the camera basis ready |
 | `set_head_back` | write the standing glance's head throw-back on the live pose node |
+| `aim_look` | write the rendered frame's look point, kiss weight and climax flag on the live pose |
 | `director` | the live conversation director |
 | `now` | the act's processed-time clock |
 | `play_mouth_kiss` | the mouth kiss sound |

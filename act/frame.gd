@@ -376,8 +376,9 @@ func _prepare_standing(rig: Rig) -> void:
 		return
 	rig.eye = stance_eye(rig)
 	if context.pose != null:
-		context.pose.apply_target_once()
-	rig.neck_point = _neck_point(rig.pony)
+		rig.neck_point = context.pose.stance_neck_point()
+	else:
+		rig.neck_point = _neck_point(rig.pony)
 
 
 ## The start placement.

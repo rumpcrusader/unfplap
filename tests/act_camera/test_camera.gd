@@ -18,7 +18,7 @@ const CAMERA_CONFIG := preload("res://mods/unfplap/camera/config.gd")
 const HANDS := preload("res://mods/unfplap/hands/api.gd")
 const KISS := preload("res://mods/unfplap/kiss/api.gd")
 const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
-const POSE := preload("res://mods/unfplap/poses/skeleton_pose.gd")
+
 
 const STATE_IDLE := 0
 const STATE_ACTIVE := 2
@@ -1269,18 +1269,23 @@ func _check_look_target() -> void:
 	var made := _fixture()
 	var camera: Variant = made["camera"]
 	var facts: RefCounted = made["facts"]
-	var pose := POSE.new()
+	var aimed := {"point": Vector3.INF, "kiss": 0.0, "climax": false}
+	facts.aim_look = func(point: Vector3, kiss_value: float, climaxing: bool) -> void:
+		aimed["point"] = point
+		aimed["kiss"] = kiss_value
+		aimed["climax"] = climaxing
 	_pose(facts, "standing")
-	camera.write_look_target(pose)
-	check(pose.look_point.is_equal_approx((made["main"] as FakeMain).view.global_position),
+	camera.write_look_target()
+	check((aimed["point"] as Vector3).is_equal_approx(
+		(made["main"] as FakeMain).view.global_position),
 		"the standing look target is the player camera")
-	check(not pose.climaxing and near(pose.kiss, 0.0), "a kissless active frame writes no climax")
+	check(not bool(aimed["climax"]) and near(float(aimed["kiss"]), 0.0),
+		"a kissless active frame writes no climax")
 	facts.state = STATE_CLIMAX
-	camera.write_look_target(pose)
-	check(pose.climaxing, "the climax frame marks the pose")
+	camera.write_look_target()
+	check(bool(aimed["climax"]), "the climax frame marks the pose")
 	_pose(facts, "bed")
-	camera.write_look_target(pose)
-	check(not pose.look_point.is_finite(),
+	camera.write_look_target()
+	check(not (aimed["point"] as Vector3).is_finite(),
 		"the bed gaze with no anatomy callback stays infinite")
-	pose.free()
 	_free_fixture(made)

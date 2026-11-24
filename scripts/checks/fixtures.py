@@ -98,7 +98,6 @@ GAME_ALLOWED = (
     ("debug/game.gd", "res://world/ui/menu_style.gd"),
 )
 REEXPORTS = (
-    ("camera/api.gd", "poses/skeleton_pose.gd"),
     ("initiation/api.gd", "negotiation/adapter.gd"),
     ("kiss/api.gd", "poses/missionary_anon.gd"),
 )

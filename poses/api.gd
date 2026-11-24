@@ -1460,13 +1460,13 @@ func apply_render(skeleton: Skeleton3D) -> void:
 		pose_node.apply_render(skeleton)
 
 
-## Apply the live pose at its target amount for one start measurement, then put the entrance amount
-## back. The caller measures the authored stance, never the game's idle pose or the ramp's blend.
-func apply_target_once() -> bool:
+## The authored stance's neck midpoint in world space, for the start's one aim measurement. It
+## writes the live pose at its target amount for the read and puts the entrance amount back.
+func stance_neck_point() -> Vector3:
 	var pony := _pony()
 	var skeleton: Variant = pony.get("skeleton") if is_instance_valid(pony) else null
 	if not is_instance_valid(pose_node) or not skeleton is Skeleton3D:
-		return false
+		return Vector3.INF
 	var amount := pose_node.amount
 	pose_node.amount = 1.0
 	apply_render(skeleton as Skeleton3D)
@@ -1476,7 +1476,15 @@ func apply_target_once() -> bool:
 	var hips := sk.find_bone("pony_hips")
 	if hips >= 0:
 		sk.force_update_bone_child_transform(hips)
-	return true
+	var first := sk.find_bone("pony_neck1")
+	var second := sk.find_bone("pony_neck2")
+	if first >= 0 and second >= 0:
+		var a := sk.global_transform * sk.get_bone_global_pose(first).origin
+		var b := sk.global_transform * sk.get_bone_global_pose(second).origin
+		return (a + b) * 0.5
+	if second >= 0:
+		return sk.global_transform * sk.get_bone_global_pose(second).origin
+	return Vector3.INF
 
 
 ## The whole render-time step for one frame, in order: place the act's own Anon body, write her
@@ -1543,10 +1551,6 @@ func flick_tail(count: int) -> void:
 		tail.flick(count)
 
 
-func pose() -> POSE:
-	return pose_node
-
-
 ## A rebuilt pose starts settled. The body swap re-poses the surviving act inside the flame, so
 ## the start ramp would be a visible second entrance on the new body.
 func settle() -> void:
@@ -1562,7 +1566,22 @@ func basis_amount() -> float:
 	return pose_node.amount if is_instance_valid(pose_node) else 0.0
 
 
-## Which missionary base is in charge and why, in one record so the log, the settled line and the
+## The restore's fade: release the live pose weight and the standing tail toward zero.
+func fade_out() -> void:
+	if is_instance_valid(pose_node):
+		pose_node.target_amount = 0.0
+	if is_instance_valid(tail):
+		tail.target_amount = 0.0
+
+
+## Aim the live pose's look point for this rendered frame; the head solve reads it after the pose
+## write, and the camera owns the point, the kiss blend and the climax weight.
+func aim_look(point: Vector3, kiss: float, climaxing: bool) -> void:
+	if not is_instance_valid(pose_node):
+		return
+	pose_node.look_point = point
+	pose_node.kiss = kiss
+	pose_node.climaxing = climaxing## Which missionary base is in charge and why, in one record so the log, the settled line and the
 ## debug action cannot drift apart.
 func base_info() -> BASE_INFO:
 	var info := BASE_INFO.new()

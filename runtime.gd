@@ -247,6 +247,7 @@ func _compose() -> void:
 	facts.set_look = Callable(phases, "set_look")
 	facts.set_forced_glance = Callable(phases, "set_forced_glance")
 	facts.set_head_back = Callable(_pose, "set_head_back")
+	facts.aim_look = Callable(_pose, "aim_look")
 	facts.set_camera_basis_ready = Callable(phases, "set_camera_basis_ready")
 	facts.director = Callable(_host, "director")
 	facts.now = Callable(_act, "clock_s")

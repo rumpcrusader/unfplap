@@ -443,7 +443,7 @@ func _check_relay() -> void:
 	var result_payload := {
 		"schema": 1, "act_id": 7,
 		"forms": ["chrysalis", "fluttershy"],
-		"outcome": {"romance": 2, "stopped": false},
+		"outcome": {"romance": 2, "mood": "happy"},
 	}
 	api._on_progress(payload)
 	api._on_result(result_payload)

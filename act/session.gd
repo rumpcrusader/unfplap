@@ -711,9 +711,6 @@ func _emit_result_once() -> void:
 	report.outcome = {
 		"romance": int(summary.get("romance", 0)),
 		"mood": str(summary.get("mood", "")),
-		"severe": bool(summary.get("severe", false)),
-		"early": bool(summary.get("early", false)),
-		"stopped": bool(summary.get("stopped", false)),
 	}
 	result.emit(report.to_dict())
 

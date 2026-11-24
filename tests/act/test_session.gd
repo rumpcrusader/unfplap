@@ -28,7 +28,7 @@ const RESULT_KEYS: Array[String] = [
 	"act_id", "climaxes", "duration_s", "form_id", "forms", "grade",
 	"outcome", "pony_id", "pose", "schema", "stop_reasons", "thrusts",
 ]
-const OUTCOME_KEYS: Array[String] = ["early", "mood", "romance", "severe", "stopped"]
+const OUTCOME_KEYS: Array[String] = ["mood", "romance"]
 const PROGRESS_TYPES := {
 	"schema": TYPE_INT,
 	"act_id": TYPE_INT,
@@ -59,9 +59,6 @@ const RESULT_TYPES := {
 const OUTCOME_TYPES := {
 	"romance": TYPE_INT,
 	"mood": TYPE_STRING,
-	"severe": TYPE_BOOL,
-	"early": TYPE_BOOL,
-	"stopped": TYPE_BOOL,
 }
 
 
@@ -417,9 +414,8 @@ func _check_report() -> void:
 	check_eq(result.get("stop_reasons"), [], "a clean act has no stop reasons")
 	check_eq(_keys(result.get("outcome", {}) as Dictionary), OUTCOME_KEYS,
 		"the outcome key surface")
-	check_eq(result.get("outcome"), {
-		"romance": 2, "mood": "happy", "severe": false, "early": false, "stopped": false,
-	}, "the outcome is the summary's own values")
+	check_eq(result.get("outcome"), {"romance": 2, "mood": "happy"},
+		"the outcome is the summary's own values")
 	_check_types(result, RESULT_TYPES, "result")
 	_check_types(result.get("climaxes", {}) as Dictionary, CLIMAX_TYPES, "result.climaxes")
 	_check_types(result.get("outcome", {}) as Dictionary, OUTCOME_TYPES, "result.outcome")
@@ -448,9 +444,8 @@ func _check_report() -> void:
 	var early: Dictionary = results[1] if results.size() > 1 else {}
 	check_eq(early.get("stop_reasons"), ["stopped_by_her", "disliked_smack"],
 		"the summary's reasons are copied to the result")
-	check_eq(early.get("outcome"), {
-		"romance": -1, "mood": "annoyed", "severe": true, "early": false, "stopped": true,
-	}, "the stopped outcome is reported")
+	check_eq(early.get("outcome"), {"romance": -1, "mood": "annoyed"},
+		"the stopped outcome is reported")
 	check_eq(early.get("forms"), ["fluttershy"],
 		"a new act starts its sequence from the form in use")
 

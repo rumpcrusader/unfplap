@@ -180,7 +180,7 @@ after-act satisfaction decay, or after the runtime leaves the world.
 	"climaxes": {"current": 2, "limit": 0},
 	"grade": "great",
 	"stop_reasons": [],
-	"outcome": {"romance": 2, "mood": "happy", "severe": false, "early": false, "stopped": false}
+	"outcome": {"romance": 2, "mood": "happy"}
 }
 ```
 
@@ -197,7 +197,7 @@ after-act satisfaction decay, or after the runtime leaves the world.
 | `climaxes` | Dictionary | `{"current": int, "limit": int}` at the commit. |
 | `grade` | String | `great`, `good`, `neutral` or `bad`. |
 | `stop_reasons` | Array | The summary's reason codes; `[]` on a clean act. |
-| `outcome` | Dictionary | `{"romance": int, "mood": String, "severe": bool, "early": bool, "stopped": bool}`. |
+| `outcome` | Dictionary | `{"romance": int, "mood": String}`. |
 
 One result is emitted per act where the summary is committed: the normal afterglow end, an early
 end, or a partner stop. A forced stop, a failed start, a world close, and an early end the summary
@@ -209,7 +209,10 @@ commit: an ordinary mare is `["fluttershy"]`, a changeling who stays herself is 
 start that reveals is `["fluttershy", "chrysalis"]`. `form_id` is the current form at the commit, so
 it repeats the last entry, and a new act starts a new sequence from the form it starts in.
 `outcome.romance` is what the summary actually writes; `outcome.mood` is her lasting
-`happy`, `relaxed`, `sad`, `annoyed` or `angry` impression. `stop_reasons` carries
+`happy`, `relaxed`, `sad`, `annoyed` or `angry` impression. There is no separate `early`, `stopped`
+or `severe` key: infer `early` from `ended_early` in `stop_reasons`, `stopped` from
+`stopped_by_her`, and `severe` from a `bad` grade with an `annoyed` or `angry` mood.
+`stop_reasons` carries
 `ended_early`, `no_climax`, `silent_talk`, `talk_miss`, `disliked_<kind>`, `severe_<kind>`,
 `too_many_dislikes`, `no_liked_touch`, `intensity_mismatch`, `pattern_mismatch` and
 `stopped_by_her`.

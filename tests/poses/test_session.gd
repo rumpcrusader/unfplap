@@ -579,7 +579,7 @@ func _check_render_write() -> void:
 	var body := FakeActBody.new()
 	body.sink = order
 	root.add_child(body)
-	session._act_body = body
+	session._act_body_host._body = body
 	session._bed_frame = Transform3D.IDENTITY
 	session._view.family = "bed"
 	session.write_render_frame(0.66)
@@ -589,7 +589,7 @@ func _check_render_write() -> void:
 	session.write_render_frame(1.0)
 	check(order.is_empty(), "a standing render write places no Anon body")
 	session._view.family = "bed"
-	session._act_body = null
+	session._act_body_host._body = null
 	session.write_render_frame(1.0)
 	check(order.is_empty(), "an absent act body is a no-op")
 	root.remove_child(body)
@@ -926,7 +926,7 @@ func _check_facesit_edge() -> void:
 	session._facts.anatomy_opening = points.opening
 	var previous_anatomy := SETTINGS.anatomy_mode.get_choice()
 	SETTINGS.anatomy_mode.set_choice("act")
-	session._act_body = FakeActBody.new()
+	session._act_body_host._body = FakeActBody.new()
 	session._facts.kiss_active = true
 	var kiss_refused: SESSION.PoseResult = session.request_pose(CATALOG.BED_FACESIT, "facesit")
 	check(kiss_refused.code == "refused" and kiss_refused.reason == "a kiss is running",
@@ -938,13 +938,13 @@ func _check_facesit_edge() -> void:
 		and anatomy_refused.reason == "the anatomy is not available",
 		"the anatomy master off refuses the face-sit")
 	SETTINGS.anatomy_mode.set_choice("act")
-	var body: Variant = session._act_body
-	session._act_body = null
+	var body: Variant = session._act_body_host._body
+	session._act_body_host._body = null
 	var body_refused: SESSION.PoseResult = session.request_pose(CATALOG.BED_FACESIT, "facesit")
 	check(body_refused.code == "refused"
 		and body_refused.reason == "the anatomy is not available",
 		"a missing act body refuses the face-sit")
-	session._act_body = body
+	session._act_body_host._body = body
 	session._state = VIEW.TRANSITIONING
 	var changing: SESSION.PoseResult = session.request_pose(CATALOG.BED_FACESIT, "facesit")
 	check(changing.code == "busy", "a changing pose refuses the face-sit")
@@ -1335,13 +1335,13 @@ func _check_pose_changed() -> void:
 	var session: SESSION = made["session"]
 	var view: RefCounted = session.view()
 	var body := FakeActBody.new()
-	session._act_body = body
+	session._act_body_host._body = body
 	session.pose_changed()
-	check(session._act_body == body, "a player-body spec keeps the service-owned body handle")
+	check(session._act_body_host._body == body, "a player-body spec keeps the service-owned body handle")
 	check(str(view.anon.get("mode", "")) == "player_body",
 		"the standing spec is the player body")
 	session.release_pose()
-	check(session._act_body == null and body.is_queued_for_deletion(),
+	check(session._act_body_host._body == null and body.is_queued_for_deletion(),
 		"the final release frees the act body once")
 	check(body.sink.has("remove"), "the released body restores the avatar")
 	_free_live(made)
@@ -1355,7 +1355,7 @@ func _check_anon_pair() -> void:
 	var session: SESSION = made["session"]
 	var view: RefCounted = session.view()
 	var body := FakeActBody.new()
-	session._act_body = body
+	session._act_body_host._body = body
 	view.anon = {"mode": "act_body", "profile": "missionary"}
 	var live: Variant = session._pose_node.authored
 	session.pose_changed()
@@ -1402,7 +1402,7 @@ func _check_anon_pair() -> void:
 	var switch_session: SESSION = switch_made["session"]
 	var switch_view: RefCounted = switch_session.view()
 	var switch_body := FakeActBody.new()
-	switch_session._act_body = switch_body
+	switch_session._act_body_host._body = switch_body
 	var switch_target := "synthetic_anon_switch"
 	_synthetic_spec(switch_session, switch_target)
 	_synthetic_edge(switch_session, CATALOG.STANDING, switch_target, {},
@@ -1431,7 +1431,7 @@ func _check_act_body_handle() -> void:
 	var session: SESSION = made["session"]
 	var body := FakeActBody.new()
 	body.active = true
-	session._act_body = body
+	session._act_body_host._body = body
 	var handle: SESSION.PoseActBody = session.act_body()
 	check(handle != null and handle.live(), "the act body handle reads live")
 	check(handle.node() == body, "the handle exposes the adapter node")
@@ -1446,7 +1446,7 @@ func _check_act_body_handle() -> void:
 	body.active = false
 	check(not handle.live() and not handle.mouth_point().is_finite(),
 		"an inactive body reports not live and no mouth")
-	session._act_body = null
+	session._act_body_host._body = null
 	check(not handle.live() and handle.node() == null, "a released body's handle is empty")
 	body.free()
 	_free_live(made)

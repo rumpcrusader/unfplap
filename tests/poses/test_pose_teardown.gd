@@ -282,9 +282,9 @@ func _check_transition_path() -> void:
 	var pose_node: Node = session._pose_node
 	var body_sway: Node = session._mods._body_sway
 	var act_body := FakeActBody.new()
-	session._act_body = act_body
+	session._act_body_host._body = act_body
 	session.pose_changed()
-	check(session._act_body == act_body and act_body.get_parent() == null,
+	check(session._act_body_host._body == act_body and act_body.get_parent() == null,
 		"a pose change keeps the act body")
 	var result: SESSION.PoseResult = session.request_pose(CATALOG.STANDING_TEST, "test")
 	check(result.code == "ok", "the transition path starts the debug edge")
@@ -321,7 +321,7 @@ func _check_facesit_transition() -> void:
 	session._facts.missionary_anon = func() -> Variant: return points
 	session._facts.anatomy_opening = points.opening
 	var act_body := FakeActBody.new()
-	session._act_body = act_body
+	session._act_body_host._body = act_body
 	var previous_anatomy := SETTINGS.anatomy_mode.get_choice()
 	SETTINGS.anatomy_mode.set_choice("act")
 	var forward: SESSION.PoseResult = session.request_pose(CATALOG.BED_FACESIT, "facesit")

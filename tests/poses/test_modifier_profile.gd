@@ -125,23 +125,23 @@ func run() -> void:
 	# hold keeps the adapter. The adapter here is a fake so the channel contract is pinned without
 	# a game scene.
 	var fake_body := FakeActBody.new()
-	session._act_body = fake_body
+	session._act_body_host._body = fake_body
 	view.anon = {"mode": "act_body", "profile": "missionary"}
 	view.weight = 0.4
 	var run := FakeRun.new()
 	run.edge = {"channels": {"anon": {"kind": "blend"}}}
 	session._run = run
-	session._apply_anon_channel(view)
+	session._act_body_host.apply_channel(view)
 	check(is_equal_approx(fake_body.weight, 0.4), "the anon blend carries the edge weight")
 	run.edge = {"channels": {"anon": {"kind": "switch", "profile": "authored"}}}
-	session._apply_anon_channel(view)
+	session._act_body_host.apply_channel(view)
 	check(fake_body.profile == "authored" and is_equal_approx(fake_body.weight, 1.0),
 		"the anon switch names the authored profile")
 	run.edge = {"channels": {"anon": {"kind": "hold"}}}
-	session._apply_anon_channel(view)
+	session._act_body_host.apply_channel(view)
 	check(fake_body.profile == "authored", "the anon hold keeps the retargeted adapter")
 	session._run = null
-	session._act_body = null
+	session._act_body_host._body = null
 
 	session.release_pose()
 	check(session._pose_node == null and session._mods._body_sway == null and session._mods._tail == null,

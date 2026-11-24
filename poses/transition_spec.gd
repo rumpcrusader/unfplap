@@ -10,7 +10,7 @@ const POSE_STATE := preload("res://mods/unfplap/poses/pose_state.gd")
 
 const VERSION := 1
 const CHANNELS := ["base", "anon", "contact", "camera", "controls", "audio", "presentation"]
-const KINDS := ["hold", "blend", "delta", "path", "switch", "lock"]
+const KINDS := ["hold", "blend", "delta", "switch", "lock"]
 const EASINGS := ["linear", "smoothstep"]
 const EVENT_KINDS := ["status", "speech_stop", "viseme"]
 const REQUIRES_KEYS := ["features", "consent", "forms", "views"]
@@ -210,7 +210,7 @@ static func _check_channel(out: Array[String], name: String, channel: Dictionary
 			for key: String in ["set", "profile", "to"]:
 				if channel.has(key) and not (channel.get(key) is String):
 					out.append("%s.switch.%s is not a string" % [name, key])
-		"blend", "delta", "path":
+		"blend", "delta":
 			if channel.has("start") and (not _is_number(channel.get("start"))
 					or float(channel.get("start")) < 0.0):
 				out.append("%s.%s start is not a number at least 0" % [name, kind])

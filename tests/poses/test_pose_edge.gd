@@ -387,15 +387,6 @@ func _check_rejections() -> void:
 
 
 func _check_shapes() -> void:
-	var path_edge := _mutated({"duration": 0.5, "events": [], "constraints": [],
-		"channels": {"base": {"kind": "path"}}})
-	var path_errors := _errors(path_edge)
-	check(path_errors.is_empty(), "a path edge with a duration is valid: %s" % str(path_errors))
-	var path_run: Variant = STATE.start_edge(path_edge, SPECS.STANDING, SPECS.STANDING_TEST)
-	check(path_run != null, "a path edge starts")
-	if path_run != null:
-		path_run.tick(0.25)
-		check(near(path_run.channel_weight("base"), 0.5), "a path follows the blend math")
 	var hold_edge := _mutated({"duration": 0.1, "events": [], "constraints": [],
 		"channels": {"base": {"kind": "hold"}}})
 	check(_errors(hold_edge).is_empty(), "a hold-only edge with a duration is valid")

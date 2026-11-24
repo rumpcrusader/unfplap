@@ -256,8 +256,8 @@ A request returns the first refusal in this exact order: `same`, `bad_phase` (th
 
 One edge is a `Run`: per-channel tracks and one clock. A channel is `hold`
 (weight 1, settled), `blend`/`delta` (eased 0→1 over its own window, or the edge duration),
-`switch` (fires once at its `at`, reported by name) or `lock` (a policy signal, weight 1). `path` is
-accepted as `blend` until an edge authors it. The `base` channel owns the view weight; an absent or
+`switch` (fires once at its `at`, reported by name) or `lock` (a policy signal, weight 1). The
+`base` channel owns the view weight; an absent or
 held base is 1.0. A constraint `"channel after other@seconds"` is a floor on the channel's start
 (`other.start + seconds`), never a shift of the other channel; a cycle refuses the edge. The edge
 duration is the base and a longer channel or switch extends it.
@@ -292,8 +292,7 @@ eligibility vocabulary check here: the validator never reads `Settings`.
 and `presentation`. Each channel has a `kind`:
 
 - `hold` settles at weight 1 from the start.
-- `blend`, `delta` and `path` ease from 0 to 1 over their own duration or the edge duration. `path`
-  is accepted as `blend` until an edge authors it.
+- `blend` and `delta` ease from 0 to 1 over their own duration or the edge duration.
 - `switch` fires once at its required `at` and reports its channel name. Its optional `set`,
   `profile` and `to` payload strings are data for the consumer.
 - `lock` is a policy signal at weight 1, with optional `allow`/`block` string lists and `set`.

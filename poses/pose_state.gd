@@ -151,7 +151,7 @@ class Run extends RefCounted:
 			match str(channel.get("kind", "")):
 				"hold":
 					kind = KIND_HOLD
-				"blend", "delta", "path":
+				"blend", "delta":
 					kind = KIND_BLEND
 				"switch":
 					kind = KIND_SWITCH
@@ -289,7 +289,7 @@ class Run extends RefCounted:
 		done = t >= duration and _all_settled()
 
 	## The eased weight of one channel; 0 for an unknown channel. Hold and lock read 1 at once; a
-	## switch turns 1 when it fires; blend/delta/path ease across their window.
+	## switch turns 1 when it fires; blend/delta ease across their window.
 	func channel_weight(channel: String) -> float:
 		if not _channels.has(channel):
 			return 0.0

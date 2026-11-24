@@ -274,14 +274,6 @@ func _check_channels() -> void:
 	run.tick(0.5)
 	check(near(run.channel_weight("lock"), 1.0) and run.switches().is_empty(),
 		"a lock is a signal, not a switch")
-	edge = _edge()
-	edge["duration"] = 1.0
-	edge["channels"] = {"base": {"kind": "path"}}
-	run = _run(edge)
-	check(run != null, "a path is accepted")
-	run.tick(0.5)
-	check(run != null and near(run.channel_weight("base"), 0.5),
-		"a path follows the blend math")
 
 
 func _check_constraints() -> void:

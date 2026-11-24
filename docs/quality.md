@@ -1,7 +1,7 @@
 # Static gates and tooling
 
-The source-only gates that run outside the game project. The behavioural suites are `docs/tests.md`;
-the commands are `WORKFLOW.md`.
+The gates that need no running game. The behavioural suites are `docs/tests.md`; the commands are
+`WORKFLOW.md`.
 
 ## Parse check
 
@@ -11,6 +11,10 @@ the static gate; `--parse` loads only the changed and untracked `.gd` files with
 `--static` runs the gate without Godot or the fetched assets. The cost is that boot plus each
 script's preload closure once, so it must not return to one boot per file. A run that ends without
 the tool's `PARSED` line is a failure, never a pass.
+
+The parse needs the full game project at `../..` and refuses a checkout without it, because the
+scripts' preloads resolve against the game's own paths. CI has no game checkout, so the build job
+gates on the static gate and lint and this stays a local gate.
 
 ## Formatting
 

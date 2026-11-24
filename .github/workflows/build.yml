@@ -64,9 +64,6 @@ jobs:
       - name: Fetch resource assets
         run: scripts/fetch_assets.sh
 
-      - name: Parse and static gate
-        run: scripts/check.sh --all
-
       # The packer verifies the full tracked tree plus the fetched resource runtime.
       - name: Build
         run: ./build.sh

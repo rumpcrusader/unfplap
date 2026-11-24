@@ -7,7 +7,8 @@
 #        scripts/check.sh --static   # the static gate only: no Godot, no fetched assets
 #        scripts/check.sh --parse    # parse only: changed and untracked .gd
 #        scripts/check.sh --group G  # one static rule group (debugging only)
-# Godot 4.5 must be on PATH for the parse modes.
+# The parse modes need Godot 4.5 on PATH and the full game project at ../.., because the mod's
+# preloads resolve against the game's res:// paths. --static does not.
 
 set -euo pipefail
 
@@ -46,6 +47,11 @@ run_static() {
 }
 
 run_parse() {
+	if [[ ! -f "$PROJECT_ROOT/project.godot" ]]; then
+		printf 'Parse check needs the full game project: %s/project.godot is missing.\n' "$PROJECT_ROOT" >&2
+		printf 'Run it from the mod inside the game checkout, or use --static for the source-only gate.\n' >&2
+		exit 1
+	fi
 	if ! command -v godot >/dev/null 2>&1; then
 		printf 'Godot not found on PATH (need the Godot 4.5 executable).\n' >&2
 		exit 1
@@ -89,7 +95,7 @@ run_parse() {
 
 	mapfile -t failures < <(grep '^FAIL ' "$log" || true)
 	mapfile -t errors < <(
-		grep -E 'Parse Error|Compile Error|SCRIPT ERROR|Failed loading|Failed to load' "$log" || true
+		grep -E "Parse Error|Compile Error|SCRIPT ERROR|Failed loading|Failed to load|Attempt to open script|Can't load script" "$log" || true
 	)
 
 	if [[ "$status" -ne 0 ]] || [[ "${#failures[@]}" -gt 0 ]] || ! grep -q '^PARSED ' "$log"; then

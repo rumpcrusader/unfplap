@@ -195,8 +195,8 @@ handle owns the asset and rig verdicts and their cache; the scene gate reads
 
 ## Typed view
 
-The body wrappers that move with the pose (`poses/missionary_anon.gd`, `poses/standing_anon.gd`,
-`poses/standing_presentation.gd`) and the pose modifiers the session installs (`poses/skeleton_pose.gd`,
+The body wrappers that move with the pose (`poses/missionary_anon.gd`, `poses/standing_anon.gd`)
+and the pose modifiers the session installs (`poses/skeleton_pose.gd`,
 `poses/tail_pose.gd`, `poses/tail_lay.gd`, `poses/body_sway.gd`, `poses/prone_sway.gd`, `poses/ear_twitch.gd`) read
 `shared/act_facts.gd`, never the runtime node. The facts carry the pose config, the presentation
 config, the per-mare profile, the pose id and state, the live depth, the scene handles, the lean and
@@ -543,7 +543,7 @@ both effective drivers are the standing driver, both deltas are empty and the ta
 the standing group with the same presentation, so the body holds. The oral pair takes
 `MODE_BLEND` in both directions because only one side carries the delta; it is a real two-base
 edge, not the fast path. The pair is the current proof of the state machine's single path. The
-offer presentation pose (`poses/standing_presentation.gd`, now driven by the act start rather than
+offer presentation pose (`act/standing_presentation.gd`, now driven by the act start rather than
 the proactive request) is the same evaluator with the standing
 pair and its own config. The single path is the compatibility path: the shipped poses keep their
 own asset on both sides.
@@ -863,7 +863,7 @@ is `## Player frame`.
   placed behind her. The frame keeps no gap table: `act/frame.gd:gap_for()` reads the pose
   config's `gaps`, then `SETTINGS.pose(id, "standing")` when the session has none, and
   `act/swap.gd:standing_gap()` asks the frame.
-- The idle invitation (`poses/standing_presentation.gd`) builds its own standing config. The
+- The idle invitation (`act/standing_presentation.gd`) builds its own standing config. The
   presentation chin/neck and tail values, the glance keys and the two tail angles are read by key
   from the complete block, with no fallback literals. It keeps that config when the pose session has
   none, so the next process frame does not erase the values it just attached.

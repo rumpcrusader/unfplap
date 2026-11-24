@@ -7,7 +7,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ##     --script res://mods/unfplap/tests/test_standing_presentation.gd
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
-const PRESENTATION := preload("res://mods/unfplap/poses/standing_presentation.gd")
+const PRESENTATION := preload("res://mods/unfplap/act/standing_presentation.gd")
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/api.gd")
 const AWAY_YAW := PI

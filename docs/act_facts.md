@@ -17,7 +17,7 @@ the runtime orchestrator and the scene adapters.
   live-edit paths call `refresh_view()` directly. The idle standing invitation, the debug actions
   and the suites therefore read the view the phase boundary just wrote, not a per-getter rebind.
 - The consumers are `poses/missionary_anon.gd`, `camera/view.gd`, `poses/standing_anon.gd`,
-  `poses/standing_presentation.gd`, `camera/api.gd`, `act/frame.gd`, `kiss/api.gd`,
+  `act/standing_presentation.gd`, `camera/api.gd`, `act/frame.gd`, `kiss/api.gd`,
   `hands/api.gd`, `hands/controller.gd`, `hands/caress.gd`, `hands/reach.gd`,
   `hands/smack_target.gd`, `hands/path_selector.gd`, `hands/path_base.gd` and its paths,
   and the pose modifiers (`poses/skeleton_pose.gd`, plus

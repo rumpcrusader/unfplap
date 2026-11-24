@@ -12,12 +12,12 @@ The act itself is four layers, all under `act/`:
 | Node | `runtime.gd` | lifetime, node operations, composition, engine callbacks and the typed handles |
 | Session | `act/session.gd` | act state, timers, clock, act values, transitions and the two frame forwards |
 | Ledgers | `act/start.gd`, `act/exit.gd` | the ordered start recipe and the one teardown |
-| Modules | `act/tick.gd`, `act/view.gd`, `act/idle.gd`, `act/input.gd`, `act/phases.gd`, `act/agreement.gd`, `act/consent.gd`, `act/impact.gd`, `act/swap.gd`, `act/setup.gd`, `act/settings.gd` | schedule, view, idle, input protocol, presentation, the start ports, consent, stroke, swap seams and the start adapters |
+| Modules | `act/tick.gd`, `act/view.gd`, `act/idle.gd`, `act/input.gd`, `act/phases.gd`, `act/agreement.gd`, `act/consent.gd`, `act/impact.gd`, `act/swap.gd`, `act/setup.gd`, `act/settings.gd`, `act/standing_presentation.gd` | schedule, view, idle, input protocol, presentation, the start ports, consent, stroke, swap seams and the start adapters |
 
 The runtime's composition function constructs every one of them once per pony and binds their typed
-hosts. The systems (readiness, poses, camera, audio, face, reactions, dialogue, summary, afterglow,
-anatomy, hands, kiss, wings, integrations, scene gate, scene hold, rest) own their own state and
-math.
+hosts, including the standing invitation the offer starts. The systems (readiness, poses, camera,
+audio, face, reactions, dialogue, summary, afterglow, anatomy, hands, kiss, wings, integrations,
+scene gate, scene hold, rest) own their own state and math.
 
 ## Node
 

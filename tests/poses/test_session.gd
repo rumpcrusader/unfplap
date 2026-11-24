@@ -5,6 +5,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ##     --script res://mods/unfplap/tests/poses/test_session.gd
 
 const SESSION := preload("res://mods/unfplap/poses/api.gd")
+const DIAG := preload("res://mods/unfplap/poses/diagnostics.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const ACT_COMMANDS := preload("res://mods/unfplap/shared/act_commands.gd")
@@ -290,7 +291,7 @@ func _check_begin() -> void:
 	check(session.view().id == "" and session.view().pose_state == VIEW.IDLE,
 		"the pose release clears the view")
 	check(session.view().pose_config.is_empty(), "the pose release drops the view config")
-	check(str(session._base_info().reason) == "pose=",
+	check(str(DIAG.base_info(session).reason) == "pose=",
 		"the released session names no pose")
 	body.free()
 	hair.free()
@@ -420,10 +421,10 @@ func _check_ground_frame() -> void:
 func _check_standing_asset() -> void:
 	var made := _live_session(CATALOG.STANDING)
 	var session: SESSION = made["session"]
-	check(str(session._base_info().asset_path) == "poses/standing_pose.json",
+	check(str(DIAG.base_info(session).asset_path) == "poses/standing_pose.json",
 		"the standing session names the standing asset")
 	check(session.readiness().asset_verdict().ok, "the standing asset is ready")
-	check(str(session._base_info().base) == "authored",
+	check(str(DIAG.base_info(session).base) == "authored",
 		"the standing base is the authored asset")
 	_free_live(made)
 
@@ -531,7 +532,7 @@ func _check_diagnostics() -> void:
 	var session: SESSION = made["session"]
 	var pony: FakePony = made["pony"]
 	check(near(session._basis_amount(), 0.0), "a missing pose has no weight")
-	var info: Variant = session._base_info()
+	var info: Variant = DIAG.base_info(session)
 	check(info.base == "none", "the base is none outside a missionary act")
 	check(info.reason == "no ground frame",
 		"the reason names the missing ground frame")
@@ -1248,7 +1249,7 @@ func _check_asset_adoption() -> void:
 	check(is_same(view.authored, missionary),
 		"the view holds the source asset through the edge")
 	check(str(view.id) == target, "the view follows the target")
-	var info: Variant = session._base_info()
+	var info: Variant = DIAG.base_info(session)
 	check(info.live_path == "poses/missionary_pose.json",
 		"the base info names the live missionary path")
 	check(info.target_path == "poses/standing_pose.json",

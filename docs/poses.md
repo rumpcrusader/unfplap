@@ -183,8 +183,9 @@ variants and no `provisional` flag. The asset's `--pose bed_facesit --check` rou
 `request_pose()` owns the bed face-sit's live verdict: a `face` target is refused with the
 anatomy, act body or kiss reason, so the Debug action only reports the pose service's answer.
 The `PoseDiagnostics` handle owns the pose diagnostic rows the Show data action reads and the
-settled log, so the rule is not repeated in the runtime. `_base_info()` answers in one typed record
-(`poses/pose_base_info.gd`), so the base diagnostics have a single source. The `PoseReadiness`
+settled log, so the rule is not repeated in the runtime. `base_info()` in `poses/diagnostics.gd`
+answers in one typed record (`poses/pose_base_info.gd`), so the base diagnostics have a single
+source. The `PoseReadiness`
 handle owns the asset and rig verdicts and their cache; the scene gate reads
 `readiness().asset_verdict()` and `rig_verdict()` and never the loader.
 

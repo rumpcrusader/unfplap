@@ -16,7 +16,7 @@ const ACT_GATE := preload("res://mods/unfplap/act_gate/api.gd")
 const NEGOTIATION := preload("res://mods/unfplap/negotiation/api.gd")
 const AGREEMENT := preload("res://mods/unfplap/shared/agreement.gd")
 const POSES := preload("res://mods/unfplap/poses/api.gd")
-const PRIVACY := preload("res://mods/unfplap/privacy/api.gd")
+const SCENE_GATE := preload("res://mods/unfplap/scene_gate/api.gd")
 const ACT_KEYS := preload("res://mods/unfplap/shared/act_keys.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const POSE_OFFER := preload("res://mods/unfplap/shared/pose_offer.gd")
@@ -41,9 +41,6 @@ const AGREEMENT_STARTED := 1
 ## The Negotiation service handed over by the entry; its live Agreement is offered before the scene
 ## pass.
 var negotiation: NEGOTIATION = null
-## Set by the entry: the privacy provider, resampled before a private Agreement
-## auto-starts.
-var privacy: PRIVACY = null
 ## Set by the entry: the HUD, once the player rig arrives.
 var hud: Node = null
 ## Set by the entry: the act frame the offer and its sensor gate on.
@@ -83,12 +80,11 @@ func _exit_tree() -> void:
 	CHANGE.off_changed(Callable(self, "apply_settings"))
 
 
-## Set by the entry: the Negotiation and privacy facades this offer reads, the HUD its hint falls
-## back to, the act frame, the roster and the two capability services.
-func wire(negotiation: NEGOTIATION, privacy: PRIVACY, hud: Node, owner: ACT_OWNER,
+## Set by the entry: the Negotiation facade this offer reads, the HUD its hint falls back to, the
+## act frame, the roster and the two capability services.
+func wire(negotiation: NEGOTIATION, hud: Node, owner: ACT_OWNER,
 		ponies: PONIES, eligibility: ELIGIBILITY, act_gate: ACT_GATE) -> void:
 	self.negotiation = negotiation
-	self.privacy = privacy
 	self.hud = hud
 	act_owner = owner
 	_ponies = ponies
@@ -213,18 +209,11 @@ func _start_hotkey_offer(offer: POSE_OFFER) -> bool:
 		return false
 	var id := PONY_ID.from(str(offer.pony.get_meta("relationship_id", "")),
 		offer.pony.get("identity")) if is_instance_valid(offer.pony) else "?"
-	if is_instance_valid(negotiation):
-		var handle := negotiation.handle()
-		if handle != null:
-			var match := negotiation.hotkey_handle(runtime, _option_for(offer))
-			if match != null:
-				LOG.debug("hotkey exact match id=%s pose=%s", [id, offer.pose])
-				return _start_agreement_offer(offer, true)
-			LOG.debug("hotkey interrupt agreement id=%s", [id])
-			negotiation.interrupt_for_hotkey()
-		elif negotiation.is_locked():
-			LOG.debug("hotkey interrupt negotiation id=%s", [id])
-			negotiation.interrupt_for_hotkey()
+	# The one act-key decision: an exact Agreement match starts it; anything else live ends here.
+	var handle := negotiation.press(runtime, _option_for(offer)) \
+		if is_instance_valid(negotiation) else null
+	if handle != null:
+		return _start_agreement_offer(offer, true)
 	LOG.debug("hotkey immediate id=%s pose=%s source=%s", [id, offer.pose, offer.source])
 	var start := _ponies.start_of(runtime)
 	var started := start != null \
@@ -288,37 +277,30 @@ func _tick_agreement_auto_start(delta: float) -> void:
 	if WORLD.menu_panel_open() or not WORLD.can_interact():
 		return
 	var pony: Node3D = handle.pony
-	if not is_instance_valid(pony):
+	if not is_instance_valid(pony) or handle.option == null:
 		return
-	var option := handle.option
-	if option == null:
-		return
-	var cuddle := bool(option.cuddle)
-	var pony_id := str(handle.pony_id)
-	if pony_id.is_empty():
-		pony_id = PONY_ID.from(str(pony.get_meta("relationship_id", "")), pony.get("identity"))
-	# A private Agreement's lost visibility cancels now, with its own reason; the negotiation's
-	# privacy tick is the steady check behind this one.
-	if bool(handle.private) and not _agreement_private_now(pony, cuddle):
-		LOG.debug("agreement auto-start privacy lost pony=%s", [str(pony.name)])
-		negotiation.cancel(handle, "privacy")
-		return
-	if not negotiation.ready_offer():
+	# The readiness read is the negotiation's; a private Agreement that lost its cover is
+	# cancelled there. The scene rows are this side's, because the scene gate answers them.
+	if not negotiation.can_start() or not _agreement_ready(handle):
 		return
 	var typed: POSE_OFFER = agreement_offer(handle)
 	if typed == null:
 		return
-	LOG.debug("agreement auto-start id=%s pose=%s", [pony_id, typed.pose])
+	LOG.debug("agreement auto-start id=%s pose=%s", [handle.pony_id, typed.pose])
 	LOG.debug("agreement auto-start pony=%s pose=%s", [str(pony.name), typed.pose])
 	_start_agreement_offer(typed, false)
 
 
-## A fresh privacy sample for the auto-start, with the offer's cuddle rule. Without a provider the
-## answer is public, so nothing starts on a stale one.
-func _agreement_private_now(pony: Node, cuddle: bool) -> bool:
-	if not is_instance_valid(privacy):
+## The live scene's Agreement rows with the frozen pose pair; a missing scene refuses.
+func _agreement_ready(handle: AGREEMENT.Handle) -> bool:
+	var runtime: Node = _ponies.runtime_for(handle.pony) \
+		if is_instance_valid(handle.pony) else null
+	var scene := _ponies.scene_of(runtime) if is_instance_valid(runtime) else null
+	var option := handle.option
+	if scene == null or option == null:
 		return false
-	return privacy.is_private(pony, PRIVACY.Kind.CUDDLE if cuddle else PRIVACY.Kind.OFFER)
+	return bool(scene.agreement_ready(option.pose, option.source, option.bed,
+		SCENE_GATE.FrozenPose.new(bool(handle.pose_profile_ok), bool(handle.pose_source_ok))))
 
 
 ## The runtime's Agreement start result, forwarded to the Negotiation service.
@@ -405,7 +387,7 @@ func _reconsider() -> void:
 	if is_instance_valid(negotiation):
 		PERF.begin("offer_agreement")
 		var live: POSE_OFFER = null
-		if negotiation.ready_offer():
+		if negotiation.can_start():
 			live = agreement_offer(negotiation.handle())
 		PERF.end("offer_agreement")
 		if live != null:

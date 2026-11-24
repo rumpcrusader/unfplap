@@ -66,7 +66,6 @@ The host callbacks are, in order:
 | `privacy_private` | `(pony, cuddle) -> bool` | the privacy provider |
 | `placement_for` | `(runtime) -> PoseOptions.Placement` | the live placement facts |
 | `pose_placed` | `(runtime, PoseOptions.Option) -> bool` | the live scene-only placement re-check before an Agreement forms |
-| `scene_ready` | `(pony, PoseOptions.Option, pose_profile_ok, pose_source_ok) -> bool` | the live scene check of a formed Agreement, with its frozen pose pair |
 | `form_view` | `() -> FormView` | the player's form and display |
 | `hold_for` | `(runtime) -> Node` | the per-pony `scene_hold/api.gd` ledger |
 | `classify` | `(PROMPTS.Request, scope, done) -> bool` | the dialogue classifier; `done` gets a `PROMPTS.Reply` |
@@ -119,7 +118,7 @@ used to be the entry's assembly:
 
 - the `Host` callbacks that read another service or the scene: `now`, `eligible`,
   `relationship_ok`, `context_facts`, `privacy_private`, `placement_for`, `pose_placed`,
-  `scene_ready`, `hold_for`, `classify`, `reason`, `await_answer`, `cancel_scope` and `toast`;
+  `hold_for`, `classify`, `reason`, `await_answer`, `cancel_scope` and `toast`;
 - the Context facts both reasoning stages read: the act gate's snapshot, the act history, the
   world-context mood and the relationship note;
 - the global Anon-offer watch, the runtime state guard and the mare the game's conversation
@@ -145,7 +144,7 @@ The routes:
 |---|---|---|
 | Mare offer | the Proactive service (`begin_mare_offer`) | the Anon decision classifier |
 | Anon offer | this service (`begin_anon_offer`) | the Mare Response Reasoning |
-| Hotkey | the Act service (`hotkey_handle`) | accepted; no buck |
+| Hotkey | the offer (`press`) | accepted; no buck |
 
 The Anon offer is formed from the first new player line while Anon talks to a mare. This service
 arms the adapter's global watch only while no negotiation and no act is live; the adapter captures
@@ -182,9 +181,10 @@ The Mare offer:
 4. A yes runs the live placement check and then forms the Agreement; a refusal writes the
    cooldown signal; a counter-offer writes none and closes with one generated line.
 
-The hotkey never forms an offer. `hotkey_handle` returns the live Agreement only for the same mare
-and the exact `(pose, source, bed, cuddle)` option; `interrupt_for_hotkey` ends any live
-negotiation with `Interrupted(hotkey)`.
+The hotkey never forms an offer. `press` is the act key's one decision: it returns the handle only
+for the same mare and the exact `(pose, source, bed, cuddle)` option, and otherwise ends whatever
+was live with `Interrupted(hotkey)` and returns null. The service logs the exchange it broke, so
+the offer carries no rule of its own.
 
 ## Decisions
 
@@ -222,18 +222,17 @@ presentation (act-owned) and clears the shared offer window, so the hint goes wi
 the act key and the auto-start consume the handle through `runtime.start.start_agreement()`; a wait keeps
 the Agreement live. A handle whose runtime is gone is cancelled with `cancelled`.
 
-`ready_offer()` is the one readiness read. It answers false unless the Agreement is formed, its
-handle is valid, it has not expired, its frozen pose pair passes the scene gate's
-`agreement_ready()` and, for a private Agreement, its visibility is still private. It keeps no flag:
-every call asks the live scene and provider. The offer service calls it before it offers the live
-Agreement and before the auto-start consumes it.
+`can_start()` is the one readiness read. It answers false unless the Agreement is formed, its
+handle is valid and it has not expired. A private Agreement whose visibility is gone is cancelled
+there, through the one close path, with the privacy reason and its reaction; the call then answers
+false. It keeps no flag and no scene row: the scene gate is the readiness authority, and the offer
+reads it. The offer calls `can_start()` before it offers the live Agreement and before the
+auto-start consumes it.
 
 Formation runs the live placement re-check (`Host.pose_placed`, the scene-only rows) after the
 positive answer and before the package is built. A moved bed or a lost standing spot is
-`Interrupted(pose)`: no Agreement forms and the offer hold is released. The auto-start samples a
-private Agreement's visibility freshly at the offer service's `0.25 s` clock; if it is now public
-it cancels with `privacy`. The hotkey's exact match starts at once and does not resample: the
-live Agreement's own visibility wins for that press.
+`Interrupted(pose)`: no Agreement forms and the offer hold is released. The hotkey's exact match
+starts at once.
 
 Close reasons: `Started`, `StartFailed`, `Expired`, `Interrupted` (`privacy`, `pose`, `hotkey`,
 `target_left`, `cancelled`). Every close releases the lock. Only `Started` leaves the adopted hold
@@ -252,9 +251,9 @@ with reason `locked`, logged and toasted. The hotkey is the only break. The lock
 The service samples the provider every 0.5 s while a private offer or Agreement lives. A public
 offer never subscribes: its visibility was derived at formation and stays public. A private offer
 that loses privacy is `Interrupted(privacy)` in the negotiation or the Agreement; the state ends
-immediately, the shared reaction helper queues the line, and no cooldown is written. The
-auto-start takes its own fresh sample immediately before a private Agreement starts; a loss there
-cancels the Agreement with the same `privacy` reason and reaction.
+immediately, the shared reaction helper queues the line, and no cooldown is written. The offer's
+readiness read takes the fresh sample: a private Agreement that lost its visibility is cancelled by
+`can_start()` with the same `privacy` reason and reaction.
 
 ## Hold
 
@@ -294,10 +293,9 @@ retired `features.act_public_offer` and `relationship.sex_start` are never consu
 
 ## Controls and debug
 
-- No hotkey and no face. The Act key is the hotkey; this service only matches an Agreement or
-  interrupts for it.
+- No hotkey and no face. The Act key is the hotkey; this service only answers the offer's one press.
 - The `negotiation ...` debug log lines are `state=offered|agreement|none`, `offer`, `hold claim`,
-  `hold lost`, `privacy lost`, `hotkey match|interrupt`, `answer`, `non-offer`, `outcome`,
+  `hold lost`, `privacy lost`, `press match|interrupt`, `answer`, `non-offer`, `outcome`,
   `agreement`, `refused`, `expired`, `interrupted`, `start failed`, `started`, `blocked` and
   `occupied`.
 - The classifier runs and results are `classifier start` / `classifier result` from

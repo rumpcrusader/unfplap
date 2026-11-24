@@ -185,7 +185,7 @@ func _build_world() -> void:
 	ponies.wire(anatomy, eligibility, act_gate, body_change, estrus, stock_smack, act_owner)
 	act_owner.wire(offer, stock_smack)
 	act_gate.wire(eligibility)
-	offer.wire(negotiation, privacy, hud, act_owner, ponies, eligibility, act_gate)
+	offer.wire(negotiation, hud, act_owner, ponies, eligibility, act_gate)
 	input.wire(offer, act_owner)
 	# `initiation` and `negotiation` wire each other. Two-phase wiring makes the pair legal
 	# because construction order no longer matters; the pair is a future merge candidate, not

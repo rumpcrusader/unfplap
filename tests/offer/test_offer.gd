@@ -126,18 +126,18 @@ class FakeRuntime extends Node:
 class FakeNegotiation extends NEGOTIATION:
 	var live: NEGOTIATION.AGREEMENT.Handle = null
 	var is_ready := true
-	var ready_calls := 0
-	var hots: Array = []
+	var can_start_calls := 0
+	var presses: Array = []
 
 	func handle() -> NEGOTIATION.AGREEMENT.Handle:
 		return live
 
-	func ready_offer() -> bool:
-		ready_calls += 1
+	func can_start() -> bool:
+		can_start_calls += 1
 		return is_ready and live != null
 
-	func hotkey_handle(runtime: Node, option: POSE_OPTIONS.Option) -> NEGOTIATION.AGREEMENT.Handle:
-		hots.append([runtime, option])
+	func press(runtime: Node, option: POSE_OPTIONS.Option) -> NEGOTIATION.AGREEMENT.Handle:
+		presses.append([runtime, option])
 		return null
 
 
@@ -333,12 +333,12 @@ func _check_agreement_first() -> void:
 	option.source = "bed_side"
 	handle.option = option
 	service.tick(0.2)
-	negotiation.ready_calls = 0
+	negotiation.can_start_calls = 0
 	negotiation.live = handle
 	service.reconsider()
 	check(service.current() != null and service.current().pony == near,
 		"the live Agreement is offered")
-	check(negotiation.ready_calls == 1, "the Agreement path asks the live readiness")
+	check(negotiation.can_start_calls == 1, "the Agreement path asks the live readiness")
 	check(service.current().trigger == "agreement", "the Agreement trigger is carried")
 	check(runtime.hotkey_calls == 1, "the Agreement skips the scene gate")
 	negotiation.is_ready = false
@@ -523,7 +523,7 @@ func _fixture(with_row := true) -> Dictionary:
 	roster.wire(null, null, null, null, null, null, null)
 	var service := OFFER.new()
 	service.name = "UnfplapOffer"
-	service.wire(negotiation, null, hud, owner, roster, targets, gate)
+	service.wire(negotiation, hud, owner, roster, targets, gate)
 	root.add_child(game)
 	root.add_child(hud)
 	root.add_child(negotiation)

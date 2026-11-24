@@ -43,8 +43,6 @@ class FakeRuntime extends Node:
 	var pony: Node3D
 	var state := 0
 	var scene_ok := true
-	var agreement_ok := true
-	var agreement_calls: Array = []
 	var verdict_calls := 0
 	var presented := 0
 	var cleared := 0
@@ -66,10 +64,6 @@ class FakeRuntime extends Node:
 			_frozen: Variant) -> Dictionary:
 		verdict_calls += 1
 		return {"hard_ok": scene_ok, "ok": scene_ok, "transient": [], "reasons": []}
-
-	func agreement_ready(pose: String, source: String, bed: Variant, frozen: Variant) -> bool:
-		agreement_calls.append([pose, source, bed, frozen])
-		return agreement_ok
 
 	func hold_handle() -> Node:
 		return FakeHold.new()
@@ -480,18 +474,6 @@ func _check_host_callbacks() -> void:
 	runtime.scene_ok = true
 	check(not bridge.pose_placed(runtime, null), "a missing option is not placed")
 	runtime.verdict_calls = 0
-	check(bridge.scene_ready(made["pony"], _option(CATALOG.STANDING), true, true),
-		"the Agreement readiness is the runtime's small scene check")
-	var frozen: Variant = runtime.agreement_calls[0][3]
-	check(frozen != null and frozen.pose_profile_ok and frozen.pose_source_ok,
-		"the frozen pose pair reaches the gate")
-	runtime.agreement_ok = false
-	check(not bridge.scene_ready(made["pony"], _option(CATALOG.STANDING), true, true),
-		"a changed scene refuses the readiness")
-	runtime.agreement_ok = true
-	check(not bridge.scene_ready(made["pony"], null, true, true),
-		"a missing option is not ready")
-	check(runtime.verdict_calls == 0, "the ready path builds no scene verdict")
 	check(not bridge.classify(null, "", Callable()), "a model call is the adapter's")
 	(made["adapter"] as FakeAdapter).classify_calls = 0
 	var request := PROMPTS.Request.new()

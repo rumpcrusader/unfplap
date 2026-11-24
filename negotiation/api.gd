@@ -91,9 +91,6 @@ class Host:
 	## (runtime, PoseOptions.Option) -> bool: the scene-only placement check again, right before
 	## an Agreement forms. A missing callback refuses.
 	var pose_placed: Callable
-	## (pony, PoseOptions.Option, pose_profile_ok, pose_source_ok) -> bool: the live scene-only
-	## readiness of a formed Agreement. A missing callback refuses.
-	var scene_ready: Callable
 	## () -> FormView: the player's live form and display.
 	var form_view: Callable
 	## (runtime) -> RefCounted: the per-pony `scene_hold/api.gd` ledger.
@@ -235,7 +232,6 @@ func _bind_host() -> void:
 	host.privacy_private = Callable(_bridge, "privacy_private")
 	host.placement_for = Callable(_bridge, "placement_for")
 	host.pose_placed = Callable(_bridge, "pose_placed")
-	host.scene_ready = Callable(_bridge, "scene_ready")
 	host.form_view = Callable(self, "_form_view")
 	host.hold_for = Callable(_bridge, "hold_for")
 	host.classify = Callable(_bridge, "classify")
@@ -282,22 +278,20 @@ func handle() -> AGREEMENT.Handle:
 	return _handle if _phase == _PHASE_AGREEMENT else null
 
 
-## True while the live Agreement can start: frozen, unexpired, scene-ready and still private.
-## The one readiness read of the press and auto-start; it keeps no flag.
-func ready_offer() -> bool:
+## True while the live Agreement can start: formed, unexpired and still private. A private one
+## whose visibility is gone is cancelled here, through the one close path.
+func can_start() -> bool:
 	if _phase != _PHASE_AGREEMENT or _agreement == null or _handle == null or _host == null:
 		return false
 	if not _handle.valid() or _agreement.expired(_now()):
 		return false
-	var option := _agreement.option
-	if option == null or not is_instance_valid(_agreement.pony):
+	if _agreement.option == null or not is_instance_valid(_agreement.pony):
 		return false
-	if not _host.scene_ready.is_valid():
-		return false
-	if not bool(_host.scene_ready.call(_agreement.pony, option, _agreement.pose_profile_ok,
-			_agreement.pose_source_ok)):
-		return false
-	return not _agreement.private or _private_now(_agreement.pony, _cuddle_flag())
+	if not _agreement.private or _private_now(_agreement.pony, _cuddle_flag()):
+		return true
+	LOG.debug("negotiation privacy lost id=%s", [_agreement.pony_id])
+	_close(_OUTCOME_INTERRUPTED, AGREEMENT.REASON_PRIVACY, 0.0, true)
+	return false
 
 
 ## The entry's idle frame: the TTL and the privacy sample, then the bridge's global watch. The
@@ -429,27 +423,19 @@ func cancel(handle: AGREEMENT.Handle, reason: String) -> bool:
 	return true
 
 
-## The hotkey's exact match: the same mare and the exact pose option. A live Agreement with any
-## other mare, pose, source or bed is not a match.
-func hotkey_handle(runtime: Node, option: POSE_OPTIONS.Option) -> AGREEMENT.Handle:
-	if _phase != _PHASE_AGREEMENT or _agreement == null or _host == null:
-		return null
-	if not is_instance_valid(runtime) or _agreement.runtime != runtime:
-		return null
-	if not _agreement.matches(_agreement.pony, option):
-		return null
-	LOG.debug("negotiation hotkey match id=%s", [_agreement.pony_id])
-	return _handle
-
-
-## The hotkey breaks any live Act Negotiation. It logs the interruption and returns whether one
-## was ended.
-func interrupt_for_hotkey() -> bool:
+## One press: a match keeps the live Agreement, anything else live is ended first.
+func press(runtime: Node, option: POSE_OPTIONS.Option) -> AGREEMENT.Handle:
+	if _phase == _PHASE_AGREEMENT and _agreement != null and _host != null \
+			and is_instance_valid(runtime) and _agreement.runtime == runtime \
+			and _agreement.matches(_agreement.pony, option):
+		LOG.debug("negotiation press match id=%s", [_agreement.pony_id])
+		return _handle
 	if _phase == _PHASE_NONE:
-		return false
-	LOG.debug("negotiation hotkey interrupt id=%s", [_pony_id(_pony())])
+		return null
+	LOG.debug("negotiation press interrupt id=%s state=%s", [
+		_pony_id(_pony()), _phase_name(_phase)])
 	_close(_OUTCOME_INTERRUPTED, AGREEMENT.REASON_HOTKEY, 0.0)
-	return true
+	return null
 
 
 ## Debug rows for the Show data block.

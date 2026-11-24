@@ -1,7 +1,7 @@
 extends "res://mods/unfplap/tests/support/suite.gd"
 ## The offer service's act start: the act key's one press, the hotkey attempt and its Agreement
 ## exact match, the blocked and empty toasts, the live Agreement start's wait/start/fail answers
-## and the Agreement auto-start clock with its act, menu and privacy guards.
+## and the Agreement auto-start clock with its act, menu and scene guards.
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/offer/test_start.gd
 
@@ -10,7 +10,6 @@ const HUD := preload("res://mods/unfplap/hud/api.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
-const PRIVACY := preload("res://mods/unfplap/privacy/api.gd")
 const PONIES := preload("res://mods/unfplap/ponies/api.gd")
 const ACT_OWNER := preload("res://mods/unfplap/act_owner/api.gd")
 const FAKE_GATE := preload("res://mods/unfplap/tests/support/fakes/fake_act_gate.gd")
@@ -38,6 +37,7 @@ class FakePony extends Node3D:
 
 class FakeRuntime extends Node:
 	var gate_ready := true
+	var scene_ready := true
 	var stool := {"need": 0, "have": 0}
 	var hotkey_starts := 0
 	var hotkey_result := true
@@ -74,6 +74,10 @@ class FakeRuntime extends Node:
 			_pair := Vector2i(-1, -1)) -> bool:
 		return gate_ready
 
+	func agreement_ready(_pose: String, _source: String, _bed: Variant,
+			_frozen: Variant) -> bool:
+		return scene_ready
+
 	func stool_pair(_pose: String) -> Vector2i:
 		return Vector2i(int(stool.get("need", 0)), int(stool.get("have", 0)))
 
@@ -99,54 +103,31 @@ class FakeRuntime extends Node:
 class FakeNegotiation extends NEGOTIATION:
 	var live: NEGOTIATION.AGREEMENT.Handle = null
 	var match: NEGOTIATION.AGREEMENT.Handle = null
-	var locked := false
 	var is_ready := true
-	var interrupts := 0
+	var press_calls := 0
 	var reports: Array = []
-	var cancels: Array = []
 
 	func handle() -> NEGOTIATION.AGREEMENT.Handle:
 		return live
 
-	func ready_offer() -> bool:
+	func can_start() -> bool:
 		return is_ready and live != null
 
-	func hotkey_handle(_runtime: Node, _option: POSE_OPTIONS.Option) -> NEGOTIATION.AGREEMENT.Handle:
-		return match
-
-	func interrupt_for_hotkey() -> bool:
-		interrupts += 1
-		return true
-
-	func is_locked() -> bool:
-		return locked
+	func press(_runtime: Node, _option: POSE_OPTIONS.Option) -> NEGOTIATION.AGREEMENT.Handle:
+		press_calls += 1
+		if match != null:
+			return match
+		if live != null:
+			live = null
+		return null
 
 	func report(handle: NEGOTIATION.AGREEMENT.Handle, started: bool) -> bool:
 		reports.append([handle, started])
 		return true
 
-	func cancel(handle: NEGOTIATION.AGREEMENT.Handle, reason: String) -> bool:
-		cancels.append([handle, reason])
-		live = null
-		return true
-
 
 class FakeHud extends "res://mods/unfplap/tests/support/fakes/fake_hud.gd":
 	pass
-
-
-class FakePrivacy extends PRIVACY:
-	var private := true
-	var samples := 0
-	var last_kind := -1
-
-	func setup() -> void:
-		pass
-
-	func is_private(_target: Node, kind: PRIVACY.Kind = PRIVACY.Kind.OFFER) -> bool:
-		samples += 1
-		last_kind = int(kind)
-		return private
 
 
 ## The act-target rule: the ponies this fixture allows.
@@ -313,16 +294,12 @@ func check_start_outcomes() -> void:
 	negotiation.live = null
 	negotiation.match = null
 
-	# A live negotiation without an Agreement is interrupted before the attempt.
-	negotiation.locked = true
-	check(service.start_pose_offer(hotkey), "the hotkey runs after a negotiation")
-	check(negotiation.interrupts == 1, "an active negotiation is interrupted")
-	negotiation.locked = false
-
-	# A live Agreement with a different option is interrupted; the attempt still runs.
+	# A live exchange that is not the exact match is ended by the press; the attempt still runs.
 	negotiation.live = _agreement(pony)
-	check(service.start_pose_offer(hotkey), "a different Agreement is interrupted")
-	check(negotiation.interrupts == 2, "the different Agreement is interrupted")
+	var presses := negotiation.press_calls
+	check(service.start_pose_offer(hotkey), "the hotkey runs after a different Agreement")
+	check(negotiation.press_calls == presses + 1, "the offer asks the negotiation once")
+	check(negotiation.live == null, "the different Agreement is broken")
 	negotiation.live = null
 
 	# An invalid handle is a no-op.
@@ -332,15 +309,14 @@ func check_start_outcomes() -> void:
 	_free(made)
 
 
-## The Agreement auto-start: its 0.25 s clock, the live-act and menu guards, the scene readiness,
-## the fresh private sample with the cuddle rule, and the wait that keeps the Agreement.
+## The Agreement auto-start: its 0.25 s clock, the live-act and menu guards, the readiness read
+## and the scene rows, and the wait that keeps the Agreement.
 func check_auto_start() -> void:
 	var made := _fixture()
 	var service: OFFER = made["service"]
 	var runtime: FakeRuntime = made["runtime"]
 	var pony: FakePony = made["pony"]
 	var negotiation: FakeNegotiation = made["negotiation"]
-	var privacy: FakePrivacy = made["privacy"]
 	var game: FakeGame = made["game"]
 	var menu: FakeMenu = made["menu"]
 
@@ -354,64 +330,49 @@ func check_auto_start() -> void:
 	check(float(service.get("_agreement_clock")) < OFFER.AGREEMENT_START_S,
 		"a live act does not advance the clock")
 
-	# A live private Agreement whose fresh sample is public is cancelled, not started.
-	negotiation.live = _agreement(pony, CATALOG.MISSIONARY, false, true)
-	privacy.private = false
-	service.tick(OFFER.AGREEMENT_START_S)
-	check(negotiation.cancels.size() == 1 and str(negotiation.cancels[0][1]) == "privacy",
-		"a private auto-start cancels when the fresh sample is public")
-	check(runtime.agreement_handles.is_empty(), "a cancelled private auto-start starts no act")
-	check(privacy.samples == 1 and privacy.last_kind == PRIVACY.Kind.OFFER,
-		"the private sample reads the offer rule")
-
 	# The menu panel holds the start.
 	negotiation.live = _agreement(pony)
-	privacy.private = true
 	menu.opened = true
 	service.tick(OFFER.AGREEMENT_START_S)
 	check(runtime.agreement_handles.is_empty(), "an open menu holds the auto-start")
 	check(game.save_menu == menu, "the menu is the scene's own panel")
 	menu.opened = false
 
-	# A public Agreement takes no privacy sample and starts.
+	# A ready Agreement starts and is reported.
 	runtime.agreement_result = OFFER.AGREEMENT_STARTED
 	service.tick(OFFER.AGREEMENT_START_S)
-	check(runtime.agreement_handles.size() == 1,
-		"a public Agreement auto-starts without a privacy sample")
-	check(privacy.samples == 1, "the public auto-start does not sample")
+	check(runtime.agreement_handles.size() == 1, "a ready Agreement auto-starts")
 	check(negotiation.reports.size() == 1 and bool(negotiation.reports[0][1]),
 		"the auto-started Agreement is reported")
 
-	# A cuddle Agreement takes the stricter cuddle sample.
-	negotiation.live = _agreement(pony, CATALOG.MISSIONARY, true, true)
+	# The scene's own Agreement rows gate the start, not only the negotiation's readiness.
+	negotiation.live = _agreement(pony)
+	runtime.scene_ready = false
 	service.tick(OFFER.AGREEMENT_START_S)
-	check(privacy.samples == 2 and privacy.last_kind == PRIVACY.Kind.CUDDLE,
-		"a cuddle auto-start reads the cuddle rule")
-	check(runtime.agreement_handles.size() == 2, "the cuddle Agreement starts")
+	check(runtime.agreement_handles.size() == 1,
+		"a scene that refuses the Agreement starts nothing")
+	runtime.scene_ready = true
 
 	# A wait keeps the Agreement live and restarts the clock.
-	negotiation.live = _agreement(pony)
 	runtime.agreement_result = OFFER.AGREEMENT_WAIT
 	var starts := runtime.agreement_handles.size()
 	service.tick(OFFER.AGREEMENT_START_S)
 	check(runtime.agreement_handles.size() == starts + 1, "a waiting Agreement is asked again")
 	check(negotiation.live != null, "a waiting Agreement stays live")
 
-	# An Agreement the scene does not accept starts nothing.
+	# The negotiation's readiness read decides; the offer starts nothing on a no.
 	negotiation.live = _agreement(pony)
 	negotiation.is_ready = false
 	starts = runtime.agreement_handles.size()
 	service.tick(OFFER.AGREEMENT_START_S)
 	check(runtime.agreement_handles.size() == starts,
-		"an Agreement the scene does not accept starts nothing")
+		"an Agreement the negotiation does not accept starts nothing")
 	negotiation.is_ready = true
 
-	# The hotkey's exact match starts at once and does not sample the provider.
+	# The exact hotkey match starts at once.
 	negotiation.match = negotiation.live
 	runtime.agreement_result = OFFER.AGREEMENT_STARTED
-	var samples := privacy.samples
 	check(service.start_pose_offer(_handle(runtime, pony)), "the exact hotkey match starts")
-	check(privacy.samples == samples, "the hotkey match does not resample privacy")
 	_free(made)
 
 
@@ -427,7 +388,6 @@ func _fixture(with_world := true) -> Dictionary:
 	root.add_child(negotiation)
 	var hud := FakeHud.new()
 	root.add_child(hud)
-	var privacy := FakePrivacy.new()
 	var game := FakeGame.new()
 	game.name = "FakeGame"
 	var menu := FakeMenu.new()
@@ -458,10 +418,10 @@ func _fixture(with_world := true) -> Dictionary:
 	root.add_child(roster)
 	var service := OFFER.new()
 	service.name = "UnfplapOffer"
-	service.wire(negotiation, privacy, hud, owner, roster, targets, gate)
+	service.wire(negotiation, hud, owner, roster, targets, gate)
 	root.add_child(service)
 	return {"service": service, "pony": pony, "runtime": runtime, "game": game, "menu": menu,
-		"negotiation": negotiation, "hud": hud, "privacy": privacy, "owner": owner,
+		"negotiation": negotiation, "hud": hud, "owner": owner,
 		"nodes": world_nodes, "ponies": roster, "eligibility": targets, "gate": gate}
 
 
@@ -511,5 +471,5 @@ func _free(made: Dictionary) -> void:
 		node.free()
 	root.remove_child(service)
 	service.free()
-	for key: String in ["privacy", "eligibility", "gate"]:
+	for key: String in ["eligibility", "gate"]:
 		(made[key] as Node).free()

@@ -96,8 +96,6 @@ class Boxes:
 	var relationship := true
 	var privacy := true
 	var place_ok := true
-	var scene_ready := true
-	var scene_ready_calls := 0
 	var classify_mode := "sync"
 	var reason_mode := "sync"
 	var await_mode := "sync"
@@ -139,9 +137,6 @@ func _fixture() -> Dictionary:
 	host.pose_placed = func(_target: Node, option) -> bool:
 		boxes.placed.append(option)
 		return boxes.place_ok
-	host.scene_ready = func(_target: Node, _option, _profile_ok: bool, _source_ok: bool) -> bool:
-		boxes.scene_ready_calls += 1
-		return boxes.scene_ready
 	host.form_view = func(): return boxes.form_view
 	host.hold_for = func(_target: Node): return boxes.hold
 	host.classify = func(request, scope, done) -> bool:
@@ -252,7 +247,7 @@ func run() -> void:
 	_check_hold_loss()
 	_check_report_and_cancel()
 	_check_lock()
-	_check_ready_offer()
+	_check_press()
 	finish()
 
 
@@ -279,13 +274,9 @@ func _check_anon_accept() -> void:
 	check(boxes.agreements.size() == 1 and boxes.agreements[0] == handle,
 		"the Agreement is handed to main")
 	check(boxes.hold.release_count == 0, "the live Agreement keeps the hold")
-	check(service.hotkey_handle(runtime, _standing_option()) == handle,
-		"the exact hotkey option matches the Agreement")
-	var other := POSE_OPTIONS.Option.new()
-	other.pose = CATALOG.STANDING
-	other.cuddle = true
-	check(service.hotkey_handle(runtime, other) == null,
-		"a different option does not match the Agreement")
+	check(service.press(runtime, _standing_option()) == handle,
+		"the exact act-key option matches the Agreement")
+	check(service.is_locked(), "a match leaves the Agreement live")
 	boxes.clock = 221.0
 	service.tick(0.0)
 	check(service.handle() == null and not service.is_locked(), "the Agreement TTL expires")
@@ -295,27 +286,52 @@ func _check_anon_accept() -> void:
 	_free(made)
 
 
-## The live Agreement's readiness: the scene and privacy answer live, and no flag is kept.
-func _check_ready_offer() -> void:
+## The act key's one decision and the Agreement's one readiness read.
+func _check_press() -> void:
 	var made := _fixture()
 	var boxes: Boxes = made["boxes"]
 	var service = made["service"]
-	check(not service.ready_offer(), "no live Agreement is never ready")
+	check(service.press(made["runtime"], _standing_option()) == null,
+		"no live exchange is no match")
+	boxes.classify_mode = "async"
+	check(service.begin_anon_offer(made["runtime"], "want to?"), "an offer starts")
+	check(service.press(made["runtime"], _standing_option()) == null,
+		"a press during a classified offer breaks it")
+	check(_last_reason(boxes) == AGREEMENT.REASON_HOTKEY, "the break is the hotkey reason")
+	check(not service.is_locked(), "the broken exchange releases the lock")
+	_free(made)
+
+	made = _fixture()
+	boxes = made["boxes"]
+	service = made["service"]
 	_accept_anon(made)
-	check(service.ready_offer(), "a formed Agreement is ready")
-	check(boxes.scene_ready_calls == 1, "the ready path asks the scene once")
-	boxes.scene_ready = false
-	check(not service.ready_offer(), "a changed scene is not ready")
-	check(boxes.scene_ready_calls == 2, "the failed scene was still asked")
-	boxes.scene_ready = true
+	var other := POSE_OPTIONS.Option.new()
+	other.pose = CATALOG.STANDING
+	other.cuddle = true
+	check(service.press(made["runtime"], other) == null, "a different option does not match")
+	check(_last_reason(boxes) == AGREEMENT.REASON_HOTKEY,
+		"a different option is broken for the act key")
+	check(service.handle() == null, "the broken Agreement is gone")
+	_free(made)
+
+	made = _fixture()
+	boxes = made["boxes"]
+	service = made["service"]
+	_accept_anon(made)
+	check(service.can_start(), "a formed Agreement is ready")
 	boxes.privacy = false
-	check(not service.ready_offer(), "a lost private view is not ready")
-	boxes.privacy = true
-	check(service.ready_offer(), "the recovered scene and privacy are ready again")
+	check(not service.can_start(), "a lost private view is not ready")
+	check(service.handle() == null, "the privacy loss closes the Agreement there")
+	check(_last_reason(boxes) == AGREEMENT.REASON_PRIVACY, "the self-cancel reason is privacy")
+	check(boxes.reactions.size() == 1, "the self-cancel queues the shared line")
+	_free(made)
+
+	made = _fixture()
+	boxes = made["boxes"]
+	service = made["service"]
+	_accept_anon(made)
 	boxes.clock += AGREEMENT.AGREEMENT_TTL_S
-	var calls: int = boxes.scene_ready_calls
-	check(not service.ready_offer() and boxes.scene_ready_calls == calls,
-		"an expired Agreement is not ready and asks no scene")
+	check(not service.can_start(), "an expired Agreement is not ready")
 	_free(made)
 
 
@@ -752,8 +768,9 @@ func _check_report_and_cancel() -> void:
 	boxes.classify_mode = "async"
 	service = made["service"]
 	service.begin_anon_offer(made["runtime"], "want to?")
-	check(service.interrupt_for_hotkey(), "the hotkey breaks a live negotiation")
-	check(boxes.outcomes[-1].reason == AGREEMENT.REASON_HOTKEY, "the negotiation break is hotkey")
+	check(service.press(made["runtime"], _standing_option()) == null,
+		"the act key breaks a live negotiation")
+	check(_last_reason(boxes) == AGREEMENT.REASON_HOTKEY, "the negotiation break is hotkey")
 	_free(made)
 
 

@@ -14,7 +14,7 @@ This contract covers:
 - the single-call business checks the `reconsider()` pass and the Agreement readiness run;
 - the typed playable offer, the blocked variant and the `offer_target()` query;
 - the hint unit in the game's prompt row, its HUD fallback and the blocked toasts;
-- the act key's entry, the typed start path, the hotkey attempt and its Agreement exact match;
+- the act key's one press, the typed start path and its Agreement exact match;
 - the live Agreement start, its wait/start/fail answer and the auto-start clock with its guards;
 - the `OFFER ...`, `OFFER blocked ...`, `hotkey ...` and `agreement ...` log lines and the offer's
   perf chunks.
@@ -81,10 +81,11 @@ trigger, so it never names a pose. It dispatches:
 - anything else → the hotkey attempt.
 
 **The hotkey attempt** is `runtime.start.start_hotkey()`: the scene gate's `hotkey_ready()` (the
-small scene checks plus Base clearance), with no policy snapshot, no offer cooldown and no buck. A
-live Agreement's exact `(pose, source, bed)` match starts immediately and skips the presentation;
-any other live Agreement or negotiation is interrupted with `Interrupted(hotkey)` and the immediate
-attempt still runs. A started attempt clears the hint; a blocked one keeps it.
+small scene checks plus Base clearance), with no policy snapshot, no offer cooldown and no buck. The
+act key first asks the Negotiation service's `press()`: its exact `(pose, source, bed)` match starts
+the live Agreement immediately and skips the presentation, and anything else live is ended there
+with `Interrupted(hotkey)` before the immediate attempt runs. A started attempt clears the hint; a
+blocked one keeps it.
 
 **The live Agreement start** is `runtime.start.start_agreement(handle)`: only the scene-only rows with
 the frozen pose capability. `AGREEMENT_WAIT` keeps the hint and the Agreement for the next press.
@@ -97,11 +98,11 @@ never preloads the runtime; `tests/offer/test_start.gd` fails if the two ever di
 runs in the common idle frame, before the handle read, so a handle that appears between polls is
 consumed on the next one, `AGREEMENT_START_S` later at most. A live act holds it and does not
 advance the clock; an open menu panel, a paused tree or a loose desktop cursor holds it after the
-clock was consumed. The Negotiation service's `ready_offer()` decides whether the live scene
-accepts it. A private Agreement takes a fresh privacy sample (the cuddle rule for a cuddle option)
-immediately before it starts and is cancelled with the `privacy` reason when the sample is now
-public; a public one never samples. The steady 0.5 s privacy sample in the Negotiation tick is the
-path that cancels a private Agreement between auto-start polls.
+clock was consumed. The Negotiation service's `can_start()` decides the Agreement's own readiness
+and cancels a private one that lost its visibility; the offer then runs the scene gate's
+`agreement_ready()` rows with the frozen pose pair, because the scene gate is the readiness
+authority and the service keeps no row of its own. The steady privacy sample belongs to the
+Negotiation tick.
 
 ## Triggers
 
@@ -117,7 +118,7 @@ path that cancels a private Agreement between auto-start polls.
 | A body swap or a new runtime | a new instance id | a new sense; the attach warm |
 | An act starts | the entry stops ticking the offer and calls `hide_hint()` | the sensor is idle |
 | The act key | `try_start()` | a forced sensor read and `reconsider()` |
-| A live Agreement becomes ready | the 0.25 s auto-start clock | `ready_offer()` |
+| A live Agreement becomes ready | the 0.25 s auto-start clock | `can_start()` and the scene rows |
 
 ## Facade
 
@@ -155,14 +156,11 @@ typed start path. The Agreement needs no key at all: it auto-starts when it is r
 **Enable debug** on prints one `OFFER pony=<name> pose=<pose> source=<source> bed=<bed> pending=<bool>`
 line per change of the offer and one
 `OFFER blocked pony=<name> reason=needs_stool gap=<m|n/a> need=<n> have=<n>` line per blocked target.
-The start path adds `hotkey no context pose`, `hotkey exact match id=<id> pose=<pose>`,
-`hotkey interrupt agreement|negotiation id=<id>`,
-`hotkey immediate id=<id> pose=<pose> source=<source>`,
+The start path adds `hotkey no context pose`, `hotkey immediate id=<id> pose=<pose> source=<source>`,
 `hotkey start blocked id=<id> pose=<pose> source=<source>`,
 `agreement start id=<id> pose=<pose> skip_presentation=<bool> result=<n>`,
 `agreement start waiting pose=<pose> source=<source>`,
-`agreement auto-start id=<id> pose=<pose>`, `agreement auto-start privacy lost pony=<name>` and
-`agreement auto-start pony=<name> pose=<pose>`.
+`agreement auto-start id=<id> pose=<pose>` and `agreement auto-start pony=<name> pose=<pose>`.
 **Enable debug** + **Print perf logs** adds the `offer_sensor` chunk (every idle frame, wrapping
 the `offer_sensor_read` child), its `fan_discover` and `fan_hash` children at the poll,
 `offer_reconsider` (one transition, wrapping the `offer_agreement` and `offer_stool` children) and
@@ -172,8 +170,7 @@ the `offer_sensor_read` child), its `fan_discover` and `fan_hash` children at th
 
 | Callback | Type | Contract |
 |---|---|---|
-| `negotiation` | `negotiation/api.gd` | the Negotiation service; only its public `handle()`, `ready_offer()`, `is_locked()`, `hotkey_handle()`, `interrupt_for_hotkey()`, `cancel()` and `report()` reads are used |
-| `privacy` | `privacy/api.gd` | the live visibility provider, sampled fresh before a private Agreement auto-starts |
+| `negotiation` | `negotiation/api.gd` | the Negotiation service; only its public `handle()`, `can_start()`, `is_locked()`, `press()`, `cancel()` and `report()` reads are used |
 | `hud` | `Node` | the desktop HUD, bound at construction; `show_prompt`/`hide_prompt` (toasts go through the bound `hud.toast()`) |
 | `act_owner` | `act_owner/api.gd` | the act frame the press and the sensor gate on (`docs/act_owner.md`) |
 | `ponies` | `ponies/api.gd` | the roster the runtime, scene, start and presentation reads go through (`docs/ponies.md`); handed to the fan sensor too |
@@ -183,5 +180,4 @@ the `offer_sensor_read` child), its `fan_discover` and `fan_hash` children at th
 `_ready()` joins the settings change notification and `_exit_tree()` leaves it, so an edit reaches
 `apply_settings()` with no entry path. The act-running read is the wired act owner
 (`docs/act_owner.md`). A missing roster reads as no runtime and no act target, and a missing owner
-as no act, so an unbound service reads no fan and starts nothing. A missing privacy provider reads
-as public, so a private Agreement does not start on a stale answer.
+as no act, so an unbound service reads no fan and starts nothing.

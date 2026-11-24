@@ -89,9 +89,6 @@ func _start(raw: Dictionary) -> SESSION.PoseStart:
 	return start
 
 
-func _request(raw: Dictionary = {}) -> SESSION.PoseRequest:
-	return SESSION.PoseRequest.from_dict(raw)
-
 
 func _render(frame: Transform3D = SESSION.NO_FRAME, scale: float = 1.0) -> SESSION.RenderFrame:
 	return SESSION.RenderFrame.of(frame, scale)
@@ -664,7 +661,7 @@ func _check_state_machine() -> void:
 		and pose_node.to_driver == POSE.STANDING_PATH,
 		"the begin resolves both sides to the standing driver")
 	var live_config: Dictionary = session._pose_config
-	var result: SESSION.PoseResult = session.request_pose(CATALOG.STANDING_TEST, "test", _request({"act_state": 2}))
+	var result: SESSION.PoseResult = session.request_pose(CATALOG.STANDING_TEST, "test")
 	check(result.ok and result.code == "ok",
 		"the forward debug request is accepted")
 	check(view.edge_id == "standing__standing_test",
@@ -702,9 +699,9 @@ func _check_state_machine() -> void:
 
 	var before_id := str(view.id)
 	var before_edge := str(view.edge_id)
-	var same_result: SESSION.PoseResult = session.request_pose(CATALOG.STANDING_TEST, "test", _request({"act_state": 2}))
+	var same_result: SESSION.PoseResult = session.request_pose(CATALOG.STANDING_TEST, "test")
 	check(same_result.code == "same", "a second identical request is same")
-	var busy_result: SESSION.PoseResult = session.request_pose(CATALOG.STANDING, "test", _request({"act_state": 2}))
+	var busy_result: SESSION.PoseResult = session.request_pose(CATALOG.STANDING, "test")
 	check(busy_result.code == "busy", "a request during an edge is busy")
 	check(view.id == before_id and view.edge_id == before_edge,
 		"a refused request leaves the view alone")
@@ -738,7 +735,7 @@ func _check_state_machine() -> void:
 	session.tick(0.6)
 	check(view.id == before_tick_id, "a tick after completion is a no-op")
 
-	var reverse: SESSION.PoseResult = session.request_pose(CATALOG.STANDING, "test", _request({"act_state": 2}))
+	var reverse: SESSION.PoseResult = session.request_pose(CATALOG.STANDING, "test")
 	check(reverse.code == "ok", "the reverse debug request is accepted")
 	check(view.edge_id == "standing_test__standing",
 		"the reverse request names the reverse edge")
@@ -768,8 +765,8 @@ func _check_oral_edge() -> void:
 	var from: Vector3 = pony.global_position
 	var from_basis: Basis = pony.global_transform.basis.orthonormalized()
 	var frame_start: Transform3D = session.ground_frame
-	var forward: SESSION.PoseResult = session.request_pose(CATALOG.STANDING_ORAL, "oral",
-		_request({"act_state": 2, "consent": "oral", "features": {"anatomy_oral": true}}))
+	session._facts.features = {"anatomy_oral": true}
+	var forward: SESSION.PoseResult = session.request_pose(CATALOG.STANDING_ORAL, "oral", "oral")
 	check(forward.ok, "the oral forward request is accepted")
 	check(view.edge_id == "standing__standing_oral",
 		"the oral forward request names its edge")
@@ -842,8 +839,7 @@ func _check_oral_edge() -> void:
 		"the afterglow keeps the turned frame")
 	check(session._pose_config.has("oral_pitch"), "the afterglow keeps the neck keys")
 
-	var reverse: SESSION.PoseResult = session.request_pose(CATALOG.STANDING, "oral",
-		_request({"act_state": 2, "features": {"anatomy_oral": true}}))
+	var reverse: SESSION.PoseResult = session.request_pose(CATALOG.STANDING, "oral")
 	check(reverse.ok, "the oral reverse request is accepted")
 	check(view.edge_id == "standing_oral__standing",
 		"the oral reverse request names its edge")
@@ -882,11 +878,13 @@ func _check_oral_edge() -> void:
 	refused._facts.anatomy_opening = Vector3(1.0, 0.0, 1.0)
 	var before: Vector3 = refused_pony.global_position
 	for case: Dictionary in [
-		{"act_state": 2, "consent": "oral", "features": {}},
-		{"act_state": 2, "features": {"anatomy_oral": true}},
-		{"act_state": 2, "consent": "oral", "features": {}},
+		{"consent": "oral", "features": {}},
+		{"consent": "", "features": {"anatomy_oral": true}},
+		{"consent": "oral", "features": {}},
 	]:
-		var result: SESSION.PoseResult = refused.request_pose(CATALOG.STANDING_ORAL, "oral", _request(case))
+		refused._facts.features = case["features"]
+		var result: SESSION.PoseResult = refused.request_pose(CATALOG.STANDING_ORAL, "oral",
+			str(case["consent"]))
 		check(result.code == "refused",
 			"the oral requirement refuses %s" % str(case))
 	check(refused_view.id == CATALOG.STANDING and refused_view.pose_state == VIEW.STEADY,
@@ -910,8 +908,33 @@ func _check_facesit_edge() -> void:
 	session.bed_frame = Transform3D(Basis.IDENTITY, Vector3(0.0, 0.65, 0.0))
 	session._facts.missionary_anon = func() -> Variant: return points
 	session._facts.anatomy_opening = points.opening
-	var forward: SESSION.PoseResult = session.request_pose(CATALOG.BED_FACESIT, "facesit",
-		_request({"act_state": 2}))
+	var previous_anatomy := SETTINGS.anatomy_mode.get_choice()
+	SETTINGS.anatomy_mode.set_choice("act")
+	session.act_body = FakeActBody.new()
+	session._facts.kiss_active = true
+	var kiss_refused: SESSION.PoseResult = session.request_pose(CATALOG.BED_FACESIT, "facesit")
+	check(kiss_refused.code == "refused" and kiss_refused.reason == "a kiss is running",
+		"a running kiss refuses the face-sit")
+	session._facts.kiss_active = false
+	SETTINGS.anatomy_mode.set_choice("never")
+	var anatomy_refused: SESSION.PoseResult = session.request_pose(CATALOG.BED_FACESIT, "facesit")
+	check(anatomy_refused.code == "refused"
+		and anatomy_refused.reason == "the anatomy is not available",
+		"the anatomy master off refuses the face-sit")
+	SETTINGS.anatomy_mode.set_choice("act")
+	var body: Variant = session.act_body
+	session.act_body = null
+	var body_refused: SESSION.PoseResult = session.request_pose(CATALOG.BED_FACESIT, "facesit")
+	check(body_refused.code == "refused"
+		and body_refused.reason == "the anatomy is not available",
+		"a missing act body refuses the face-sit")
+	session.act_body = body
+	session._state = VIEW.TRANSITIONING
+	var changing: SESSION.PoseResult = session.request_pose(CATALOG.BED_FACESIT, "facesit")
+	check(changing.code == "busy", "a changing pose refuses the face-sit")
+	session._state = VIEW.STEADY
+	check(view.pose_state == VIEW.STEADY, "the face-sit refusals leave the view steady")
+	var forward: SESSION.PoseResult = session.request_pose(CATALOG.BED_FACESIT, "facesit")
 	check(forward.ok, "the face-sit forward request is accepted")
 	check(view.edge_id == "missionary__bed_facesit",
 		"the face-sit forward request names its edge")
@@ -927,7 +950,7 @@ func _check_facesit_edge() -> void:
 	check(str(session.pose_node.to_authored.get("path")).ends_with("bed_facesit_pose.json"),
 		"the to side is the face-sit asset")
 
-	var busy: SESSION.PoseResult = session.request_pose(CATALOG.MISSIONARY, "facesit", _request({"act_state": 2}))
+	var busy: SESSION.PoseResult = session.request_pose(CATALOG.MISSIONARY, "facesit")
 	check(busy.code == "busy",
 		"a request while the face-sit edge runs is busy")
 	session.tick(0.0)
@@ -965,15 +988,15 @@ func _check_facesit_edge() -> void:
 			ACT_COMMANDS.ORAL, ACT_COMMANDS.POSE_BACK, ACT_COMMANDS.POSE_FORWARD]:
 		check(not session.request_command(command_id),
 			"the face-sit control set denies %s" % command_id)
-	var same: SESSION.PoseResult = session.request_pose(CATALOG.BED_FACESIT, "facesit", _request({"act_state": 2}))
+	var same: SESSION.PoseResult = session.request_pose(CATALOG.BED_FACESIT, "facesit")
 	check(same.code == "same", "a same-pose request is reported as same")
-	var bad_phase: SESSION.PoseResult = session.request_pose(CATALOG.MISSIONARY, "facesit",
-		_request({"act_state": 1}))
+	session._facts.state = 1
+	var bad_phase: SESSION.PoseResult = session.request_pose(CATALOG.MISSIONARY, "facesit")
+	session._facts.state = 2
 	check(bad_phase.code == "bad_phase",
 		"a face-sit request outside ACTIVE is refused")
 
-	var reverse: SESSION.PoseResult = session.request_pose(CATALOG.MISSIONARY, "facesit",
-		_request({"act_state": 2}))
+	var reverse: SESSION.PoseResult = session.request_pose(CATALOG.MISSIONARY, "facesit")
 	check(reverse.ok, "the face-sit reverse request is accepted")
 	check(view.edge_id == "bed_facesit__missionary",
 		"the face-sit reverse request names its edge")
@@ -992,6 +1015,7 @@ func _check_facesit_edge() -> void:
 	check(session.request_command(ACT_COMMANDS.KISS),
 		"the missionary control set returns after the face-sit")
 	_free_live(made)
+	SETTINGS.anatomy_mode.set_choice(previous_anatomy)
 
 
 ## Every refusal code, in the order the state module reports it, plus the synthetic asset and
@@ -1000,24 +1024,30 @@ func _check_refusals() -> void:
 	var made := _live_session(CATALOG.STANDING)
 	var session: SESSION = made["session"]
 	var view: RefCounted = session.view()
-	var same: SESSION.PoseResult = session.request_pose(CATALOG.STANDING, "test", _request({"act_state": 2}))
+	var same: SESSION.PoseResult = session.request_pose(CATALOG.STANDING, "test")
 	check(same.code == "same", "the start pose is same")
-	for phase: int in [1, 3, 4, 5]:
-		var result: SESSION.PoseResult = session.request_pose(CATALOG.STANDING_TEST, "test",
-			_request({"act_state": phase}))
+	for phase: int in [0, 1, 3, 4, 5]:
+		session._facts.state = phase
+		var result: SESSION.PoseResult = session.request_pose(CATALOG.STANDING_TEST, "test")
 		check(result.code == "bad_phase",
 			"act state %d is bad_phase" % phase)
-	var no_edge: SESSION.PoseResult = session.request_pose(CATALOG.MISSIONARY, "test", _request({"act_state": 2}))
+	session._facts.state = 2
+	var no_edge: SESSION.PoseResult = session.request_pose(CATALOG.MISSIONARY, "test")
 	check(no_edge.code == "no_edge", "a pair without an edge is no_edge")
-	var form: SESSION.PoseResult = session.request_pose(CATALOG.STANDING_TEST, "test",
-		_request({"act_state": 2, "forms": ["unicorn"]}))
+	var form_spec: Variant = _synthetic_spec(session, "synthetic_human_only")
+	form_spec.forms.assign(["human"])
+	_synthetic_edge(session, CATALOG.STANDING, "synthetic_human_only", {})
+	session._facts.player_pony = true
+	var form: SESSION.PoseResult = session.request_pose("synthetic_human_only", "test")
 	check(form.code == "unsupported_form", "an unsupported form refuses")
-	var view_result: SESSION.PoseResult = session.request_pose(CATALOG.STANDING_TEST, "test",
-		_request({"act_state": 2, "views": ["seat"]}))
+	session._facts.player_pony = false
+	var view_spec: Variant = _synthetic_spec(session, "synthetic_desktop_only")
+	view_spec.views.assign(["desktop"])
+	_synthetic_edge(session, CATALOG.STANDING, "synthetic_desktop_only", {})
+	session._facts.headset_view = true
+	var view_result: SESSION.PoseResult = session.request_pose("synthetic_desktop_only", "test")
 	check(view_result.code == "unsupported_view", "an unsupported view refuses")
-	var locked: SESSION.PoseResult = session.request_pose(CATALOG.STANDING_TEST, "test",
-		_request({"act_state": 2, "locked": true}))
-	check(locked.code == "locked", "a locked request refuses")
+	session._facts.headset_view = false
 	check(view.id == CATALOG.STANDING and view.pose_state == VIEW.STEADY,
 		"every refusal leaves the view steady on the start pose")
 	_free_live(made)
@@ -1025,8 +1055,7 @@ func _check_refusals() -> void:
 	var fresh_made := _session(CATALOG.STANDING)
 	var fresh: SESSION = fresh_made["session"]
 	var fresh_pony: FakePony = fresh_made["pony"]
-	var not_steady: SESSION.PoseResult = fresh.request_pose(CATALOG.STANDING_TEST, "test",
-		_request({"act_state": 2}))
+	var not_steady: SESSION.PoseResult = fresh.request_pose(CATALOG.STANDING_TEST, "test")
 	check(not_steady.code == "not_steady",
 		"a session that has not begun is not_steady")
 	root.remove_child(fresh_pony)
@@ -1036,15 +1065,14 @@ func _check_refusals() -> void:
 	var refused: SESSION = refused_made["session"]
 	var refused_view: RefCounted = refused.view()
 	for case: Array in [
-		["synthetic_feature", {"features": ["missing_feature"]}, {}],
-		["synthetic_consent", {"consent": "needed"}, {}],
+		["synthetic_feature", {"features": ["missing_feature"]}, ""],
+		["synthetic_consent", {"consent": "needed"}, ""],
 	]:
 		var target := str(case[0])
 		_synthetic_spec(refused, target)
 		_synthetic_edge(refused, CATALOG.STANDING, target, case[1] as Dictionary)
-		var request := _request(case[2] as Dictionary)
-		request.act_state = 2
-		var result: SESSION.PoseResult = refused.request_pose(target, "test", request)
+		refused._facts.features = {}
+		var result: SESSION.PoseResult = refused.request_pose(target, "test", str(case[2]))
 		check(result.code == "refused",
 			"the %s requirement refuses" % target)
 	check(refused_view.id == CATALOG.STANDING and refused_view.pose_state == VIEW.STEADY,
@@ -1059,8 +1087,7 @@ func _check_refusals() -> void:
 	missing_spec.delta = ""
 	missing_spec.driver = ""
 	_synthetic_edge(missing, CATALOG.STANDING, "synthetic_missing", {})
-	var missing_result: SESSION.PoseResult = missing.request_pose("synthetic_missing", "test",
-		_request({"act_state": 2}))
+	var missing_result: SESSION.PoseResult = missing.request_pose("synthetic_missing", "test")
 	check(missing_result.code == "missing_asset",
 		"a target without an asset is missing_asset")
 	check(missing_view.id == CATALOG.STANDING and missing_view.pose_state == VIEW.STEADY,
@@ -1080,7 +1107,7 @@ func _check_commands() -> void:
 	check(session.request_command(ACT_COMMANDS.END), "end is always allowed")
 	check(not session.request_command("nonsense"), "an unknown command is refused")
 	check(not session.request_command(""), "an empty command is refused")
-	var result: SESSION.PoseResult = session.request_pose(CATALOG.STANDING_TEST, "test", _request({"act_state": 2}))
+	var result: SESSION.PoseResult = session.request_pose(CATALOG.STANDING_TEST, "test")
 	check(result.code == "ok", "the command check starts the debug edge")
 	for command_id: String in [ACT_COMMANDS.THRUST, ACT_COMMANDS.LEAN, ACT_COMMANDS.CARESS,
 			ACT_COMMANDS.KISS, ACT_COMMANDS.ORAL, ACT_COMMANDS.HOLE,
@@ -1107,8 +1134,7 @@ func _check_commands() -> void:
 	_synthetic_spec(lock_session, "synthetic_lock", "standing")
 	_synthetic_edge(lock_session, CATALOG.STANDING, "synthetic_lock", {},
 		{"kind": "lock", "block": ["thrust"]})
-	var lock_result: SESSION.PoseResult = lock_session.request_pose("synthetic_lock", "test",
-		_request({"act_state": 2}))
+	var lock_result: SESSION.PoseResult = lock_session.request_pose("synthetic_lock", "test")
 	check(lock_result.code == "ok", "the lock edge starts")
 	check(not lock_session.request_command(ACT_COMMANDS.THRUST), "the lock block denies thrust")
 	check(lock_session.request_command(ACT_COMMANDS.LEAN),
@@ -1123,7 +1149,7 @@ func _check_target_snapshot() -> void:
 	var made := _live_session(CATALOG.STANDING)
 	var session: SESSION = made["session"]
 	var view: RefCounted = session.view()
-	var result: SESSION.PoseResult = session.request_pose(CATALOG.STANDING_TEST, "test", _request({"act_state": 2}))
+	var result: SESSION.PoseResult = session.request_pose(CATALOG.STANDING_TEST, "test")
 	check(result.code == "ok", "the snapshot check starts the debug edge")
 	var target: Dictionary = view.to_config
 	check(target.has("gaps"), "the target snapshot starts on the standing block")
@@ -1149,8 +1175,7 @@ func _check_settings_group_edge() -> void:
 	_synthetic_edge(session, CATALOG.STANDING, "synthetic_other_group", {},
 		{"kind": "switch", "at": 0.0, "set": "standing"})
 	var live: Dictionary = session._pose_config
-	var result: SESSION.PoseResult = session.request_pose("synthetic_other_group", "test",
-		_request({"act_state": 2}))
+	var result: SESSION.PoseResult = session.request_pose("synthetic_other_group", "test")
 	check(result.code == "ok", "the other-group edge starts")
 	var target: Dictionary = view.to_config
 	check(is_same(view.from_config, live), "the from side stays the live standing config")
@@ -1194,7 +1219,7 @@ func _check_asset_adoption() -> void:
 	var target := "synthetic_face_bed"
 	_synthetic_bed_spec(session, target)
 	_synthetic_edge(session, CATALOG.MISSIONARY, target, {})
-	var result: SESSION.PoseResult = session.request_pose(target, "test", _request({"act_state": 2}))
+	var result: SESSION.PoseResult = session.request_pose(target, "test")
 	check(result.code == "ok", "the synthetic bed edge starts")
 	check(session.pose_node.mode == POSE.MODE_BLEND,
 		"two different authored assets take the blend even with the same driver")
@@ -1247,7 +1272,7 @@ func _check_asset_reload() -> void:
 	var target := "synthetic_face_reload"
 	_synthetic_bed_spec(session, target)
 	_synthetic_edge(session, CATALOG.MISSIONARY, target, {})
-	var result: SESSION.PoseResult = session.request_pose(target, "test", _request({"act_state": 2}))
+	var result: SESSION.PoseResult = session.request_pose(target, "test")
 	check(result.code == "ok", "the reload edge starts")
 	var source: Variant = session.pose_node.authored
 	var wanted: Variant = session.pose_node.to_authored
@@ -1275,7 +1300,7 @@ func _check_release_abort() -> void:
 	var made := _live_session(CATALOG.STANDING)
 	var session: SESSION = made["session"]
 	var view: RefCounted = session.view()
-	var result: SESSION.PoseResult = session.request_pose(CATALOG.STANDING_TEST, "test", _request({"act_state": 2}))
+	var result: SESSION.PoseResult = session.request_pose(CATALOG.STANDING_TEST, "test")
 	check(result.code == "ok", "the abort check starts the debug edge")
 	check(session._run != null, "the edge is running")
 	session.release_pose()
@@ -1336,7 +1361,7 @@ func _check_anon_pair() -> void:
 	_synthetic_edge(session, CATALOG.STANDING, target, {},
 		{"kind": "switch", "at": 0.0, "set": "standing"},
 		{"anon": {"kind": "blend"}})
-	var result: SESSION.PoseResult = session.request_pose(target, "test", _request({"act_state": 2}))
+	var result: SESSION.PoseResult = session.request_pose(target, "test")
 	check(result.code == "ok", "the anon blend edge starts")
 	view.anon = {"mode": "act_body", "profile": "missionary"}
 	var source_asset := AUTHORED.new()
@@ -1371,8 +1396,7 @@ func _check_anon_pair() -> void:
 	_synthetic_edge(switch_session, CATALOG.STANDING, switch_target, {},
 		{"kind": "switch", "at": 0.0, "set": "standing"},
 		{"anon": {"kind": "switch", "at": 0.0, "profile": "missionary_switch"}})
-	var switch_result: SESSION.PoseResult = switch_session.request_pose(switch_target, "test",
-		_request({"act_state": 2}))
+	var switch_result: SESSION.PoseResult = switch_session.request_pose(switch_target, "test")
 	check(switch_result.code == "ok", "the anon switch edge starts")
 	switch_view.anon = {"mode": "act_body", "profile": "missionary"}
 	var switch_asset := AUTHORED.new()
@@ -1397,11 +1421,11 @@ func _check_no_act_exit() -> void:
 	var view: RefCounted = session.view()
 	var pose_node: Node = session.pose_node
 	var config: Dictionary = session._pose_config
-	var forward: SESSION.PoseResult = session.request_pose(CATALOG.STANDING_TEST, "test", _request({"act_state": 2}))
+	var forward: SESSION.PoseResult = session.request_pose(CATALOG.STANDING_TEST, "test")
 	check(forward.code == "ok", "the no-exit check starts the debug edge")
 	session.tick(0.0)
 	session.tick(0.6)
-	var reverse: SESSION.PoseResult = session.request_pose(CATALOG.STANDING, "test", _request({"act_state": 2}))
+	var reverse: SESSION.PoseResult = session.request_pose(CATALOG.STANDING, "test")
 	check(reverse.code == "ok", "the no-exit check returns to standing")
 	session.tick(0.0)
 	session.tick(0.6)

@@ -166,17 +166,10 @@ func free_look_active() -> bool:
 	return context.camera.free_look_active()
 
 
-## One pose request. The session supplies the act values; the pose service refuses or starts the
-## edge.
+## One pose request. The facts supply the act values; the pose service refuses or starts the edge.
 func request_pose(target_id: String, trigger := "",
-		request: POSE_SESSION.PoseRequest = null) -> POSE_SESSION.PoseResult:
-	var values := request.copy() if request != null else POSE_SESSION.PoseRequest.new()
-	if values.act_state < 0:
-		values.act_state = _session().state
-	if not values.features_set:
-		values.features = _session().features
-		values.features_set = true
-	return context.pose.request_pose(target_id, trigger, values)
+		consent := "") -> POSE_SESSION.PoseResult:
+	return context.pose.request_pose(target_id, trigger, consent)
 
 
 ## One command check against the pose's control set and the live edge lock; `end` is reserved.
@@ -224,16 +217,11 @@ func _toggle_oral() -> bool:
 	var live: Variant = context.pose.view()
 	var from_id := str(live.id) if live != null else ""
 	var target := CATALOG.STANDING_ORAL if from_id == CATALOG.STANDING else CATALOG.STANDING
-	var request := POSE_SESSION.PoseRequest.new()
 	var consent := false
 	if target == CATALOG.STANDING_ORAL:
 		consent = _consent("oral")
-		if consent:
-			request.consent = "oral"
-	request.act_state = _session().state
-	request.features = _session().features
-	request.features_set = true
-	var result: POSE_SESSION.PoseResult = context.pose.request_pose(target, "oral", request)
+	var result: POSE_SESSION.PoseResult = context.pose.request_pose(target, "oral",
+		"oral" if consent else "")
 	if result != null and result.ok:
 		LOG.debug("oral pose %s -> %s: ok", [from_id, target])
 		return true

@@ -123,6 +123,9 @@ total over the window, its calls and its worst call.
   **Bed cuddle** for the treebrary bed. See `docs/debug_actions.md`.
 - Reload the posed base from General's Debug block; the skeleton overlay is the Anatomy Debug
   flag.
+- Pose: face-sit switches between the missionary and the internal face-sit arrangement. A refusal
+  is the pose service's `request_pose()` reason (a kiss, the anatomy master, the act body), shown
+  as `Face-sit refused: <reason>.`; a view outside the pair reports `Only in a missionary act.`
 - Pose test variant: in a live standing act, press **Pose: test variant** and read the
   `pose request standing -> standing_test (debug): ok` and `pose status standing_test: test` log
   lines; press again to return to `standing`. The act, the pose node and the bones stay alive, so

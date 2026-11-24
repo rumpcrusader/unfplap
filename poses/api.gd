@@ -20,7 +20,6 @@ const EAR_TWITCH := preload("res://mods/unfplap/poses/ear_twitch.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const POSE_VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
-const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const POSE_STATE := preload("res://mods/unfplap/poses/pose_state.gd")
 const ORAL_TURN := preload("res://mods/unfplap/poses/oral_turn.gd")
 const FACE_CONTACT := preload("res://mods/unfplap/poses/face_contact.gd")
@@ -37,48 +36,6 @@ const NO_CHANNEL := {}
 const MODIFIER_ORDER := ["body_sway", "prone_sway", "ear_twitch", "tail", "tail_lay"]
 ## The absent pose frame: a real transform whose infinite origin no reader mistakes for space.
 const NO_FRAME := Transform3D(Basis.IDENTITY, Vector3.INF)
-
-
-## One pose request's act values; an unset field falls back to the session's live facts.
-class PoseRequest extends RefCounted:
-	var act_state := -1
-	var forms: Array[String] = []
-	var views: Array[String] = []
-	var features: Dictionary = {}
-	var features_set := false
-	var consent := ""
-	var locked := false
-
-	static func from_dict(raw: Dictionary) -> PoseRequest:
-		var out := PoseRequest.new()
-		out.act_state = int(raw.get("act_state", -1))
-		out.forms = _names(raw.get("forms"))
-		out.views = _names(raw.get("views"))
-		var flags: Variant = raw.get("features")
-		if flags is Dictionary:
-			out.features = flags
-			out.features_set = true
-		out.consent = str(raw.get("consent", ""))
-		out.locked = bool(raw.get("locked", false))
-		return out
-
-	static func _names(value: Variant) -> Array[String]:
-		var out: Array[String] = []
-		if value is Array:
-			for item: Variant in value:
-				out.append(str(item))
-		return out
-
-	func copy() -> PoseRequest:
-		var out := PoseRequest.new()
-		out.act_state = act_state
-		out.forms = forms
-		out.views = views
-		out.features = features
-		out.features_set = features_set
-		out.consent = consent
-		out.locked = locked
-		return out
 
 
 ## One pose request's verdict; `ok` is true only for the accepted code.
@@ -476,23 +433,26 @@ func _live_spec_id() -> String:
 	return str(_view.id)
 
 
-## Request one authored edge and return the typed `PoseResult` (`ok`, `code`, `reason`). It
-## leaves the act running and touches neither the live pose nor the bones.
-func request_pose(target_id: String, trigger: String, request: PoseRequest = null) -> PoseResult:
+## One authored edge request, answered with `PoseResult`; a refusal changes nothing at all.
+func request_pose(target_id: String, trigger: String, consent := "") -> PoseResult:
 	var from_id := str(_view.id)
 	var target_spec: POSE_SPEC = _registry.spec(target_id)
 	var edge_id := from_id + "__" + target_id
 	var edge: TRANSITION_SPEC = _registry.edge(edge_id)
-	var act_state := request.act_state if request != null and request.act_state >= 0 \
-		else (_facts.state if _facts != null else 0)
-	var forms := _request_forms(request)
-	var views := _request_views(request)
-	var features := _request_features(request)
-	var checks := _request_checks(target_spec, edge, request, forms, views, features)
+	var act_state := _facts.state if _facts != null else 0
+	var forms := _request_forms()
+	var views := _request_views()
+	var features := _facts_features()
+	var checks := _request_checks(target_spec, edge, consent, forms, views, features)
 	var code := POSE_STATE.request_code(_state, act_state, from_id, target_id,
 		edge != null, checks)
 	if code != "ok":
 		return PoseResult.make(code, _reason(code, target_id))
+	# The bed face-sit is a live arrangement: its provider must exist before the edge starts.
+	if _spec_contact_kind(target_spec) == "face":
+		var face_reason := _face_ready()
+		if not face_reason.is_empty():
+			return PoseResult.make("refused", face_reason)
 	var run: POSE_STATE.Run = POSE_STATE.start_edge(edge.data, from_id, target_id)
 	if run == null:
 		return PoseResult.make("missing_asset", "the edge did not start")
@@ -522,28 +482,31 @@ func request_pose(target_id: String, trigger: String, request: PoseRequest = nul
 	return PoseResult.make("ok")
 
 
-## The request's form list: the request's own list, or the player's live form.
-func _request_forms(request: PoseRequest) -> Array[String]:
-	if request != null and not request.forms.is_empty():
-		return request.forms
+## The player's live form.
+func _request_forms() -> Array[String]:
 	var forms: Array[String] = []
 	forms.append("pony" if _player_pony() else "human")
 	return forms
 
 
-## The request's view list: the request's own list, or the live display.
-func _request_views(request: PoseRequest) -> Array[String]:
-	if request != null and not request.views.is_empty():
-		return request.views
+## The live display.
+func _request_views() -> Array[String]:
 	var views: Array[String] = []
 	views.append("vr" if _headset_view() else "desktop")
 	return views
 
 
-func _request_features(request: PoseRequest) -> Dictionary:
-	if request != null and request.features_set:
-		return request.features
-	return _facts_features()
+## Why the bed face-sit cannot start right now, or "" when it can: the anatomy master, the live act
+## body and the anatomy bridge, and no running kiss.
+func _face_ready() -> String:
+	if not SETTINGS.anatomy_on() or not is_instance_valid(act_body):
+		return "the anatomy is not available"
+	var anatomy_body: Variant = _facts.missionary_body() if _facts != null else null
+	if not is_instance_valid(anatomy_body):
+		return "the anatomy is not available"
+	if _facts != null and bool(_facts.kiss_active):
+		return "a kiss is running"
+	return ""
 
 
 func _player_pony() -> bool:
@@ -563,7 +526,7 @@ func _facts_features() -> Dictionary:
 
 ## The target spec and the edge requirements against the request record, in the order
 ## `pose_state.request_code()` reports them. A missing flag passes.
-func _request_checks(target_spec: POSE_SPEC, edge: TRANSITION_SPEC, request: PoseRequest,
+func _request_checks(target_spec: POSE_SPEC, edge: TRANSITION_SPEC, consent: String,
 		forms: Array[String], views: Array[String], features: Dictionary) -> Dictionary:
 	var requires: Dictionary = {}
 	if edge != null:
@@ -591,7 +554,6 @@ func _request_checks(target_spec: POSE_SPEC, edge: TRANSITION_SPEC, request: Pos
 				features_ok = false
 				break
 	var wanted_consent := str(requires.get("consent", ""))
-	var consent := request.consent if request != null else ""
 	var consent_ok := wanted_consent.is_empty() or consent == wanted_consent
 	return {
 		"form_ok": form_ok,
@@ -599,7 +561,7 @@ func _request_checks(target_spec: POSE_SPEC, edge: TRANSITION_SPEC, request: Pos
 		"features_ok": features_ok,
 		"consent_ok": consent_ok,
 		"asset_ok": asset_ok,
-		"locked": request != null and request.locked,
+		"locked": false,
 	}
 
 
@@ -1826,28 +1788,6 @@ func diagnostics(skeleton: Skeleton3D, info: BASE_INFO) -> Array[String]:
 				WORLD.pony(other).posture_requested(), str(hips_at)])
 	rows.append("nearby=%d %s" % [nearest.size(), "; ".join(nearest)])
 	return rows
-
-
-## Why the face-sit debug action cannot toggle right now, or "" when it is ready: an active act, a
-## live missionary or face-sit view, a steady pose, no running kiss and the anatomy's act body.
-func face_sit_error(act_state: int) -> String:
-	if act_state == ACT_STATE.State.IDLE or act_state == ACT_STATE.State.RESTORE:
-		return "no active act"
-	if _view == null:
-		return "no active act"
-	if str(_view.id) != CATALOG.MISSIONARY and str(_view.id) != CATALOG.BED_FACESIT:
-		return "only in a missionary act"
-	if act_state != ACT_STATE.State.ACTIVE:
-		return "the act is not active"
-	if int(_view.pose_state) != POSE_VIEW.STEADY:
-		return "the pose is changing"
-	if _facts != null and bool(_facts.kiss_active):
-		return "a kiss is running"
-	var anatomy_body: Variant = _facts.missionary_body() if _facts != null else null
-	if not SETTINGS.anatomy_on() or not is_instance_valid(act_body) \
-			or not is_instance_valid(anatomy_body):
-		return "the anatomy is not available"
-	return ""
 
 
 ## Multi-row pose diagnostic for the debug action: base source, asset state, bed frame and where

@@ -179,11 +179,11 @@ variants and no `provisional` flag. The asset's `--pose bed_facesit --check` rou
 `pose_runtime_check` face-sit case are the automated proof; the arrangement is authored through
 `tools/pose_lab.gd` and saved as this asset.
 
-The pose session's `face_sit_error(act_state)` owns the Debug action's refusal order — no active
-act, a non-missionary view, a non-active act, a changing pose, a running kiss and missing anatomy —
-and `runtime.act.face_sit_error()` forwards it. `state_rows(state)` owns the pose diagnostic rows the
-Show data action reads, so neither rule is repeated in the runtime. `base_info()` answers in one
-typed record (`poses/pose_base_info.gd`), so the base diagnostics have a single source.
+`request_pose()` owns the bed face-sit's live verdict: a `face` target is refused with the
+anatomy, act body or kiss reason, so the Debug action only reports the pose service's answer.
+`state_rows(state)` owns the pose diagnostic rows the Show data action reads, so the rule is not
+repeated in the runtime. `base_info()` answers in one typed record (`poses/pose_base_info.gd`), so
+the base diagnostics have a single source.
 
 - The bake input is the **body rig's rest pose**, plus `apply_reference()` at the reference config.
   The game's own settled standing pose is `pony_gait_profile.gd`'s `standing`, bound from the same
@@ -407,13 +407,14 @@ pose id and the two camera points); the pony, its id, the bed and the features c
 and the size name and the pose block from settings. `pose_frame()`, `missionary_pose_frame()` and `ground_pose_frame()` return a `Transform3D`
 and `has_frame()` separates a live frame from the absent one, whose origin is infinite.
 
-`request_pose(target_id, trigger, request)` returns the typed `PoseResult` record (`ok`, `code`,
-`reason`). It checks the target against the act phase, the player's form/view, the edge
+`request_pose(target_id, trigger, consent := "")` returns the typed `PoseResult` record (`ok`,
+`code`, `reason`). It checks the target against the act phase, the player's form/view, the edge
 requirements and the edge lock in the state module's order: `same`, `bad_phase`, `busy`,
 `not_steady`, `no_edge`, `unsupported_form`, `unsupported_view`, `refused`, `missing_asset`,
-`locked`, `ok`. A refused request changes nothing. The typed `PoseRequest` supplies `act_state`
-(the runtime passes its state), `features`, `consent`, `forms`, `views` and `locked`; absent values
-default to the act's live facts and the player's form/display.
+`locked`, `ok`. A refused request changes nothing. The act state, the player's form and view and
+the features come from the facts; consent is the only per-request value. A `face` target adds its
+live preconditions after the state checks: the anatomy master on, the act body and the anatomy
+bridge live, and no running kiss, each refused with its own reason.
 
 The checks, against the target spec and the edge:
 
@@ -424,7 +425,7 @@ The checks, against the target spec and the edge:
 | `features_ok` | every `requires.features` entry is on in the request features |
 | `consent_ok` | `requires.consent` is empty, or the request consent equals it |
 | `asset_ok` | the target spec exists and at least one of `base`/`delta`/`driver` is non-empty |
-| `locked` | the request's `locked` flag |
+| `locked` | the edge lock; no shipped caller sets it |
 
 On an accepted request the session caches the target spec and its settings snapshot by the spec's
 `settings_group` (`standing_test` and `standing_oral` use the standing pose and presentation blocks

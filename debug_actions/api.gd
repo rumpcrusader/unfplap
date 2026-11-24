@@ -438,21 +438,22 @@ func action_facesit_variant() -> String:
 	var act: Node = _act()
 	if not is_instance_valid(act):
 		return "No act."
-	var error := str(_session(act).face_sit_error())
-	if not error.is_empty():
-		LOG.debug("face-sit refused: %s", [error])
-		return "Face-sit refused: %s." % error
 	var view: Variant = _session(act).pose_view()
 	var active := str(view.id) if view != null else ""
+	if active != CATALOG.MISSIONARY and active != CATALOG.BED_FACESIT:
+		return "Only in a missionary act."
 	var target := CATALOG.BED_FACESIT if active == CATALOG.MISSIONARY else CATALOG.MISSIONARY
 	var input: Variant = _act_input(act)
 	if input == null:
 		return "No act."
 	var result: Variant = input.request_pose(target, "facesit")
 	if result is POSES.PoseResult:
-		var code := str((result as POSES.PoseResult).code)
-		LOG.debug("pose face-sit %s -> %s: %s", [active, target, code])
-		return "Pose %s: %s." % [target, code]
+		var pose_result := result as POSES.PoseResult
+		if not pose_result.ok:
+			LOG.debug("face-sit refused: %s (%s)", [pose_result.code, pose_result.reason])
+			return "Face-sit refused: %s." % pose_result.reason
+		LOG.debug("pose face-sit %s -> %s: %s", [active, target, pose_result.code])
+		return "Pose %s: %s." % [target, pose_result.code]
 	return "Pose request failed."
 
 

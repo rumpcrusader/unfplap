@@ -10,6 +10,7 @@ const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 
 
 
@@ -41,9 +42,6 @@ func _start(raw: Dictionary) -> SESSION.PoseStart:
 	start.pose_id = str(raw.get("pose_id", ""))
 	return start
 
-
-func _request(raw: Dictionary = {}) -> SESSION.PoseRequest:
-	return SESSION.PoseRequest.from_dict(raw)
 
 
 func run() -> void:
@@ -91,6 +89,7 @@ func _fixture(pose: String, features: Dictionary, body_tail := false) -> Diction
 	facts.pony_id = "twilight_sparkle"
 	facts.bed = bed
 	facts.features = features
+	facts.state = 2
 	var session: SESSION = SESSION.new(facts)
 	check(session.begin_act(_start({"pose_id": pose})),
 		"the %s pose begins" % pose)
@@ -280,7 +279,7 @@ func _check_transition_path() -> void:
 	session.pose_changed(view)
 	check(session.act_body == act_body and act_body.get_parent() == null,
 		"a pose change keeps the act body")
-	var result: SESSION.PoseResult = session.request_pose(CATALOG.STANDING_TEST, "test", _request({"act_state": 2}))
+	var result: SESSION.PoseResult = session.request_pose(CATALOG.STANDING_TEST, "test")
 	check(result.code == "ok", "the transition path starts the debug edge")
 	check(view.pose_state == VIEW.TRANSITIONING and session._state == VIEW.TRANSITIONING,
 		"the transition path enters the transition state")
@@ -316,8 +315,9 @@ func _check_facesit_transition() -> void:
 	session._facts.anatomy_opening = points.opening
 	var act_body := FakeActBody.new()
 	session.act_body = act_body
-	var forward: SESSION.PoseResult = session.request_pose(CATALOG.BED_FACESIT, "facesit",
-		_request({"act_state": 2}))
+	var previous_anatomy := SETTINGS.anatomy_mode.get_choice()
+	SETTINGS.anatomy_mode.set_choice("act")
+	var forward: SESSION.PoseResult = session.request_pose(CATALOG.BED_FACESIT, "facesit")
 	check(forward.code == "ok", "the face-sit transition starts")
 	check(view.pose_state == VIEW.TRANSITIONING and view.id == CATALOG.BED_FACESIT,
 		"the face-sit transition enters the target view")
@@ -335,8 +335,7 @@ func _check_facesit_transition() -> void:
 	check(session._started, "the face-sit forward keeps the session")
 	var held: Vector3 = pose_node.contact_offset
 	check(held.is_finite(), "the face-sit pose node carries the live offset")
-	var reverse: SESSION.PoseResult = session.request_pose(CATALOG.MISSIONARY, "facesit",
-		_request({"act_state": 2}))
+	var reverse: SESSION.PoseResult = session.request_pose(CATALOG.MISSIONARY, "facesit")
 	check(reverse.code == "ok", "the face-sit reverse starts")
 	session.tick(0.0)
 	check(view.contact_kind == "opening", "the reverse restores the opening contact")
@@ -356,3 +355,4 @@ func _check_facesit_transition() -> void:
 		"the face-sit act exit leaves the driver inactive")
 	check(act_body.is_queued_for_deletion(), "the face-sit act exit frees the act body once")
 	_free_fixture(made)
+	SETTINGS.anatomy_mode.set_choice(previous_anatomy)

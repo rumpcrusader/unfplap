@@ -427,10 +427,6 @@ func pose_state_rows() -> Array:
 	return context.pose.state_rows(state)
 
 
-## The debug face-fit refusal, or "" when the pose can be entered.
-func face_sit_error() -> String:
-	return context.pose.face_sit_error(state)
-
 
 ## Reload the current pose's source asset from disk.
 func reload_pose_asset() -> String:

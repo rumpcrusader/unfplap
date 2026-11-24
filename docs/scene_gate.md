@@ -116,7 +116,7 @@ the same helpers as the rows, in this order, and never allocates a row:
 `hotkey_ready()` then reads Base clearance through the act gate's `ready(pony)`: the identity act
 target plus the clearance relationship row. `agreement_ready(pose, source, bed, FrozenPose)` is the same scene
 composition for a formed Agreement: the frozen profile and source rows instead of the live pose
-support, and no clearance read. Its caller is the Negotiation service's `ready_offer()`.
+support, and no clearance read. The offer service runs it before an Agreement auto-starts.
 
 ## Pose options and placement
 

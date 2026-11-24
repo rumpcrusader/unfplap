@@ -174,7 +174,7 @@ the `offer_sensor_read` child), its `fan_discover` and `fan_hash` children at th
 
 | Callback | Type | Contract |
 |---|---|---|
-| `negotiation` | `negotiation/api.gd` | the Negotiation service; only its public `handle()`, `can_start()`, `is_locked()`, `press()`, `cancel()` and `report()` reads are used |
+| `negotiation` | `negotiation/api.gd` | the Negotiation service; only its public `handle()`, `can_start()`, `press()` and `report()` reads are used |
 | `hud` | `Node` | the desktop HUD, bound at construction; `show_prompt`/`hide_prompt` (toasts go through the bound `hud.toast()`) |
 | `act_owner` | `act_owner/api.gd` | the act frame the press and the sensor gate on (`docs/act_owner.md`) |
 | `ponies` | `ponies/api.gd` | the roster the runtime, scene, start and presentation reads go through (`docs/ponies.md`); handed to the fan sensor too |

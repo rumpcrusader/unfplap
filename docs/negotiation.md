@@ -62,7 +62,7 @@ The host callbacks are, in order:
 | `privacy_private` | `(pony, cuddle) -> bool` | the privacy provider |
 | `placement_for` | `(runtime) -> PoseOptions.Placement` | the live placement facts |
 | `pose_placed` | `(runtime, PoseOptions.Option) -> bool` | the live scene-only placement re-check before an Agreement forms |
-| `form_view` | `() -> FormView` | the player's form and display |
+| `form_view` | `() -> the form/display record` | the player's form and display |
 | `hold_for` | `(runtime) -> Node` | the per-pony `scene_hold/api.gd` ledger |
 | `classify` | `(PROMPTS.Request, scope, done) -> bool` | the dialogue classifier; `done` gets a `PROMPTS.Reply` |
 | `reason` | `(PROMPTS.Request, scope, done) -> bool` | the Mare Response Reasoning |

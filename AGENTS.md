@@ -61,6 +61,7 @@ restate a contract.
 | `debug/game.gd` | `docs/debug.md` |
 | `debug/**` | `docs/debug.md` |
 | `debug_actions/**` | `docs/debug_actions.md` |
+| `director/**` | `docs/director.md` |
 | `dialogue/**` | `docs/dialogue.md` |
 | `eligibility/**` | `docs/eligibility.md` |
 | `estrus/**` | `docs/estrus.md` |

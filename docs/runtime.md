@@ -275,9 +275,9 @@ entry). The three entry points live in `act/agreement.gd`:
   frozen pose capability (`scene_only_verdict`), then `act/start.gd:run()`. It answers
   `AGREEMENT_WAIT`, `AGREEMENT_STARTED` or `AGREEMENT_FAILED`; the offer, its only caller, reports
   `Started` or `StartFailed` to the Negotiation service.
-- **Auto-start** consumes a live Agreement with no key press; `negotiation/api.gd:ready_offer()`
-  decides whether the live scene accepts it, and the offer cancels a private Agreement whose fresh
-  privacy sample is now public.
+- **Auto-start** consumes a live Agreement with no key press. The Negotiation's `can_start()` answers
+  the Agreement's own readiness and cancels a private one whose visibility is gone; the offer runs
+  the scene gate's `agreement_ready()` rows before it starts.
 
 The start sequence:
 

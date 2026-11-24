@@ -256,8 +256,7 @@ func handle() -> AGREEMENT.Handle:
 	return _handle if _phase == _PHASE_AGREEMENT else null
 
 
-## True while the live Agreement can start: formed, unexpired and still private. A private one
-## whose visibility is gone is cancelled here, through the one close path.
+## The one readiness read: formed, unexpired and still private. A lost cover is closed here.
 func can_start() -> bool:
 	if _phase != _PHASE_AGREEMENT or _agreement == null or _handle == null or _host == null:
 		return false

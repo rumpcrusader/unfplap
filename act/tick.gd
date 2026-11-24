@@ -193,7 +193,7 @@ func render(delta: float) -> void:
 		session.refresh_view()
 		context.pose.sync_frame(session.pose_family())
 		session.pose_render_write()
-		context.pose.idle_sample(session.state)
+		context.pose.diagnostics().trace_sample(session.state)
 		context.view.clamp_look()
 		context.camera.write_look_target()
 		if session.state == State.CLIMAX:

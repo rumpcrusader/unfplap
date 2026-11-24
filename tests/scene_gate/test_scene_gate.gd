@@ -9,6 +9,7 @@ const WORLD := preload("res://mods/unfplap/world/api.gd")
 const GATE := preload("res://mods/unfplap/scene_gate/api.gd")
 const ACT_GATE := preload("res://mods/unfplap/act_gate/api.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
+const POSES := preload("res://mods/unfplap/poses/api.gd")
 
 const STATE_IDLE := 0
 const STATE_ACTIVE := 2
@@ -71,22 +72,35 @@ class FixtureHost extends Node:
 	var game: Variant = null
 
 
-class FakePose extends "res://mods/unfplap/poses/api.gd":
+
+## The readiness handle the gate reads, without a live pose.
+class FakeReadiness extends POSES.PoseReadiness:
 	var asset_ready := true
 	var reason := ""
 	var missing: Array[String] = []
 
-	func authored_ready(_pose := "") -> bool:
-		return asset_ready
+	func _init() -> void:
+		super(null)
 
-	func authored_reason(_pose := "") -> String:
-		return reason if not reason.is_empty() else "pose_asset"
+	func asset_verdict(_pose := "") -> POSES.PoseVerdict:
+		var verdict := POSES.PoseVerdict.new()
+		verdict.ok = asset_ready
+		verdict.reason = reason if not reason.is_empty() else "pose_asset"
+		return verdict
 
-	func rig_missing(_pose := "") -> Array[String]:
-		return missing
+	func rig_verdict(_pose := "") -> POSES.PoseVerdict:
+		var verdict := POSES.PoseVerdict.new()
+		verdict.ok = missing.is_empty()
+		verdict.missing = missing
+		verdict.reason = "pose_rig: missing"
+		return verdict
 
-	func rig_reason(_miss: Array[String]) -> String:
-		return "pose_rig: missing"
+
+class FakePose extends "res://mods/unfplap/poses/api.gd":
+	var readiness_fake := FakeReadiness.new()
+
+	func readiness() -> POSES.PoseReadiness:
+		return readiness_fake
 
 
 class FakeAffection extends Node:
@@ -660,19 +674,19 @@ func _check_small_checks() -> void:
 	check(_agrees(gate, "standing", "", null), "the interruption keeps both answers equal")
 	pony.interruption = ""
 
-	pose.asset_ready = false
+	pose.readiness_fake.asset_ready = false
 	check(not bool(gate.call("pose_supported", "standing", "")), "a missing asset blocks")
 	check(not _row_ok(_verdict(gate, "standing", "", null).rows, "pose_asset"),
 		"a missing asset fails its row")
 	check(_agrees(gate, "standing", "", null), "the asset keeps both answers equal")
-	pose.asset_ready = true
+	pose.readiness_fake.asset_ready = true
 
-	pose.missing = ["pony_hip"]
+	pose.readiness_fake.missing = ["pony_hip"]
 	check(not bool(gate.call("pose_supported", "standing", "")), "a missing rig bone blocks")
 	check(not _row_ok(_verdict(gate, "standing", "", null).rows, "pose_rig"),
 		"a missing rig bone fails its row")
 	check(_agrees(gate, "standing", "", null), "the rig keeps both answers equal")
-	pose.missing = []
+	pose.readiness_fake.missing = []
 
 	stool.need = 2
 	stool.count = 0

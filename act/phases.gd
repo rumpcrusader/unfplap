@@ -16,15 +16,14 @@ var host: ACT_HOST = null
 var context: ACT_CONTEXT = null
 var session: ACT_SESSION = null
 ## The pose-settled diagnostic row, bound once so the per-frame log call allocates no callable.
-var _diag: POSE_SESSION.AnonDiag = null
+var _diag := Callable()
 
 
 func bind(host_in: ACT_HOST, context_in: ACT_CONTEXT, session_in: ACT_SESSION) -> void:
 	host = host_in
 	context = context_in
 	session = session_in
-	_diag = POSE_SESSION.AnonDiag.new()
-	_diag.read = Callable(self, "pose_diag_row")
+	_diag = Callable(self, "pose_diag_row")
 
 
 ## One presentation frame in the live states: the act clock, the blush, the wings and the
@@ -46,7 +45,7 @@ func presentation(delta: float) -> void:
 
 ## The render-time placement trace: the pose settle log with its one diagnostic row.
 func log_settled() -> void:
-	context.pose.log_settled(session.state, _diag)
+	context.pose.diagnostics().log_settled(session.state, _diag)
 
 
 ## The posed Anon body's diagnostic row, or silence when the act has no Anon body.

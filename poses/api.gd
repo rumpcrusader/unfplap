@@ -64,14 +64,6 @@ class RenderFrame extends RefCounted:
 		return out
 
 
-## The settled line's Anon diagnostic host; an unbound host answers silence.
-class AnonDiag extends RefCounted:
-	var read: Callable = Callable()
-
-	func anon_diag() -> String:
-		return str(read.call()) if read.is_valid() else ""
-
-
 ## The start values the facts and settings cannot supply.
 class PoseStart extends RefCounted:
 	var pose_id := ""
@@ -96,6 +88,116 @@ class PoseTail extends RefCounted:
 	## The thrust wave the reaction facade adds at the stroke.
 	func thrust(weight: float) -> void:
 		_session._thrust_tail(weight)
+
+
+## One asset or rig readiness answer.
+class PoseVerdict extends RefCounted:
+	var ok := false
+	var reason := ""
+	var missing: Array[String] = []
+
+
+## The asset and rig verdicts the scene gate reads.
+class PoseReadiness extends RefCounted:
+	var _session: Variant = null
+	var _rig_checked := false
+	var _rig_skeleton := 0
+	var _rig_revision := -1
+	var _rig_asset_path := ""
+	var _rig_missing_bones: Array[String] = []
+
+	func _init(session: Variant) -> void:
+		_session = session
+
+	## The parsed asset a candidate names, or the live rendered asset when it is empty.
+	func asset(candidate := "") -> AUTHORED:
+		return _session._readiness_asset(candidate)
+
+	## The candidate's pose-asset verdict, with the gate row's reason.
+	func asset_verdict(candidate := "") -> PoseVerdict:
+		var verdict := PoseVerdict.new()
+		var spec: Variant = _session._candidate_spec(candidate)
+		if spec == null:
+			verdict.reason = "pose_asset: no pose"
+			return verdict
+		var asset: Variant = _session._asset_for_spec(spec)
+		if asset == null:
+			verdict.reason = "pose_asset: no asset for %s" % str(spec.id)
+			return verdict
+		if not asset.available:
+			var why: String = asset.error
+			verdict.reason = "pose_asset: %s" % (why if not why.is_empty() else "not loaded")
+			return verdict
+		if not asset.usable(str(spec.frame)):
+			verdict.reason = "pose_asset: %s asset in a %s pose" % [asset.frame, str(spec.frame)]
+			return verdict
+		verdict.ok = true
+		return verdict
+
+	## The candidate's rig verdict: the authored bones the live rig lacks, cached per skeleton and
+	## asset revision.
+	func rig_verdict(candidate := "") -> PoseVerdict:
+		var verdict := PoseVerdict.new()
+		var pony: Variant = _session._pony()
+		var sk: Variant = pony.get("skeleton") if is_instance_valid(pony) else null
+		if not sk is Skeleton3D:
+			return verdict
+		var skeleton := sk as Skeleton3D
+		var instance := skeleton.get_instance_id()
+		var asset_path: String = _session._asset_path_for(candidate)
+		if asset_path.is_empty():
+			asset_path = AUTHORED.PATH
+		if _rig_checked and instance == _rig_skeleton and _rig_revision == AUTHORED.revision \
+				and _rig_asset_path == asset_path:
+			verdict.missing = _rig_missing_bones
+		else:
+			_rig_checked = true
+			_rig_skeleton = instance
+			_rig_revision = AUTHORED.revision
+			_rig_asset_path = asset_path
+			_rig_missing_bones = _session._diagnostic_asset(candidate).missing_bones(skeleton)
+			verdict.missing = _rig_missing_bones
+		verdict.ok = verdict.missing.is_empty()
+		verdict.reason = _rig_reason(verdict.missing)
+		return verdict
+
+	## Clear the cache after a pose-scope leave or a release.
+	func _reset() -> void:
+		_rig_checked = false
+		_rig_skeleton = 0
+		_rig_revision = -1
+		_rig_asset_path = ""
+		_rig_missing_bones = []
+
+	func _rig_reason(missing: Array[String]) -> String:
+		if missing.is_empty():
+			return ""
+		var names: PackedStringArray = []
+		for i in mini(3, missing.size()):
+			names.append(str(missing[i]))
+		var text := "pose_rig: missing %s" % ", ".join(names)
+		if missing.size() > 3:
+			text += " (+%d more)" % (missing.size() - 3)
+		return text
+
+
+## The debug rows and the settled log.
+class PoseDiagnostics extends RefCounted:
+	var _session: Variant = null
+	var _pose_logged := false
+	var _trace_frames := 0
+
+	func _init(session: Variant) -> void:
+		_session = session
+
+	func state_rows(state: int) -> Array[String]:
+		return _session._state_rows(state)
+
+	func log_settled(state: int, anon_diag: Callable) -> void:
+		_session._log_settled(state, anon_diag, self)
+
+	func trace_sample(state: int) -> void:
+		_session._trace_sample(state, self)
 
 
 ## The act's own Anon body, as consumers see it.
@@ -140,6 +242,9 @@ var _pose_config: Dictionary = {}
 var _tail_handle: PoseTail = null
 ## The act-body handle consumers read; it reports nothing while no body is installed.
 var _act_body_handle: PoseActBody = null
+## The asset/rig verdicts and the debug rows, each owning its own cache.
+var _readiness: PoseReadiness = null
+var _diagnostics: PoseDiagnostics = null
 ## The one pose read model for the act, and the registry that validates the static spec table.
 var _view: POSE_VIEW
 var _registry: REGISTRY
@@ -192,16 +297,7 @@ var ground_frame: Variant = null
 var ground_frame_source := Transform3D.IDENTITY
 var ground_frame_source_saved := false
 
-## Per-act log and rig-check caches.
-var pose_logged := false
-var pose_trace_frames := 0
-var rig_checked := false
-var rig_skeleton := 0
-## The authored asset revision the rig verdict was computed against.
-var rig_revision := -1
-## The asset path the rig verdict was computed against.
-var rig_asset_path := ""
-var rig_missing_bones: Array[String] = []
+
 ## A shared unavailable asset instance for a pose whose row supplies no asset.
 var _empty_asset: AUTHORED = null
 
@@ -224,6 +320,8 @@ func _init(facts: ACT_FACTS = null) -> void:
 	_face_driver = FACE_CONTACT.new()
 	_tail_handle = PoseTail.new(self)
 	_act_body_handle = PoseActBody.new(self)
+	_readiness = PoseReadiness.new(self)
+	_diagnostics = PoseDiagnostics.new(self)
 	_bind_oral()
 	_bind_face()
 
@@ -249,6 +347,16 @@ func tail() -> PoseTail:
 ## The act's own Anon body; a released pose's handle reports not live.
 func act_body() -> PoseActBody:
 	return _act_body_handle
+
+
+## The asset and rig verdicts the scene gate reads.
+func readiness() -> PoseReadiness:
+	return _readiness
+
+
+## The debug rows and the settled log.
+func diagnostics() -> PoseDiagnostics:
+	return _diagnostics
 
 
 ## The one pose read model the act view carries. `begin()` fills it and `release_pose()` clears it;
@@ -291,8 +399,8 @@ func begin(start: PoseStart) -> bool:
 	var start_id := start.pose_id
 	var bed: Variant = _facts.bed if _facts != null else null
 	bed_node = bed if bed is Node3D else null
-	pose_logged = false
-	pose_trace_frames = 0
+	_diagnostics._pose_logged = false
+	_diagnostics._trace_frames = 0
 	pose_node = POSE.new()
 	pose_node.name = "UnfplapPose"
 	pose_node.mare = pony
@@ -320,8 +428,8 @@ func begin(start: PoseStart) -> bool:
 	pose_node.amount = 0.0
 	pose_node.target_amount = 1.0
 	if str(_view.frame) == "bed":
-		var bed_space := missionary_pose_frame()
-		if has_frame(bed_space):
+		var bed_space := _missionary_pose_frame()
+		if _has_frame(bed_space):
 			bed_frame = bed_space
 			bed_frame_source_saved = is_instance_valid(bed_node)
 		else:
@@ -332,8 +440,8 @@ func begin(start: PoseStart) -> bool:
 		pose_node.bed_frame = bed_frame
 		_view.bed_frame = bed_frame
 	else:
-		var ground := ground_pose_frame()
-		if has_frame(ground):
+		var ground := _ground_pose_frame()
+		if _has_frame(ground):
 			ground_frame = ground
 			ground_frame_source_saved = is_instance_valid(pony)
 		else:
@@ -343,7 +451,7 @@ func begin(start: PoseStart) -> bool:
 			ground_frame_source = (pony as Node3D).global_transform
 		pose_node.ground_frame = ground_frame
 		pose_node.size_name = SETTINGS.pony_size_name()
-	log_base()
+	_log_base()
 	(skeleton as Skeleton3D).add_child(pose_node)
 	var family := str(_view.family)
 	if family == "bed":
@@ -532,7 +640,7 @@ func request_pose(target_id: String, trigger: String, consent := "") -> PoseResu
 	_target_presentation = SETTINGS.act_snapshot(group).presentation
 	_target_config = _config_for_group(group, _target_presentation)
 	_target_asset = _asset_for_spec(target_spec)
-	_from_asset = live_authored()
+	_from_asset = _live_asset()
 	if _from_asset == null:
 		_from_asset = _asset_for_spec(_registry.spec(from_id))
 	_run = run
@@ -934,72 +1042,44 @@ func _sync_live_config() -> bool:
 
 ## The authored base for a candidate spec, else the live pose's, else the default missionary asset,
 ## parsed once per path. A row without its own asset still reads the default for diagnostics.
-func authored(candidate: String = "") -> AUTHORED:
+func _diagnostic_asset(candidate: String = "") -> AUTHORED:
 	var asset: AUTHORED = _asset_for(candidate)
 	if asset != null:
 		return asset
 	# A row with no asset of its own reads the default missionary asset so diagnostics still have a
-	# rig to describe; `authored_ready()` is the gate and stays false for such a row.
+	# rig to describe; the readiness verdict stays false for such a row.
 	if _empty_asset == null:
 		_empty_asset = AUTHORED.shared(AUTHORED.PATH)
 	return _empty_asset
 
 
 ## The asset the live rig is rendering: the source through an edge, the target once it settles.
-func live_authored() -> AUTHORED:
+func _live_asset() -> AUTHORED:
 	if is_instance_valid(pose_node) and pose_node.authored != null:
 		return pose_node.authored
-	return authored("")
+	return _diagnostic_asset("")
 
 
 ## Mirror the live rendered asset into the view, the one source presentation modules read.
 func _sync_view_asset() -> void:
-	_view.authored = live_authored()
+	_view.authored = _live_asset()
 
 
 ## The parsed authored pose for the debug action and the pose lab. With no candidate this is the
 ## live rendered asset, not the target of a running edge.
-func authored_asset(candidate: String = "") -> AUTHORED:
+func _readiness_asset(candidate: String = "") -> AUTHORED:
 	if candidate.is_empty():
-		return live_authored()
-	return authored(candidate)
+		return _live_asset()
+	return _diagnostic_asset(candidate)
 
 
 ## Ground space for an authored ground pose, seeded from the pony root. Like the bed frame with its
 ## bed, it is carried by the root from then on.
-func ground_pose_frame() -> Transform3D:
+func _ground_pose_frame() -> Transform3D:
 	var pony := _pony()
 	if not is_instance_valid(pony):
 		return NO_FRAME
 	return Transform3D(pony.global_basis.orthonormalized(), pony.global_position)
-
-
-## True when the candidate's own asset loaded and is usable for its frame. A row with no asset is
-## never ready, even though `authored()` falls back for diagnostics.
-func authored_ready(candidate: String = "") -> bool:
-	var spec: POSE_SPEC = _candidate_spec(candidate)
-	if spec == null:
-		return false
-	var asset: AUTHORED = _asset_for_spec(spec)
-	if asset == null or not asset.available:
-		return false
-	return asset.usable(str(spec.frame))
-
-
-## Why the candidate's pose asset is unusable, for the gate row and the start log.
-func authored_reason(candidate: String = "") -> String:
-	var spec: POSE_SPEC = _candidate_spec(candidate)
-	if spec == null:
-		return "pose_asset: no pose"
-	var asset: AUTHORED = _asset_for_spec(spec)
-	if asset == null:
-		return "pose_asset: no asset for %s" % str(spec.id)
-	if not asset.available:
-		var why := asset.error
-		return "pose_asset: %s" % (why if not why.is_empty() else "not loaded")
-	if not asset.usable(str(spec.frame)):
-		return "pose_asset: %s asset in a %s pose" % [asset.frame, str(spec.frame)]
-	return ""
 
 
 ## Re-read the live pose's asset in place, plus the running edge's target, or the default
@@ -1018,7 +1098,7 @@ func reload_authored(candidate: String = "") -> String:
 			return load_error
 	if is_instance_valid(pose_node):
 		# The wrappers were reloaded in place; the pair keeps the same instances.
-		pose_node.authored = live_authored()
+		pose_node.authored = _live_asset()
 		if _target_spec != null:
 			_target_asset = _asset_for_spec(_target_spec)
 			pose_node.to_authored = _target_asset
@@ -1040,7 +1120,7 @@ func _add_reload_path(paths: Array[String], seen: Dictionary, path: String) -> v
 
 ## Bed space for the authored pose: the middle of the real mattress top, in the bed's axes, the
 ## pillow end at -Z. An absent frame means no bed pose is live, so the procedural driver stays out.
-func missionary_pose_frame() -> Transform3D:
+func _missionary_pose_frame() -> Transform3D:
 	if str(_view.frame) != "bed" or not is_instance_valid(bed_node):
 		return NO_FRAME
 	var fallback: float = float(bed_node.get_meta("mattress_top", 0.6)) + float(bed_node.global_position.y)
@@ -1055,7 +1135,7 @@ func missionary_pose_frame() -> Transform3D:
 
 ## Carry the bed-space pose, act body and anatomy placement with a bed that moves under the act
 ## (CloudDrift); the delta is rigid, so the top height is not measured again.
-func sync_bed_frame() -> void:
+func _sync_bed_frame() -> void:
 	if str(_view.frame) != "bed" or not is_instance_valid(bed_node) \
 			or not bed_frame_source_saved or not bed_frame is Transform3D:
 		return
@@ -1072,7 +1152,7 @@ func sync_bed_frame() -> void:
 
 ## Turn the ground frame with the pony root each tick; the oral turn moves the root, so the frame
 ## turns with her exactly once.
-func sync_ground_frame() -> void:
+func _sync_ground_frame() -> void:
 	var pony := _pony()
 	if str(_view.frame) != "ground" or not is_instance_valid(pony) \
 			or not ground_frame_source_saved or not ground_frame is Transform3D:
@@ -1128,10 +1208,7 @@ func restore_bones() -> void:
 ## The pose-scope start state: clear the rig-check cache, release the tail lay and drop the bed and
 ## ground frames, keeping the pose node, the modifiers, the config and the view.
 func leave_pose_start() -> void:
-	rig_checked = false
-	rig_skeleton = 0
-	rig_revision = -1
-	rig_missing_bones = []
+	_readiness._reset()
 	if _face_driver != null and _face_driver.active:
 		_face_driver.restore(_view, pose_node)
 	if is_instance_valid(tail_lay):
@@ -1183,10 +1260,7 @@ func release_pose() -> void:
 	_tail = null
 	_started = false
 	_pose_config.clear()
-	rig_checked = false
-	rig_skeleton = 0
-	rig_revision = -1
-	rig_missing_bones = []
+	_readiness._reset()
 	bed_frame = null
 	bed_frame_source_saved = false
 	bed_frame_source = Transform3D.IDENTITY
@@ -1332,7 +1406,7 @@ func _apply_anon_channel(view: POSE_VIEW) -> void:
 		return
 	if _run == null:
 		# Outside an edge the spec's profile is the hold and both assets are the live one.
-		var live: AUTHORED = live_authored()
+		var live: AUTHORED = _live_asset()
 		_act_body.set_pose_assets(live, live, 1.0)
 		_act_body.pose_changed(str(anon.get("profile", "")), 1.0)
 		return
@@ -1422,7 +1496,7 @@ func _install_act_body() -> void:
 		host.remove_child(body)
 		body.queue_free()
 		return
-	body.set_pose_assets(live_authored(), live_authored(), 1.0)
+	body.set_pose_assets(_live_asset(), _live_asset(), 1.0)
 	_act_body = body
 
 
@@ -1585,7 +1659,7 @@ func render_write(frame: RenderFrame) -> void:
 	if family == "standing":
 		# Same order as the bed family: sync the ground frame, write the pose after every writer of
 		# the frame, then replay the sway on top of that write.
-		sync_ground_frame()
+		_sync_ground_frame()
 		var standing_sk: Variant = pony.get("skeleton")
 		if is_instance_valid(pose_node) and standing_sk is Skeleton3D:
 			apply_render(standing_sk as Skeleton3D)
@@ -1594,7 +1668,7 @@ func render_write(frame: RenderFrame) -> void:
 		return
 	if family != "bed":
 		return
-	if is_instance_valid(_act_body) and has_frame(frame.bed_frame):
+	if is_instance_valid(_act_body) and _has_frame(frame.bed_frame):
 		_act_body.apply(frame.bed_frame, frame.body_scale)
 	var sk: Variant = pony.get("skeleton")
 	if is_instance_valid(pose_node) and sk is Skeleton3D:
@@ -1603,17 +1677,18 @@ func render_write(frame: RenderFrame) -> void:
 			prone_sway.apply_render(sk as Skeleton3D)
 
 
+## One thrust's ear flick; a released pose or a disabled feature ignores it.
 func trigger_ear_twitch(impact: float) -> void:
 	if is_instance_valid(ear_twitch):
 		ear_twitch.try_trigger(impact)
 
 
 ## The pose frame the live family reads: the bed frame or the ground frame.
-func sync_frame(family: String) -> void:
+func follow_space(family: String) -> void:
 	if family == "bed":
-		sync_bed_frame()
+		_sync_bed_frame()
 	else:
-		sync_ground_frame()
+		_sync_ground_frame()
 
 
 ## The typed entry for the render-time step: the session supplies its own bed frame plus the body
@@ -1657,7 +1732,7 @@ func settle() -> void:
 		_tail.target_amount = 1.0
 
 
-func basis_amount() -> float:
+func _basis_amount() -> float:
 	return pose_node.amount if is_instance_valid(pose_node) else 0.0
 
 
@@ -1678,16 +1753,16 @@ func aim_look(point: Vector3, kiss: float, climaxing: bool) -> void:
 	pose_node.kiss = kiss
 	pose_node.climaxing = climaxing## Which missionary base is in charge and why, in one record so the log, the settled line and the
 ## debug action cannot drift apart.
-func base_info() -> BASE_INFO:
+func _base_info() -> BASE_INFO:
 	var info := BASE_INFO.new()
 	var live_id := _live_spec_id()
-	var asset: AUTHORED = authored_asset()
+	var asset: AUTHORED = _readiness_asset()
 	info.asset = asset
 	info.version = asset.version
 	info.bones = asset.pony_bones.size()
 	info.available = asset.available
 	info.error = asset.error
-	info.frame = pose_frame()
+	info.frame = _pose_frame()
 	info.frame_kind = str(_view.frame)
 	info.shots = asset.has_shots
 	info.asset_path = _asset_path_for(live_id)
@@ -1700,18 +1775,18 @@ func base_info() -> BASE_INFO:
 	elif info.live_path.is_empty():
 		info.reason = "pose=%s" % live_id
 	elif not asset.available:
-		info.reason = authored_reason(live_id)
-	elif not has_frame(info.frame):
+		info.reason = readiness().asset_verdict(live_id).reason
+	elif not _has_frame(info.frame):
 		info.reason = "no %s frame" % str(_view.frame)
 	elif not asset.usable(str(_view.frame)):
-		info.reason = authored_reason(live_id)
+		info.reason = readiness().asset_verdict(live_id).reason
 	else:
 		info.base = "authored"
 	return info
 
 
 ## The live pose frame: the bed's mattress space or the pony root's ground space.
-func pose_frame() -> Transform3D:
+func _pose_frame() -> Transform3D:
 	if str(_view.frame) == "ground":
 		return ground_frame if ground_frame is Transform3D else NO_FRAME
 	if str(_view.frame) == "bed":
@@ -1720,53 +1795,17 @@ func pose_frame() -> Transform3D:
 
 
 ## True when a pose frame is real space: the absent frame carries an infinite origin.
-static func has_frame(frame: Transform3D) -> bool:
+static func _has_frame(frame: Transform3D) -> bool:
 	return frame.origin.is_finite()
-
-
-## The authored body bones the live rig lacks: the pose writes only the bones it holds, so a missing
-## one leaves the game's pose on that link. Cached per skeleton instance and asset revision.
-func rig_missing(candidate: String = "") -> Array[String]:
-	var pony := _pony()
-	var sk: Variant = pony.get("skeleton") if is_instance_valid(pony) else null
-	if not sk is Skeleton3D:
-		return []
-	var skeleton := sk as Skeleton3D
-	var instance := skeleton.get_instance_id()
-	var asset_path := _asset_path_for(candidate)
-	if asset_path.is_empty():
-		asset_path = AUTHORED.PATH
-	if rig_checked and instance == rig_skeleton and rig_revision == AUTHORED.revision \
-			and rig_asset_path == asset_path:
-		return rig_missing_bones
-	rig_checked = true
-	rig_skeleton = instance
-	rig_revision = AUTHORED.revision
-	rig_asset_path = asset_path
-	rig_missing_bones = authored(candidate).missing_bones(skeleton)
-	return rig_missing_bones
-
-
-## The gate row's reason, naming the first few bones and counting the rest.
-func rig_reason(missing: Array[String]) -> String:
-	if missing.is_empty():
-		return ""
-	var names: PackedStringArray = []
-	for i in mini(3, missing.size()):
-		names.append(str(missing[i]))
-	var text := "pose_rig: missing %s" % ", ".join(names)
-	if missing.size() > 3:
-		text += " (+%d more)" % (missing.size() - 3)
-	return text
 
 
 ## Render-time placement trace, printed from idle after every writer of the frame so it reads the
 ## pose the renderer is about to use; `diag_root` is the armature bone the placement is written to.
-func idle_sample(state: int) -> void:
+func _trace_sample(state: int, handle: PoseDiagnostics) -> void:
 	var pony := _pony()
-	if pose_trace_frames >= 2 or str(_view.frame) != "bed" or state == 0:
+	if handle._trace_frames >= 2 or str(_view.frame) != "bed" or state == 0:
 		return
-	if not is_instance_valid(pose_node) or basis_amount() < 0.9:
+	if not is_instance_valid(pose_node) or _basis_amount() < 0.9:
 		return
 	var sk: Variant = pony.get("skeleton") if is_instance_valid(pony) else null
 	if not sk is Skeleton3D:
@@ -1786,17 +1825,17 @@ func idle_sample(state: int) -> void:
 		clip = (animation as AnimationPlayer).current_animation
 		playing = (animation as AnimationPlayer).is_playing()
 	LOG.debug("pose trace f=%d root=%d:%s asset_root=%d trace=%d mode=%d clip=%s playing=%s G=%s", [
-		pose_trace_frames, root, str(pose_node.diag_root_name), pose_node.diag_asset_root,
+		handle._trace_frames, root, str(pose_node.diag_root_name), pose_node.diag_asset_root,
 		pose_node.diag_trace, skeleton.modifier_callback_mode_process, clip, str(playing),
 		str(g)])
 	LOG.debug("pose trace f=%d root start=%s after=%s render=%s wanted=%s d=%.3f/%.3f | hips start=%s render=%s wanted=%s d=%.3f", [
-		pose_trace_frames, str(pose_node.diag_root_start), str(pose_node.diag_root_after),
+		handle._trace_frames, str(pose_node.diag_root_start), str(pose_node.diag_root_after),
 		str(render_root), str(wanted_root),
 		render_root.origin.distance_to(wanted_root.origin),
 		_transform_angle(render_root, wanted_root),
 		str(pose_node.diag_hips_start), str(render_hips), str(wanted_hips),
 		render_hips.origin.distance_to(wanted_hips.origin)])
-	pose_trace_frames += 1
+	handle._trace_frames += 1
 
 
 ## Degrees between two transforms' bases, for the trace.
@@ -1807,7 +1846,7 @@ func _transform_angle(a: Transform3D, b: Transform3D) -> float:
 
 ## Rig, modifier and posture diagnostics: which skeleton the modifier drives, which skeleton every
 ## mesh is actually bound to, whether the pose survives between frames, and who else is near the bed.
-func diagnostics(skeleton: Skeleton3D, info: BASE_INFO) -> Array[String]:
+func _diagnostics_rows(skeleton: Skeleton3D, info: BASE_INFO) -> Array[String]:
 	var pony := _pony()
 	var rows: Array[String] = []
 	var modifier := pose_node
@@ -1906,30 +1945,30 @@ func diagnostics(skeleton: Skeleton3D, info: BASE_INFO) -> Array[String]:
 
 ## Multi-row pose diagnostic for the debug action: base source, asset state, bed frame and where
 ## the live pose actually put her (world and bed space).
-func state_rows(state: int) -> Array[String]:
+func _state_rows(state: int) -> Array[String]:
 	var pony := _pony()
-	var info := base_info()
+	var info := _base_info()
 	var frame: Transform3D = info.frame
 	var rows: Array[String] = []
 	rows.append("pony=%s pose=%s state=%d weight=%.2f" % [
-		str(pony.name) if is_instance_valid(pony) else "?", str(_view.id), state, basis_amount()])
+		str(pony.name) if is_instance_valid(pony) else "?", str(_view.id), state, _basis_amount()])
 	rows.append("base=%s reason=%s asset=v%d %s path=%s frame=%s variant=%s bones=%d missing=%s shots=%s error=%s" % [
 		info.base, info.reason,
 		info.version, "ok" if info.available else "error",
 		info.asset_path, info.asset_frame, info.variant, info.bones,
-		str(rig_missing()), "yes" if info.shots else "no", info.error])
+		str(readiness().rig_verdict("").missing), "yes" if info.shots else "no", info.error])
 	var target_path := info.target_path
 	if not target_path.is_empty() and target_path != info.asset_path:
 		rows.append("target=%s" % target_path)
 	rows.append("frame=%s kind=%s scale=%.2f" % [
-		str(frame) if has_frame(frame) else "null", info.frame_kind, body_scale()])
+		str(frame) if _has_frame(frame) else "null", info.frame_kind, _body_scale()])
 	var sk: Variant = pony.get("skeleton") if is_instance_valid(pony) else null
 	if not sk is Skeleton3D:
 		return rows
 	var skeleton := sk as Skeleton3D
-	rows.append_array(diagnostics(skeleton, info))
+	rows.append_array(_diagnostics_rows(skeleton, info))
 	var space := Transform3D.IDENTITY
-	if has_frame(frame):
+	if _has_frame(frame):
 		space = frame.affine_inverse()
 	for pair: Array in [["hips", "pony_hips"], ["neck", "pony_neck1"], ["neck_mid", "pony_neck2"],
 			["head", "pony_head"], ["hoof_l", "pony_hoof_L"], ["hoof_r", "pony_hoof_R"]]:
@@ -1944,28 +1983,28 @@ func state_rows(state: int) -> Array[String]:
 
 
 ## The base line written once when the act builds its pose.
-func log_base() -> void:
-	var info := base_info()
+func _log_base() -> void:
+	var info := _base_info()
 	var frame: Transform3D = info.frame
-	var missing := rig_missing()
+	var missing := readiness().rig_verdict("").missing
 	LOG.debug("pose base=%s reason=%s asset=v%d %s path=%s frame=%s variant=%s bones=%d missing=%d shots=%s frame_pose=%s scale=%.2f", [
 		info.base, info.reason, info.version,
 		"ok" if info.available else "error", info.asset_path,
 		info.asset_frame, info.variant, info.bones,
 		missing.size(), "yes" if info.shots else "no",
-		str(frame) if has_frame(frame) else "null", body_scale()])
+		str(frame) if _has_frame(frame) else "null", _body_scale()])
 	if not missing.is_empty():
-		LOG.debug("pose rig %s", [rig_reason(missing)])
+		LOG.debug("pose rig %s", [readiness().rig_verdict("").reason])
 
 
 ## One line with where the pose actually put her, in world and bed space, once the weight settles.
-func log_settled(state: int, anon_diag: AnonDiag) -> void:
+func _log_settled(state: int, anon_diag: Callable, handle: PoseDiagnostics) -> void:
 	var pony := _pony()
-	if pose_logged or str(_view.frame) != "bed" or state == 0:
+	if handle._pose_logged or str(_view.frame) != "bed" or state == 0:
 		return
-	if basis_amount() < 0.9:
+	if _basis_amount() < 0.9:
 		return
-	pose_logged = true
+	handle._pose_logged = true
 	if not is_instance_valid(pony):
 		return
 	var sk: Variant = pony.get("skeleton")
@@ -1986,17 +2025,17 @@ func log_settled(state: int, anon_diag: AnonDiag) -> void:
 		parts.append("%s=w%s/b(%.3f,%.3f,%.3f)" % [
 			str(pair[0]), str(world), bed.x, bed.y, bed.z])
 	LOG.debug("missionary settled base=%s weight=%.2f %s", [
-		base_info().base, basis_amount(), " ".join(parts)])
-	for row: String in diagnostics(skeleton, base_info()):
+		_base_info().base, _basis_amount(), " ".join(parts)])
+	for row: String in _diagnostics_rows(skeleton, _base_info()):
 		LOG.debug("missionary diag %s", [str(row)])
-	if anon_diag != null:
-		var text := anon_diag.anon_diag()
+	if anon_diag.is_valid():
+		var text := str(anon_diag.call())
 		if not text.is_empty():
 			LOG.debug("anon diag %s", [text])
 
 
 ## Absolute body scale from the rig's own pivot, 1.0 when the pony is gone.
-func body_scale() -> float:
+func _body_scale() -> float:
 	var pony := _pony()
 	var value: Variant = pony.get("body_scale") if is_instance_valid(pony) else null
 	return float(value) if value != null else 1.0

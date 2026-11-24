@@ -135,10 +135,10 @@ func _check_missionary_scope() -> void:
 		"the live pose fills the view")
 	check(not config.is_empty() and is_same(config, view.pose_config),
 		"the live pose fills the config and the view shares it")
-	check(session.rig_checked, "the begin caches the rig check")
+	check(session.readiness()._rig_checked, "the begin caches the rig check")
 
 	session.leave_pose_start()
-	check(not session.rig_checked and session.rig_missing_bones.is_empty(),
+	check(not session.readiness()._rig_checked and session.readiness()._rig_missing_bones.is_empty(),
 		"the pose-start leave clears the rig cache")
 	check(session.tail_lay == null and tail_lay.get_parent() == null
 		and tail_lay.is_queued_for_deletion(),

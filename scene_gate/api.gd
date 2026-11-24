@@ -159,11 +159,11 @@ func rows(pose: String, act_source: String, bed_in: Node3D, mode: String,
 		var need := needed_stool()
 		_row(rows_out, "stool", need <= 0 or owned_stools() >= need, "needs_stool")
 	if _is_bed_pose(pose) or str(_scene(pose).get("frame", "")) == "ground":
-		var pose_ready := authored_ready(pose)
-		_row(rows_out, "pose_asset", pose_ready, authored_reason(pose))
-		if pose_ready:
-			var missing := rig_missing(pose)
-			_row(rows_out, "pose_rig", missing.is_empty(), rig_reason(missing))
+		var pose_verdict := pose_readiness().asset_verdict(pose)
+		_row(rows_out, "pose_asset", pose_verdict.ok, pose_verdict.reason)
+		if pose_verdict.ok:
+			var rig := pose_readiness().rig_verdict(pose)
+			_row(rows_out, "pose_rig", rig.ok, rig.reason)
 	if _is_bed_pose(pose):
 		var found: Node3D = resolve_bed(pose, act_source, bed_in)
 		_row(rows_out, "bed", found != null, "no_bed")
@@ -236,11 +236,11 @@ func scene_only_verdict(pose: String, act_source: String, bed: Node3D = null,
 			have = owned_stools()
 		_gate_row(rows_out, "stool", need <= 0 or have >= need, "needs_stool")
 	if _is_bed_pose(pose) or str(scene.get("frame", "")) == "ground":
-		var pose_ready := authored_ready(pose)
-		_gate_row(rows_out, "pose_asset", pose_ready, authored_reason(pose))
-		if pose_ready:
-			var missing := rig_missing(pose)
-			_gate_row(rows_out, "pose_rig", missing.is_empty(), rig_reason(missing))
+		var pose_verdict := pose_readiness().asset_verdict(pose)
+		_gate_row(rows_out, "pose_asset", pose_verdict.ok, pose_verdict.reason)
+		if pose_verdict.ok:
+			var rig := pose_readiness().rig_verdict(pose)
+			_gate_row(rows_out, "pose_rig", rig.ok, rig.reason)
 	if _is_bed_pose(pose):
 		var found: Node3D = resolve_bed(pose, act_source, bed)
 		_gate_row(rows_out, "bed", found != null, "no_bed")
@@ -542,20 +542,24 @@ func owned_stools() -> int:
 	return int(stool_count.call()) if stool_count.is_valid() else 0
 
 
+## The pose service's readiness handle, or null when no session is wired.
+func pose_readiness() -> POSE_SESSION.PoseReadiness:
+	return pose_session.readiness() if pose_session != null else null
+
+
 func authored_ready(pose := "") -> bool:
-	return pose_session != null and pose_session.authored_ready(pose)
+	var readiness := pose_readiness()
+	return readiness != null and readiness.asset_verdict(pose).ok
 
 
 func authored_reason(pose := "") -> String:
-	return pose_session.authored_reason(pose) if pose_session != null else "pose_asset"
+	var readiness := pose_readiness()
+	return readiness.asset_verdict(pose).reason if readiness != null else "pose_asset"
 
 
 func rig_missing(pose := "") -> Array[String]:
-	return pose_session.rig_missing(pose) if pose_session != null else []
-
-
-func rig_reason(missing: Array[String]) -> String:
-	return pose_session.rig_reason(missing) if pose_session != null else ""
+	var readiness := pose_readiness()
+	return readiness.rig_verdict(pose).missing if readiness != null else []
 
 
 func buck_or_push() -> bool:

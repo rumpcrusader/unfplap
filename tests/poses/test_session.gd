@@ -260,7 +260,7 @@ func _check_begin() -> void:
 	check(is_same(live, session._pose_config) and is_same(live, session.pose_node.pose_config),
 		"a live sync keeps the same object on the node")
 	check(session.tail_lay != null, "the missionary tail lay is installed")
-	check(session.pose_logged == false and session.pose_trace_frames == 0,
+	check(session.diagnostics()._pose_logged == false and session.diagnostics()._trace_frames == 0,
 		"a fresh session starts its logs clean")
 	var tail_lay: Node = session.tail_lay
 	var pose_modifier: Node = session.pose_node
@@ -294,7 +294,7 @@ func _check_begin() -> void:
 	check(session.view().id == "" and session.view().pose_state == VIEW.IDLE,
 		"the pose release clears the view")
 	check(session.view().pose_config.is_empty(), "the pose release drops the view config")
-	check(str(session.base_info().reason) == "pose=",
+	check(str(session._base_info().reason) == "pose=",
 		"the released session names no pose")
 	body.free()
 	hair.free()
@@ -373,19 +373,19 @@ func _check_bed_frame() -> void:
 	session.bed_frame_source = Transform3D.IDENTITY
 	session.bed_frame_source_saved = true
 	bed.position = Vector3(1.0, 0.0, 0.0)
-	session.sync_bed_frame()
+	session._sync_bed_frame()
 	check((session.bed_frame as Transform3D).origin.is_equal_approx(Vector3(1.0, 1.0, 0.0)),
 		"the bed frame follows the bed")
 	check(session.view().bed_frame is Transform3D and (session.view().bed_frame as Transform3D)
 		.origin.is_equal_approx(Vector3(1.0, 1.0, 0.0)),
 		"the view carries the followed bed frame")
 	bed.position = Vector3(1.0, 0.0, 0.0)
-	session.sync_bed_frame()
+	session._sync_bed_frame()
 	check((session.bed_frame as Transform3D).origin.is_equal_approx(Vector3(1.0, 1.0, 0.0)),
 		"a still bed leaves the frame alone")
 	session.bed_frame_source_saved = false
 	bed.position = Vector3(2.0, 0.0, 0.0)
-	session.sync_bed_frame()
+	session._sync_bed_frame()
 	check((session.bed_frame as Transform3D).origin.is_equal_approx(Vector3(1.0, 1.0, 0.0)),
 		"an unsaved bed source skips the follow")
 	session.leave_pose_start()
@@ -404,15 +404,15 @@ func _check_ground_frame() -> void:
 	var start: Transform3D = session.ground_frame
 	var basis_before := start.basis
 	pony.global_position += Vector3(1.0, 0.0, -0.5)
-	session.sync_ground_frame()
+	session._sync_ground_frame()
 	check((session.ground_frame as Transform3D).origin.is_equal_approx(
 		start.origin + Vector3(1.0, 0.0, -0.5)), "the ground frame follows the root")
 	pony.rotate_y(0.5)
-	session.sync_ground_frame()
+	session._sync_ground_frame()
 	check(not (session.ground_frame as Transform3D).basis.is_equal_approx(basis_before),
 		"the ground frame follows the root yaw")
 	var still: Transform3D = session.ground_frame
-	session.sync_ground_frame()
+	session._sync_ground_frame()
 	check((session.ground_frame as Transform3D).is_equal_approx(still),
 		"a still root leaves the frame alone")
 	session.release_pose()
@@ -424,10 +424,10 @@ func _check_ground_frame() -> void:
 func _check_standing_asset() -> void:
 	var made := _live_session(CATALOG.STANDING)
 	var session: SESSION = made["session"]
-	check(str(session.base_info().asset_path) == "poses/standing_pose.json",
+	check(str(session._base_info().asset_path) == "poses/standing_pose.json",
 		"the standing session names the standing asset")
-	check(session.authored_ready(), "the standing asset is ready")
-	check(str(session.base_info().base) == "authored",
+	check(session.readiness().asset_verdict().ok, "the standing asset is ready")
+	check(str(session._base_info().base) == "authored",
 		"the standing base is the authored asset")
 	_free_live(made)
 
@@ -441,8 +441,8 @@ func _check_missing_standing_asset() -> void:
 	var saved: Variant = AUTHORED._shared.get(key)
 	var broken: Variant = AUTHORED.new()
 	AUTHORED._shared[key] = broken
-	check(not session.authored_ready(), "a missing standing asset is not ready")
-	check(str(session.authored_reason()).begins_with("pose_asset: "),
+	check(not session.readiness().asset_verdict().ok, "a missing standing asset is not ready")
+	check(str(session.readiness().asset_verdict().reason).begins_with("pose_asset: "),
 		"the reason names the missing asset")
 	if saved != null:
 		AUTHORED._shared[key] = saved
@@ -534,29 +534,29 @@ func _check_diagnostics() -> void:
 	var made := _session(CATALOG.STANDING)
 	var session: SESSION = made["session"]
 	var pony: FakePony = made["pony"]
-	check(near(session.basis_amount(), 0.0), "a missing pose has no weight")
-	var info: Variant = session.base_info()
+	check(near(session._basis_amount(), 0.0), "a missing pose has no weight")
+	var info: Variant = session._base_info()
 	check(info.base == "none", "the base is none outside a missionary act")
 	check(info.reason == "no ground frame",
 		"the reason names the missing ground frame")
-	var rows: Array = session.state_rows(0)
+	var rows: Array = session.diagnostics().state_rows(0)
 	check(rows.size() >= 3, "the state rows carry the base, frame and scale")
 	check(str(rows[0]).contains("pose=standing"), "the state row names the pose")
 	var body := Skeleton3D.new()
 	pony.skeleton = body
 	root.add_child(body)
-	var missing: Array = session.rig_missing()
+	var missing: Array = session.readiness().rig_verdict().missing
 	check(not missing.is_empty(), "a bare rig is missing the authored bones")
-	check(str(session.rig_reason(missing)).begins_with("pose_rig: missing"),
+	check(str(session.readiness().rig_verdict().reason).begins_with("pose_rig: missing"),
 		"the rig reason names the missing bones")
-	check(session.rig_missing() == missing, "the rig check is cached per skeleton")
-	session.rig_missing_bones.assign(["poison"])
+	check(session.readiness().rig_verdict().missing == missing, "the rig check is cached per skeleton")
+	session.readiness()._rig_missing_bones.assign(["poison"])
 	var before: int = AUTHORED.revision
 	check(AUTHORED.reload_file().is_empty(), "the posed base reloads")
 	check(AUTHORED.revision == before + 1, "a reload bumps the asset revision")
-	var refreshed: Array = session.rig_missing()
+	var refreshed: Array = session.readiness().rig_verdict().missing
 	check(not refreshed.has("poison"), "a reload re-runs the rig check")
-	check(int(session.rig_revision) == AUTHORED.revision, "the rig cache records the revision")
+	check(int(session.readiness()._rig_revision) == AUTHORED.revision, "the rig cache records the revision")
 	var spare: RefCounted = AUTHORED.new()
 	check(str(spare.call("load_file", AUTHORED.PATH)).is_empty(), "a spare asset loads")
 	check(int(spare.get("version")) > 0, "the spare asset carries its version")
@@ -565,7 +565,7 @@ func _check_diagnostics() -> void:
 		"a missing path fails the load")
 	check(int(spare.get("version")) == 0, "a failed load reports version 0")
 	session.leave_pose_start()
-	check(not session.rig_checked, "the pose-start leave clears the rig cache")
+	check(not session.readiness()._rig_checked, "the pose-start leave clears the rig cache")
 	root.remove_child(body)
 	body.free()
 	root.remove_child(pony)
@@ -814,7 +814,7 @@ func _check_oral_edge() -> void:
 		"the oral turn moves her toward the mirrored anchor")
 	check(view.facing_amount > 0.0 and view.facing_amount < 1.0,
 		"the oral turn publishes its eased facing")
-	session.sync_ground_frame()
+	session._sync_ground_frame()
 	check(not (session.ground_frame as Transform3D).origin.is_equal_approx(frame_start.origin),
 		"the oral turn moves the ground frame")
 	session.tick(0.45)
@@ -876,7 +876,7 @@ func _check_oral_edge() -> void:
 		"the reverse clears the facing amount")
 	check(pony.global_transform.basis.orthonormalized().is_equal_approx(from_basis),
 		"the reverse restores the captured facing")
-	session.sync_ground_frame()
+	session._sync_ground_frame()
 	check((session.ground_frame as Transform3D).origin.is_equal_approx(frame_start.origin),
 		"the reverse returns the ground frame")
 	check(not session._pose_config.has("oral_pitch") and not view.to_config.has("oral_pitch"),
@@ -995,7 +995,7 @@ func _check_facesit_edge() -> void:
 	check(session.pose_node.mode == POSE.MODE_SINGLE
 		and str(session.pose_node.authored.get("path")).ends_with("bed_facesit_pose.json"),
 		"the settled face-sit runs its own asset in the single path")
-	check(is_same(session.pose_node.authored, session.authored_asset()),
+	check(is_same(session.pose_node.authored, session.readiness().asset()),
 		"the camera reads the adopted face-sit asset")
 	check(str(view.controls.get("set", "")) == "facesit",
 		"the settled view uses the face-sit control set")
@@ -1233,7 +1233,7 @@ func _check_asset_adoption() -> void:
 	var standing: Variant = AUTHORED.shared("poses/standing_pose.json")
 	check(is_same(session.pose_node.authored, missionary),
 		"the missionary begin owns the missionary asset")
-	check(is_same(session.authored_asset(), missionary),
+	check(is_same(session.readiness().asset(), missionary),
 		"the published asset is the live rendered asset")
 	var target := "synthetic_face_bed"
 	_synthetic_bed_spec(session, target)
@@ -1246,12 +1246,12 @@ func _check_asset_adoption() -> void:
 		"the from side is the live missionary asset")
 	check(is_same(session.pose_node.to_authored, standing),
 		"the to side is the target standing asset")
-	check(is_same(session.authored_asset(), missionary),
+	check(is_same(session.readiness().asset(), missionary),
 		"the camera holds the source asset through the edge")
 	check(is_same(view.authored, missionary),
 		"the view holds the source asset through the edge")
 	check(str(view.id) == target, "the view follows the target")
-	var info: Variant = session.base_info()
+	var info: Variant = session._base_info()
 	check(info.live_path == "poses/missionary_pose.json",
 		"the base info names the live missionary path")
 	check(info.target_path == "poses/standing_pose.json",
@@ -1271,7 +1271,7 @@ func _check_asset_adoption() -> void:
 		"completion points both sides at the target asset")
 	check(is_same(session._from_asset, standing), "the live side adopts the target asset")
 	check(session._target_asset == null, "completion drops the target asset cache")
-	check(is_same(session.authored_asset(), standing),
+	check(is_same(session.readiness().asset(), standing),
 		"the published asset is the target after completion")
 	check(is_same(view.authored, standing),
 		"the view carries the target asset after completion")

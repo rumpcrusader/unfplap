@@ -92,9 +92,11 @@ A `start` gate adds the final scene rows; an `offer` gate uses the offer-safe su
 
 The footstool rule lives in the per-act handle `stool/act.gd` (`docs/stool.md`); the rows reach it
 through the host's `stool_needed_count` / `stool_case_count` forwards, and the hotkey pair comes
-from the handle's `hotkey_pair()`. The pose rows reach the pose session facade. `pose_asset` and
-`pose_rig` are emitted for a bed pose and for a ground pose: the candidate's own `asset` is resolved
-through its `base` chain, and a missing or frame-mismatched asset refuses the start. The ground
+from the handle's `hotkey_pair()`. The pose rows read the pose service's `PoseReadiness` handle:
+`asset_verdict()` and `rig_verdict()` each answer `ok`, `reason` and, for the rig, the missing
+bones. `pose_asset` and `pose_rig` are emitted for a bed pose and for a ground pose: the
+candidate's own `asset` is resolved through its `base` chain, and a missing or frame-mismatched
+asset refuses the start. The ground
 family has no procedural fallback.
 
 ## Small checks

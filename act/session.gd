@@ -424,7 +424,7 @@ func close_hint() -> String:
 
 ## The pose diagnostic rows for the debug panel.
 func pose_state_rows() -> Array:
-	return context.pose.state_rows(state)
+	return context.pose.diagnostics().state_rows(state)
 
 
 

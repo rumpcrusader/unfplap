@@ -264,7 +264,7 @@ func _check_variants() -> void:
 ## The spec table's `asset` field and the base-chain resolution.
 func _check_resolution() -> void:
 	var service: SERVICE = SERVICE.new()
-	check(service.authored_asset(SPECS.MISSIONARY).path.ends_with("poses/missionary_pose.json"),
+	check(service.readiness().asset(SPECS.MISSIONARY).path.ends_with("poses/missionary_pose.json"),
 		"missionary resolves its asset")
 	var row: Dictionary = SPECS.spec(SPECS.MISSIONARY).duplicate(true)
 	row["id"] = "missionary_child"
@@ -276,12 +276,12 @@ func _check_resolution() -> void:
 	check(child != null, "a synthetic base row builds")
 	check(str(service.call("_effective_asset", child)) == "poses/missionary_pose.json",
 		"a base-chain row inherits the asset")
-	var standing_asset: String = service.authored_asset(SPECS.STANDING).path
+	var standing_asset: String = service.readiness().asset(SPECS.STANDING).path
 	check(standing_asset.ends_with("poses/standing_pose.json"),
 		"the standing row declares its asset")
-	check(service.authored_asset(SPECS.STANDING_TEST).path == standing_asset,
+	check(service.readiness().asset(SPECS.STANDING_TEST).path == standing_asset,
 		"standing_test inherits the standing asset")
-	check(service.authored_asset(SPECS.STANDING_ORAL).path == standing_asset,
+	check(service.readiness().asset(SPECS.STANDING_ORAL).path == standing_asset,
 		"standing_oral inherits the standing asset")
 	var shipped: Variant = AUTHORED.shared(standing_asset)
 	check(bool(shipped.get("available")), "the standing asset loads: %s" % str(shipped.get("error")))

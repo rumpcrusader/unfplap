@@ -6,7 +6,7 @@ extends "res://mods/unfplap/shared/service.gd"
 
 const BRIDGE := preload("res://mods/unfplap/director/bridge.gd")
 
-## One answer or completion sink: the text and the provider error, called once.
+## One answer sink: the text and the provider error, called once.
 class Reply:
 	var done: Callable = Callable()
 

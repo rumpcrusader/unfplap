@@ -59,10 +59,10 @@ first use and reconfigured when the world's director changes; it survives a worl
 
 ## Cancellation and lifecycle
 
-`Call.cancel()` drops a queued call or cancels the active request. `cancel_all()` is the
-world-close and shutdown sweep. A world enter and a world close both cancel the calls that belong
-to the world that is gone and drop the director reference; the client stays. `shutdown()` also
-drops the client reference.
+`Call.cancel()` drops a queued call or cancels the active request. The world-close and shutdown
+sweep drops every call. A world enter and a world close both cancel the calls that belong to the
+world that is gone and drop the director reference; the client stays. `shutdown()` also drops the
+client reference.
 
 ## Batching
 

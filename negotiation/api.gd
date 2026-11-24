@@ -127,8 +127,8 @@ var _ponies: PONIES = null
 ## in `_ready()`, after every peer is wired.
 func wire(eligibility_service: ELIGIBILITY, gate_service: ACT_GATE, memory_service: MEMORY,
 		privacy_service: PRIVACY, initiation_service: Node, voice: DIRECTOR,
-		owner: ACT_OWNER, hud_service: Node = null, ponies_service: PONIES = null,
-		classifier_service: CLASSIFIER = null) -> void:
+		owner: ACT_OWNER, classifier_service: CLASSIFIER, hud_service: Node = null,
+		ponies_service: PONIES = null) -> void:
 	_eligibility = eligibility_service
 	_gate = gate_service
 	_memory = memory_service

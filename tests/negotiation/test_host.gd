@@ -99,17 +99,12 @@ class FakeClassifier extends "res://mods/unfplap/classifier/api.gd":
 			reply: CLASSIFIER.Reply) -> CLASSIFIER.Call:
 		if not can_answer:
 			return null
-		var call := CLASSIFIER.Call.new()
-		call.definition = definition
-		call.utterance = utterance
-		call.reply = reply
-		calls.append({"definition": definition, "utterance": utterance, "call": call})
-		return call
+		calls.append({"definition": definition, "utterance": utterance, "reply": reply})
+		return CLASSIFIER.Call.new()
 
 	func answer() -> void:
 		var row: Dictionary = calls[-1]
-		var call := row["call"] as CLASSIFIER.Call
-		call.reply.done.call(reply, error)
+		(row["reply"] as CLASSIFIER.Reply).done.call(reply, error)
 
 
 ## The service as the bridge sees it: the lock, the Anon answer and the Agreement cancel.
@@ -349,8 +344,8 @@ func _service_fixture() -> Dictionary:
 	WORLD.bind_player(player)
 	var memory := FakeMemory.new()
 	var privacy := FakePrivacy.new()
-	service.wire(eligibility, gate, memory, privacy, initiation, voice, owner, null, roster,
-		classifier)
+	service.wire(eligibility, gate, memory, privacy, initiation, voice, owner, classifier, null,
+		roster)
 	root.add_child(service)
 	return {"service": service, "game": game, "pony": pony, "runtime": runtime,
 		"player": player, "eligibility": eligibility, "gate": gate, "facts": facts,
@@ -408,8 +403,7 @@ func _check_wire_build() -> void:
 	var initiation := FakeInitiation.new()
 	var voice := FakeVoice.new()
 	var classifier := FakeClassifier.new()
-	service.wire(eligibility, gate, memory, privacy, initiation, voice, owner, null, null,
-		classifier)
+	service.wire(eligibility, gate, memory, privacy, initiation, voice, owner, classifier)
 	check(service.get_child_count() == 0, "wire() builds no child")
 	root.add_child(service)
 	check(service.get_child_count() == 0, "attaching builds no child either")

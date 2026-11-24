@@ -129,7 +129,7 @@ var _reasoning_call: CLASSIFIER.Call = null
 ## The peers this service calls; the composition root is the only caller.
 func wire(eligibility: ELIGIBILITY, act_gate: ACT_GATE, privacy: PRIVACY, memory: MEMORY,
 		negotiation: NEGOTIATION, director: DIRECTOR, offer: OFFER, ponies: PONIES,
-		classifier: CLASSIFIER = null) -> void:
+		classifier: CLASSIFIER) -> void:
 	self.eligibility = eligibility
 	self.act_gate = act_gate
 	_privacy = privacy

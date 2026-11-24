@@ -7,11 +7,7 @@ extends "res://mods/unfplap/shared/service.gd"
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
-const MAX_QUEUE := 4
-const LIMITS := {
-	"purpose": "unfplap_classifier", "input_bytes": 4096, "output_tokens": 64,
-	"reasoning_room": 768, "max_attempts": 1,
-}
+const _MAX_QUEUE := 4
 
 
 ## One classifier's instruction and bounds. The owner sets `id` and `instruction`; the rest have
@@ -39,24 +35,34 @@ class Reply:
 
 ## One queued or active call. `cancel()` drops it; a cancelled call never calls its reply.
 class Call extends RefCounted:
-	var definition: Definition = null
-	var utterance := ""
-	var reply: Reply = null
-	var serial := 0
 	var _cancel: Callable = Callable()
 
 	func cancel() -> void:
 		if _cancel.is_valid():
-			_cancel.call(self)
+			_cancel.call()
 
 
-var client: Node = null
+## One queued call's frozen values; the caller's definition may change after `run`.
+class _Job extends RefCounted:
+	var id := ""
+	var instruction := ""
+	var input_bytes := 0
+	var output_tokens := 0
+	var reasoning_room := 0
+	var max_attempts := 1
+	var deadline_s := 8.0
+	var priority := 0
+	var utterance := ""
+	var done: Callable = Callable()
+
+
+var _client: Node = null
 var _timer: Timer
 var _director: WORLD.Director = null
 var _configured := false
 var _test_client := false
-var _queue: Array[Call] = []
-var _active: Call = null
+var _queue: Array[_Job] = []
+var _active: _Job = null
 var _serial := 0
 
 
@@ -72,7 +78,7 @@ func _ready() -> void:
 
 ## A suite seam: a fake client replaces the live one; the entry never calls it.
 func setup(client_node: Node) -> void:
-	client = client_node
+	_client = client_node
 	_test_client = is_instance_valid(client_node)
 	_configured = _test_client
 
@@ -82,8 +88,7 @@ func available() -> bool:
 	return _ensure_configured()
 
 
-## One bounded call. Null means nothing could start; `reply` gets the raw text and error once.
-## A cancelled call is silent.
+## One bounded call. Null means nothing could start; `reply` gets the text and error once.
 func run(definition: Definition, utterance: String, reply: Reply) -> Call:
 	if not _valid(definition) or utterance.is_empty():
 		return null
@@ -91,22 +96,24 @@ func run(definition: Definition, utterance: String, reply: Reply) -> Call:
 		return null
 	if not _ensure_configured():
 		return null
-	if _queue.size() >= MAX_QUEUE:
+	if _queue.size() >= _MAX_QUEUE:
 		LOG.debug("classifier queue full id=%s", [definition.id])
 		return null
+	var job := _Job.new()
+	job.id = definition.id
+	job.instruction = definition.instruction
+	job.input_bytes = definition.input_bytes
+	job.output_tokens = definition.output_tokens
+	job.reasoning_room = definition.reasoning_room
+	job.max_attempts = definition.max_attempts
+	job.deadline_s = definition.deadline_s
+	job.priority = definition.priority
+	job.utterance = utterance
+	job.done = reply.done
 	var call := Call.new()
-	call.definition = definition
-	call.utterance = utterance
-	call.reply = reply
-	call._cancel = Callable(self, "_cancel_call")
-	_enqueue(call)
+	call._cancel = Callable(self, "_cancel_call").bind(job)
+	_enqueue(job)
 	return call
-
-
-## Drop every request; the world-close and shutdown path.
-func cancel_all() -> void:
-	_cancel_active()
-	_queue.clear()
 
 
 func _valid(definition: Definition) -> bool:
@@ -125,51 +132,51 @@ func _valid(definition: Definition) -> bool:
 
 func _ensure_configured() -> bool:
 	if _test_client:
-		return is_instance_valid(client)
+		return is_instance_valid(_client)
 	var director := WORLD.director()
 	if not is_instance_valid(director):
 		return false
-	if _configured and is_instance_valid(client) and _director == director:
+	if _configured and is_instance_valid(_client) and _director == director:
 		return true
 	var config := director.llm_config()
 	if not config.enabled or config.section.is_empty():
 		return false
-	if not is_instance_valid(client):
-		client = director.new_llm()
-		client.name = "UnfplapClassifierLlm"
-		add_child(client)
-	client.configure(config.section)
-	client.status_path = config.status_path
+	if not is_instance_valid(_client):
+		_client = director.new_llm()
+		_client.name = "UnfplapClassifierLlm"
+		add_child(_client)
+	_client.configure(config.section)
+	_client.status_path = config.status_path
 	_director = director
 	_configured = true
 	return true
 
 
-func _enqueue(call: Call) -> void:
+func _enqueue(job: _Job) -> void:
 	var index := _queue.size()
-	while index > 0 and _queue[index - 1].definition.priority < call.definition.priority:
+	while index > 0 and _queue[index - 1].priority < job.priority:
 		index -= 1
-	_queue.insert(index, call)
+	_queue.insert(index, job)
 	call_deferred("_start_next")
 
 
 func _start_next() -> void:
 	if _active != null or _queue.is_empty() or not _configured:
 		return
-	if not is_instance_valid(client):
+	if not is_instance_valid(_client):
 		return
 	_active = _queue.pop_front()
 	_serial += 1
 	var generation := _serial
-	_active.serial = generation
-	_timer.start(_active.definition.deadline_s)
-	var limits := LIMITS.duplicate()
-	limits["purpose"] = _active.definition.id
-	limits["input_bytes"] = _active.definition.input_bytes
-	limits["output_tokens"] = _active.definition.output_tokens
-	limits["reasoning_room"] = _active.definition.reasoning_room
-	limits["max_attempts"] = _active.definition.max_attempts
-	var accepted: bool = client.complete_limited(_active.definition.instruction,
+	_timer.start(_active.deadline_s)
+	var limits := {
+		"purpose": _active.id,
+		"input_bytes": _active.input_bytes,
+		"output_tokens": _active.output_tokens,
+		"reasoning_room": _active.reasoning_room,
+		"max_attempts": _active.max_attempts,
+	}
+	var accepted: bool = _client.complete_limited(_active.instruction,
 		[{"role": "user", "content": _active.utterance}],
 		func(reply: String, error: String) -> void:
 			if generation != _serial:
@@ -181,8 +188,8 @@ func _start_next() -> void:
 
 
 func _timeout() -> void:
-	if is_instance_valid(client):
-		client.cancel()
+	if is_instance_valid(_client):
+		_client.cancel()
 	_finish("", "timeout")
 
 
@@ -191,22 +198,22 @@ func _finish(reply: String, error: String) -> void:
 		return
 	if is_instance_valid(_timer):
 		_timer.stop()
-	var call := _active
+	var job := _active
 	_active = null
 	_serial += 1
-	if call.reply != null and call.reply.done.is_valid():
-		call.reply.done.call(reply, error)
+	if job.done.is_valid():
+		job.done.call(reply, error)
 	call_deferred("_start_next")
 
 
-func _cancel_call(call: Call) -> void:
-	if call == null:
+func _cancel_call(job: _Job) -> void:
+	if job == null:
 		return
-	if call == _active:
+	if job == _active:
 		_cancel_active()
 		call_deferred("_start_next")
 		return
-	var index := _queue.find(call)
+	var index := _queue.find(job)
 	if index >= 0:
 		_queue.remove_at(index)
 
@@ -216,10 +223,16 @@ func _cancel_active() -> void:
 		return
 	if is_instance_valid(_timer):
 		_timer.stop()
-	if is_instance_valid(client):
-		client.cancel()
+	if is_instance_valid(_client):
+		_client.cancel()
 	_active = null
 	_serial += 1
+
+
+## Clear the active and queued calls.
+func _cancel_all() -> void:
+	_cancel_active()
+	_queue.clear()
 
 
 ## Both world hooks drop the live calls; the queue is per world.
@@ -227,18 +240,20 @@ func on_world(_host: Node) -> void:
 	on_world_closed()
 
 
+## A world close drops the live calls and the director view; the client stays.
 func on_world_closed() -> void:
-	cancel_all()
+	_cancel_all()
 	_director = null
 
 
+## The entry is leaving: drop the calls, the director view and the client reference.
 func shutdown() -> void:
-	cancel_all()
+	_cancel_all()
 	_director = null
 	_configured = false
 	_test_client = false
-	client = null
+	_client = null
 
 
 func _exit_tree() -> void:
-	cancel_all()
+	_cancel_all()

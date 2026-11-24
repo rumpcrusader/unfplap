@@ -158,8 +158,8 @@ func _check_cancel() -> void:
 	var first := _service.run(_definition("first"), "one", _no_sink())
 	var second := _service.run(_definition("second"), "two", _no_sink())
 	await process_frame
-	_service.cancel_all()
-	check(_client.cancelled == 1, "cancel_all cancels the active request")
+	_service.on_world_closed()
+	check(_client.cancelled == 1, "the world-close sweep cancels the active request")
 	check(first != null and second != null, "both handles exist")
 	await process_frame
 

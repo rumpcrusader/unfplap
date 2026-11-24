@@ -186,17 +186,12 @@ class FakeClassifier extends "res://mods/unfplap/classifier/api.gd":
 			reply: CLASSIFIER.Reply) -> CLASSIFIER.Call:
 		if not can_answer:
 			return null
-		var call := CLASSIFIER.Call.new()
-		call.definition = definition
-		call.utterance = utterance
-		call.reply = reply
-		calls.append({"definition": definition, "utterance": utterance, "call": call})
-		return call
+		calls.append({"definition": definition, "utterance": utterance, "reply": reply})
+		return CLASSIFIER.Call.new()
 
 	func answer() -> void:
 		var row: Dictionary = calls[-1]
-		var call := row["call"] as CLASSIFIER.Call
-		call.reply.done.call(reply, error)
+		(row["reply"] as CLASSIFIER.Reply).done.call(reply, error)
 
 
 ## The idle offer facade's one read the Proactive gate uses: which pony the act key would start.

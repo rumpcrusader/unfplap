@@ -200,8 +200,8 @@ func _build_world() -> void:
 	# a violation.
 	initiation.wire(eligibility, act_gate, privacy, memory, negotiation, director, offer, ponies,
 		classifier)
-	negotiation.wire(eligibility, act_gate, memory, privacy, initiation, director, act_owner, hud,
-		ponies, classifier)
+	negotiation.wire(eligibility, act_gate, memory, privacy, initiation, director, act_owner,
+		classifier, hud, ponies)
 	anatomy.wire(eligibility)
 	estrus.wire(anatomy)
 	integrations.wire(anatomy, body_change, ponies, eligibility, api)

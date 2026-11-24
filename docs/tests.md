@@ -28,6 +28,8 @@ lifecycle; this doc owns their shape and their runner.
 
 `tests/act/test_session.gd` covers the runtime's own `act/` modules: the one state writer, the
 phase timer verdicts, the clock and reset rules and the typed host/context seam.
+`tests/act/test_tick.gd` covers the ordered render frame: the view refresh, the pose space follow,
+the pose write and the render trace before the look and the shot.
 
 `tests/act_gate/` covers the dynamic act gate: its pure truth table and Promiscuity floor, the
 act-key readiness row, the typed verdict, the relationship row's two love-level sources, the

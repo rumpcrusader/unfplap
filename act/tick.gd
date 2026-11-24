@@ -78,7 +78,7 @@ func _tick(delta: float) -> void:
 		return
 	session.refresh_identity()
 	session.cycle_heat = session.cycle_phase() == CYCLE.HEAT
-	context.pose.sync_frame(session.pose_family())
+	context.pose.follow_space(session.pose_family())
 	if host.pony.sleeping:
 		host.pony.sleeping = false
 	context.hold.keep_nav()
@@ -191,7 +191,7 @@ func render(delta: float) -> void:
 		context.presentation.process()
 	elif not context.handover.suspended:
 		session.refresh_view()
-		context.pose.sync_frame(session.pose_family())
+		context.pose.follow_space(session.pose_family())
 		session.pose_render_write()
 		context.pose.diagnostics().trace_sample(session.state)
 		context.view.clamp_look()

@@ -264,7 +264,9 @@ func wire(eligibility: ELIGIBILITY) -> void:
 # --------------------------------------------------------------------------- roster
 
 ## Idempotent. A null form means the pony's own default form. The identity gate lives here, so no
-## caller can attach a controller or a tail to a body that is not an anatomy target.
+## caller can attach a controller or a tail to a body that is not an anatomy target. A profile
+## that opts out releases the controller and the tail seat together but keeps its stored form, so
+## her other profile data and the Characters edit survive the opt-out.
 func present(pony: Node3D, form: BODY_FORM.BodyForm = null) -> void:
 	if not is_instance_valid(pony) or _parts == null:
 		return

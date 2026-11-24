@@ -30,7 +30,9 @@ const PONY_BONES := [
 	"pony_shoulder_R", "pony_upperArm_R", "pony_lowerArm_R", "pony_wrist_R", "pony_hand_R",
 	"pony_finger_R",
 ]
-## Bones the game or the act animates every frame: they are never baked.
+## Bones the game or the act animates every frame: they are never baked. The head is only a
+## direction target for the live aim, so an authored head rotation would fight the face the act
+## solves each frame.
 const BANNED_PREFIXES := ["pony_head", "pony_lid", "pony_ear", "pony_Wing", "pony_wing",
 	"pony_Feather", "pony_foldedWing", "pony_tail", "rd_", "jaw", "EYETARGET", "MOUNT_"]
 

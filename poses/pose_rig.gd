@@ -105,7 +105,9 @@ func _body_basis(sk: Skeleton3D) -> Basis:
 	return mare.global_basis if is_instance_valid(mare) else sk.global_basis
 
 
-## Body-relative axes in skeleton space.
+## Body-relative axes in skeleton space. The actor's basis is kept upright (yaw only), so `up`
+## stays world gravity even while the skeleton's bones roll; never feed a raw world axis to a bone
+## write.
 func right_axis(sk: Skeleton3D) -> Vector3:
 	return (sk.global_basis.inverse() * _body_basis(sk).x).normalized()
 

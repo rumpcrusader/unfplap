@@ -152,7 +152,8 @@ func visible() -> bool:
 
 
 ## Re-evaluate the mesh, dock and part visibility. The controller calls this at its visibility
-## poll cadence and after attach/settings changes.
+## poll cadence and after attach/settings changes. A far mesh toggles visibility only: the
+## attachment and its skeleton binding survive the near/far swap.
 func apply_visibility(act_visible: bool) -> void:
 	if not attached or not is_instance_valid(pony):
 		return

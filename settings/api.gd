@@ -1410,8 +1410,8 @@ static var smack_intensity := num("smack_intensity", "jiggle.smack_intensity",
 
 # -- (ungrouped)
 
-## The one gate `SETTINGS.anatomy_on()` reads: `never` detaches, `act` shows her from
-## `POSING_IN` to `CLIMAX`, `always` keeps her attached.
+## The one gate `SETTINGS.anatomy_on()` reads: `never` detaches, `act` keeps her attached but shown
+## only while an act holds the mesh, `always` shows her whenever she is presented.
 static var anatomy_mode := choice("anatomy_mode", "anatomy.anatomy_mode",
 	["never", "act", "always"], ["Never", "During act only", "Always"], "Anatomy",
 	"When to show it", ANATOMY, "")
@@ -2799,6 +2799,9 @@ static func _draft() -> Dictionary:
 	return _cache.duplicate(true)
 
 
+## Player values merge over the shipped defaults, and every declaration is materialised in the
+## player file on first run. A changed shipped default therefore never reaches an existing player:
+## their saved value keeps winning, and moving that value into the shipped document is a migration.
 static func _load() -> void:
 	_loaded = true
 	generation += 1
@@ -2835,7 +2838,8 @@ static func _load() -> void:
 
 
 ## Read one player document. An unreadable, malformed or newer file is preserved and reported as
-## absent, so a fresh document replaces it without destroying the bytes.
+## absent, so a fresh document replaces it without destroying the bytes. Each file is checked on
+## its own, so a bad character document never discards the settings document.
 static func _read_player_file(path: String) -> Dictionary:
 	var out := {"data": {}, "present": false, "version": 0}
 	if not FileAccess.file_exists(path):
@@ -3198,7 +3202,9 @@ static func _profile_characters(data: Dictionary) -> Dictionary:
 
 
 ## Retired settings, then the single structural step. The retired entries run on every file, so a
-## retired key can never linger; the version gate keeps the split to one run.
+## retired key can never linger; the version gate keeps the split to one run. A file older than
+## that split keeps the keys this build no longer declares: the merge fills those declarations
+## from the shipped defaults, and the silent reset of those settings is accepted.
 static func _migrate(data: Dictionary, version := 0) -> Dictionary:
 	for rule: DEPRECATION.Rule in _deprecated:
 		var value: Variant = _read_path(data, rule.path, null)

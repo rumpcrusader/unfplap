@@ -23,7 +23,8 @@ const TAIL_CHAIN := "Chain"
 const TAIL_WRAPPER := "UnfplapTailPlacement"
 ## A disguise marks its body with this geometry variant (`changeling=<pony id>` in 0.2.12).
 const SHAPE_PREFIX := "changeling="
-## Her hide pass needs this marker on the anatomy, or the anatomy stays hidden for good.
+## Her hide pass needs this marker on the anatomy: without it the anatomy is hidden and the poll
+## stores that state, so no later state change re-shows it.
 const BODY_OWN_META := "chrysalis_own"
 ## Her own body's rig row.
 ## The cell body is the princess profile.

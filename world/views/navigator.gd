@@ -1,5 +1,7 @@
 extends RefCounted
 ## One pony's navigator leases, travel and facing, bound to her node or to the navigator itself.
+## A travel lease belongs to the caller that claimed it: this view carries that owner's reads and
+## writes and never claims, reassigns or releases a lease on its own.
 
 const GAME := preload("res://mods/unfplap/world/game.gd")
 

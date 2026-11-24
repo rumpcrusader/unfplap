@@ -322,8 +322,8 @@ func _process(delta: float) -> void:
 	PERF.end("anatomy_process")
 
 
-## integration: the visibility pill. `always` shows whenever presented; `act` shows from
-## `begin_act()` until the act handle's `end()`.
+## integration: the visibility pill. `always` shows whenever presented; `act` keeps the mesh from
+## the first act stage until the one exit releases the handle, so the restore fade still shows it.
 func _act_visible() -> bool:
 	match _anatomy_mode:
 		"always":

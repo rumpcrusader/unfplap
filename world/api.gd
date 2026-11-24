@@ -533,7 +533,8 @@ static func anon() -> Anon:
 	return _anon
 
 
-## One pony's body, cached per bound node; an invalid node answers the accessors' typed zeroes.
+## One pony's body, cached per bound node; an invalid node answers the accessors' typed zeroes, so
+## a view a caller keeps across a despawn reads those zeroes instead of crashing.
 static func pony(n: Node) -> Pony:
 	var live := is_instance_valid(n)
 	var key := n.get_instance_id() if live else 0

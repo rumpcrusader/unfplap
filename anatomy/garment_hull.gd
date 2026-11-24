@@ -2,7 +2,9 @@ extends RefCounted
 ## The garment hull: a rest-surface outer depth field the worn cloth samples in its vertex shader.
 ## A per-cell maximum-Z raster of the rest triangles leaves the inner canal behind the surface, so
 ## no normal filter is needed.
-## It bakes the rest pose only, and is pure: no Node or settings read.
+## It bakes the rest pose only, and is pure: no Node or settings read. That is the rest
+## appearance, not the act envelope: the cloth is normally removed before an act, and with the
+## undress off the act's opened or stretched shapes may poke through as the player's own choice.
 
 ## Extra room around the rest mesh so the shader's edge fade has a border.
 ## Y needs more room than X: the ponut and vulva bounds sit where the fade would cut the lift.

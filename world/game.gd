@@ -1,5 +1,8 @@
 extends RefCounted
 ## Stateless readers for the base-game and presentation members; the scene root is an argument.
+## A missing or renamed member answers a typed zero, never an error: a null handle, a false flag,
+## a NAN measurement, a zero or infinite point, an empty copy. A clamp hands back the basis it was
+## given. A freed or wrong-typed argument takes the same answer, so a stale handle cannot crash.
 
 const MATTRESS := preload("res://world/life/couch/mattress.gd")
 const COUCH_EXIT := preload("res://world/life/couch/exit_space.gd")

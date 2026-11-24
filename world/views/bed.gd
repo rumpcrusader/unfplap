@@ -1,5 +1,7 @@
 extends RefCounted
-## One rest-family node (a bed, its couch, one seat or the seating system) and the rows it answers.
+## One rest-family node and the rows it answers. A member is bound to whichever of the bed, the
+## couch or rest that owns it, one of its seats, or the seating system actually holds that row, so
+## one view spans the family and each call names only the nodes that are not the receiver.
 
 const GAME := preload("res://mods/unfplap/world/game.gd")
 

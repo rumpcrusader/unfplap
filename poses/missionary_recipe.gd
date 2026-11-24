@@ -82,7 +82,8 @@ func _neutral_head(sk: Skeleton3D, weight: float) -> void:
 
 
 ## The skull frame in world space. The body head bone is mapped to the OpenPony head by a fixed
-## per-pair offset, so that offset must be applied to match the frame the head skeleton will use.
+## per-pair offset, so that offset must be applied to match the frame the head skeleton will use:
+## the raw body bone's forward is not the face direction, and the aim needs the mapped frame.
 func _head_gaze_frame(rig, sk: Skeleton3D) -> Dictionary:
 	if rig.neck.is_empty():
 		return {}

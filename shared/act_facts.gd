@@ -2,8 +2,6 @@ extends RefCounted
 ## The typed act context. The runtime owns one per act and rewrites it as the state and the camera
 ## change; presentation modules read this object instead of the runtime node. Callbacks are the
 ## host boundary for services, so tests can build a context without a runtime.
-##
-## See `AGENTS.md` (`## Architecture: isolated systems`).
 
 # Session values.
 var state := 0

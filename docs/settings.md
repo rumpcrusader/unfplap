@@ -52,7 +52,8 @@ access. `settings/settings.json`, `settings/characters.json` and `settings/promp
 data, not code: they are tracked, packed, read-only in a build and parsed once per process. The
 catalog is the settings service's internal public API: a service contributes a setting with a
 literal declaration there, one value in the shipped settings document, and then reads the typed
-handle.
+handle. A consumer may read another service's contributed handle because the catalog is public
+inside the mod; it is not part of the cross-mod API, and there is no registration manifest.
 
 `settings/ui.gd` is the only file that draws the declaration rows; it also owns the settings-page
 injection and the Debug block visibility. `settings/characters_ui.gd` is the interim home of the

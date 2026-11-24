@@ -73,8 +73,12 @@ wanted.
 
 ## Architecture gate
 
-The static gate (`scripts/check.sh --static`) scans the preload graph and enforces the layer, owner,
-game-boundary and re-export rules. These rules exist so code cannot grow back outside the gate:
+The static gate (`scripts/check.sh --static`) scans the preload graph and enforces the class model,
+the two roots, the game boundary, the service contract and the runtime shape. `ARCHITECTURE.md`
+owns the concepts; this section owns the complete roster. Every rule has both directions in
+`scripts/architecture.py --self-test`, run by `scripts/test.sh`.
+
+### Graph and boundaries
 
 - **Every mod path has an owner.** A shipped `.gd` must resolve through `owner_of()` to a service
   (`<id>/service.gd`, or `anatomy/api.gd` for the anatomy package, and everything under
@@ -84,13 +88,30 @@ game-boundary and re-export rules. These rules exist so code cannot grow back ou
   path has no owner and is refused; an edge naming one is classified external.
 - **Every anatomy file reads the game through `GAME`.** No anatomy file may preload a base-game
   module; no anatomy file may preload another mod service except `settings/service.gd`; and no
-  outside file may preload an anatomy file except `anatomy/api.gd`. The two directions are
-  synthetic fixtures in the gate's self-test, run by `scripts/test.sh`.
+  outside file may preload an anatomy file except `anatomy/api.gd`.
 - **Every script dependency is a top-level preload.** In every `.gd`, `tests/` and `tools/`
   included, each `const … := preload(...)` sits in the contiguous block directly below the doc
   header. A preload after another declaration or inside a class or function fails, and so does a
   `load()` of a script path or a const that resolves to one; a runtime `load(path)` for an asset
   stays allowed.
+- **Base-game access is one accessor.** A base-game module is imported only by a game-layer
+  service's `game.gd`; that file imports no service, the entry or the runtime, and is imported only
+  by its own service. A `game.gd` exists only for `world`, `settings`, `debug` and `hud`, and
+  `settings` and `world` do not import each other.
+- **The `/root` literals have one home.** `/root/Settings` and `/root/Mods` may appear only in
+  `main.gd` and a game-layer `game.gd`.
+- **No reach-through.** A file uses only the preload consts it declares; enums, nested classes and
+  plain constants stay reachable, and `GAME.X` is the one allowed re-export. A private import, a
+  service → `runtime`/`main`/`api` import, a shared → service import and a service cycle all fail.
+- **Only the entry names the entry.** No shipped `.gd` outside `main.gd` may contain
+  `main.<member>`, `var main`, a `main.gd` preload or a `main` argument; `tests/` is exempt. A
+  consumer preloads the facade it needs, reads `WORLD` for the scene, or takes a typed host
+  parameter.
+
+### The roots, the services and the runtime
+
+- **Every service extends the base.** A service the entry adds extends `shared/service.gd`; the HUD
+  is the one `CanvasLayer` and must define all four hooks.
 - **The entry builds no binding.** `main.gd` may not name a `*_binding.gd` or call
   `register_binding`: the body-change service constructs and registers its chain from the facades
   the entry hands it, so a new body-bound system adds no line to the composition root.
@@ -106,8 +127,7 @@ game-boundary and re-export rules. These rules exist so code cannot grow back ou
   calls only the composition verbs (construct, wire, name, `add_child`, `add_to_group`, `connect`,
   register a source) and reads no `WORLD`/`SETTINGS`/`LOG`/`PERF`; a `wire()` body takes no tree
   access and reads no scene. A field set from a `wire()` parameter is written only by `wire()` and
-  cleared only by `shutdown()`, and both directions of every rule are synthetic fixtures in the
-  self-test.
+  cleared only by `shutdown()`.
 - **The two debug assertions.** The entry logs one error per direct child outside `unfplap_world`
   (the API node is the named exception); the runtime logs one per direct child outside
   `unfplap_pony_service`. Both run behind `LOG.enabled` and return the offender count.
@@ -121,10 +141,6 @@ game-boundary and re-export rules. These rules exist so code cannot grow back ou
 - **Static state follows the class.** A `process` facade may be static; a `world` or `pony` facade
   holds no `static var`, `world/api.gd` being the one static read facade, and a `WORLD` alias
   whose value is a `preload(...)` names that file.
-- **Only the entry names the entry.** No shipped `.gd` outside `main.gd` may contain
-  `main.<member>`, `var main`, a `main.gd` preload or a `main` argument; `tests/` is exempt. A
-  consumer preloads the facade it needs, reads `WORLD` for the scene, or takes a typed host
-  parameter.
 - **The runtime is a host, not a system.** `runtime.gd` declares no `state` field and assigns no
   `state` (the one writer is `act/session.gd:_set_state()`), decodes no raw input (`Input.`,
   `InputMap.`, `InputEvent*`, `KEY_*`, `MOUSE_MODE_*`, an input callback), reads no `SETTINGS.`
@@ -136,6 +152,58 @@ game-boundary and re-export rules. These rules exist so code cannot grow back ou
   created by their owners. Both allow-lists live in the checker and are compared in both
   directions, so a new settings read or node fails the gate and a row whose code is gone fails as
   stale. File size is reported as `SMELL large file`, never as a cap.
+- **Every service has a contract chain.** Every service has a facade, a contract doc, a test
+  directory and exactly one index row; each contract has an ownership heading and names its facade;
+  every facade's public type carries a `##` note, and `api.gd`'s public surface is named in
+  `docs/api.md`.
+- **The ledgers only shrink.** `architecture/exceptions.json` fails on a new violation or a stale
+  exception. `architecture/typing_debt.json` fails when the weak-signature debt grows.
+  `architecture/duck_typing.json` fails when a shipped file outside the accessor allowlist adds a
+  `.call("name")`, `.set("name")` or `runtime.get("name")` site; the `integrations/` rows are a
+  deferred exception — that service talks to other mods, not the base game — and not a pattern, and
+  the `runtime.get` rows are the handle reads the typed accessors are replacing.
+
+### The scope tree checks
+
+Each is a pure function with both directions in the self-test; `ARCHITECTURE.md` owns the model.
+
+1. **Declaration.** Every facade carries `Service:` equal to its directory, `Scope:` in
+   `process|world|pony` and `Contract: docs/<sid>.md`; a non-facade carries none, except
+   `shared/log.gd` and `shared/perf.gd`, whose frozen header is their contract.
+2. **Node base.** A `world` or `pony` facade extends `Node`, `CanvasLayer` or `shared/service.gd`
+   directly or through a chain; a `process` facade may be anything. `WORLD_STATIC`
+   (`world/api.gd`) is the one named exception.
+3. **Construction.** Only a scope's root constructs its services: `main.gd` for Process and World,
+   `runtime.gd` for Pony. A facade const constructed anywhere else fails. The Process services are
+   static, so the root constructs only the API Node.
+4. **Attachment.** `main.gd` attaches every World facade through `_attach` and names it;
+   `runtime.gd` attaches every Pony facade through `_attach`. The entry sets no name on itself (the
+   loader owns the host name), and `UnfplapRuntime` and `UnfplapApi` are the fixed child names.
+5. **Groups.** `unfplap_world` is added only by `main.gd`'s attach helper and
+   `unfplap_pony_service` only by `runtime.gd`'s.
+6. **Cross-scope.** A Pony file may preload a World facade, and a World file may preload a Pony
+   facade for a `wire` type or a static read. A cross-scope private file fails; a cross-scope
+   construction fails. `world/handles.gd` is public through `PUBLIC_SERVICE_FILES`.
+7. **Static state.** A `world` or `pony` facade declares no `static var`; a `process` facade and
+   `world/api.gd` may. A `WORLD` alias whose value is a `preload(...)` names `world/api.gd`.
+
+The `Other` class is derived: a directory with no facade is never indexed in the Services table and
+never constructed by a root. The index-scope check — every Services row's `Scope` cell equals its
+facade's `Scope:` — lives in the docs group.
+
+### The static invariants
+
+The gate also owns: one teardown body in `act/exit.gd:run()` entered only through the exit's routes
+and the consent stop, with `act/session.gd:force_stop()` as the one-line delegate; the start
+recipe's order; the pose ledger's order and its three exact callers; the `act/tick.gd` fan-out order
+and the pose-before-facts write in its physics frame; the thin-runtime shape (one `state` writer in
+`act/session.gd`, the fixed `NODE_SURFACE`/`NODE_PROPERTIES`, no raw input, no settings read in
+`runtime.gd`, no runtime child outside `RUNTIME_CHILD_NODES`); the act-exit ban under `poses/`; the
+shell `errexit` prelude; the release files and the manifest; one settings declaration module; and
+the test-file rules in `docs/tests.md`. The typed act view boundary is a review rule: presentation
+modules read `shared/act_facts.gd`, not the runtime node.
+
+### Maintenance
 
 The rest — one body-change fan-out, one `act/swap.gd:resume()`, one `act/exit.gd:run()`, the
 schedule's tick and fan-out order in `act/tick.gd`, the scene-only world facade and the suite
@@ -144,6 +212,11 @@ the tree it guards. Its maintenance modes — `--group <name>` for one rule grou
 `--audit-surface`, `--write-exceptions`, `--write-debt` and `--write-duck-typing` — run directly on
 that module, not through the gate. The three writers are idempotent and preserve an existing
 exception row's reason, so a second run is a no-op. The graph is for review and is not checked in.
+
+The full gate is `scripts/check.sh`, `scripts/lint.sh` and `scripts/test.sh`. The manual labs are
+`./lab.sh`, `./lab-stress.sh` and `./lab-vr.sh`; a change that touches the tick, the pose, the camera
+or the per-act composition also needs one `perf` block in an act and one outside it, before and
+after.
 
 ## Shell scripts
 

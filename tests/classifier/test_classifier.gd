@@ -73,12 +73,20 @@ func _definition(id: String, priority := 0) -> CLASSIFIER.Definition:
 	return out
 
 
+func _sink(got: Array) -> CLASSIFIER.Reply:
+	return CLASSIFIER.Reply.of(func(reply: String, error: String) -> void:
+		got.append([reply, error]))
+
+
+func _no_sink() -> CLASSIFIER.Reply:
+	return CLASSIFIER.Reply.of(func(_reply: String, _error: String) -> void: pass)
+
+
 func _check_call() -> void:
 	check(_service.available(), "a fake client makes the transport available")
 	var got: Array = []
-	var call := _service.run(_definition("one"), "hello")
+	var call := _service.run(_definition("one"), "hello", _sink(got))
 	check(call != null, "a call starts")
-	call.done.connect(func(reply: String, error: String) -> void: got.append([reply, error]))
 	await process_frame
 	check(_client.calls.size() == 1, "the client receives the call")
 	var row: Dictionary = _client.calls[0]
@@ -88,22 +96,24 @@ func _check_call() -> void:
 		"the definition id labels the call")
 	_client.answer("reply", "")
 	check(got.size() == 1 and got[0][0] == "reply" and got[0][1] == "",
-		"the call emits its one reply")
+		"the call delivers its one reply")
 	await process_frame
 
 
 func _check_refusals() -> void:
-	check(_service.run(null, "hello") == null, "a null definition is refused")
+	check(_service.run(null, "hello", _no_sink()) == null, "a null definition is refused")
 	var empty := CLASSIFIER.Definition.new()
 	empty.id = "empty"
-	check(_service.run(empty, "hello") == null, "an empty instruction is refused")
-	check(_service.run(_definition("two"), "") == null, "an empty utterance is refused")
+	check(_service.run(empty, "hello", _no_sink()) == null, "an empty instruction is refused")
+	check(_service.run(_definition("two"), "", _no_sink()) == null,
+		"an empty utterance is refused")
+	check(_service.run(_definition("three"), "hello", null) == null,
+		"a missing reply sink is refused")
 
 	_client.can_answer = false
 	var got: Array = []
-	var call := _service.run(_definition("busy"), "hello")
+	var call := _service.run(_definition("busy"), "hello", _sink(got))
 	check(call != null, "the call is accepted before the client answers")
-	call.done.connect(func(reply: String, error: String) -> void: got.append([reply, error]))
 	await process_frame
 	check(got.size() == 1 and got[0][1] == "client_busy", "a busy client reports client_busy")
 	_client.can_answer = true
@@ -112,10 +122,10 @@ func _check_refusals() -> void:
 
 func _check_priority() -> void:
 	_client.calls.clear()
-	var low := _service.run(_definition("low-first"), "one")
+	var low := _service.run(_definition("low-first"), "one", _no_sink())
 	await process_frame
-	var high := _service.run(_definition("high", 10), "two")
-	var low2 := _service.run(_definition("low-second"), "three")
+	var high := _service.run(_definition("high", 10), "two", _no_sink())
+	var low2 := _service.run(_definition("low-second"), "three", _no_sink())
 	check(low != null and high != null and low2 != null, "the three calls are queued")
 	_client.answer("first", "")
 	await process_frame
@@ -133,22 +143,20 @@ func _check_priority() -> void:
 func _check_cancel() -> void:
 	_client.calls.clear()
 	var got: Array = []
-	var active := _service.run(_definition("active"), "one")
-	var queued := _service.run(_definition("queued"), "two")
-	active.done.connect(func(reply: String, error: String) -> void: got.append([reply, error]))
-	queued.done.connect(func(reply: String, error: String) -> void: got.append([reply, error]))
+	var active := _service.run(_definition("active"), "one", _sink(got))
+	var queued := _service.run(_definition("queued"), "two", _sink(got))
 	await process_frame
 	check(_client.calls.size() == 1, "only the active call starts")
 	queued.cancel()
 	active.cancel()
 	await process_frame
 	check(_client.cancelled == 1, "the active request is cancelled")
-	check(got.is_empty(), "a cancelled call never emits")
+	check(got.is_empty(), "a cancelled call never calls its reply")
 
 	_client.calls.clear()
 	_client.cancelled = 0
-	var first := _service.run(_definition("first"), "one")
-	var second := _service.run(_definition("second"), "two")
+	var first := _service.run(_definition("first"), "one", _no_sink())
+	var second := _service.run(_definition("second"), "two", _no_sink())
 	await process_frame
 	_service.cancel_all()
 	check(_client.cancelled == 1, "cancel_all cancels the active request")
@@ -162,8 +170,7 @@ func _check_deadline() -> void:
 	var short := _definition("short")
 	short.deadline_s = 0.01
 	var got: Array = []
-	var call := _service.run(short, "one")
-	call.done.connect(func(reply: String, error: String) -> void: got.append([reply, error]))
+	_service.run(short, "one", _sink(got))
 	await process_frame
 	await create_timer(0.05).timeout
 	check(_client.cancelled == 1, "the deadline cancels the client")
@@ -175,10 +182,9 @@ func _check_world_close() -> void:
 	_client.calls.clear()
 	_client.cancelled = 0
 	var got: Array = []
-	var call := _service.run(_definition("world"), "one")
-	call.done.connect(func(reply: String, error: String) -> void: got.append([reply, error]))
+	_service.run(_definition("world"), "one", _sink(got))
 	await process_frame
 	_service.on_world_closed()
 	check(_client.cancelled == 1, "a world close cancels the active request")
-	check(got.is_empty(), "a world close emits no reply")
+	check(got.is_empty(), "a world close calls no reply")
 	await process_frame

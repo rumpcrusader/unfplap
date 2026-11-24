@@ -441,14 +441,13 @@ func _start_reasoning(candidate: Candidate) -> void:
 	_reasoning_pending = true
 	LOG.debug("request reasoning start id=%s options=%d", [candidate.id, candidate.options.size()])
 	var payload := REASONING.payload(candidate.context, candidate.options)
-	_reasoning_call = _classifier.run(_reasoning_definition, JSON.stringify(payload))
+	_reasoning_call = _classifier.run(_reasoning_definition, JSON.stringify(payload),
+		CLASSIFIER.Reply.of(func(reply: String, error: String) -> void:
+			_on_reasoning(candidate, serial, reply, error)))
 	if _reasoning_call == null:
 		_reasoning_pending = false
 		_retry_at[candidate.id] = _now() + POLICY.RETRY_S
 		LOG.debug("request reasoning unavailable id=%s", [candidate.id])
-		return
-	_reasoning_call.done.connect(func(reply: String, error: String) -> void:
-		_on_reasoning(candidate, serial, reply, error))
 
 
 func _on_reasoning(candidate: Candidate, serial: int, reply: String, error: String) -> void:

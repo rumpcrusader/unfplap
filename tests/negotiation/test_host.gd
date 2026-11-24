@@ -95,18 +95,21 @@ class FakeClassifier extends "res://mods/unfplap/classifier/api.gd":
 	func available() -> bool:
 		return can_answer
 
-	func run(definition: CLASSIFIER.Definition, utterance: String) -> CLASSIFIER.Call:
+	func run(definition: CLASSIFIER.Definition, utterance: String,
+			reply: CLASSIFIER.Reply) -> CLASSIFIER.Call:
 		if not can_answer:
 			return null
 		var call := CLASSIFIER.Call.new()
 		call.definition = definition
 		call.utterance = utterance
+		call.reply = reply
 		calls.append({"definition": definition, "utterance": utterance, "call": call})
 		return call
 
 	func answer() -> void:
 		var row: Dictionary = calls[-1]
-		(row["call"] as CLASSIFIER.Call).done.emit(reply, error)
+		var call := row["call"] as CLASSIFIER.Call
+		call.reply.done.call(reply, error)
 
 
 ## The service as the bridge sees it: the lock, the Anon answer and the Agreement cancel.

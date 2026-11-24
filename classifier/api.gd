@@ -27,12 +27,21 @@ class Definition:
 	var priority := 0
 
 
-## One queued or active call. Connect `done` for the reply; `cancel()` drops it, and a cancelled
-## call never emits.
+## The caller's result sink; the transport invokes it once with the answer and the failure.
+class Reply:
+	var done: Callable = Callable()
+
+	static func of(handler: Callable) -> Reply:
+		var out := Reply.new()
+		out.done = handler
+		return out
+
+
+## One queued or active call. `cancel()` drops it; a cancelled call never calls its reply.
 class Call extends RefCounted:
-	signal done(reply: String, error: String)
 	var definition: Definition = null
 	var utterance := ""
+	var reply: Reply = null
 	var serial := 0
 	var _cancel: Callable = Callable()
 
@@ -73,10 +82,12 @@ func available() -> bool:
 	return _ensure_configured()
 
 
-## One bounded call. Null means nothing could start; the returned handle reports through `done`.
+## One bounded call. Null means nothing could start; `reply` gets the raw text and error once.
 ## A cancelled call is silent.
-func run(definition: Definition, utterance: String) -> Call:
+func run(definition: Definition, utterance: String, reply: Reply) -> Call:
 	if not _valid(definition) or utterance.is_empty():
+		return null
+	if reply == null or not reply.done.is_valid():
 		return null
 	if not _ensure_configured():
 		return null
@@ -86,6 +97,7 @@ func run(definition: Definition, utterance: String) -> Call:
 	var call := Call.new()
 	call.definition = definition
 	call.utterance = utterance
+	call.reply = reply
 	call._cancel = Callable(self, "_cancel_call")
 	_enqueue(call)
 	return call
@@ -182,7 +194,8 @@ func _finish(reply: String, error: String) -> void:
 	var call := _active
 	_active = null
 	_serial += 1
-	call.done.emit(reply, error)
+	if call.reply != null and call.reply.done.is_valid():
+		call.reply.done.call(reply, error)
 	call_deferred("_start_next")
 
 

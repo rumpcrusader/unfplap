@@ -11,7 +11,7 @@ This contract covers:
 
 - the one client, its live director configuration and the availability read;
 - the queue, the active call, the deadline and the cancellation handles;
-- the call contract: one raw reply and error through the call's `done` signal;
+- the call contract: one raw reply and error through the reply sink passed to `run`;
 - the batching decision.
 
 It does not cover the prompt text (`docs/prompts.md`), the request kinds and parsers
@@ -43,13 +43,13 @@ The payload and parse stay with the owner's contract. A definition is plain data
 
 ## Scheduling
 
-One call at a time. `run()` returns a `Call` handle or null; the handle's `done` signal receives
-the raw text and the provider error once. A cancelled call never emits. The queue is ordered by
-the definition's priority, FIFO within one priority; the active call is not preempted. A queue-full
-call is refused. The deadline is the definition's; a timeout cancels the client and reports
-`timeout`, and a client that refuses to start reports `client_busy`.
+One call at a time. `run()` returns a `Call` handle or null; the `Reply` passed with the call
+receives the raw text and the provider error once. A cancelled call never calls it. The queue is
+ordered by the definition's priority, FIFO within one priority; the active call is not preempted. A
+queue-full call is refused. The deadline is the definition's; a timeout cancels the client and
+reports `timeout`, and a client that refuses to start reports `client_busy`.
 
-The call starts on the next idle frame, so the caller can connect `done` first.
+The call starts on the next idle frame, so `run()` returns the handle before any client reply.
 
 ## Availability
 

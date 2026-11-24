@@ -186,17 +186,15 @@ func _complete(request: PROMPTS.Request, scope: String, done: Callable) -> bool:
 	var count := request.options.size()
 	LOG.debug("classifier start kind=%s scope=%s options=%d text_len=%d", [
 		request.kind, scope, count, request.text.length()])
-	_call = classifier.run(definition, JSON.stringify(payload))
-	if _call == null:
-		return false
-	_call.done.connect(func(reply: String, error: String) -> void:
-		_call = null
-		var parsed := PROMPTS.parse(request.kind, reply, error, count)
-		LOG.debug("classifier result kind=%s scope=%s answer=%s option=%d failed=%s out_of_range=%s reply=%s error=%s", [
-			request.kind, scope, parsed.answer, parsed.option_index, str(parsed.failed),
-			str(parsed.out_of_range), _reply_text(reply), error])
-		done.call(parsed))
-	return true
+	_call = classifier.run(definition, JSON.stringify(payload),
+		CLASSIFIER.Reply.of(func(reply: String, error: String) -> void:
+			_call = null
+			var parsed := PROMPTS.parse(request.kind, reply, error, count)
+			LOG.debug("classifier result kind=%s scope=%s answer=%s option=%d failed=%s out_of_range=%s reply=%s error=%s", [
+				request.kind, scope, parsed.answer, parsed.option_index, str(parsed.failed),
+				str(parsed.out_of_range), _reply_text(reply), error])
+			done.call(parsed)))
+	return _call != null
 
 
 func _reply_text(reply: String) -> String:

@@ -2,8 +2,8 @@ extends Node
 ## Service: poses
 ## Scope: pony
 ## Contract: docs/poses.md
-## The act's pose session: the skeleton pose modifier, the authored missionary base, the bed frame,
-## the extra modifiers, the bone snapshots and the pose diagnostics.
+## The act's pose session: the live pose and its space, the skeleton write, the act body, the
+## teardown and the pose diagnostics.
 
 const POSE := preload("res://mods/unfplap/poses/skeleton_pose.gd")
 const POSE_SPEC := preload("res://mods/unfplap/poses/pose_spec.gd")

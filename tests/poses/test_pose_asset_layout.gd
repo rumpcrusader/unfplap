@@ -259,7 +259,7 @@ func _check_resolution() -> void:
 	row["asset"] = ""
 	var child: Variant = POSE_SPEC.from_dict("missionary_child", row)
 	check(child != null, "a synthetic base row builds")
-	check(str(service.call("_effective_asset", child)) == "poses/missionary_pose.json",
+	check(str(service._assets.call("effective_asset", child)) == "poses/missionary_pose.json",
 		"a base-chain row inherits the asset")
 	var standing_asset: String = service.readiness().asset(SPECS.STANDING).path
 	check(standing_asset.ends_with("poses/standing_pose.json"),

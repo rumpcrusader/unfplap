@@ -638,22 +638,22 @@ func _check_effective_paths() -> void:
 	var session: SESSION = made["session"]
 	var pony: FakePony = made["pony"]
 	var registry: RefCounted = session._registry
-	check(session._effective_driver(registry.spec(CATALOG.STANDING)) == POSE.STANDING_PATH,
+	check(session._assets.effective_driver(registry.spec(CATALOG.STANDING)) == POSE.STANDING_PATH,
 		"the standing row resolves its driver")
-	check(session._effective_driver(registry.spec(CATALOG.STANDING_TEST)) == POSE.STANDING_PATH,
+	check(session._assets.effective_driver(registry.spec(CATALOG.STANDING_TEST)) == POSE.STANDING_PATH,
 		"standing_test resolves its base's driver")
-	check(session._effective_driver(registry.spec(CATALOG.MISSIONARY)) == POSE.MISSIONARY_PATH,
+	check(session._assets.effective_driver(registry.spec(CATALOG.MISSIONARY)) == POSE.MISSIONARY_PATH,
 		"the missionary row resolves its driver")
-	check(session._effective_driver(null) == "", "a missing spec resolves no driver")
-	check(session._effective_delta(registry.spec(CATALOG.STANDING_TEST)) == "",
+	check(session._assets.effective_driver(null) == "", "a missing spec resolves no driver")
+	check(session._assets.effective_delta(registry.spec(CATALOG.STANDING_TEST)) == "",
 		"standing_test carries no delta")
 	var chained: Variant = _synthetic_spec(session, "synthetic_chain")
 	chained.base = CATALOG.STANDING_TEST
-	check(session._effective_driver(chained) == POSE.STANDING_PATH,
+	check(session._assets.effective_driver(chained) == POSE.STANDING_PATH,
 		"a base chain resolves the standing driver")
 	var orphan: Variant = _synthetic_spec(session, "synthetic_orphan")
 	orphan.base = ""
-	check(session._effective_driver(orphan) == "",
+	check(session._assets.effective_driver(orphan) == "",
 		"a row without a driver or base resolves empty")
 	root.remove_child(pony)
 	pony.free()

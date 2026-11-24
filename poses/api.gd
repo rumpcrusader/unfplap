@@ -10,6 +10,7 @@ const POSE_SPEC := preload("res://mods/unfplap/poses/pose_spec.gd")
 const DIAG := preload("res://mods/unfplap/poses/diagnostics.gd")
 const MODIFIERS := preload("res://mods/unfplap/poses/modifiers.gd")
 const ACT_BODY_HOST := preload("res://mods/unfplap/poses/act_body_host.gd")
+const ASSETS := preload("res://mods/unfplap/poses/assets.gd")
 const TRANSITION_SPEC := preload("res://mods/unfplap/poses/transition_spec.gd")
 const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
@@ -270,8 +271,8 @@ var _ground_frame_source := Transform3D.IDENTITY
 var _ground_frame_source_saved := false
 
 
-## A shared unavailable asset instance for a pose whose row supplies no asset.
-var _empty_asset: AUTHORED = null
+## The pose's spec/asset resolution and reload.
+var _assets: ASSETS = null
 
 ## The pony's pre-act bone snapshot.
 var _saved_bones: Array[Transform3D] = []
@@ -297,6 +298,7 @@ func _init(facts: ACT_FACTS = null) -> void:
 	_mods = MODIFIERS.new(self)
 	_mods.set_profiles(SPECS.MODIFIER_PROFILES)
 	_act_body_host = ACT_BODY_HOST.new(self)
+	_assets = ASSETS.new(self)
 	_bind_oral()
 	_bind_face()
 
@@ -388,15 +390,15 @@ func _begin(start: PoseStart) -> bool:
 	_pose_node.pose_config = _pose_config
 	# Resolve the start asset before the evaluator pair: the same instance is the live rendered
 	# asset and both sides of a pose that starts settled.
-	var start_asset: AUTHORED = _asset_for_spec(start_spec)
+	var start_asset: AUTHORED = _assets.asset_for_spec(start_spec)
 	if start_asset != null and start_asset.available \
 			and start_asset.usable(str(_view.frame)):
 		_pose_node.authored = start_asset
 	_from_asset = _pose_node.authored
 	_target_asset = _from_asset
-	_sync_view_asset()
-	_pose_node.set_pose(_effective_driver(start_spec), _effective_driver(start_spec),
-		_effective_delta(start_spec), _effective_delta(start_spec), _pose_config, _pose_config,
+	_assets.sync_view_asset()
+	_pose_node.set_pose(_assets.effective_driver(start_spec), _assets.effective_driver(start_spec),
+		_assets.effective_delta(start_spec), _assets.effective_delta(start_spec), _pose_config, _pose_config,
 		_from_asset, _target_asset)
 	_pose_node.set_weight(1.0)
 	_pose_node.look_point = start.look
@@ -490,46 +492,6 @@ func _oral_pair(from_id: String, to_id: String) -> bool:
 		or (from_id == CATALOG.STANDING_ORAL and to_id == CATALOG.STANDING)
 
 
-## The spec's driver, or the driver of a base further up; the first row that names one wins and a
-## repeated base ends the search.
-func _effective_driver(spec: POSE_SPEC) -> String:
-	var cursor: POSE_SPEC = spec
-	var seen: Dictionary = {}
-	while cursor != null:
-		var path := str(cursor.driver)
-		if not path.is_empty():
-			return path
-		var base := str(cursor.base)
-		if base.is_empty() or seen.has(base):
-			return ""
-		seen[base] = true
-		cursor = _registry.spec(base)
-	return ""
-
-
-## The procedural delta path; empty for a pose whose row carries no delta. `standing_oral` is the
-## first shipped row with one.
-func _effective_delta(spec: POSE_SPEC) -> String:
-	return str(spec.delta) if spec != null else ""
-
-
-## The authored pose document of a spec row, or the nearest base that supplies one. An internal row
-## with no asset of its own inherits it from its base chain.
-func _effective_asset(spec: POSE_SPEC) -> String:
-	var cursor: POSE_SPEC = spec
-	var seen: Dictionary = {}
-	while cursor != null:
-		var path := str(cursor.asset)
-		if not path.is_empty():
-			return path
-		var base := str(cursor.base)
-		if base.is_empty() or seen.has(base):
-			return ""
-		seen[base] = true
-		cursor = _registry.spec(base)
-	return ""
-
-
 ## Warm the shared asset cache with one authored file before its first reader, so no idle scan or act
 ## start pays for the parse. A row with no asset is a quiet no-op.
 static func warm_asset(path: String) -> void:
@@ -545,42 +507,22 @@ static func reload_authored_base() -> String:
 
 ## The spec a candidate names: the id's row, or the live view's row when the candidate is empty.
 func _candidate_spec(candidate: String = "") -> POSE_SPEC:
-	var spec_id := candidate
-	if spec_id.is_empty() and _view != null:
-		spec_id = str(_view.id)
-	if spec_id.is_empty():
-		return null
-	return _registry.spec(spec_id)
-
-
-## The parsed asset for a candidate spec, or null when the row and its chain supply none.
-func _asset_for(candidate: String = "") -> AUTHORED:
-	var spec: POSE_SPEC = _candidate_spec(candidate)
-	if spec == null:
-		return null
-	var path := _effective_asset(spec)
-	if path.is_empty():
-		return null
-	return AUTHORED.shared(path)
+	return _assets.candidate_spec(candidate)
 
 
 ## The parsed asset for an already resolved spec.
 func _asset_for_spec(spec: POSE_SPEC) -> AUTHORED:
-	var path := _effective_asset(spec)
-	return AUTHORED.shared(path) if not path.is_empty() else null
+	return _assets.asset_for_spec(spec)
 
 
 ## The path the rig gate and diagnostics name for a candidate.
 func _asset_path_for(candidate: String = "") -> String:
-	var spec: POSE_SPEC = _candidate_spec(candidate)
-	return _effective_asset(spec) if spec != null else ""
+	return _assets.asset_path_for(candidate)
 
 
 ## The pose id of the live rendered side: the source while an edge runs, the view's pose otherwise.
 func _live_spec_id() -> String:
-	if _run != null and not _from_id.is_empty():
-		return _from_id
-	return str(_view.id)
+	return _assets.live_spec_id()
 
 
 ## One authored edge request, answered with `PoseResult`; a refusal changes nothing at all.
@@ -614,16 +556,16 @@ func request_pose(target_id: String, trigger: String, consent := "") -> PoseResu
 	var group := str(target_spec.settings_group)
 	_target_presentation = SETTINGS.act_snapshot(group).presentation
 	_target_config = _config_for_group(group, _target_presentation)
-	_target_asset = _asset_for_spec(target_spec)
+	_target_asset = _assets.asset_for_spec(target_spec)
 	_from_asset = _live_asset()
 	if _from_asset == null:
-		_from_asset = _asset_for_spec(_registry.spec(from_id))
+		_from_asset = _assets.asset_for_spec(_registry.spec(from_id))
 	_run = run
 	_state = POSE_STATE.next(_state, "request")
 	_fill_transition_view()
 	var from_spec: POSE_SPEC = _registry.spec(_from_id)
-	_pose_node.set_pose(_effective_driver(from_spec), _effective_driver(_target_spec),
-		_effective_delta(from_spec), _effective_delta(_target_spec),
+	_pose_node.set_pose(_assets.effective_driver(from_spec), _assets.effective_driver(_target_spec),
+		_assets.effective_delta(from_spec), _assets.effective_delta(_target_spec),
 		_pose_config, _target_config, _from_asset, _target_asset)
 	_pose_node.set_weight(_run.weight)
 	if _oral_pair(from_id, target_id):
@@ -784,8 +726,8 @@ func tick(delta: float) -> void:
 	# Capture the target pair before the target snapshot is dropped, adopt its config into the live
 	# object, then settle the evaluator on that pose and its authored asset.
 	var completed_target := _target_id
-	var completed_driver := _effective_driver(_target_spec)
-	var completed_delta := _effective_delta(_target_spec)
+	var completed_driver := _assets.effective_driver(_target_spec)
+	var completed_delta := _assets.effective_delta(_target_spec)
 	var completed_asset: AUTHORED = _target_asset
 	_adopt_target_config()
 	if is_instance_valid(_pose_node):
@@ -797,7 +739,7 @@ func tick(delta: float) -> void:
 		_pose_node.set_weight(1.0)
 		_pose_node.pose_config = _pose_config
 	_from_asset = completed_asset
-	_sync_view_asset()
+	_assets.sync_view_asset()
 	_act_body_host.sync_assets(completed_asset)
 	_state = POSE_STATE.next(_state, "complete")
 	_view.pose_state = _state
@@ -1012,37 +954,20 @@ func _sync_live_config() -> bool:
 	return true
 
 
-## The authored base for a candidate spec, else the live pose's, else the default missionary asset,
-## parsed once per path. A row without its own asset still reads the default for diagnostics.
+## The authored base for a candidate spec, else the live pose's, else the default missionary asset.
 func _diagnostic_asset(candidate: String = "") -> AUTHORED:
-	var asset: AUTHORED = _asset_for(candidate)
-	if asset != null:
-		return asset
-	# A row with no asset of its own reads the default missionary asset so diagnostics still have a
-	# rig to describe; the readiness verdict stays false for such a row.
-	if _empty_asset == null:
-		_empty_asset = AUTHORED.shared(AUTHORED.PATH)
-	return _empty_asset
+	return _assets.diagnostic_asset(candidate)
 
 
 ## The asset the live rig is rendering: the source through an edge, the target once it settles.
 func _live_asset() -> AUTHORED:
-	if is_instance_valid(_pose_node) and _pose_node.authored != null:
-		return _pose_node.authored
-	return _diagnostic_asset("")
-
-
-## Mirror the live rendered asset into the view, the one source presentation modules read.
-func _sync_view_asset() -> void:
-	_view.authored = _live_asset()
+	return _assets.live_asset()
 
 
 ## The parsed authored pose for the debug action and the pose lab. With no candidate this is the
 ## live rendered asset, not the target of a running edge.
 func _readiness_asset(candidate: String = "") -> AUTHORED:
-	if candidate.is_empty():
-		return _live_asset()
-	return _diagnostic_asset(candidate)
+	return _assets.readiness_asset(candidate)
 
 
 ## Ground space for an authored ground pose, seeded from the pony root. Like the bed frame with its
@@ -1057,38 +982,7 @@ func _ground_pose_frame() -> Transform3D:
 ## Re-read the live pose's asset in place, plus the running edge's target, or the default
 ## missionary asset when no pose is live. A running act picks the new pose up on its next frame.
 func reload_authored(candidate: String = "") -> String:
-	var paths: Array[String] = []
-	var seen: Dictionary = {}
-	_add_reload_path(paths, seen, _asset_path_for(candidate))
-	if is_instance_valid(_pose_node) and _pose_node.authored != null:
-		_add_reload_path(paths, seen, _pose_node.authored.path)
-	if paths.is_empty():
-		_add_reload_path(paths, seen, AUTHORED.PATH)
-	for path: String in paths:
-		var load_error := AUTHORED.reload_file(path)
-		if not load_error.is_empty():
-			return load_error
-	if is_instance_valid(_pose_node):
-		# The wrappers were reloaded in place; the pair keeps the same instances.
-		_pose_node.authored = _live_asset()
-		if _target_spec != null:
-			_target_asset = _asset_for_spec(_target_spec)
-			_pose_node.to_authored = _target_asset
-		_sync_view_asset()
-	return ""
-
-
-## Add one unique non-empty asset path to the reload list. The resolved path is the key, so a
-## relative row path and the wrapper's `res://` path are the same file.
-func _add_reload_path(paths: Array[String], seen: Dictionary, path: String) -> void:
-	if path.is_empty():
-		return
-	var resolved := AUTHORED.resolve(path)
-	if seen.has(resolved):
-		return
-	seen[resolved] = true
-	paths.append(resolved)
-
+	return _assets.reload(candidate)
 
 ## Bed space for the authored pose: the middle of the real mattress top, in the bed's axes, the
 ## pillow end at -Z. An absent frame means no bed pose is live, so the procedural driver stays out.

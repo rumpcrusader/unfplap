@@ -631,7 +631,7 @@ func _check_handover() -> void:
 	check(runtime.act.context.pose._pony() == new_pony, "the pose session binds the new body")
 	var view: Variant = runtime.act.context.pose.view()
 	check(view != null and str(view.id) == CATALOG.STANDING, "the pose is rebuilt at the act pose")
-	check(runtime.act.context.pose.pose_node != null and runtime.act.context.pose._basis_amount() > 0.99,
+	check(runtime.act.context.pose._pose_node != null and runtime.act.context.pose._basis_amount() > 0.99,
 		"the rebuilt pose starts settled")
 
 	runtime.act.force_stop()

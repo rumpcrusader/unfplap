@@ -67,35 +67,37 @@ func run() -> void:
 	check(session.begin_act(_start({"pose_id": CATALOG.MISSIONARY})),
 		"the missionary pose begins")
 	var view: RefCounted = session.view()
-	var prone: Node = session.prone_sway
-	var tail_lay: Node = session.tail_lay
+	var prone: Node = session._prone_sway
+	var tail_lay: Node = session._tail_lay
 	check(prone != null and tail_lay != null, "the missionary profile installs its owners")
 
 	# The test seam: a profile the shipped table does not carry, sharing only the tail lay with
 	# missionary. It proves the reconcile without adding data.
-	session.modifier_profiles["synthetic_tail"] = ["tail_lay"]
+	var profiles: Dictionary = SPECS.MODIFIER_PROFILES.duplicate()
+	profiles["synthetic_tail"] = ["tail_lay"]
+	session._set_modifier_profiles(profiles)
 	check(not SPECS.MODIFIER_PROFILES.has("synthetic_tail"),
 		"the synthetic profile is not shipped data")
 	_synthetic_spec(session, "synthetic_tail", "synthetic_tail")
 	_fill(view, "missionary", "synthetic_tail", "synthetic_tail", "bed", "synthetic_tail")
-	session.pose_changed(view)
-	check(session.prone_sway == null and prone.get_parent() == null
+	session.pose_changed()
+	check(session._prone_sway == null and prone.get_parent() == null
 		and prone.is_queued_for_deletion(),
 		"the source-only owner is removed")
-	check(session.tail_lay == tail_lay and tail_lay.get_parent() == hair,
+	check(session._tail_lay == tail_lay and tail_lay.get_parent() == hair,
 		"the shared owner keeps its node and parent")
 
 	# The standing profile installs its target-only owners and removes the tail lay. The standing
 	# body sway is enabled; the ear twitch is off, so its feature gate keeps it out.
 	_fill(view, "synthetic_tail", CATALOG.STANDING, CATALOG.STANDING, "standing", "standing")
-	session.pose_changed(view)
-	check(session.tail_lay == null and tail_lay.is_queued_for_deletion(),
+	session.pose_changed()
+	check(session._tail_lay == null and tail_lay.is_queued_for_deletion(),
 		"the target loses the source-only tail lay")
-	var sway: Node = session.body_sway
+	var sway: Node = session._body_sway
 	var tail: Node = session._tail
 	check(sway != null and sway.get_parent() == body, "the target-only body sway is installed")
 	check(tail != null and tail.get_parent() == hair, "the target-only standing tail is installed")
-	check(session.ear_twitch == null, "the disabled feature keeps its owner out")
+	check(session._ear_twitch == null, "the disabled feature keeps its owner out")
 
 	# The live settings edit enters the same reconcile with the new feature flags; this is the
 	# session's `apply_live_settings()` path. A changed gate removes or installs its owner against
@@ -103,18 +105,18 @@ func run() -> void:
 	_fill(view, CATALOG.STANDING, CATALOG.STANDING, CATALOG.STANDING, "standing", "standing")
 	facts.features = {"standing_body_sway": false}
 	session.apply_live_settings()
-	check(session.body_sway == null and sway.is_queued_for_deletion(),
+	check(session._body_sway == null and sway.is_queued_for_deletion(),
 		"the live feature refresh removes the disabled owner")
 	check(not bool(session._facts.features.get("standing_body_sway", false)),
 		"the live feature refresh reads the facts' flags")
 	facts.features = {"standing_body_sway": true}
 	session.apply_live_settings()
-	sway = session.body_sway
+	sway = session._body_sway
 	check(sway != null and sway.get_parent() == body,
 		"the live feature refresh installs the enabled owner")
 
 	session.leave_pose_body()
-	check(session.body_sway == null and sway.is_queued_for_deletion(),
+	check(session._body_sway == null and sway.is_queued_for_deletion(),
 		"the act-exit leave still removes the extra modifier")
 	check(session._tail == tail and tail.get_parent() == hair,
 		"the pose-body leave keeps the standing tail")
@@ -142,9 +144,9 @@ func run() -> void:
 	session._act_body = null
 
 	session.release_pose()
-	check(session.pose_node == null and session.body_sway == null and session._tail == null,
+	check(session._pose_node == null and session._body_sway == null and session._tail == null,
 		"the final release clears the pose and the tail")
-	check(session.tail_lay == null and session.prone_sway == null,
+	check(session._tail_lay == null and session._prone_sway == null,
 		"the final release keeps every extra owner cleared")
 	check(not session._started and session.view().id == "",
 		"the final release leaves the session idle")

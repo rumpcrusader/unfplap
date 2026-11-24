@@ -52,18 +52,6 @@ class PoseResult extends RefCounted:
 		return out
 
 
-## The render-time write's frame and body scale.
-class RenderFrame extends RefCounted:
-	var bed_frame := Transform3D(Basis.IDENTITY, Vector3.INF)
-	var body_scale := 1.0
-
-	static func of(frame: Transform3D, scale: float) -> RenderFrame:
-		var out := RenderFrame.new()
-		out.bed_frame = frame
-		out.body_scale = scale
-		return out
-
-
 ## The start values the facts and settings cannot supply.
 class PoseStart extends RefCounted:
 	var pose_id := ""
@@ -233,7 +221,7 @@ class PoseActBody extends RefCounted:
 
 
 ## The act's live view fields.
-var bed_node: Node3D = null
+var _bed_node: Node3D = null
 ## True between a successful `begin()` and `release_pose()`. The runtime keeps one session per pony.
 var _started := false
 ## The live pose config, one object shared by the view and the evaluator.
@@ -242,7 +230,7 @@ var _pose_config: Dictionary = {}
 var _tail_handle: PoseTail = null
 ## The act-body handle consumers read; it reports nothing while no body is installed.
 var _act_body_handle: PoseActBody = null
-## The asset/rig verdicts and the debug rows, each owning its own cache.
+## The verdict and diagnostic handles; each owns the cache it fills.
 var _readiness: PoseReadiness = null
 var _diagnostics: PoseDiagnostics = null
 ## The one pose read model for the act, and the registry that validates the static spec table.
@@ -266,12 +254,12 @@ var _from_asset: AUTHORED = null
 var _target_asset: AUTHORED = null
 
 ## The pose modifier and the extra scene modifiers the act installs.
-var pose_node: POSE = null
+var _pose_node: POSE = null
 var _tail: TAIL = null
-var tail_lay: TAIL_LAY = null
-var body_sway: BODY_SWAY = null
-var prone_sway: PRONE_SWAY = null
-var ear_twitch: EAR_TWITCH = null
+var _tail_lay: TAIL_LAY = null
+var _body_sway: BODY_SWAY = null
+var _prone_sway: PRONE_SWAY = null
+var _ear_twitch: EAR_TWITCH = null
 ## The standing oral actor/frame turn the session owns. It preloads no scene and reads the host
 ## callables below; the edge weight drives it.
 var _oral_turn: ORAL_TURN
@@ -283,29 +271,29 @@ var _face_driver: FACE_CONTACT
 var _act_body: MISSIONARY_ANON = null
 ## The authored profile table with a test seam: a synthetic profile can be added without touching
 ## the shipped const.
-var modifier_profiles: Dictionary = SPECS.MODIFIER_PROFILES.duplicate()
+var _modifier_profiles: Dictionary = {}
 ## The camera position the standing tail chooses its side against, from the begin context.
 var _tail_anchor := Vector3.INF
 
 ## Bed space for the authored pose. The runtime reads it through `_pose_session.bed_frame`.
-var bed_frame: Variant = null
-var bed_frame_source := Transform3D.IDENTITY
-var bed_frame_source_saved := false
+var _bed_frame: Variant = null
+var _bed_frame_source := Transform3D.IDENTITY
+var _bed_frame_source_saved := false
 ## Ground space for a ground pose, seeded from the pony root at pose start. It tracks the root's
 ## position and yaw every tick.
-var ground_frame: Variant = null
-var ground_frame_source := Transform3D.IDENTITY
-var ground_frame_source_saved := false
+var _ground_frame: Variant = null
+var _ground_frame_source := Transform3D.IDENTITY
+var _ground_frame_source_saved := false
 
 
 ## A shared unavailable asset instance for a pose whose row supplies no asset.
 var _empty_asset: AUTHORED = null
 
 ## The pony's pre-act bone snapshot.
-var saved_bones: Array[Transform3D] = []
-var saved_hair: Array[Transform3D] = []
-var saved_skeleton: Skeleton3D
-var saved_hair_skeleton: Skeleton3D
+var _saved_bones: Array[Transform3D] = []
+var _saved_hair: Array[Transform3D] = []
+var _saved_skeleton: Skeleton3D
+var _saved_hair_skeleton: Skeleton3D
 
 ## The act context the session reads for the pony, its id, the bed, the features and the live
 ## presentation. The runtime builds it before the session.
@@ -322,6 +310,7 @@ func _init(facts: ACT_FACTS = null) -> void:
 	_act_body_handle = PoseActBody.new(self)
 	_readiness = PoseReadiness.new(self)
 	_diagnostics = PoseDiagnostics.new(self)
+	_set_modifier_profiles(SPECS.MODIFIER_PROFILES)
 	_bind_oral()
 	_bind_face()
 
@@ -368,7 +357,7 @@ func view() -> POSE_VIEW:
 ## Build the pose for a fresh act from its start values. A live pose or a pony with no body skeleton
 ## returns false with nothing installed; the started flag only follows an install.
 func begin_act(start: PoseStart) -> bool:
-	return begin(start)
+	return _begin(start)
 
 
 ## Rebuild the live pose on a new skeleton, keeping the pose the act had; the start ramp is skipped
@@ -380,7 +369,7 @@ func rebuild_act(start: PoseStart) -> bool:
 	return true
 
 
-func begin(start: PoseStart) -> bool:
+func _begin(start: PoseStart) -> bool:
 	if _started:
 		LOG.debug("pose session: begin refused, a pose is already live")
 		return false
@@ -398,61 +387,61 @@ func begin(start: PoseStart) -> bool:
 	_state = POSE_STATE.next(_state, "begin")
 	var start_id := start.pose_id
 	var bed: Variant = _facts.bed if _facts != null else null
-	bed_node = bed if bed is Node3D else null
+	_bed_node = bed if bed is Node3D else null
 	_diagnostics._pose_logged = false
 	_diagnostics._trace_frames = 0
-	pose_node = POSE.new()
-	pose_node.name = "UnfplapPose"
-	pose_node.mare = pony
+	_pose_node = POSE.new()
+	_pose_node.name = "UnfplapPose"
+	_pose_node.mare = pony
 	# Fill the view first: the active settings group, not the act's start id, drives the live config.
 	# The sync merges in place, so the modifier, the view and the runtime share one object.
 	var start_spec: Variant = _registry.spec(start_id)
 	_fill_view(start_spec)
 	_view.contact_kind = _spec_contact_kind(start_spec)
 	_sync_live_config()
-	pose_node.pose_config = _pose_config
+	_pose_node.pose_config = _pose_config
 	# Resolve the start asset before the evaluator pair: the same instance is the live rendered
 	# asset and both sides of a pose that starts settled.
 	var start_asset: AUTHORED = _asset_for_spec(start_spec)
 	if start_asset != null and start_asset.available \
 			and start_asset.usable(str(_view.frame)):
-		pose_node.authored = start_asset
-	_from_asset = pose_node.authored
+		_pose_node.authored = start_asset
+	_from_asset = _pose_node.authored
 	_target_asset = _from_asset
 	_sync_view_asset()
-	pose_node.set_pose(_effective_driver(start_spec), _effective_driver(start_spec),
+	_pose_node.set_pose(_effective_driver(start_spec), _effective_driver(start_spec),
 		_effective_delta(start_spec), _effective_delta(start_spec), _pose_config, _pose_config,
 		_from_asset, _target_asset)
-	pose_node.set_weight(1.0)
-	pose_node.look_point = start.look
-	pose_node.amount = 0.0
-	pose_node.target_amount = 1.0
+	_pose_node.set_weight(1.0)
+	_pose_node.look_point = start.look
+	_pose_node.amount = 0.0
+	_pose_node.target_amount = 1.0
 	if str(_view.frame) == "bed":
 		var bed_space := _missionary_pose_frame()
 		if _has_frame(bed_space):
-			bed_frame = bed_space
-			bed_frame_source_saved = is_instance_valid(bed_node)
+			_bed_frame = bed_space
+			_bed_frame_source_saved = is_instance_valid(_bed_node)
 		else:
-			bed_frame = null
-			bed_frame_source_saved = false
-		if bed_frame_source_saved:
-			bed_frame_source = (bed_node as Node3D).global_transform
-		pose_node.bed_frame = bed_frame
-		_view.bed_frame = bed_frame
+			_bed_frame = null
+			_bed_frame_source_saved = false
+		if _bed_frame_source_saved:
+			_bed_frame_source = (_bed_node as Node3D).global_transform
+		_pose_node.bed_frame = _bed_frame
+		_view.bed_frame = _bed_frame
 	else:
 		var ground := _ground_pose_frame()
 		if _has_frame(ground):
-			ground_frame = ground
-			ground_frame_source_saved = is_instance_valid(pony)
+			_ground_frame = ground
+			_ground_frame_source_saved = is_instance_valid(pony)
 		else:
-			ground_frame = null
-			ground_frame_source_saved = false
-		if ground_frame_source_saved:
-			ground_frame_source = (pony as Node3D).global_transform
-		pose_node.ground_frame = ground_frame
-		pose_node.size_name = SETTINGS.pony_size_name()
+			_ground_frame = null
+			_ground_frame_source_saved = false
+		if _ground_frame_source_saved:
+			_ground_frame_source = (pony as Node3D).global_transform
+		_pose_node.ground_frame = _ground_frame
+		_pose_node.size_name = SETTINGS.pony_size_name()
 	_log_base()
-	(skeleton as Skeleton3D).add_child(pose_node)
+	(skeleton as Skeleton3D).add_child(_pose_node)
 	var family := str(_view.family)
 	if family == "bed":
 		if _feature("missionary_body_motion"):
@@ -473,7 +462,7 @@ func begin(start: PoseStart) -> bool:
 	# A row whose base contact is already `face` starts the live mouth follow here, only to capture
 	# the residual: the authored asset is already on the bed.
 	if str(_view.contact_kind) == "face":
-		_face_driver.begin(_view, bed_frame)
+		_face_driver.begin(_view, _bed_frame)
 		_face_tick(0.0)
 	return true
 
@@ -647,10 +636,10 @@ func request_pose(target_id: String, trigger: String, consent := "") -> PoseResu
 	_state = POSE_STATE.next(_state, "request")
 	_fill_transition_view()
 	var from_spec: POSE_SPEC = _registry.spec(_from_id)
-	pose_node.set_pose(_effective_driver(from_spec), _effective_driver(_target_spec),
+	_pose_node.set_pose(_effective_driver(from_spec), _effective_driver(_target_spec),
 		_effective_delta(from_spec), _effective_delta(_target_spec),
 		_pose_config, _target_config, _from_asset, _target_asset)
-	pose_node.set_weight(_run.weight)
+	_pose_node.set_weight(_run.weight)
 	if _oral_pair(from_id, target_id):
 		_oral_turn.begin(target_id == CATALOG.STANDING_ORAL, _view)
 	LOG.debug("pose request %s -> %s (%s): ok", [from_id, target_id, trigger])
@@ -798,8 +787,8 @@ func tick(delta: float) -> void:
 	_run.tick(maxf(delta, 0.0))
 	_view.edge_t = _run.t
 	_view.weight = _run.weight
-	if is_instance_valid(pose_node):
-		pose_node.set_weight(_view.weight)
+	if is_instance_valid(_pose_node):
+		_pose_node.set_weight(_view.weight)
 	_oral_turn.tick(maxf(delta, 0.0), _view, _view.weight)
 	_absorb_switches()
 	_face_tick(delta)
@@ -813,14 +802,14 @@ func tick(delta: float) -> void:
 	var completed_delta := _effective_delta(_target_spec)
 	var completed_asset: AUTHORED = _target_asset
 	_adopt_target_config()
-	if is_instance_valid(pose_node):
-		pose_node.authored = completed_asset
-		pose_node.from_authored = completed_asset
-		pose_node.to_authored = completed_asset
-		pose_node.set_pose(completed_driver, completed_driver, completed_delta,
+	if is_instance_valid(_pose_node):
+		_pose_node.authored = completed_asset
+		_pose_node.from_authored = completed_asset
+		_pose_node.to_authored = completed_asset
+		_pose_node.set_pose(completed_driver, completed_driver, completed_delta,
 			completed_delta, _pose_config, _pose_config, completed_asset, completed_asset)
-		pose_node.set_weight(1.0)
-		pose_node.pose_config = _pose_config
+		_pose_node.set_weight(1.0)
+		_pose_node.pose_config = _pose_config
 	_from_asset = completed_asset
 	_sync_view_asset()
 	if is_instance_valid(_act_body):
@@ -861,9 +850,9 @@ func _apply_contact_switch(kind: String) -> void:
 	var previous := str(_view.contact_kind)
 	_view.contact_kind = kind
 	if kind == "face":
-		_face_driver.begin(_view, bed_frame)
+		_face_driver.begin(_view, _bed_frame)
 	elif previous == "face":
-		_face_driver.restore(_view, pose_node)
+		_face_driver.restore(_view, _pose_node)
 	if kind != "mouth" and _facts != null and _facts.set_mouth_viseme.is_valid():
 		_facts.set_mouth_viseme.call("")
 
@@ -885,7 +874,7 @@ func _face_tick(delta: float) -> void:
 	var level := 0.0
 	if _facts != null:
 		level = clampf(_facts.depth, 0.0, 1.0)
-	_face_driver.tick(maxf(delta, 0.0), _view, level, bed_frame, pose_node)
+	_face_driver.tick(maxf(delta, 0.0), _view, level, _bed_frame, _pose_node)
 
 
 func _switch_target(channel: String) -> String:
@@ -973,7 +962,7 @@ func apply_live_settings() -> void:
 		_target_config.clear()
 		_target_config.merge(fresh, true)
 		_oral_turn.write_config(_view)
-	pose_changed(_view)
+	pose_changed()
 	if is_instance_valid(_act_body):
 		_act_body.refresh_palm()
 
@@ -996,8 +985,8 @@ func _adopt_target_config() -> void:
 		return
 	_pose_config.clear()
 	_pose_config.merge(_target_config, true)
-	if is_instance_valid(pose_node):
-		pose_node.pose_config = _pose_config
+	if is_instance_valid(_pose_node):
+		_pose_node.pose_config = _pose_config
 
 
 ## The pose block for a settings group plus that group's presentation values. Standing folds in the
@@ -1032,8 +1021,8 @@ func _sync_live_config() -> bool:
 		presentation = SETTINGS.act_snapshot(group).presentation
 	_pose_config.clear()
 	_pose_config.merge(_config_for_group(group, presentation), true)
-	if is_instance_valid(pose_node):
-		pose_node.pose_config = _pose_config
+	if is_instance_valid(_pose_node):
+		_pose_node.pose_config = _pose_config
 	if group == CATALOG.STANDING and is_instance_valid(_tail):
 		_tail.aside_angle = float(_pose_config.get("tail_aside", 0.0))
 		_tail.lift_angle = float(_pose_config.get("tail_lift", 0.0))
@@ -1055,8 +1044,8 @@ func _diagnostic_asset(candidate: String = "") -> AUTHORED:
 
 ## The asset the live rig is rendering: the source through an edge, the target once it settles.
 func _live_asset() -> AUTHORED:
-	if is_instance_valid(pose_node) and pose_node.authored != null:
-		return pose_node.authored
+	if is_instance_valid(_pose_node) and _pose_node.authored != null:
+		return _pose_node.authored
 	return _diagnostic_asset("")
 
 
@@ -1088,20 +1077,20 @@ func reload_authored(candidate: String = "") -> String:
 	var paths: Array[String] = []
 	var seen: Dictionary = {}
 	_add_reload_path(paths, seen, _asset_path_for(candidate))
-	if is_instance_valid(pose_node) and pose_node.authored != null:
-		_add_reload_path(paths, seen, pose_node.authored.path)
+	if is_instance_valid(_pose_node) and _pose_node.authored != null:
+		_add_reload_path(paths, seen, _pose_node.authored.path)
 	if paths.is_empty():
 		_add_reload_path(paths, seen, AUTHORED.PATH)
 	for path: String in paths:
 		var load_error := AUTHORED.reload_file(path)
 		if not load_error.is_empty():
 			return load_error
-	if is_instance_valid(pose_node):
+	if is_instance_valid(_pose_node):
 		# The wrappers were reloaded in place; the pair keeps the same instances.
-		pose_node.authored = _live_asset()
+		_pose_node.authored = _live_asset()
 		if _target_spec != null:
 			_target_asset = _asset_for_spec(_target_spec)
-			pose_node.to_authored = _target_asset
+			_pose_node.to_authored = _target_asset
 		_sync_view_asset()
 	return ""
 
@@ -1121,33 +1110,33 @@ func _add_reload_path(paths: Array[String], seen: Dictionary, path: String) -> v
 ## Bed space for the authored pose: the middle of the real mattress top, in the bed's axes, the
 ## pillow end at -Z. An absent frame means no bed pose is live, so the procedural driver stays out.
 func _missionary_pose_frame() -> Transform3D:
-	if str(_view.frame) != "bed" or not is_instance_valid(bed_node):
+	if str(_view.frame) != "bed" or not is_instance_valid(_bed_node):
 		return NO_FRAME
-	var fallback: float = float(bed_node.get_meta("mattress_top", 0.6)) + float(bed_node.global_position.y)
-	var points: Array[Vector3] = [bed_node.global_position]
-	var top: float = WORLD.bed(bed_node).surface_top(points, fallback)
+	var fallback: float = float(_bed_node.get_meta("mattress_top", 0.6)) + float(_bed_node.global_position.y)
+	var points: Array[Vector3] = [_bed_node.global_position]
+	var top: float = WORLD.bed(_bed_node).surface_top(points, fallback)
 	if not is_finite(top):
 		return NO_FRAME
-	var at: Vector3 = bed_node.global_position
-	var basis: Basis = bed_node.global_basis.orthonormalized() * Basis(Vector3.UP, PI)
+	var at: Vector3 = _bed_node.global_position
+	var basis: Basis = _bed_node.global_basis.orthonormalized() * Basis(Vector3.UP, PI)
 	return Transform3D(basis, Vector3(at.x, top, at.z))
 
 
 ## Carry the bed-space pose, act body and anatomy placement with a bed that moves under the act
 ## (CloudDrift); the delta is rigid, so the top height is not measured again.
 func _sync_bed_frame() -> void:
-	if str(_view.frame) != "bed" or not is_instance_valid(bed_node) \
-			or not bed_frame_source_saved or not bed_frame is Transform3D:
+	if str(_view.frame) != "bed" or not is_instance_valid(_bed_node) \
+			or not _bed_frame_source_saved or not _bed_frame is Transform3D:
 		return
-	var now: Transform3D = bed_node.global_transform
-	if now.is_equal_approx(bed_frame_source):
+	var now: Transform3D = _bed_node.global_transform
+	if now.is_equal_approx(_bed_frame_source):
 		return
-	var delta: Transform3D = now * bed_frame_source.affine_inverse()
-	bed_frame = delta * (bed_frame as Transform3D)
-	bed_frame_source = now
-	if is_instance_valid(pose_node):
-		pose_node.bed_frame = bed_frame
-	_view.bed_frame = bed_frame
+	var delta: Transform3D = now * _bed_frame_source.affine_inverse()
+	_bed_frame = delta * (_bed_frame as Transform3D)
+	_bed_frame_source = now
+	if is_instance_valid(_pose_node):
+		_pose_node.bed_frame = _bed_frame
+	_view.bed_frame = _bed_frame
 
 
 ## Turn the ground frame with the pony root each tick; the oral turn moves the root, so the frame
@@ -1155,54 +1144,54 @@ func _sync_bed_frame() -> void:
 func _sync_ground_frame() -> void:
 	var pony := _pony()
 	if str(_view.frame) != "ground" or not is_instance_valid(pony) \
-			or not ground_frame_source_saved or not ground_frame is Transform3D:
+			or not _ground_frame_source_saved or not _ground_frame is Transform3D:
 		return
 	var now: Transform3D = (pony as Node3D).global_transform
-	if now.is_equal_approx(ground_frame_source):
+	if now.is_equal_approx(_ground_frame_source):
 		return
-	var delta: Transform3D = now * ground_frame_source.affine_inverse()
-	ground_frame = delta * (ground_frame as Transform3D)
-	ground_frame_source = now
-	if is_instance_valid(pose_node):
-		pose_node.ground_frame = ground_frame
+	var delta: Transform3D = now * _ground_frame_source.affine_inverse()
+	_ground_frame = delta * (_ground_frame as Transform3D)
+	_ground_frame_source = now
+	if is_instance_valid(_pose_node):
+		_pose_node.ground_frame = _ground_frame
 
 
 ## Snapshot before the act changes her posture or the pose writes bones.
 func snapshot_bones() -> void:
 	var pony := _pony()
-	saved_bones.clear()
-	saved_hair.clear()
-	saved_skeleton = null
-	saved_hair_skeleton = null
+	_saved_bones.clear()
+	_saved_hair.clear()
+	_saved_skeleton = null
+	_saved_hair_skeleton = null
 	if not is_instance_valid(pony):
 		return
 	var sk: Variant = pony.get("skeleton")
 	if sk is Skeleton3D:
-		saved_skeleton = sk as Skeleton3D
-		for i in (saved_skeleton as Skeleton3D).get_bone_count():
-			saved_bones.append((saved_skeleton as Skeleton3D).get_bone_pose(i))
+		_saved_skeleton = sk as Skeleton3D
+		for i in (_saved_skeleton as Skeleton3D).get_bone_count():
+			_saved_bones.append((_saved_skeleton as Skeleton3D).get_bone_pose(i))
 	var hair: Variant = pony.get("hair_skeleton")
 	if hair is Skeleton3D:
-		saved_hair_skeleton = hair as Skeleton3D
-		for i in (saved_hair_skeleton as Skeleton3D).get_bone_count():
-			saved_hair.append((saved_hair_skeleton as Skeleton3D).get_bone_pose(i))
+		_saved_hair_skeleton = hair as Skeleton3D
+		for i in (_saved_hair_skeleton as Skeleton3D).get_bone_count():
+			_saved_hair.append((_saved_hair_skeleton as Skeleton3D).get_bone_pose(i))
 
 
 ## Put every pony bone back before the game's animation re-poses her. The act's pose modifier is
 ## already freed when this runs, so nothing rewrites the act pose on top.
 func restore_bones() -> void:
-	if is_instance_valid(saved_skeleton) \
-			and saved_bones.size() == saved_skeleton.get_bone_count():
-		for i in saved_bones.size():
-			saved_skeleton.set_bone_pose(i, saved_bones[i])
-	if is_instance_valid(saved_hair_skeleton) \
-			and saved_hair.size() == saved_hair_skeleton.get_bone_count():
-		for i in saved_hair.size():
-			saved_hair_skeleton.set_bone_pose(i, saved_hair[i])
-	saved_bones.clear()
-	saved_hair.clear()
-	saved_skeleton = null
-	saved_hair_skeleton = null
+	if is_instance_valid(_saved_skeleton) \
+			and _saved_bones.size() == _saved_skeleton.get_bone_count():
+		for i in _saved_bones.size():
+			_saved_skeleton.set_bone_pose(i, _saved_bones[i])
+	if is_instance_valid(_saved_hair_skeleton) \
+			and _saved_hair.size() == _saved_hair_skeleton.get_bone_count():
+		for i in _saved_hair.size():
+			_saved_hair_skeleton.set_bone_pose(i, _saved_hair[i])
+	_saved_bones.clear()
+	_saved_hair.clear()
+	_saved_skeleton = null
+	_saved_hair_skeleton = null
 
 
 ## The pose-scope start state: clear the rig-check cache, release the tail lay and drop the bed and
@@ -1210,32 +1199,32 @@ func restore_bones() -> void:
 func leave_pose_start() -> void:
 	_readiness._reset()
 	if _face_driver != null and _face_driver.active:
-		_face_driver.restore(_view, pose_node)
-	if is_instance_valid(tail_lay):
-		tail_lay.restore_tail()
-		_drop(tail_lay)
-	tail_lay = null
-	bed_frame = null
-	bed_frame_source_saved = false
-	bed_frame_source = Transform3D.IDENTITY
+		_face_driver.restore(_view, _pose_node)
+	if is_instance_valid(_tail_lay):
+		_tail_lay.restore_tail()
+		_drop(_tail_lay)
+	_tail_lay = null
+	_bed_frame = null
+	_bed_frame_source_saved = false
+	_bed_frame_source = Transform3D.IDENTITY
 	_view.bed_frame = null
-	ground_frame = null
-	ground_frame_source_saved = false
-	ground_frame_source = Transform3D.IDENTITY
+	_ground_frame = null
+	_ground_frame_source_saved = false
+	_ground_frame_source = Transform3D.IDENTITY
 
 
 ## Drop the live-installed extra modifiers, keeping the pose node, the standing tail, the config and
 ## the view.
 func leave_pose_body() -> void:
-	if is_instance_valid(body_sway):
-		_drop(body_sway)
-	body_sway = null
-	if is_instance_valid(prone_sway):
-		_drop(prone_sway)
-	prone_sway = null
-	if is_instance_valid(ear_twitch):
-		_drop(ear_twitch)
-	ear_twitch = null
+	if is_instance_valid(_body_sway):
+		_drop(_body_sway)
+	_body_sway = null
+	if is_instance_valid(_prone_sway):
+		_drop(_prone_sway)
+	_prone_sway = null
+	if is_instance_valid(_ear_twitch):
+		_drop(_ear_twitch)
+	_ear_twitch = null
 
 
 ## The final pose clear: free the pose modifier and the standing tail and reset the act's state, so
@@ -1244,14 +1233,14 @@ func release_pose() -> void:
 	# A release aborts a live edge and returns the oral frame before the view is cleared; it never
 	# runs a second act exit.
 	_oral_turn.restore(_view)
-	_face_driver.restore(_view, pose_node)
+	_face_driver.restore(_view, _pose_node)
 	_face_driver.reset()
 	_abort_target()
 	_state = POSE_STATE.next(_state, "exit")
 	_release_act_body()
-	if is_instance_valid(pose_node):
-		_drop(pose_node)
-	pose_node = null
+	if is_instance_valid(_pose_node):
+		_drop(_pose_node)
+	_pose_node = null
 	_from_asset = null
 	_target_asset = null
 	if is_instance_valid(_tail):
@@ -1261,12 +1250,12 @@ func release_pose() -> void:
 	_started = false
 	_pose_config.clear()
 	_readiness._reset()
-	bed_frame = null
-	bed_frame_source_saved = false
-	bed_frame_source = Transform3D.IDENTITY
-	ground_frame = null
-	ground_frame_source_saved = false
-	ground_frame_source = Transform3D.IDENTITY
+	_bed_frame = null
+	_bed_frame_source_saved = false
+	_bed_frame_source = Transform3D.IDENTITY
+	_ground_frame = null
+	_ground_frame_source_saved = false
+	_ground_frame_source = Transform3D.IDENTITY
 	_tail_anchor = Vector3.INF
 	_view.clear()
 	_oral_turn.reset()
@@ -1275,17 +1264,22 @@ func release_pose() -> void:
 
 ## One pose-change fan-out: reconcile the modifier profile and apply the `act_body`/`anon` channel;
 ## the evaluator pair is already set. Idempotent, so a steady tick installs nothing.
-func pose_changed(view: POSE_VIEW) -> void:
-	if not _started or view == null:
+func pose_changed() -> void:
+	if not _started:
 		return
-	var to_spec: POSE_SPEC = _registry.spec(str(view.to_id))
+	var to_spec: POSE_SPEC = _registry.spec(str(_view.to_id))
 	if to_spec == null:
-		to_spec = _registry.spec(str(view.id))
-	var from_spec: POSE_SPEC = _registry.spec(str(view.from_id))
+		to_spec = _registry.spec(str(_view.id))
+	var from_spec: POSE_SPEC = _registry.spec(str(_view.from_id))
 	if from_spec == null:
 		from_spec = to_spec
-	_reconcile_modifiers(_profile_of(from_spec), _profile_of(to_spec), view)
-	_apply_anon_channel(view)
+	_reconcile_modifiers(_profile_of(from_spec), _profile_of(to_spec))
+	_apply_anon_channel(_view)
+
+
+## The test seam: replace the authored profile table with a synthetic one.
+func _set_modifier_profiles(table: Dictionary) -> void:
+	_modifier_profiles = table.duplicate()
 
 
 ## The spec's modifier profile name, or empty when the row has no block.
@@ -1297,13 +1291,13 @@ func _profile_of(spec: POSE_SPEC) -> String:
 
 ## The owner list of an authored profile. An unknown profile is the empty set.
 func _profile_owners(profile: String) -> Array:
-	var value: Variant = modifier_profiles.get(profile, NO_OWNERS)
+	var value: Variant = _modifier_profiles.get(profile, NO_OWNERS)
 	return value as Array if value is Array else NO_OWNERS
 
 
 ## Keep the shared owners, install the target-only ones and remove the source-only ones. The act
 ## exit's `leave_pose_body()` is still the full removal; this never calls it.
-func _reconcile_modifiers(from_profile: String, to_profile: String, view: POSE_VIEW) -> void:
+func _reconcile_modifiers(from_profile: String, to_profile: String) -> void:
 	var from_owners := _profile_owners(from_profile)
 	var to_owners := _profile_owners(to_profile)
 	var pony := _pony()
@@ -1312,64 +1306,63 @@ func _reconcile_modifiers(from_profile: String, to_profile: String, view: POSE_V
 	for owner: String in MODIFIER_ORDER:
 		var wanted: bool = owner in to_owners
 		var shared: bool = wanted and owner in from_owners
-		_sync_owner(owner, wanted, shared, view, skeleton)
+		_sync_owner(owner, wanted, shared, skeleton)
 
 
 ## Install, keep and retarget, or remove one owner. A shared keep calls the owner's own idempotent
-## `pose_changed(view)`; a feature edit that turns the owner off removes it even on a shared keep.
-func _sync_owner(owner: String, wanted: bool, retarget: bool, view: POSE_VIEW,
-		skeleton: Skeleton3D) -> void:
+## `pose_changed()`; a feature edit that turns the owner off removes it even on a shared keep.
+func _sync_owner(owner: String, wanted: bool, retarget: bool, skeleton: Skeleton3D) -> void:
 	var keep := wanted and _owner_feature(owner)
 	match owner:
 		"body_sway":
 			if keep:
-				if not is_instance_valid(body_sway):
+				if not is_instance_valid(_body_sway):
 					if skeleton != null:
 						_install_body_sway(skeleton)
 				elif retarget:
-					body_sway.pose_changed(view)
-			elif is_instance_valid(body_sway):
-				_drop(body_sway)
-				body_sway = null
+					_body_sway.pose_changed(_view)
+			elif is_instance_valid(_body_sway):
+				_drop(_body_sway)
+				_body_sway = null
 		"prone_sway":
 			if keep:
-				if not is_instance_valid(prone_sway):
+				if not is_instance_valid(_prone_sway):
 					if skeleton != null:
 						_install_prone_sway(skeleton)
 				elif retarget:
-					prone_sway.pose_changed(view)
-			elif is_instance_valid(prone_sway):
-				_drop(prone_sway)
-				prone_sway = null
+					_prone_sway.pose_changed(_view)
+			elif is_instance_valid(_prone_sway):
+				_drop(_prone_sway)
+				_prone_sway = null
 		"ear_twitch":
 			if keep:
-				if not is_instance_valid(ear_twitch):
+				if not is_instance_valid(_ear_twitch):
 					_install_ear_twitch()
 				elif retarget:
-					ear_twitch.pose_changed(view)
-			elif is_instance_valid(ear_twitch):
-				_drop(ear_twitch)
-				ear_twitch = null
+					_ear_twitch.pose_changed(_view)
+			elif is_instance_valid(_ear_twitch):
+				_drop(_ear_twitch)
+				_ear_twitch = null
 		"tail":
 			if keep:
 				if not is_instance_valid(_tail):
 					_install_tail()
 				elif retarget:
-					_tail.pose_changed(view)
+					_tail.pose_changed(_view)
 			elif is_instance_valid(_tail):
 				_tail.restore_tail()
 				_drop(_tail)
 				_tail = null
 		"tail_lay":
 			if keep:
-				if not is_instance_valid(tail_lay):
+				if not is_instance_valid(_tail_lay):
 					_install_tail_lay()
 				elif retarget:
-					tail_lay.pose_changed(view)
-			elif is_instance_valid(tail_lay):
-				tail_lay.restore_tail()
-				_drop(tail_lay)
-				tail_lay = null
+					_tail_lay.pose_changed(_view)
+			elif is_instance_valid(_tail_lay):
+				_tail_lay.restore_tail()
+				_drop(_tail_lay)
+				_tail_lay = null
 
 
 ## The feature gate an owner installs behind. The tails have none.
@@ -1564,51 +1557,51 @@ func _install_tail_lay() -> void:
 		skeleton = pony.get("skeleton") as Skeleton3D
 	if skeleton == null:
 		return
-	tail_lay = TAIL_LAY.new()
-	tail_lay.name = "UnfplapTailLay"
-	tail_lay.mare = pony
-	tail_lay.facts = _facts
-	tail_lay.process_priority = 20
-	skeleton.add_child(tail_lay)
+	_tail_lay = TAIL_LAY.new()
+	_tail_lay.name = "UnfplapTailLay"
+	_tail_lay.mare = pony
+	_tail_lay.facts = _facts
+	_tail_lay.process_priority = 20
+	skeleton.add_child(_tail_lay)
 
 
 func _install_body_sway(skeleton: Skeleton3D) -> void:
 	var pony := _pony()
 	if not _feature("standing_body_sway"):
 		return
-	body_sway = BODY_SWAY.new()
-	body_sway.name = "UnfplapBodySway"
-	body_sway.mare = pony
-	body_sway.facts = _facts
-	skeleton.add_child(body_sway)
+	_body_sway = BODY_SWAY.new()
+	_body_sway.name = "UnfplapBodySway"
+	_body_sway.mare = pony
+	_body_sway.facts = _facts
+	skeleton.add_child(_body_sway)
 	_reset_sway_base()
 
 
 func _install_prone_sway(skeleton: Skeleton3D) -> void:
 	var pony := _pony()
-	prone_sway = PRONE_SWAY.new()
-	prone_sway.name = "UnfplapProneSway"
-	prone_sway.mare = pony
-	prone_sway.facts = _facts
-	skeleton.add_child(prone_sway)
+	_prone_sway = PRONE_SWAY.new()
+	_prone_sway.name = "UnfplapProneSway"
+	_prone_sway.mare = pony
+	_prone_sway.facts = _facts
+	skeleton.add_child(_prone_sway)
 
 
 func _install_ear_twitch() -> void:
 	var pony := _pony()
 	if not _feature("thrust_ear_twitch"):
 		return
-	var head := head_skeleton(pony.get("boop_node"))
+	var head := _head_skeleton(pony.get("boop_node"))
 	if head == null:
 		return
-	ear_twitch = EAR_TWITCH.new()
-	ear_twitch.name = "UnfplapEarTwitch"
-	ear_twitch.mare = pony
-	ear_twitch.facts = _facts
-	head.add_child(ear_twitch)
+	_ear_twitch = EAR_TWITCH.new()
+	_ear_twitch.name = "UnfplapEarTwitch"
+	_ear_twitch.mare = pony
+	_ear_twitch.facts = _facts
+	head.add_child(_ear_twitch)
 
 
 ## The head skeleton the ear twitch rides, or null.
-func head_skeleton(boop: Node) -> Skeleton3D:
+func _head_skeleton(boop: Node) -> Skeleton3D:
 	if boop == null:
 		return null
 	var head: Variant = boop.get("head_skeleton")
@@ -1617,9 +1610,9 @@ func head_skeleton(boop: Node) -> Skeleton3D:
 
 ## The render-time pose write. The runtime calls this after the game's own writers so the
 ## authored missionary pose survives to the renderer.
-func apply_render(skeleton: Skeleton3D) -> void:
-	if is_instance_valid(pose_node):
-		pose_node.apply_render(skeleton)
+func _apply_render(skeleton: Skeleton3D) -> void:
+	if is_instance_valid(_pose_node):
+		_pose_node.apply_render(skeleton)
 
 
 ## The authored stance's neck midpoint in world space, for the start's one aim measurement. It
@@ -1627,12 +1620,12 @@ func apply_render(skeleton: Skeleton3D) -> void:
 func stance_neck_point() -> Vector3:
 	var pony := _pony()
 	var skeleton: Variant = pony.get("skeleton") if is_instance_valid(pony) else null
-	if not is_instance_valid(pose_node) or not skeleton is Skeleton3D:
+	if not is_instance_valid(_pose_node) or not skeleton is Skeleton3D:
 		return Vector3.INF
-	var amount := pose_node.amount
-	pose_node.amount = 1.0
-	apply_render(skeleton as Skeleton3D)
-	pose_node.amount = amount
+	var amount := _pose_node.amount
+	_pose_node.amount = 1.0
+	_apply_render(skeleton as Skeleton3D)
+	_pose_node.amount = amount
 	var sk := skeleton as Skeleton3D
 	sk.force_update_all_bone_transforms()
 	var hips := sk.find_bone("pony_hips")
@@ -1649,11 +1642,11 @@ func stance_neck_point() -> Vector3:
 	return Vector3.INF
 
 
-## The whole render-time step for one frame, in order: place the act's own Anon body, write her
-## pose, replay the sway, then let the live view read his posed head.
-func render_write(frame: RenderFrame) -> void:
+## The render-time step for one frame, in order: sync the live space, place the act's own Anon
+## body, write her pose and replay the sway; the live view reads his posed head after it.
+func write_render_frame(body_scale: float) -> void:
 	var pony := _pony()
-	if frame == null or not is_instance_valid(pony):
+	if not is_instance_valid(pony):
 		return
 	var family := str(_view.family)
 	if family == "standing":
@@ -1661,26 +1654,27 @@ func render_write(frame: RenderFrame) -> void:
 		# the frame, then replay the sway on top of that write.
 		_sync_ground_frame()
 		var standing_sk: Variant = pony.get("skeleton")
-		if is_instance_valid(pose_node) and standing_sk is Skeleton3D:
-			apply_render(standing_sk as Skeleton3D)
-			if is_instance_valid(body_sway):
-				body_sway.apply_render(standing_sk as Skeleton3D)
+		if is_instance_valid(_pose_node) and standing_sk is Skeleton3D:
+			_apply_render(standing_sk as Skeleton3D)
+			if is_instance_valid(_body_sway):
+				_body_sway.apply_render(standing_sk as Skeleton3D)
 		return
 	if family != "bed":
 		return
-	if is_instance_valid(_act_body) and _has_frame(frame.bed_frame):
-		_act_body.apply(frame.bed_frame, frame.body_scale)
+	var frame: Transform3D = _bed_frame if _bed_frame is Transform3D else NO_FRAME
+	if is_instance_valid(_act_body) and _has_frame(frame):
+		_act_body.apply(frame, body_scale)
 	var sk: Variant = pony.get("skeleton")
-	if is_instance_valid(pose_node) and sk is Skeleton3D:
-		apply_render(sk as Skeleton3D)
-		if is_instance_valid(prone_sway):
-			prone_sway.apply_render(sk as Skeleton3D)
+	if is_instance_valid(_pose_node) and sk is Skeleton3D:
+		_apply_render(sk as Skeleton3D)
+		if is_instance_valid(_prone_sway):
+			_prone_sway.apply_render(sk as Skeleton3D)
 
 
 ## One thrust's ear flick; a released pose or a disabled feature ignores it.
 func trigger_ear_twitch(impact: float) -> void:
-	if is_instance_valid(ear_twitch):
-		ear_twitch.try_trigger(impact)
+	if is_instance_valid(_ear_twitch):
+		_ear_twitch.try_trigger(impact)
 
 
 ## The pose frame the live family reads: the bed frame or the ground frame.
@@ -1691,13 +1685,6 @@ func follow_space(family: String) -> void:
 		_sync_ground_frame()
 
 
-## The typed entry for the render-time step: the session supplies its own bed frame plus the body
-## scale it read from the act.
-func write_render_frame(body_scale: float) -> void:
-	var frame: Transform3D = bed_frame if bed_frame is Transform3D else NO_FRAME
-	render_write(RenderFrame.of(frame, body_scale))
-
-
 ## The tail handle's one write: the lift/flick weight the afterglow sets.
 func _set_tail_target(value: float) -> void:
 	if is_instance_valid(_tail):
@@ -1706,8 +1693,8 @@ func _set_tail_target(value: float) -> void:
 
 ## The live standing glance's head throw-back; a released pose takes no write.
 func set_head_back(value: float) -> void:
-	if is_instance_valid(pose_node):
-		pose_node.head_back = value
+	if is_instance_valid(_pose_node):
+		_pose_node.head_back = value
 
 
 func _flick_tail(count: int) -> void:
@@ -1724,22 +1711,22 @@ func _thrust_tail(weight: float) -> void:
 ## A rebuilt pose starts settled. The body swap re-poses the surviving act inside the flame, so
 ## the start ramp would be a visible second entrance on the new body.
 func settle() -> void:
-	if is_instance_valid(pose_node):
-		pose_node.amount = 1.0
-		pose_node.target_amount = 1.0
+	if is_instance_valid(_pose_node):
+		_pose_node.amount = 1.0
+		_pose_node.target_amount = 1.0
 	if is_instance_valid(_tail):
 		_tail.amount = 1.0
 		_tail.target_amount = 1.0
 
 
 func _basis_amount() -> float:
-	return pose_node.amount if is_instance_valid(pose_node) else 0.0
+	return _pose_node.amount if is_instance_valid(_pose_node) else 0.0
 
 
 ## The restore's fade: release the live pose weight and the standing tail toward zero.
 func fade_out() -> void:
-	if is_instance_valid(pose_node):
-		pose_node.target_amount = 0.0
+	if is_instance_valid(_pose_node):
+		_pose_node.target_amount = 0.0
 	if is_instance_valid(_tail):
 		_tail.target_amount = 0.0
 
@@ -1747,11 +1734,11 @@ func fade_out() -> void:
 ## Aim the live pose's look point for this rendered frame; the head solve reads it after the pose
 ## write, and the camera owns the point, the kiss blend and the climax weight.
 func aim_look(point: Vector3, kiss: float, climaxing: bool) -> void:
-	if not is_instance_valid(pose_node):
+	if not is_instance_valid(_pose_node):
 		return
-	pose_node.look_point = point
-	pose_node.kiss = kiss
-	pose_node.climaxing = climaxing## Which missionary base is in charge and why, in one record so the log, the settled line and the
+	_pose_node.look_point = point
+	_pose_node.kiss = kiss
+	_pose_node.climaxing = climaxing## Which missionary base is in charge and why, in one record so the log, the settled line and the
 ## debug action cannot drift apart.
 func _base_info() -> BASE_INFO:
 	var info := BASE_INFO.new()
@@ -1788,9 +1775,9 @@ func _base_info() -> BASE_INFO:
 ## The live pose frame: the bed's mattress space or the pony root's ground space.
 func _pose_frame() -> Transform3D:
 	if str(_view.frame) == "ground":
-		return ground_frame if ground_frame is Transform3D else NO_FRAME
+		return _ground_frame if _ground_frame is Transform3D else NO_FRAME
 	if str(_view.frame) == "bed":
-		return bed_frame if bed_frame is Transform3D else NO_FRAME
+		return _bed_frame if _bed_frame is Transform3D else NO_FRAME
 	return NO_FRAME
 
 
@@ -1805,19 +1792,19 @@ func _trace_sample(state: int, handle: PoseDiagnostics) -> void:
 	var pony := _pony()
 	if handle._trace_frames >= 2 or str(_view.frame) != "bed" or state == 0:
 		return
-	if not is_instance_valid(pose_node) or _basis_amount() < 0.9:
+	if not is_instance_valid(_pose_node) or _basis_amount() < 0.9:
 		return
 	var sk: Variant = pony.get("skeleton") if is_instance_valid(pony) else null
 	if not sk is Skeleton3D:
 		return
 	var skeleton := sk as Skeleton3D
-	var root := pose_node.diag_root
+	var root := _pose_node.diag_root
 	var hips := skeleton.find_bone("pony_hips")
 	var g := skeleton.global_transform
 	var render_root := g * skeleton.get_bone_global_pose(root) if root >= 0 else Transform3D.IDENTITY
 	var render_hips := g * skeleton.get_bone_global_pose(hips) if hips >= 0 else Transform3D.IDENTITY
-	var wanted_root := pose_node.diag_root_wanted
-	var wanted_hips := pose_node.diag_hips_wanted
+	var wanted_root := _pose_node.diag_root_wanted
+	var wanted_hips := _pose_node.diag_hips_wanted
 	var animation: Variant = pony.get("animation")
 	var clip := ""
 	var playing := false
@@ -1825,15 +1812,15 @@ func _trace_sample(state: int, handle: PoseDiagnostics) -> void:
 		clip = (animation as AnimationPlayer).current_animation
 		playing = (animation as AnimationPlayer).is_playing()
 	LOG.debug("pose trace f=%d root=%d:%s asset_root=%d trace=%d mode=%d clip=%s playing=%s G=%s", [
-		handle._trace_frames, root, str(pose_node.diag_root_name), pose_node.diag_asset_root,
-		pose_node.diag_trace, skeleton.modifier_callback_mode_process, clip, str(playing),
+		handle._trace_frames, root, str(_pose_node.diag_root_name), _pose_node.diag_asset_root,
+		_pose_node.diag_trace, skeleton.modifier_callback_mode_process, clip, str(playing),
 		str(g)])
 	LOG.debug("pose trace f=%d root start=%s after=%s render=%s wanted=%s d=%.3f/%.3f | hips start=%s render=%s wanted=%s d=%.3f", [
-		handle._trace_frames, str(pose_node.diag_root_start), str(pose_node.diag_root_after),
+		handle._trace_frames, str(_pose_node.diag_root_start), str(_pose_node.diag_root_after),
 		str(render_root), str(wanted_root),
 		render_root.origin.distance_to(wanted_root.origin),
 		_transform_angle(render_root, wanted_root),
-		str(pose_node.diag_hips_start), str(render_hips), str(wanted_hips),
+		str(_pose_node.diag_hips_start), str(render_hips), str(wanted_hips),
 		render_hips.origin.distance_to(wanted_hips.origin)])
 	handle._trace_frames += 1
 
@@ -1849,7 +1836,7 @@ func _transform_angle(a: Transform3D, b: Transform3D) -> float:
 func _diagnostics_rows(skeleton: Skeleton3D, info: BASE_INFO) -> Array[String]:
 	var pony := _pony()
 	var rows: Array[String] = []
-	var modifier := pose_node
+	var modifier := _pose_node
 	var parent: Node = modifier.get_parent() if is_instance_valid(modifier) else null
 	rows.append("modifier=%s parent=%s match=%s frames=%d weight=%.2f base=%s readback=%.2f°" % [
 		"yes" if is_instance_valid(modifier) else "no",
@@ -2012,8 +1999,8 @@ func _log_settled(state: int, anon_diag: Callable, handle: PoseDiagnostics) -> v
 		return
 	var skeleton := sk as Skeleton3D
 	var space := Transform3D.IDENTITY
-	if bed_frame is Transform3D:
-		space = (bed_frame as Transform3D).affine_inverse()
+	if _bed_frame is Transform3D:
+		space = (_bed_frame as Transform3D).affine_inverse()
 	var parts: Array[String] = []
 	for pair: Array in [["hips", "pony_hips"], ["neck", "pony_neck1"], ["head", "pony_head"],
 			["hoof_l", "pony_hoof_L"], ["hoof_r", "pony_hoof_R"]]:
@@ -2042,8 +2029,8 @@ func _body_scale() -> float:
 
 
 func _reset_sway_base() -> void:
-	if is_instance_valid(body_sway):
-		body_sway.reset_base()
+	if is_instance_valid(_body_sway):
+		_body_sway.reset_base()
 
 
 func _feature(name: String) -> bool:

@@ -177,7 +177,7 @@ func run() -> void:
 	# The runtime writes no pose mode: the evaluator pair holds and only the weight is re-asserted.
 	var held: Node = _runtime("standing")
 	var fake_pose := FakePose.new()
-	held.act.context.pose.pose_node = fake_pose
+	held.act.context.pose._pose_node = fake_pose
 	held.act.context.pose.view().id = "standing"
 	held.act.context.pose.view().pose_state = VIEW.STEADY
 	held.act.context.afterglow.bind_view(held.act.context.pose.view())

@@ -167,7 +167,7 @@ func run(pose: String, bed_in: Variant, act_source: String, skip_presentation :=
 	view.refresh(context.facts, session)
 	# The pose session installs the act body and reconciles the modifiers for the start view,
 	# before the first rendered frame; every later change arrives through the pose fan-out.
-	context.pose.pose_changed(context.pose.view())
+	context.pose.pose_changed()
 	context.integrations.begin()
 	session.face_beat("start")
 	if is_instance_valid(owner):

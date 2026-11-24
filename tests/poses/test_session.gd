@@ -103,10 +103,6 @@ func _start(raw: Dictionary) -> SESSION.PoseStart:
 
 
 
-func _render(frame: Transform3D = SESSION.NO_FRAME, scale: float = 1.0) -> SESSION.RenderFrame:
-	return SESSION.RenderFrame.of(frame, scale)
-
-
 func run() -> void:
 	_check_config()
 	_check_begin()
@@ -238,8 +234,8 @@ func _check_begin() -> void:
 		"look_point": Vector3.ZERO,
 		"camera_position": Vector3.INF,
 	}))
-	check(is_instance_valid(session.pose_node), "the pose modifier is built")
-	check(session.pose_node.get_parent() == body, "the pose modifier rides the body skeleton")
+	check(is_instance_valid(session._pose_node), "the pose modifier is built")
+	check(session._pose_node.get_parent() == body, "the pose modifier rides the body skeleton")
 	var view: RefCounted = session.view()
 	check(view != null and is_same(view, session.view()), "the session owns one pose view")
 	check(view.id == CATALOG.MISSIONARY, "the begin fills the view pose")
@@ -247,23 +243,23 @@ func _check_begin() -> void:
 	check(view.pose_state == VIEW.STEADY, "the begin marks the view steady")
 	check(is_same(view.pose_config, session._pose_config),
 		"the view shares the session's live config")
-	check(session.pose_node.mode == POSE.MODE_SINGLE
-		and session.pose_node.from_driver == POSE.MISSIONARY_PATH,
+	check(session._pose_node.mode == POSE.MODE_SINGLE
+		and session._pose_node.from_driver == POSE.MISSIONARY_PATH,
 		"the begin takes the single missionary path")
 	var live: Dictionary = session._pose_config
-	check(is_same(live, session.pose_node.pose_config),
+	check(is_same(live, session._pose_node.pose_config),
 		"the pose node shares the session's config object")
 	session._pose_config["oral_pitch"] = 0.4
-	check(near(float(session.pose_node.pose_config.get("oral_pitch", 0.0)), 0.4),
+	check(near(float(session._pose_node.pose_config.get("oral_pitch", 0.0)), 0.4),
 		"an in-place anatomy key reaches the pose node")
 	session.apply_live_settings()
-	check(is_same(live, session._pose_config) and is_same(live, session.pose_node.pose_config),
+	check(is_same(live, session._pose_config) and is_same(live, session._pose_node.pose_config),
 		"a live sync keeps the same object on the node")
-	check(session.tail_lay != null, "the missionary tail lay is installed")
+	check(session._tail_lay != null, "the missionary tail lay is installed")
 	check(session.diagnostics()._pose_logged == false and session.diagnostics()._trace_frames == 0,
 		"a fresh session starts its logs clean")
-	var tail_lay: Node = session.tail_lay
-	var pose_modifier: Node = session.pose_node
+	var tail_lay: Node = session._tail_lay
+	var pose_modifier: Node = session._pose_node
 	var children := body.get_child_count()
 	check(not session.begin_act(_start({
 		"pose_id": CATALOG.MISSIONARY,
@@ -277,20 +273,20 @@ func _check_begin() -> void:
 	})), "a second begin is refused")
 	check(body.get_child_count() == children, "a refused begin adds no second pose")
 	session.leave_pose_start()
-	check(session.tail_lay == null, "the pose-start leave frees the tail lay")
+	check(session._tail_lay == null, "the pose-start leave frees the tail lay")
 	check(tail_lay.get_parent() == null and tail_lay.is_queued_for_deletion(),
 		"the tail lay is detached before it is freed")
 	session.release_pose()
-	check(session.pose_node == null, "the pose release frees the modifier")
+	check(session._pose_node == null, "the pose release frees the modifier")
 	check(pose_modifier.get_parent() == null and pose_modifier.is_queued_for_deletion(),
 		"the pose modifier is detached before it is freed")
 	session.release_pose()
-	check(session.pose_node == null, "a second pose release is a no-op")
+	check(session._pose_node == null, "a second pose release is a no-op")
 	check(session._pony_id() == "twilight_sparkle",
 		"the release leaves the act identity to the facts")
 	check(session._facts.features.is_empty(), "the release leaves the features to the facts")
 	check(session._pose_config.is_empty(), "the pose release clears the live config")
-	check(session.bed_frame == null, "the pose-start leave clears the bed frame")
+	check(session._bed_frame == null, "the pose-start leave clears the bed frame")
 	check(session.view().id == "" and session.view().pose_state == VIEW.IDLE,
 		"the pose release clears the view")
 	check(session.view().pose_config.is_empty(), "the pose release drops the view config")
@@ -314,7 +310,7 @@ func _check_begin_refused() -> void:
 		"bed": null,
 		"presentation": {},
 	})), "a pony without a body skeleton is refused")
-	check(not session._started and session.pose_node == null and session.tail_lay == null,
+	check(not session._started and session._pose_node == null and session._tail_lay == null,
 		"a refused begin installs nothing")
 	check(session.view().id == "" and session.view().pose_state == VIEW.IDLE,
 		"a refused begin leaves the view empty")
@@ -338,14 +334,14 @@ func _check_standing_begin() -> void:
 		"look_point": Vector3.ZERO,
 		"camera_position": Vector3.INF,
 	})), "the standing begin succeeds")
-	check(not session.bed_frame_source_saved, "a standing begin saves no bed frame source")
-	check(session.ground_frame is Transform3D, "the standing begin captures the ground frame")
-	check(session.ground_frame_source_saved, "the standing begin saves the ground frame source")
-	check(session.pose_node.authored != null and bool(session.pose_node.authored.get("available")),
+	check(not session._bed_frame_source_saved, "a standing begin saves no bed frame source")
+	check(session._ground_frame is Transform3D, "the standing begin captures the ground frame")
+	check(session._ground_frame_source_saved, "the standing begin saves the ground frame source")
+	check(session._pose_node.authored != null and bool(session._pose_node.authored.get("available")),
 		"the standing begin installs the standing asset")
-	check(is_same(session.view().authored, session.pose_node.authored),
+	check(is_same(session.view().authored, session._pose_node.authored),
 		"the view carries the live rendered asset")
-	check(session.pose_node.size_name == SETTINGS.pony_size_name(),
+	check(session._pose_node.size_name == SETTINGS.pony_size_name(),
 		"the begin carries the live size name to the pose node")
 	check(session.view().family == "standing" and session.view().pose_state == VIEW.STEADY,
 		"the standing begin fills the view")
@@ -368,28 +364,28 @@ func _check_bed_frame() -> void:
 	var pony: FakePony = made["pony"]
 	var bed := Node3D.new()
 	root.add_child(bed)
-	session.bed_node = bed
-	session.bed_frame = Transform3D(Basis.IDENTITY, Vector3(0.0, 1.0, 0.0))
-	session.bed_frame_source = Transform3D.IDENTITY
-	session.bed_frame_source_saved = true
+	session._bed_node = bed
+	session._bed_frame = Transform3D(Basis.IDENTITY, Vector3(0.0, 1.0, 0.0))
+	session._bed_frame_source = Transform3D.IDENTITY
+	session._bed_frame_source_saved = true
 	bed.position = Vector3(1.0, 0.0, 0.0)
 	session._sync_bed_frame()
-	check((session.bed_frame as Transform3D).origin.is_equal_approx(Vector3(1.0, 1.0, 0.0)),
+	check((session._bed_frame as Transform3D).origin.is_equal_approx(Vector3(1.0, 1.0, 0.0)),
 		"the bed frame follows the bed")
 	check(session.view().bed_frame is Transform3D and (session.view().bed_frame as Transform3D)
 		.origin.is_equal_approx(Vector3(1.0, 1.0, 0.0)),
 		"the view carries the followed bed frame")
 	bed.position = Vector3(1.0, 0.0, 0.0)
 	session._sync_bed_frame()
-	check((session.bed_frame as Transform3D).origin.is_equal_approx(Vector3(1.0, 1.0, 0.0)),
+	check((session._bed_frame as Transform3D).origin.is_equal_approx(Vector3(1.0, 1.0, 0.0)),
 		"a still bed leaves the frame alone")
-	session.bed_frame_source_saved = false
+	session._bed_frame_source_saved = false
 	bed.position = Vector3(2.0, 0.0, 0.0)
 	session._sync_bed_frame()
-	check((session.bed_frame as Transform3D).origin.is_equal_approx(Vector3(1.0, 1.0, 0.0)),
+	check((session._bed_frame as Transform3D).origin.is_equal_approx(Vector3(1.0, 1.0, 0.0)),
 		"an unsaved bed source skips the follow")
 	session.leave_pose_start()
-	check(session.bed_frame == null, "the pose-start leave clears the bed frame")
+	check(session._bed_frame == null, "the pose-start leave clears the bed frame")
 	check(session.view().bed_frame == null, "the pose-start leave clears the view's bed frame")
 	root.remove_child(bed)
 	bed.free()
@@ -401,22 +397,22 @@ func _check_ground_frame() -> void:
 	var made := _live_session(CATALOG.STANDING)
 	var session: SESSION = made["session"]
 	var pony: FakePony = made["pony"]
-	var start: Transform3D = session.ground_frame
+	var start: Transform3D = session._ground_frame
 	var basis_before := start.basis
 	pony.global_position += Vector3(1.0, 0.0, -0.5)
 	session._sync_ground_frame()
-	check((session.ground_frame as Transform3D).origin.is_equal_approx(
+	check((session._ground_frame as Transform3D).origin.is_equal_approx(
 		start.origin + Vector3(1.0, 0.0, -0.5)), "the ground frame follows the root")
 	pony.rotate_y(0.5)
 	session._sync_ground_frame()
-	check(not (session.ground_frame as Transform3D).basis.is_equal_approx(basis_before),
+	check(not (session._ground_frame as Transform3D).basis.is_equal_approx(basis_before),
 		"the ground frame follows the root yaw")
-	var still: Transform3D = session.ground_frame
+	var still: Transform3D = session._ground_frame
 	session._sync_ground_frame()
-	check((session.ground_frame as Transform3D).is_equal_approx(still),
+	check((session._ground_frame as Transform3D).is_equal_approx(still),
 		"a still root leaves the frame alone")
 	session.release_pose()
-	check(session.ground_frame == null, "the release clears the ground frame")
+	check(session._ground_frame == null, "the release clears the ground frame")
 	_free_live(made)
 
 
@@ -456,10 +452,10 @@ func _check_missing_standing_asset() -> void:
 func _check_standing_render_write() -> void:
 	var made := _live_session(CATALOG.STANDING)
 	var session: SESSION = made["session"]
-	session.pose_node.amount = 1.0
-	session.pose_node.target_amount = 1.0
-	session.render_write(_render())
-	check(str(session.pose_node.get("diag_last_base")) == "authored",
+	session._pose_node.amount = 1.0
+	session._pose_node.target_amount = 1.0
+	session.write_render_frame(1.0)
+	check(str(session._pose_node.get("diag_last_base")) == "authored",
 		"the standing render write reaches apply_render")
 	_free_live(made)
 
@@ -470,13 +466,13 @@ func _check_sway_render_write() -> void:
 	var session: SESSION = made["session"]
 	var body: Skeleton3D = made["body"]
 	var standing := FakeSway.new()
-	session.body_sway = standing
-	session.pose_node.amount = 1.0
-	session.pose_node.target_amount = 1.0
-	session.render_write(_render())
+	session._body_sway = standing
+	session._pose_node.amount = 1.0
+	session._pose_node.target_amount = 1.0
+	session.write_render_frame(1.0)
 	check(standing.calls == 1 and standing.skeletons[0] == body,
 		"the standing render write replays the body sway after the pose")
-	session.body_sway = null
+	session._body_sway = null
 	standing.free()
 	_free_live(made)
 
@@ -484,15 +480,15 @@ func _check_sway_render_write() -> void:
 	var bed_session: SESSION = bed["session"]
 	var bed_body: Skeleton3D = bed["body"]
 	var prone := FakeProneSway.new()
-	bed_session.prone_sway = prone
-	bed_session.pose_node.amount = 1.0
-	bed_session.pose_node.target_amount = 1.0
-	bed_session.bed_frame = Transform3D.IDENTITY
-	bed_session.pose_node.bed_frame = Transform3D.IDENTITY
-	bed_session.render_write(_render(Transform3D.IDENTITY))
+	bed_session._prone_sway = prone
+	bed_session._pose_node.amount = 1.0
+	bed_session._pose_node.target_amount = 1.0
+	bed_session._bed_frame = Transform3D.IDENTITY
+	bed_session._pose_node.bed_frame = Transform3D.IDENTITY
+	bed_session.write_render_frame(1.0)
 	check(prone.calls == 1 and prone.skeletons[0] == bed_body,
 		"the bed render write replays the prone sway after the pose")
-	bed_session.prone_sway = null
+	bed_session._prone_sway = null
 	prone.free()
 	_free_live(bed)
 
@@ -520,7 +516,7 @@ func _check_bones() -> void:
 		"the body bone snapshot restores")
 	check(hair.get_bone_pose_rotation(0).is_equal_approx(Quaternion(Vector3.UP, 0.25)),
 		"the hair bone snapshot restores")
-	check(session.saved_bones.is_empty() and session.saved_hair.is_empty(),
+	check(session._saved_bones.is_empty() and session._saved_hair.is_empty(),
 		"the snapshot clears after the restore")
 	root.remove_child(body)
 	body.free()
@@ -583,16 +579,17 @@ func _check_render_write() -> void:
 	body.sink = order
 	root.add_child(body)
 	session._act_body = body
+	session._bed_frame = Transform3D.IDENTITY
 	session._view.family = "bed"
-	session.render_write(_render(Transform3D.IDENTITY, 0.66))
+	session.write_render_frame(0.66)
 	check(order == ["anon"], "the render write places the Anon body")
 	order.clear()
 	session._view.family = "standing"
-	session.render_write(_render())
+	session.write_render_frame(1.0)
 	check(order.is_empty(), "a standing render write places no Anon body")
 	session._view.family = "bed"
 	session._act_body = null
-	session.render_write(_render())
+	session.write_render_frame(1.0)
 	check(order.is_empty(), "an absent act body is a no-op")
 	root.remove_child(body)
 	body.free()
@@ -674,7 +671,7 @@ func _check_state_machine() -> void:
 		"the begin fills the start pose on both sides")
 	check(view.edge_id == "" and view.weight == 1.0 and session._run == null,
 		"the begin starts no edge")
-	var pose_node: Node = session.pose_node
+	var pose_node: Node = session._pose_node
 	check(pose_node.mode == POSE.MODE_SINGLE
 		and pose_node.from_driver == POSE.STANDING_PATH
 		and pose_node.to_driver == POSE.STANDING_PATH,
@@ -740,10 +737,10 @@ func _check_state_machine() -> void:
 		"the completed edge points both sides at the live config")
 	check(int(live_config.get("adopt_marker", 0)) == 17,
 		"the complete adopts the target into the live config object")
-	check(is_same(session.pose_node.pose_config, live_config),
+	check(is_same(session._pose_node.pose_config, live_config),
 		"the complete keeps the live config on the pose node")
-	check(session.pose_node.mode == POSE.MODE_SINGLE
-		and session.pose_node.from_driver == POSE.STANDING_PATH,
+	check(session._pose_node.mode == POSE.MODE_SINGLE
+		and session._pose_node.from_driver == POSE.STANDING_PATH,
 		"the completed edge settles the evaluator on the target")
 	check(is_same(session._pose_config, live_config) and view.id == CATALOG.STANDING_TEST,
 		"the live config and the view target are untouched")
@@ -783,7 +780,7 @@ func _check_oral_edge() -> void:
 	session._facts.play_mouth_kiss = func() -> void: kisses.append(true)
 	var from: Vector3 = pony.global_position
 	var from_basis: Basis = pony.global_transform.basis.orthonormalized()
-	var frame_start: Transform3D = session.ground_frame
+	var frame_start: Transform3D = session._ground_frame
 	session._facts.features = {"anatomy_oral": true}
 	var forward: SESSION.PoseResult = session.request_pose(CATALOG.STANDING_ORAL, "oral", "oral")
 	check(forward.ok, "the oral forward request is accepted")
@@ -794,9 +791,9 @@ func _check_oral_edge() -> void:
 	check(view.contact_kind == "opening", "the oral forward keeps the opening before 0.9")
 	check(is_same(view.to_config, session._target_config),
 		"the oral target is the standing settings snapshot")
-	check(session.pose_node.mode == POSE.MODE_BLEND,
+	check(session._pose_node.mode == POSE.MODE_BLEND,
 		"the oral delta pair takes the two-base blend")
-	check(session.pose_node.from_delta == "" and session.pose_node.to_delta
+	check(session._pose_node.from_delta == "" and session._pose_node.to_delta
 		== "poses/standing_oral_recipe.gd",
 		"the forward edge blends standing into the oral delta")
 
@@ -815,7 +812,7 @@ func _check_oral_edge() -> void:
 	check(view.facing_amount > 0.0 and view.facing_amount < 1.0,
 		"the oral turn publishes its eased facing")
 	session._sync_ground_frame()
-	check(not (session.ground_frame as Transform3D).origin.is_equal_approx(frame_start.origin),
+	check(not (session._ground_frame as Transform3D).origin.is_equal_approx(frame_start.origin),
 		"the oral turn moves the ground frame")
 	session.tick(0.45)
 	check(view.contact_kind == "mouth", "the contact switches to the mouth at 0.9")
@@ -832,8 +829,8 @@ func _check_oral_edge() -> void:
 	check(view.contact_kind == "mouth", "the settled oral pose keeps the mouth contact")
 	check(is_equal_approx(view.facing_amount, 1.0),
 		"the oral turn holds its full facing")
-	check(session.pose_node.mode == POSE.MODE_SINGLE
-		and session.pose_node.from_delta == "poses/standing_oral_recipe.gd",
+	check(session._pose_node.mode == POSE.MODE_SINGLE
+		and session._pose_node.from_delta == "poses/standing_oral_recipe.gd",
 		"the settled oral pose runs the delta in the single path")
 	check(session._pose_config.has("oral_pitch") and session._pose_config.has("oral_roll"),
 		"the settled live config keeps the oral keys")
@@ -877,12 +874,12 @@ func _check_oral_edge() -> void:
 	check(pony.global_transform.basis.orthonormalized().is_equal_approx(from_basis),
 		"the reverse restores the captured facing")
 	session._sync_ground_frame()
-	check((session.ground_frame as Transform3D).origin.is_equal_approx(frame_start.origin),
+	check((session._ground_frame as Transform3D).origin.is_equal_approx(frame_start.origin),
 		"the reverse returns the ground frame")
 	check(not session._pose_config.has("oral_pitch") and not view.to_config.has("oral_pitch"),
 		"the reverse erases the oral keys")
-	check(session.pose_node.mode == POSE.MODE_SINGLE
-		and session.pose_node.from_delta == "",
+	check(session._pose_node.mode == POSE.MODE_SINGLE
+		and session._pose_node.from_delta == "",
 		"the settled standing pose drops the delta")
 	check(session.request_command(ACT_COMMANDS.THRUST),
 		"the standing control set returns after the oral turn")
@@ -924,7 +921,7 @@ func _check_facesit_edge() -> void:
 	var points := FakeFacePoints.new()
 	points.mouth = Vector3(0.0, 0.82, 0.65)
 	points.opening = Vector3(0.0, 0.34, 0.45)
-	session.bed_frame = Transform3D(Basis.IDENTITY, Vector3(0.0, 0.65, 0.0))
+	session._bed_frame = Transform3D(Basis.IDENTITY, Vector3(0.0, 0.65, 0.0))
 	session._facts.missionary_anon = func() -> Variant: return points
 	session._facts.anatomy_opening = points.opening
 	var previous_anatomy := SETTINGS.anatomy_mode.get_choice()
@@ -962,11 +959,11 @@ func _check_facesit_edge() -> void:
 	check(view.contact_kind == "opening", "the face-sit forward keeps the opening before 0.9")
 	check(str(view.presentation.get("hud_label", "")) == "Face-sit",
 		"the face-sit target carries its HUD label")
-	check(session.pose_node.mode == POSE.MODE_BLEND,
+	check(session._pose_node.mode == POSE.MODE_BLEND,
 		"the two different authored bed assets take the two-base blend")
-	check(str(session.pose_node.from_authored.get("path")).ends_with("missionary_pose.json"),
+	check(str(session._pose_node.from_authored.get("path")).ends_with("missionary_pose.json"),
 		"the from side is the missionary asset")
-	check(str(session.pose_node.to_authored.get("path")).ends_with("bed_facesit_pose.json"),
+	check(str(session._pose_node.to_authored.get("path")).ends_with("bed_facesit_pose.json"),
 		"the to side is the face-sit asset")
 
 	var busy: SESSION.PoseResult = session.request_pose(CATALOG.MISSIONARY, "facesit")
@@ -980,11 +977,11 @@ func _check_facesit_edge() -> void:
 	check(view.contact_kind == "face", "the face-sit contact switches at 0.9")
 	check(session._face_driver != null and bool(session._face_driver.get("active")),
 		"the contact switch begins the face driver")
-	var held: Vector3 = session.pose_node.contact_offset
+	var held: Vector3 = session._pose_node.contact_offset
 	check(held.is_finite(), "the face driver writes a finite pose offset")
 	points.mouth += Vector3(0.02, 0.0, 0.0)
 	session.tick(0.5)
-	check(not session.pose_node.contact_offset.is_equal_approx(held),
+	check(not session._pose_node.contact_offset.is_equal_approx(held),
 		"the face driver follows the moved mouth")
 	check(near(view.contact_target.distance_to(points.mouth), 0.0),
 		"the view's contact target is the live mouth")
@@ -992,10 +989,10 @@ func _check_facesit_edge() -> void:
 	check(view.pose_state == VIEW.STEADY and view.id == CATALOG.BED_FACESIT,
 		"the face-sit forward settles on the target")
 	check(view.contact_kind == "face", "the settled face-sit keeps the face contact")
-	check(session.pose_node.mode == POSE.MODE_SINGLE
-		and str(session.pose_node.authored.get("path")).ends_with("bed_facesit_pose.json"),
+	check(session._pose_node.mode == POSE.MODE_SINGLE
+		and str(session._pose_node.authored.get("path")).ends_with("bed_facesit_pose.json"),
 		"the settled face-sit runs its own asset in the single path")
-	check(is_same(session.pose_node.authored, session.readiness().asset()),
+	check(is_same(session._pose_node.authored, session.readiness().asset()),
 		"the camera reads the adopted face-sit asset")
 	check(str(view.controls.get("set", "")) == "facesit",
 		"the settled view uses the face-sit control set")
@@ -1023,13 +1020,13 @@ func _check_facesit_edge() -> void:
 	check(view.contact_kind == "opening", "the reverse contact is restored at zero")
 	check(not bool(session._face_driver.get("active")),
 		"the reverse contact switch deactivates the face driver")
-	check(session.pose_node.contact_offset.is_zero_approx(),
+	check(session._pose_node.contact_offset.is_zero_approx(),
 		"the reverse contact switch zeroes the pose offset")
 	session.tick(1.2)
 	check(view.pose_state == VIEW.STEADY and view.id == CATALOG.MISSIONARY,
 		"the face-sit reverse settles back on missionary")
-	check(session.pose_node.mode == POSE.MODE_SINGLE
-		and str(session.pose_node.authored.get("path")).ends_with("missionary_pose.json"),
+	check(session._pose_node.mode == POSE.MODE_SINGLE
+		and str(session._pose_node.authored.get("path")).ends_with("missionary_pose.json"),
 		"the settled reverse runs the missionary asset")
 	check(session.request_command(ACT_COMMANDS.KISS),
 		"the missionary control set returns after the face-sit")
@@ -1231,7 +1228,7 @@ func _check_asset_adoption() -> void:
 	var view: RefCounted = session.view()
 	var missionary: Variant = AUTHORED.shared("poses/missionary_pose.json")
 	var standing: Variant = AUTHORED.shared("poses/standing_pose.json")
-	check(is_same(session.pose_node.authored, missionary),
+	check(is_same(session._pose_node.authored, missionary),
 		"the missionary begin owns the missionary asset")
 	check(is_same(session.readiness().asset(), missionary),
 		"the published asset is the live rendered asset")
@@ -1240,11 +1237,11 @@ func _check_asset_adoption() -> void:
 	_synthetic_edge(session, CATALOG.MISSIONARY, target, {})
 	var result: SESSION.PoseResult = session.request_pose(target, "test")
 	check(result.code == "ok", "the synthetic bed edge starts")
-	check(session.pose_node.mode == POSE.MODE_BLEND,
+	check(session._pose_node.mode == POSE.MODE_BLEND,
 		"two different authored assets take the blend even with the same driver")
-	check(is_same(session.pose_node.from_authored, missionary),
+	check(is_same(session._pose_node.from_authored, missionary),
 		"the from side is the live missionary asset")
-	check(is_same(session.pose_node.to_authored, standing),
+	check(is_same(session._pose_node.to_authored, standing),
 		"the to side is the target standing asset")
 	check(is_same(session.readiness().asset(), missionary),
 		"the camera holds the source asset through the edge")
@@ -1259,15 +1256,15 @@ func _check_asset_adoption() -> void:
 	session.tick(0.0)
 	session.tick(0.7)
 	check(view.pose_state == VIEW.STEADY, "the synthetic bed edge settles")
-	check(session.pose_node.mode == POSE.MODE_SINGLE,
+	check(session._pose_node.mode == POSE.MODE_SINGLE,
 		"the settled pose is single on the target driver")
-	check(session.pose_node.from_driver == POSE.STANDING_PATH
-		and session.pose_node.to_driver == POSE.STANDING_PATH,
+	check(session._pose_node.from_driver == POSE.STANDING_PATH
+		and session._pose_node.to_driver == POSE.STANDING_PATH,
 		"the settled pair is the target driver")
-	check(is_same(session.pose_node.authored, standing),
+	check(is_same(session._pose_node.authored, standing),
 		"completion adopts the target asset")
-	check(is_same(session.pose_node.from_authored, standing)
-		and is_same(session.pose_node.to_authored, standing),
+	check(is_same(session._pose_node.from_authored, standing)
+		and is_same(session._pose_node.to_authored, standing),
 		"completion points both sides at the target asset")
 	check(is_same(session._from_asset, standing), "the live side adopts the target asset")
 	check(session._target_asset == null, "completion drops the target asset cache")
@@ -1278,7 +1275,7 @@ func _check_asset_adoption() -> void:
 	session.apply_live_settings()
 	check(is_same(session.view().authored, standing),
 		"the target's settings group still syncs after completion")
-	check(is_same(session.pose_node.authored, standing),
+	check(is_same(session._pose_node.authored, standing),
 		"a live missionary sync does not reset the target asset")
 	_free_live(made)
 
@@ -1293,8 +1290,8 @@ func _check_asset_reload() -> void:
 	_synthetic_edge(session, CATALOG.MISSIONARY, target, {})
 	var result: SESSION.PoseResult = session.request_pose(target, "test")
 	check(result.code == "ok", "the reload edge starts")
-	var source: Variant = session.pose_node.authored
-	var wanted: Variant = session.pose_node.to_authored
+	var source: Variant = session._pose_node.authored
+	var wanted: Variant = session._pose_node.to_authored
 	var source_path := str(source.get("path"))
 	var target_path := str(wanted.get("path"))
 	var before: int = AUTHORED.revision
@@ -1302,9 +1299,9 @@ func _check_asset_reload() -> void:
 	check(AUTHORED.revision == before + 2, "the live and target paths both advance the revision")
 	check(str(source.get("path")) == source_path and str(wanted.get("path")) == target_path,
 		"each wrapper still owns its own path")
-	check(is_same(session.pose_node.authored, source),
+	check(is_same(session._pose_node.authored, source),
 		"the reload keeps the live asset")
-	check(is_same(session.pose_node.to_authored, wanted),
+	check(is_same(session._pose_node.to_authored, wanted),
 		"the reload keeps the target asset on the to side")
 	session.tick(0.0)
 	session.tick(0.7)
@@ -1328,7 +1325,7 @@ func _check_release_abort() -> void:
 		"the release returns the session and the view to idle")
 	check(view.id == "" and view.edge_id == "" and view.from_id == "" and view.to_id == "",
 		"the release clears the view identity and transition")
-	check(not session._started and session.pose_node == null, "the release frees the pose")
+	check(not session._started and session._pose_node == null, "the release frees the pose")
 	session.release_pose()
 	check(view.pose_state == VIEW.IDLE and session._run == null,
 		"a second release is a no-op")
@@ -1343,7 +1340,7 @@ func _check_pose_changed() -> void:
 	var view: RefCounted = session.view()
 	var body := FakeActBody.new()
 	session._act_body = body
-	session.pose_changed(view)
+	session.pose_changed()
 	check(session._act_body == body, "a player-body spec keeps the service-owned body handle")
 	check(str(view.anon.get("mode", "")) == "player_body",
 		"the standing spec is the player body")
@@ -1364,8 +1361,8 @@ func _check_anon_pair() -> void:
 	var body := FakeActBody.new()
 	session._act_body = body
 	view.anon = {"mode": "act_body", "profile": "missionary"}
-	var live: Variant = session.pose_node.authored
-	session.pose_changed(view)
+	var live: Variant = session._pose_node.authored
+	session.pose_changed()
 	check(body.assets.size() == 1, "the outside-edge fan-out binds the pair once")
 	check(is_same(body.assets[0][0], live) and is_same(body.assets[0][1], live)
 		and is_equal_approx(float(body.assets[0][2]), 1.0),
@@ -1390,7 +1387,7 @@ func _check_anon_pair() -> void:
 	var before_profiles := body.profiles.size()
 	for weight: float in [0.0, 0.5, 1.0]:
 		view.weight = weight
-		session.pose_changed(view)
+		session.pose_changed()
 	var last := body.assets.size() - 1
 	check(last >= 2, "the anon blend binds the pair on every weight")
 	check(is_same(body.assets[last - 2][0], source_asset)
@@ -1420,7 +1417,7 @@ func _check_anon_pair() -> void:
 	switch_view.anon = {"mode": "act_body", "profile": "missionary"}
 	var switch_asset := AUTHORED.new()
 	switch_session._target_asset = switch_asset
-	switch_session.pose_changed(switch_view)
+	switch_session.pose_changed()
 	check(switch_body.assets.size() == 1
 		and is_same(switch_body.assets[0][0], switch_asset)
 		and is_same(switch_body.assets[0][1], switch_asset)
@@ -1465,7 +1462,7 @@ func _check_no_act_exit() -> void:
 	var made := _live_session(CATALOG.STANDING)
 	var session: SESSION = made["session"]
 	var view: RefCounted = session.view()
-	var pose_node: Node = session.pose_node
+	var pose_node: Node = session._pose_node
 	var config: Dictionary = session._pose_config
 	var forward: SESSION.PoseResult = session.request_pose(CATALOG.STANDING_TEST, "test")
 	check(forward.code == "ok", "the no-exit check starts the debug edge")
@@ -1475,7 +1472,7 @@ func _check_no_act_exit() -> void:
 	check(reverse.code == "ok", "the no-exit check returns to standing")
 	session.tick(0.0)
 	session.tick(0.6)
-	check(session.pose_node == pose_node and pose_node.get_parent() != null,
+	check(session._pose_node == pose_node and pose_node.get_parent() != null,
 		"the transition path keeps the pose node")
 	check(is_same(session._pose_config, config) and not config.is_empty(),
 		"the transition path keeps the live config")

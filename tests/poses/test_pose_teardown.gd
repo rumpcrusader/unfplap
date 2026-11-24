@@ -123,14 +123,14 @@ func _check_missionary_scope() -> void:
 	var session: SESSION = made["session"]
 	var view: RefCounted = session.view()
 	var config: Dictionary = session._pose_config
-	var pose_node: Node = session.pose_node
-	var prone_sway: Node = session.prone_sway
-	var tail_lay: Node = session.tail_lay
+	var pose_node: Node = session._pose_node
+	var prone_sway: Node = session._prone_sway
+	var tail_lay: Node = session._tail_lay
 	check(pose_node != null and pose_node.get_parent() != null,
 		"the begin installs the pose node")
 	check(tail_lay != null, "the missionary begin installs the tail lay")
 	check(prone_sway != null, "the missionary begin installs the prone sway")
-	check(session.bed_frame is Transform3D, "the missionary begin saves the bed frame")
+	check(session._bed_frame is Transform3D, "the missionary begin saves the bed frame")
 	check(view.pose_state == VIEW.STEADY and view.id == CATALOG.MISSIONARY,
 		"the live pose fills the view")
 	check(not config.is_empty() and is_same(config, view.pose_config),
@@ -140,14 +140,14 @@ func _check_missionary_scope() -> void:
 	session.leave_pose_start()
 	check(not session.readiness()._rig_checked and session.readiness()._rig_missing_bones.is_empty(),
 		"the pose-start leave clears the rig cache")
-	check(session.tail_lay == null and tail_lay.get_parent() == null
+	check(session._tail_lay == null and tail_lay.get_parent() == null
 		and tail_lay.is_queued_for_deletion(),
 		"the pose-start leave frees the tail lay")
-	check(session.bed_frame == null and not session.bed_frame_source_saved,
+	check(session._bed_frame == null and not session._bed_frame_source_saved,
 		"the pose-start leave clears the bed frame")
-	check(session.pose_node == pose_node and pose_node.get_parent() != null,
+	check(session._pose_node == pose_node and pose_node.get_parent() != null,
 		"the pose-start leave keeps the pose node")
-	check(session.prone_sway == prone_sway and prone_sway.get_parent() != null,
+	check(session._prone_sway == prone_sway and prone_sway.get_parent() != null,
 		"the pose-start leave keeps the modifiers")
 	check(is_same(session._pose_config, config) and not config.is_empty(),
 		"the pose-start leave keeps the live config")
@@ -155,10 +155,10 @@ func _check_missionary_scope() -> void:
 		"the pose-start leave keeps the view")
 
 	session.leave_pose_body()
-	check(session.prone_sway == null and prone_sway.get_parent() == null
+	check(session._prone_sway == null and prone_sway.get_parent() == null
 		and prone_sway.is_queued_for_deletion(),
 		"the pose-body leave frees the extra modifiers")
-	check(session.pose_node == pose_node and pose_node.get_parent() != null,
+	check(session._pose_node == pose_node and pose_node.get_parent() != null,
 		"the pose-body leave keeps the pose node")
 	check(session._tail == null, "the missionary pose has no standing tail")
 	check(is_same(session._pose_config, config) and not config.is_empty(),
@@ -167,14 +167,14 @@ func _check_missionary_scope() -> void:
 		"the pose-body leave keeps the view")
 
 	session.release_pose()
-	check(session.pose_node == null and pose_node.get_parent() == null
+	check(session._pose_node == null and pose_node.get_parent() == null
 		and pose_node.is_queued_for_deletion(),
 		"the final release frees the pose node")
 	check(session.view().id == "" and bool(session._facts.features.get("missionary_body_motion", false)),
 		"the final release clears the view identity and leaves the facts' features")
 	check(session._pose_config.is_empty() and config.is_empty(),
 		"the final release clears the live config")
-	check(session.bed_frame == null and not session._started,
+	check(session._bed_frame == null and not session._started,
 		"the final release clears the remaining pose state")
 	check(view.pose_state == VIEW.IDLE and view.id == "",
 		"the final release returns the view to idle")
@@ -183,7 +183,7 @@ func _check_missionary_scope() -> void:
 		"the final release drops the view config and profiles")
 
 	session.release_pose()
-	check(session.pose_node == null and view.pose_state == VIEW.IDLE
+	check(session._pose_node == null and view.pose_state == VIEW.IDLE
 		and view.id == "",
 		"a second final release is a no-op")
 	_free_fixture(made)
@@ -197,8 +197,8 @@ func _check_standing_scope() -> void:
 	var body: Skeleton3D = made["body"]
 	var view: RefCounted = session.view()
 	var config: Dictionary = session._pose_config
-	var pose_node: Node = session.pose_node
-	var body_sway: Node = session.body_sway
+	var pose_node: Node = session._pose_node
+	var body_sway: Node = session._body_sway
 	var tail: Variant = session._tail
 	check(body_sway != null and body_sway.get_parent() == body,
 		"the standing begin installs body sway")
@@ -212,26 +212,26 @@ func _check_standing_scope() -> void:
 	check(near(float(tail.get("_thrust_strength")), 0.5), "the tail handle thrusts the live tail")
 	check(view.pose_state == VIEW.STEADY and view.id == CATALOG.STANDING,
 		"the standing begin fills the view")
-	check(session.ground_frame is Transform3D,
+	check(session._ground_frame is Transform3D,
 		"the standing begin captures the ground frame")
 
 	session.leave_pose_start()
-	check(session.ground_frame == null,
+	check(session._ground_frame == null,
 		"the pose-start leave clears the ground frame")
-	check(session.body_sway == body_sway and body_sway.get_parent() == body,
+	check(session._body_sway == body_sway and body_sway.get_parent() == body,
 		"the pose-start leave keeps the extra modifiers")
 	check(session._tail == tail and tail.get_parent() != null,
 		"the pose-start leave keeps the standing tail")
-	check(session.pose_node == pose_node and pose_node.get_parent() == body,
+	check(session._pose_node == pose_node and pose_node.get_parent() == body,
 		"the pose-start leave keeps the pose node")
 	check(is_same(session._pose_config, config) and view.pose_state == VIEW.STEADY,
 		"the pose-start leave keeps the config and the view")
 
 	session.leave_pose_body()
-	check(session.body_sway == null and body_sway.get_parent() == null
+	check(session._body_sway == null and body_sway.get_parent() == null
 		and body_sway.is_queued_for_deletion(),
 		"the pose-body leave frees the extra modifiers")
-	check(session.pose_node == pose_node and pose_node.get_parent() == body,
+	check(session._pose_node == pose_node and pose_node.get_parent() == body,
 		"the pose-body leave keeps the pose node")
 	check(session._tail == tail and tail.get_parent() != null,
 		"the pose-body leave keeps the standing tail")
@@ -240,14 +240,14 @@ func _check_standing_scope() -> void:
 		"the pose-body leave keeps the config and the view")
 
 	session.release_pose()
-	check(session.pose_node == null and pose_node.get_parent() == null,
+	check(session._pose_node == null and pose_node.get_parent() == null,
 		"the standing final release frees the pose node")
 	check(session._tail == null and tail.get_parent() == null
 		and tail.is_queued_for_deletion(),
 		"the standing final release frees the tail")
 	check(session._pose_config.is_empty() and view.pose_state == VIEW.IDLE and view.id == "",
 		"the standing final release clears the config and the view")
-	check(session.ground_frame == null,
+	check(session._ground_frame == null,
 		"the standing final release clears the ground frame")
 	_free_fixture(made)
 
@@ -266,7 +266,7 @@ func _check_body_tail_scope() -> void:
 	var bed_made := _fixture(CATALOG.MISSIONARY, {}, true)
 	var bed_session: SESSION = bed_made["session"]
 	var bed_body: Skeleton3D = bed_made["body"]
-	var tail_lay: Variant = bed_session.tail_lay
+	var tail_lay: Variant = bed_session._tail_lay
 	check(tail_lay != null and tail_lay.get_parent() == bed_body,
 		"the bed tail lay installs on a fitted body skeleton")
 	_free_fixture(bed_made)
@@ -279,22 +279,22 @@ func _check_transition_path() -> void:
 	var session: SESSION = made["session"]
 	var view: RefCounted = session.view()
 	var config: Dictionary = session._pose_config
-	var pose_node: Node = session.pose_node
-	var body_sway: Node = session.body_sway
+	var pose_node: Node = session._pose_node
+	var body_sway: Node = session._body_sway
 	var act_body := FakeActBody.new()
 	session._act_body = act_body
-	session.pose_changed(view)
+	session.pose_changed()
 	check(session._act_body == act_body and act_body.get_parent() == null,
 		"a pose change keeps the act body")
 	var result: SESSION.PoseResult = session.request_pose(CATALOG.STANDING_TEST, "test")
 	check(result.code == "ok", "the transition path starts the debug edge")
 	check(view.pose_state == VIEW.TRANSITIONING and session._state == VIEW.TRANSITIONING,
 		"the transition path enters the transition state")
-	session.pose_changed(view)
-	check(session.body_sway == body_sway and body_sway.get_parent() == made["body"],
+	session.pose_changed()
+	check(session._body_sway == body_sway and body_sway.get_parent() == made["body"],
 		"the transition reconcile keeps the shared modifier")
 	session.tick(0.0)
-	check(session.pose_node == pose_node and is_same(session._pose_config, config),
+	check(session._pose_node == pose_node and is_same(session._pose_config, config),
 		"the transition tick keeps the pose and the live config")
 	check(view.id == CATALOG.STANDING_TEST and view.pose_state == VIEW.TRANSITIONING,
 		"the transition tick keeps the target view")
@@ -314,7 +314,7 @@ func _check_facesit_transition() -> void:
 	var session: SESSION = made["session"]
 	var view: RefCounted = session.view()
 	var config: Dictionary = session._pose_config
-	var pose_node: Node = session.pose_node
+	var pose_node: Node = session._pose_node
 	var points := FakeFacePoints.new()
 	points.mouth = Vector3(0.0, 0.82, 0.65)
 	points.opening = Vector3(0.0, 0.34, 0.45)
@@ -337,7 +337,7 @@ func _check_facesit_transition() -> void:
 	session.tick(0.7)
 	check(view.pose_state == VIEW.STEADY and view.id == CATALOG.BED_FACESIT,
 		"the face-sit transition completes steady")
-	check(session.pose_node == pose_node and is_same(session._pose_config, config),
+	check(session._pose_node == pose_node and is_same(session._pose_config, config),
 		"the face-sit forward keeps the pose node and the live config")
 	check(session._started, "the face-sit forward keeps the session")
 	var held: Vector3 = pose_node.contact_offset
@@ -353,10 +353,10 @@ func _check_facesit_transition() -> void:
 	session.tick(1.2)
 	check(view.pose_state == VIEW.STEADY and view.id == CATALOG.MISSIONARY,
 		"the face-sit reverse completes steady")
-	check(session.pose_node == pose_node and is_same(session._pose_config, config),
+	check(session._pose_node == pose_node and is_same(session._pose_config, config),
 		"the face-sit reverse keeps the pose node and the live config")
 	session.release_pose()
-	check(session.pose_node == null and pose_node.is_queued_for_deletion(),
+	check(session._pose_node == null and pose_node.is_queued_for_deletion(),
 		"the face-sit act exit frees the pose node once")
 	check(session._face_driver != null and not bool(session._face_driver.get("active")),
 		"the face-sit act exit leaves the driver inactive")

@@ -243,7 +243,7 @@ func reset_face() -> void:
 
 
 func apply_pose_change() -> void:
-	context.pose.pose_changed(context.pose.view())
+	context.pose.pose_changed()
 
 
 ## The flank the reactions facade jiggles and patches; resolved by the scene adapter.

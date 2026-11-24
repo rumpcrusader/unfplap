@@ -514,7 +514,7 @@ func run() -> void:
 	runtime8.act.start._build_pose()
 	var act_body8 := MISSIONARY_ANON.new()
 	runtime8.act.context.pose._act_body = act_body8
-	check(runtime8.act.context.pose.body_sway != null,
+	check(runtime8.act.context.pose._body_sway != null,
 		"the act body test installs the standing body sway")
 	var edge: POSES.PoseResult = runtime8.act.input.request_pose(CATALOG_STANDING_TEST, "test")
 	check(edge.code == "ok", "the runtime starts the debug edge")
@@ -525,8 +525,8 @@ func run() -> void:
 	check(runtime8.act.context.pose.view().id == ""
 		and runtime8.act.context.pose.view().pose_state == 0,
 		"the act exit leaves the transition view idle")
-	check(runtime8.act.context.pose.pose_node == null, "the act exit frees the edge's pose node")
-	check(runtime8.act.context.pose.body_sway == null and runtime8.act.context.pose._act_body == null,
+	check(runtime8.act.context.pose._pose_node == null, "the act exit frees the edge's pose node")
+	check(runtime8.act.context.pose._body_sway == null and runtime8.act.context.pose._act_body == null,
 		"the act exit frees the extra modifier and the act body once")
 	check(act_body8.is_queued_for_deletion(), "the act body is detached before it is freed")
 

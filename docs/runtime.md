@@ -246,8 +246,8 @@ Act physics, in call order (`act/tick.gd:_tick`):
    blush, `session.apply_camera_motion()`), the session's `0.25 s` check window (the scene gate's
    running verdict applied through `act/exit.gd:stop()`) and the face's eyes.
 
-Act render, in call order: `refresh_view()`, `context.pose.sync_frame()`,
-`session.pose_render_write()`, `context.pose.idle_sample()`, the standing clamp, the camera look
+Act render, in call order: `refresh_view()`, `context.pose.follow_space()`,
+`session.pose_render_write()`, `context.pose.diagnostics().trace_sample()`, the standing clamp, the camera look
 write, the climax progress, the shot tick and the breath. `IDLE` runs only the standing
 presentation's render tick; a suspended act runs none of it.
 

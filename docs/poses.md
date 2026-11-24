@@ -15,11 +15,12 @@ settings tab's Debug block; its two player rows are **Enable Oral** and **Enable
 `STEADY`/`TRANSITIONING`/`EXITING`), the active edge and its clock, the per-pose configs and the
 target snapshot, the skeleton pose modifier, the authored bases, the bed and ground frames and their
 follow, the extra modifiers (tail, tail lay, body sway, prone sway, ear twitch), the pony bone
-snapshots, the pose rig check, the pose diagnostics, the retarget hook and the pose-scope teardown
-steps. The runtime owns the act state, the start ordering and the one teardown ledger; it constructs
-the session with the act facts and reads its `view()` for the start/teardown and the standing gap,
-not as the consumer contract. The camera's standing glance
-writes the live pose's head throw-back through `set_head_back()`. Presentation modules read
+snapshots, the pose-scope teardown steps and four typed handles: the act body, the standing tail,
+the asset/rig verdicts and the debug rows. The raw pose node and its config are private; the
+camera's standing glance writes the head throw-back through `set_head_back()` and its rendered look
+through `aim_look()`. The runtime owns the act state, the start ordering and the one teardown
+ledger; it constructs the session with the act facts and reads its `view()` for the
+start/teardown and the standing gap, not as the consumer contract. Presentation modules read
 the pose view through `shared/act_facts.gd`.
 
 `act/frame.gd` owns the act's player frame: the standing placement, the stance, the controls lock,
@@ -400,14 +401,14 @@ table and the catalog. `poses/pose_spec.gd` rejects a missing block or an unknow
 ## Session requests and ticks
 
 `poses/api.gd` owns the live state machine, one running `Run` and the target snapshot.
-`begin()` enters `ENTERING`, fills the start view and settles `STEADY`; `release_pose()` exits
-through `EXITING` to `IDLE`; the pose-scope leave steps keep `STEADY`. A failed `begin()` leaves the
-state unchanged. For a ground view, `begin()` captures the pony root's ground frame before it
-installs the modifier; `leave_pose_start()` and `release_pose()` clear it. `sync_ground_frame()`
-follows the root's position and rotation each tick. `begin_act()` takes the typed `PoseStart` (the
-pose id and the two camera points); the pony, its id, the bed and the features come from the facts,
-and the size name and the pose block from settings. `pose_frame()`, `missionary_pose_frame()` and `ground_pose_frame()` return a `Transform3D`
-and `has_frame()` separates a live frame from the absent one, whose origin is infinite.
+`begin_act()` enters `ENTERING`, fills the start view and settles `STEADY`; `release_pose()` exits
+through `EXITING` to `IDLE`; the pose-scope leave steps keep `STEADY`. A failed start leaves the
+state unchanged. For a ground view, the start captures the pony root's ground frame before it
+installs the modifier; `leave_pose_start()` and `release_pose()` clear it, and `follow_space()`
+keeps the bed or ground frame with the moving scene each tick. `begin_act()` takes the typed
+`PoseStart` (the pose id and the two camera points); the pony, its id, the bed and the features come
+from the facts, and the size name and the pose block from settings. The live frame is the bed or
+ground space, and an absent frame has an infinite origin.
 
 `request_pose(target_id, trigger, consent := "")` returns the typed `PoseResult` record (`ok`,
 `code`, `reason`). It checks the target against the act phase, the player's form/view, the edge
@@ -577,20 +578,20 @@ the modifier pass call the same evaluator with the same pair and weight.
 
 The session owns the configs. `begin_act()` sets the start pair, `request_pose()` the edge pair and the
 completing tick the target pair; each also calls `set_weight()` (1.0, the run weight, 1.0).
-`begin()`, the request, the completion, `reload_authored()` and `release_pose()` are the only
-owners of the authored asset: `begin()` resolves the start asset, the request caches `_from_asset`
+`begin_act()`, the request, the completion, `reload_authored()` and `release_pose()` are the only
+owners of the authored asset: the start resolves the start asset, the request caches `_from_asset`
 (the live wrapper) and `_target_asset`, and completion adopts the target asset on both sides. The
 live settings edit (`apply_live_settings()`) and `_adopt_target_config()` only merge the config, so
-a live settings edit cannot reset the live asset to a file named by the settings group. `live_authored()` and `authored_asset()` return the live rendered wrapper, so the debug
-diagnostic and the pose lab hold the source asset through an edge and read the target's after
-completion.
+a live settings edit cannot reset the live asset to a file named by the settings group. The
+readiness handle's `asset()` returns the live rendered wrapper, so the debug diagnostic and the pose
+lab hold the source asset through an edge and read the target's after completion.
 `_config_for_group(group, presentation)` builds the target: the standing group plus the
 presentation chin/neck/tail values (the values `_sync_live_config()` writes), the missionary
 block, or `SETTINGS.pose()` for another group. The group comes from the target spec, never from
 its id: `standing_test` and `standing_oral` use the standing block and have no `default.poses` row
 or `POSE_KEYS` schema of their own. `request_pose()` caches it as `_target_config`,
 `apply_live_settings()` re-merges it in place, and the complete tick adopts it into the live
-`pose_config` with `_adopt_target_config()` before it drops the target. The live object survives:
+config with `_adopt_target_config()` before it drops the target. The live object survives:
 `view.pose_config`, the pose node and the standing camera see the same dictionary. During an edge `view.from_config` is the live config and `view.to_config` the
 target; at rest both point at the live config.
 
@@ -642,7 +643,7 @@ it.
 
 The pose service owns the missionary `act_body` adapter (`poses/missionary_anon.gd`): it creates the
 node on the runtime host as `UnfplapMissionaryAnon`, installs it through the `anon` channel,
-binds the service's authored asset pair, applies it from `render_write()` and frees it once in
+binds the service's authored asset pair, applies it from `write_render_frame()` and frees it once in
 `release_pose()`. Consumers read the body through the pose service's `PoseActBody` handle
 (`live`, `mouth_point`, `eye_point`, `transform`, `diag_row`, `refresh_palm`, `node`); anatomy
 receives only the part handle from the act facts and never creates, installs, applies, frees or
@@ -884,7 +885,7 @@ is `## Player frame`.
 - `poses/body_sway.gd` translates `pony_hips` with an inverted damped spring: back on inward depth,
   forward on outward depth. All four limb-root origins are preserved so the hooves stay planted.
   The same world offset is added to Anon's pinned hip so the contact rocks together. The spring
-  ticks in the modifier pass; `render_write()` replays the current offset after
+  ticks in the modifier pass; `write_render_frame()` replays the current offset after
   `skeleton_pose.apply_render()`, because that write owns the 30 body bones and would otherwise
   erase the pelvis motion before the frame renders. `BODY_SWAY_MAX_M = 0.035`. While
   `facts.pose_view.contact_kind == "mouth"` (the standing oral segment), the spring target, offset
@@ -979,7 +980,7 @@ The aftercare lifetime, positive tail-up rule and the held mood face are in `doc
 - `act/tick.gd:render`: the render-time pose write, the climax progress, the surge/bob tick and the
   breath. `act/view.gd:pose_render()` supplies the body scale to
   `poses/api.gd:write_render_frame()`, then lets `camera/view.gd:write_eye()` read his posed head
-  after the pose write. `render_write()` owns the render-time order: `sync_frame(family)` picks the
+  after the pose write. `write_render_frame()` owns the render-time order: `follow_space(family)` picks the
   bed or ground frame; for the bed family it places the act's Anon body, writes her pose and
   replays the prone sway; for the standing family it writes her pose and replays the body sway
   after every game writer. It then calls `camera/api.gd`'s `write_look_target()`, which owns the

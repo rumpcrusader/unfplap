@@ -99,8 +99,10 @@ ACT_STATE_WRITES = {
     '_player.rotation.y = ': {"act/frame.gd": "the frame restores his captured look"},
     'host.pony.global_transform = ': {"act/frame.gd": "the frame restores the scene it found"},
     'rig.pony.reset_motion(': {"act/frame.gd": "the player-pony start places her"},
-    'context.pose.render_write(': {"act/frame.gd": "the frame places the act body once"},
-    'context.pose.write_render_frame(': {"act/view.gd": "the render-time act body write"},
+    'context.pose.write_render_frame(': {
+        "act/view.gd": "the render-time act body write",
+        "act/frame.gd": "the frame places the act body once",
+    },
     '_missionary_view.global_position = ': {"camera/view.gd": "the one act view"},
     '_missionary_view.global_basis = ': {"camera/view.gd": "the one act view"},
     '_missionary_view.current = ': {"camera/view.gd": "the one act view"},

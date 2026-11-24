@@ -170,7 +170,7 @@ func _director() -> Node:
 ## act body, then the camera, hands, kiss and anatomy retarget. Every hook is idempotent.
 func _fanout() -> void:
 	var view := context.pose.view()
-	context.pose.pose_changed(view)
+	context.pose.pose_changed()
 	context.camera.pose_changed(view)
 	context.hands.pose_changed(view)
 	context.kiss.pose_changed(view)

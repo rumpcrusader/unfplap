@@ -127,7 +127,7 @@ class FakePose extends POSE_SESSION:
 	func view() -> VIEW:
 		return _facts.pose_view as VIEW if _facts != null else null
 
-	func pose_changed(_view: VIEW) -> void:
+	func pose_changed() -> void:
 		pass
 
 	func pose() -> POSE:

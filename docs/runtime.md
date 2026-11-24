@@ -316,8 +316,8 @@ A missing bed fails the two bed adapters closed; a failed cradle/bed rest releas
 in the prelude. An unknown or missing setup logs one `start blocked setup=...` line and aborts
 through the partial-start funnel; the gate already passed, so this is a spec/data error.
 
-The start settings-group sync (`sync_start_pose_config()`) reads the row's `settings_group`, not the
-pose id; `act/start.gd` mounts the act view for the `bed` family and opens the camera once.
+The pose build reads the row's `settings_group`, never the pose id, and fills the live config
+itself; `act/start.gd` mounts the act view for the `bed` family and opens the camera once.
 
 ### Exit
 
@@ -474,7 +474,7 @@ not deny it. `command(id)` runs that check first, then dispatches `hole` and `or
 input's target rule and pose request; the act-key hold still owns the one exit path.
 
 The standing start/offer gap is `runtime.act.swap.standing_gap(form)`: it asks
-`act/frame.gd:standing_gap()`, which reads `context.pose.pose_config["gaps"]` (falling back to
+`act/frame.gd:standing_gap()`, which reads `context.pose.view().pose_config["gaps"]` (falling back to
 `SETTINGS.pose(id, "standing").rows("gaps").raw()` in a session without a config) and adds the
 entrance's back offset for a princess body. The shipped values live under
 `default.poses.standing.gaps`; the frame keeps no gap table or numeric fallback.

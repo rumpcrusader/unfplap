@@ -293,7 +293,7 @@ func live_rig(pose_input: PoseInput, form: Variant = null) -> Rig:
 ## back to the shipped row.
 func pose_gaps() -> Dictionary:
 	if context != null and context.pose != null:
-		var gaps: Variant = context.pose.pose_config.get("gaps", {})
+		var gaps: Variant = context.pose.view().pose_config.get("gaps", {})
 		if gaps is Dictionary and not (gaps as Dictionary).is_empty():
 			return gaps
 	var row := SETTINGS.pose(session.pony_id, CATALOG.STANDING)

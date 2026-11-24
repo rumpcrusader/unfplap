@@ -76,21 +76,21 @@ class FakeFacts extends ACT_FACTS:
 class FakeFacePoints extends "res://mods/unfplap/tests/support/fakes/fake_face_points.gd":
 	pass
 
-## The plain-document edges the suite builds its typed records through.
-func _values(raw: Dictionary) -> SESSION.ActPose:
-	return SESSION.ActPose.from_dict(raw)
+## The start values the facts and settings cannot supply.
+func _start(raw: Dictionary) -> SESSION.PoseStart:
+	var start := SESSION.PoseStart.new()
+	start.pose_id = str(raw.get("pose_id", ""))
+	var look: Variant = raw.get("look_point")
+	if look is Vector3:
+		start.look = look
+	var camera: Variant = raw.get("camera_position")
+	if camera is Vector3:
+		start.camera_at = camera
+	return start
 
 
 func _request(raw: Dictionary = {}) -> SESSION.PoseRequest:
 	return SESSION.PoseRequest.from_dict(raw)
-
-
-func _block(raw: Dictionary) -> SESSION.SettingsBlock:
-	return SESSION.SettingsBlock.from_dict(raw)
-
-
-func _flags(raw: Dictionary) -> SESSION.FeatureFlags:
-	return SESSION.FeatureFlags.from_dict(raw)
 
 
 func _render(frame: Transform3D = SESSION.NO_FRAME, scale: float = 1.0) -> SESSION.RenderFrame:
@@ -147,9 +147,9 @@ func _session(pose: String) -> Dictionary:
 	root.add_child(pony)
 	var facts := FakeFacts.new()
 	facts.pony = pony
+	facts.pony_id = "twilight_sparkle"
 	var session: SESSION = SESSION.new(facts)
 	_sessions.append(session)
-	session.id = "twilight_sparkle"
 	# A start identity for the diagnostics and bed-frame checks; `begin()` still fills the view.
 	var spec: Dictionary = SPECS.spec(pose)
 	var view: RefCounted = session.view()
@@ -164,36 +164,45 @@ func _check_config() -> void:
 	var made := _session(CATALOG.STANDING)
 	var session: SESSION = made["session"]
 	var pony: FakePony = made["pony"]
-	session.set_pose_config(_block({"gaps": {"canon": 0.3}}))
-	check(near(float(session.pose_config.get("gaps", {}).get("canon", 0.0)), 0.3),
-		"the session keeps the base pose config")
-	var live: Dictionary = session.pose_config
-	session._view.settings_group = CATALOG.STANDING
-	var applied: bool = session.sync_standing_config(_block({
+	var standing: Dictionary = session._config_for_group(CATALOG.STANDING, {
 		"chin_up_deg": 40.0,
 		"neck_down_deg": 20.0,
 		"tail": {"yaw_deg": 50.0, "pitch_deg": 30.0},
-	}))
-	check(applied, "the standing config applies")
-	check(is_same(live, session.pose_config), "the sync keeps the live config object")
-	check(near(float(session.pose_config.get("chin_up_deg", 0.0)), 40.0),
+	})
+	check(near(float(standing.get("chin_up_deg", 0.0)), 40.0),
 		"the presentation chin wins")
-	check(near(float(session.pose_config.get("neck_down_deg", 0.0)), 20.0),
+	check(near(float(standing.get("neck_down_deg", 0.0)), 20.0),
 		"the presentation neck wins")
-	check(near(float(session.pose_config.get("tail_aside", 0.0)), deg_to_rad(50.0)),
+	check(near(float(standing.get("tail_aside", 0.0)), deg_to_rad(50.0)),
 		"the presentation tail yaw reaches the pose")
-	check(near(float(session.pose_config.get("tail_lift", 0.0)), deg_to_rad(30.0)),
+	check(near(float(standing.get("tail_lift", 0.0)), deg_to_rad(30.0)),
 		"the presentation tail pitch reaches the pose")
-	check(session.pose_config.has("gaps"), "the character pose overrides survive the sync")
-	session.sync_standing_config(_block({}))
-	check(is_same(live, session.pose_config), "an empty presentation keeps the live config object")
-	check(near(float(session.pose_config.get("chin_up_deg", 0.0)),
+	check(standing.has("gaps"), "the character pose overrides survive the fold")
+	var fallback: Dictionary = session._config_for_group(CATALOG.STANDING, {})
+	check(near(float(fallback.get("chin_up_deg", 0.0)),
 		float(SETTINGS.chin_up_deg.default)), "an empty presentation falls back to the defaults")
-	session._view.settings_group = CATALOG.MISSIONARY
-	check(not session.sync_standing_config(_block({})), "the missionary pose does not apply standing config")
-	var applied_missionary: bool = session.sync_missionary_config()
-	check(applied_missionary, "the missionary config applies")
-	check(not session.pose_config.is_empty(), "the missionary config re-reads the character pose")
+	var missionary: Dictionary = session._config_for_group(CATALOG.MISSIONARY, {})
+	check(not missionary.has("chin_up_deg") and not missionary.has("tail_aside"),
+		"the missionary pose does not apply standing config")
+	check(missionary.has("nuzzle_scale"),
+		"the missionary config re-reads the character pose")
+	# The live object is the same one `begin()` fills and every sync merges in place.
+	var body := Skeleton3D.new()
+	body.add_bone("pony_hips")
+	pony.skeleton = body
+	check(session.begin_act(_start({"pose_id": CATALOG.STANDING})),
+		"the config check begins a standing pose")
+	var live: Dictionary = session._pose_config
+	check(not live.is_empty() and is_same(live, session.view().pose_config),
+		"the begin fills the live config and the view aliases it")
+	session.apply_live_settings()
+	check(is_same(live, session._pose_config),
+		"the live settings edit keeps the live config object")
+	check(near(float(session._pose_config.get("chin_up_deg", 0.0)),
+		float(SETTINGS.chin_up_deg.default)),
+		"the live edit re-reads the presentation defaults")
+	session.release_pose()
+	body.free()
 	root.remove_child(pony)
 	pony.free()
 
@@ -208,7 +217,7 @@ func _check_begin() -> void:
 	hair.add_bone("mTail1")
 	pony.skeleton = body
 	pony.hair_skeleton = hair
-	session.begin(_values({
+	session.begin_act(_start({
 		"pose_id": CATALOG.MISSIONARY,
 		"id": "twilight_sparkle",
 		"features": {},
@@ -225,19 +234,19 @@ func _check_begin() -> void:
 	check(view.id == CATALOG.MISSIONARY, "the begin fills the view pose")
 	check(view.family == "bed", "the begin fills the view family")
 	check(view.pose_state == VIEW.STEADY, "the begin marks the view steady")
-	check(is_same(view.pose_config, session.pose_config),
+	check(is_same(view.pose_config, session._pose_config),
 		"the view shares the session's live config")
 	check(session.pose_node.mode == POSE.MODE_SINGLE
 		and session.pose_node.from_driver == POSE.MISSIONARY_PATH,
 		"the begin takes the single missionary path")
-	var live: Dictionary = session.pose_config
+	var live: Dictionary = session._pose_config
 	check(is_same(live, session.pose_node.pose_config),
 		"the pose node shares the session's config object")
-	session.pose_config["oral_pitch"] = 0.4
+	session._pose_config["oral_pitch"] = 0.4
 	check(near(float(session.pose_node.pose_config.get("oral_pitch", 0.0)), 0.4),
 		"an in-place anatomy key reaches the pose node")
-	session.sync_missionary_config()
-	check(is_same(live, session.pose_config) and is_same(live, session.pose_node.pose_config),
+	session.apply_live_settings()
+	check(is_same(live, session._pose_config) and is_same(live, session.pose_node.pose_config),
 		"a live sync keeps the same object on the node")
 	check(session.tail_lay != null, "the missionary tail lay is installed")
 	check(session.pose_logged == false and session.pose_trace_frames == 0,
@@ -245,7 +254,7 @@ func _check_begin() -> void:
 	var tail_lay: Node = session.tail_lay
 	var pose_modifier: Node = session.pose_node
 	var children := body.get_child_count()
-	check(not session.begin(_values({
+	check(not session.begin_act(_start({
 		"pose_id": CATALOG.MISSIONARY,
 		"id": "twilight_sparkle",
 		"features": {},
@@ -266,10 +275,10 @@ func _check_begin() -> void:
 		"the pose modifier is detached before it is freed")
 	session.release_pose()
 	check(session.pose_node == null, "a second pose release is a no-op")
-	check(session.id == "",
-		"the pose release clears the act identity")
-	check(session.features.flags.is_empty(), "the pose release clears the features")
-	check(session.pose_config.is_empty(), "the pose release clears the live config")
+	check(session._pony_id() == "twilight_sparkle",
+		"the release leaves the act identity to the facts")
+	check(session._facts.features.is_empty(), "the release leaves the features to the facts")
+	check(session._pose_config.is_empty(), "the pose release clears the live config")
 	check(session.bed_frame == null, "the pose-start leave clears the bed frame")
 	check(session.view().id == "" and session.view().pose_state == VIEW.IDLE,
 		"the pose release clears the view")
@@ -287,7 +296,7 @@ func _check_begin_refused() -> void:
 	var session: SESSION = made["session"]
 	var pony: FakePony = made["pony"]
 	session.view().clear()
-	check(not session.begin(_values({
+	check(not session.begin_act(_start({
 		"pose_id": CATALOG.MISSIONARY,
 		"id": "twilight_sparkle",
 		"features": {},
@@ -312,15 +321,11 @@ func _check_standing_begin() -> void:
 	pony.skeleton = body
 	var bed := Node3D.new()
 	root.add_child(bed)
-	check(session.begin(_values({
+	session._facts.bed = bed
+	check(session.begin_act(_start({
 		"pose_id": CATALOG.STANDING,
-		"id": "twilight_sparkle",
-		"features": {},
-		"bed": bed,
-		"presentation": {},
 		"look_point": Vector3.ZERO,
 		"camera_position": Vector3.INF,
-		"size_name": "canon",
 	})), "the standing begin succeeds")
 	check(not session.bed_frame_source_saved, "a standing begin saves no bed frame source")
 	check(session.ground_frame is Transform3D, "the standing begin captures the ground frame")
@@ -329,8 +334,8 @@ func _check_standing_begin() -> void:
 		"the standing begin installs the standing asset")
 	check(is_same(session.view().authored, session.pose_node.authored),
 		"the view carries the live rendered asset")
-	check(session.pose_node.size_name == "canon",
-		"the begin carries the supplied size name to the pose node")
+	check(session.pose_node.size_name == SETTINGS.pony_size_name(),
+		"the begin carries the live size name to the pose node")
 	check(session.view().family == "standing" and session.view().pose_state == VIEW.STEADY,
 		"the standing begin fills the view")
 	session.release_pose()
@@ -587,7 +592,7 @@ func _live_session(pose: String) -> Dictionary:
 	var body := Skeleton3D.new()
 	body.add_bone("pony_hips")
 	pony.skeleton = body
-	check(session.begin(_values({
+	check(session.begin_act(_start({
 		"pose_id": pose,
 		"id": "twilight_sparkle",
 		"features": {},
@@ -658,7 +663,7 @@ func _check_state_machine() -> void:
 		and pose_node.from_driver == POSE.STANDING_PATH
 		and pose_node.to_driver == POSE.STANDING_PATH,
 		"the begin resolves both sides to the standing driver")
-	var live_config: Dictionary = session.pose_config
+	var live_config: Dictionary = session._pose_config
 	var result: SESSION.PoseResult = session.request_pose(CATALOG.STANDING_TEST, "test", _request({"act_state": 2}))
 	check(result.ok and result.code == "ok",
 		"the forward debug request is accepted")
@@ -724,7 +729,7 @@ func _check_state_machine() -> void:
 	check(session.pose_node.mode == POSE.MODE_SINGLE
 		and session.pose_node.from_driver == POSE.STANDING_PATH,
 		"the completed edge settles the evaluator on the target")
-	check(is_same(session.pose_config, live_config) and view.id == CATALOG.STANDING_TEST,
+	check(is_same(session._pose_config, live_config) and view.id == CATALOG.STANDING_TEST,
 		"the live config and the view target are untouched")
 	live_config.erase("adopt_marker")
 	check(session._run == null and session._target_id == "",
@@ -814,7 +819,7 @@ func _check_oral_edge() -> void:
 	check(session.pose_node.mode == POSE.MODE_SINGLE
 		and session.pose_node.from_delta == "poses/standing_oral_recipe.gd",
 		"the settled oral pose runs the delta in the single path")
-	check(session.pose_config.has("oral_pitch") and session.pose_config.has("oral_roll"),
+	check(session._pose_config.has("oral_pitch") and session._pose_config.has("oral_roll"),
 		"the settled live config keeps the oral keys")
 	check(str(view.controls.get("set", "")) == "standing_oral",
 		"the settled view uses the oral control set")
@@ -835,7 +840,7 @@ func _check_oral_edge() -> void:
 	check(pony.global_position.is_equal_approx(turned_position) \
 		and is_equal_approx(view.facing_amount, 1.0),
 		"the afterglow keeps the turned frame")
-	check(session.pose_config.has("oral_pitch"), "the afterglow keeps the neck keys")
+	check(session._pose_config.has("oral_pitch"), "the afterglow keeps the neck keys")
 
 	var reverse: SESSION.PoseResult = session.request_pose(CATALOG.STANDING, "oral",
 		_request({"act_state": 2, "features": {"anatomy_oral": true}}))
@@ -859,7 +864,7 @@ func _check_oral_edge() -> void:
 	session.sync_ground_frame()
 	check((session.ground_frame as Transform3D).origin.is_equal_approx(frame_start.origin),
 		"the reverse returns the ground frame")
-	check(not session.pose_config.has("oral_pitch") and not view.to_config.has("oral_pitch"),
+	check(not session._pose_config.has("oral_pitch") and not view.to_config.has("oral_pitch"),
 		"the reverse erases the oral keys")
 	check(session.pose_node.mode == POSE.MODE_SINGLE
 		and session.pose_node.from_delta == "",
@@ -1122,7 +1127,7 @@ func _check_target_snapshot() -> void:
 	check(result.code == "ok", "the snapshot check starts the debug edge")
 	var target: Dictionary = view.to_config
 	check(target.has("gaps"), "the target snapshot starts on the standing block")
-	check(_same_config(target, session.pose_config),
+	check(_same_config(target, session._pose_config),
 		"the debug target matches the live standing config")
 	session.apply_live_settings()
 	check(is_same(view.to_config, target), "a live edit keeps the target snapshot object")
@@ -1143,7 +1148,7 @@ func _check_settings_group_edge() -> void:
 	_synthetic_spec(session, "synthetic_other_group", "standing", CATALOG.MISSIONARY)
 	_synthetic_edge(session, CATALOG.STANDING, "synthetic_other_group", {},
 		{"kind": "switch", "at": 0.0, "set": "standing"})
-	var live: Dictionary = session.pose_config
+	var live: Dictionary = session._pose_config
 	var result: SESSION.PoseResult = session.request_pose("synthetic_other_group", "test",
 		_request({"act_state": 2}))
 	check(result.code == "ok", "the other-group edge starts")
@@ -1226,7 +1231,8 @@ func _check_asset_adoption() -> void:
 		"the published asset is the target after completion")
 	check(is_same(view.authored, standing),
 		"the view carries the target asset after completion")
-	check(session.sync_missionary_config(),
+	session.apply_live_settings()
+	check(is_same(session.view().authored, standing),
 		"the target's settings group still syncs after completion")
 	check(is_same(session.pose_node.authored, standing),
 		"a live missionary sync does not reset the target asset")
@@ -1390,7 +1396,7 @@ func _check_no_act_exit() -> void:
 	var session: SESSION = made["session"]
 	var view: RefCounted = session.view()
 	var pose_node: Node = session.pose_node
-	var config: Dictionary = session.pose_config
+	var config: Dictionary = session._pose_config
 	var forward: SESSION.PoseResult = session.request_pose(CATALOG.STANDING_TEST, "test", _request({"act_state": 2}))
 	check(forward.code == "ok", "the no-exit check starts the debug edge")
 	session.tick(0.0)
@@ -1401,7 +1407,7 @@ func _check_no_act_exit() -> void:
 	session.tick(0.6)
 	check(session.pose_node == pose_node and pose_node.get_parent() != null,
 		"the transition path keeps the pose node")
-	check(is_same(session.pose_config, config) and not config.is_empty(),
+	check(is_same(session._pose_config, config) and not config.is_empty(),
 		"the transition path keeps the live config")
 	check(session._started, "the transition path keeps the session started")
 	check(view.id == CATALOG.STANDING and view.pose_state == VIEW.STEADY,

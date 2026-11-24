@@ -177,9 +177,7 @@ func resume() -> bool:
 	host.swap().prepare_anatomy_act()
 	host.swap().apply_resume_settings()
 	host.swap().rebind_reactions()
-	host.swap().set_act_pose_config()
 	host.swap().rebuild_act_pose()
-	host.swap().sync_start_config()
 	host.swap().reset_visual_for_form()
 	# The bed path has no placement fit; clear the old body's Hips handshake for every resume.
 	host.swap().reset_pelvis()

@@ -560,7 +560,7 @@ func run() -> void:
 	check(runtime8.act.context.pose.view().id == ""
 		and runtime8.act.context.pose.view().pose_state == 0,
 		"the act exit leaves the oral view idle")
-	check(not runtime8.act.context.pose.pose_config.has("oral_pitch"),
+	check(not runtime8.act.context.pose._pose_config.has("oral_pitch"),
 		"the act exit erases the oral keys")
 
 	# The oral feature gate refuses before the edge starts and leaves her where she is.

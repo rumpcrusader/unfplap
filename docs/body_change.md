@@ -291,8 +291,7 @@ The player frame has no separate binding: the runtime's rebind clears the smooth
 `act/frame.gd:refit(form)`, which re-solves Anon's placement, stance and aim from the presented form
 and re-publishes the head clearance, with no entrance replay. The solve derives the stance from the
 player's true base, so a late revision cannot compound a previous eye offset. The pose has no
-separate binding: the runtime's rebind binds the session and the resume rebuilds the live pose on
-the new skeleton. `docs/camera.md` and `docs/poses.md` own those behaviors.
+separate binding: the resume refreshes the facts and rebuilds the live pose on the new skeleton. `docs/camera.md` and `docs/poses.md` own those behaviors.
 
 ## Provider observation
 

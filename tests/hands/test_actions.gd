@@ -79,14 +79,14 @@ func _check_tail_tuning() -> void:
 	tail_runtime.act.pony_id = "twilight_sparkle"
 	tail_runtime.act.pose_id = CATALOG.STANDING
 	tail_runtime.act.context.pose._view.settings_group = CATALOG.STANDING
-	tail_runtime.act.presentation_config = {"tail": {"yaw_deg": 40.0, "pitch_deg": 10.0}}
-	tail_runtime.act.context.pose.sync_standing_config(POSES.SettingsBlock.from_dict(tail_runtime.act.presentation_config))
-	var cfg: Dictionary = tail_runtime.act.context.pose.pose_config
-	check(near(float(cfg.get("tail_aside", 0.0)), deg_to_rad(40.0)), "tail yaw tunable reaches the pose")
-	check(near(float(cfg.get("tail_lift", 0.0)), deg_to_rad(10.0)), "tail pitch tunable reaches the pose")
-	tail_runtime.act.presentation_config = {}
-	tail_runtime.act.context.pose.sync_standing_config(POSES.SettingsBlock.from_dict(tail_runtime.act.presentation_config))
-	cfg = tail_runtime.act.context.pose.pose_config
+	var pose: Variant = tail_runtime.act.context.pose
+	var tuned: Dictionary = pose._config_for_group(CATALOG.STANDING,
+		{"tail": {"yaw_deg": 40.0, "pitch_deg": 10.0}})
+	check(near(float(tuned.get("tail_aside", 0.0)), deg_to_rad(40.0)),
+		"tail yaw tunable reaches the pose")
+	check(near(float(tuned.get("tail_lift", 0.0)), deg_to_rad(10.0)),
+		"tail pitch tunable reaches the pose")
+	var cfg: Dictionary = pose._config_for_group(CATALOG.STANDING, {})
 	check(near(float(cfg.get("tail_aside", 0.0)), deg_to_rad(35.0)), "tail yaw default")
 	check(near(float(cfg.get("tail_lift", 0.0)), deg_to_rad(25.0)), "tail pitch default")
 	tail_pony.free()

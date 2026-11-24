@@ -13,7 +13,6 @@ const ACT_EXIT := preload("res://mods/unfplap/act/exit.gd")
 const ACT_VIEW := preload("res://mods/unfplap/act/view.gd")
 const ACT_SETUP := preload("res://mods/unfplap/act/setup.gd")
 const ACT_OWNER := preload("res://mods/unfplap/act_owner/api.gd")
-const POSE_SESSION := preload("res://mods/unfplap/poses/api.gd")
 const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
@@ -71,8 +70,6 @@ func run(pose: String, bed_in: Variant, act_source: String, skip_presentation :=
 	session.pose_id = pose
 	session.source = act_source
 	session.profile = SETTINGS.template_for(session.pony_id).raw()
-	context.pose.set_pose_config(POSE_SESSION.SettingsBlock.from_dict(
-		SETTINGS.pose(session.pony_id, session.start_group()).raw()))
 	session.preferences = SETTINGS.preferences(session.pony_id).raw()
 	session.snapshot_settings()
 	context.reactions.apply_radius()
@@ -156,8 +153,6 @@ func run(pose: String, bed_in: Variant, act_source: String, skip_presentation :=
 		return false
 	session.refresh_view()
 	context.reactions.clear_stock_marks()
-	if session.start_group() == "missionary":
-		context.pose.sync_missionary_config()
 	context.camera.reset_lean_state()
 	if session.start_family() == "bed":
 		context.view.mount()
@@ -206,8 +201,7 @@ func _build_pose() -> void:
 	if camera is Camera3D:
 		look = camera.global_position
 		camera_at = look
-	context.pose.begin_act(session.pose_values(session.pose_id, look, camera_at,
-		context.camera.size_name()))
+	context.pose.begin_act(session.pose_start(session.pose_id, look, camera_at))
 	context.reactions.bind_tail(context.pose.tail)
 
 

@@ -43,13 +43,7 @@ extends RefCounted
 @abstract func rebind_reactions() -> void
 
 
-@abstract func set_act_pose_config() -> void
-
-
 @abstract func rebuild_act_pose() -> void
-
-
-@abstract func sync_start_config() -> void
 
 
 @abstract func reset_visual_for_form() -> void

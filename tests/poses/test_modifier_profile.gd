@@ -41,12 +41,10 @@ class FakeRun extends POSE_STATE.Run:
 	pass
 
 
-func _values(raw: Dictionary) -> SESSION.ActPose:
-	return SESSION.ActPose.from_dict(raw)
-
-
-func _flags(raw: Dictionary) -> SESSION.FeatureFlags:
-	return SESSION.FeatureFlags.from_dict(raw)
+func _start(raw: Dictionary) -> SESSION.PoseStart:
+	var start := SESSION.PoseStart.new()
+	start.pose_id = str(raw.get("pose_id", ""))
+	return start
 
 
 func run() -> void:
@@ -62,17 +60,12 @@ func run() -> void:
 	root.add_child(bed)
 	var facts := ACT_FACTS.new()
 	facts.pony = pony
+	facts.pony_id = "twilight_sparkle"
+	facts.bed = bed
+	facts.features = {"missionary_body_motion": true, "standing_body_sway": true}
 	var session: SESSION = SESSION.new(facts)
-	check(session.begin(_values({
-		"pose_id": CATALOG.MISSIONARY,
-		"id": "twilight_sparkle",
-		"features": {"missionary_body_motion": true, "standing_body_sway": true},
-		"bed": bed,
-		"presentation": {},
-		"pose_config": {},
-		"look_point": Vector3.ZERO,
-		"camera_position": Vector3.INF,
-	})), "the missionary pose begins")
+	check(session.begin_act(_start({"pose_id": CATALOG.MISSIONARY})),
+		"the missionary pose begins")
 	var view: RefCounted = session.view()
 	var prone: Node = session.prone_sway
 	var tail_lay: Node = session.tail_lay
@@ -105,15 +98,17 @@ func run() -> void:
 	check(session.ear_twitch == null, "the disabled feature keeps its owner out")
 
 	# The live settings edit enters the same reconcile with the new feature flags; this is the
-	# runtime's `refresh_modifiers()` path. A changed gate removes or installs its owner against
+	# session's `apply_live_settings()` path. A changed gate removes or installs its owner against
 	# the unchanged view, even on a shared keep.
 	_fill(view, CATALOG.STANDING, CATALOG.STANDING, CATALOG.STANDING, "standing", "standing")
-	session.refresh_modifiers(_flags({"standing_body_sway": false}))
+	facts.features = {"standing_body_sway": false}
+	session.apply_live_settings()
 	check(session.body_sway == null and sway.is_queued_for_deletion(),
 		"the live feature refresh removes the disabled owner")
-	check(not session.features.enabled("standing_body_sway"),
-		"the live feature refresh swaps the session's flags")
-	session.refresh_modifiers(_flags({"standing_body_sway": true}))
+	check(not bool(session._facts.features.get("standing_body_sway", false)),
+		"the live feature refresh reads the facts' flags")
+	facts.features = {"standing_body_sway": true}
+	session.apply_live_settings()
 	sway = session.body_sway
 	check(sway != null and sway.get_parent() == body,
 		"the live feature refresh installs the enabled owner")

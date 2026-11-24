@@ -39,29 +39,6 @@ const MODIFIER_ORDER := ["body_sway", "prone_sway", "ear_twitch", "tail", "tail_
 const NO_FRAME := Transform3D(Basis.IDENTITY, Vector3.INF)
 
 
-## The act's live feature switches, held by reference so the session and the snapshot agree.
-class FeatureFlags extends RefCounted:
-	var flags: Dictionary = {}
-
-	static func from_dict(block: Dictionary) -> FeatureFlags:
-		var out := FeatureFlags.new()
-		out.flags = block
-		return out
-
-	func enabled(name: String) -> bool:
-		return bool(flags.get(name, false))
-
-
-## One pose config or presentation block, wrapped at the boundary and merged in place.
-class SettingsBlock extends RefCounted:
-	var values: Dictionary = {}
-
-	static func from_dict(block: Dictionary) -> SettingsBlock:
-		var out := SettingsBlock.new()
-		out.values = block
-		return out
-
-
 ## One pose request's act values; an unset field falls back to the session's live facts.
 class PoseRequest extends RefCounted:
 	var act_state := -1
@@ -138,76 +115,19 @@ class AnonDiag extends RefCounted:
 		return str(read.call()) if read.is_valid() else ""
 
 
-## The values one act's pose build needs. The act's start ledger and the body swap both fill this
-## typed record from the same act values; the session never reads a runtime field for it.
-class ActPose extends RefCounted:
+## The start values the facts and settings cannot supply.
+class PoseStart extends RefCounted:
 	var pose_id := ""
-	var id := ""
-	var features: Dictionary = {}
-	var bed: Node3D = null
-	var presentation: Dictionary = {}
-	var pose_config: Dictionary = {}
-	var look_point := Vector3.ZERO
-	var look_set := false
-	var camera_position := Vector3.INF
-	var size_name := ""
-	var size_name_set := false
-
-	## Fill from the act's live values. The session owns them; this record is the one build input
-	## the start ledger and the body-swap rebuild share.
-	func fill(pose: String, id_value: String, features_block: Dictionary, bed_node: Node3D,
-			presentation_block: Dictionary, config: Dictionary, look: Vector3,
-			camera_at: Vector3, size_value: String) -> void:
-		pose_id = pose
-		id = id_value
-		features = features_block
-		bed = bed_node
-		presentation = presentation_block
-		pose_config = config
-		look_point = look
-		look_set = true
-		camera_position = camera_at
-		size_name = size_value
-		size_name_set = true
-
-	## The edge: a suite or a host that holds the act values as a plain document.
-	static func from_dict(raw: Dictionary) -> ActPose:
-		var out := ActPose.new()
-		out.pose_id = str(raw.get("pose_id", ""))
-		out.id = str(raw.get("id", ""))
-		var flags_value: Variant = raw.get("features")
-		if flags_value is Dictionary:
-			out.features = flags_value
-		var bed_value: Variant = raw.get("bed")
-		if bed_value is Node3D:
-			out.bed = bed_value
-		var presentation_value: Variant = raw.get("presentation")
-		if presentation_value is Dictionary:
-			out.presentation = presentation_value
-		var config_value: Variant = raw.get("pose_config")
-		if config_value is Dictionary:
-			out.pose_config = config_value
-		var look_value: Variant = raw.get("look_point")
-		if look_value is Vector3:
-			out.look_point = look_value
-			out.look_set = true
-		var camera_value: Variant = raw.get("camera_position")
-		if camera_value is Vector3:
-			out.camera_position = camera_value
-		if raw.has("size_name"):
-			out.size_name = str(raw["size_name"])
-			out.size_name_set = true
-		return out
+	var look := Vector3.ZERO
+	var camera_at := Vector3.INF
 
 
-## The act's identity and the live view's fields.
-var id := ""
-var features: FeatureFlags = FeatureFlags.new()
+## The act's live view fields.
 var bed_node: Node3D = null
 ## True between a successful `begin()` and `release_pose()`. The runtime keeps one session per pony.
 var _started := false
-## Live pose config. The runtime reads it through `_pose_session.pose_config`.
-var pose_config: Dictionary = {}
+## The live pose config, one object shared by the view and the evaluator.
+var _pose_config: Dictionary = {}
 ## The one pose read model for the act, and the registry that validates the static spec table.
 var _view: POSE_VIEW
 var _registry: REGISTRY
@@ -284,11 +204,6 @@ var saved_hair_skeleton: Skeleton3D
 var _facts: ACT_FACTS = null
 
 
-## The act's stable id, for the pose request rows and the per-mare pose config.
-func set_id(value: String) -> void:
-	id = value
-
-
 func _init(facts: ACT_FACTS = null) -> void:
 	_facts = facts
 	_view = POSE_VIEW.new()
@@ -318,32 +233,26 @@ func view() -> POSE_VIEW:
 	return _view
 
 
-## Stage the live pose config in place. The runtime calls this before the standing placement reads
-## its gaps, and everything that holds `pose_config` sees this same object for the act.
-func set_pose_config(config: SettingsBlock) -> void:
-	pose_config.clear()
-	if config != null:
-		pose_config.merge(config.values, true)
-
-
-## Build the pose for a fresh act from its typed values. A live pose or a pony with no body skeleton
+## Build the pose for a fresh act from its start values. A live pose or a pony with no body skeleton
 ## returns false with nothing installed; the started flag only follows an install.
-func begin_act(values: ActPose) -> bool:
-	return begin(values)
+func begin_act(start: PoseStart) -> bool:
+	return begin(start)
 
 
 ## Rebuild the live pose on a new skeleton, keeping the pose the act had; the start ramp is skipped
 ## because the act is continuing, not entering.
-func rebuild_act(values: ActPose) -> bool:
-	if not begin_act(values):
+func rebuild_act(start: PoseStart) -> bool:
+	if not begin_act(start):
 		return false
 	settle()
 	return true
 
 
-func begin(values: ActPose) -> bool:
+func begin(start: PoseStart) -> bool:
 	if _started:
 		LOG.debug("pose session: begin refused, a pose is already live")
+		return false
+	if start == null:
 		return false
 	var pony := _pony()
 	var skeleton: Variant = pony.get("skeleton") if is_instance_valid(pony) else null
@@ -355,29 +264,21 @@ func begin(values: ActPose) -> bool:
 	_oral_turn.reset()
 	_face_driver.reset()
 	_state = POSE_STATE.next(_state, "begin")
-	var start_id := values.pose_id
-	id = values.id
-	features = FeatureFlags.from_dict(values.features)
-	# The runtime supplies the live size name; a suite may omit it and fall back to the facts.
-	var size_name := values.size_name if values.size_name_set else _size_name()
-	bed_node = values.bed
+	var start_id := start.pose_id
+	var bed: Variant = _facts.bed if _facts != null else null
+	bed_node = bed if bed is Node3D else null
 	pose_logged = false
 	pose_trace_frames = 0
 	pose_node = POSE.new()
 	pose_node.name = "UnfplapPose"
 	pose_node.mare = pony
-	# Fill the view first: the active settings group and family drive the start config sync, not the
-	# act's start id. One live object: the sync merges the character's pose into `pose_config` in
-	# place, so the modifier, the view and the runtime share it.
+	# Fill the view first: the active settings group, not the act's start id, drives the live config.
+	# The sync merges in place, so the modifier, the view and the runtime share one object.
 	var start_spec: Variant = _registry.spec(start_id)
 	_fill_view(start_spec)
 	_view.contact_kind = _spec_contact_kind(start_spec)
-	var group := str(_view.settings_group)
-	if group == CATALOG.STANDING:
-		sync_standing_config(SettingsBlock.from_dict(values.presentation))
-	elif group == CATALOG.MISSIONARY:
-		sync_missionary_config()
-	pose_node.pose_config = pose_config
+	_sync_live_config()
+	pose_node.pose_config = _pose_config
 	# Resolve the start asset before the evaluator pair: the same instance is the live rendered
 	# asset and both sides of a pose that starts settled.
 	var start_asset: AUTHORED = _asset_for_spec(start_spec)
@@ -388,16 +289,16 @@ func begin(values: ActPose) -> bool:
 	_target_asset = _from_asset
 	_sync_view_asset()
 	pose_node.set_pose(_effective_driver(start_spec), _effective_driver(start_spec),
-		_effective_delta(start_spec), _effective_delta(start_spec), pose_config, pose_config,
+		_effective_delta(start_spec), _effective_delta(start_spec), _pose_config, _pose_config,
 		_from_asset, _target_asset)
 	pose_node.set_weight(1.0)
-	pose_node.look_point = values.look_point if values.look_set else pony.global_position
+	pose_node.look_point = start.look
 	pose_node.amount = 0.0
 	pose_node.target_amount = 1.0
 	if str(_view.frame) == "bed":
-		var bed := missionary_pose_frame()
-		if has_frame(bed):
-			bed_frame = bed
+		var bed_space := missionary_pose_frame()
+		if has_frame(bed_space):
+			bed_frame = bed_space
 			bed_frame_source_saved = is_instance_valid(bed_node)
 		else:
 			bed_frame = null
@@ -417,7 +318,7 @@ func begin(values: ActPose) -> bool:
 		if ground_frame_source_saved:
 			ground_frame_source = (pony as Node3D).global_transform
 		pose_node.ground_frame = ground_frame
-		pose_node.size_name = size_name
+		pose_node.size_name = SETTINGS.pony_size_name()
 	log_base()
 	(skeleton as Skeleton3D).add_child(pose_node)
 	var family := str(_view.family)
@@ -435,7 +336,7 @@ func begin(values: ActPose) -> bool:
 	_state = POSE_STATE.next(_state, "entered")
 	_view.pose_state = _state
 	if family == "standing":
-		_tail_anchor = values.camera_position
+		_tail_anchor = start.camera_at
 		_install_tail()
 	# A row whose base contact is already `face` starts the live mouth follow here, only to capture
 	# the residual: the authored asset is already on the bed.
@@ -450,7 +351,7 @@ func _fill_view(spec: POSE_SPEC) -> void:
 		_view.clear()
 		LOG.debug("pose view: no spec for the start pose")
 		return
-	_view.fill(spec, pose_config)
+	_view.fill(spec, _pose_config)
 
 
 ## The spec row's base contact kind (`opening` for standing and missionary, `mouth` for the
@@ -613,7 +514,7 @@ func request_pose(target_id: String, trigger: String, request: PoseRequest = nul
 	var from_spec: POSE_SPEC = _registry.spec(_from_id)
 	pose_node.set_pose(_effective_driver(from_spec), _effective_driver(_target_spec),
 		_effective_delta(from_spec), _effective_delta(_target_spec),
-		pose_config, _target_config, _from_asset, _target_asset)
+		_pose_config, _target_config, _from_asset, _target_asset)
 	pose_node.set_weight(_run.weight)
 	if _oral_pair(from_id, target_id):
 		_oral_turn.begin(target_id == CATALOG.STANDING_ORAL, _view)
@@ -639,9 +540,9 @@ func _request_views(request: PoseRequest) -> Array[String]:
 	return views
 
 
-func _request_features(request: PoseRequest) -> FeatureFlags:
+func _request_features(request: PoseRequest) -> Dictionary:
 	if request != null and request.features_set:
-		return FeatureFlags.from_dict(request.features)
+		return request.features
 	return _facts_features()
 
 
@@ -653,17 +554,17 @@ func _headset_view() -> bool:
 	return _facts != null and bool(_facts.headset_view)
 
 
-func _facts_features() -> FeatureFlags:
+func _facts_features() -> Dictionary:
 	if _facts == null:
-		return FeatureFlags.new()
+		return {}
 	var value: Variant = _facts.features
-	return FeatureFlags.from_dict(value as Dictionary if value is Dictionary else {})
+	return value as Dictionary if value is Dictionary else {}
 
 
 ## The target spec and the edge requirements against the request record, in the order
 ## `pose_state.request_code()` reports them. A missing flag passes.
 func _request_checks(target_spec: POSE_SPEC, edge: TRANSITION_SPEC, request: PoseRequest,
-		forms: Array[String], views: Array[String], features: FeatureFlags) -> Dictionary:
+		forms: Array[String], views: Array[String], features: Dictionary) -> Dictionary:
 	var requires: Dictionary = {}
 	if edge != null:
 		requires = edge.requires
@@ -686,7 +587,7 @@ func _request_checks(target_spec: POSE_SPEC, edge: TRANSITION_SPEC, request: Pos
 	var wanted_features: Variant = requires.get("features", [])
 	if wanted_features is Array:
 		for name_value: Variant in wanted_features as Array:
-			if not features.enabled(str(name_value)):
+			if not bool(features.get(str(name_value), false)):
 				features_ok = false
 				break
 	var wanted_consent := str(requires.get("consent", ""))
@@ -737,10 +638,10 @@ func _reason(code: String, target_id: String) -> String:
 ## The transition view: target identity and profiles from `fill()`, the from/to sides and the live
 ## edge clock. The live config is the from side and the target snapshot the to side.
 func _fill_transition_view() -> void:
-	_view.fill(_target_spec, pose_config)
+	_view.fill(_target_spec, _pose_config)
 	_view.from_id = _from_id
 	_view.to_id = _target_id
-	_view.from_config = pose_config
+	_view.from_config = _pose_config
 	_view.to_config = _target_config
 	_view.edge_id = _run.id
 	_view.edge_t = _run.t
@@ -780,9 +681,9 @@ func tick(delta: float) -> void:
 		pose_node.from_authored = completed_asset
 		pose_node.to_authored = completed_asset
 		pose_node.set_pose(completed_driver, completed_driver, completed_delta,
-			completed_delta, pose_config, pose_config, completed_asset, completed_asset)
+			completed_delta, _pose_config, _pose_config, completed_asset, completed_asset)
 		pose_node.set_weight(1.0)
-		pose_node.pose_config = pose_config
+		pose_node.pose_config = _pose_config
 	_from_asset = completed_asset
 	_sync_view_asset()
 	if is_instance_valid(act_body):
@@ -792,8 +693,8 @@ func tick(delta: float) -> void:
 	_view.contact_kind = _spec_contact_kind(_target_spec)
 	_view.from_id = _view.id
 	_view.to_id = _view.id
-	_view.from_config = pose_config
-	_view.to_config = pose_config
+	_view.from_config = _pose_config
+	_view.to_config = _pose_config
 	_view.edge_id = ""
 	_view.edge_t = 0.0
 	_view.weight = 1.0
@@ -921,18 +822,23 @@ func _lock_denies(command_id: String) -> bool:
 	return false
 
 
-## Refresh the target snapshot mid-edge. The active pose's own config refresh stays on the runtime's
-## standing and missionary sync paths.
+## One live settings edit: re-read the live block and presentation, refresh a running edge's
+## target snapshot, reconcile the modifiers and the act body palm. `begin()` syncs internally.
 func apply_live_settings() -> void:
-	if _target_spec == null:
+	if not _started:
 		return
-	var group := str(_target_spec.settings_group)
-	var presentation: Dictionary = SETTINGS.act_snapshot(group).presentation
-	_target_presentation = presentation
-	var fresh := _config_for_group(group, presentation)
-	_target_config.clear()
-	_target_config.merge(fresh, true)
-	_oral_turn.write_config(_view)
+	_sync_live_config()
+	if _target_spec != null:
+		var group := str(_target_spec.settings_group)
+		var presentation: Dictionary = SETTINGS.act_snapshot(group).presentation
+		_target_presentation = presentation
+		var fresh := _config_for_group(group, presentation)
+		_target_config.clear()
+		_target_config.merge(fresh, true)
+		_oral_turn.write_config(_view)
+	pose_changed(_view)
+	if is_instance_valid(act_body):
+		act_body.refresh_palm()
 
 
 ## Drop the target snapshot and the running edge without touching the live pose or the view.
@@ -949,18 +855,18 @@ func _abort_target() -> void:
 ## Adopt the target's settings into the live config in place, so the view, the pose node and the
 ## evaluator all see the target through the same alias object. The caller then drops the snapshot.
 func _adopt_target_config() -> void:
-	if _target_spec == null or is_same(_target_config, pose_config):
+	if _target_spec == null or is_same(_target_config, _pose_config):
 		return
-	pose_config.clear()
-	pose_config.merge(_target_config, true)
+	_pose_config.clear()
+	_pose_config.merge(_target_config, true)
 	if is_instance_valid(pose_node):
-		pose_node.pose_config = pose_config
+		pose_node.pose_config = _pose_config
 
 
 ## The pose block for a settings group plus that group's presentation values. Standing folds in the
 ## presentation chin, neck and tail; other groups use the live settings block unchanged.
 func _config_for_group(group: String, presentation: Dictionary) -> Dictionary:
-	var config := SETTINGS.pose(id, group).raw()
+	var config := SETTINGS.pose(_pony_id(), group).raw()
 	if group != CATALOG.STANDING:
 		return config
 	config["chin_up_deg"] = float(presentation.get("chin_up_deg",
@@ -977,33 +883,23 @@ func _config_for_group(group: String, presentation: Dictionary) -> Dictionary:
 	return config
 
 
-## The standing recipe reads these from pose_config every frame. Re-reading the character's pose
-## first keeps the other pose overrides, then the presentation neck/head controls win.
-func sync_standing_config(presentation: SettingsBlock) -> bool:
+## Refresh the live config in place from the live view's settings group and presentation; it never
+## resets the authored asset the begin, request, completion, reload and release own.
+func _sync_live_config() -> bool:
 	var pony := _pony()
-	if str(_view.settings_group) != CATALOG.STANDING or not is_instance_valid(pony):
+	var group := str(_view.settings_group)
+	if group.is_empty() or not is_instance_valid(pony):
 		return false
-	var block: Dictionary = presentation.values if presentation != null else {}
-	pose_config.clear()
-	pose_config.merge(_config_for_group(CATALOG.STANDING, block), true)
+	var presentation: Dictionary = {}
+	if group == CATALOG.STANDING:
+		presentation = SETTINGS.act_snapshot(group).presentation
+	_pose_config.clear()
+	_pose_config.merge(_config_for_group(group, presentation), true)
 	if is_instance_valid(pose_node):
-		pose_node.pose_config = pose_config
-	if is_instance_valid(tail):
-		tail.aside_angle = float(pose_config.get("tail_aside", 0.0))
-		tail.lift_angle = float(pose_config.get("tail_lift", 0.0))
-	return true
-
-
-## Refresh the missionary block in place each frame. The session's own begin, request, completion,
-## reload and release own the authored asset, so this must never reset a live pose's asset.
-func sync_missionary_config() -> bool:
-	var pony := _pony()
-	if str(_view.settings_group) != CATALOG.MISSIONARY or not is_instance_valid(pony):
-		return false
-	pose_config.clear()
-	pose_config.merge(_config_for_group(CATALOG.MISSIONARY, {}), true)
-	if is_instance_valid(pose_node):
-		pose_node.pose_config = pose_config
+		pose_node.pose_config = _pose_config
+	if group == CATALOG.STANDING and is_instance_valid(tail):
+		tail.aside_angle = float(_pose_config.get("tail_aside", 0.0))
+		tail.lift_angle = float(_pose_config.get("tail_lift", 0.0))
 	return true
 
 
@@ -1047,11 +943,6 @@ func ground_pose_frame() -> Transform3D:
 	if not is_instance_valid(pony):
 		return NO_FRAME
 	return Transform3D(pony.global_basis.orthonormalized(), pony.global_position)
-
-
-## The live size name from the facts, or "" when no act context is bound.
-func _size_name() -> String:
-	return _facts.size_name if _facts != null else ""
 
 
 ## True when the candidate's own asset loaded and is usable for its frame. A row with no asset is
@@ -1262,9 +1153,7 @@ func release_pose() -> void:
 		_drop(tail)
 	tail = null
 	_started = false
-	id = ""
-	features = FeatureFlags.new()
-	pose_config.clear()
+	_pose_config.clear()
 	rig_checked = false
 	rig_skeleton = 0
 	rig_revision = -1
@@ -1498,13 +1387,6 @@ func _release_act_body() -> void:
 	act_body = null
 
 
-## The live settings edit's entry: swap the feature flags and run the same `pose_changed(view)` pass
-## the tick does; the view already carries the active profile.
-func refresh_modifiers(feature_flags: FeatureFlags) -> void:
-	features = feature_flags if feature_flags != null else FeatureFlags.new()
-	pose_changed(_view)
-
-
 ## Detach a modifier before freeing it: `queue_free()` alone leaves it parented for the rest of the
 ## frame, still taking its pass, so a new act in that frame would run two.
 func _drop(node: Node) -> void:
@@ -1533,8 +1415,8 @@ func _install_tail() -> void:
 	tail.name = "UnfplapTail"
 	tail.mare = pony
 	tail.facts = _facts
-	tail.aside_angle = float(pose_config.get("tail_aside", 0.0))
-	tail.lift_angle = float(pose_config.get("tail_lift", 0.0))
+	tail.aside_angle = float(_pose_config.get("tail_aside", 0.0))
+	tail.lift_angle = float(_pose_config.get("tail_lift", 0.0))
 	tail.amount = 0.0
 	tail.target_amount = 1.0
 	var side_anchor: Variant = _tail_anchor
@@ -2072,16 +1954,10 @@ func _reset_sway_base() -> void:
 
 
 func _feature(name: String) -> bool:
-	return features.enabled(name)
+	return bool(_facts.features.get(name, false)) if _facts != null else false
 
 
 ## Numeric read of a Variant property without tripping over a missing one.
 func _num(value: Variant, fallback := 0.0) -> float:
 	return float(value) if value is float or value is int else fallback
 
-
-## The start pose's settings-group sync after the pose build. This is a group dispatch, not a pose
-## branch: a new group adds its own sync with its pose row.
-func sync_start_config(group: String) -> void:
-	if group == "missionary":
-		sync_missionary_config()

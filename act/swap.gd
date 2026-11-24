@@ -6,7 +6,6 @@ extends "res://mods/unfplap/body_change/swap_port.gd"
 const ACT_HOST := preload("res://mods/unfplap/act/host.gd")
 const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")
 const ACT_SESSION := preload("res://mods/unfplap/act/session.gd")
-const POSE_SESSION := preload("res://mods/unfplap/poses/api.gd")
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const BODY_CHANGE_ACT := preload("res://mods/unfplap/body_change/act.gd")
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
@@ -196,11 +195,6 @@ func rebind_reactions() -> void:
 	context.reactions.apply_radius()
 
 
-func set_act_pose_config() -> void:
-	context.pose.set_pose_config(POSE_SESSION.SettingsBlock.from_dict(
-		SETTINGS.pose(session.pony_id, session.start_group()).raw()))
-
-
 ## Rebuild the live pose against the new skeleton, keeping the pose the act was already in; the
 ## start ramp is skipped because the act is continuing, not entering.
 func rebuild_act_pose() -> void:
@@ -211,16 +205,11 @@ func rebuild_act_pose() -> void:
 	if camera is Camera3D:
 		look = (camera as Camera3D).global_position
 		camera_at = look
-	var values := session.pose_values(context.handover.pose, look, camera_at,
-		context.camera.size_name())
-	if not context.pose.rebuild_act(values):
+	var start := session.pose_start(context.handover.pose, look, camera_at)
+	if not context.pose.rebuild_act(start):
 		LOG.debug("body swap: the new body has no pose skeleton")
 		return
 	context.reactions.bind_tail(context.pose.tail)
-
-
-func sync_start_config() -> void:
-	context.pose.sync_start_config(session.start_group())
 
 
 func reset_lean() -> void:

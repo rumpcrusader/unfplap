@@ -9,7 +9,6 @@ const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const REACTIONS_CONTEXT := preload("res://mods/unfplap/reactions/context.gd")
 const ACT_HOST := preload("res://mods/unfplap/act/host.gd")
 const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")
-const POSE_SESSION := preload("res://mods/unfplap/poses/api.gd")
 const CAMERA_CONFIG := preload("res://mods/unfplap/camera/config.gd")
 const DIALOGUE := preload("res://mods/unfplap/dialogue/api.gd")
 const READINESS := preload("res://mods/unfplap/readiness/api.gd")
@@ -93,11 +92,8 @@ func apply_act_live(family: String) -> void:
 	context.reactions.apply_radius()
 	if family == "standing":
 		context.kiss.apply_live_settings()
-		context.pose.sync_standing_config(POSE_SESSION.SettingsBlock.from_dict(presentation_config))
 		context.presentation.apply_live_settings()
-	elif family == "bed":
-		context.pose.sync_missionary_config()
-	# A running edge's target snapshot follows the same edit.
+	# The live block, the presentation, a running edge's target and the modifiers in one call.
 	context.pose.apply_live_settings()
 	_refresh_live_modifiers(family)
 	context.face.ensure_bound(host.pony, host.node)
@@ -117,17 +113,10 @@ func configure_dialogue() -> void:
 	context.dialogue.configure(pacing)
 
 
+## The standing body's own palm scale; the pose session's act body palm refresh is in its apply.
 func _refresh_live_modifiers(family: String) -> void:
-	if not is_instance_valid(host.pony):
-		return
-	var skeleton_value: Variant = host.pony.get("skeleton")
-	if not skeleton_value is Skeleton3D:
-		return
-	context.pose.refresh_modifiers(POSE_SESSION.FeatureFlags.from_dict(features))
-	if family == "standing":
+	if family == "standing" and is_instance_valid(host.pony):
 		context.standing_anon.refresh_palm()
-	elif family == "bed":
-		context.pose.refresh_act_body_palm()
 
 
 

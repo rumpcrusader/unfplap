@@ -206,12 +206,15 @@ func start_family() -> String:
 func start_group() -> String:
 	return str(start_row().get("settings_group", ""))
 
-func pose_values(pose: String, look: Vector3, camera_at: Vector3, size_name: String) -> POSE_SESSION.ActPose:
-	var values := POSE_SESSION.ActPose.new()
+## The pose's start values: its id and the two camera points. The id, bed and features come from
+## the facts; the size name and the block from settings.
+func pose_start(pose: String, look: Vector3, camera_at: Vector3) -> POSE_SESSION.PoseStart:
+	var start := POSE_SESSION.PoseStart.new()
 	var target := pose if not pose.is_empty() else pose_id
-	values.fill(str(POSE_SPECS.spec(target).get("id", "")), pony_id, features, bed,
-		presentation_config, context.pose.pose_config, look, camera_at, size_name)
-	return values
+	start.pose_id = str(POSE_SPECS.spec(target).get("id", ""))
+	start.look = look
+	start.camera_at = camera_at
+	return start
 
 func adopt_display_name(form: BODY_FORM.BodyForm, body: Variant) -> void:
 	display_name = PONY_IDENTITY.display_name(form, body if is_instance_valid(body) else null, pony_id)
@@ -232,7 +235,6 @@ func refresh_identity() -> bool:
 	if pony_id.is_empty():
 		refresh_gate()
 		return false
-	context.pose.set_id(pony_id)
 	adopt_display_name(context.handover.form(), host.pony)
 	refresh_gate()
 	return true

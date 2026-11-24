@@ -17,8 +17,8 @@ target snapshot, the skeleton pose modifier, the authored bases, the bed and gro
 follow, the extra modifiers (tail, tail lay, body sway, prone sway, ear twitch), the pony bone
 snapshots, the pose rig check, the pose diagnostics, the retarget hook and the pose-scope teardown
 steps. The runtime owns the act state, the start ordering and the one teardown ledger; it constructs
-the session with the act facts and reads its `pose()`, `pose_config` and `view()` for the
-start/teardown and the standing gap, not as the consumer contract. The camera's standing glance
+the session with the act facts and reads its `pose()` and `view()` for the start/teardown and the
+standing gap, not as the consumer contract. The camera's standing glance
 writes the live pose's head throw-back through `set_head_back()`. Presentation modules read
 the pose view through `shared/act_facts.gd`.
 
@@ -201,11 +201,10 @@ The body wrappers that move with the pose (`poses/missionary_anon.gd`, `poses/st
 `shared/act_facts.gd`, never the runtime node. The facts carry the pose config, the presentation
 config, the per-mare profile, the pose id and state, the live depth, the scene handles, the lean and
 thrust values and the callbacks they call back through; the live space and the rendered asset are
-the pose view's. `pose_config` is one live
-dictionary for the session: `set_pose_config()` and `sync_standing_config()` take the typed
-`SettingsBlock`, `refresh_modifiers()` the typed `FeatureFlags`, and every sync, including
-`sync_missionary_config()`, merges into the one dictionary in place, so the pose modifier,
-`view.pose_config` and the standing camera's cached config all alias the same object.
+the pose view's. `pose_config` is one live dictionary for the session: `begin_act()` fills it from
+the live settings group and the presentation block, and `apply_live_settings()` merges a live edit
+into the same object, so the pose modifier, `view.pose_config` and the standing camera's cached
+config all alias the same object.
 `poses/body_sway.gd` publishes its
 world-space sway through `facts.standing_sway_offset`; that field is the one owner and the
 standing Anon controller reads it from there. The session hands the facts to the modifiers it
@@ -403,8 +402,9 @@ table and the catalog. `poses/pose_spec.gd` rejects a missing block or an unknow
 through `EXITING` to `IDLE`; the pose-scope leave steps keep `STEADY`. A failed `begin()` leaves the
 state unchanged. For a ground view, `begin()` captures the pony root's ground frame before it
 installs the modifier; `leave_pose_start()` and `release_pose()` clear it. `sync_ground_frame()`
-follows the root's position and rotation each tick. `begin()` takes the act's typed `ActPose`
-values. `pose_frame()`, `missionary_pose_frame()` and `ground_pose_frame()` return a `Transform3D`
+follows the root's position and rotation each tick. `begin_act()` takes the typed `PoseStart` (the
+pose id and the two camera points); the pony, its id, the bed and the features come from the facts,
+and the size name and the pose block from settings. `pose_frame()`, `missionary_pose_frame()` and `ground_pose_frame()` return a `Transform3D`
 and `has_frame()` separates a live frame from the absent one, whose origin is infinite.
 
 `request_pose(target_id, trigger, request)` returns the typed `PoseResult` record (`ok`, `code`,
@@ -572,18 +572,17 @@ once per bone count and reused, the node is the only modifier and it allocates n
 The blend sets `diag_last_base = "blend"` and skips the authored-asset trace. `apply_render()` and
 the modifier pass call the same evaluator with the same pair and weight.
 
-The session owns the configs. `begin()` sets the start pair, `request_pose()` the edge pair and the
+The session owns the configs. `begin_act()` sets the start pair, `request_pose()` the edge pair and the
 completing tick the target pair; each also calls `set_weight()` (1.0, the run weight, 1.0).
 `begin()`, the request, the completion, `reload_authored()` and `release_pose()` are the only
 owners of the authored asset: `begin()` resolves the start asset, the request caches `_from_asset`
 (the live wrapper) and `_target_asset`, and completion adopts the target asset on both sides. The
-settings syncs (`sync_standing_config()`, `sync_missionary_config()`) and `_adopt_target_config()`
-only merge the config, so a live settings edit cannot reset the live asset to a file named by the
-settings group. `live_authored()` and `authored_asset()` return the live rendered wrapper, so the debug
+live settings edit (`apply_live_settings()`) and `_adopt_target_config()` only merge the config, so
+a live settings edit cannot reset the live asset to a file named by the settings group. `live_authored()` and `authored_asset()` return the live rendered wrapper, so the debug
 diagnostic and the pose lab hold the source asset through an edge and read the target's after
 completion.
 `_config_for_group(group, presentation)` builds the target: the standing group plus the
-presentation chin/neck/tail values (the values `sync_standing_config()` writes), the missionary
+presentation chin/neck/tail values (the values `_sync_live_config()` writes), the missionary
 block, or `SETTINGS.pose()` for another group. The group comes from the target spec, never from
 its id: `standing_test` and `standing_oral` use the standing block and have no `default.poses` row
 or `POSE_KEYS` schema of their own. `request_pose()` caches it as `_target_config`,
@@ -609,11 +608,12 @@ The fan-out is a retarget seam, not a second teardown: it never
 calls `release_pose()`, `leave_pose_start()`, `leave_pose_body()`, `free_pose()`
 or any act-scope restore. The eye view's write stays on the render write, after the pose write.
 
-`refresh_modifiers(feature_flags)` is the live settings edit's entry into the session's reconcile:
-it replaces the session's typed `FeatureFlags` and runs the same `pose_changed(view)` pass with the
-unchanged view, so a live `standing_body_sway`, `missionary_body_motion` or `thrust_ear_twitch`
-change installs or removes its owner. The view supplies the profile; the call carries no pose id.
-The runtime calls it from its own live settings path.
+`apply_live_settings()` is the live settings edit's one entry: it re-reads the live block and its
+presentation, refreshes a running edge's target snapshot, then runs the same `pose_changed(view)`
+pass with the unchanged view, so a live `standing_body_sway`, `missionary_body_motion` or
+`thrust_ear_twitch` change installs or removes its owner, and refreshes the act body's palm. The
+view supplies the profile; the call carries no pose id. The runtime calls it from its own live
+settings path.
 
 The `contact` channel is the one contact change: the forward oral edge switches `opening` to
 `mouth` at `0.9`, the reverse switches back at `0.0`, and completion settles the target row's base

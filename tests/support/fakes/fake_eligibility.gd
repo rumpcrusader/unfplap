@@ -4,7 +4,7 @@ extends "res://mods/unfplap/eligibility/api.gd"
 var eligible_calls := 0
 var relationship_calls := 0
 
-func eligible(_pony: Node, _target: Target = Target.ACT) -> bool:
+func eligible(_pony: Node, _target: Target) -> bool:
 	eligible_calls += 1
 	return true
 

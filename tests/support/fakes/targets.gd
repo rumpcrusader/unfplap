@@ -3,7 +3,7 @@ extends "res://mods/unfplap/eligibility/api.gd"
 
 var allowed: Array = []
 
-func eligible(pony: Node, _target: Target = Target.ACT) -> bool:
+func eligible(pony: Node, _target: Target) -> bool:
 	return allowed.has(pony)
 
 func relationship_ok(_pony: Node) -> bool:

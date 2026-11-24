@@ -8,11 +8,6 @@ const PARTICIPATION := preload("res://mods/unfplap/shared/participation.gd")
 ## The pure age category. It matches the facade's public `Age` enum by value.
 enum AgeKind { NONE, YOUNG, ADULT }
 
-const KEYS := [
-	"id", "has_identity", "is_player_pony", "is_filly", "is_stallion",
-	"eligible", "participation",
-]
-
 
 ## A fresh identity fact dictionary. The participation block is new each call.
 static func empty() -> Dictionary:
@@ -25,19 +20,6 @@ static func empty() -> Dictionary:
 		"eligible": null,
 		"participation": PARTICIPATION.defaults(),
 	}
-
-
-## Merge a raw dictionary into the schema. Missing keys keep the empty defaults.
-static func normalize(raw: Variant) -> Dictionary:
-	var out := empty()
-	if not raw is Dictionary:
-		return out
-	var source: Dictionary = raw
-	for key: Variant in source.keys():
-		var name := str(key)
-		if out.has(name):
-			out[name] = source[key]
-	return out
 
 
 ## An adult: an identified body that is no filly or colt, and not the player's own.

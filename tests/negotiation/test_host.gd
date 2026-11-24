@@ -170,7 +170,7 @@ class FakeOffer extends Node:
 class FakeEligibility extends ELIGIBILITY:
 	var act := true
 
-	func eligible(_pony: Node, _target: int = ELIGIBILITY.Target.ACT) -> bool:
+	func eligible(_pony: Node, _target: ELIGIBILITY.Target) -> bool:
 		return act
 
 

@@ -80,7 +80,7 @@ func run() -> void:
 	pony.set_meta("relationship_runtime", pony_relation)
 	root.add_child(pony)
 
-	check(main.eligibility.eligible(pony), "an adult mare is an act target")
+	check(main.eligibility.eligible(pony, ELIGIBILITY.Target.ACT), "an adult mare is an act target")
 	check(main.eligibility.witness_age(pony) == ELIGIBILITY.Age.ADULT,
 		"an adult mare witnesses as an adult")
 
@@ -88,16 +88,16 @@ func run() -> void:
 	# a new identity resource, a relationship-meta change and a settings generation do rebuild it.
 	var early_identity: FakeIdentity = pony.identity
 	early_identity.filly = true
-	check(main.eligibility.eligible(pony),
+	check(main.eligibility.eligible(pony, ELIGIBILITY.Target.ACT),
 		"the identity record is reused while its era holds")
 	pony.identity = FakeIdentity.new()
 	pony.identity.filly = true
-	check(not main.eligibility.eligible(pony),
+	check(not main.eligibility.eligible(pony, ELIGIBILITY.Target.ACT),
 		"a new identity resource rebuilds the record")
 	pony.identity = FakeIdentity.new()
-	check(main.eligibility.eligible(pony), "the rebuilt record follows the new identity")
+	check(main.eligibility.eligible(pony, ELIGIBILITY.Target.ACT), "the rebuilt record follows the new identity")
 	pony.set_meta("relationship_id", "rarity_two")
-	main.eligibility.eligible(pony)
+	main.eligibility.eligible(pony, ELIGIBILITY.Target.ACT)
 	var record: IDENTITY_RECORD.IdentityRecord = \
 		(main.eligibility.get("_identity_records") as Dictionary).values()[0]
 	check(str(record.id) == "rarity_two", "a relationship-meta change rebuilds the record's id")
@@ -120,7 +120,8 @@ func run() -> void:
 	stallion_identity.stallion = true
 	stallion.identity = stallion_identity
 	root.add_child(stallion)
-	check(not main.eligibility.eligible(stallion), "a stallion is not an act target")
+	check(not main.eligibility.eligible(stallion, ELIGIBILITY.Target.ACT),
+		"a stallion is not an act target")
 	check(main.eligibility.witness_age(stallion) == ELIGIBILITY.Age.ADULT,
 		"a stallion is an adult witness")
 
@@ -133,7 +134,7 @@ func run() -> void:
 	root.add_child(nameless)
 	check(FACTS.adult_mare(true, false, false, false, null),
 		"the pure predicate accepts an adult identity")
-	check(not main.eligibility.eligible(nameless),
+	check(not main.eligibility.eligible(nameless, ELIGIBILITY.Target.ACT),
 		"an adult identity with no stable id is not an act target")
 
 	# Capability targets keep identity private: the act-side targets accept an adult mare,
@@ -162,34 +163,37 @@ func run() -> void:
 		"the consent snapshot covers the shared consent keys")
 	check(profile.participation.to_dict().keys() == PARTICIPATION.all_keys(),
 		"the participation snapshot covers the shared participation keys")
-	for target: Variant in ELIGIBILITY.TARGET_KEYS:
-		var key := str(ELIGIBILITY.TARGET_KEYS[target])
+	for target: Variant in ELIGIBILITY._TARGET_KEYS:
+		var key := str(ELIGIBILITY._TARGET_KEYS[target])
 		check(key.is_empty() or key in PARTICIPATION.all_keys(),
 			"every target veto is a participation key: %s" % key)
 
-	# The provider layer: set_profile writes the identity half, and the capability reads it.
-	var layer := ELIGIBILITY.Profile.new()
-	layer.eligible = ELIGIBILITY.EligibilityAssertion.ELIGIBLE
-	layer.participation.anatomy = false
-	var written: MARE_REGISTRY.Result = main.eligibility.set_profile(main, "rarity", layer)
-	check(written is MARE_REGISTRY.Result, "set_profile answers the typed registry result")
-	check(written.ok, "set_profile writes a provider layer")
+	# The provider layer lives in the registry: the identity half is written there and the
+	# capability reads the resolved profile. The write also moves the record's era.
+	var owner_id := main.get_instance_id()
+	var identity := MARE_REGISTRY.Identity.new()
+	identity.has_eligible = true
+	identity.eligible = true
+	identity.has_profile = true
+	identity.profile = {"participation": {"anatomy": false}}
+	var written: MARE_REGISTRY.Result = MARE_REGISTRY.set_profile(
+		owner_id, "eligibility_test", "rarity", identity)
+	check(written is MARE_REGISTRY.Result, "a profile write answers the typed registry result")
+	check(written.ok, "the registry stores a provider identity layer")
 	var read_back: ELIGIBILITY.Profile = main.eligibility.get_profile("rarity")
 	check(read_back.eligible == ELIGIBILITY.EligibilityAssertion.ELIGIBLE,
-		"set_profile stores the eligible assertion")
-	check(not read_back.participation.anatomy, "set_profile stores the participation veto")
+		"the registry layer stores the eligible assertion")
+	check(not read_back.participation.anatomy, "the registry layer stores the participation veto")
 	check(not main.eligibility.eligible(pony, ELIGIBILITY.Target.ANATOMY),
 		"the provider veto closes the anatomy target")
 	check(main.eligibility.eligible(pony, ELIGIBILITY.Target.ACT),
 		"the provider veto leaves the act target")
 	check(main.eligibility.eligible(pony, ELIGIBILITY.Target.CHARACTER),
 		"the provider veto leaves the character target")
-	var refused := main.eligibility.set_profile(null, "rarity", layer)
+	var refused := MARE_REGISTRY.set_profile(0, "eligibility_test", "rarity", identity)
 	check(not refused.ok
 		and refused.errors == ["owner: must be a valid Node inside the scene tree"],
-		"set_profile rejects a null owner with the same validation string")
-	check(not main.eligibility.set_profile(main, "rarity", null).ok,
-		"set_profile rejects a missing profile")
+		"the registry rejects a zero owner with its own validation string")
 	check(main.eligibility.get_profile("rarity").eligible_value() == true,
 		"the cross-mod shape is the tri-state eligible value")
 
@@ -213,21 +217,22 @@ func run() -> void:
 	check(not main.eligibility.eligible(filly, ELIGIBILITY.Target.ACT),
 		"a filly is not an act target without an assertion")
 
-	var filly_layer := ELIGIBILITY.Profile.new()
-	filly_layer.eligible = ELIGIBILITY.EligibilityAssertion.ELIGIBLE
-	check(main.eligibility.set_profile(main, "scootaloo", filly_layer).ok,
-		"set_profile writes the filly provider layer")
+	var filly_layer := MARE_REGISTRY.Identity.new()
+	filly_layer.has_eligible = true
+	filly_layer.eligible = true
+	check(MARE_REGISTRY.set_profile(owner_id, "eligibility_test", "scootaloo", filly_layer).ok,
+		"the registry writes the filly provider layer")
 	check(main.eligibility.eligible(filly, ELIGIBILITY.Target.ACT),
 		"the provider eligible assertion opens the identity target")
 
 	# A provider not-eligible assertion overrides a base-game adult.
-	layer.eligible = ELIGIBILITY.EligibilityAssertion.NOT_ELIGIBLE
-	check(main.eligibility.set_profile(main, "rarity", layer).ok,
-		"set_profile rewrites the eligible assertion")
+	identity.eligible = false
+	check(MARE_REGISTRY.set_profile(owner_id, "eligibility_test", "rarity", identity).ok,
+		"the registry rewrites the eligible assertion")
 	check(not main.eligibility.eligible(pony, ELIGIBILITY.Target.ACT),
 		"the provider not-eligible assertion closes the identity target")
-	layer.eligible = ELIGIBILITY.EligibilityAssertion.ELIGIBLE
-	main.eligibility.set_profile(main, "rarity", layer)
+	identity.eligible = true
+	MARE_REGISTRY.set_profile(owner_id, "eligibility_test", "rarity", identity)
 
 	# The attach warm builds the identity record once per era; a second warm is a no-op.
 	var warm := ELIGIBILITY.new()
@@ -254,9 +259,9 @@ func run() -> void:
 	warm.shutdown()
 
 	main.eligibility.shutdown()
-	check(not main.eligibility.eligible(pony), "cleared service rejects every pony")
+	check(not main.eligibility.eligible(pony, ELIGIBILITY.Target.ACT), "cleared service rejects every pony")
 	main.eligibility.on_world(null)
-	check(main.eligibility.eligible(pony), "setup after clear restores the service")
+	check(main.eligibility.eligible(pony, ELIGIBILITY.Target.ACT), "setup after clear restores the service")
 	main.eligibility.free()
 	warm.free()
 	pony_relation.free()

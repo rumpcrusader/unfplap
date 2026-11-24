@@ -23,14 +23,14 @@ enum Age { NONE, YOUNG, ADULT }
 enum EligibilityAssertion { IDENTITY, ELIGIBLE, NOT_ELIGIBLE }
 
 ## Target -> the `profile.participation` veto it respects. An empty key means identity only.
-const TARGET_KEYS := {
+const _TARGET_KEYS := {
 	Target.ACT: "acts",
 	Target.ANATOMY: "anatomy",
 	Target.CHARACTER: "",
 }
 
 
-## The provider's participation flags; the gate reads them as vetoes.
+## The resolved participation flags a profile read returns; the gate reads them as vetoes.
 class Participation extends RefCounted:
 	var acts := true
 	var anatomy := true
@@ -44,7 +44,7 @@ class Participation extends RefCounted:
 		return out
 
 
-## The provider's consent flags; the gate reads them as vetoes.
+## The resolved consent flags a profile read returns; the gate reads them as vetoes.
 class Consent extends RefCounted:
 	var public := false
 	var anal := false
@@ -73,20 +73,11 @@ class Profile extends RefCounted:
 			_:
 				return null
 
-	func to_dict() -> Dictionary:
-		return {
-			"eligible": eligible_value(),
-			"participation": participation.to_dict(),
-			"consent": consent.to_dict(),
-		}
-
 
 ## False once the entry clears the service: every capability read answers no.
 var _live := true
 ## Pony instance -> its typed identity record. Cleared with the world.
 var _identity_records: Dictionary = {}
-## Pony instance -> the record era its attach warm already read. Cleared with the world.
-var _warmed: Dictionary = {}
 ## The one scene boundary, and the shape identities it caches for this world.
 var _scene := SCENE.new()
 
@@ -95,14 +86,12 @@ var _scene := SCENE.new()
 func on_world(_host: Node) -> void:
 	_live = true
 	_identity_records.clear()
-	_warmed.clear()
 	_scene.clear()
 
 
 ## The world closed: the records belonged to the bodies that are gone.
 func on_world_closed() -> void:
 	_identity_records.clear()
-	_warmed.clear()
 	_scene.clear()
 
 
@@ -110,43 +99,37 @@ func on_world_closed() -> void:
 func shutdown() -> void:
 	_live = false
 	_identity_records.clear()
-	_warmed.clear()
 	_scene.clear()
 
 
 ## One capability answer for a consumer, called in per-frame discovery loops.
 ## Cheap: the cached identity record, provider assertion, stable id and the veto.
-func eligible(pony: Node, target: Target = Target.ACT) -> bool:
+func eligible(pony: Node, target: Target) -> bool:
 	if not _live or not is_instance_valid(pony):
 		return false
-	if not TARGET_KEYS.has(target):
+	if not _TARGET_KEYS.has(target):
 		return false
 	var record := _identity_record(pony)
 	if record.id.is_empty():
 		return false
-	return POLICY.participates_identity(record, str(TARGET_KEYS[target]))
+	return POLICY.participates_identity(record, str(_TARGET_KEYS[target]))
 
 
 ## Warm one attached body at attach: build its identity record once per era.
 func warm(pony: Node) -> void:
 	if not _live or not is_instance_valid(pony):
 		return
-	var record := _identity_record(pony)
-	var key := int(pony.get_instance_id())
-	if int(_warmed.get(key, -1)) == record.era:
-		return
-	_warmed[key] = record.era
+	_identity_record(pony)
 
 
-## The id-only answer for a body that is not live, from a named shape's scene identity.
-## Its default is the character target, which a shape source asks about.
-func eligible_id(id: String, target: Target = Target.CHARACTER) -> bool:
+## The character answer for a body that is not live, from a named shape's scene identity.
+func eligible_id(id: String) -> bool:
 	var mare_id := id.strip_edges()
-	if mare_id.is_empty() or not _live or not TARGET_KEYS.has(target):
+	if mare_id.is_empty() or not _live:
 		return false
 	var pony := _scene.live_pony(mare_id)
 	if is_instance_valid(pony):
-		return eligible(pony, target)
+		return eligible(pony, Target.CHARACTER)
 	var identity := _scene.shape_identity(mare_id)
 	if identity == null:
 		return false
@@ -160,7 +143,7 @@ func eligible_id(id: String, target: Target = Target.CHARACTER) -> bool:
 	facts["is_stallion"] = stallion is bool and stallion
 	facts["eligible"] = profile.get("eligible", null)
 	facts["participation"] = profile.get("participation", {})
-	return POLICY.participates(facts, str(TARGET_KEYS[target]))
+	return POLICY.participates(facts, "")
 
 
 ## The witness age category. This is the only place a consumer needs the age instead of a
@@ -189,23 +172,6 @@ func get_profile(id: String) -> Profile:
 	out.participation = _typed_participation(resolved.rows("participation").raw())
 	out.consent = _typed_consent(SETTINGS.consent(mare_id).raw())
 	return out
-
-
-## Write the provider layer for one owner: assertion, participation and consent.
-## It lives in the registry; this service stores nothing and returns the registration result.
-func set_profile(owner: Node, id: String, profile: Profile) -> MARE_REGISTRY.Result:
-	var mare_id := id.strip_edges()
-	if not is_instance_valid(owner) or not owner.is_inside_tree():
-		return _profile_result(mare_id, "", false,
-			["owner: must be a valid Node inside the scene tree"])
-	if profile == null:
-		return _profile_result(mare_id, "", false, ["profile: required"])
-	var source := _owner_source(owner)
-	var result: MARE_REGISTRY.Result = MARE_REGISTRY.set_profile(owner.get_instance_id(), source,
-		mare_id, _profile_descriptor(profile))
-	if result.ok and _live:
-		SETTINGS.apply_live()
-	return result
 
 
 ## One pony's cached identity record; a moved era rebuilds it.
@@ -270,49 +236,6 @@ func _eligible_from_value(raw: Variant) -> EligibilityAssertion:
 	if raw is bool:
 		return EligibilityAssertion.ELIGIBLE if bool(raw) else EligibilityAssertion.NOT_ELIGIBLE
 	return EligibilityAssertion.IDENTITY
-
-
-func _profile_descriptor(profile: Profile) -> MARE_REGISTRY.Identity:
-	var out := MARE_REGISTRY.Identity.new()
-	out.has_consent = true
-	out.consent = profile.consent.to_dict()
-	out.has_profile = true
-	out.profile = {"participation": profile.participation.to_dict()}
-	match profile.eligible:
-		EligibilityAssertion.ELIGIBLE:
-			out.has_eligible = true
-			out.eligible = true
-		EligibilityAssertion.NOT_ELIGIBLE:
-			out.has_eligible = true
-			out.eligible = false
-	return out
-
-
-func _profile_result(id: String, source: String, replaced: bool,
-		errors: Array[String]) -> MARE_REGISTRY.Result:
-	var out := MARE_REGISTRY.Result.new()
-	out.id = id
-	out.source = source
-	out.replaced = replaced
-	out.errors = errors
-	return out
-
-
-## A provider source for an identity-only write. The existing layer keeps its source; a new layer
-## is named after the owner node.
-func _owner_source(owner: Node) -> String:
-	var raw := str(owner.name).strip_edges().to_lower()
-	var out := ""
-	for index in raw.length():
-		var ch := raw.substr(index, 1)
-		if ch == " " or ch == "." or ch == ":":
-			out += "_"
-		else:
-			out += ch
-	out = out.strip_edges()
-	if out.is_empty():
-		return "provider"
-	return out.substr(0, 64)
 
 
 func _is_player_pony(pony: Node) -> bool:

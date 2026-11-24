@@ -46,12 +46,12 @@ func facts(over: Dictionary = {}) -> Dictionary:
 
 
 func run() -> void:
-	check(POLICY.adult_pony(facts()), "an identified adult pony")
+	check(FACTS.adult_pony(true, false, false, null), "an identified adult pony")
 	check(POLICY.adult_mare(facts()), "an adult mare")
 	check(not POLICY.adult_mare(facts({"is_stallion": true})),
 		"stallion is not an adult mare")
-	check(not POLICY.adult_pony(facts({"is_filly": true})), "filly is not adult")
-	check(not POLICY.adult_pony(facts({"is_player_pony": true})),
+	check(not FACTS.adult_pony(true, false, true, null), "filly is not adult")
+	check(not FACTS.adult_pony(true, true, false, null),
 		"player pony is not a target")
 	# The pure predicate takes values, so the live rule has exactly one definition.
 	check(FACTS.adult_mare(true, false, false, false, null),
@@ -98,15 +98,15 @@ func run() -> void:
 	check(not POLICY.participates_identity(null, ""), "no record is no target")
 
 	# Witness age categories. A provider's `eligible` assertion wins over the identity flag.
-	check(POLICY.age_kind(mare) == FACTS.AgeKind.ADULT,
+	check(FACTS.age_kind(true, false, false, null) == FACTS.AgeKind.ADULT,
 		"an adult mare witnesses as an adult")
-	check(POLICY.age_kind(facts({"is_filly": true})) == FACTS.AgeKind.YOUNG,
+	check(FACTS.age_kind(true, false, true, null) == FACTS.AgeKind.YOUNG,
 		"a filly witnesses as young")
-	check(POLICY.age_kind(facts({"is_filly": true, "eligible": true})) == FACTS.AgeKind.ADULT,
+	check(FACTS.age_kind(true, false, true, true) == FACTS.AgeKind.ADULT,
 		"a provider's eligible assertion makes a filly an adult witness")
-	check(POLICY.age_kind(facts({"eligible": false})) == FACTS.AgeKind.NONE,
+	check(FACTS.age_kind(true, false, false, false) == FACTS.AgeKind.NONE,
 		"a vetoed adult is neither an adult nor a young witness")
-	check(POLICY.age_kind(facts({"is_player_pony": true})) == FACTS.AgeKind.NONE,
+	check(FACTS.age_kind(true, true, false, null) == FACTS.AgeKind.NONE,
 		"the player pony is not a witness")
 
 	if failures == 0:

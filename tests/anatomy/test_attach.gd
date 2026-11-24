@@ -19,7 +19,7 @@ class FakeEligibility extends "res://mods/unfplap/eligibility/api.gd":
 	var allow := true
 	var calls := 0
 
-	func eligible(_pony: Node, _target: Target = Target.ACT) -> bool:
+	func eligible(_pony: Node, _target: Target) -> bool:
 		calls += 1
 		return allow
 

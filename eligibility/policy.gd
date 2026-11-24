@@ -1,15 +1,9 @@
 extends RefCounted
-## Pure eligibility policy: the adulthood predicates and the age category. It receives plain
-## values and returns plain values; no Node, scene, Time, Settings or file access.
+## Pure eligibility capability predicates over plain values; `facts.gd` owns the adulthood
+## decision. No Node, scene, Time, Settings or file access.
 
 const FACTS := preload("res://mods/unfplap/eligibility/facts.gd")
 const IDENTITY_RECORD := preload("res://mods/unfplap/eligibility/identity_record.gd")
-
-
-static func adult_pony(facts: Dictionary) -> bool:
-	return FACTS.adult_pony(bool(facts.get("has_identity", false)),
-		bool(facts.get("is_player_pony", false)), bool(facts.get("is_filly", false)),
-		facts.get("eligible", null))
 
 
 static func adult_mare(facts: Dictionary) -> bool:
@@ -38,11 +32,3 @@ static func participates_identity(record: IDENTITY_RECORD.IdentityRecord, key :=
 	if key.is_empty():
 		return true
 	return bool(record.participation.get(key, true))
-
-
-## None when she is neither a witness adult nor a young one.
-## The provider assertion beats the identity flag either way.
-static func age_kind(facts: Dictionary) -> int:
-	return FACTS.age_kind(bool(facts.get("has_identity", false)),
-		bool(facts.get("is_player_pony", false)), bool(facts.get("is_filly", false)),
-		facts.get("eligible", null))

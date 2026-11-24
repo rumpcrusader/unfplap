@@ -347,7 +347,7 @@ class FakeDirector extends Node:
 class FakeEligibility extends ELIGIBILITY:
 	var allow := true
 
-	func eligible(_pony: Node, _target: ELIGIBILITY.Target = ELIGIBILITY.Target.ACT) -> bool:
+	func eligible(_pony: Node, _target: ELIGIBILITY.Target) -> bool:
 		return allow
 
 

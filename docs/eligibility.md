@@ -5,8 +5,8 @@ as a character, and did she grant a specific action. It never answers "right now
 question is `docs/act_gate.md` and the live scene rows are `docs/scene_gate.md`.
 
 The internal API is `eligibility/api.gd`. The typed surface is `eligible`, `eligible_id`,
-`get_profile`, `set_profile`, `witness_age` and `warm`. Cross-mod exposure stays `docs/api.md`,
-which this contract does not change.
+`get_profile`, `witness_age` and `warm`. Cross-mod exposure stays `docs/api.md`, which this
+contract does not change.
 
 ## Scope
 
@@ -26,7 +26,7 @@ consent question: they belong to `act_gate`. It does not cover poses, acts, read
 |---|---|
 | `eligibility/api.gd` | public API: the cached identity record, the capability answers and the profile layer |
 | `eligibility/identity_record.gd` | the typed per-pony identity record: scalars as fields and the one participation document, reused until its era moves |
-| `eligibility/policy.gd` | pure identity predicates and the age category over plain values |
+| `eligibility/policy.gd` | the capability predicates over plain values; the adulthood decision is `facts.gd` |
 | `eligibility/facts.gd` | pure identity fact schema; the one adulthood predicate stays private here |
 | `eligibility/scene.gd` | the world boundary: a live body lookup and the population shape cache |
 | `docs/eligibility.md` | this contract |
@@ -83,15 +83,13 @@ the peer they were wired with. The types are declared in the facade, so a consum
 `eligible()` is the capability answer: the cached identity record, the provider assertion, the
 stable id and the target's participation veto. It is called in per-frame discovery loops, so it
 never builds a fact snapshot. `warm(pony)` is the attach-time read: it builds the identity record
-and marks its era, once per era, so the first capability read is a lookup; it is called from the
-roster's `_prepare()` and is a no-op on a second prepare of the same era. `eligible_id()` is the
-id-only form for a body that may not be live: a live pony answers as `eligible()`, otherwise the
-shape's population scene identity and the provider assertion feed the same target predicate. It is
-a capability, not an age or sex read; the default character target is what a shape source asks
-about a player-named body. `witness_age()` is the only age-shaped answer and only for witness
-wording. `get_profile()` reads the resolved provider/player profile for one id; `set_profile()`
-writes the provider layer's eligible assertion, participation and consent. The pair is the internal
-typed read/write side; the cross-mod surface is `docs/api.md`. `set_profile` is test-only today.
+once per era, so the first capability read is a lookup; it is called from the roster's `_prepare()`
+and a second prepare of the same era reuses the record. `eligible_id()` is the id-only form for a
+body that may not be live: a live pony answers as the character target, otherwise the shape's
+population scene identity and the provider assertion feed the same predicate. It is a capability,
+not an age or sex read. `witness_age()` is the only age-shaped answer and only for witness wording.
+`get_profile()` reads the resolved provider/player profile for one id, the internal typed read side;
+the cross-mod surface is `docs/api.md`.
 
 ## Capability targets
 
@@ -161,4 +159,3 @@ gate: `docs/act_gate.md` and `docs/debug_actions.md`.
 - A provider's `eligible` assertion changes age, not sex; a stallion stays no target.
 - `get_profile()` resolves the provider layer and the player's differences on every call. It is a
   cold read, not a per-frame one.
-- `set_profile` is test-only today; its eventual home is the registry store or the cross-mod API.

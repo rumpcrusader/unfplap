@@ -279,7 +279,7 @@ out of the registry), the debug actions (the wheel and the skeleton overlay) and
 (the Debug blocks). `stool`, `initiation` and `negotiation` read their settings live and subscribe
 to nothing.
 
-`api.gd`, `eligibility.set_profile()` and a provider's settled body change call
+`api.gd` and a provider's settled body change call
 `SETTINGS.apply_live()` too: a provider layer is a live input like a panel edit. The list lives in
 `shared/` rather than in `settings/api.gd` because a shared module may not import a service and
 the log sink joins the same list.

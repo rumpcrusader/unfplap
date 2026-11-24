@@ -13,7 +13,7 @@ const ELIGIBILITY := preload("res://mods/unfplap/eligibility/api.gd")
 const ACT_GATE := preload("res://mods/unfplap/act_gate/api.gd")
 const MEMORY := preload("res://mods/unfplap/memory/api.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
-const CLASSIFIER := preload("res://mods/unfplap/initiation/classifier.gd")
+const CLASSIFIER := preload("res://mods/unfplap/classifier/api.gd")
 const DIRECTOR := preload("res://mods/unfplap/director/api.gd")
 const PONIES := preload("res://mods/unfplap/ponies/api.gd")
 
@@ -149,19 +149,10 @@ class FakePrivacy extends "res://mods/unfplap/tests/support/fakes/fake_privacy.g
 
 class FakeDirector extends DIRECTOR:
 	var quiet_reason_value := ""
-	var reason_reply := "{\"offer\":false}"
-	var reason_error := ""
 	var greeting_ok := true
 	var greetings: Array = []
 	var queued: Array = []
-	var cancelled: Array = []
 	var situations: Array = []
-	var reason_payloads: Array = []
-	var auto := true
-	var classifier: Node = null
-
-	func attach_classifier(node: Node) -> void:
-		classifier = node
 
 	func quiet_reason(_gap: float) -> String:
 		return quiet_reason_value
@@ -181,14 +172,28 @@ class FakeDirector extends DIRECTOR:
 	func record_situation(text: String, ids: Array, key: String) -> void:
 		situations.append({"text": text, "ids": ids, "key": key})
 
-	func complete_raw(call: DIRECTOR.Call) -> bool:
-		reason_payloads.append(call.payload)
-		if auto:
-			call.reply.call(reason_reply, reason_error)
-		return true
 
-	func cancel_scope(scope: String) -> void:
-		cancelled.append(scope)
+class FakeClassifier extends "res://mods/unfplap/classifier/api.gd":
+	var calls: Array = []
+	var can_answer := true
+	var reply := "{\"offer\":false}"
+	var error := ""
+
+	func available() -> bool:
+		return can_answer
+
+	func run(definition: CLASSIFIER.Definition, utterance: String) -> CLASSIFIER.Call:
+		if not can_answer:
+			return null
+		var call := CLASSIFIER.Call.new()
+		call.definition = definition
+		call.utterance = utterance
+		calls.append({"definition": definition, "utterance": utterance, "call": call})
+		return call
+
+	func answer() -> void:
+		var row: Dictionary = calls[-1]
+		(row["call"] as CLASSIFIER.Call).done.emit(reply, error)
 
 
 ## The idle offer facade's one read the Proactive gate uses: which pony the act key would start.
@@ -228,25 +233,28 @@ func _fixture() -> Dictionary:
 	main.game = game
 	WORLD.bind_world(main.game)
 	var negotiation := FakeNegotiation.new()
+	var classifier := FakeClassifier.new()
 	var roster := PONIES.new()
 	roster.name = "UnfplapPonies"
 	root.add_child(roster)
 	roster.wire(null, null, null, null, null, null, null)
 	roster.factory = func(_pony_node: Node) -> Node: return runtime
 	roster.attach(target)
-	for node: Node in [game, player, target, director, negotiation, offer]:
+	for node: Node in [game, player, target, director, negotiation, offer, classifier]:
 		root.add_child(node)
 	root.add_child(main)
 	var service := INIT.new()
 	service.name = "UnfplapInitiation"
 	var gate := FakeGate.new()
-	service.wire(eligibility, gate, privacy, memory, negotiation, director, offer, roster)
+	service.wire(eligibility, gate, privacy, memory, negotiation, director, offer, roster,
+		classifier)
 	service.setup()
 	root.add_child(service)
 	return {"main": main, "game": game, "context": context, "player": player,
 		"target": target, "nav": nav, "runtime": runtime, "eligibility": eligibility,
-		"gate": gate, "director": director, "privacy": privacy, "memory": memory,
-		"service": service, "offer": offer, "negotiation": negotiation, "ponies": roster}
+		"gate": gate, "director": director, "classifier": classifier, "privacy": privacy,
+		"memory": memory, "service": service, "offer": offer, "negotiation": negotiation,
+		"ponies": roster}
 
 
 func _free(made: Dictionary) -> void:
@@ -254,8 +262,8 @@ func _free(made: Dictionary) -> void:
 	roster.shutdown()
 	root.remove_child(roster)
 	roster.free()
-	for key: String in ["service", "main", "game", "player", "target", "director", "offer",
-			"negotiation"]:
+	for key: String in ["service", "main", "game", "player", "target", "director", "classifier",
+			"offer", "negotiation"]:
 		var node: Node = made[key]
 		root.remove_child(node)
 		node.free()
@@ -264,12 +272,12 @@ func _free(made: Dictionary) -> void:
 
 
 func run() -> void:
-	check(CLASSIFIER.NEGOTIATION_LIMITS.get("reasoning_room", 0) >= 512,
-		"the negotiation classifier reserves private-reasoning room")
-	check(CLASSIFIER.DEADLINE_SECONDS >= 8.0,
-		"the negotiation classifier deadline covers reasoning")
+	var defaults := CLASSIFIER.Definition.new()
+	check(defaults.reasoning_room >= 512,
+		"the classifier definition reserves private-reasoning room")
+	check(defaults.deadline_s >= 8.0, "the classifier definition deadline covers reasoning")
 	_check_force()
-	_check_director_resolution()
+	_check_classifier_registration()
 	_check_clearance_and_options()
 	_check_reasoning()
 	_check_handoff_failure()
@@ -348,12 +356,14 @@ func _check_force() -> void:
 	_free(made)
 
 
-## `setup()` builds the classifier and hands it to the director, the mod's one model transport.
-func _check_director_resolution() -> void:
+## `setup()` builds the reasoning definition; the transport is the classifier peer.
+func _check_classifier_registration() -> void:
 	var negotiation := FakeNegotiation.new()
 	var director := FakeDirector.new()
+	var classifier := FakeClassifier.new()
 	root.add_child(negotiation)
 	root.add_child(director)
+	root.add_child(classifier)
 	var roster := PONIES.new()
 	roster.wire(null, null, null, null, null, null, null)
 	var service := INIT.new()
@@ -363,14 +373,16 @@ func _check_director_resolution() -> void:
 	var privacy := FakePrivacy.new()
 	var memory := FakeMemory.new()
 	var offer := FakeOffer.new()
-	service.wire(eligibility, gate, privacy, memory, negotiation, director, offer, roster)
+	service.wire(eligibility, gate, privacy, memory, negotiation, director, offer, roster,
+		classifier)
 	check(service.get("_director") == director, "wire() takes the director")
-	check(service.get("_classifier") == null, "wire() builds no classifier")
+	check(service.get("_classifier") == classifier, "wire() takes the classifier")
+	check(service.get("_reasoning_definition") == null, "wire() builds no definition")
 	service.setup()
-	check(service.get("_classifier") != null, "setup() builds the classifier")
-	check(director.classifier == service.get("_classifier"),
-		"setup() hands the classifier to the director transport")
-	root.remove_child(service)
+	var definition: CLASSIFIER.Definition = service.get("_reasoning_definition")
+	check(definition != null, "setup() builds the reasoning definition")
+	check(definition.id == "initiation.mare_offer", "the definition names the reasoning kind")
+	check(not definition.instruction.is_empty(), "the definition carries the instruction")
 	service.free()
 	roster.free()
 	eligibility.free()
@@ -380,6 +392,8 @@ func _check_director_resolution() -> void:
 	offer.free()
 	root.remove_child(director)
 	director.free()
+	root.remove_child(classifier)
+	classifier.free()
 	root.remove_child(negotiation)
 	negotiation.free()
 
@@ -426,28 +440,28 @@ func _check_reasoning() -> void:
 	var negotiation: FakeNegotiation = made["negotiation"]
 	var runtime: FakeRuntime = made["runtime"]
 	var director: FakeDirector = made["director"]
+	var classifier: FakeClassifier = made["classifier"]
 	var main: FixtureHost = made["main"]
 	var target: FakePony = made["target"]
 	target.global_position = Vector3.ZERO
-	director.reason_reply = "{\"offer\":false}"
+	classifier.reply = "{\"offer\":false}"
 	service.tick(0.5)
-	check(director.reason_payloads.size() == 1, "the scan runs one reasoning call")
-	var payload: Dictionary = director.reason_payloads[0]
+	check(classifier.calls.size() == 1, "the scan runs one reasoning call")
+	var payload := _utterance(classifier.calls[0])
 	check((payload.get("options", []) as Array).size() == 1,
 		"the scan sends the one placeable option")
 	check((payload.get("context", {}) as Dictionary).get("willing") == true,
 		"the reasoning payload carries Context")
+	classifier.answer()
 	check(negotiation.handed == null, "a no-offer reasoning forms nothing")
 
 	service.on_world_closed()
-	director.reason_payloads.clear()
-	service.tick(0.5)
-
 	# Clear the stamped cooldown so the next scan may reason again.
 	service.clear_cooldown(target)
-	director.reason_payloads.clear()
-	director.reason_reply = "{\"offer\":true,\"option\":0}"
+	classifier.calls.clear()
+	classifier.reply = "{\"offer\":true,\"option\":0}"
 	service.tick(0.5)
+	classifier.answer()
 	check(negotiation.handed != null, "a reasoning yes forms the offer")
 	check(director.greetings.size() == 1, "the reasoning yes asks")
 	_free(made)
@@ -504,6 +518,7 @@ func _check_cuddle_target() -> void:
 	var runtime: FakeRuntime = made["runtime"]
 	var main: FixtureHost = made["main"]
 	var director: FakeDirector = made["director"]
+	var classifier: FakeClassifier = made["classifier"]
 	var target: FakePony = made["target"]
 	var offer: FakeOffer = made["offer"]
 	var bed := Node3D.new()
@@ -511,19 +526,20 @@ func _check_cuddle_target() -> void:
 	runtime.cuddle = true
 	runtime.bed_under = bed
 	service.clear_cooldown(target)
-	director.reason_reply = "{\"offer\":true,\"option\":0}"
+	classifier.reply = "{\"offer\":true,\"option\":0}"
 
 	# The act key would start another pony, so the scan's cuddle candidate is skipped, not forced.
 	offer.target = null
 	service.tick(0.5)
 	check(offer.reads > 0, "the scan reads the offer facade's current target")
-	check(director.reason_payloads.is_empty(),
+	check(classifier.calls.is_empty(),
 		"a cuddle the act key would not start reasons nothing")
 	check(negotiation.handed == null, "a cuddle the act key would not start forms nothing")
 
 	# The act key's current offer is her, so the same scan asks.
 	offer.target = target
 	service.tick(0.5)
+	classifier.answer()
 	check(negotiation.handed != null, "a cuddle the act key would start forms the offer")
 	check(negotiation.handed.option.cuddle, "the non-forced handoff marks the cuddle")
 	service.on_world_closed()
@@ -562,15 +578,21 @@ func _check_scan_quiet() -> void:
 	var service: Node = made["service"]
 	var negotiation: FakeNegotiation = made["negotiation"]
 	var director: FakeDirector = made["director"]
+	var classifier: FakeClassifier = made["classifier"]
 	var main: FixtureHost = made["main"]
 	director.quiet_reason_value = "chat"
 	service.tick(0.5)
 	service.tick(0.5)
-	check(director.reason_payloads.is_empty(), "a recent chat reasons nothing")
+	check(classifier.calls.is_empty(), "a recent chat reasons nothing")
 	director.quiet_reason_value = ""
 	negotiation.locked = true
-	director.reason_payloads.clear()
+	classifier.calls.clear()
 	service.tick(0.5)
-	check(director.reason_payloads.is_empty(), "a live negotiation keeps the scan quiet")
+	check(classifier.calls.is_empty(), "a live negotiation keeps the scan quiet")
 	negotiation.locked = false
 	_free(made)
+
+
+func _utterance(row: Dictionary) -> Dictionary:
+	var parsed: Variant = JSON.parse_string(str(row.get("utterance", "")))
+	return parsed if parsed is Dictionary else {}

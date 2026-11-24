@@ -14,6 +14,7 @@ const INPUT := preload("res://mods/unfplap/input/api.gd")
 const INITIATION := preload("res://mods/unfplap/initiation/api.gd")
 const NEGOTIATION := preload("res://mods/unfplap/negotiation/api.gd")
 const DIRECTOR := preload("res://mods/unfplap/director/api.gd")
+const CLASSIFIER := preload("res://mods/unfplap/classifier/api.gd")
 const PRIVACY := preload("res://mods/unfplap/privacy/api.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const PERF := preload("res://mods/unfplap/shared/perf.gd")
@@ -70,8 +71,10 @@ var audio: AUDIO
 ## Outside-act stock smack sound layer; see `docs/stock_smack.md`.
 var stock_smack: STOCK_SMACK
 var initiation: INITIATION
-## The conversation-director bridge and model transport; see `docs/director.md`.
+## The conversation-director bridge; see `docs/director.md`.
 var director: DIRECTOR
+## The one bounded model transport; see `docs/classifier.md`.
+var classifier: CLASSIFIER
 var privacy: PRIVACY
 ## The Act Negotiation service: the Anon offer, the Mare exchange, the Agreement, the lock and the
 ## Anon-offer watch. See `docs/negotiation.md`.
@@ -164,6 +167,7 @@ func _build_world() -> void:
 	privacy = PRIVACY.new()
 	negotiation = NEGOTIATION.new()
 	director = DIRECTOR.new()
+	classifier = CLASSIFIER.new()
 	# The HUD exists before the player does: it owns the act card, the toast line, the caption
 	# move and the one-time key notice.
 	hud = HUD.new()
@@ -194,9 +198,10 @@ func _build_world() -> void:
 	# `initiation` and `negotiation` wire each other. Two-phase wiring makes the pair legal
 	# because construction order no longer matters; the pair is a future merge candidate, not
 	# a violation.
-	initiation.wire(eligibility, act_gate, privacy, memory, negotiation, director, offer, ponies)
+	initiation.wire(eligibility, act_gate, privacy, memory, negotiation, director, offer, ponies,
+		classifier)
 	negotiation.wire(eligibility, act_gate, memory, privacy, initiation, director, act_owner, hud,
-		ponies)
+		ponies, classifier)
 	anatomy.wire(eligibility)
 	estrus.wire(anatomy)
 	integrations.wire(anatomy, body_change, ponies, eligibility, api)
@@ -214,6 +219,7 @@ func _build_world() -> void:
 	# list order only has to keep it before `debug_actions`.
 	_attach(act_owner, "UnfplapActOwner")
 	_attach(director, "UnfplapDirector")
+	_attach(classifier, "UnfplapClassifier")
 	_attach(negotiation, "UnfplapNegotiation")
 	_attach(hud, "UnfplapHUD")
 	_attach(offer, "UnfplapOffer")

@@ -22,7 +22,7 @@ This contract covers:
 
 It does not cover pacing, the approach, the Mare Initiation Reasoning, the bounded classifier, the
 model transport, the presentation, the act start, the scene rows or the pose placement gate. Those
-belong to `docs/initiation.md`, `docs/director.md`, `docs/offer.md`, `docs/poses.md`,
+belong to `docs/initiation.md`, `docs/classifier.md`, `docs/offer.md`, `docs/poses.md`,
 `docs/runtime.md` and `docs/scene_gate.md`.
 
 ## Ownership
@@ -31,9 +31,9 @@ belong to `docs/initiation.md`, `docs/director.md`, `docs/offer.md`, `docs/poses
 
 - the one live Act Negotiation: phase, offer, generation, TTL and lock;
 - the Agreement package and its handle;
-- the classifier/reasoning scopes and their cancellation;
+- the live model calls and the answer-watch scope, and their cancellation;
 - the terminal outcome and the offer cooldown;
-- the typed `Host` it runs on and the model requests it builds for the director's transport;
+- the typed `Host` it runs on and the model requests it builds for the classifier transport;
 - the Agreement handoff's log line and the one react line.
 
 `shared/agreement.gd` is the pure package and handle. The service is its only writer.
@@ -67,7 +67,8 @@ The host callbacks are, in order:
 | `classify` | `(PROMPTS.Request, scope, done) -> bool` | the dialogue classifier; `done` gets a `PROMPTS.Reply` |
 | `reason` | `(PROMPTS.Request, scope, done) -> bool` | the Mare Response Reasoning |
 | `await_answer` | `(pony, scope, done) -> bool` | the first new line from the target |
-| `cancel_scope` | `(scope) -> void` | cancels one model scope |
+| `cancel_scope` | `(scope) -> void` | cancels one answer watch |
+| `cancel_call` | `() -> void` | cancels the live model call |
 | `toast` | `(text) -> void` | player feedback through the HUD toast line |
 | `react` | `(pony, reason) -> void` | the shared interruption line |
 | `on_outcome` | `(Terminal) -> void` | the Proactive pacing |
@@ -78,26 +79,16 @@ generation token.
 
 ## Director and model host
 
-`negotiation/host.gd` builds the two typed requests and parses their replies; the call itself is
-the `director` service's one raw completion. The transport holds the classifier node the Proactive
-builds and answers the availability read; the negotiation's bridge reaches it as a peer
-(`docs/director.md`). No
-service reads the director's stock fields directly.
+`negotiation/host.gd` builds the three typed requests and parses their replies; the call itself is
+the `classifier` service's bounded transport (`docs/classifier.md`). The bridge holds the live
+`Call` handle and cancels it when the exchange ends. No service reads the director's stock fields
+directly.
 
 The model methods are `classify(request, scope, done)` and `reason(request, scope, done)`, which
-turn a `PROMPTS.Request` into the instruction and payload, call the director's `complete_raw` once
+turn a `PROMPTS.Request` into the definition, instruction and utterance, call the classifier once
 and parse the reply into a `PROMPTS.Reply`; `await_answer()` baselines the director's player-line
-fields and reports the first new line; `cancel_scope()` drops the watch and cancels the classifier
-scope together.
-
-The shared classifier (`initiation/classifier.gd`, owned by the Proactive service) bounds every
-call: one client, one queue, one deadline, `input_bytes` and `output_tokens` limits, a
-private-reasoning room on top of the visible output budget, and a raw completion that reports the
-text and the provider error without parsing it. The budget and deadline are sized for a reasoning
-model: a call that exhausts the budget returns no JSON and the route reports
-`NoOffer(classifier_unavailable)`. The Proactive service builds the node and hands it to the
-director, so every model call in the mod runs on one node and no service imports the classifier
-file.
+fields and reports the first new line; `cancel_scope()` drops the watch and `cancel_call()` drops
+the live model call.
 
 ## Bridge
 
@@ -182,8 +173,9 @@ the offer carries no rule of its own.
 | Mare response | `classify.mare_response` | the player offer, the option, Context | `{"answer"}`; `unclear` or malformed is a failure |
 
 `negotiation/prompts.gd` owns the request, the payload and the parser; the instruction prose is the
-`classify` group in `settings/prompts.json` (`docs/prompts.md`), and the director owns the call and
-the cancel scope. A parsed failure maps to `NoOffer` for the classifier and `Refused` for
+`classify` group in `settings/prompts.json` (`docs/prompts.md`). The classifier service owns the
+call and its handle; this service owns the answer watch's scope. A parsed failure maps to `NoOffer`
+for the classifier and `Refused` for
 the answer, with no cooldown. A clear offer with an out-of-list index maps to
 `NoOffer(no_context_pose)`; the service validates the index against the list it captured at
 request time.

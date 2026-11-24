@@ -62,6 +62,7 @@ restate a contract.
 | `debug/**` | `docs/debug.md` |
 | `debug_actions/**` | `docs/debug_actions.md` |
 | `director/**` | `docs/director.md` |
+| `classifier/**` | `docs/classifier.md` |
 | `dialogue/**` | `docs/dialogue.md` |
 | `eligibility/**` | `docs/eligibility.md` |
 | `estrus/**` | `docs/estrus.md` |

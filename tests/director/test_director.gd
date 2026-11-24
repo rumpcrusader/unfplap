@@ -76,29 +76,6 @@ class FakePlayer extends Node3D:
 	var flying := false
 
 
-class FakeClassifier extends Node:
-	var calls: Array = []
-	var cancelled: Array = []
-	var can_answer := true
-	var auto := true
-	var reply := ""
-	var error := ""
-
-	func available() -> bool:
-		return can_answer
-
-	func complete_raw(system: String, payload: Dictionary, key: String, done: Callable) -> bool:
-		if not can_answer:
-			return false
-		calls.append({"system": system, "payload": payload, "key": key})
-		if auto:
-			done.call(reply, error)
-		return true
-
-	func cancel_scope(scope: String) -> void:
-		cancelled.append(scope)
-
-
 class FakeMain extends Node:
 	var player: Variant = null
 	var game: Variant = null
@@ -108,7 +85,6 @@ func _fixture() -> Dictionary:
 	var main := FakeMain.new()
 	var player := FakePlayer.new()
 	var game := FakeGame.new()
-	var classifier := FakeClassifier.new()
 	main.player = player
 	WORLD.bind_player(main.player)
 	main.game = game
@@ -119,11 +95,9 @@ func _fixture() -> Dictionary:
 	root.add_child(main)
 	main.add_child(player)
 	main.add_child(game)
-	main.add_child(classifier)
 	var service: Node = DIRECTOR.new()
 	root.add_child(service)
-	service.attach_classifier(classifier)
-	return {"main": main, "player": player, "game": game, "classifier": classifier,
+	return {"main": main, "player": player, "game": game,
 		"director": director, "service": service}
 
 
@@ -140,7 +114,6 @@ func run() -> void:
 	_check_queue()
 	_check_answer()
 	_check_offer_watch()
-	_check_transport()
 	finish()
 
 
@@ -255,9 +228,6 @@ func _check_answer() -> void:
 	director._player_text = "later"
 	service._process(0.0)
 	check(got.is_empty(), "a cancelled scope drops the answer watch")
-	var classifier: FakeClassifier = made["classifier"]
-	check(classifier.cancelled.has("negotiation:answer:3"),
-		"the cancel reaches the classifier too")
 	_free(made)
 
 
@@ -310,37 +280,4 @@ func _check_offer_watch() -> void:
 	director._player_text = "after"
 	service._process(0.1)
 	check(got.is_empty(), "an unwatched line forms nothing")
-	_free(made)
-
-
-## The model transport: one raw completion on the classifier node, the availability read and the
-## scope cancel; no request kind is known here.
-func _check_transport() -> void:
-	var made := _fixture()
-	var service: Node = made["service"]
-	var classifier: FakeClassifier = made["classifier"]
-	var got: Array = []
-	check(service.model_available(), "the attached classifier answers the availability read")
-	check(service.complete_raw(DIRECTOR.Call.of("system", {"a": 1}, "director:scope:1",
-		func(reply: String, error: String) -> void: got.append([reply, error]))),
-		"a raw completion is forwarded")
-	check(classifier.calls.size() == 1, "one classifier call is made")
-	check(classifier.calls[-1]["payload"] == {"a": 1}, "the raw payload reaches the classifier")
-	check(str(classifier.calls[-1]["system"]) == "system", "the raw instruction reaches it")
-	check(got.size() == 1 and got[0][1] == "", "the completion answers once")
-	service.cancel_scope("director:scope:2")
-	check(classifier.cancelled.has("director:scope:2"), "the cancel reaches the classifier")
-	check(not service.complete_raw(DIRECTOR.Call.of("system", {}, "",
-		func(_r, _e) -> void: pass)), "an empty scope is no call")
-	classifier.can_answer = false
-	check(not service.model_available(), "an unavailable classifier is not available")
-	check(not service.complete_raw(DIRECTOR.Call.of("system", {}, "director:scope:3",
-		func(_r, _e) -> void: pass)), "an unavailable classifier refuses the call")
-	classifier.can_answer = true
-	service.on_world(null)
-	check(service.model_available(), "a world enters with the transport intact")
-	service.on_world_closed()
-	check(service.model_available(), "a world close keeps the classifier for the next world")
-	service.shutdown()
-	check(not service.model_available(), "shutdown drops the classifier")
 	_free(made)

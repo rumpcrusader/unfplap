@@ -8,6 +8,7 @@ const AGREEMENT := preload("res://mods/unfplap/shared/agreement.gd")
 const PROMPTS := preload("res://mods/unfplap/negotiation/prompts.gd")
 const HOST := preload("res://mods/unfplap/negotiation/host.gd")
 const DIRECTOR := preload("res://mods/unfplap/director/api.gd")
+const CLASSIFIER := preload("res://mods/unfplap/classifier/api.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/api.gd")
 const ACT_GATE := preload("res://mods/unfplap/act_gate/api.gd")
 const MEMORY := preload("res://mods/unfplap/memory/api.gd")
@@ -89,7 +90,8 @@ class _Exchange:
 	var hold_token := ""
 	var hold_old_wander := true
 	var hold_claimed := false
-	var scope := ""
+	## The director answer watch's cancel key. The model call is the bridge's handle.
+	var watch_scope := ""
 	var line := ""
 	var cuddle := false
 	var expires_at := 0.0
@@ -97,6 +99,7 @@ class _Exchange:
 var _host: HOST.Host
 var _bridge: HOST = null
 var _voice: DIRECTOR = null
+var _classifier: CLASSIFIER = null
 var _phase := _PHASE_NONE
 var _locked := false
 var _exchange: _Exchange = null
@@ -124,7 +127,8 @@ var _ponies: PONIES = null
 ## in `_ready()`, after every peer is wired.
 func wire(eligibility_service: ELIGIBILITY, gate_service: ACT_GATE, memory_service: MEMORY,
 		privacy_service: PRIVACY, initiation_service: Node, voice: DIRECTOR,
-		owner: ACT_OWNER, hud_service: Node = null, ponies_service: PONIES = null) -> void:
+		owner: ACT_OWNER, hud_service: Node = null, ponies_service: PONIES = null,
+		classifier_service: CLASSIFIER = null) -> void:
 	_eligibility = eligibility_service
 	_gate = gate_service
 	_memory = memory_service
@@ -134,8 +138,10 @@ func wire(eligibility_service: ELIGIBILITY, gate_service: ACT_GATE, memory_servi
 	_act_owner = owner
 	_hud = hud_service
 	_ponies = ponies_service
+	_classifier = classifier_service
 	assert(_eligibility != null and _gate != null and _memory != null)
 	assert(_privacy != null and _initiation != null and _voice != null and _act_owner != null)
+	assert(_classifier != null)
 
 
 ## Builds the bridge, then binds the typed host to it.
@@ -152,6 +158,8 @@ func _ready() -> void:
 	_bridge.initiation = _initiation
 	_bridge.act_owner = _act_owner
 	_bridge.ponies = _ponies
+	_bridge.classifier = _classifier
+	_bridge.register_definitions()
 	_bind_host()
 
 
@@ -164,8 +172,8 @@ func on_world(_host: Node) -> void:
 	_bridge.disarm()
 
 
-## Build the typed host from the bridge. Every model callback is the director's; every world read
-## is the bridge or the form view below.
+## Build the typed host from the bridge. Every model callback is the classifier's; every world
+## read is the bridge or the form view below.
 func _bind_host() -> void:
 	if _bridge == null:
 		return
@@ -183,6 +191,7 @@ func _bind_host() -> void:
 	host.reason = Callable(_bridge, "reason")
 	host.await_answer = Callable(_bridge, "await_answer")
 	host.cancel_scope = Callable(_bridge, "cancel_scope")
+	host.cancel_call = Callable(_bridge, "cancel_call")
 	host.toast = Callable(_bridge, "toast")
 	host.react = Callable(self, "_react_line")
 	host.on_outcome = Callable(self, "_on_outcome_terminal")
@@ -195,11 +204,10 @@ func setup(host: HOST.Host) -> void:
 	_host = host
 
 
-## A world enter or a world close. It releases the hold and cancels every classifier scope; a
+## A world enter or a world close. It releases the hold and cancels the watch and the call; a
 ## close reports no terminal outcome.
 func on_world_closed() -> void:
-	_cancel_scope(_exchange.scope if _exchange != null else "")
-	_cancel_scope(_agreement.classifier_scope if _agreement != null else "")
+	_cancel_live(_exchange)
 	_release_hold()
 	_clear_state()
 	_host = null
@@ -286,7 +294,7 @@ func begin_mare_offer(offer: MareOffer) -> bool:
 		live.pony_id, live.hold_token])
 	live.context = _context(live.pony)
 	var scope := _scope("answer")
-	live.scope = scope
+	live.watch_scope = scope
 	var watching := bool(_host.await_answer.call(live.pony, scope,
 		func(text: String, error: String) -> void: _on_anon_answer(live, text, error)))
 	if not watching:
@@ -323,7 +331,6 @@ func begin_anon_offer(runtime: Node, text: String) -> bool:
 	LOG.debug("negotiation classify start id=%s text_len=%d options=%d", [
 		live.pony_id, text.length(), options.size()])
 	var scope := _scope("anon_offer")
-	live.scope = scope
 	var request := PROMPTS.Request.new()
 	request.kind = "anon_offer"
 	request.text = text
@@ -494,10 +501,7 @@ func _close(outcome: int, reason: String, cooldown: float, reaction := false) ->
 	var pony: Node = _pony()
 	var trigger := _trigger()
 	var package_pony: Node = _agreement.pony if _agreement != null else pony
-	if _exchange != null:
-		_cancel_scope(_exchange.scope)
-	if _agreement != null:
-		_cancel_scope(_agreement.classifier_scope)
+	_cancel_live(_exchange)
 	_release_hold()
 	_clear_state()
 	LOG.debug("negotiation outcome=%s reason=%s cooldown=%.0f", [
@@ -511,10 +515,7 @@ func _close(outcome: int, reason: String, cooldown: float, reaction := false) ->
 ## A genuine non-offer closes silently: the scopes and the claim are released and the pacing is
 ## never told.
 func _silent_close() -> void:
-	if _exchange != null:
-		_cancel_scope(_exchange.scope)
-	if _agreement != null:
-		_cancel_scope(_agreement.classifier_scope)
+	_cancel_live(_exchange)
 	_release_hold()
 	_clear_state()
 	LOG.debug("negotiation state=none reason=non_offer")
@@ -551,7 +552,6 @@ func _accept(live: _Exchange) -> void:
 	package.accepted_at = _now()
 	package.ttl_s = AGREEMENT.AGREEMENT_TTL_S
 	package.trigger = live.trigger
-	package.classifier_scope = live.scope
 	_agreement = package
 	_handle = _make_handle(package)
 	_exchange = null
@@ -598,12 +598,11 @@ func _interrupt_reason(reason: String) -> String:
 func _on_anon_answer(live: _Exchange, text: String, error: String) -> void:
 	if not _current(live):
 		return
-	_cancel_scope(live.scope)
+	_cancel_watch(live)
 	if not error.is_empty():
 		_close(_OUTCOME_REFUSED, AGREEMENT.REASON_CLASSIFIER_UNAVAILABLE, 0.0)
 		return
 	var scope := _scope("decision")
-	live.scope = scope
 	var request := PROMPTS.Request.new()
 	request.kind = "anon_decision"
 	request.text = text
@@ -618,7 +617,7 @@ func _on_anon_answer(live: _Exchange, text: String, error: String) -> void:
 func _on_anon_decision(live: _Exchange, reply: PROMPTS.Reply) -> void:
 	if not _current(live):
 		return
-	_cancel_scope(live.scope)
+	_cancel_call()
 	LOG.debug("negotiation answer id=%s kind=anon_decision answer=%s failed=%s", [
 		live.pony_id, "none" if reply == null else reply.answer,
 		str(reply == null or reply.failed)])
@@ -640,7 +639,7 @@ func _on_anon_decision(live: _Exchange, reply: PROMPTS.Reply) -> void:
 func _on_anon_offer_classified(live: _Exchange, reply: PROMPTS.Reply) -> void:
 	if not _current(live):
 		return
-	_cancel_scope(live.scope)
+	_cancel_call()
 	if reply != null:
 		LOG.debug("negotiation classify result id=%s answer=%s option=%d failed=%s out_of_range=%s", [
 			live.pony_id, reply.answer, reply.option_index, str(reply.failed),
@@ -676,7 +675,6 @@ func _on_anon_offer_classified(live: _Exchange, reply: PROMPTS.Reply) -> void:
 	LOG.debug("negotiation offer id=%s trigger=anon pose=%s private=%s", [
 		live.pony_id, option.key(), str(live.private)])
 	var scope := _scope("mare_response")
-	live.scope = scope
 	var request := PROMPTS.Request.new()
 	request.kind = "mare_response"
 	request.text = live.line
@@ -691,7 +689,7 @@ func _on_anon_offer_classified(live: _Exchange, reply: PROMPTS.Reply) -> void:
 func _on_mare_response(live: _Exchange, reply: PROMPTS.Reply) -> void:
 	if not _current(live):
 		return
-	_cancel_scope(live.scope)
+	_cancel_call()
 	LOG.debug("negotiation answer id=%s kind=mare_response answer=%s failed=%s", [
 		live.pony_id, "none" if reply == null else reply.answer,
 		str(reply == null or reply.failed)])
@@ -917,10 +915,23 @@ func _scope(kind: String) -> String:
 	return "negotiation:%s:%d:%d" % [kind, _serial, _generation]
 
 
-func _cancel_scope(scope: String) -> void:
-	if scope.is_empty() or _host == null or not _host.cancel_scope.is_valid():
+func _cancel_watch(live: _Exchange) -> void:
+	if live == null or live.watch_scope.is_empty() or _host == null \
+			or not _host.cancel_scope.is_valid():
 		return
-	_host.cancel_scope.call(scope)
+	_host.cancel_scope.call(live.watch_scope)
+	live.watch_scope = ""
+
+
+func _cancel_call() -> void:
+	if _host == null or not _host.cancel_call.is_valid():
+		return
+	_host.cancel_call.call()
+
+
+func _cancel_live(live: _Exchange) -> void:
+	_cancel_watch(live)
+	_cancel_call()
 
 
 func _now() -> float:

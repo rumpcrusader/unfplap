@@ -42,8 +42,6 @@ class Package:
 	var accepted_at := 0.0
 	var ttl_s := AGREEMENT_TTL_S
 	var trigger := Trigger.MARE_OFFER
-	## The one model scope still waiting on the answer; cancelled when the Agreement ends.
-	var classifier_scope := ""
 
 	func expires_at() -> float:
 		return accepted_at + ttl_s

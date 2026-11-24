@@ -21,8 +21,6 @@ var trigger := ""
 var auto := false
 ## True for the live accepted request offer; a discovery offer is false.
 var pending := false
-## The classifier scope a successful start cancels, for example "dialogue:". Empty means none.
-var scope := ""
 ## The blocked policy record `{hint, need, toast}`; empty while the offer is playable.
 var blocked: Dictionary = {}
 ## The owner's cleanup before the gate hands the pony to the act. Invalid means none.

@@ -109,6 +109,7 @@ class Boxes:
 	var contexts: Array = []
 	var scopes: Array[String] = []
 	var cancelled: Array[String] = []
+	var calls_cancelled := 0
 	var outcomes: Array = []
 	var agreements: Array = []
 	var reactions: Array = []
@@ -166,6 +167,7 @@ func _fixture() -> Dictionary:
 			done.call("yes", "")
 		return true
 	host.cancel_scope = func(scope) -> void: boxes.cancelled.append(str(scope))
+	host.cancel_call = func() -> void: boxes.calls_cancelled += 1
 	host.toast = func(text) -> void: boxes.toasts.append(str(text))
 	host.react = func(pony_node, reason) -> void: boxes.reactions.append([pony_node, reason])
 	host.on_outcome = func(terminal) -> void: boxes.outcomes.append(terminal)

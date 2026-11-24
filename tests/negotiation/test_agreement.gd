@@ -33,7 +33,6 @@ func run() -> void:
 	package.accepted_at = 100.0
 	package.ttl_s = AGREEMENT.AGREEMENT_TTL_S
 	package.trigger = AGREEMENT.Trigger.ANON_OFFER
-	package.classifier_scope = "negotiation:mare_response:1:2"
 
 	var expires := package.accepted_at + package.ttl_s
 	check(package.expires_at() == expires, "the Agreement TTL starts at acceptance")

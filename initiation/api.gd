@@ -10,7 +10,7 @@ const FACTS := preload("res://mods/unfplap/initiation/facts.gd")
 const PROMPTS := preload("res://mods/unfplap/initiation/prompts.gd")
 const REASONING := preload("res://mods/unfplap/initiation/reasoning.gd")
 const VENUE := preload("res://mods/unfplap/initiation/venue.gd")
-const CLASSIFIER := preload("res://mods/unfplap/initiation/classifier.gd")
+const CLASSIFIER := preload("res://mods/unfplap/classifier/api.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const POSE_OPTIONS := preload("res://mods/unfplap/shared/pose_options.gd")
 const COOLDOWNS := preload("res://mods/unfplap/initiation/cooldowns.gd")
@@ -113,21 +113,23 @@ var _offer: OFFER
 var _negotiation: NEGOTIATION = null
 ## The roster that answers the runtimes and the per-pony scene handles.
 var _ponies: PONIES = null
-## The director peer: the quiet gate, the lines and the model transport.
+## The director peer: the quiet gate, the lines and the ask.
 var _director: DIRECTOR = null
-## This service's bounded classifier: the negotiation model calls and both reasoning stages go
-## through it.
+## The one bounded model transport.
 var _classifier: CLASSIFIER = null
+## The Mare Initiation Reasoning definition this service owns.
+var _reasoning_definition: CLASSIFIER.Definition = null
 ## One reasoning call at a time. A new scan never starts a second; a terminal transition bumps
 ## the serial so a late reply cannot form an offer.
 var _reasoning_pending := false
 var _reasoning_serial := 0
-var _reasoning_scope := ""
+var _reasoning_call: CLASSIFIER.Call = null
 
 
 ## The peers this service calls; the composition root is the only caller.
 func wire(eligibility: ELIGIBILITY, act_gate: ACT_GATE, privacy: PRIVACY, memory: MEMORY,
-		negotiation: NEGOTIATION, director: DIRECTOR, offer: OFFER, ponies: PONIES) -> void:
+		negotiation: NEGOTIATION, director: DIRECTOR, offer: OFFER, ponies: PONIES,
+		classifier: CLASSIFIER = null) -> void:
 	self.eligibility = eligibility
 	self.act_gate = act_gate
 	_privacy = privacy
@@ -136,19 +138,20 @@ func wire(eligibility: ELIGIBILITY, act_gate: ACT_GATE, privacy: PRIVACY, memory
 	_director = director
 	_offer = offer
 	_ponies = ponies
+	_classifier = classifier
 	assert(eligibility != null and act_gate != null and privacy != null and memory != null)
 	assert(negotiation != null and director != null and offer != null and _ponies != null)
+	assert(_classifier != null)
 
 
-## Builds the bounded classifier and the place node, then hands the classifier to the director, the
-## one model transport. `_ready` runs it; the suites call it after `wire()`.
+## Builds the place node and the reasoning definition. `_ready` runs it; the suites call it after
+## `wire()`.
 func setup() -> void:
-	if not is_instance_valid(_classifier):
-		_classifier = CLASSIFIER.new()
-		_classifier.name = "UnfplapClassifier"
-		add_child(_classifier)
-	if is_instance_valid(_director):
-		_director.attach_classifier(_classifier)
+	if _reasoning_definition == null and is_instance_valid(_classifier):
+		_reasoning_definition = CLASSIFIER.Definition.new()
+		_reasoning_definition.id = "initiation.mare_offer"
+		_reasoning_definition.instruction = REASONING.instruction()
+		_reasoning_definition.priority = 0
 	if not is_instance_valid(_venue):
 		_venue = VENUE.new()
 		_venue.name = "UnfplapRequestPlace"
@@ -176,8 +179,7 @@ func tick(delta: float) -> void:
 	_consider_start()
 
 
-## A world enter or a world close: the live attempt and every classifier scope belong to the world
-## that is gone.
+## Both world hooks close the attempt and the pending reasoning call.
 func on_world(_host: Node) -> void:
 	on_world_closed()
 
@@ -188,9 +190,9 @@ func on_world_closed() -> void:
 		_close_episode("")
 	_reasoning_serial += 1
 	_reasoning_pending = false
-	if is_instance_valid(_director) and not _reasoning_scope.is_empty():
-		_director.cancel_scope(_reasoning_scope)
-	_reasoning_scope = ""
+	if _reasoning_call != null:
+		_reasoning_call.cancel()
+		_reasoning_call = null
 	_cuddle_asked.clear()
 	_retry_at.clear()
 	_quiet_reason = ""
@@ -198,8 +200,6 @@ func on_world_closed() -> void:
 	_scan_log_at.clear()
 	_scan_clock = 0.0
 	_scan_cursor = 0
-	if is_instance_valid(_classifier):
-		_classifier.cancel_all()
 
 
 ## Lab entry that skips quiet, cooldown, retry and reasoning but keeps clearance and poses.
@@ -433,31 +433,29 @@ func _options_for(placement: POSE_OPTIONS.Placement, form: String, view: String,
 ## One bounded Mare Initiation Reasoning call. A reasoning "no" applies the full pacing cooldown;
 ## an unavailable or failed call applies the short retry.
 func _start_reasoning(candidate: Candidate) -> void:
-	if not is_instance_valid(_director):
+	if not is_instance_valid(_classifier) or _reasoning_definition == null:
 		return
 	candidate.context = _context(candidate.pony)
 	_reasoning_serial += 1
 	var serial := _reasoning_serial
-	_reasoning_scope = "negotiation:initiation:%d:%d" % [_serial, serial]
 	_reasoning_pending = true
 	LOG.debug("request reasoning start id=%s options=%d", [candidate.id, candidate.options.size()])
 	var payload := REASONING.payload(candidate.context, candidate.options)
-	var started := _director.complete_raw(DIRECTOR.Call.of(REASONING.instruction(), payload,
-		_reasoning_scope,
-		func(reply: String, error: String) -> void:
-			_on_reasoning(candidate, serial, reply, error)))
-	if not started:
+	_reasoning_call = _classifier.run(_reasoning_definition, JSON.stringify(payload))
+	if _reasoning_call == null:
 		_reasoning_pending = false
-		_reasoning_scope = ""
 		_retry_at[candidate.id] = _now() + POLICY.RETRY_S
 		LOG.debug("request reasoning unavailable id=%s", [candidate.id])
+		return
+	_reasoning_call.done.connect(func(reply: String, error: String) -> void:
+		_on_reasoning(candidate, serial, reply, error))
 
 
 func _on_reasoning(candidate: Candidate, serial: int, reply: String, error: String) -> void:
 	if serial != _reasoning_serial:
 		return
 	_reasoning_pending = false
-	_reasoning_scope = ""
+	_reasoning_call = null
 	if candidate == null or _episode != null:
 		return
 	var runtime: Node = candidate.runtime

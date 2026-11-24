@@ -23,8 +23,8 @@ document a service. The index is `docs/README.md`; each service's contract is
 | Port | A service-owned abstract `RefCounted` the runtime implements once per pony, for example `shared/start_port.gd`. |
 | Cross-mod API | `api.gd` and `docs/api.md`: the one stable contract another mod may call. |
 
-There are thirty-six services: three Process (`settings`, `debug`, `registry`), twenty World and
-thirteen Pony. `act/` and `vr/` are Other. The two orchestrators are not services: they compose,
+There are thirty-eight services: three Process (`settings`, `debug`, `registry`), twenty-two World
+and thirteen Pony. `act/` and `vr/` are Other. The two orchestrators are not services: they compose,
 and they own order rather than another service's rules.
 
 ## Classes and ownership

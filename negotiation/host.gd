@@ -3,6 +3,7 @@ extends RefCounted
 
 const PROMPTS := preload("res://mods/unfplap/negotiation/prompts.gd")
 const DIRECTOR := preload("res://mods/unfplap/director/api.gd")
+const CLASSIFIER := preload("res://mods/unfplap/classifier/api.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/api.gd")
 const ACT_GATE := preload("res://mods/unfplap/act_gate/api.gd")
 const MEMORY := preload("res://mods/unfplap/memory/api.gd")
@@ -49,8 +50,10 @@ class Host:
 	var reason: Callable
 	## (pony, scope, done) -> bool: the target's next spoken line, watched once.
 	var await_answer: Callable
-	## (scope) -> void: cancel one classifier scope.
+	## (scope) -> void: cancel one answer watch.
 	var cancel_scope: Callable
+	## () -> void: cancel the live model call.
+	var cancel_call: Callable
 	## (text) -> void.
 	var toast: Callable
 	## (pony, reason) -> void: the shared reaction line.
@@ -68,8 +71,10 @@ func _state_of(runtime: Node) -> int:
 
 ## The negotiation service: the lock read, the Anon answer and the Agreement cancel.
 var service: Node = null
-## The director peer: the quiet gate, the lines and the one model transport.
+## The director peer: the quiet gate, the lines and the answer watch.
 var voice: DIRECTOR = null
+## The one bounded model transport.
+var classifier: CLASSIFIER = null
 ## The services this bridge reads, set once by the facade from its `wire()` peers.
 var eligibility: ELIGIBILITY = null
 ## The dynamic gate: the relationship row and the Context facts.
@@ -82,6 +87,10 @@ var initiation: Node = null
 var act_owner: ACT_OWNER = null
 ## The roster that answers the per-pony runtime and its handles.
 var ponies: PONIES = null
+## The three registered model definitions, keyed by request kind.
+var _definitions: Dictionary = {}
+## The live model call, or null when no call is in flight.
+var _call: CLASSIFIER.Call = null
 ## True while the director's global Anon-offer watch is armed.
 var _watching := false
 
@@ -90,6 +99,20 @@ var _watching := false
 
 func now() -> float:
 	return Time.get_ticks_msec() / 1000.0
+
+
+## Build the three definitions this service owns. The transport registers nothing; each call
+## carries its own definition.
+func register_definitions() -> void:
+	_definitions.clear()
+	if not is_instance_valid(classifier):
+		return
+	for kind: String in ["anon_offer", "anon_decision", "mare_response"]:
+		var definition := CLASSIFIER.Definition.new()
+		definition.id = "negotiation." + kind
+		definition.instruction = PROMPTS.system_for(kind)
+		definition.priority = 10
+		_definitions[kind] = definition
 
 
 func eligible(pony: Variant) -> bool:
@@ -142,27 +165,38 @@ func reason(request: PROMPTS.Request, scope: String, done: Callable) -> bool:
 	return _complete(request, scope, done)
 
 
-## One typed request over the director's raw completion; the caller owns the schema and the parse
+## Cancel the live model call. The transport handle is this bridge's; the service only asks.
+func cancel_call() -> void:
+	if _call != null:
+		_call.cancel()
+		_call = null
+
+
+## One typed request over the classifier transport; the caller owns the schema and the parse
 ## here is this file's, so the transport knows no request kind.
 func _complete(request: PROMPTS.Request, scope: String, done: Callable) -> bool:
 	if request == null or not done.is_valid() or scope.is_empty() \
-			or not is_instance_valid(voice):
+			or not is_instance_valid(classifier):
 		return false
-	var system := PROMPTS.system_for(request.kind)
-	if system.is_empty():
+	var definition: CLASSIFIER.Definition = _definitions.get(request.kind)
+	if definition == null:
 		LOG.debug("classifier skip kind=%s reason=unknown_kind", [request.kind])
 		return false
 	var payload := PROMPTS.payload_for(request)
 	var count := request.options.size()
 	LOG.debug("classifier start kind=%s scope=%s options=%d text_len=%d", [
 		request.kind, scope, count, request.text.length()])
-	return voice.complete_raw(DIRECTOR.Call.of(system, payload, scope,
-		func(reply: String, error: String) -> void:
-			var parsed := PROMPTS.parse(request.kind, reply, error, count)
-			LOG.debug("classifier result kind=%s scope=%s answer=%s option=%d failed=%s out_of_range=%s reply=%s error=%s", [
-				request.kind, scope, parsed.answer, parsed.option_index, str(parsed.failed),
-				str(parsed.out_of_range), _reply_text(reply), error])
-			done.call(parsed)))
+	_call = classifier.run(definition, JSON.stringify(payload))
+	if _call == null:
+		return false
+	_call.done.connect(func(reply: String, error: String) -> void:
+		_call = null
+		var parsed := PROMPTS.parse(request.kind, reply, error, count)
+		LOG.debug("classifier result kind=%s scope=%s answer=%s option=%d failed=%s out_of_range=%s reply=%s error=%s", [
+			request.kind, scope, parsed.answer, parsed.option_index, str(parsed.failed),
+			str(parsed.out_of_range), _reply_text(reply), error])
+		done.call(parsed))
+	return true
 
 
 func _reply_text(reply: String) -> String:
@@ -302,9 +336,9 @@ func on_anon_line(text: String) -> void:
 	LOG.debug("anon_line negotiation started=%s", [str(started)])
 
 
-## A missing classifier means no answer; the Proactive service owns that node.
+## A missing classifier means no answer.
 func _classifier_ready() -> bool:
-	return is_instance_valid(voice) and voice.model_available()
+	return is_instance_valid(classifier) and classifier.available()
 
 
 ## The mare whose conversation target is Anon, nearest first. The game's own target decides; the

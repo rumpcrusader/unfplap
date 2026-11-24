@@ -9,6 +9,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 const HOST := preload("res://mods/unfplap/negotiation/host.gd")
 const NEGOTIATION := preload("res://mods/unfplap/negotiation/api.gd")
 const DIRECTOR := preload("res://mods/unfplap/director/api.gd")
+const CLASSIFIER := preload("res://mods/unfplap/classifier/api.gd")
 const AGREEMENT := preload("res://mods/unfplap/shared/agreement.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const PONIES := preload("res://mods/unfplap/ponies/api.gd")
@@ -66,11 +67,7 @@ class FakeVoice extends DIRECTOR:
 	var watched := 0
 	var unwatched := 0
 	var queued: Array = []
-	var raw_calls: Array = []
 	var cancel_calls: Array[String] = []
-	var reply := "{\"offer\":true,\"option\":0}"
-	var error := ""
-	var available := true
 
 	func watch_player(_sink: DIRECTOR.Line) -> void:
 		watched += 1
@@ -84,20 +81,32 @@ class FakeVoice extends DIRECTOR:
 			"priority": priority})
 		return true
 
-	func complete_raw(call: DIRECTOR.Call) -> bool:
-		raw_calls.append({"system": call.system, "payload": call.payload,
-			"scope": call.scope})
-		if not available:
-			return false
-		call.reply.call(reply, error)
-		return true
-
 	func cancel_scope(scope: String) -> void:
 		cancel_calls.append(scope)
 		super(scope)
 
-	func model_available() -> bool:
-		return available
+
+class FakeClassifier extends "res://mods/unfplap/classifier/api.gd":
+	var calls: Array = []
+	var can_answer := true
+	var reply := "{\"offer\":true,\"option\":0}"
+	var error := ""
+
+	func available() -> bool:
+		return can_answer
+
+	func run(definition: CLASSIFIER.Definition, utterance: String) -> CLASSIFIER.Call:
+		if not can_answer:
+			return null
+		var call := CLASSIFIER.Call.new()
+		call.definition = definition
+		call.utterance = utterance
+		calls.append({"definition": definition, "utterance": utterance, "call": call})
+		return call
+
+	func answer() -> void:
+		var row: Dictionary = calls[-1]
+		(row["call"] as CLASSIFIER.Call).done.emit(reply, error)
 
 
 ## The service as the bridge sees it: the lock, the Anon answer and the Agreement cancel.
@@ -119,11 +128,9 @@ class FakeService extends Node:
 
 
 class FakeInitiation extends Node:
-	var available := true
 	var placement := POSE_OPTIONS.Placement.new()
 	var approaches := 0
 	var outcomes: Array = []
-	var classifier: Node = null
 
 	func placement_for(_runtime: Node) -> POSE_OPTIONS.Placement:
 		return placement
@@ -133,12 +140,6 @@ class FakeInitiation extends Node:
 
 	func on_negotiation_outcome(terminal: Variant) -> void:
 		outcomes.append(terminal)
-
-	func classifier_available() -> bool:
-		return available
-
-	func classifier_node() -> Node:
-		return classifier
 
 
 class FakeEligibility extends ELIGIBILITY:
@@ -262,6 +263,7 @@ func _bridge_fixture() -> Dictionary:
 	var bridge := HOST.new()
 	bridge.service = FakeService.new()
 	bridge.voice = FakeVoice.new()
+	bridge.classifier = FakeClassifier.new()
 	bridge.eligibility = eligibility
 	bridge.gate = gate
 	bridge.memory = FakeMemory.new()
@@ -269,15 +271,15 @@ func _bridge_fixture() -> Dictionary:
 	bridge.initiation = FakeInitiation.new()
 	bridge.act_owner = world.act_owner
 	bridge.ponies = roster
-	for node: Node in [game, bridge.service, bridge.voice, bridge.initiation]:
+	for node: Node in [game, bridge.service, bridge.voice, bridge.classifier, bridge.initiation]:
 		root.add_child(node)
 	root.add_child(roster)
 	WORLD.bind_world(game)
 	WORLD.bind_player(player)
 	return {"bridge": bridge, "game": game, "pony": pony, "runtime": runtime,
 		"player": player, "eligibility": eligibility, "gate": gate, "facts": facts,
-		"service": bridge.service, "voice": bridge.voice, "initiation": bridge.initiation,
-		"owner": world.act_owner, "ponies": roster,
+		"service": bridge.service, "voice": bridge.voice, "classifier": bridge.classifier,
+		"initiation": bridge.initiation, "owner": world.act_owner, "ponies": roster,
 		"memory": bridge.memory, "privacy": bridge.privacy}
 
 
@@ -287,7 +289,7 @@ func _free_bridge(made: Dictionary) -> void:
 	root.remove_child(roster)
 	roster.free()
 	WORLD.unbind()
-	for key: String in ["service", "voice", "initiation", "game"]:
+	for key: String in ["service", "voice", "classifier", "initiation", "game"]:
 		var node: Node = made[key]
 		root.remove_child(node)
 		if key == "game" and node.world_context != null:
@@ -336,19 +338,21 @@ func _service_fixture() -> Dictionary:
 	var service := NEGOTIATION.new()
 	service.name = "UnfplapNegotiation"
 	var voice := FakeVoice.new()
-	for node: Node in [game, director, initiation, voice]:
+	var classifier := FakeClassifier.new()
+	for node: Node in [game, director, initiation, voice, classifier]:
 		root.add_child(node)
 	root.add_child(roster)
 	WORLD.bind_world(game)
 	WORLD.bind_player(player)
 	var memory := FakeMemory.new()
 	var privacy := FakePrivacy.new()
-	service.wire(eligibility, gate, memory, privacy, initiation, voice, owner, null, roster)
+	service.wire(eligibility, gate, memory, privacy, initiation, voice, owner, null, roster,
+		classifier)
 	root.add_child(service)
 	return {"service": service, "game": game, "pony": pony, "runtime": runtime,
 		"player": player, "eligibility": eligibility, "gate": gate, "facts": facts,
 		"initiation": initiation, "director": director, "owner": owner, "voice": voice,
-		"ponies": roster, "memory": memory, "privacy": privacy}
+		"classifier": classifier, "ponies": roster, "memory": memory, "privacy": privacy}
 
 
 func _free_service(made: Dictionary) -> void:
@@ -358,7 +362,7 @@ func _free_service(made: Dictionary) -> void:
 	roster.free()
 	WORLD.unbind()
 	(made["owner"] as Node).free()
-	for key: String in ["service", "director", "initiation", "voice", "game"]:
+	for key: String in ["service", "director", "initiation", "voice", "classifier", "game"]:
 		var node: Node = made[key]
 		root.remove_child(node)
 		if key == "game" and node.world_context != null:
@@ -400,7 +404,9 @@ func _check_wire_build() -> void:
 	var privacy := FakePrivacy.new()
 	var initiation := FakeInitiation.new()
 	var voice := FakeVoice.new()
-	service.wire(eligibility, gate, memory, privacy, initiation, voice, owner)
+	var classifier := FakeClassifier.new()
+	service.wire(eligibility, gate, memory, privacy, initiation, voice, owner, null, null,
+		classifier)
 	check(service.get_child_count() == 0, "wire() builds no child")
 	root.add_child(service)
 	check(service.get_child_count() == 0, "attaching builds no child either")
@@ -415,6 +421,7 @@ func _check_wire_build() -> void:
 	privacy.free()
 	initiation.free()
 	voice.free()
+	classifier.free()
 
 
 ## The bridge answers the typed host callbacks from the facades the entry binds.
@@ -458,7 +465,7 @@ func _check_models() -> void:
 	var made := _service_fixture()
 	var service: NEGOTIATION = made["service"]
 	var bridge: HOST = service.get("_bridge")
-	var voice: FakeVoice = made["voice"]
+	var classifier: FakeClassifier = made["classifier"]
 	var context := CONTEXT.build({"willingness": true})
 	var options: Array[POSE_OPTIONS.Option] = [
 		_option(CATALOG.MISSIONARY),
@@ -472,16 +479,18 @@ func _check_models() -> void:
 	var got: Array = []
 	check(bridge.classify(request, "negotiation:anon_offer:1", func(reply) -> void:
 		got.append(reply)), "the Anon offer classifier runs")
-	check(voice.raw_calls.size() == 1, "one raw transport call is made")
-	var call: Dictionary = voice.raw_calls[0]
-	check(str(call["system"]).contains("option"), "the Anon offer instruction is used")
-	var payload: Dictionary = call["payload"]
+	check(classifier.calls.size() == 1, "one classifier call is made")
+	var row: Dictionary = classifier.calls[0]
+	check(str((row["definition"] as CLASSIFIER.Definition).instruction).contains("option"),
+		"the Anon offer instruction is used")
+	var payload := _utterance(row)
 	check(str(payload.get("player_line", "")) == "take me to bed",
 		"the classifier payload carries the line")
 	check((payload.get("options", []) as Array).size() == 2,
 		"the classifier payload carries the options")
 	check((payload.get("context", {}) as Dictionary).get("willing") == true,
 		"the classifier payload carries Context")
+	classifier.answer()
 	check(got.size() == 1 and got[0].answer == CONTEXT.ANSWER_ACCEPT and got[0].option_index == 0,
 		"the reply is parsed into the typed answer")
 
@@ -489,42 +498,50 @@ func _check_models() -> void:
 	request.kind = "anon_decision"
 	request.text = "right here"
 	request.line = "come here"
-	voice.reply = "{\"answer\":\"accept\"}"
+	classifier.reply = "{\"answer\":\"accept\"}"
 	check(bridge.classify(request, "negotiation:decision:1", func(reply) -> void:
 		got.append(reply)), "the Anon decision classifier runs")
+	classifier.answer()
 	check(got.size() == 1 and got[0].answer == CONTEXT.ANSWER_ACCEPT,
 		"the Anon decision is parsed")
-	payload = voice.raw_calls[-1]["payload"]
+	payload = _utterance(classifier.calls[-1])
 	check(str(payload.get("offer", "")) == "come here", "the decision payload carries the offer")
 
 	got.clear()
 	request.kind = "mare_response"
 	request.text = "want to?"
 	request.options = [options[1]]
-	voice.reply = "{\"answer\":\"counter_offer\"}"
+	classifier.reply = "{\"answer\":\"counter_offer\"}"
 	check(bridge.reason(request, "negotiation:response:1", func(reply) -> void:
 		got.append(reply)), "the Mare response reasoning runs")
+	classifier.answer()
 	check(got.size() == 1 and got[0].answer == CONTEXT.ANSWER_COUNTER_OFFER,
 		"the Mare response is parsed")
-	payload = voice.raw_calls[-1]["payload"]
+	payload = _utterance(classifier.calls[-1])
 	check((payload.get("option", {}) as Dictionary).get("pose") == CATALOG.STANDING,
 		"the Mare response payload carries the option")
 
 	got.clear()
-	voice.reply = "not json"
+	classifier.reply = "not json"
 	check(bridge.reason(request, "negotiation:response:2", func(reply) -> void:
 		got.append(reply)), "a malformed reply still completes the call")
+	classifier.answer()
 	check(got.size() == 1 and got[0].failed, "a malformed reply is a failed answer")
 
-	voice.available = false
+	classifier.can_answer = false
 	check(not bridge.classify(request, "negotiation:response:3", func(_reply) -> void: pass),
 		"an unavailable model refuses the call")
-	voice.available = true
+	classifier.can_answer = true
 	var unknown := PROMPTS.Request.new()
 	unknown.kind = "nonsense"
 	check(not bridge.classify(unknown, "negotiation:nonsense:1", func(_reply) -> void: pass),
 		"an unknown request kind is refused")
 	_free_service(made)
+
+
+func _utterance(row: Dictionary) -> Dictionary:
+	var parsed: Variant = JSON.parse_string(str(row.get("utterance", "")))
+	return parsed if parsed is Dictionary else {}
 
 
 ## The Context facts the service's reasoning reads come from the service's own bridge.
@@ -577,9 +594,6 @@ func _check_anon_line_guards() -> void:
 	service.locked = true
 	bridge.on_anon_line("take me to bed")
 	service.locked = false
-	initiation.available = false
-	bridge.on_anon_line("take me to bed")
-	initiation.available = true
 	pony.conversation_target = null
 	bridge.on_anon_line("take me to bed")
 	pony.conversation_target = made["player"]

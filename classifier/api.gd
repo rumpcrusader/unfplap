@@ -42,18 +42,12 @@ class Call extends RefCounted:
 			_cancel.call()
 
 
-## One queued call's frozen values; the caller's definition may change after `run`.
+## One queued or active call's private record; it reuses the caller's immutable definition.
 class _Job extends RefCounted:
-	var id := ""
-	var instruction := ""
-	var input_bytes := 0
-	var output_tokens := 0
-	var reasoning_room := 0
-	var max_attempts := 1
-	var deadline_s := 8.0
-	var priority := 0
+	var definition: Definition = null
 	var utterance := ""
 	var done: Callable = Callable()
+	var call: Call = null
 
 
 var _client: Node = null
@@ -89,6 +83,7 @@ func available() -> bool:
 
 
 ## One bounded call. Null means nothing could start; `reply` gets the text and error once.
+## The definition is read when the call starts, so the caller must not change it after this.
 func run(definition: Definition, utterance: String, reply: Reply) -> Call:
 	if not _valid(definition) or utterance.is_empty():
 		return null
@@ -100,17 +95,11 @@ func run(definition: Definition, utterance: String, reply: Reply) -> Call:
 		LOG.debug("classifier queue full id=%s", [definition.id])
 		return null
 	var job := _Job.new()
-	job.id = definition.id
-	job.instruction = definition.instruction
-	job.input_bytes = definition.input_bytes
-	job.output_tokens = definition.output_tokens
-	job.reasoning_room = definition.reasoning_room
-	job.max_attempts = definition.max_attempts
-	job.deadline_s = definition.deadline_s
-	job.priority = definition.priority
+	job.definition = definition
 	job.utterance = utterance
 	job.done = reply.done
 	var call := Call.new()
+	job.call = call
 	call._cancel = Callable(self, "_cancel_call").bind(job)
 	_enqueue(job)
 	return call
@@ -154,7 +143,7 @@ func _ensure_configured() -> bool:
 
 func _enqueue(job: _Job) -> void:
 	var index := _queue.size()
-	while index > 0 and _queue[index - 1].priority < job.priority:
+	while index > 0 and _queue[index - 1].definition.priority < job.definition.priority:
 		index -= 1
 	_queue.insert(index, job)
 	call_deferred("_start_next")
@@ -168,15 +157,16 @@ func _start_next() -> void:
 	_active = _queue.pop_front()
 	_serial += 1
 	var generation := _serial
-	_timer.start(_active.deadline_s)
+	var definition := _active.definition
+	_timer.start(definition.deadline_s)
 	var limits := {
-		"purpose": _active.id,
-		"input_bytes": _active.input_bytes,
-		"output_tokens": _active.output_tokens,
-		"reasoning_room": _active.reasoning_room,
-		"max_attempts": _active.max_attempts,
+		"purpose": definition.id,
+		"input_bytes": definition.input_bytes,
+		"output_tokens": definition.output_tokens,
+		"reasoning_room": definition.reasoning_room,
+		"max_attempts": definition.max_attempts,
 	}
-	var accepted: bool = _client.complete_limited(_active.instruction,
+	var accepted: bool = _client.complete_limited(definition.instruction,
 		[{"role": "user", "content": _active.utterance}],
 		func(reply: String, error: String) -> void:
 			if generation != _serial:
@@ -201,8 +191,10 @@ func _finish(reply: String, error: String) -> void:
 	var job := _active
 	_active = null
 	_serial += 1
-	if job.done.is_valid():
-		job.done.call(reply, error)
+	var done := job.done
+	_release(job)
+	if done.is_valid():
+		done.call(reply, error)
 	call_deferred("_start_next")
 
 
@@ -216,6 +208,7 @@ func _cancel_call(job: _Job) -> void:
 	var index := _queue.find(job)
 	if index >= 0:
 		_queue.remove_at(index)
+		_release(job)
 
 
 func _cancel_active() -> void:
@@ -225,13 +218,24 @@ func _cancel_active() -> void:
 		_timer.stop()
 	if is_instance_valid(_client):
 		_client.cancel()
+	var job := _active
 	_active = null
 	_serial += 1
+	_release(job)
+
+
+func _release(job: _Job) -> void:
+	if job.call == null:
+		return
+	job.call._cancel = Callable()
+	job.call = null
 
 
 ## Clear the active and queued calls.
 func _cancel_all() -> void:
 	_cancel_active()
+	for job in _queue:
+		_release(job)
 	_queue.clear()
 
 

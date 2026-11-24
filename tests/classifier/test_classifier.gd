@@ -155,6 +155,26 @@ func _check_cancel() -> void:
 
 	_client.calls.clear()
 	_client.cancelled = 0
+	var done_call := _service.run(_definition("done"), "one", _no_sink())
+	await process_frame
+	_client.answer("late", "")
+	done_call.cancel()
+	check(_client.cancelled == 0, "a completed call's cancel is a no-op")
+	await process_frame
+
+	_client.calls.clear()
+	_client.cancelled = 0
+	var twice_got: Array = []
+	var twice := _service.run(_definition("twice"), "one", _sink(twice_got))
+	await process_frame
+	twice.cancel()
+	twice.cancel()
+	await process_frame
+	check(_client.cancelled == 1, "cancelling twice cancels once")
+	check(twice_got.is_empty(), "a double cancel never calls the reply")
+
+	_client.calls.clear()
+	_client.cancelled = 0
 	var first := _service.run(_definition("first"), "one", _no_sink())
 	var second := _service.run(_definition("second"), "two", _no_sink())
 	await process_frame

@@ -39,7 +39,8 @@ deterministic classifiers in the shared pure modules.
 | `initiation.mare_offer` | initiation | `classify.mare_offer` | `{"offer","option"}` |
 
 The payload and parse stay with the owner's contract. A definition is plain data: the owner sets
-`id` and `instruction`, and may set the input/output bounds, the deadline and the queue priority.
+`id` and `instruction`, and may set the input/output bounds, the deadline and the queue priority. A
+definition is immutable once it is passed to `run()`; the transport reads it when the call starts.
 
 ## Scheduling
 

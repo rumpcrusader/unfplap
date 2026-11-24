@@ -132,9 +132,9 @@ Do not stage the doc yet.
 ## 7. Docs
 
 After the data commit, update the owning doc when the promotion changes a contract:
-`docs/settings.md` for a declared setting, `docs/preferences.md` for a character profile,
+`docs/settings.md` for a declared setting or a character profile,
 `docs/poses.md` for a pose default and `docs/anatomy.md` for a placement row. A prompt value has
-no promotion path: `settings/prompts.json` is edited by hand, and `docs/prompts.md` owns it. Docs
+no promotion path: `settings/prompts.json` is edited by hand and owned by the settings service. Docs
 name the setting and its bounds, never the shipped value; a default lives only in the shipped
 document.
 

@@ -64,7 +64,7 @@ Read `WORKFLOW.md` before any task. Commit in small, testable units; never push.
 
 1. The code, its tests and the doc text the change makes false are one code commit. A standalone
    `docs:` commit is only for docs no code change touched.
-2. A new service ships `docs/<id>.md` in the same commit; there is no index row.
+2. A new service ships `docs/<id>.md` in the same commit.
 3. Suites are added or retargeted; `scripts/test.sh <touched>` passes, `scripts/check.sh` is
    clean and `scripts/lint.sh` is clean before the commit.
 4. `scripts/test.sh` passes once, at the end of the code phase.

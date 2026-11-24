@@ -47,8 +47,7 @@ is a separate repository; never commit game-source changes from the mod repo.
    GDScript. Do not re-run either after every commit or every file.
 8. Commit with one scoped, imperative subject line and no body. Include the `.md` sentences the
    change makes false; do not mix an unrelated doc edit into the same commit.
-9. A standalone `docs:` commit carries docs no code commit touched: a new contract, an index row, a
-   sweep. Run `scripts/check.sh`, `scripts/lint.sh` and the suites that read the edited docs,
+9. A standalone `docs:` commit carries docs no code commit touched: a new contract or a sweep. Run `scripts/check.sh`, `scripts/lint.sh` and the suites that read the edited docs,
    then commit as `docs: <summary>`. See "Documentation commits" below.
 10. Commit locally only. Do not push, fetch, pull or force-push. The maintainer may push and tag;
     CI builds and releases from the remote, but the agent never pushes.
@@ -138,8 +137,7 @@ revert: standing: follow the dock in the offer
 A code commit carries the behavior, its tests and the doc sentences the change makes false.
 `scripts/test.sh` runs once when the code phase is done.
 
-A standalone `docs:` commit is only for docs no code commit touched: a new contract, an index row,
-a sweep. Before it, run `scripts/check.sh`, `scripts/lint.sh` and `scripts/test.sh test_api`
+A standalone `docs:` commit is only for docs no code commit touched: a new contract or a sweep. Before it, run `scripts/check.sh`, `scripts/lint.sh` and `scripts/test.sh test_api`
 when `docs/api.md` changed. Subject: `docs: <short imperative summary>`.
 
 ## Bisect

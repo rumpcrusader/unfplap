@@ -203,8 +203,9 @@ passes the slot values; a second placeholder parser or prompt formatter is a rev
 The static gate is `scripts/check.sh --static`, run from `scripts/test.sh`. It discovers the
 services and enforces the ownership model, the two composition roots, the game boundary, the
 preload manifest, single-place wiring, the fixed runtime shape and the act's load-bearing orders;
-every rule has both fixture directions in the gate's self-test. `docs/quality.md` owns the gate's
-roster, the lint and comment rules, the ledger files, the maintenance modes and the commands.
+every rule has both fixture directions in the gate's self-test. The checker is the rule roster;
+`docs/quality.md` owns the parse, lint and comment gates, the documentation gate, the shell rules
+and the pack report.
 
 One rule is architecture's own: `shared/log.gd`, `shared/perf.gd`, `api.gd`, `docs/api.md` and
 `tests/test_api.gd` change only with the user's explicit approval.
@@ -230,7 +231,7 @@ One rule is architecture's own: `shared/log.gd`, `shared/perf.gd`, `api.gd`, `do
    ownership.
 3. Keep every helper under `<id>/`; move a genuinely shared pure module to `shared/`. A game-layer
    member also owns `<id>/game.gd`, whose typed accessors are its only base-game reads.
-4. Add `docs/<id>.md`; there is no index row.
+4. Add `docs/<id>.md`; nothing else.
 5. Add its suites under `tests/`, keeping pure-core tests separate from facade tests.
 6. Contribute the service's settings as declarations in `settings/api.gd` and its debug actions
    to `debug/api.gd`; document the behaviour in the service doc.

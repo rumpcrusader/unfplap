@@ -25,17 +25,23 @@ const POSE_PLACEMENT := preload("res://mods/unfplap/shared/pose_placement.gd")
 const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 
-## The negotiation's position in its offer and agreement flow.
-enum Phase { NONE, OFFERED, AGREEMENT }
-## How an agreement ended, including the failures the caller reports.
-enum Outcome { ACCEPTED, REFUSED, EXPIRED, INTERRUPTED, START_FAILED, NO_OFFER, OCCUPIED, STARTED }
+# The exchange's position and its terminal outcome stay inside the service; a consumer reads the
+# lock, the handle and the terminal record instead.
+const _PHASE_NONE := 0
+const _PHASE_OFFERED := 1
+const _PHASE_AGREEMENT := 2
+const _OUTCOME_ACCEPTED := 0
+const _OUTCOME_REFUSED := 1
+const _OUTCOME_EXPIRED := 2
+const _OUTCOME_INTERRUPTED := 3
+const _OUTCOME_START_FAILED := 4
+const _OUTCOME_NO_OFFER := 5
+const _OUTCOME_OCCUPIED := 6
 
 ## The offer cooldown: only a plain decline or an acceptance.
-const COOLDOWN_S := 120.0
+const _COOLDOWN_S := 120.0
 ## The privacy provider is sampled at the request-scan cadence, not per frame.
-const PRIVACY_SAMPLE_S := 0.5
-
-const ANSWER_ACCEPT := "accept"
+const _PRIVACY_SAMPLE_S := 0.5
 
 
 ## The player form and display the option builder filters on.
@@ -44,31 +50,26 @@ class FormView:
 	var view := "desktop"
 
 
-## The finalized proactive offer the Proactive service hands over at formation. It carries the
-## already-decided base clearance, pose option, visibility and request hold.
+## The finalized proactive offer the Proactive service hands over at formation: the pose option
+## and the request hold. Everything else is decided here.
 class MareOffer:
 	var runtime: Node = null
 	var pony: Node3D = null
 	var option: POSE_OPTIONS.Option = null
-	var base: CLEARANCE.Result = null
-	var private := false
 	var hold_token := ""
 	var hold_old_wander := true
 	var line := ""
-	var cuddle := false
 
 	func valid() -> bool:
 		return is_instance_valid(runtime) and is_instance_valid(pony) and option != null \
-			and option.valid() and base != null and base.ok()
+			and option.valid()
 
 
 ## The terminal outcome reported to the Proactive service and the debug log.
 class Terminal:
 	var pony: Node = null
 	var pony_id := ""
-	var outcome := 0
 	var reason := ""
-	var trigger := 0
 	var cooldown_s := 0.0
 
 
@@ -142,7 +143,7 @@ class Exchange:
 var _host: Host
 var _bridge: HOST = null
 var _adapter: ADAPTER = null
-var _phase := Phase.NONE
+var _phase := _PHASE_NONE
 var _locked := false
 var _exchange: Exchange = null
 var _agreement: AGREEMENT.Package = null
@@ -256,6 +257,7 @@ func _classifier() -> Node:
 	return node as Node if is_instance_valid(node) else null
 
 
+## The suite seam: a typed host replaces the bridge the entry builds. The entry never calls it.
 func setup(host: Host) -> void:
 	_host = host
 
@@ -270,28 +272,20 @@ func on_world_closed() -> void:
 	_host = null
 
 
-func phase() -> Phase:
-	return _phase
-
-
+## True while some exchange owns the field: a Mare offer, an Anon offer or a live Agreement.
 func is_locked() -> bool:
 	return _locked
 
 
 ## The live Agreement handle, or null. The offer service reads it immediately.
 func handle() -> AGREEMENT.Handle:
-	return _handle if _phase == Phase.AGREEMENT else null
-
-
-## The live Agreement package for the debug row. Consumers do not mutate it.
-func agreement() -> AGREEMENT.Package:
-	return _agreement if _phase == Phase.AGREEMENT else null
+	return _handle if _phase == _PHASE_AGREEMENT else null
 
 
 ## True while the live Agreement can start: frozen, unexpired, scene-ready and still private.
 ## The one readiness read of the press and auto-start; it keeps no flag.
 func ready_offer() -> bool:
-	if _phase != Phase.AGREEMENT or _agreement == null or _handle == null or _host == null:
+	if _phase != _PHASE_AGREEMENT or _agreement == null or _handle == null or _host == null:
 		return false
 	if not _handle.valid() or _agreement.expired(_now()):
 		return false
@@ -317,42 +311,46 @@ func tick(delta: float) -> void:
 
 
 func _tick_offer(delta: float) -> void:
-	if _host == null or _phase == Phase.NONE:
+	if _host == null or _phase == _PHASE_NONE:
 		return
 	if _now() >= _deadline:
-		_close(Outcome.EXPIRED, "", 0.0)
+		_close(_OUTCOME_EXPIRED, "", 0.0)
 		return
 	if not _keep_hold():
 		return
-	var private := _exchange.private if _phase == Phase.OFFERED else _agreement.private
+	var private := _exchange.private if _phase == _PHASE_OFFERED else _agreement.private
 	if not private:
 		return
 	_privacy_clock += delta
-	if _privacy_clock < PRIVACY_SAMPLE_S:
+	if _privacy_clock < _PRIVACY_SAMPLE_S:
 		return
 	_privacy_clock = 0.0
 	var pony: Node = _pony()
 	if not is_instance_valid(pony) or not _private_now(pony, _cuddle_flag()):
 		LOG.debug("negotiation privacy lost id=%s", [_pony_id(pony)])
-		_close(Outcome.INTERRUPTED, AGREEMENT.REASON_PRIVACY, 0.0, true)
+		_close(_OUTCOME_INTERRUPTED, AGREEMENT.REASON_PRIVACY, 0.0, true)
 
 
 ## The Proactive service's formed Mare offer. From here the exchange and the answer watch are this
-## service's.
+## service's. Base clearance and visibility are read here, not taken from the Proactive.
 func begin_mare_offer(offer: MareOffer) -> bool:
 	if _host == null or offer == null or not offer.valid():
 		return false
 	if _locked:
 		_blocked(offer.pony)
 		return false
+	var base := _clearance_for(offer.runtime)
+	if not base.ok():
+		_formation_failure(offer.pony, _OUTCOME_NO_OFFER, base.reason())
+		return false
 	var live := Exchange.new()
 	_begin_state(live, offer.runtime, offer.pony, offer.option, AGREEMENT.Trigger.MARE_OFFER,
-		offer.line, offer.cuddle)
-	live.base = offer.base
-	live.private = offer.private
+		offer.line, offer.option.cuddle)
+	live.base = base
+	live.private = _private_now(offer.pony, offer.option.cuddle)
 	if not _claim_mare_hold(live, offer):
 		LOG.debug("negotiation hold claim id=%s trigger=mare result=false", [live.pony_id])
-		_close(Outcome.OCCUPIED, AGREEMENT.REASON_OCCUPIED, 0.0)
+		_close(_OUTCOME_OCCUPIED, AGREEMENT.REASON_OCCUPIED, 0.0)
 		return false
 	LOG.debug("negotiation hold claim id=%s trigger=mare result=true token=%s", [
 		live.pony_id, live.hold_token])
@@ -362,7 +360,7 @@ func begin_mare_offer(offer: MareOffer) -> bool:
 	var watching := bool(_host.await_answer.call(live.pony, scope,
 		func(text: String, error: String) -> void: _on_anon_answer(live, text, error)))
 	if not watching:
-		_close(Outcome.REFUSED, AGREEMENT.REASON_CLASSIFIER_UNAVAILABLE, 0.0)
+		_close(_OUTCOME_REFUSED, AGREEMENT.REASON_CLASSIFIER_UNAVAILABLE, 0.0)
 		return false
 	LOG.debug("negotiation offer id=%s trigger=mare pose=%s private=%s", [
 		live.pony_id, live.option.key(), str(live.private)])
@@ -381,12 +379,11 @@ func begin_anon_offer(runtime: Node, text: String) -> bool:
 		return false
 	var base := _clearance_for(runtime)
 	if not base.ok():
-		_formation_failure(pony, Outcome.NO_OFFER, base.reason(), AGREEMENT.Trigger.ANON_OFFER)
+		_formation_failure(pony, _OUTCOME_NO_OFFER, base.reason())
 		return false
 	var options := _options_for(runtime)
 	if options.is_empty():
-		_formation_failure(pony, Outcome.NO_OFFER, AGREEMENT.REASON_NO_CONTEXT_POSE,
-			AGREEMENT.Trigger.ANON_OFFER)
+		_formation_failure(pony, _OUTCOME_NO_OFFER, AGREEMENT.REASON_NO_CONTEXT_POSE)
 		return false
 	var live := Exchange.new()
 	_begin_state(live, runtime, pony, null, AGREEMENT.Trigger.ANON_OFFER, text, false)
@@ -405,23 +402,21 @@ func begin_anon_offer(runtime: Node, text: String) -> bool:
 	var started := bool(_host.classify.call(request, scope,
 		func(reply: PROMPTS.Reply) -> void: _on_anon_offer_classified(live, reply)))
 	if not started:
-		_close(Outcome.NO_OFFER, AGREEMENT.REASON_CLASSIFIER_UNAVAILABLE, 0.0)
+		_close(_OUTCOME_NO_OFFER, AGREEMENT.REASON_CLASSIFIER_UNAVAILABLE, 0.0)
 		return false
 	return true
 
 
-## The offer service reports the Act service's start result. Started closes the Agreement without
-## releasing the adopted hold; StartFailed clears it and releases the hold.
+## The offer reports the start answer; a success hands the hold to the act.
 func report(handle: AGREEMENT.Handle, started: bool) -> bool:
 	if handle == null or not _agreement_matches(handle):
 		return false
 	var package := _agreement
 	if started:
 		_clear_state()
-		_report_outcome(package.pony, Outcome.STARTED, "", package.trigger, 0.0)
 		LOG.debug("negotiation started id=%d state=none", [package.id])
 	else:
-		_close(Outcome.START_FAILED, "", 0.0)
+		_close(_OUTCOME_START_FAILED, "", 0.0)
 	return true
 
 
@@ -430,14 +425,14 @@ func cancel(handle: AGREEMENT.Handle, reason: String) -> bool:
 	if handle == null or not _agreement_matches(handle):
 		return false
 	var live_reason := _interrupt_reason(reason)
-	_close(Outcome.INTERRUPTED, live_reason, 0.0, live_reason == AGREEMENT.REASON_PRIVACY)
+	_close(_OUTCOME_INTERRUPTED, live_reason, 0.0, live_reason == AGREEMENT.REASON_PRIVACY)
 	return true
 
 
 ## The hotkey's exact match: the same mare and the exact pose option. A live Agreement with any
 ## other mare, pose, source or bed is not a match.
 func hotkey_handle(runtime: Node, option: POSE_OPTIONS.Option) -> AGREEMENT.Handle:
-	if _phase != Phase.AGREEMENT or _agreement == null or _host == null:
+	if _phase != _PHASE_AGREEMENT or _agreement == null or _host == null:
 		return null
 	if not is_instance_valid(runtime) or _agreement.runtime != runtime:
 		return null
@@ -450,10 +445,10 @@ func hotkey_handle(runtime: Node, option: POSE_OPTIONS.Option) -> AGREEMENT.Hand
 ## The hotkey breaks any live Act Negotiation. It logs the interruption and returns whether one
 ## was ended.
 func interrupt_for_hotkey() -> bool:
-	if _phase == Phase.NONE:
+	if _phase == _PHASE_NONE:
 		return false
 	LOG.debug("negotiation hotkey interrupt id=%s", [_pony_id(_pony())])
-	_close(Outcome.INTERRUPTED, AGREEMENT.REASON_HOTKEY, 0.0)
+	_close(_OUTCOME_INTERRUPTED, AGREEMENT.REASON_HOTKEY, 0.0)
 	return true
 
 
@@ -521,13 +516,13 @@ func _react_line(pony: Node, reason: String) -> void:
 		key, func() -> bool: return is_instance_valid(pony) and pony.is_inside_tree(), false)
 
 
-## Every terminal outcome reaches the Proactive pacing and the runtime's presentation; a start
-## that already happened belongs to the act, so it is not forwarded.
+## Every terminal outcome reaches the Proactive pacing and clears the runtime's presentation; the
+## act start is the one ending that is never reported here.
 func _on_outcome_terminal(terminal: Terminal) -> void:
 	if terminal == null:
 		return
-	LOG.debug("negotiation outcome id=%s outcome=%d reason=%s cooldown=%.0f", [
-		terminal.pony_id, terminal.outcome, "none" if terminal.reason.is_empty() else terminal.reason,
+	LOG.debug("negotiation outcome id=%s reason=%s cooldown=%.0f", [
+		terminal.pony_id, "none" if terminal.reason.is_empty() else terminal.reason,
 		terminal.cooldown_s])
 	var pony: Variant = terminal.pony
 	if is_instance_valid(pony):
@@ -536,8 +531,7 @@ func _on_outcome_terminal(terminal: Terminal) -> void:
 			if _ponies != null and is_instance_valid(runtime) else null
 		if presentation != null:
 			presentation.clear_presentation()
-	if terminal.outcome != Outcome.STARTED \
-			and is_instance_valid(_initiation) and _initiation.has_method("on_negotiation_outcome"):
+	if is_instance_valid(_initiation) and _initiation.has_method("on_negotiation_outcome"):
 		_initiation.on_negotiation_outcome(terminal)
 
 
@@ -588,7 +582,7 @@ func _begin_state(live: Exchange, runtime: Node, pony: Node3D, option: POSE_OPTI
 	_exchange = live
 	_agreement = null
 	_handle = null
-	_phase = Phase.OFFERED
+	_phase = _PHASE_OFFERED
 	_locked = true
 	_deadline = live.expires_at
 	_privacy_clock = 0.0
@@ -597,7 +591,7 @@ func _begin_state(live: Exchange, runtime: Node, pony: Node3D, option: POSE_OPTI
 
 
 func _clear_state() -> void:
-	_phase = Phase.NONE
+	_phase = _PHASE_NONE
 	_locked = false
 	_exchange = null
 	_agreement = null
@@ -621,7 +615,7 @@ func _close(outcome: int, reason: String, cooldown: float, reaction := false) ->
 	_clear_state()
 	LOG.debug("negotiation outcome=%s reason=%s cooldown=%.0f", [
 		_outcome_name(outcome), "none" if reason.is_empty() else reason, cooldown])
-	_report_outcome(package_pony, outcome, reason, trigger, cooldown)
+	_report_outcome(package_pony, reason, cooldown)
 	_notify(outcome, reason)
 	if reaction and is_instance_valid(package_pony):
 		_react(package_pony, reason)
@@ -639,22 +633,19 @@ func _silent_close() -> void:
 	LOG.debug("negotiation state=none reason=non_offer")
 
 
-func _formation_failure(pony: Variant, outcome: int, reason: String, trigger: int) -> void:
+func _formation_failure(pony: Variant, outcome: int, reason: String) -> void:
 	var target := pony as Node if pony is Node else null
-	_report_outcome(target, outcome, reason, trigger, 0.0)
+	_report_outcome(target, reason, 0.0)
 	_notify(outcome, reason)
 
 
-func _report_outcome(pony: Node, outcome: int, reason: String, trigger: int,
-		cooldown: float) -> void:
+func _report_outcome(pony: Node, reason: String, cooldown: float) -> void:
 	if _host == null or not _host.on_outcome.is_valid():
 		return
 	var terminal := Terminal.new()
 	terminal.pony = pony
 	terminal.pony_id = _pony_id(pony)
-	terminal.outcome = outcome
 	terminal.reason = reason
-	terminal.trigger = trigger
 	terminal.cooldown_s = cooldown
 	_host.on_outcome.call(terminal)
 
@@ -669,27 +660,21 @@ func _accept(live: Exchange) -> void:
 	package.pony_id = live.pony_id
 	package.option = live.option
 	package.private = live.private
-	package.clearance = live.base
-	package.context = live.context
 	package.pose_profile_ok = POSE_SPECS.is_public(live.option.pose)
 	package.pose_source_ok = POSE_PLACEMENT.source_allowed(live.option.pose, live.option.source)
-	package.answer = ANSWER_ACCEPT
 	package.accepted_at = _now()
 	package.ttl_s = AGREEMENT.AGREEMENT_TTL_S
-	package.hold_token = live.hold_token
-	package.hold_old_wander = live.hold_old_wander
 	package.trigger = live.trigger
 	package.classifier_scope = live.scope
-	package.offer_line = live.line
 	_agreement = package
 	_handle = _make_handle(package)
 	_exchange = null
-	_phase = Phase.AGREEMENT
+	_phase = _PHASE_AGREEMENT
 	_deadline = package.expires_at()
 	_privacy_clock = 0.0
 	LOG.debug("negotiation state=agreement id=%s", [package.pony_id])
-	LOG.debug("negotiation outcome=accepted cooldown=%.0f", [COOLDOWN_S])
-	_report_outcome(package.pony, Outcome.ACCEPTED, "", package.trigger, COOLDOWN_S)
+	LOG.debug("negotiation outcome=accepted cooldown=%.0f", [_COOLDOWN_S])
+	_report_outcome(package.pony, "", _COOLDOWN_S)
 	LOG.debug("negotiation agreement id=%d trigger=%s pose=%s private=%s", [
 		package.id, _trigger_name(package.trigger), package.option_key(), str(package.private)])
 	if _host.on_agreement.is_valid():
@@ -706,25 +691,11 @@ func _make_handle(package: AGREEMENT.Package) -> AGREEMENT.Handle:
 	out.private = package.private
 	out.pose_profile_ok = package.pose_profile_ok
 	out.pose_source_ok = package.pose_source_ok
-	out.hold_token = package.hold_token
-	out.hold_old_wander = package.hold_old_wander
-	out.trigger = package.trigger
-	out.cancel = Callable(self, "_cancel_handle").bind(package.id, package.generation)
 	return out
 
 
-func _cancel_handle(reason: String, id: int, generation: int) -> bool:
-	if _phase != Phase.AGREEMENT or _agreement == null:
-		return false
-	if _agreement.id != id or _agreement.generation != generation:
-		return false
-	var live_reason := _interrupt_reason(reason)
-	_close(Outcome.INTERRUPTED, live_reason, 0.0, live_reason == AGREEMENT.REASON_PRIVACY)
-	return true
-
-
 func _agreement_matches(handle: AGREEMENT.Handle) -> bool:
-	if _phase != Phase.AGREEMENT or _agreement == null:
+	if _phase != _PHASE_AGREEMENT or _agreement == null:
 		return false
 	return handle.id == _agreement.id and handle.generation == _agreement.generation
 
@@ -743,7 +714,7 @@ func _on_anon_answer(live: Exchange, text: String, error: String) -> void:
 		return
 	_cancel_scope(live.scope)
 	if not error.is_empty():
-		_close(Outcome.REFUSED, AGREEMENT.REASON_CLASSIFIER_UNAVAILABLE, 0.0)
+		_close(_OUTCOME_REFUSED, AGREEMENT.REASON_CLASSIFIER_UNAVAILABLE, 0.0)
 		return
 	var scope := _scope("decision")
 	live.scope = scope
@@ -755,7 +726,7 @@ func _on_anon_answer(live: Exchange, text: String, error: String) -> void:
 	var started := bool(_host.classify.call(request, scope,
 		func(reply: PROMPTS.Reply) -> void: _on_anon_decision(live, reply)))
 	if not started:
-		_close(Outcome.REFUSED, AGREEMENT.REASON_CLASSIFIER_UNAVAILABLE, 0.0)
+		_close(_OUTCOME_REFUSED, AGREEMENT.REASON_CLASSIFIER_UNAVAILABLE, 0.0)
 
 
 func _on_anon_decision(live: Exchange, reply: PROMPTS.Reply) -> void:
@@ -766,18 +737,18 @@ func _on_anon_decision(live: Exchange, reply: PROMPTS.Reply) -> void:
 		live.pony_id, "none" if reply == null else reply.answer,
 		str(reply == null or reply.failed)])
 	if reply == null or reply.failed:
-		_close(Outcome.REFUSED, AGREEMENT.REASON_CLASSIFIER_UNAVAILABLE, 0.0)
+		_close(_OUTCOME_REFUSED, AGREEMENT.REASON_CLASSIFIER_UNAVAILABLE, 0.0)
 		return
 	var answer := str(reply.answer)
 	if answer == CONTEXT.ANSWER_ACCEPT:
 		if not _placement_ok(live.option):
-			_close(Outcome.INTERRUPTED, AGREEMENT.REASON_POSE, 0.0)
+			_close(_OUTCOME_INTERRUPTED, AGREEMENT.REASON_POSE, 0.0)
 			return
 		_accept(live)
 	elif answer == CONTEXT.ANSWER_COUNTER_OFFER:
-		_close(Outcome.REFUSED, AGREEMENT.REASON_COUNTER_OFFER, 0.0, true)
+		_close(_OUTCOME_REFUSED, AGREEMENT.REASON_COUNTER_OFFER, 0.0, true)
 	else:
-		_close(Outcome.REFUSED, "", COOLDOWN_S)
+		_close(_OUTCOME_REFUSED, "", _COOLDOWN_S)
 
 
 func _on_anon_offer_classified(live: Exchange, reply: PROMPTS.Reply) -> void:
@@ -791,27 +762,27 @@ func _on_anon_offer_classified(live: Exchange, reply: PROMPTS.Reply) -> void:
 	else:
 		LOG.debug("negotiation classify result id=%s answer=none failed=true", [live.pony_id])
 	if reply == null or reply.failed:
-		_close(Outcome.NO_OFFER, AGREEMENT.REASON_CLASSIFIER_UNAVAILABLE, 0.0)
+		_close(_OUTCOME_NO_OFFER, AGREEMENT.REASON_CLASSIFIER_UNAVAILABLE, 0.0)
 		return
 	if reply.out_of_range:
-		_close(Outcome.NO_OFFER, AGREEMENT.REASON_NO_CONTEXT_POSE, 0.0)
+		_close(_OUTCOME_NO_OFFER, AGREEMENT.REASON_NO_CONTEXT_POSE, 0.0)
 		return
 	if reply.answer != CONTEXT.ANSWER_ACCEPT:
 		LOG.debug("negotiation non-offer id=%s answer=%s", [live.pony_id, reply.answer])
 		_silent_close()
 		return
 	if reply.option_index < 0 or reply.option_index >= live.options.size():
-		_close(Outcome.NO_OFFER, AGREEMENT.REASON_NO_CONTEXT_POSE, 0.0)
+		_close(_OUTCOME_NO_OFFER, AGREEMENT.REASON_NO_CONTEXT_POSE, 0.0)
 		return
 	var option: POSE_OPTIONS.Option = live.options[reply.option_index]
 	live.option = option
 	live.cuddle = option.cuddle
 	if not _placement_ok(option):
-		_close(Outcome.INTERRUPTED, AGREEMENT.REASON_POSE, 0.0)
+		_close(_OUTCOME_INTERRUPTED, AGREEMENT.REASON_POSE, 0.0)
 		return
 	if not _claim_anon_hold(live):
 		LOG.debug("negotiation hold claim id=%s trigger=anon result=false", [live.pony_id])
-		_close(Outcome.OCCUPIED, AGREEMENT.REASON_OCCUPIED, 0.0)
+		_close(_OUTCOME_OCCUPIED, AGREEMENT.REASON_OCCUPIED, 0.0)
 		return
 	LOG.debug("negotiation hold claim id=%s trigger=anon result=true token=%s", [
 		live.pony_id, live.hold_token])
@@ -828,7 +799,7 @@ func _on_anon_offer_classified(live: Exchange, reply: PROMPTS.Reply) -> void:
 	var started := bool(_host.reason.call(request, scope,
 		func(reply: PROMPTS.Reply) -> void: _on_mare_response(live, reply)))
 	if not started:
-		_close(Outcome.REFUSED, AGREEMENT.REASON_REASONING_FAILED, 0.0)
+		_close(_OUTCOME_REFUSED, AGREEMENT.REASON_REASONING_FAILED, 0.0)
 
 
 func _on_mare_response(live: Exchange, reply: PROMPTS.Reply) -> void:
@@ -839,21 +810,21 @@ func _on_mare_response(live: Exchange, reply: PROMPTS.Reply) -> void:
 		live.pony_id, "none" if reply == null else reply.answer,
 		str(reply == null or reply.failed)])
 	if reply == null or reply.failed:
-		_close(Outcome.REFUSED, AGREEMENT.REASON_REASONING_FAILED, 0.0)
+		_close(_OUTCOME_REFUSED, AGREEMENT.REASON_REASONING_FAILED, 0.0)
 		return
 	var answer := str(reply.answer)
 	if answer == CONTEXT.ANSWER_ACCEPT:
 		_accept(live)
 	elif answer == CONTEXT.ANSWER_COUNTER_OFFER:
-		_close(Outcome.REFUSED, AGREEMENT.REASON_COUNTER_OFFER, 0.0, true)
+		_close(_OUTCOME_REFUSED, AGREEMENT.REASON_COUNTER_OFFER, 0.0, true)
 	else:
-		_close(Outcome.REFUSED, "", COOLDOWN_S)
+		_close(_OUTCOME_REFUSED, "", _COOLDOWN_S)
 
 
 ## True while a callback still belongs to the live offer. A late result after any terminal
 ## transition can never form an Agreement.
 func _current(live: Exchange) -> bool:
-	return live != null and _exchange == live and _phase == Phase.OFFERED \
+	return live != null and _exchange == live and _phase == _PHASE_OFFERED \
 		and live.generation == _generation
 
 
@@ -907,7 +878,7 @@ func _claim_mare_hold(live: Exchange, offer: MareOffer) -> bool:
 		if not (bool(hold.holds_negotiation()) and str(hold.token) == offer.hold_token):
 			if not bool(hold.transfer_nav(offer.hold_token, offer.hold_old_wander)):
 				return false
-	elif offer.cuddle:
+	elif offer.option.cuddle:
 		if not bool(hold.claim_attention()):
 			return false
 	else:
@@ -945,25 +916,25 @@ func _keep_hold() -> bool:
 	var hold: Variant = _hold()
 	if hold == null:
 		LOG.debug("negotiation hold lost id=%s reason=missing", [_pony_id(_pony())])
-		_close(Outcome.INTERRUPTED, AGREEMENT.REASON_TARGET_LEFT, 0.0)
+		_close(_OUTCOME_INTERRUPTED, AGREEMENT.REASON_TARGET_LEFT, 0.0)
 		return false
 	if _exchange != null and not _exchange.hold_claimed:
 		# The Anon offer is still being classified; there is no lease to keep yet, only attention.
 		if not bool(hold.keep_target()):
 			LOG.debug("negotiation hold lost id=%s reason=target_left target=%s", [
 				_pony_id(_pony()), _target_name()])
-			_close(Outcome.INTERRUPTED, AGREEMENT.REASON_TARGET_LEFT, 0.0)
+			_close(_OUTCOME_INTERRUPTED, AGREEMENT.REASON_TARGET_LEFT, 0.0)
 			return false
 		return true
 	hold.keep_nav()
 	if not bool(hold.keep_target()):
 		LOG.debug("negotiation hold lost id=%s reason=target_left target=%s", [
 			_pony_id(_pony()), _target_name()])
-		_close(Outcome.INTERRUPTED, AGREEMENT.REASON_TARGET_LEFT, 0.0)
+		_close(_OUTCOME_INTERRUPTED, AGREEMENT.REASON_TARGET_LEFT, 0.0)
 		return false
 	if not bool(hold.accepts_hold(_pose(), _source())):
 		LOG.debug("negotiation hold lost id=%s reason=owner", [_pony_id(_pony())])
-		_close(Outcome.INTERRUPTED, AGREEMENT.REASON_TARGET_LEFT, 0.0)
+		_close(_OUTCOME_INTERRUPTED, AGREEMENT.REASON_TARGET_LEFT, 0.0)
 		return false
 	return true
 
@@ -1083,27 +1054,27 @@ func _react(pony: Node, reason: String) -> void:
 
 
 func _blocked(pony: Node) -> void:
-	_report_outcome(pony, Outcome.NO_OFFER, AGREEMENT.REASON_LOCKED, _trigger(), 0.0)
+	_report_outcome(pony, AGREEMENT.REASON_LOCKED, 0.0)
 	LOG.debug("negotiation blocked reason=locked")
 	_toast("Another offer is already in progress.")
 
 
 func _notify(outcome: int, reason: String) -> void:
 	match outcome:
-		Outcome.OCCUPIED:
+		_OUTCOME_OCCUPIED:
 			LOG.debug("negotiation occupied")
 			_toast("She is busy right now.")
-		Outcome.NO_OFFER:
+		_OUTCOME_NO_OFFER:
 			LOG.debug("negotiation no offer reason=%s", [reason])
 			_toast("She is not available for that.")
-		Outcome.REFUSED:
+		_OUTCOME_REFUSED:
 			LOG.debug("negotiation refused reason=%s", [("none" if reason.is_empty() else reason)])
 			_toast("She said not here." if reason == AGREEMENT.REASON_COUNTER_OFFER else
 				"She said no.")
-		Outcome.EXPIRED:
+		_OUTCOME_EXPIRED:
 			LOG.debug("negotiation expired")
 			_toast("The offer expired.")
-		Outcome.INTERRUPTED:
+		_OUTCOME_INTERRUPTED:
 			LOG.debug("negotiation interrupted reason=%s", [reason])
 			if reason == AGREEMENT.REASON_PRIVACY:
 				_toast("Someone came near; the offer ended.")
@@ -1113,30 +1084,27 @@ func _notify(outcome: int, reason: String) -> void:
 				_toast("She was called away.")
 			else:
 				_toast("The offer ended.")
-		Outcome.START_FAILED:
+		_OUTCOME_START_FAILED:
 			LOG.debug("negotiation start failed")
 			_toast("The act could not start.")
-		Outcome.STARTED:
-			LOG.debug("negotiation started")
 
 
 func _outcome_name(value: int) -> String:
 	match value:
-		Outcome.ACCEPTED: return "accepted"
-		Outcome.REFUSED: return "refused"
-		Outcome.EXPIRED: return "expired"
-		Outcome.INTERRUPTED: return "interrupted"
-		Outcome.START_FAILED: return "start_failed"
-		Outcome.NO_OFFER: return "no_offer"
-		Outcome.OCCUPIED: return "occupied"
-		Outcome.STARTED: return "started"
+		_OUTCOME_ACCEPTED: return "accepted"
+		_OUTCOME_REFUSED: return "refused"
+		_OUTCOME_EXPIRED: return "expired"
+		_OUTCOME_INTERRUPTED: return "interrupted"
+		_OUTCOME_START_FAILED: return "start_failed"
+		_OUTCOME_NO_OFFER: return "no_offer"
+		_OUTCOME_OCCUPIED: return "occupied"
 	return "none"
 
 
 func _phase_name(value: int) -> String:
 	match value:
-		Phase.OFFERED: return "offered"
-		Phase.AGREEMENT: return "agreement"
+		_PHASE_OFFERED: return "offered"
+		_PHASE_AGREEMENT: return "agreement"
 	return "none"
 
 

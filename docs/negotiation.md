@@ -174,7 +174,8 @@ the Proactive pacing sees nothing.
 
 The Mare offer:
 
-1. The Proactive service passes the already-decided Base clearance, option, visibility and hold.
+1. The Proactive service passes the decided pose option, offer line and request hold; the service
+   re-checks Base clearance and samples visibility itself, so one authority answers both.
 2. The service owns the exchange: the hold is transferred (`transfer_nav`) or claimed.
 3. The first new line from the conversation target goes to the Anon decision classifier; an
    ambiguous line is `Refused`.
@@ -202,27 +203,21 @@ request time.
 
 ## Agreement
 
-The Proactive service builds the typed `MareOffer` from its decided values and calls
-`begin_mare_offer`. The Proactive owns the ask line and the request lease until formation; the
-Negotiation service owns them after it.
+The Proactive service builds the typed `MareOffer` from its decided option, offer line and request
+hold and calls `begin_mare_offer`. The Proactive owns the ask line and the request lease until
+formation; the Negotiation service owns them after it.
 
-`shared/agreement.gd:Package` is the frozen package:
+`shared/agreement.gd:Package` is the frozen package: the id and generation, the mare, the pose
+option, the visibility, the frozen pose pair, the acceptance time and TTL, the trigger and the one
+model scope. It stays inside the service; the act only ever receives the handle.
 
-- id and generation, the mare (node and stable id);
-- the pose option `(pose, source, bed, cuddle)`;
-- the visibility boolean;
-- the Base clearance result, the Context, the answer;
-- the frozen pose capability (`pose_profile_ok`, `pose_source_ok`);
-- the acceptance time and the 120 s TTL;
-- the hold token and the release data;
-- the trigger, the classifier scope and the offer line.
-
-The package is immutable: the service builds it once and never rewrites it. The Act service gets
-`Handle`: the id, the generation, the operational frozen values, and one `cancel(reason)` callback
-whose bound arguments make a late handle harmless. The offer service, the Act service's only
-caller, reports the `runtime.start.start_agreement()` answer as `Started`/`StartFailed` through
-`report(handle, started)`; the service closes the Agreement, releases the lock and releases the
-hold unless the Act adopted it on `Started`. The service's Agreement handoff starts the standing
+The package is immutable: the service builds it once and never rewrites it. `Handle` is the act's
+view: the id, the generation, the mare, the option, the visibility and the frozen pose pair; a stale
+handle is harmless because its id and generation no longer match. Cancellation is the facade's
+`cancel(handle, reason)`, because the handle carries no callback. The offer service, the Act
+service's only caller, reports the `runtime.start.start_agreement()` answer as `Started`/`StartFailed`
+through `report(handle, started)`; the service closes the Agreement, releases the lock and releases
+the hold unless the Act adopted it on `Started`. The service's Agreement handoff starts the standing
 presentation (act-owned) and clears the shared offer window, so the hint goes with the Agreement;
 the act key and the auto-start consume the handle through `runtime.start.start_agreement()`; a wait keeps
 the Agreement live. A handle whose runtime is gone is cancelled with `cancelled`.
@@ -276,9 +271,10 @@ terminal outcome calls `release_negotiation()`; `Started` leaves the adopted hol
 Log + toast for `NoOffer`, `Occupied`, lock-blocked and every terminal outcome. A genuine
 non-offer is the exception for the player: no outcome, no toast and no pacing retry; the debug log
 still records `negotiation non-offer` and `state=none reason=non_offer`, so it is diagnosable
-without changing the pacing. `COOLDOWN_S` is the service's cooldown signal on a plain decline or
-an acceptance; the Proactive's stored history cooldown is the effective per-mare wait. A
-counter-offer, expiry, interruption and start failure write none. A counter-offer also queues one
+without changing the pacing. The service's cooldown signal on a plain decline or an acceptance
+reaches the Proactive as `Terminal.cooldown_s`; the Proactive's stored history cooldown is the
+effective per-mare wait. A counter-offer, expiry, interruption and start failure write none. A
+counter-offer also queues one
 short generated line declining the place or timing while still wanting him; a plain refusal keeps
 the base-game dialogue and no extra line; privacy keeps its interruption line. The one react line
 is queued as `unfplap:negotiation:react:<usec>` and drops itself when the mare left the tree. The

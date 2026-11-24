@@ -1,12 +1,8 @@
 extends RefCounted
-## The Act Negotiation's Agreement package and the opaque handle the Act service receives. The
-## Negotiation service is the only writer: it builds the package once, freezes it and closes it
-## through its one close path. The Act service reads the handle id, the frozen values it needs and
-## calls `cancel`; it never mutates the package. Pure data: no scene reads, no service, no clock.
+## The Act Negotiation's frozen Agreement and the opaque handle the Act service receives. The
+## service is the only writer; the handle carries frozen values and no callback. Pure data.
 
 const POSE_OPTIONS := preload("res://mods/unfplap/shared/pose_options.gd")
-const CLEARANCE := preload("res://mods/unfplap/shared/clearance.gd")
-const CONTEXT := preload("res://mods/unfplap/shared/context.gd")
 
 ## The route that formed the Agreement.
 enum Trigger { MARE_OFFER, ANON_OFFER, HOTKEY_MATCH }
@@ -32,7 +28,7 @@ const REASON_NO_CONTEXT_POSE := "no_context_pose"
 const REASON_OCCUPIED := "occupied"
 
 
-## The complete frozen package. Every field is set at formation; the service never rewrites one.
+## The frozen package. Every field is set at formation; the service never rewrites one.
 class Package:
 	var id := 0
 	var generation := 0
@@ -41,18 +37,13 @@ class Package:
 	var pony_id := ""
 	var option: POSE_OPTIONS.Option = null
 	var private := false
-	var clearance: CLEARANCE.Result = null
-	var context: CONTEXT.Context = null
-	var answer := ""
 	var pose_profile_ok := true
 	var pose_source_ok := true
 	var accepted_at := 0.0
 	var ttl_s := AGREEMENT_TTL_S
-	var hold_token := ""
-	var hold_old_wander := true
 	var trigger := Trigger.MARE_OFFER
+	## The one model scope still waiting on the answer; cancelled when the Agreement ends.
 	var classifier_scope := ""
-	var offer_line := ""
 
 	func expires_at() -> float:
 		return accepted_at + ttl_s
@@ -70,8 +61,8 @@ class Package:
 		return option.matches(option_in.pose, option_in.source, option_in.bed, option_in.cuddle)
 
 
-## The opaque handle. The cancel callback is bound to the id and generation, so a late handle
-## cannot touch a newer Agreement; clearance, Context and the scope stay inside the service.
+## The opaque handle. The id and generation make a late handle harmless; the package and the
+## model scope stay inside the service.
 class Handle:
 	var id := 0
 	var generation := 0
@@ -81,10 +72,6 @@ class Handle:
 	var private := false
 	var pose_profile_ok := true
 	var pose_source_ok := true
-	var hold_token := ""
-	var hold_old_wander := true
-	var trigger := Trigger.MARE_OFFER
-	var cancel: Callable
 
 	func valid() -> bool:
-		return id > 0 and generation > 0 and cancel.is_valid()
+		return id > 0 and generation > 0

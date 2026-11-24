@@ -251,8 +251,8 @@ func on_negotiation_outcome(terminal: RefCounted) -> void:
 		_retry_at.erase(id)
 	else:
 		_retry_at[id] = _now() + POLICY.RETRY_S
-	LOG.debug("request outcome id=%s outcome=%d reason=%s cooldown=%.0f", [
-		id, int(terminal.outcome), _reason_name(str(terminal.reason)), float(terminal.cooldown_s)])
+	LOG.debug("request outcome id=%s reason=%s cooldown=%.0f", [
+		id, _reason_name(str(terminal.reason)), float(terminal.cooldown_s)])
 
 
 ## An interrupting Anon offer or hotkey ends a live attempt before it forms an offer.
@@ -734,12 +734,9 @@ func _start_ask_handoff() -> String:
 	offer.runtime = runtime
 	offer.pony = pony
 	offer.option = option
-	offer.base = _episode.base
-	offer.private = _episode.private
 	offer.hold_token = "" if option.cuddle else _episode.token
 	offer.hold_old_wander = _episode.prev_wander
 	offer.line = _offer_line(option)
-	offer.cuddle = option.cuddle
 	var episode := _episode
 	# Restore her speed and pace before the lease leaves: the negotiation does not own them.
 	_venue.restore_limits(episode.pony, episode.prev_limit, episode.prev_pace)

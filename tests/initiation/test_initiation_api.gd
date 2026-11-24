@@ -193,15 +193,6 @@ class FakeAdapter extends ADAPTER:
 		cancelled.append(scope)
 
 
-class FakeTerminal extends RefCounted:
-	var pony: Node = null
-	var pony_id := ""
-	var outcome := 0
-	var reason := ""
-	var trigger := 0
-	var cooldown_s := 0.0
-
-
 ## The idle offer facade's one read the Proactive gate uses: which pony the act key would start.
 class FakeOffer extends OFFER:
 	var target: Variant = null
@@ -314,8 +305,7 @@ func _check_force() -> void:
 	check(negotiation.handed != null, "the offer is handed to the negotiation")
 	check(negotiation.handed.hold_token == "unfplap:request:rarity",
 		"the handoff carries the request lease")
-	check(negotiation.handed.private, "a quiet house forms a private offer")
-	check(not negotiation.handed.cuddle, "a standing offer is not a cuddle")
+	check(not negotiation.handed.option.cuddle, "a standing offer is not a cuddle")
 	check(adapter.greetings.size() == 1 and adapter.greetings[0][0] == "rarity",
 		"the ask line opens with the greeting")
 	check(adapter.situations.size() == 1 and adapter.situations[0]["key"].ends_with(":situation"),
@@ -492,7 +482,7 @@ func _check_cuddle() -> void:
 	runtime.bed_under = bed
 	var result: INIT.ForceResult = service.force(runtime)
 	check(result.ok, "a cuddle offer forms")
-	check(negotiation.handed.cuddle, "the handoff marks the cuddle")
+	check(negotiation.handed.option.cuddle, "the handoff marks the cuddle")
 	check(negotiation.handed.hold_token.is_empty(),
 		"the cuddle handoff carries no navigator lease")
 	check(nav.command_owner.is_empty(), "the cuddle keeps the session's navigator")
@@ -532,7 +522,7 @@ func _check_cuddle_target() -> void:
 	offer.target = target
 	service.tick(0.5)
 	check(negotiation.handed != null, "a cuddle the act key would start forms the offer")
-	check(negotiation.handed.cuddle, "the non-forced handoff marks the cuddle")
+	check(negotiation.handed.option.cuddle, "the non-forced handoff marks the cuddle")
 	service.on_world_closed()
 	root.remove_child(bed)
 	bed.free()
@@ -543,15 +533,14 @@ func _check_outcome_and_reset() -> void:
 	var made := _fixture()
 	var service: Node = made["service"]
 	var target: FakePony = made["target"]
-	var terminal := FakeTerminal.new()
+	var terminal := NEGOTIATION.Terminal.new()
 	terminal.pony_id = "rarity"
-	terminal.outcome = 2
 	terminal.reason = ""
 	terminal.cooldown_s = 120.0
 	service.on_negotiation_outcome(terminal)
 	check("\n".join(PackedStringArray(service.debug_rows(target))).contains("cooldown ready="),
 		"the outcome updates the pacing rows")
-	var retry := FakeTerminal.new()
+	var retry := NEGOTIATION.Terminal.new()
 	retry.pony_id = "rarity"
 	retry.reason = "privacy"
 	retry.cooldown_s = 0.0

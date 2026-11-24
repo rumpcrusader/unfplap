@@ -327,7 +327,6 @@ func _check_agreement_first() -> void:
 	var handle := AGREEMENT.Handle.new()
 	handle.id = 1
 	handle.generation = 1
-	handle.cancel = func(_reason: String) -> bool: return true
 	handle.pony = near
 	var option := POSE_OPTIONS.Option.new()
 	option.pose = CATALOG.MISSIONARY

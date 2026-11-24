@@ -242,7 +242,7 @@ or the bed variant; it is not the generated wording.
 
 The reverse route is the Negotiation's Anon offer. A normal line that is not an offer closes
 silently: no terminal outcome reaches `on_negotiation_outcome`, so no pacing retry or cooldown is
-written. A plain decline or an acceptance reports the Negotiation's `COOLDOWN_S` signal; the
+written. A plain decline or an acceptance reports the Negotiation's cooldown signal; the
 stored history cooldown above remains the effective per-mare wait.
 
 ## Cancellation

@@ -487,7 +487,6 @@ func _agreement(pony: Node3D, pose := CATALOG.MISSIONARY, cuddle := false,
 	handle.pony_id = "rarity"
 	handle.option = option
 	handle.private = private
-	handle.cancel = func(_reason: String) -> bool: return true
 	return handle
 
 

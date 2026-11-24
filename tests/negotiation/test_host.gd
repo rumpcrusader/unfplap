@@ -617,8 +617,7 @@ func _check_react_line() -> void:
 	_free_service(made)
 
 
-## Every terminal outcome clears the presentation and reaches the Proactive pacing unless the
-## act already started.
+## Every terminal outcome clears the presentation and reaches the Proactive pacing.
 func _check_outcome_routing() -> void:
 	var made := _service_fixture()
 	var service: NEGOTIATION = made["service"]
@@ -628,20 +627,14 @@ func _check_outcome_routing() -> void:
 	var terminal := NEGOTIATION.Terminal.new()
 	terminal.pony = pony
 	terminal.pony_id = "rarity"
-	terminal.outcome = NEGOTIATION.Outcome.REFUSED
 	terminal.reason = AGREEMENT.REASON_COUNTER_OFFER
-	terminal.cooldown_s = NEGOTIATION.COOLDOWN_S
+	terminal.cooldown_s = 0.0
 	service.call("_on_outcome_terminal", terminal)
 	check(runtime.cleared == 1, "the outcome clears the presentation")
-	check(initiation.outcomes.size() == 1, "a non-started outcome reaches the Proactive")
-	var started := NEGOTIATION.Terminal.new()
-	started.pony = pony
-	started.outcome = NEGOTIATION.Outcome.STARTED
-	service.call("_on_outcome_terminal", started)
-	check(initiation.outcomes.size() == 1, "a started act is not forwarded as a negotiation")
-	check(runtime.cleared == 2, "a started outcome clears the presentation too")
+	check(initiation.outcomes.size() == 1, "the outcome reaches the Proactive")
 	service.call("_on_outcome_terminal", null)
-	check(runtime.cleared == 2, "a missing terminal changes nothing")
+	check(runtime.cleared == 1 and initiation.outcomes.size() == 1,
+		"a missing terminal changes nothing")
 	_free_service(made)
 
 

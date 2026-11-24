@@ -5,8 +5,6 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 
 const AGREEMENT := preload("res://mods/unfplap/shared/agreement.gd")
 const POSE_OPTIONS := preload("res://mods/unfplap/shared/pose_options.gd")
-const CLEARANCE := preload("res://mods/unfplap/shared/clearance.gd")
-const CONTEXT := preload("res://mods/unfplap/shared/context.gd")
 
 
 
@@ -30,18 +28,12 @@ func run() -> void:
 	package.pony_id = "rarity"
 	package.option = option
 	package.private = true
-	package.clearance = CLEARANCE.evaluate(true, true, true)
-	package.context = CONTEXT.build({"willingness": true})
 	package.pose_profile_ok = true
 	package.pose_source_ok = true
 	package.accepted_at = 100.0
 	package.ttl_s = AGREEMENT.AGREEMENT_TTL_S
-	package.hold_token = "unfplap:negotiation:rarity"
-	package.hold_old_wander = true
 	package.trigger = AGREEMENT.Trigger.ANON_OFFER
 	package.classifier_scope = "negotiation:mare_response:1:2"
-	package.offer_line = "come here"
-	package.answer = "accept"
 
 	var expires := package.accepted_at + package.ttl_s
 	check(package.expires_at() == expires, "the Agreement TTL starts at acceptance")
@@ -67,13 +59,13 @@ func run() -> void:
 	check(not empty.matches(package.pony, option), "an empty package matches nothing")
 
 	var handle := AGREEMENT.Handle.new()
-	check(not handle.valid(), "a handle without an id or callback is invalid")
+	check(not handle.valid(), "a handle without an id or generation is invalid")
 	handle.id = 7
+	check(not handle.valid(), "a handle without a generation is invalid")
 	handle.generation = 3
 	handle.pony = package.pony
 	handle.option = option
-	handle.cancel = func(_reason: String) -> bool: return true
-	check(handle.valid(), "a full handle is valid")
+	check(handle.valid(), "a formed handle is valid")
 
 	package.pony.free()
 	bed.free()

@@ -8,15 +8,10 @@ extends Node
 const POSE := preload("res://mods/unfplap/poses/skeleton_pose.gd")
 const POSE_SPEC := preload("res://mods/unfplap/poses/pose_spec.gd")
 const DIAG := preload("res://mods/unfplap/poses/diagnostics.gd")
+const MODIFIERS := preload("res://mods/unfplap/poses/modifiers.gd")
 const TRANSITION_SPEC := preload("res://mods/unfplap/poses/transition_spec.gd")
 const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 const MISSIONARY_ANON := preload("res://mods/unfplap/poses/missionary_anon.gd")
-const TAIL := preload("res://mods/unfplap/poses/tail_pose.gd")
-const TAIL_LAY := preload("res://mods/unfplap/poses/tail_lay.gd")
-const TAIL_CHAIN := preload("res://mods/unfplap/poses/tail_chain.gd")
-const BODY_SWAY := preload("res://mods/unfplap/poses/body_sway.gd")
-const PRONE_SWAY := preload("res://mods/unfplap/poses/prone_sway.gd")
-const EAR_TWITCH := preload("res://mods/unfplap/poses/ear_twitch.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const POSE_VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
@@ -30,10 +25,7 @@ const WORLD := preload("res://mods/unfplap/world/api.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 ## The empty sets the reconcile and the anon channel read, so a steady tick allocates nothing.
-const NO_OWNERS: Array[String] = []
 const NO_CHANNEL := {}
-## The owner names in install order, matching `shared/pose_specs.gd`'s profile table.
-const MODIFIER_ORDER := ["body_sway", "prone_sway", "ear_twitch", "tail", "tail_lay"]
 ## The absent pose frame: a real transform whose infinite origin no reader mistakes for space.
 const NO_FRAME := Transform3D(Basis.IDENTITY, Vector3.INF)
 
@@ -255,11 +247,8 @@ var _target_asset: AUTHORED = null
 
 ## The pose modifier and the extra scene modifiers the act installs.
 var _pose_node: POSE = null
-var _tail: TAIL = null
-var _tail_lay: TAIL_LAY = null
-var _body_sway: BODY_SWAY = null
-var _prone_sway: PRONE_SWAY = null
-var _ear_twitch: EAR_TWITCH = null
+## The tail, its lay, the sways and the ear twitch, with their profile table.
+var _mods: MODIFIERS = null
 ## The standing oral actor/frame turn the session owns. It preloads no scene and reads the host
 ## callables below; the edge weight drives it.
 var _oral_turn: ORAL_TURN
@@ -269,9 +258,6 @@ var _face_driver: FACE_CONTACT
 ## The act's own Anon body on the `act_body` specs, or null on the player-body specs. The session
 ## creates, installs and frees it; the anatomy bridge only receives the opaque handle.
 var _act_body: MISSIONARY_ANON = null
-## The authored profile table with a test seam: a synthetic profile can be added without touching
-## the shipped const.
-var _modifier_profiles: Dictionary = {}
 ## The camera position the standing tail chooses its side against, from the begin context.
 var _tail_anchor := Vector3.INF
 
@@ -310,7 +296,8 @@ func _init(facts: ACT_FACTS = null) -> void:
 	_act_body_handle = PoseActBody.new(self)
 	_readiness = PoseReadiness.new(self)
 	_diagnostics = PoseDiagnostics.new(self)
-	_set_modifier_profiles(SPECS.MODIFIER_PROFILES)
+	_mods = MODIFIERS.new(self)
+	_mods.set_profiles(SPECS.MODIFIER_PROFILES)
 	_bind_oral()
 	_bind_face()
 
@@ -445,20 +432,20 @@ func _begin(start: PoseStart) -> bool:
 	var family := str(_view.family)
 	if family == "bed":
 		if _feature("missionary_body_motion"):
-			_install_prone_sway(skeleton)
+			_mods.install_prone_sway(skeleton)
 	elif family == "standing":
 		if _feature("standing_body_sway"):
-			_install_body_sway(skeleton)
+			_mods.install_body_sway(skeleton)
 		if _feature("thrust_ear_twitch"):
-			_install_ear_twitch()
+			_mods.install_ear_twitch()
 	_started = true
 	if family == "bed":
-		_install_tail_lay()
+		_mods.install_tail_lay()
 	_state = POSE_STATE.next(_state, "entered")
 	_view.pose_state = _state
 	if family == "standing":
 		_tail_anchor = start.camera_at
-		_install_tail()
+		_mods.install_tail()
 	# A row whose base contact is already `face` starts the live mouth follow here, only to capture
 	# the residual: the authored asset is already on the bed.
 	if str(_view.contact_kind) == "face":
@@ -1023,9 +1010,8 @@ func _sync_live_config() -> bool:
 	_pose_config.merge(_config_for_group(group, presentation), true)
 	if is_instance_valid(_pose_node):
 		_pose_node.pose_config = _pose_config
-	if group == CATALOG.STANDING and is_instance_valid(_tail):
-		_tail.aside_angle = float(_pose_config.get("tail_aside", 0.0))
-		_tail.lift_angle = float(_pose_config.get("tail_lift", 0.0))
+	if group == CATALOG.STANDING:
+		_mods.apply_config()
 	return true
 
 
@@ -1200,10 +1186,7 @@ func leave_pose_start() -> void:
 	_readiness._reset()
 	if _face_driver != null and _face_driver.active:
 		_face_driver.restore(_view, _pose_node)
-	if is_instance_valid(_tail_lay):
-		_tail_lay.restore_tail()
-		_drop(_tail_lay)
-	_tail_lay = null
+	_mods.release_tail_lay()
 	_bed_frame = null
 	_bed_frame_source_saved = false
 	_bed_frame_source = Transform3D.IDENTITY
@@ -1216,15 +1199,7 @@ func leave_pose_start() -> void:
 ## Drop the live-installed extra modifiers, keeping the pose node, the standing tail, the config and
 ## the view.
 func leave_pose_body() -> void:
-	if is_instance_valid(_body_sway):
-		_drop(_body_sway)
-	_body_sway = null
-	if is_instance_valid(_prone_sway):
-		_drop(_prone_sway)
-	_prone_sway = null
-	if is_instance_valid(_ear_twitch):
-		_drop(_ear_twitch)
-	_ear_twitch = null
+	_mods.remove_extras()
 
 
 ## The final pose clear: free the pose modifier and the standing tail and reset the act's state, so
@@ -1243,10 +1218,7 @@ func release_pose() -> void:
 	_pose_node = null
 	_from_asset = null
 	_target_asset = null
-	if is_instance_valid(_tail):
-		_tail.restore_tail()
-		_drop(_tail)
-	_tail = null
+	_mods.release()
 	_started = false
 	_pose_config.clear()
 	_readiness._reset()
@@ -1273,108 +1245,13 @@ func pose_changed() -> void:
 	var from_spec: POSE_SPEC = _registry.spec(str(_view.from_id))
 	if from_spec == null:
 		from_spec = to_spec
-	_reconcile_modifiers(_profile_of(from_spec), _profile_of(to_spec))
+	_mods.reconcile(_mods.profile_of(from_spec), _mods.profile_of(to_spec))
 	_apply_anon_channel(_view)
 
 
 ## The test seam: replace the authored profile table with a synthetic one.
 func _set_modifier_profiles(table: Dictionary) -> void:
-	_modifier_profiles = table.duplicate()
-
-
-## The spec's modifier profile name, or empty when the row has no block.
-func _profile_of(spec: POSE_SPEC) -> String:
-	if spec == null:
-		return ""
-	return str(spec.modifiers.get("profile", ""))
-
-
-## The owner list of an authored profile. An unknown profile is the empty set.
-func _profile_owners(profile: String) -> Array:
-	var value: Variant = _modifier_profiles.get(profile, NO_OWNERS)
-	return value as Array if value is Array else NO_OWNERS
-
-
-## Keep the shared owners, install the target-only ones and remove the source-only ones. The act
-## exit's `leave_pose_body()` is still the full removal; this never calls it.
-func _reconcile_modifiers(from_profile: String, to_profile: String) -> void:
-	var from_owners := _profile_owners(from_profile)
-	var to_owners := _profile_owners(to_profile)
-	var pony := _pony()
-	var skeleton_value: Variant = pony.get("skeleton") if is_instance_valid(pony) else null
-	var skeleton := skeleton_value as Skeleton3D
-	for owner: String in MODIFIER_ORDER:
-		var wanted: bool = owner in to_owners
-		var shared: bool = wanted and owner in from_owners
-		_sync_owner(owner, wanted, shared, skeleton)
-
-
-## Install, keep and retarget, or remove one owner. A shared keep calls the owner's own idempotent
-## `pose_changed()`; a feature edit that turns the owner off removes it even on a shared keep.
-func _sync_owner(owner: String, wanted: bool, retarget: bool, skeleton: Skeleton3D) -> void:
-	var keep := wanted and _owner_feature(owner)
-	match owner:
-		"body_sway":
-			if keep:
-				if not is_instance_valid(_body_sway):
-					if skeleton != null:
-						_install_body_sway(skeleton)
-				elif retarget:
-					_body_sway.pose_changed(_view)
-			elif is_instance_valid(_body_sway):
-				_drop(_body_sway)
-				_body_sway = null
-		"prone_sway":
-			if keep:
-				if not is_instance_valid(_prone_sway):
-					if skeleton != null:
-						_install_prone_sway(skeleton)
-				elif retarget:
-					_prone_sway.pose_changed(_view)
-			elif is_instance_valid(_prone_sway):
-				_drop(_prone_sway)
-				_prone_sway = null
-		"ear_twitch":
-			if keep:
-				if not is_instance_valid(_ear_twitch):
-					_install_ear_twitch()
-				elif retarget:
-					_ear_twitch.pose_changed(_view)
-			elif is_instance_valid(_ear_twitch):
-				_drop(_ear_twitch)
-				_ear_twitch = null
-		"tail":
-			if keep:
-				if not is_instance_valid(_tail):
-					_install_tail()
-				elif retarget:
-					_tail.pose_changed(_view)
-			elif is_instance_valid(_tail):
-				_tail.restore_tail()
-				_drop(_tail)
-				_tail = null
-		"tail_lay":
-			if keep:
-				if not is_instance_valid(_tail_lay):
-					_install_tail_lay()
-				elif retarget:
-					_tail_lay.pose_changed(_view)
-			elif is_instance_valid(_tail_lay):
-				_tail_lay.restore_tail()
-				_drop(_tail_lay)
-				_tail_lay = null
-
-
-## The feature gate an owner installs behind. The tails have none.
-func _owner_feature(owner: String) -> bool:
-	match owner:
-		"body_sway":
-			return _feature("standing_body_sway")
-		"prone_sway":
-			return _feature("missionary_body_motion")
-		"ear_twitch":
-			return _feature("thrust_ear_twitch")
-	return true
+	_mods.set_profiles(table)
 
 
 ## The live edge's `anon` channel, or the empty hold. Outside an edge the spec's profile holds.
@@ -1515,99 +1392,6 @@ func _drop(node: Node) -> void:
 	node.queue_free()
 
 
-func _install_tail() -> void:
-	var pony := _pony()
-	if is_instance_valid(_tail) or not is_instance_valid(pony):
-		return
-	var found: Dictionary = TAIL_CHAIN.resolve(pony)
-	var custom := TAIL_CHAIN.custom_root(pony)
-	if found.is_empty() and custom == null:
-		return
-	var skeleton: Skeleton3D = found.get("skeleton") as Skeleton3D
-	if skeleton == null:
-		skeleton = pony.get("skeleton") as Skeleton3D
-	if skeleton == null:
-		return
-	_tail = TAIL.new()
-	_tail.name = "UnfplapTail"
-	_tail.mare = pony
-	_tail.facts = _facts
-	_tail.aside_angle = float(_pose_config.get("tail_aside", 0.0))
-	_tail.lift_angle = float(_pose_config.get("tail_lift", 0.0))
-	_tail.amount = 0.0
-	_tail.target_amount = 1.0
-	var side_anchor: Variant = _tail_anchor
-	if not side_anchor is Vector3:
-		side_anchor = Vector3.INF
-	_tail.choose_side(side_anchor)
-	_tail.process_priority = 20
-	skeleton.add_child(_tail)
-
-
-func _install_tail_lay() -> void:
-	var pony := _pony()
-	if not is_instance_valid(pony):
-		return
-	var found: Dictionary = TAIL_CHAIN.resolve(pony)
-	var custom := TAIL_CHAIN.custom_root(pony)
-	if found.is_empty() and custom == null:
-		return
-	var skeleton: Skeleton3D = found.get("skeleton") as Skeleton3D
-	if skeleton == null:
-		skeleton = pony.get("skeleton") as Skeleton3D
-	if skeleton == null:
-		return
-	_tail_lay = TAIL_LAY.new()
-	_tail_lay.name = "UnfplapTailLay"
-	_tail_lay.mare = pony
-	_tail_lay.facts = _facts
-	_tail_lay.process_priority = 20
-	skeleton.add_child(_tail_lay)
-
-
-func _install_body_sway(skeleton: Skeleton3D) -> void:
-	var pony := _pony()
-	if not _feature("standing_body_sway"):
-		return
-	_body_sway = BODY_SWAY.new()
-	_body_sway.name = "UnfplapBodySway"
-	_body_sway.mare = pony
-	_body_sway.facts = _facts
-	skeleton.add_child(_body_sway)
-	_reset_sway_base()
-
-
-func _install_prone_sway(skeleton: Skeleton3D) -> void:
-	var pony := _pony()
-	_prone_sway = PRONE_SWAY.new()
-	_prone_sway.name = "UnfplapProneSway"
-	_prone_sway.mare = pony
-	_prone_sway.facts = _facts
-	skeleton.add_child(_prone_sway)
-
-
-func _install_ear_twitch() -> void:
-	var pony := _pony()
-	if not _feature("thrust_ear_twitch"):
-		return
-	var head := _head_skeleton(pony.get("boop_node"))
-	if head == null:
-		return
-	_ear_twitch = EAR_TWITCH.new()
-	_ear_twitch.name = "UnfplapEarTwitch"
-	_ear_twitch.mare = pony
-	_ear_twitch.facts = _facts
-	head.add_child(_ear_twitch)
-
-
-## The head skeleton the ear twitch rides, or null.
-func _head_skeleton(boop: Node) -> Skeleton3D:
-	if boop == null:
-		return null
-	var head: Variant = boop.get("head_skeleton")
-	return head as Skeleton3D
-
-
 ## The render-time pose write. The runtime calls this after the game's own writers so the
 ## authored missionary pose survives to the renderer.
 func _apply_render(skeleton: Skeleton3D) -> void:
@@ -1656,8 +1440,7 @@ func write_render_frame(body_scale: float) -> void:
 		var standing_sk: Variant = pony.get("skeleton")
 		if is_instance_valid(_pose_node) and standing_sk is Skeleton3D:
 			_apply_render(standing_sk as Skeleton3D)
-			if is_instance_valid(_body_sway):
-				_body_sway.apply_render(standing_sk as Skeleton3D)
+			_mods.apply_render(standing_sk as Skeleton3D, "standing")
 		return
 	if family != "bed":
 		return
@@ -1667,14 +1450,12 @@ func write_render_frame(body_scale: float) -> void:
 	var sk: Variant = pony.get("skeleton")
 	if is_instance_valid(_pose_node) and sk is Skeleton3D:
 		_apply_render(sk as Skeleton3D)
-		if is_instance_valid(_prone_sway):
-			_prone_sway.apply_render(sk as Skeleton3D)
+		_mods.apply_render(sk as Skeleton3D, "bed")
 
 
 ## One thrust's ear flick; a released pose or a disabled feature ignores it.
 func trigger_ear_twitch(impact: float) -> void:
-	if is_instance_valid(_ear_twitch):
-		_ear_twitch.try_trigger(impact)
+	_mods.ear_twitch(impact)
 
 
 ## The pose frame the live family reads: the bed frame or the ground frame.
@@ -1687,8 +1468,7 @@ func follow_space(family: String) -> void:
 
 ## The tail handle's one write: the lift/flick weight the afterglow sets.
 func _set_tail_target(value: float) -> void:
-	if is_instance_valid(_tail):
-		_tail.target_amount = value
+	_mods.tail_target(value)
 
 
 ## The live standing glance's head throw-back; a released pose takes no write.
@@ -1698,14 +1478,12 @@ func set_head_back(value: float) -> void:
 
 
 func _flick_tail(count: int) -> void:
-	if is_instance_valid(_tail):
-		_tail.flick(count)
+	_mods.flick(count)
 
 
 ## The tail handle's thrust wave, scaled by the caller.
 func _thrust_tail(weight: float) -> void:
-	if is_instance_valid(_tail):
-		_tail.thrust(weight)
+	_mods.thrust(weight)
 
 
 ## A rebuilt pose starts settled. The body swap re-poses the surviving act inside the flame, so
@@ -1714,9 +1492,7 @@ func settle() -> void:
 	if is_instance_valid(_pose_node):
 		_pose_node.amount = 1.0
 		_pose_node.target_amount = 1.0
-	if is_instance_valid(_tail):
-		_tail.amount = 1.0
-		_tail.target_amount = 1.0
+	_mods.settle()
 
 
 func _basis_amount() -> float:
@@ -1727,8 +1503,7 @@ func _basis_amount() -> float:
 func fade_out() -> void:
 	if is_instance_valid(_pose_node):
 		_pose_node.target_amount = 0.0
-	if is_instance_valid(_tail):
-		_tail.target_amount = 0.0
+	_mods.tail_target(0.0)
 
 
 ## Aim the live pose's look point for this rendered frame; the head solve reads it after the pose
@@ -1756,8 +1531,7 @@ static func _has_frame(frame: Transform3D) -> bool:
 
 
 func _reset_sway_base() -> void:
-	if is_instance_valid(_body_sway):
-		_body_sway.reset_base()
+	_mods.reset_sway()
 
 
 func _feature(name: String) -> bool:

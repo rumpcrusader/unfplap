@@ -256,10 +256,10 @@ func _check_begin() -> void:
 	session.apply_live_settings()
 	check(is_same(live, session._pose_config) and is_same(live, session._pose_node.pose_config),
 		"a live sync keeps the same object on the node")
-	check(session._tail_lay != null, "the missionary tail lay is installed")
+	check(session._mods._tail_lay != null, "the missionary tail lay is installed")
 	check(session.diagnostics()._pose_logged == false and session.diagnostics()._trace_frames == 0,
 		"a fresh session starts its logs clean")
-	var tail_lay: Node = session._tail_lay
+	var tail_lay: Node = session._mods._tail_lay
 	var pose_modifier: Node = session._pose_node
 	var children := body.get_child_count()
 	check(not session.begin_act(_start({
@@ -274,7 +274,7 @@ func _check_begin() -> void:
 	})), "a second begin is refused")
 	check(body.get_child_count() == children, "a refused begin adds no second pose")
 	session.leave_pose_start()
-	check(session._tail_lay == null, "the pose-start leave frees the tail lay")
+	check(session._mods._tail_lay == null, "the pose-start leave frees the tail lay")
 	check(tail_lay.get_parent() == null and tail_lay.is_queued_for_deletion(),
 		"the tail lay is detached before it is freed")
 	session.release_pose()
@@ -311,7 +311,7 @@ func _check_begin_refused() -> void:
 		"bed": null,
 		"presentation": {},
 	})), "a pony without a body skeleton is refused")
-	check(not session._started and session._pose_node == null and session._tail_lay == null,
+	check(not session._started and session._pose_node == null and session._mods._tail_lay == null,
 		"a refused begin installs nothing")
 	check(session.view().id == "" and session.view().pose_state == VIEW.IDLE,
 		"a refused begin leaves the view empty")
@@ -350,7 +350,7 @@ func _check_standing_begin() -> void:
 	session.tail().target(0.4)
 	session.tail().flick(2)
 	session.tail().thrust(0.5)
-	check(session._tail == null, "a rig without a tail chain keeps the handle a no-op")
+	check(session._mods._tail == null, "a rig without a tail chain keeps the handle a no-op")
 	session.release_pose()
 	root.remove_child(bed)
 	bed.free()
@@ -467,13 +467,13 @@ func _check_sway_render_write() -> void:
 	var session: SESSION = made["session"]
 	var body: Skeleton3D = made["body"]
 	var standing := FakeSway.new()
-	session._body_sway = standing
+	session._mods._body_sway = standing
 	session._pose_node.amount = 1.0
 	session._pose_node.target_amount = 1.0
 	session.write_render_frame(1.0)
 	check(standing.calls == 1 and standing.skeletons[0] == body,
 		"the standing render write replays the body sway after the pose")
-	session._body_sway = null
+	session._mods._body_sway = null
 	standing.free()
 	_free_live(made)
 
@@ -481,7 +481,7 @@ func _check_sway_render_write() -> void:
 	var bed_session: SESSION = bed["session"]
 	var bed_body: Skeleton3D = bed["body"]
 	var prone := FakeProneSway.new()
-	bed_session._prone_sway = prone
+	bed_session._mods._prone_sway = prone
 	bed_session._pose_node.amount = 1.0
 	bed_session._pose_node.target_amount = 1.0
 	bed_session._bed_frame = Transform3D.IDENTITY
@@ -489,7 +489,7 @@ func _check_sway_render_write() -> void:
 	bed_session.write_render_frame(1.0)
 	check(prone.calls == 1 and prone.skeletons[0] == bed_body,
 		"the bed render write replays the prone sway after the pose")
-	bed_session._prone_sway = null
+	bed_session._mods._prone_sway = null
 	prone.free()
 	_free_live(bed)
 

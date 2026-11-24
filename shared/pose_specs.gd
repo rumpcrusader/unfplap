@@ -19,9 +19,8 @@ const STANDING_ORAL := "standing_oral"
 ## shares the missionary settings block and has no row of its own.
 const BED_FACESIT := "bed_facesit"
 
-## The closed act-start vocabulary. `mode` says whether the act key is required; `setup` names the
-## runtime placement adapter. The start sequence dispatches on `setup`, never on a pose id.
-const START_MODES := ["key", "auto"]
+## The closed act-start vocabulary: `setup` names the runtime placement adapter. The start sequence
+## dispatches on `setup`, never on a pose id.
 const START_SETUPS := ["bed_stand_up", "bed_keep_lying", "standing_place"]
 
 ## `asset` is the row's authored pose document; a base chain supplies it to an internal row.
@@ -36,7 +35,7 @@ const SPECS := {
 		"asset": "poses/missionary_pose.json",
 		"delta": "",
 		"driver": "poses/missionary_recipe.gd",
-		"start": {"mode": "key", "setup": "bed_stand_up"},
+		"start": {"setup": "bed_stand_up"},
 		"settings_group": "missionary",
 		"game_posture": "stand",
 		"drive_policy": "missionary",
@@ -71,7 +70,7 @@ const SPECS := {
 		"asset": "poses/standing_pose.json",
 		"delta": "",
 		"driver": "poses/standing_recipe.gd",
-		"start": {"mode": "key", "setup": "standing_place"},
+		"start": {"setup": "standing_place"},
 		"settings_group": "standing",
 		"game_posture": "stand",
 		"drive_policy": "standing",
@@ -105,7 +104,7 @@ const SPECS := {
 		"asset": "",
 		"delta": "",
 		"driver": "",
-		"start": {"mode": "key", "setup": "standing_place"},
+		"start": {"setup": "standing_place"},
 		"settings_group": "standing",
 		"game_posture": "stand",
 		"drive_policy": "standing",
@@ -139,7 +138,7 @@ const SPECS := {
 		"asset": "",
 		"delta": "poses/standing_oral_recipe.gd",
 		"driver": "",
-		"start": {"mode": "key", "setup": "standing_place"},
+		"start": {"setup": "standing_place"},
 		"settings_group": "standing",
 		"game_posture": "stand",
 		"drive_policy": "standing",
@@ -173,7 +172,7 @@ const SPECS := {
 		"asset": "poses/bed_facesit_pose.json",
 		"delta": "",
 		"driver": "poses/missionary_recipe.gd",
-		"start": {"mode": "key", "setup": "bed_stand_up"},
+		"start": {"setup": "bed_stand_up"},
 		"settings_group": "missionary",
 		"game_posture": "stand",
 		"drive_policy": "missionary",
@@ -237,8 +236,8 @@ const NO_SCENE := {
 
 
 ## The start block a missing or malformed row reads as. An empty setup fails the runtime dispatcher
-## closed; `mode` claims the act key but never reaches an adapter.
-const NO_START := {"mode": "key", "setup": ""}
+## closed.
+const NO_START := {"setup": ""}
 
 
 ## The shipped spec ids, in table order.
@@ -268,11 +267,6 @@ static func start(pose: String) -> Dictionary:
 		return NO_START
 	var block: Variant = (row as Dictionary).get("start")
 	return block if block is Dictionary else NO_START
-
-
-## The act-start mode: `key` needs the act key, `auto` starts on a trigger.
-static func start_mode(pose: String) -> String:
-	return str(start(pose).get("mode", "key"))
 
 
 ## The runtime setup adapter name. An unknown row returns "" and `start()` aborts.

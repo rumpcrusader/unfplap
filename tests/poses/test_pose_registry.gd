@@ -45,7 +45,6 @@ func _check_shipped() -> void:
 	# public starts, and the internal rows keep the placement of the pose they are reached from.
 	for id: String in CATALOG.every():
 		var row: Variant = registry.spec(id)
-		check(row != null and row.start_mode == "key", "%s starts on the act key" % id)
 		check(row != null and row.start_setup in SPECS.START_SETUPS,
 			"%s declares a known start setup" % id)
 	var missionary: Variant = registry.spec(CATALOG.MISSIONARY)

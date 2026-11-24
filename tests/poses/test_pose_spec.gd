@@ -139,13 +139,11 @@ func _check_errors() -> void:
 		"a non-JSON asset is rejected")
 	check(_mutated({"asset": ""}).is_empty(), "an empty asset is valid")
 	check(not _mutated({"start": {}}).is_empty(), "a missing start block is rejected")
-	check(not _mutated({"start": {"mode": "key"}}).is_empty(),
-		"a start block without a setup is rejected")
-	check(not _mutated({"start": {"mode": "wait", "setup": "standing_place"}}).is_empty(),
-		"an unknown start mode is rejected")
-	check(not _mutated({"start": {"mode": "key", "setup": "bench_place"}}).is_empty(),
+	check(not _mutated({"start": {"setup": ""}}).is_empty(),
+		"an empty start setup is rejected")
+	check(not _mutated({"start": {"setup": "bench_place"}}).is_empty(),
 		"an unknown start setup is rejected")
-	check(_mutated({"start": {"mode": "auto", "setup": "bed_keep_lying", "why": "test"}}).is_empty(),
+	check(_mutated({"start": {"setup": "bed_keep_lying", "why": "test"}}).is_empty(),
 		"an extra start key is additive")
 	check(not _without("camera", "profile").is_empty(), "a missing profile key is rejected")
 	check(not _without("afterglow", "close_window").is_empty(),

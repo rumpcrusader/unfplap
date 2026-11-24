@@ -59,27 +59,6 @@ static func request_code(pose_state: int, act_state: int, from_id: String, to_id
 	return "ok"
 
 
-## The edge's `requires` block against the same checks. A missing or empty requirement passes; the
-## order is form, view, refused.
-static func requirement_code(edge: Dictionary, checks: Dictionary = {}) -> String:
-	var requires_value: Variant = edge.get("requires", {})
-	var requires: Dictionary = requires_value as Dictionary if requires_value is Dictionary else {}
-	if _required(requires.get("forms", [])) and not _flag(checks, "form_ok"):
-		return "unsupported_form"
-	if _required(requires.get("views", [])) and not _flag(checks, "view_ok"):
-		return "unsupported_view"
-	for key: String in ["features", "consent"]:
-		if _required(requires.get(key)) and not _flag(checks, key + "_ok"):
-			return "refused"
-	return "ok"
-
-
-## The small accepted/refused value the session returns. `ok` is true only for the `"ok"` code;
-## `edge` is the edge id the request would have taken, or empty; `reason` is short human text.
-static func result(code: String, edge_id := "", reason := "") -> Dictionary:
-	return {"ok": code == "ok", "code": code, "edge": edge_id, "reason": reason}
-
-
 ## The form/view/refused flags in their fixed order, without an edge block.
 static func _flags_code(checks: Dictionary) -> String:
 	if not _flag(checks, "form_ok"):
@@ -95,20 +74,6 @@ static func _flags_code(checks: Dictionary) -> String:
 static func _flag(checks: Dictionary, key: String, fallback := true) -> bool:
 	var value: Variant = checks.get(key, fallback)
 	return bool(value)
-
-
-## True when a requirement value asks for something. An empty array, string, dictionary or a
-## false boolean is no requirement.
-static func _required(value: Variant) -> bool:
-	if value is Array:
-		return not (value as Array).is_empty()
-	if value is String:
-		return not (value as String).is_empty()
-	if value is bool:
-		return value
-	if value is Dictionary:
-		return not (value as Dictionary).is_empty()
-	return value != null
 
 
 ## Start an edge from a validated dictionary. Returns a Run, or the outer `start_edge()` wrapper's
@@ -135,9 +100,6 @@ class Run extends RefCounted:
 	var done := false
 	## The base channel's weight, 0..1. Hold, lock and an absent base are 1.0.
 	var weight := 1.0
-	## The edge's interrupt policy, exposed to the service. The service decides when to apply it.
-	var interrupt_climax := "hold"
-	var interrupt_teardown := "abort"
 
 	## Reused per tick; the caller reads them after `tick` and before the next `tick`.
 	var _events: Array = []
@@ -289,11 +251,6 @@ class Run extends RefCounted:
 		if not timed:
 			return null
 		run.duration = longest
-		var interrupt_value: Variant = edge_data.get("interrupt", {})
-		var interrupt: Dictionary = interrupt_value as Dictionary \
-				if interrupt_value is Dictionary else {}
-		run.interrupt_climax = str(interrupt.get("climax", "hold"))
-		run.interrupt_teardown = str(interrupt.get("teardown", "abort"))
 		var events_value: Variant = edge_data.get("events", [])
 		if events_value is Array:
 			run._edge_events = events_value as Array

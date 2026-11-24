@@ -3,7 +3,6 @@
 	"id": "bed_facesit__missionary",
 	"from": "bed_facesit",
 	"to": "missionary",
-	"phases": ["active"],
 	"requires": {"forms": ["human"], "views": ["desktop"]},
 	"duration": 1.2,
 	"easing": "smoothstep",
@@ -18,6 +17,5 @@
 	},
 	"events": [
 		{"at": 1.2, "kind": "status", "value": "missionary"}
-	],
-	"interrupt": {"climax": "hold", "teardown": "abort"}
+	]
 }

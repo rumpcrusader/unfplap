@@ -3,7 +3,6 @@
   "id": "standing__standing_oral",
   "from": "standing",
   "to": "standing_oral",
-  "phases": ["active"],
   "requires": {
     "features": ["anatomy_oral"],
     "consent": "oral",
@@ -26,6 +25,5 @@
     {"at": 0.0, "kind": "speech_stop"},
     {"at": 0.0, "kind": "viseme", "value": "D"},
     {"at": 1.6, "kind": "status", "value": "oral"}
-  ],
-  "interrupt": {"climax": "hold", "teardown": "abort"}
+  ]
 }

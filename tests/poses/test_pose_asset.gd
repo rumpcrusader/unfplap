@@ -107,7 +107,7 @@ func run() -> void:
 		if not shot.origin.is_finite() or shot.origin.y <= 0.2 or shot.origin.y >= 1.6:
 			bad_shots.append(str(key))
 	check(bad_shots.is_empty(), "shot positions are finite and over the mattress: %s" % str(bad_shots))
-	check(bool(pose.call("has_shot", "start")) or shots.is_empty(), "has_shot agrees with the block")
+	check(shots.has("start") or shots.is_empty(), "the start shot agrees with the block")
 	if shots.has("start") and shots.has("back"):
 		var start: Transform3D = shots["start"]
 		var back: Transform3D = shots["back"]

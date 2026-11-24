@@ -1,6 +1,6 @@
 extends "res://mods/unfplap/tests/support/suite.gd"
 ## The closed act-start vocabulary and the runtime setup dispatch: the shipped rows, the helper
-## defaults, a synthetic `auto`/`bed_keep_lying` row, and the two bed adapters through the same
+## defaults, a synthetic `bed_keep_lying` row, and the two bed adapters through the same
 ## dispatcher the real start uses.
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/poses/test_start_setup.gd
@@ -43,23 +43,20 @@ func run() -> void:
 
 
 func _check_vocabulary() -> void:
-	check(SPECS.START_MODES == ["key", "auto"], "the start modes are a closed vocabulary")
 	check(SPECS.START_SETUPS == ["bed_stand_up", "bed_keep_lying", "standing_place"],
 		"the start setups are a closed vocabulary")
 	var expected := {
-		CATALOG.MISSIONARY: ["key", "bed_stand_up"],
-		CATALOG.STANDING: ["key", "standing_place"],
-		CATALOG.STANDING_TEST: ["key", "standing_place"],
-		CATALOG.STANDING_ORAL: ["key", "standing_place"],
-		CATALOG.BED_FACESIT: ["key", "bed_stand_up"],
+		CATALOG.MISSIONARY: "bed_stand_up",
+		CATALOG.STANDING: "standing_place",
+		CATALOG.STANDING_TEST: "standing_place",
+		CATALOG.STANDING_ORAL: "standing_place",
+		CATALOG.BED_FACESIT: "bed_stand_up",
 	}
 	for id: String in SPECS.ids():
 		check(expected.has(id), "the expected start table names %s" % id)
 		if not expected.has(id):
 			continue
-		check(SPECS.start_mode(id) == expected[id][0], "%s has its start mode" % id)
-		check(SPECS.start_setup(id) == expected[id][1], "%s has its start setup" % id)
-	check(SPECS.start_mode("not_a_pose") == "key", "a missing row claims the safe key mode")
+		check(SPECS.start_setup(id) == expected[id], "%s has its start setup" % id)
 	check(SPECS.start_setup("not_a_pose").is_empty(), "a missing row has no setup and fails closed")
 
 
@@ -69,12 +66,12 @@ func _check_synthetic_row() -> void:
 	var row: Dictionary = SPECS.spec(CATALOG.MISSIONARY).duplicate(true)
 	row["id"] = "riding_probe"
 	row["display_name"] = "Riding probe"
-	row["start"] = {"mode": "auto", "setup": "bed_keep_lying"}
+	row["start"] = {"setup": "bed_keep_lying"}
 	var found := POSE_SPEC.errors("riding_probe", row, SPECS.SPECS)
-	check(found.is_empty(), "the synthetic auto/bed_keep_lying row validates: %s" % str(found))
+	check(found.is_empty(), "the synthetic bed_keep_lying row validates: %s" % str(found))
 	var spec: Variant = POSE_SPEC.from_dict("riding_probe", row, SPECS.SPECS)
 	check(spec != null, "the synthetic row builds a typed spec")
-	check(spec != null and spec.start_mode == "auto" and spec.start_setup == "bed_keep_lying",
+	check(spec != null and spec.start_setup == "bed_keep_lying",
 		"the typed spec carries the synthetic start block")
 	check(SPECS.spec("riding_probe").is_empty() and not SPECS.ids().has("riding_probe"),
 		"the synthetic row stays out of the shipped table")

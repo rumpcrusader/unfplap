@@ -213,10 +213,6 @@ func usable(frame_kind: String) -> bool:
 	return frame == frame_kind
 
 
-func has_shot(shot_id: String) -> bool:
-	return shots.has(shot_id)
-
-
 ## The skeleton's root bone (the armature), or -1.
 static func root_bone(sk: Skeleton3D) -> int:
 	for i: int in sk.get_bone_count():
@@ -260,11 +256,6 @@ func active_anon_mode() -> String:
 	return str(value)
 
 
-func active_anon_rig() -> String:
-	var value: Variant = _selected["anon_rig"] if not _selected.is_empty() else anon_rig
-	return str(value)
-
-
 ## The anchor block of the base or the selected variant.
 func active_anchor() -> Dictionary:
 	var value: Variant = _selected["anchor"] if not _selected.is_empty() else anchor
@@ -279,27 +270,6 @@ func active_root() -> Transform3D:
 func active_shots() -> Dictionary:
 	var value: Variant = _selected["shots"] if not _selected.is_empty() else shots
 	return value as Dictionary
-
-
-## The variant record for `size_name` and `body_scale`: the exact name first, then the nearest
-## variant scale, then the base. Returns `{}` when the asset ships no variants.
-func variant_for(size_name: String, body_scale: float) -> Dictionary:
-	if variants.is_empty():
-		return {}
-	var exact := str(size_name)
-	if variants.has(exact):
-		return variants[exact] as Dictionary
-	var best := ""
-	var best_gap := INF
-	var keys: Array = variants.keys()
-	keys.sort()
-	for key: Variant in keys:
-		var entry: Dictionary = variants[key]
-		var gap := absf(float(entry.get("body_scale", 1.0)) - body_scale)
-		if gap < best_gap:
-			best_gap = gap
-			best = str(key)
-	return (variants[best] as Dictionary) if not best.is_empty() else {}
 
 
 ## The world hips anchor pose `F * anchor.transform`.
@@ -332,7 +302,7 @@ func body_lift(world_frame: Transform3D, body_scale: float) -> float:
 
 
 ## The anchor/contact size rule for one authored point: hips anchor, body scale, contact lift.
-## The act body and the authored shots are placed by the same math.
+## The act body is placed by this math.
 func place_origin(world_point: Vector3, world_frame: Transform3D, body_scale: float) -> Vector3:
 	var here := anchor_world(world_frame).origin
 	return here + (world_point - here) * body_scale \
@@ -349,16 +319,6 @@ func placed_root(world_frame: Transform3D, body_scale: float) -> Transform3D:
 	var basis := world_frame.basis.orthonormalized() * active_root().basis
 	basis = basis * Basis.from_scale(Vector3.ONE * body_scale)
 	return Transform3D(basis, wanted)
-
-
-## One authored shot's world origin at `body_scale`, placed by `place_origin`.
-func shot_origin(shot_id: String, world_frame: Transform3D, body_scale: float) -> Vector3:
-	var block := active_shots()
-	var value: Variant = block.get(shot_id)
-	if not value is Transform3D:
-		return Vector3.INF
-	var world_point: Vector3 = (world_frame * (value as Transform3D)).origin
-	return place_origin(world_point, world_frame, body_scale)
 
 
 ## Applies the base pose about the hips anchor, ramping from the game's current pose by `weight`

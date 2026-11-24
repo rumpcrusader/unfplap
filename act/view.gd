@@ -226,8 +226,7 @@ func face_rows(session: ACT_SESSION) -> Array[String]:
 
 func pose_render(_session: ACT_SESSION) -> void:
 	var body_scale: Variant = host.pony.get("body_scale") if is_instance_valid(host.pony) else null
-	context.pose.write_render_frame(float(body_scale) if body_scale != null else 1.0,
-		context.facts.size_name)
+	context.pose.write_render_frame(float(body_scale) if body_scale != null else 1.0)
 
 
 func camera_motion(session: ACT_SESSION) -> void:

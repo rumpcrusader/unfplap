@@ -11,18 +11,14 @@ const POSE_STATE := preload("res://mods/unfplap/poses/pose_state.gd")
 const VERSION := 1
 const CHANNELS := ["base", "anon", "contact", "camera", "controls", "audio", "presentation"]
 const KINDS := ["hold", "blend", "delta", "path", "switch", "lock"]
-const PHASES := ["active", "climax", "afterglow"]
 const EASINGS := ["linear", "smoothstep"]
 const EVENT_KINDS := ["status", "speech_stop", "viseme"]
-const CLIMAX_POLICIES := ["hold"]
-const TEARDOWN_POLICIES := ["abort", "finish"]
 const REQUIRES_KEYS := ["features", "consent", "forms", "views"]
 
 var id := ""
 var version := 0
 var from_id := ""
 var to_id := ""
-var phases: Array[String] = []
 var requires: Dictionary = {}
 ## The document's own duration (0.0 when absent); a started Run owns the resolved clock.
 var duration := 0.0
@@ -30,7 +26,6 @@ var easing := "smoothstep"
 var channels: Dictionary = {}
 var constraints: Array[String] = []
 var events: Array = []
-var interrupt: Dictionary = {}
 ## The validated document by reference: POSE_STATE.start_edge(data, from_id, to_id).
 var data: Dictionary = {}
 
@@ -94,7 +89,6 @@ static func errors(edge_id: String, document: Dictionary, specs: Dictionary = {}
 			out.append("to %s has unknown family %s" % [to_text, to_family])
 		if from_family != to_family:
 			out.append("from %s and to %s are different families" % [from_text, to_text])
-	_check_phases(out, document)
 	if document.has("requires"):
 		var requires_value: Variant = document.get("requires")
 		if not (requires_value is Dictionary):
@@ -125,27 +119,7 @@ static func errors(edge_id: String, document: Dictionary, specs: Dictionary = {}
 		out.append("channel timings or after constraints do not resolve")
 	if document.has("events"):
 		_check_events(out, document.get("events"))
-	if document.has("interrupt"):
-		_check_interrupt(out, document.get("interrupt"))
 	return out
-
-
-static func _check_phases(out: Array[String], document: Dictionary) -> void:
-	var value: Variant = document.get("phases")
-	if not (value is Array):
-		out.append("phases is not an array")
-		return
-	var phases_value := value as Array
-	if phases_value.is_empty():
-		out.append("phases is empty")
-	var seen: Dictionary = {}
-	for item: Variant in phases_value:
-		if not (item is String) or not (item in PHASES):
-			out.append("phases has an unknown entry %s" % str(item))
-			continue
-		if seen.has(item):
-			out.append("phases repeats %s" % str(item))
-		seen[item] = true
 
 
 static func _check_requires(out: Array[String], requires: Dictionary, from_row: Variant,
@@ -299,21 +273,6 @@ static func _check_events(out: Array[String], value: Variant) -> void:
 				out.append("event %d %s has no value" % [index, str(kind_value)])
 
 
-static func _check_interrupt(out: Array[String], value: Variant) -> void:
-	if not (value is Dictionary):
-		out.append("interrupt is not a dictionary")
-		return
-	var interrupt_value := value as Dictionary
-	if interrupt_value.has("climax"):
-		var climax_value: Variant = interrupt_value.get("climax")
-		if not (climax_value is String) or not (climax_value in CLIMAX_POLICIES):
-			out.append("interrupt.climax %s is unknown" % str(climax_value))
-	if interrupt_value.has("teardown"):
-		var teardown_value: Variant = interrupt_value.get("teardown")
-		if not (teardown_value is String) or not (teardown_value in TEARDOWN_POLICIES):
-			out.append("interrupt.teardown %s is unknown" % str(teardown_value))
-
-
 static func _is_number(value: Variant) -> bool:
 	return value is float or value is int
 
@@ -324,7 +283,6 @@ func _fill(edge_id: String, document: Dictionary) -> void:
 	version = int(version_value) if _is_number(version_value) else 0
 	from_id = str(document.get("from", ""))
 	to_id = str(document.get("to", ""))
-	phases.assign(document.get("phases", []))
 	var requires_value: Variant = document.get("requires", {})
 	requires = requires_value as Dictionary if requires_value is Dictionary else {}
 	var duration_value: Variant = document.get("duration", 0.0)
@@ -335,6 +293,4 @@ func _fill(edge_id: String, document: Dictionary) -> void:
 	constraints.assign(document.get("constraints", []))
 	var events_value: Variant = document.get("events", [])
 	events = events_value as Array if events_value is Array else []
-	var interrupt_value: Variant = document.get("interrupt", {})
-	interrupt = interrupt_value as Dictionary if interrupt_value is Dictionary else {}
 	data = document

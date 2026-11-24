@@ -108,29 +108,25 @@ class PoseRequest extends RefCounted:
 class PoseResult extends RefCounted:
 	var ok := false
 	var code := ""
-	var edge := ""
 	var reason := ""
 
-	static func make(code_value: String, edge_id := "", reason_text := "") -> PoseResult:
+	static func make(code_value: String, reason_text := "") -> PoseResult:
 		var out := PoseResult.new()
 		out.code = code_value
 		out.ok = code_value == "ok"
-		out.edge = edge_id
 		out.reason = reason_text
 		return out
 
 
-## The render-time write's frame, body scale and size name.
+## The render-time write's frame and body scale.
 class RenderFrame extends RefCounted:
 	var bed_frame := Transform3D(Basis.IDENTITY, Vector3.INF)
 	var body_scale := 1.0
-	var size_name := ""
 
-	static func of(frame: Transform3D, scale: float, size_name_value: String) -> RenderFrame:
+	static func of(frame: Transform3D, scale: float) -> RenderFrame:
 		var out := RenderFrame.new()
 		out.bed_frame = frame
 		out.body_scale = scale
-		out.size_name = size_name_value
 		return out
 
 
@@ -534,11 +530,6 @@ func _effective_asset(spec: POSE_SPEC) -> String:
 	return ""
 
 
-## The effective authored asset path for a spec id; empty when the row and its chain have none.
-func asset_for(spec_id: String) -> String:
-	return _effective_asset(_registry.spec(spec_id))
-
-
 ## Warm the shared asset cache with one authored file before its first reader, so no idle scan or act
 ## start pays for the parse. A row with no asset is a quiet no-op.
 static func warm_asset(path: String) -> void:
@@ -592,7 +583,7 @@ func _live_spec_id() -> String:
 	return str(_view.id)
 
 
-## Request one authored edge and return the typed `PoseResult` (`ok`, `code`, `edge`, `reason`). It
+## Request one authored edge and return the typed `PoseResult` (`ok`, `code`, `reason`). It
 ## leaves the act running and touches neither the live pose nor the bones.
 func request_pose(target_id: String, trigger: String, request: PoseRequest = null) -> PoseResult:
 	var from_id := str(_view.id)
@@ -608,10 +599,10 @@ func request_pose(target_id: String, trigger: String, request: PoseRequest = nul
 	var code := POSE_STATE.request_code(_state, act_state, from_id, target_id,
 		edge != null, checks)
 	if code != "ok":
-		return PoseResult.make(code, edge_id, _reason(code, target_id))
+		return PoseResult.make(code, _reason(code, target_id))
 	var run: POSE_STATE.Run = POSE_STATE.start_edge(edge.data, from_id, target_id)
 	if run == null:
-		return PoseResult.make("missing_asset", edge_id, "the edge did not start")
+		return PoseResult.make("missing_asset", "the edge did not start")
 	# Cache the target by settings group, so a row with no blocks of its own (`standing_test`) still
 	# gets the standing pose and presentation.
 	_from_id = from_id
@@ -637,7 +628,7 @@ func request_pose(target_id: String, trigger: String, request: PoseRequest = nul
 	if _oral_pair(from_id, target_id):
 		_oral_turn.begin(target_id == CATALOG.STANDING_ORAL, _view)
 	LOG.debug("pose request %s -> %s (%s): ok", [from_id, target_id, trigger])
-	return PoseResult.make("ok", edge_id, "")
+	return PoseResult.make("ok")
 
 
 ## The request's form list: the request's own list, or the player's live form.
@@ -1129,13 +1120,6 @@ func _add_reload_path(paths: Array[String], seen: Dictionary, path: String) -> v
 		return
 	seen[resolved] = true
 	paths.append(resolved)
-
-
-## The middle of the missionary bed's mattress top: the authored pose's origin in world space.
-func missionary_origin() -> Vector3:
-	if bed_frame is Transform3D:
-		return (bed_frame as Transform3D).origin
-	return pony.global_position if is_instance_valid(pony) else Vector3.ZERO
 
 
 ## Bed space for the authored pose: the middle of the real mattress top, in the bed's axes, the
@@ -1691,11 +1675,11 @@ func sync_frame(family: String) -> void:
 		sync_ground_frame()
 
 
-## The typed entry for the render-time step: the session supplies its own bed frame plus the scale
-## and size name it read from the act.
-func write_render_frame(body_scale: float, size_name: String) -> void:
+## The typed entry for the render-time step: the session supplies its own bed frame plus the body
+## scale it read from the act.
+func write_render_frame(body_scale: float) -> void:
 	var frame: Transform3D = bed_frame if bed_frame is Transform3D else NO_FRAME
-	render_write(RenderFrame.of(frame, body_scale, size_name))
+	render_write(RenderFrame.of(frame, body_scale))
 
 
 func set_tail_target(value: float) -> void:

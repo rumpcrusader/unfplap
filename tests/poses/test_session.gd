@@ -93,9 +93,8 @@ func _flags(raw: Dictionary) -> SESSION.FeatureFlags:
 	return SESSION.FeatureFlags.from_dict(raw)
 
 
-func _render(frame: Transform3D = SESSION.NO_FRAME, scale: float = 1.0,
-		size: String = "") -> SESSION.RenderFrame:
-	return SESSION.RenderFrame.of(frame, scale, size)
+func _render(frame: Transform3D = SESSION.NO_FRAME, scale: float = 1.0) -> SESSION.RenderFrame:
+	return SESSION.RenderFrame.of(frame, scale)
 
 
 func run() -> void:
@@ -659,7 +658,7 @@ func _check_state_machine() -> void:
 	var result: SESSION.PoseResult = session.request_pose(CATALOG.STANDING_TEST, "test", _request({"act_state": 2}))
 	check(result.ok and result.code == "ok",
 		"the forward debug request is accepted")
-	check(result.edge == "standing__standing_test",
+	check(view.edge_id == "standing__standing_test",
 		"the forward request names the authored edge")
 	check(view.pose_state == VIEW.TRANSITIONING and session._state == VIEW.TRANSITIONING,
 		"the request enters the transition state")
@@ -732,7 +731,7 @@ func _check_state_machine() -> void:
 
 	var reverse: SESSION.PoseResult = session.request_pose(CATALOG.STANDING, "test", _request({"act_state": 2}))
 	check(reverse.code == "ok", "the reverse debug request is accepted")
-	check(reverse.edge == "standing_test__standing",
+	check(view.edge_id == "standing_test__standing",
 		"the reverse request names the reverse edge")
 	session.tick(0.0)
 	session.tick(0.6)
@@ -763,7 +762,7 @@ func _check_oral_edge() -> void:
 	var forward: SESSION.PoseResult = session.request_pose(CATALOG.STANDING_ORAL, "oral",
 		_request({"act_state": 2, "consent": "oral", "features": {"anatomy_oral": true}}))
 	check(forward.ok, "the oral forward request is accepted")
-	check(forward.edge == "standing__standing_oral",
+	check(view.edge_id == "standing__standing_oral",
 		"the oral forward request names its edge")
 	check(view.id == CATALOG.STANDING_ORAL and view.pose_state == VIEW.TRANSITIONING,
 		"the oral forward fills the target and enters the transition")
@@ -837,7 +836,7 @@ func _check_oral_edge() -> void:
 	var reverse: SESSION.PoseResult = session.request_pose(CATALOG.STANDING, "oral",
 		_request({"act_state": 2, "features": {"anatomy_oral": true}}))
 	check(reverse.ok, "the oral reverse request is accepted")
-	check(reverse.edge == "standing_oral__standing",
+	check(view.edge_id == "standing_oral__standing",
 		"the oral reverse request names its edge")
 	session.tick(0.0)
 	check(view.contact_kind == "opening", "the reverse contact is released at zero")
@@ -905,7 +904,7 @@ func _check_facesit_edge() -> void:
 	var forward: SESSION.PoseResult = session.request_pose(CATALOG.BED_FACESIT, "facesit",
 		_request({"act_state": 2}))
 	check(forward.ok, "the face-sit forward request is accepted")
-	check(forward.edge == "missionary__bed_facesit",
+	check(view.edge_id == "missionary__bed_facesit",
 		"the face-sit forward request names its edge")
 	check(view.id == CATALOG.BED_FACESIT and view.pose_state == VIEW.TRANSITIONING,
 		"the face-sit forward fills the target and enters the transition")
@@ -967,7 +966,7 @@ func _check_facesit_edge() -> void:
 	var reverse: SESSION.PoseResult = session.request_pose(CATALOG.MISSIONARY, "facesit",
 		_request({"act_state": 2}))
 	check(reverse.ok, "the face-sit reverse request is accepted")
-	check(reverse.edge == "bed_facesit__missionary",
+	check(view.edge_id == "bed_facesit__missionary",
 		"the face-sit reverse request names its edge")
 	session.tick(0.0)
 	check(view.contact_kind == "opening", "the reverse contact is restored at zero")
@@ -1479,12 +1478,10 @@ func _synthetic_edge(session: SESSION, from_id: String, to_id: String, requires:
 		"id": edge_id,
 		"from": from_id,
 		"to": to_id,
-		"phases": ["active"],
 		"requires": requires,
 		"duration": 0.6,
 		"channels": block,
 		"events": [],
-		"interrupt": {"climax": "hold", "teardown": "abort"},
 	}
 	var edge: Variant = TRANSITION_SPEC.from_dict(edge_id, document, {})
 	check(edge != null, "the synthetic edge %s builds" % edge_id)

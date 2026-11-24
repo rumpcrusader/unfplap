@@ -12,15 +12,12 @@ const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 func run() -> void:
 	_check_next()
 	_check_request_code()
-	_check_requirement_code()
-	_check_result()
 	_check_start()
 	_check_duration()
 	_check_channels()
 	_check_constraints()
 	_check_events()
 	_check_completion()
-	_check_interrupt()
 	_check_reuse()
 	_check_base()
 
@@ -36,7 +33,6 @@ func _edge() -> Dictionary:
 		"id": "standing__standing_test",
 		"from": "standing",
 		"to": "standing_test",
-		"phases": ["active"],
 		"requires": {"features": [], "consent": "", "forms": [], "views": []},
 		"duration": 0.6,
 		"easing": "smoothstep",
@@ -47,7 +43,6 @@ func _edge() -> Dictionary:
 		},
 		"constraints": [],
 		"events": [{"at": 0.0, "kind": "status", "value": "test"}],
-		"interrupt": {"climax": "hold", "teardown": "abort"},
 	}
 
 
@@ -133,51 +128,6 @@ func _check_request_code() -> void:
 	check(STATE.request_code(VIEW.STEADY, 2, "standing", "standing_test", true,
 		{"asset_ok": false, "locked": true}) == "missing_asset",
 		"the asset is checked before the lock")
-
-
-func _check_requirement_code() -> void:
-	check(STATE.requirement_code({}) == "ok", "an edge without requirements passes")
-	check(STATE.requirement_code({"requires": {}}) == "ok", "empty requirements pass")
-	check(STATE.requirement_code({"requires": {"forms": [], "views": []}},
-		{"form_ok": false, "view_ok": false}) == "ok",
-		"empty form/view requirements ignore the flags")
-	check(STATE.requirement_code({"requires": {"forms": ["human"]}}) == "ok",
-		"a missing flag defaults true")
-	var forms := {"requires": {"forms": ["human", "pony"]}}
-	check(STATE.requirement_code(forms, {"form_ok": false}) == "unsupported_form",
-		"a form requirement refuses")
-	var views := {"requires": {"views": ["desktop", "vr"]}}
-	check(STATE.requirement_code(views, {"view_ok": false}) == "unsupported_view",
-		"a view requirement refuses")
-	check(STATE.requirement_code({"requires": {"forms": ["human"], "views": ["vr"]}},
-		{"form_ok": false, "view_ok": false}) == "unsupported_form",
-		"the form requirement is checked before the view")
-	check(STATE.requirement_code({"requires": {"views": ["vr"], "features": ["anatomy"]}},
-		{"view_ok": false, "features_ok": false}) == "unsupported_view",
-		"the view requirement is checked before refusal")
-	check(STATE.requirement_code({"requires": {"features": ["anatomy"]}},
-		{"features_ok": false}) == "refused", "a feature requirement refuses")
-	check(STATE.requirement_code({"requires": {"consent": "bond"}},
-		{"consent_ok": false}) == "refused", "a consent requirement refuses")
-	check(STATE.requirement_code({"requires": {"features": ["anatomy"]}},
-		{"consent_ok": false}) == "ok",
-		"a feature requirement does not read the other flags")
-	check(STATE.requirement_code({"requires": {"features": [], "consent": ""}},
-		{"features_ok": false, "consent_ok": false}) == "ok",
-		"empty feature and consent requirements pass")
-
-
-func _check_result() -> void:
-	var ok := STATE.result("ok")
-	check(bool(ok.get("ok")) and str(ok.get("code")) == "ok", "ok accepts")
-	check(str(ok.get("edge")) == "" and str(ok.get("reason")) == "",
-		"an accepted result carries no edge or reason")
-	var refused := STATE.result("no_edge", "standing__standing_test", "no authored edge")
-	check(not bool(refused.get("ok")), "only ok accepts")
-	check(str(refused.get("code")) == "no_edge", "the result keeps the code")
-	check(str(refused.get("edge")) == "standing__standing_test", "the result keeps the edge")
-	check(str(refused.get("reason")) == "no authored edge", "the result keeps the reason")
-	check(ok.size() == 4, "the result stays small")
 
 
 func _check_start() -> void:
@@ -463,35 +413,6 @@ func _check_completion() -> void:
 	if run != null:
 		run.tick(0.0)
 		check(run.complete(), "a zero-duration run completes on tick(0.0)")
-
-
-func _check_interrupt() -> void:
-	var edge := _edge()
-	edge.erase("interrupt")
-	var run: Variant = _run(edge)
-	check(run != null and run.interrupt_climax == "hold" and run.interrupt_teardown == "abort",
-		"the interrupt policy defaults to hold/abort")
-	edge = _edge()
-	edge["interrupt"] = {"climax": "cut", "teardown": "hold"}
-	run = _run(edge)
-	check(run != null and run.interrupt_climax == "cut" and run.interrupt_teardown == "hold",
-		"the edge interrupt override is copied")
-	edge = _edge()
-	edge["interrupt"] = {"teardown": "hold"}
-	run = _run(edge)
-	check(run != null and run.interrupt_climax == "hold" and run.interrupt_teardown == "hold",
-		"a partial interrupt override keeps the default climax")
-	edge = _edge()
-	edge["duration"] = 0.5
-	edge["channels"] = {"base": {"kind": "hold"}}
-	edge["interrupt"] = {"climax": "hold", "teardown": "abort"}
-	run = _run(edge)
-	check(run != null, "an aborting edge starts")
-	if run != null:
-		run.tick(0.5)
-		check(run.complete(), "the module completes regardless of the teardown policy")
-		check(run.interrupt_teardown == "abort" and run.interrupt_climax == "hold",
-			"the module does not act on the interrupt policy")
 
 
 func _check_reuse() -> void:

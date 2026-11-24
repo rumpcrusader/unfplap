@@ -413,7 +413,7 @@ func _check_missionary() -> void:
 	check(size_pos <= 0.002, "the missionary body positions are size-invariant: %.5f m" % size_pos)
 	check(size_deg <= 0.5, "the missionary body rotations are size-invariant: %.4f deg" % size_deg)
 
-	# The Anon body and the shots place by the same anchor/contact rule; canon is unchanged.
+	# The Anon body places by the same anchor/contact rule; canon is unchanged.
 	var anon6: Transform3D = v6.get("anon_frame")
 	var anon7: Transform3D = v7.call("active_anon_transform")
 	var canon_anon: Vector3 = (frame * anon6).origin
@@ -426,13 +426,6 @@ func _check_missionary() -> void:
 	var expected_anon := here + (canon_anon - here) * size + Vector3.UP * lift
 	check((v7.call("place_origin", (frame * anon7).origin, frame, size) as Vector3)
 		.distance_to(expected_anon) <= 0.0001, "the Anon follows the anchor at %.2f" % size)
-	var shot6: Transform3D = (v6.get("shots") as Dictionary)["start"]
-	var canon_shot: Vector3 = (frame * shot6).origin
-	check((v7.call("place_origin", v7.call("shot_origin", "start", frame, 1.0), frame, 1.0)
-		as Vector3).distance_to(canon_shot) <= 0.0001, "the shot is unchanged at canon")
-	var expected_shot := here + (canon_shot - here) * size + Vector3.UP * lift
-	check((v7.call("shot_origin", "start", frame, size) as Vector3)
-		.distance_to(expected_shot) <= 0.0001, "the shot follows the anchor at %.2f" % size)
 	root.remove_child(pony)
 	pony.free()
 

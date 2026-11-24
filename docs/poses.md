@@ -123,8 +123,8 @@ and the `support` height), the armature `root`, the body bone deltas, and option
 - **Placement.** The frame is placed from the hips anchor and the contact, not from a scaled asset
   origin. At body scale `s` the root is scaled about the anchor and lifted so the contact stays on
   the support; the live body scale is applied once at the world root, so the skeleton-space root
-  pose stays orthonormal. `place_origin()` is the same rule for the Anon act body and the authored
-  shots. In a bed pose the root also rises by the body's measured clearance
+  pose stays orthonormal. `place_origin()` is the same rule for the Anon act body. In a bed pose the
+  root also rises by the body's measured clearance
   (`bed_clearance()`): the pose is authored on the mare, whose body lies on the mattress, and a
   body that hangs further from its armature root would otherwise sink. The measurement poses the
   rest skeleton with the authored bones in frame space and skins her body on the CPU once per body
@@ -253,7 +253,7 @@ A request returns the first refusal in this exact order: `same`, `bad_phase` (th
 `unsupported_view`, `refused` (features or consent), `missing_asset`, `locked`, then `ok`.
 `same` is checked before the phase, so a no-op target is never reported as `busy`.
 
-One edge is a `Run`: per-channel tracks, one clock and the interrupt policy. A channel is `hold`
+One edge is a `Run`: per-channel tracks and one clock. A channel is `hold`
 (weight 1, settled), `blend`/`delta` (eased 0→1 over its own window, or the edge duration),
 `switch` (fires once at its `at`, reported by name) or `lock` (a policy signal, weight 1). `path` is
 accepted as `blend` until an edge authors it. The `base` channel owns the view weight; an absent or
@@ -264,8 +264,7 @@ duration is the base and a longer channel or switch extends it.
 `Run.tick()` reuses the `events` and `switches` arrays and the channel records: the caller drains
 them after a tick and before the next one. The `at: 0` events and switches fire on `tick(0.0)`.
 Each event fires once, in authored order. `complete()` is true only after every channel settles and
-the clock reaches the duration; a tick after completion does not fire anything again. The module
-copies `interrupt.climax`/`interrupt.teardown` (`hold`/`abort` by default) but never acts on them.
+the clock reaches the duration; a tick after completion does not fire anything again.
 
 `start_edge()`/`Run.start()` accept only an edge whose `id`, `from`, `to` and `channels` are
 present, whose endpoints match the requested pair, whose channel kinds and constraint references
@@ -278,9 +277,8 @@ through `poses/transition_spec.gd` and cached by `poses/registry.gd`. The filena
 id and must equal the document's `id`, which is exactly `<from>__<to>`; both endpoints name spec
 rows in the same family and `from` and `to` differ. The document's `version` is 1.
 
-Top-level fields: `id`, `from`, `to`, `phases` (the act phases the edge may start in: `active`,
-`climax`, `afterglow`), optional `requires`, optional `duration`, optional `easing` (`linear` or
-`smoothstep`), `channels`, optional `constraints`, optional `events` and optional `interrupt`.
+Top-level fields: `id`, `from`, `to`, optional `requires`, optional `duration`, optional `easing`
+(`linear` or `smoothstep`), `channels`, optional `constraints` and optional `events`.
 Unknown top-level keys are additive and ignored.
 
 `requires` holds only `features`, `consent`, `forms` and `views`. `features` is a list of
@@ -308,15 +306,11 @@ the other channel's start plus the delay. A reference outside the edge or a cycl
 and `viseme`, a non-empty `value`. They are sorted by `at`, because `Run.tick()` stops at the first
 future event and an out-of-order list would hide the later events.
 
-`interrupt.climax` is `hold`; `interrupt.teardown` is `abort` or `finish`. The module exposes the
-policy and never acts on it.
-
 `poses/transition_spec.gd` is the one edge validator. It checks the filename/id rule, the endpoints
-and their family, the phases, the `requires` block, the duration and each channel payload, the
-constraints, the events and the interrupt policy, and it collects every problem instead of stopping
-at the first. Only after every structural check passes does it ask `pose_state.gd` to start the
-document; a null start is one generic error that the channel timing or an `after` constraint does
-not resolve.
+and their family, the `requires` block, the duration and each channel payload, the constraints and
+the events, and it collects every problem instead of stopping at the first. Only after every
+structural check passes does it ask `pose_state.gd` to start the document; a null start is one
+generic error that the channel timing or an `after` constraint does not resolve.
 
 `poses/registry.gd` reads the directory once, on the first `spec()`, `edge()` or `validate()` call,
 and never on a tick: sorted `DirAccess` listing, one `FileAccess` read and one `JSON` parse per
@@ -339,8 +333,7 @@ edge requires the `anatomy_oral` feature, `consent: "oral"`, both forms and view
 `status oral`. The reverse edge requires only the feature, both forms and both views, returns
 `contact` to `opening` at `0.0` and `audio` to `standing`, allows only `end` during the lock, and
 fires `status standing` at its end. The reverse edge has no consent, so a return is always
-allowed. Neither edge calls an act exit; the interrupt policy is `climax: hold` and
-`teardown: abort`.
+allowed. Neither edge calls an act exit.
 
 `standing_oral` is the matching internal spec row. It inherits `standing` (a base, no driver of its
 own), carries the procedural delta `poses/standing_oral_recipe.gd`, uses the standing settings
@@ -355,8 +348,7 @@ the authored Anon block over the whole edge, switches `contact` to `face` at `0.
 missionary presentation and fires one final `status facesit`. The reverse edge runs for `1.2 s`,
 returns `contact` to `opening` and `presentation` to `missionary` at `0.0`, locks `controls` to
 `end` and fires `status missionary` at its end. It requires only human and desktop, so the return is
-always available. Neither edge calls an act exit; the interrupt policy is `climax: hold` and
-`teardown: abort`.
+always available. Neither edge calls an act exit.
 
 `bed_facesit` is the third internal spec row. It owns `poses/bed_facesit_pose.json`, reuses
 `poses/missionary_recipe.gd` and the missionary settings group, presentation, modifier, hands,
@@ -380,31 +372,27 @@ and starts an authored edge only on a request; the debug pair's player-visible p
 Every row declares `start`, the pose's act-start contract:
 
 ```gdscript
-"start": {"mode": "key", "setup": "bed_stand_up"},
+"start": {"setup": "bed_stand_up"},
 ```
-
-`mode` is `key` or `auto`. `key` waits for the act key; `auto` lets a trigger call the same start
-path without it. Every shipped row is `key`. The `auto` flag is stored on the offer, never acted on
-by the start path: the trigger owns its timing.
 
 `setup` is the closed placement vocabulary `bed_stand_up`, `bed_keep_lying` or `standing_place`.
 The start sequence dispatches on this name (`act/setup.gd:run()`) and never on a pose id, so a new pose
 adds a row, an asset and a recipe, not a start branch. The adapters and the start order are
 `docs/runtime.md`.
 
-| Pose | mode | setup |
-|---|---|---|
-| `missionary` | `key` | `bed_stand_up` |
-| `standing` | `key` | `standing_place` |
-| `standing_test` | `key` | `standing_place` |
-| `standing_oral` | `key` | `standing_place` |
-| `bed_facesit` | `key` | `bed_stand_up` |
+| Pose | setup |
+|---|---|
+| `missionary` | `bed_stand_up` |
+| `standing` | `standing_place` |
+| `standing_test` | `standing_place` |
+| `standing_oral` | `standing_place` |
+| `bed_facesit` | `bed_stand_up` |
 
 `bed_keep_lying` has no shipped consumer yet: the riding pose is its first intended user. The
 focused `tests/poses/test_start_setup.gd` proves the vocabulary, the validator, the helpers and the
-`act/setup.gd` dispatcher with a synthetic `auto`/`bed_keep_lying` row; that row stays out of the shipped
-table and the catalog. `poses/pose_spec.gd` rejects a missing block, an unknown mode or an unknown
-setup, and `poses/registry.gd`'s `check_table()` covers every shipped row.
+`act/setup.gd` dispatcher with a synthetic `bed_keep_lying` row; that row stays out of the shipped
+table and the catalog. `poses/pose_spec.gd` rejects a missing block or an unknown setup, and
+`poses/registry.gd`'s `check_table()` covers every shipped row.
 
 ## Session requests and ticks
 
@@ -418,7 +406,7 @@ values. `pose_frame()`, `missionary_pose_frame()` and `ground_pose_frame()` retu
 and `has_frame()` separates a live frame from the absent one, whose origin is infinite.
 
 `request_pose(target_id, trigger, request)` returns the typed `PoseResult` record (`ok`, `code`,
-`edge`, `reason`). It checks the target against the act phase, the player's form/view, the edge
+`reason`). It checks the target against the act phase, the player's form/view, the edge
 requirements and the edge lock in the state module's order: `same`, `bad_phase`, `busy`,
 `not_steady`, `no_edge`, `unsupported_form`, `unsupported_view`, `refused`, `missing_asset`,
 `locked`, `ok`. A refused request changes nothing. The typed `PoseRequest` supplies `act_state`
@@ -981,7 +969,7 @@ The aftercare lifetime, positive tail-up rule and the held mood face are in `doc
 ## Timing domains
 
 - `act/tick.gd:render`: the render-time pose write, the climax progress, the surge/bob tick and the
-  breath. `act/view.gd:pose_render()` supplies the body scale and the size name to
+  breath. `act/view.gd:pose_render()` supplies the body scale to
   `poses/api.gd:write_render_frame()`. `render_write()` owns the render-time order:
   `sync_frame(family)` picks the bed or ground frame; for the bed family it places the act's Anon
   body, writes her pose, replays the prone sway, then lets `camera/view.gd:write_eye()` read his

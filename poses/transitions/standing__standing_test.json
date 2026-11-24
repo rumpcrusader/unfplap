@@ -3,7 +3,6 @@
   "id": "standing__standing_test",
   "from": "standing",
   "to": "standing_test",
-  "phases": ["active"],
   "requires": {
     "features": [],
     "consent": "",
@@ -22,6 +21,5 @@
     "presentation": {"kind": "switch", "at": 0.0, "profile": "standing_test"}
   },
   "constraints": [],
-  "events": [{"at": 0.0, "kind": "status", "value": "test"}],
-  "interrupt": {"climax": "hold", "teardown": "abort"}
+  "events": [{"at": 0.0, "kind": "status", "value": "test"}]
 }

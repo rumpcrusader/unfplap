@@ -105,7 +105,7 @@ func _check_schema() -> void:
 	check(str(pose.get("space")) == AUTHORED.SPACE_LOCAL_REST, "local_rest space")
 	check(bool(pose.call("usable", "ground")), "usable for its ground frame")
 	check(not bool(pose.call("usable", "bed")), "not usable for a bed frame")
-	check(bool(pose.call("has_shot", "start")), "an authored shot is readable")
+	check((pose.get("shots") as Dictionary).has("start"), "an authored shot is readable")
 	check(int(pose.get("rig_version")) == AUTHORED.RIG_VERSION, "the rig version is pinned")
 
 	var newer := _asset()
@@ -221,12 +221,6 @@ func _check_placement() -> void:
 	var expected := here + (world_point - here) * s + Vector3.UP * lift
 	check(near_v(pose.call("place_origin", world_point, frame, s), expected, 0.00001),
 		"place_origin follows the anchor, the scale and the lift")
-	var shot: Vector3 = pose.call("shot_origin", "start", frame, s)
-	var shot_point := frame * Vector3(0.0, 1.0, 2.0)
-	var shot_expected := here + (shot_point - here) * s + Vector3.UP * lift
-	check(near_v(shot, shot_expected, 0.00001), "shot_origin follows the same rule")
-	var missing_shot: Vector3 = pose.call("shot_origin", "nope", frame, s)
-	check(not missing_shot.is_finite(), "a missing shot has no origin")
 
 
 func _check_variants() -> void:
@@ -258,16 +252,6 @@ func _check_variants() -> void:
 	data["variants"] = variants
 	var pose: Variant = _load(data, "variants")
 	check(bool(pose.get("available")), "the variant asset loads: %s" % str(pose.get("error")))
-	var exact: Dictionary = pose.call("variant_for", "jrh", 1.35)
-	check(near(float(exact.get("body_scale", 0.0)), 1.35), "an exact size name wins")
-	var nearest: Dictionary = pose.call("variant_for", "mounting", 1.30)
-	check(near(float(nearest.get("body_scale", 0.0)), 1.35), "an unknown name snaps to the nearest scale")
-	var merged: Dictionary = exact.get("bones", {})
-	check(merged.size() == PONY_BONES.size(), "a variant keeps every base bone")
-	check(not (merged["pony_spine1"] as Dictionary)["position"].is_zero_approx(),
-		"a variant merges its bone override")
-	var base: Dictionary = pose.call("variant_for", "nope", 0.5)
-	check(near(float(base.get("body_scale", 0.0)), 1.0), "the nearest is the canon variant")
 
 	var bad := _asset()
 	bad["variants"] = {"jrh": {"body_scale": 1.35, "space": "world"}}
@@ -280,7 +264,7 @@ func _check_variants() -> void:
 ## The spec table's `asset` field and the base-chain resolution.
 func _check_resolution() -> void:
 	var service: SERVICE = SERVICE.new()
-	check(service.call("asset_for", SPECS.MISSIONARY) == "poses/missionary_pose.json",
+	check(service.authored_asset(SPECS.MISSIONARY).path.ends_with("poses/missionary_pose.json"),
 		"missionary resolves its asset")
 	var row: Dictionary = SPECS.spec(SPECS.MISSIONARY).duplicate(true)
 	row["id"] = "missionary_child"
@@ -292,11 +276,12 @@ func _check_resolution() -> void:
 	check(child != null, "a synthetic base row builds")
 	check(str(service.call("_effective_asset", child)) == "poses/missionary_pose.json",
 		"a base-chain row inherits the asset")
-	var standing_asset := str(service.call("asset_for", SPECS.STANDING))
-	check(standing_asset == "poses/standing_pose.json", "the standing row declares its asset")
-	check(str(service.call("asset_for", SPECS.STANDING_TEST)) == standing_asset,
+	var standing_asset: String = service.authored_asset(SPECS.STANDING).path
+	check(standing_asset.ends_with("poses/standing_pose.json"),
+		"the standing row declares its asset")
+	check(service.authored_asset(SPECS.STANDING_TEST).path == standing_asset,
 		"standing_test inherits the standing asset")
-	check(str(service.call("asset_for", SPECS.STANDING_ORAL)) == standing_asset,
+	check(service.authored_asset(SPECS.STANDING_ORAL).path == standing_asset,
 		"standing_oral inherits the standing asset")
 	var shipped: Variant = AUTHORED.shared(standing_asset)
 	check(bool(shipped.get("available")), "the standing asset loads: %s" % str(shipped.get("error")))
@@ -385,7 +370,6 @@ func _check_facesit_asset() -> void:
 	check(near(float(anchor.get("support", -1.0)), 0.0), "the face-sit support is the mattress top")
 	check((pose.get("root") as Transform3D).origin.is_finite(), "the face-sit root is finite")
 	check(str(pose.call("active_anon_mode")) == "act_body", "the face-sit Anon mode is act_body")
-	check(str(pose.call("active_anon_rig")) == AUTHORED.ANON_RIG, "the face-sit Anon rig")
 	var anon_transform: Transform3D = pose.call("active_anon_transform")
 	check(anon_transform.origin.is_finite() and anon_transform.basis.determinant() > 0.0,
 		"the face-sit Anon placement is finite and right-handed")
@@ -396,7 +380,7 @@ func _check_facesit_asset() -> void:
 	var shots: Dictionary = pose.get("shots")
 	check(shots.size() == 5, "the face-sit carries five shots")
 	for shot: String in ["start", "front", "back", "left", "right"]:
-		check(pose.call("has_shot", shot), "the face-sit carries the %s shot" % shot)
+		check(shots.has(shot), "the face-sit carries the %s shot" % shot)
 	check((pose.get("variants") as Dictionary).is_empty(), "the face-sit ships no variants")
 	var frame := Transform3D(Basis(Vector3.UP, 0.4), Vector3(1.0, 0.7, -2.0))
 	for size: float in SIZES:

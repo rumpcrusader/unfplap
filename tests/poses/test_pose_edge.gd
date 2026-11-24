@@ -235,9 +235,6 @@ func _check_facesit_documents() -> void:
 		"the face-sit forward presentation stays missionary")
 	check(forward.get("constraints") == ["contact after base@0.55"],
 		"the face-sit forward contact is floored after the base")
-	check(str((forward.get("interrupt", {}) as Dictionary).get("climax", "")) == "hold"
-		and str((forward.get("interrupt", {}) as Dictionary).get("teardown", "")) == "abort",
-		"the face-sit forward interrupt policy")
 	var reverse_requires: Dictionary = reverse.get("requires", {})
 	check(reverse_requires.get("forms") == ["human"] and reverse_requires.get("views") == ["desktop"],
 		"the face-sit reverse edge asks for both forms and views")
@@ -317,10 +314,6 @@ func _check_rejections() -> void:
 	var cross := _mutated({"id": "a__b", "from": "a", "to": "b"})
 	check(not TRANSITION_SPEC.errors("a__b", cross, table).is_empty(),
 		"a cross-family endpoint is rejected")
-	_rejects(_without("phases"), "missing phases are rejected")
-	_rejects(_mutated({"phases": []}), "an empty phases list is rejected")
-	_rejects(_mutated({"phases": ["idle"]}), "an unknown phase is rejected")
-	_rejects(_mutated({"phases": ["active", "active"]}), "a duplicate phase is rejected")
 	_rejects(_with_requires("unknown", true), "an unknown requires key is rejected")
 	_rejects(_with_requires("forms", ["unicorn"]), "an unknown form is rejected")
 	_rejects(_with_requires("views", ["phone"]), "an unknown view is rejected")
@@ -389,10 +382,6 @@ func _check_rejections() -> void:
 		"a viseme without a value is rejected")
 	_rejects(_mutated({"events": [{"at": -1.0, "kind": "speech_stop"}]}),
 		"a negative event at is rejected")
-	_rejects(_mutated({"interrupt": {"climax": "cut"}}),
-		"an unknown climax policy is rejected")
-	_rejects(_mutated({"interrupt": {"teardown": "hold"}}),
-		"an unknown teardown policy is rejected")
 	check(TRANSITION_SPEC.from_dict(FORWARD, _mutated({"version": 2}), SPECS.SPECS) == null,
 		"from_dict refuses an invalid document")
 
@@ -421,7 +410,6 @@ func _check_shapes() -> void:
 	check(_errors(_without("requires")).is_empty(), "a missing requires block is valid")
 	check(_errors(_without("events")).is_empty(), "a missing events block is valid")
 	check(_errors(_without("constraints")).is_empty(), "a missing constraints block is valid")
-	check(_errors(_without("interrupt")).is_empty(), "a missing interrupt block is valid")
 	check(_errors(_mutated({"comment": "additive"})).is_empty(),
 		"an unknown top-level key is additive")
 	check(_errors(_with_channel("base", {"kind": "hold", "note": "additive"})).is_empty(),

@@ -3,7 +3,6 @@
   "id": "standing_oral__standing",
   "from": "standing_oral",
   "to": "standing",
-  "phases": ["active"],
   "requires": {
     "features": ["anatomy_oral"],
     "forms": ["human", "pony"],
@@ -23,6 +22,5 @@
   "constraints": [],
   "events": [
     {"at": 1.6, "kind": "status", "value": "standing"}
-  ],
-  "interrupt": {"climax": "hold", "teardown": "abort"}
+  ]
 }

@@ -117,7 +117,7 @@ class Host:
 
 
 ## One live negotiation's private state. It is cleared when the Agreement forms.
-class Offer:
+class Exchange:
 	var id := 0
 	var generation := 0
 	var runtime: Node = null
@@ -144,7 +144,7 @@ var _bridge: HOST = null
 var _adapter: ADAPTER = null
 var _phase := Phase.NONE
 var _locked := false
-var _offer: Offer = null
+var _exchange: Exchange = null
 var _agreement: AGREEMENT.Package = null
 var _handle: AGREEMENT.Handle = null
 var _generation := 0
@@ -152,16 +152,15 @@ var _serial := 0
 var _deadline := 0.0
 var _privacy_clock := 0.0
 
-## The services the bridge reads, wired once by the entry. `eligibility` and `gate` alone are
-## handed over again on each world enter, because the entry constructs fresh ones.
-var eligibility: ELIGIBILITY = null
-var gate: ACT_GATE = null
-var memory: MEMORY = null
-var privacy: PRIVACY = null
-var hud: Node = null
-var initiation: Node = null
-var offer: Node = null
-## The act frame the bridge's watch gates on; `wire()` is the only writer.
+## The services the bridge reads, wired once by the entry; the facade reads none of them itself.
+var _eligibility: ELIGIBILITY = null
+var _gate: ACT_GATE = null
+var _memory: MEMORY = null
+var _privacy: PRIVACY = null
+var _hud: Node = null
+var _initiation: Node = null
+var _offer: Node = null
+## The act frame the bridge's watch gates on.
 var _act_owner: ACT_OWNER = null
 ## The roster the terminal outcome and the Agreement handle read runtimes through.
 var _ponies: PONIES = null
@@ -172,17 +171,17 @@ var _ponies: PONIES = null
 func wire(eligibility_service: ELIGIBILITY, gate_service: ACT_GATE, memory_service: MEMORY,
 		privacy_service: PRIVACY, initiation_service: Node, offer_service: Node,
 		owner: ACT_OWNER, hud_service: Node = null, ponies_service: PONIES = null) -> void:
-	eligibility = eligibility_service
-	gate = gate_service
-	memory = memory_service
-	privacy = privacy_service
-	initiation = initiation_service
-	offer = offer_service
+	_eligibility = eligibility_service
+	_gate = gate_service
+	_memory = memory_service
+	_privacy = privacy_service
+	_initiation = initiation_service
+	_offer = offer_service
 	_act_owner = owner
-	hud = hud_service
+	_hud = hud_service
 	_ponies = ponies_service
-	assert(eligibility != null and gate != null and memory != null)
-	assert(privacy != null and initiation != null and offer != null and _act_owner != null)
+	assert(_eligibility != null and _gate != null and _memory != null)
+	assert(_privacy != null and _initiation != null and _offer != null and _act_owner != null)
 
 
 ## Builds the one adapter and bridge as this service's children, then binds the typed host to them.
@@ -196,13 +195,13 @@ func _ready() -> void:
 		_bridge = HOST.new()
 	_bridge.service = self
 	_bridge.adapter = _adapter
-	_bridge.eligibility = eligibility
-	_bridge.gate = gate
-	_bridge.memory = memory
-	_bridge.privacy = privacy
-	_bridge.hud = hud
-	_bridge.initiation = initiation
-	_bridge.offer = offer
+	_bridge.eligibility = _eligibility
+	_bridge.gate = _gate
+	_bridge.memory = _memory
+	_bridge.privacy = _privacy
+	_bridge.hud = _hud
+	_bridge.initiation = _initiation
+	_bridge.offer = _offer
 	_bridge.act_owner = _act_owner
 	_bridge.ponies = _ponies
 	_bind_host()
@@ -213,14 +212,11 @@ func adapter() -> ADAPTER:
 	return _adapter if is_instance_valid(_adapter) else null
 
 
-## A world started: the close of the world that is gone comes first, then the bridge is bound to
-## the new one and its Anon-offer watch is armed.
+## A world started: close the world that is gone, bind the host again, then drop its watch.
 func on_world(_host: Node) -> void:
 	on_world_closed()
 	if _bridge == null:
 		return
-	_bridge.eligibility = eligibility
-	_bridge.gate = gate
 	_bind_host()
 	_bridge.disarm()
 
@@ -254,9 +250,9 @@ func _bind_host() -> void:
 
 ## This side only calls the classifier; the Proactive service owns that node.
 func _classifier() -> Node:
-	if not is_instance_valid(initiation) or not initiation.has_method("classifier_node"):
+	if not is_instance_valid(_initiation) or not _initiation.has_method("classifier_node"):
 		return null
-	var node: Variant = initiation.classifier_node()
+	var node: Variant = _initiation.classifier_node()
 	return node as Node if is_instance_valid(node) else null
 
 
@@ -267,7 +263,7 @@ func setup(host: Host) -> void:
 ## A world enter or a world close. It releases the hold and cancels every classifier scope; a
 ## close reports no terminal outcome.
 func on_world_closed() -> void:
-	_cancel_scope(_offer.scope if _offer != null else "")
+	_cancel_scope(_exchange.scope if _exchange != null else "")
 	_cancel_scope(_agreement.classifier_scope if _agreement != null else "")
 	_release_hold()
 	_clear_state()
@@ -328,7 +324,7 @@ func _tick_offer(delta: float) -> void:
 		return
 	if not _keep_hold():
 		return
-	var private := _offer.private if _phase == Phase.OFFERED else _agreement.private
+	var private := _exchange.private if _phase == Phase.OFFERED else _agreement.private
 	if not private:
 		return
 	_privacy_clock += delta
@@ -349,7 +345,7 @@ func begin_mare_offer(offer: MareOffer) -> bool:
 	if _locked:
 		_blocked(offer.pony)
 		return false
-	var live := Offer.new()
+	var live := Exchange.new()
 	_begin_state(live, offer.runtime, offer.pony, offer.option, AGREEMENT.Trigger.MARE_OFFER,
 		offer.line, offer.cuddle)
 	live.base = offer.base
@@ -392,7 +388,7 @@ func begin_anon_offer(runtime: Node, text: String) -> bool:
 		_formation_failure(pony, Outcome.NO_OFFER, AGREEMENT.REASON_NO_CONTEXT_POSE,
 			AGREEMENT.Trigger.ANON_OFFER)
 		return false
-	var live := Offer.new()
+	var live := Exchange.new()
 	_begin_state(live, runtime, pony, null, AGREEMENT.Trigger.ANON_OFFER, text, false)
 	live.base = base
 	live.options = options
@@ -465,11 +461,11 @@ func interrupt_for_hotkey() -> bool:
 func debug_rows(pony: Node) -> Array[String]:
 	var rows: Array[String] = []
 	rows.append("phase=%s locked=%s" % [_phase_name(_phase), str(_locked)])
-	if _offer != null and (not is_instance_valid(pony) or _offer.pony == pony):
+	if _exchange != null and (not is_instance_valid(pony) or _exchange.pony == pony):
 		rows.append("offer id=%s trigger=%s pose=%s private=%s" % [
-			_offer.pony_id, _trigger_name(_offer.trigger), _offer.option.key() if
-			_offer.option != null else "none", str(_offer.private)])
-		rows.append("offer expires in %.1fs" % maxf(0.0, _offer.expires_at - _now()))
+			_exchange.pony_id, _trigger_name(_exchange.trigger), _exchange.option.key() if
+			_exchange.option != null else "none", str(_exchange.private)])
+		rows.append("offer expires in %.1fs" % maxf(0.0, _exchange.expires_at - _now()))
 	if _agreement != null and (not is_instance_valid(pony) or _agreement.pony == pony):
 		rows.append("agreement id=%d pose=%s private=%s" % [
 			_agreement.id, _agreement.option_key(), str(_agreement.private)])
@@ -527,67 +523,55 @@ func _react_line(pony: Node, reason: String) -> void:
 
 ## Every terminal outcome reaches the Proactive pacing and the runtime's presentation; a start
 ## that already happened belongs to the act, so it is not forwarded.
-func _on_outcome_terminal(terminal: Variant) -> void:
+func _on_outcome_terminal(terminal: Terminal) -> void:
 	if terminal == null:
 		return
 	LOG.debug("negotiation outcome id=%s outcome=%d reason=%s cooldown=%.0f", [
-		str(_field(terminal, "pony_id", "")), int(_field(terminal, "outcome", 0)),
-		str(_field(terminal, "reason", "")) if not str(_field(terminal, "reason", "")).is_empty()
-			else "none", float(_field(terminal, "cooldown_s", 0.0))])
-	var pony: Variant = _field(terminal, "pony")
+		terminal.pony_id, terminal.outcome, "none" if terminal.reason.is_empty() else terminal.reason,
+		terminal.cooldown_s])
+	var pony: Variant = terminal.pony
 	if is_instance_valid(pony):
 		var runtime: Variant = _ponies.runtime_for(pony) if _ponies != null else null
 		var presentation := _ponies.presentation_of(runtime) \
 			if _ponies != null and is_instance_valid(runtime) else null
 		if presentation != null:
 			presentation.clear_presentation()
-	if int(_field(terminal, "outcome", -1)) != Outcome.STARTED \
-			and is_instance_valid(initiation) and initiation.has_method("on_negotiation_outcome"):
-		initiation.on_negotiation_outcome(terminal)
+	if terminal.outcome != Outcome.STARTED \
+			and is_instance_valid(_initiation) and _initiation.has_method("on_negotiation_outcome"):
+		_initiation.on_negotiation_outcome(terminal)
 
 
 ## The Agreement is ready: the target runtime consumes it through its one start path.
-func _on_agreement_handle(handle: Variant) -> void:
+func _on_agreement_handle(handle: AGREEMENT.Handle) -> void:
 	if handle == null:
 		return
-	var pony: Variant = _field(handle, "pony")
-	var pony_id := str(_field(handle, "pony_id", ""))
-	if pony_id.is_empty() and is_instance_valid(pony):
-		pony_id = PONY_ID.from(str(pony.get_meta("relationship_id", "")), pony.get("identity"))
-	var option: Variant = _field(handle, "option")
+	var pony_id := handle.pony_id
+	if pony_id.is_empty() and is_instance_valid(handle.pony):
+		pony_id = PONY_ID.from(str(handle.pony.get_meta("relationship_id", "")),
+			handle.pony.get("identity"))
+	var option := handle.option
 	LOG.debug("agreement formed id=%s trigger=%s pose=%s private=%s", [
-		pony_id, str(_field(handle, "trigger", "")),
-		str(_field(option, "pose", "none")) if option != null else "none",
-		str(_field(handle, "private", false))])
-	var runtime: Variant = _ponies.runtime_for(pony) \
-		if is_instance_valid(pony) and _ponies != null else null
+		pony_id, _trigger_name(_trigger()),
+		option.pose if option != null else "none", str(handle.private)])
+	var runtime: Variant = _ponies.runtime_for(handle.pony) \
+		if is_instance_valid(handle.pony) and _ponies != null else null
 	var start := _ponies.start_of(runtime) if _ponies != null and is_instance_valid(runtime) else null
 	if start == null:
-		cancel(handle, "cancelled")
+		cancel(handle, AGREEMENT.REASON_CANCELLED)
 		return
 	var presentation := _ponies.presentation_of(runtime) \
 		if _ponies != null and is_instance_valid(runtime) else null
 	# The presentation is act-owned: it starts now, and the auto-start waits for it to settle.
 	if option != null and str(option.pose) == CATALOG.STANDING \
 			and (presentation == null or not bool(presentation.present_standing())):
-		LOG.debug("agreement present failed pony=%s", [str(pony.name)])
-	if is_instance_valid(offer):
-		offer.clear_current()
-
-
-## Read a typed field from the production handle/terminal or a test dictionary.
-func _field(value: Variant, key: String, fallback: Variant = null) -> Variant:
-	if value is Dictionary:
-		return (value as Dictionary).get(key, fallback)
-	if value == null:
-		return fallback
-	var got: Variant = value.get(key)
-	return fallback if got == null else got
+		LOG.debug("agreement present failed pony=%s", [str(handle.pony.name)])
+	if is_instance_valid(_offer):
+		_offer.clear_current()
 
 
 # --------------------------------------------------------------------------- state
 
-func _begin_state(live: Offer, runtime: Node, pony: Node3D, option: POSE_OPTIONS.Option,
+func _begin_state(live: Exchange, runtime: Node, pony: Node3D, option: POSE_OPTIONS.Option,
 		trigger: int, line: String, cuddle: bool) -> void:
 	_generation += 1
 	_serial += 1
@@ -601,7 +585,7 @@ func _begin_state(live: Offer, runtime: Node, pony: Node3D, option: POSE_OPTIONS
 	live.line = line
 	live.cuddle = cuddle
 	live.expires_at = _now() + AGREEMENT.OFFER_TTL_S
-	_offer = live
+	_exchange = live
 	_agreement = null
 	_handle = null
 	_phase = Phase.OFFERED
@@ -615,7 +599,7 @@ func _begin_state(live: Offer, runtime: Node, pony: Node3D, option: POSE_OPTIONS
 func _clear_state() -> void:
 	_phase = Phase.NONE
 	_locked = false
-	_offer = null
+	_exchange = null
 	_agreement = null
 	_handle = null
 	_deadline = 0.0
@@ -629,8 +613,8 @@ func _close(outcome: int, reason: String, cooldown: float, reaction := false) ->
 	var pony: Node = _pony()
 	var trigger := _trigger()
 	var package_pony: Node = _agreement.pony if _agreement != null else pony
-	if _offer != null:
-		_cancel_scope(_offer.scope)
+	if _exchange != null:
+		_cancel_scope(_exchange.scope)
 	if _agreement != null:
 		_cancel_scope(_agreement.classifier_scope)
 	_release_hold()
@@ -646,8 +630,8 @@ func _close(outcome: int, reason: String, cooldown: float, reaction := false) ->
 ## A genuine non-offer closes silently: the scopes and the claim are released and the pacing is
 ## never told.
 func _silent_close() -> void:
-	if _offer != null:
-		_cancel_scope(_offer.scope)
+	if _exchange != null:
+		_cancel_scope(_exchange.scope)
 	if _agreement != null:
 		_cancel_scope(_agreement.classifier_scope)
 	_release_hold()
@@ -675,7 +659,7 @@ func _report_outcome(pony: Node, outcome: int, reason: String, trigger: int,
 	_host.on_outcome.call(terminal)
 
 
-func _accept(live: Offer) -> void:
+func _accept(live: Exchange) -> void:
 	_generation += 1
 	var package := AGREEMENT.Package.new()
 	package.id = live.id
@@ -699,7 +683,7 @@ func _accept(live: Offer) -> void:
 	package.offer_line = live.line
 	_agreement = package
 	_handle = _make_handle(package)
-	_offer = null
+	_exchange = null
 	_phase = Phase.AGREEMENT
 	_deadline = package.expires_at()
 	_privacy_clock = 0.0
@@ -754,7 +738,7 @@ func _interrupt_reason(reason: String) -> String:
 
 # --------------------------------------------------------------------------- decisions
 
-func _on_anon_answer(live: Offer, text: String, error: String) -> void:
+func _on_anon_answer(live: Exchange, text: String, error: String) -> void:
 	if not _current(live):
 		return
 	_cancel_scope(live.scope)
@@ -774,7 +758,7 @@ func _on_anon_answer(live: Offer, text: String, error: String) -> void:
 		_close(Outcome.REFUSED, AGREEMENT.REASON_CLASSIFIER_UNAVAILABLE, 0.0)
 
 
-func _on_anon_decision(live: Offer, reply: PROMPTS.Reply) -> void:
+func _on_anon_decision(live: Exchange, reply: PROMPTS.Reply) -> void:
 	if not _current(live):
 		return
 	_cancel_scope(live.scope)
@@ -796,7 +780,7 @@ func _on_anon_decision(live: Offer, reply: PROMPTS.Reply) -> void:
 		_close(Outcome.REFUSED, "", COOLDOWN_S)
 
 
-func _on_anon_offer_classified(live: Offer, reply: PROMPTS.Reply) -> void:
+func _on_anon_offer_classified(live: Exchange, reply: PROMPTS.Reply) -> void:
 	if not _current(live):
 		return
 	_cancel_scope(live.scope)
@@ -847,7 +831,7 @@ func _on_anon_offer_classified(live: Offer, reply: PROMPTS.Reply) -> void:
 		_close(Outcome.REFUSED, AGREEMENT.REASON_REASONING_FAILED, 0.0)
 
 
-func _on_mare_response(live: Offer, reply: PROMPTS.Reply) -> void:
+func _on_mare_response(live: Exchange, reply: PROMPTS.Reply) -> void:
 	if not _current(live):
 		return
 	_cancel_scope(live.scope)
@@ -868,8 +852,8 @@ func _on_mare_response(live: Offer, reply: PROMPTS.Reply) -> void:
 
 ## True while a callback still belongs to the live offer. A late result after any terminal
 ## transition can never form an Agreement.
-func _current(live: Offer) -> bool:
-	return live != null and _offer == live and _phase == Phase.OFFERED \
+func _current(live: Exchange) -> bool:
+	return live != null and _exchange == live and _phase == Phase.OFFERED \
 		and live.generation == _generation
 
 
@@ -915,7 +899,7 @@ func _placement_ok(option: POSE_OPTIONS.Option) -> bool:
 
 # --------------------------------------------------------------------------- hold
 
-func _claim_mare_hold(live: Offer, offer: MareOffer) -> bool:
+func _claim_mare_hold(live: Exchange, offer: MareOffer) -> bool:
 	var hold: Variant = _hold()
 	if hold == null:
 		return false
@@ -938,7 +922,7 @@ func _claim_mare_hold(live: Offer, offer: MareOffer) -> bool:
 	return true
 
 
-func _claim_anon_hold(live: Offer) -> bool:
+func _claim_anon_hold(live: Exchange) -> bool:
 	var hold: Variant = _hold()
 	if hold == null:
 		return false
@@ -963,7 +947,7 @@ func _keep_hold() -> bool:
 		LOG.debug("negotiation hold lost id=%s reason=missing", [_pony_id(_pony())])
 		_close(Outcome.INTERRUPTED, AGREEMENT.REASON_TARGET_LEFT, 0.0)
 		return false
-	if _offer != null and not _offer.hold_claimed:
+	if _exchange != null and not _exchange.hold_claimed:
 		# The Anon offer is still being classified; there is no lease to keep yet, only attention.
 		if not bool(hold.keep_target()):
 			LOG.debug("negotiation hold lost id=%s reason=target_left target=%s", [
@@ -985,9 +969,9 @@ func _keep_hold() -> bool:
 
 
 func _release_hold() -> void:
-	if _offer != null and not _offer.hold_claimed:
+	if _exchange != null and not _exchange.hold_claimed:
 		return
-	if _agreement == null and _offer == null:
+	if _agreement == null and _exchange == null:
 		return
 	var hold: Variant = _hold()
 	if hold != null:
@@ -1005,48 +989,48 @@ func _hold() -> Variant:
 # --------------------------------------------------------------------------- helpers
 
 func _runtime() -> Node:
-	if _offer != null and is_instance_valid(_offer.runtime):
-		return _offer.runtime
+	if _exchange != null and is_instance_valid(_exchange.runtime):
+		return _exchange.runtime
 	if _agreement != null and is_instance_valid(_agreement.runtime):
 		return _agreement.runtime
 	return null
 
 
 func _pony() -> Node:
-	if _offer != null and is_instance_valid(_offer.pony):
-		return _offer.pony
+	if _exchange != null and is_instance_valid(_exchange.pony):
+		return _exchange.pony
 	if _agreement != null and is_instance_valid(_agreement.pony):
 		return _agreement.pony
 	return null
 
 
 func _pose() -> String:
-	if _offer != null and _offer.option != null:
-		return _offer.option.pose
+	if _exchange != null and _exchange.option != null:
+		return _exchange.option.pose
 	if _agreement != null and _agreement.option != null:
 		return _agreement.option.pose
 	return ""
 
 
 func _source() -> String:
-	if _offer != null and _offer.option != null:
-		return _offer.option.source
+	if _exchange != null and _exchange.option != null:
+		return _exchange.option.source
 	if _agreement != null and _agreement.option != null:
 		return _agreement.option.source
 	return ""
 
 
 func _cuddle_flag() -> bool:
-	if _offer != null:
-		return _offer.cuddle
+	if _exchange != null:
+		return _exchange.cuddle
 	if _agreement != null and _agreement.option != null:
 		return _agreement.option.cuddle
 	return false
 
 
 func _trigger() -> int:
-	if _offer != null:
-		return _offer.trigger
+	if _exchange != null:
+		return _exchange.trigger
 	if _agreement != null:
 		return _agreement.trigger
 	return AGREEMENT.Trigger.ANON_OFFER

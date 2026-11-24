@@ -46,9 +46,9 @@ asks its facade for the node the model calls run on. The Act service gets only t
 ## Facade
 
 `wire()` is the entry's one call: the facades it reads are handed over once and the service builds
-the adapter and the `Host` from them. `on_world()` re-reads the eligibility service the entry
-rebuilds on every world enter, rebuilds the `Host` and drops the previous world's watch. `setup()`
-takes a `Host` directly and is the seam the suites use; the entry never calls it.
+the adapter and the `Host` from them. `on_world()` closes the previous world, rebuilds the `Host` for
+the new one and drops its watch; it rebinds no peer. `setup()` takes a `Host` directly and is the
+seam the suites use; the entry never calls it.
 
 `context(pony)` and `form_view()` are the two snapshots the Proactive service's reasoning reads, so
 both stages judge one mare from the same facts.
@@ -126,12 +126,11 @@ used to be the entry's assembly:
   target names;
 - the adapter's model calls and the world-context situation record.
 
-It reads only service facades and `WORLD`, and the fields the entry sets once through `wire()`:
-`service` (this facade), `adapter`, `eligibility`, `gate`, `memory`, `privacy`, `initiation`,
+It reads only service facades and `WORLD`, and the fields the facade sets once from its `wire()`
+peers: `service` (this facade), `adapter`, `eligibility`, `gate`, `memory`, `privacy`, `initiation`,
 `offer` and `act_owner`. `initiation` and `offer` are plain nodes because each of them preloads this
 facade; everything else is the typed facade, and `act_owner` is the frame its watch gates on
-(`docs/act_owner.md`). `eligibility` and `gate` are the fields
-a world enter rebinds, because the entry rebuilds those services.
+(`docs/act_owner.md`).
 
 The watch is armed by `tick()`, which is the entry's idle frame: the exchange's TTL and privacy
 sample first, then the bridge's watch as its own `entry_watch` perf chunk. The watch is armed only

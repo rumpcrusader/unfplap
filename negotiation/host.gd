@@ -29,8 +29,7 @@ func _state_of(runtime: Node) -> int:
 var service: Node = null
 ## The adapter node the service builds; this bridge only calls into it.
 var adapter: ADAPTER = null
-## The services this bridge reads. `eligibility` alone is handed over again on each world enter,
-## because the entry constructs a fresh one.
+## The services this bridge reads, set once by the facade from its `wire()` peers.
 var eligibility: ELIGIBILITY = null
 ## The dynamic gate: the relationship row and the Context facts.
 var gate: ACT_GATE = null

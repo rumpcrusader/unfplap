@@ -102,6 +102,7 @@ func _process(delta: float) -> void:
 			if session.wink_left <= 0.0:
 				session.wink_left = _interval()
 				if anatomy != null:
+					# Anatomy owns the wink settings and the shapes; this service times the call.
 					anatomy.wink(pony, CYCLE.wink_burst_count(randf()))
 	PERF.end("estrus_tick")
 

@@ -1,192 +1,74 @@
-# Act memory and the mod's own lines
+# Act memory
 
-The memory system owns what the mod remembers and what it makes the director say: the
-world-context events, the per-mare impression, the peak-memory store, the witness pass, and the
-mod-owned dialogue line channel. This file is the single technical contract; other docs link here.
+The memory service owns what the mod remembers and what it makes the director say. It writes the
+impressions and world-context events an act leaves behind, keeps the strongest act as a per-mare
+peak, tests who saw the act and records one perception for each of them, and queues the mod's own
+spoken lines. It is the authority for the wording and the idempotency of those writes; the grade,
+the act state, the offer decision and the cue's admission belong elsewhere, to systems that read
+the facts this service leaves.
 
-## Scope
+## What it owns
 
-This contract covers:
-
-- the act's world-context event and its grade-aware impression;
-- the fixed-wording intimacy events (cancel, pony climax, stop, apology);
-- the player-requested reveal's impression, event and special peak;
-- the per-world peak-memory record and its read;
-- the witness pass: the perception test, the per-observer age split and the age-appropriate row;
-- the mod's own line channel: queue, key, cancel, cancel-by-act and the typed line state;
-- the cue facts and the one shared-memory hit for the cue prompt.
-
-It does not cover act scoring, the grade, history tiers or hurt repair (`docs/summary.md`), act
-eligibility and consent (`docs/eligibility.md`), proactive requests (`docs/initiation.md`), or the
-cue admission, prompt assembly and act-line reactions (`docs/dialogue.md`). The memory system only
-writes the facts those systems read.
-
-## Architecture
-
-| File | Role |
-|---|---|
-| `memory/api.gd` | facade: the typed internal API, the three writes, the four line-channel calls and the four reads; composes the adapters and reads `WORLD.world_root()` and its wired eligibility peer per call |
-| `memory/facts.gd` | pure typed boundary data: `LineState`, `LineKind`, `Reaction`, `NoteKind`, `StopReason`, `ImpressionSlot`, `Sense`, and the `Impression`, `Peak`, `Witness`, `Observer`, `CueFacts`, `MemoryHit`, `Line`, `LineRequest` types |
-| `memory/text.gd` | pure wording and ids: the director key and its prefix, the keep-active rule, the impression/event suffixes, the event kinds, the stop names, the event texts, the witness texts |
-| `memory/world.gd` | scene adapter: the builder of the private cue facts and the shared-memory hit, and the only memory reader of the world context, the impressions and the story journal |
-| `memory/dialogue.gd` | scene adapter: the only reader of the conversation director's authored-line queue |
-| `memory/perception.gd` | scene adapter: the witness pass — the mares, their senses, sleep, place and the player's form, read through the world facade |
-| `memory/store.gd` | scene adapter: the only reader and writer of `Mods.state("unfplap").peak_memories` and the only memory file that asks the mod to save |
-| `docs/memory.md` | this contract |
-| `tests/memory/` | pure wording, facts, store and dialogue suites, plus the facade API suite |
-
-The purity boundary is deliberate:
-
-- `facts.gd` and `text.gd` have no `Node`, tree, time, file, `Settings`, scene or game preload.
-  They take plain values and return plain values or strings.
-- `world.gd` owns the world context's `record`, `events_for` and `story` rows and
-  `impressions.commit`, `impressions.profile`, read through the world director and story views,
-  plus `relationship_runtime.ladder`, `bonds.record_for` and the `act_history` read. Every read is
-  guarded.
-- `dialogue.gd` owns the director's `queue_generated_intent`, `state`, `active`, `cancel` and the
-  authored-line list. A game change that removes the queue makes the mod's lines stop instead of
-  erroring.
-- `perception.gd` owns the witness pass: the `mares` list, her sleep and identity, and the sight,
-  sound, house and place each row carries, all read through the world facade. The age rule comes
-  from the eligibility capability answer (`eligibility.witness_age`), never from a local copy.
-- `store.gd` owns the `Mods` lookup and the save. No other memory file writes the section.
-- The facade is the only file that preloads `memory/*`; no file outside `memory/api.gd` and
-  `memory/` preloads `memory/*`.
-- The entry creates the service and passes the instance to the per-pony consumers: `dialogue`,
-  `summary`, `face` and `afterglow` are handed it in `wire()` by the runtime's composition, the
-  handover at construction. There is no static handle. The facade reads `WORLD.world_root()` and the
-  eligibility peer the entry wires in `wire()` per call and stores nothing. It is a world-list
-  service, so it extends `shared/service.gd` and lives until the entry's shutdown.
-
-## Facade
-
-The enum values are the `int` members of the enum; `0` is the first member of each. The facade
-re-exports them as `MEMORY.LineState`, `MEMORY.LineKind`, and so on, so a caller compares
-`MEMORY.LineState.SPEAKING` instead of a string.
-
-## Data ownership
-
-| Data | Stored where | Owner |
-|---|---|---|
-| Act summary, stay-close, mood | `world_context.impressions` (per mare) | `memory/world.gd` |
-| Act/stop/pony-climax/witness event | `world_context` (per world) | `memory/world.gd` |
-| Peak memory | `Mods.state("unfplap").peak_memories` | `memory/store.gd` |
-| Live line key, state, queue | the director's authored-line queue | `memory/dialogue.gd` |
-| Cue facts, shared-memory hit | derived per call | `memory/world.gd` |
-| Observer perception | derived per call | `memory/perception.gd` |
-
-Rules:
-
-- The only memory-owned persisted value is the peak memory. The event, impression, cue-fact and
-  witness values are all game-owned and the facade only reads or writes them.
-- The event id is the idempotency key: `world_context.record` and `impressions.commit` both
-  ignore a repeated id. The same act never writes the same event twice.
-- The store is the only memory file that calls `Mods.save_changed()`.
-- Event text is short and non-graphic.
+A pure core holds the typed values and the fixed wording; scene adapters read the game's world
+context, impressions and story journal, the conversation director's authored-line queue, and the
+live mares. The peak memory is the one value the mod persists. Every other value belongs to the
+game and is only read or written here. A game read is guarded, so a game update that removes a
+queue or a field makes the writing stop rather than error.
 
 ## Impressions and events
 
-`commit(impression)` writes one impression and, when its slot carries an event, the event. The
-`ImpressionSlot` chooses the suffix and the event kind:
+One impression write carries her mood, an optional romance value, a private thought and a
+profile-safe event line. Its slot chooses the idempotent id suffix and whether a world event
+follows. The line begins with the pair, letting the profile drop her name in, and the pony is never
+addressed as "you" after that point; the thought stays first person and never passes through the
+profile, because it is shown in her own voice.
 
-| Slot | Event id | Impression suffix | Event kind | Event text |
-|---|---|---|---|---|
-| `ACT` | `:gain` | `:gain` | `relationship` | the summary's `text` |
-| `ACT_EARLY` | `:summary` | `:summary` | `relationship` | the summary's `text` |
-| `STAY_CLOSE` | `:stay_close_gain` | `:stay_close_gain` | `relationship` | the stay-close text |
-| `FORM_REVEAL` | `:form_reveal` | `:form_reveal` | `relationship` | the reveal text |
+Staying close has its own slot and a thought chosen by the act's warmth. The reveal of her true
+form is the one exceptional beat, with fixed private and public wording and a peak of its own; her
+stable identity names it, never the borrowed form she is wearing.
 
-The `text` is profile-safe: the game's profile rewrites a leading `You and Anon ` to
-`You and <name>`, so no event line uses a second-person pronoun for the pony after that prefix.
-The `thought` stays first-person and never goes through the profile rewrite. The stay-close thought
-is chosen by the `romance` and the mood.
+The fixed intimacy notes cover a cancel, her climax, a stop and an apology. The stop vocabulary is
+the reachable reasons only. There is no world-close stop: closing a world does not produce a stop
+reason the note could carry, so none is named for it.
 
-`FORM_REVEAL` is the one exceptional reveal: the runtime commits it once when a completed
-player-requested own-form change's provider effects name the `form_reveal` memory kind. Its fixed
-wording is in `memory/text.gd`, `form_reveal_impression()` builds the impression and
-`form_reveal_peak()` the peak with its own `:form_reveal` event id. The `FORM_OFFER` reaction is the
-provider policy's post-climax offer line, not an impression (`docs/body_change.md`,
-`## Provider policy`). The presented form's name is presentation only: the impression and event use
-the stable `pony_id`, never the worn form.
+## The peak
 
-`note(kind, id, event_id, reason)` writes the fixed-wording intimacy events:
+One strongest clean act per mare is kept and never expires; a later higher score replaces it. Only
+the peak is written by the mod itself, and only its writer asks the game to save.
 
-| Kind | Event id | Text |
-|---|---|---|
-| `CANCELLED` | `:cancel` | `Anon stopped before she climaxed.` |
-| `CLIMAXED` | `:pony_climax` | `You and Anon made love, and she climaxed.` |
-| `STOPPED` | `:stop:<reason>` | the stop reason's text |
-| `APOLOGY` | `apology:<id>:<usec>` | `Anon apologized for last time.` |
+## Witnesses
 
-The `StopReason` names are `unwilling`, `picked up`, `interrupted`, `form change` and
-`withdrew`. `NONE` is the default and writes nothing. The `"world close"` reason is unreachable
-and is not listed.
+The read-only test lists the adults who can perceive the act right now, with the sense each used,
+and commits nothing. The committing pass runs the same test and leaves one private perception per
+observer. An adult who sees or hears the pair receives a witnessed-intimacy row and a neutral
+thought, so an older unrelated impression is replaced rather than inherited. The age split that
+admits a young bystander comes from the eligibility capability, not from a local copy; a young
+witness gets a scene row whose gossip varies between passes, no thought and an amused mood. What
+she remembers afterwards is the game's own story summary, formed from that perception.
 
-## Witness pass
+The partner, a sleeping pony and a pony with no identity are skipped. The whole act is skipped when
+the player is in a young form or the partner has left the tree.
 
-`observers(partner)` is the read-only test: it returns each adult who can perceive the act right
-now, with the `Sense` she used. It commits nothing. `witnesses(partner_id, name, serial, partner)`
-runs the same test and writes one row per observer:
+## The line channel
 
-- The act is skipped when the player is a young form, or the partner is not in the tree.
-- A pony is skipped when she is sleeping, is the partner, or has no identity.
-- A young pony is never an observer; the `Age` split comes from `eligibility.witness_age`.
-- An adult is `SIGHT` when `PonyAwareness.visible(observer, partner)` (24 m, facing, clear line)
-  or `SOUND` when `can_hear(observer, partner, HEARING_RANGE)` (12 m, clear line).
-- Every observer gets a perception, never a conclusion. An adult gets `witnessed_intimacy` with
-  the sight/sound text and a neutral perception thought, so her old impression is replaced and
-  she does not inherit an unrelated one; a young pony gets `witnessed_scene`, a perception with an
-  indoors/outdoors prefix and no thought, and `amused` mood only. The game's per-pony story summary
-  forms the personal memory from the perception.
-- The event id is `witness_<observer>_<partner>_<serial>`; the impression is
-  `...:gain`. The `serial` varies the young tail so repeated gossip does not read the same.
-- The `Witness` row carries the debug fields: `id`, `young`, `sense`, `indoors`, `distance`,
-  `place`, `text`.
-
-## Line channel
-
-`line(request)` queues one of the mod's own lines. The `LineKind` picks the director path:
-
-| Kind | Purpose source | Key |
-|---|---|---|
-| `REACTION` | the caller's fallback; if that is empty, the shipped `act.climax` or `act.end_early` line for a climax or an early end; the climax adds a first-person thought instruction and the face note | `unfplap:<event_id>:reply:<name>` |
-| `UTTERANCE` | the ready cue prompt | `unfplap:<event_id>:line:<suffix>` |
-| `BYSTANDER` | the ready bystander prompt | `unfplap:<event_id>:bystander:<id>` |
-
-`Line.key` always names the line; `Line.queued` says whether the director accepted it. Every key
-is prefixed with the event id, so `cancel_act(event_id)` can drop the whole act.
-
-`line_state(key)` returns the director's `LineState` for the key. A `SPEAKING` line is already
-rendering; `DELIVERED` and `UNKNOWN` are not.
-
-`cancel_line(key)` drops one line. `cancel_act(event_id, keep_speaking)` drops every line under
-the act's prefix and keeps a line that is already speaking, or `keep_speaking` is false. The
-keep-active rule is in `memory/text.gd`: a line is kept only when it is `SPEAKING`, its key is
-the active row, and the caller asked to keep it. The returned count is the number of lines
-dropped.
+The mod queues a reaction, a ready cue utterance or a bystander line through the game's director.
+A reaction falls back to its own shipped line when the caller gives none, and a climax adds the
+first-person thought instruction and the face note. Every key is prefixed by the act's event id, so
+one act's lines can be dropped together. Cancelling keeps only a line that is already speaking, and
+only while the caller asks to keep it; a queued or generating line never outlives its act. The
+returned state distinguishes a line already rendering from one delivered, absent or unknown.
 
 ## Cue facts and shared memory
 
-`cue_facts(id, event_id)` returns the private relationship facts for the cue prompt: the
-friendship and love names and levels, the relationship stage, the anger, the mood, the first-time flag
-(no prior intimacy event and no stored act) and the careful flag (the mood is `annoyed` or the
-anger is positive). The `event_id` is the act's own, so a prior event does not count as the
-first. The raw scores and counts never leave the `CueFacts`; `to_dict()` is only the bridge to
-the pure relationship and cue formatters.
+The cue prompt receives private relationship facts: friendship and love levels, the relationship
+stage, anger, mood, a first-time flag and a careful flag. The first-time flag looks for an earlier
+intimacy event and a stored act, excluding the current event, and no raw score leaves the record. A
+shared memory is one unused beat for the cue: the stored peak first, then the story journal by a
+cue-word match or the latest exchange with the player, then the older world events. Used ids are
+skipped, and a memory is marked used only after the caller has queued its line.
 
-`shared_memory(id, cue, event_id, used)` returns one unused memory: the stored peak first, then
-the story journal (a cue-word match, then the most recent player exchange), then the
-world-context events. The `used` ids are skipped. A hit with no text is `found()` false. The
-memory is marked used only after the caller queues the line.
+## Idempotency
 
-## Known limits
-
-- The dialogue adapter reads the director's authored-line queue and the world adapter reads the
-  stock `world_context` and `impressions` fields, both through the world views. A game change can
-  remove them; every read is guarded and the memory simply stops writing.
-- The witness pass reads the game's `PonyAwareness` and `HouseInterior` through the world facade; a
-  game change that moves the perception or the house lookup is a change to `world/game.gd`, not to
-  this adapter.
-- The peak memory is a single row per mare and never expires; a higher score replaces it.
-- The event id is the only idempotency key. A caller that reuses an event id for a different act
-  writes nothing the second time.
+The event id is the only guard against a double write: the game ignores an event or an impression
+under an id it has already seen. A caller that reuses an id for a different act therefore reaches
+neither store, and the second write silently does nothing.

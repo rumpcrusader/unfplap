@@ -1,70 +1,49 @@
 # Mare registry
 
-The in-memory provider registry for modded and base-game mare descriptors. Another mod registers
-one stable id and a character-template-shaped descriptor; this service validates it, layers it over
-the built-in template, and lets the settings, eligibility, anatomy, placement and API services
-resolve the same data they already resolve for a base-game mare.
+The registry is the in-memory store for mare descriptors another mod provides. A provider registers
+one stable id and a template-shaped descriptor; the registry validates it, layers it over the
+game's built-in template, and lets every service that knows a base-game mare resolve the same data
+for her. It is the authority for provider layers and their validation, not for the player's file.
 
-Provider data is never written to a player file. The player's saved block always wins, and
-removing the provider leaves the player's choices intact.
+## A provider layer
 
-## Scope
+A layer carries the source mod id, an optional display name and the part of the template the
+provider wrote. Layers for one identity merge in registration order, so a later provider wins per
+key. A provider that registers the same id again replaces its own layer in place rather than
+stacking a second one; another provider's layer survives.
 
-- Registration, replacement and removal of a provider descriptor.
-- Validation of the descriptor schema and warnings for ignored fields.
-- The provider layers over the built-in character template.
-- The resolved name, preferences, consent, eligible assertion, participation, placement, pose and
-  timing overrides for one stable id.
-- The owner-scoped removal used when another mod unregisters or leaves the tree.
+The identity half is written separately from the template half. An update carries only the parts it
+sets, so the rest of the provider's template survives a re-registration; an update with no
+eligibility assertion clears the assertion rather than leaving a stale one.
 
-## Ownership
+## Validation
 
-`registry/api.gd` is a static process-wide, main-thread-only store. It owns the provider layers
-in memory and nothing on disk. `settings/api.gd` owns the player's persisted `characters.<id>` overrides.
-`api.gd` owns the cross-mod registration surface; its contract is `docs/api.md`.
+Each recognised key is checked at the edge: a wrong type and a malformed value are reported as
+errors, never coerced, while an unknown key or an unknown entry in a list is a warning that changes
+nothing. A value outside a closed set is an error, not a fallback. The legacy per-mare prompt fields
+are unknown keys and warn like any other. A descriptor asking for a newer schema is refused rather
+than half-applied, because a partial template is worse than none.
 
-The registry is empty until a provider registers, so a run without other mods behaves exactly as
-the base game.
+A provider is a scene node: registration needs a live owner, so leaving the tree can remove every
+layer that owner wrote. Reserved names keep a descriptor from taking an identity the placement
+block already uses.
 
-## Facade
+## Resolution
 
-`registry/api.gd` extends `RefCounted` and exposes static methods. Each payload is a typed
-record; a provider's dictionary is read only at the edge.
+A caller asks for a merged template, an optional placement block, a display name or the source list
+for one stable id. An absent placement is distinguishable from a placement of zeroes, so a caller
+never lands a mare at the origin because a provider wrote nothing. The player's saved character
+block is a later layer that outranks every provider layer, and it stays in place when a provider
+leaves, so removal returns the mare to her player-edited state rather than erasing it.
 
-`Descriptor` carries whatever document a provider sent, and `register` checks each recognised key,
-so a bad type is reported rather than silently converted. `Result` is the API's return shape
-(`ok`, `id`, `source`, `replaced`, `warnings`, `errors`) and `to_dict()` hands it to another mod.
-`Profile` is the merged template, `Placement` the ten placement fields a provider actually wrote
-(an empty record means no provider placement), and `Identity` the identity half of a layer. An
-identity field a provider left out is not applied, so the rest of its template survives a
-re-registration.
+## Revision
 
-`revision` bumps on every layer change, so a derived cache (the resolved identity facts) can
-rebuild when a provider registers, updates or leaves.
+A revision value moves on every layer change. A derived identity cache compares it and rebuilds
+when a provider registers, updates or leaves, so no caller can change a layer without invalidating
+the view built from it.
 
-The descriptor schema and validation warnings are in `docs/api.md`. `reset()` is for tests and
-world teardown.
+## Lifetime and ownership
 
-## Data ownership
-
-| Data | Stored where | Owner |
-|---|---|---|
-| Provider descriptor layers | memory only | `registry/api.gd` |
-| Resolved template | derived per call | `registry/api.gd` |
-| Player's character overrides | `characters.json` -> `characters.<id>` | `settings/api.gd` |
-| Cross-mod registration call | memory only | `api.gd` |
-
-No provider value is saved. Removing a provider leaves the player's saved differences in place.
-
-## Settings
-
-No global settings. Provider `preferences`, `consent`, `eligible`, `profile.participation`,
-`placement`, `poses`, `cue_gap`, `aftercare_min` and `smack_zone_radius` are layers; the player's
-`characters.<id>` block in `characters.json` is the sparse override. The descriptor has no per-mare
-prompt fields: `act_prompts` and `event_prompts` are unknown keys that warn and change nothing
-(`docs/api.md`). The settings framework is `docs/settings.md`.
-
-## Controls and debug
-
-No controls. `tests/test_api.gd` exercises registration, replacement and removal through the
-cross-mod API.
+The store is process-wide, in memory, and main-thread only; nothing is written to disk. It starts
+empty, so a run with no provider mods behaves exactly as the base game. A test or a world teardown
+may reset it. The descriptor schema and the registration result are the cross-mod contract.

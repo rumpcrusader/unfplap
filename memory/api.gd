@@ -57,6 +57,8 @@ static func stop_reason(text: String) -> int:
 
 
 ## Write one impression, plus its world event when the slot has one.
+## Both game stores refuse a write under an id they already hold, so the act's event id is the
+## guard against a double write: a reused id for another act reaches neither.
 func commit(impression: Impression) -> void:
 	if impression == null or impression.id.is_empty():
 		return

@@ -113,7 +113,8 @@ func end_act() -> void:
 
 
 ## The runtime's patched coat no longer matches the game's shader check, so re-add the targets on
-## every thrust; the setting is read live so a smack outside an act still reaches them.
+## every thrust; the setting is read live so a smack outside an act still reaches them. The stock
+## flank touch clears and rebuilds its target list on every slap, so each re-add must follow a start.
 func body_coat_target() -> void:
 	if not SETTINGS.body_coat_deform.get_bool():
 		return

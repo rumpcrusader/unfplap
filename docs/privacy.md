@@ -1,64 +1,41 @@
 # Privacy
 
-The one live privacy provider. It answers one predicate the proactive, negotiation and act stages
-share; it does not invent a new rule. Contract owner of the offer and cuddle verdict for a target.
+The privacy service owns the one live answer that says whether a sexual moment at a target is
+private. The proactive offer, the negotiation and the act start all read it, so none of them
+invents a second visibility rule. It answers from the live scene and never decides an offer, a
+pose, a scene row or an act start.
 
-## Scope
+## The two reserves
 
-This contract covers:
+An act offer needs one of two things: Anon is alone with her in the house they share, or no other
+mare is near him. Both are sampled around Anon and the target, not around an imagined pose, so the
+answer follows where he stands as much as where she does and can change between two calls with no
+event in between.
 
-- the live privacy facts for a target: the house, the other mares, Anon, the outdoor radius and
-  the target exclusion;
-- the offer predicate for a bed or standing offer and the stricter cuddle predicate, chosen by a
-  `Kind`;
-- the one public answer those facts produce.
+A cuddle is stricter. Indoors only an empty house will do; outdoors the nearby-mare bound of the
+offer is enough. The offer and the cuddle are the only kinds a caller can ask for.
 
-It does not cover an offer decision, a pose, a scene row or an act start. Visibility is derived by
-the consumer from this answer; there is no public override, no third-pony answer rule and no
-negotiation face here. The house lookup is a world read (`docs/world.md`), not a privacy read.
+## The target
 
-## Ownership
+The offered mare is never another mare against herself: she is left out of both counts wherever
+she stands. Every other mare in the same house breaks house solitude, and every other mare inside
+the radius breaks the outdoor bound.
 
-`privacy/api.gd` (a world-list service extending `shared/service.gd`) owns the scene reads for
-privacy and the facts they build: Anon's live body, the mares, the house at each point and the
-outdoor other-mare radius. The offered mare is excluded from both other-mare counts: she never
-counts as another mare.
+## Derived, never chosen
 
-The rule itself is `shared/privacy_rules.gd`:
+There is no public override and no third-pony rule. Visibility is derived from the surroundings: no
+reasoning, dialogue line or setting can declare a crowded spot private. A retired public-offer
+switch and a mare's public consent preference were preferences about being seen, not permissions
+over this answer, and they no longer touch it.
 
-```text
-offer_private  = house_alone or not others_near
-cuddle_private = house_alone if indoors else not others_near
-```
+## Failure
 
-"House alone" counts every other mare in the same house; `others_near` counts every other mare
-within the radius. The gathered facts are a private value: the provider resolves both predicates
-and drops them with the call.
+A missing world bound, a missing player body or a freed rig fails to not-private, so an unreadable
+scene never opens a moment. With no world bound every answer is the public one.
 
-## Facade
+## Boundary
 
-`privacy/api.gd` owns the privacy answer.
-
-`is_private()` is the one predicate. The caller names the `Kind`: `OFFER` for a bed or standing
-offer, `CUDDLE` for the stricter cuddle rule. A missing world bound, a missing player or a freed
-rig fails closed to not-private.
-
-## Data ownership
-
-The provider stores no data. Everything is sampled from the live scene per call.
-
-## Settings
-
-No setting changes privacy. `features.act_public_offer` and `consent.public` no longer override
-the reserve; the retired setting is removed from the declaration in the settings retirement
-phase.
-
-## Controls and debug
-
-No privacy hotkey and no provider report: the offer and the negotiation log their own privacy-loss
-lines.
-
-## Host boundary
-
-The provider calls plain world reads only: Anon's body, the mares and the house at a point. It
-never calls a service or a runtime, and with no world bound every answer is public.
+The provider calls plain scene reads only: Anon's body, the mares and the house at a point. The
+house lookup belongs to the world, not here, and a consumer derives what to do with a public
+answer. Nothing is stored; every answer is sampled fresh and dropped with the call. There is no
+hotkey and no report, and the offer and negotiation log their own privacy loss.

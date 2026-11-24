@@ -26,6 +26,8 @@ class _State:
 
 
 ## The privacy predicate for `target`; the target is excluded from the other-mare checks.
+## The answer is derived per call from the live scene. The retired public-offer toggle and a
+## mare's willingness to be seen publicly are leanings, not an override of this reserve.
 func is_private(target: Node, kind: Kind = Kind.OFFER) -> bool:
 	return _state_for(target).private_for(kind == Kind.CUDDLE)
 

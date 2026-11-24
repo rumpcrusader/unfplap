@@ -1,96 +1,61 @@
 # Model classifiers
 
-`classifier/api.gd` (world scope) is the mod's one bounded model transport. It owns one LLM
-client, one queue, one active call, the per-definition deadline and the cancellation handles. It
-never builds an instruction, an utterance or a parser: the owning service does that, and the
-transport only bounds and schedules the call.
+The classifier service is the mod's one bounded model transport. It owns the client, the call
+queue, the single active request, the per-call deadline and the cancellation handles, and it bounds
+and schedules a call another service has already designed. It is the authority for when a
+background model request may run and how long it may take; it never authors an instruction, an
+utterance or a parser, and it never interprets a reply.
 
-## Scope
+## What a caller owns
 
-This contract covers:
+A caller supplies its own definition: the instruction, the input and output bounds, an optional
+deadline and queue priority, and the utterance for this exchange. The definition is plain data and
+must not change once handed over, because the transport reads it when the call actually starts,
+not when it is queued. The reply sink belongs to the caller too: one raw text and provider error,
+delivered once. The meaning of either value is the caller's business.
 
-- the one client, its live director configuration and the availability read;
-- the queue, the active call, the deadline and the cancellation handles;
-- the call contract: one raw reply and error through the reply sink passed to `run`;
-- the batching decision.
-
-It does not cover the prompt text (`docs/prompts.md`), the request kinds and parsers
-(`docs/negotiation.md`, `docs/initiation.md`), the director's watches (`docs/director.md`) or the
-deterministic classifiers in the shared pure modules.
-
-## Ownership
-
-- `classifier/api.gd` owns the client, the queue, the active call, the deadlines and the
-  cancellation state.
-- Each owning service owns its `Definition`: the instruction, the bounds and the utterance it
-  sends, plus the parser of the reply.
-- The director view supplies the live model configuration and the client factory; this service
-  imports no base-game module.
-- The service holds no registry. A call carries its own definition; the service validates and
-  uses it.
-
-## Definitions
-
-| Id | Owner | Prompt | Reply |
-|---|---|---|---|
-| `negotiation.anon_offer` | negotiation | `classify.anon_offer` | `{"offer","option"}` |
-| `negotiation.anon_decision` | negotiation | `classify.anon_decision` | `{"answer"}` |
-| `negotiation.mare_response` | negotiation | `classify.mare_response` | `{"answer"}` |
-| `initiation.mare_offer` | initiation | `classify.mare_offer` | `{"offer","option"}` |
-
-The payload and parse stay with the owner's contract. A definition is plain data: the owner sets
-`id` and `instruction`, and may set the input/output bounds, the deadline and the queue priority. A
-definition is immutable once it is passed to `run()`; the transport reads it when the call starts.
+The transport keeps no registry of definitions. A call carries its definition and the transport
+validates it at the edge, so one service cannot borrow another's instruction or parser.
 
 ## Scheduling
 
-One call at a time. `run()` returns a `Call` handle or null; the `Reply` passed with the call
-receives the raw text and the provider error once. A cancelled call never calls it. The queue is
-ordered by the definition's priority, FIFO within one priority; the active call is not preempted. A
-queue-full call is refused. The deadline is the definition's; a timeout cancels the client and
-reports `timeout`, and a client that refuses to start reports `client_busy`.
+One model call at a time. A request joins a short queue ordered by the definition's priority and,
+within one priority, first come first served; the active call is never preempted. A full queue
+refuses the new request rather than dropping an older one. The deadline belongs to the definition,
+and the transport stops the client and reports a timeout when it passes; a client that will not
+accept the request reports itself busy.
 
-The call starts on the next idle frame, so `run()` returns the handle before any client reply.
+The first start is deferred to the next idle frame, so the caller holds its cancellation handle
+before any reply can arrive. The handle drops a queued request or cancels the active one; a
+cancelled request never reaches its reply sink.
 
 ## Availability
 
-The live director's model configuration decides: no enabled configuration or no section means no
-call. `available()` is the Anon-offer watch's gate. The client is created from the director view on
-first use and reconfigured when the world's director changes; it survives a world close.
+Only the live director's model configuration decides. No enabled configuration, or a configuration
+without a section, means no call at all, and that single answer is the gate a background producer
+reads before it builds anything. The client is taken from that configuration when it is first
+needed and refreshed when the world's director is replaced, so no caller manages a client of its
+own.
 
-## Cancellation and lifecycle
+## Lifetime
 
-`Call.cancel()` drops a queued call or cancels the active request. The world-close and shutdown
-sweep drops every call. A world enter and a world close both cancel the calls that belong to the
-world that is gone and drop the director reference; the client stays. `shutdown()` also drops the
-client reference.
+The queue and the active request belong to one world. A world enter and a world close both drop
+the calls of the world that is gone and forget the director view, while the client itself survives
+the close; only the process exit drops it. Nothing is persisted across a session.
 
-## Batching
+## Why not batch
 
-Not implemented. The four calls are a data-dependent chain within one exchange, and the state
-machines allow at most one request of a kind at a time. The only overlap is a background reasoning
-call and an interactive Anon line, which have different instructions, payloads, parsers and
-priorities; a batch would couple their failures and cancellation and wait for the slowest item.
-The first candidate, if the need appears, is the initiation scan reasoning about several mares in
-one call, which is a pacing feature rather than a transport change.
+A batch waits for its slowest member, and it makes one item's failure or cancellation travel with
+the others. The calls here do not share an instruction, a payload, a parser or a priority: they form
+a dependent chain within one exchange, and a kind allows one live request at a time. The only
+overlap is background reasoning beside an interactive line, which is exactly the pair that must not
+fall together. If a need ever appears it is the initiation scan reasoning about several mares in
+one call, which changes pacing rather than transport.
 
-## Data ownership
+## The shared status file
 
-Nothing is persisted. The definitions are the owning services'; the client and timer belong to
-this service for the process; the queue and active call belong to one world.
-
-## Settings
-
-No setting is declared here. The live director's model configuration decides availability.
-
-## Debug
-
-A refused definition is an error; a queue-full refusal and a client-busy start are debug lines. The
-transport logs no utterance or reply content. The owning service logs its own start and parsed
-result.
-
-## Known limits
-
-- The client is single-flight; there is no parallel call.
-- The status file is the director's `llm_status.json`, shared with the game's own client.
-- A provider refusal or a malformed reply is the owner's to interpret.
+The client reports into the status file the director's own client uses, so the game and the mod
+show one model state rather than two. A provider refusal or a malformed reply is passed through
+untouched and belongs to the caller to interpret; the transport logs no instruction, utterance or
+reply body. A refused definition is an error, and a full queue is a debug line, so a misconfigured
+caller is distinguishable from a busy one.

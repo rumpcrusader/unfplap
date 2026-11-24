@@ -82,6 +82,8 @@ func available() -> bool:
 
 ## One bounded call. Null means nothing could start; `reply` gets the text and error once.
 ## The definition is read when the call starts, so the caller must not change it after this.
+## One call at a time is deliberate: a batch would tie unrelated owners' failures and cancellation
+## together and finish only as fast as its slowest member.
 func run(definition: Definition, utterance: String, reply: Reply) -> Call:
 	if not _valid(definition) or utterance.is_empty():
 		return null
@@ -133,6 +135,7 @@ func _ensure_configured() -> bool:
 		_client.name = "UnfplapClassifierLlm"
 		add_child(_client)
 	_client.configure(config.section)
+	# The director's own status file, so the game's client and this one report in the same place.
 	_client.status_path = config.status_path
 	_director = director
 	_configured = true

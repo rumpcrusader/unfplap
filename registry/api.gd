@@ -197,6 +197,8 @@ static func register(owner_id: int, descriptor: Descriptor) -> Result:
 			errors.append("name: expected a string")
 	for key: Variant in block.keys():
 		if not str(key) in TOP_KEYS:
+			# A per-mare prompt document is not a registry field. The legacy prompt keys land here
+			# and change nothing.
 			warnings.append("%s: unknown key" % str(key))
 
 	var template: Dictionary = {}
@@ -366,6 +368,8 @@ static func unregister_owner(owner_id: int) -> int:
 
 
 ## The merged provider template for one id. Empty when no provider registered her.
+## Provider documents only seed a template. A player's saved choices form a later layer that
+## outranks this one and stays after a provider leaves.
 static func template_for(id: String) -> Profile:
 	var out: Dictionary = {}
 	var list: Array = _layers.get(id, [])

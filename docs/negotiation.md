@@ -79,8 +79,9 @@ generation token.
 ## Director and model host
 
 `negotiation/host.gd` builds the two typed requests and parses their replies; the call itself is
-the `director` service's one raw completion. The transport owns the classifier node and the
-availability read, and the negotiation's bridge reaches it as a peer (`docs/director.md`). No
+the `director` service's one raw completion. The transport holds the classifier node the Proactive
+builds and answers the availability read; the negotiation's bridge reaches it as a peer
+(`docs/director.md`). No
 service reads the director's stock fields directly.
 
 The model methods are `classify(request, scope, done)` and `reason(request, scope, done)`, which

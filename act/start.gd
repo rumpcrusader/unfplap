@@ -202,7 +202,7 @@ func _build_pose() -> void:
 		look = camera.global_position
 		camera_at = look
 	context.pose.begin_act(session.pose_start(session.pose_id, look, camera_at))
-	context.reactions.bind_tail(context.pose.tail)
+	context.reactions.bind_tail(context.pose.tail())
 
 
 func _claim_nav() -> bool:

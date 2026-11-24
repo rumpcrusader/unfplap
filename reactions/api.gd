@@ -9,6 +9,7 @@ const CONTEXT := preload("res://mods/unfplap/reactions/context.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
+const POSES := preload("res://mods/unfplap/poses/api.gd")
 const RUMP_CONE := preload("res://mods/unfplap/shared/rump_cone.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
@@ -24,8 +25,8 @@ const RUMP_BLUSH_DECAY := 0.006
 var pony: Node3D = null
 var flank: Node = null
 var anatomy: ANATOMY = null
-## The standing tail modifier, null outside a standing act.
-var tail: SkeletonModifier3D = null
+## The standing tail handle, null outside a standing act.
+var tail: POSES.PoseTail = null
 
 ## Per-act configuration. `configure()` receives the runtime's act snapshot.
 var pose_family := ""
@@ -72,8 +73,8 @@ func _follow_coat() -> void:
 		anatomy.follow_body_coat(pony, flank)
 
 
-## The standing tail modifier changes with the pose, so the pose builder binds it.
-func bind_tail(tail_ctl: SkeletonModifier3D) -> void:
+## The standing tail handle changes with the pose, so the pose builder binds it.
+func bind_tail(tail_ctl: POSES.PoseTail) -> void:
 	tail = tail_ctl
 
 
@@ -185,7 +186,7 @@ func thrust(weight: float) -> void:
 
 ## The tail impulse that rides the same thrust wave. Standing only.
 func tail_thrust(weight: float) -> void:
-	if pose_family != "standing" or not is_instance_valid(tail):
+	if pose_family != "standing" or tail == null:
 		return
 	tail.thrust(weight * size_scale * jiggle_intensity)
 
@@ -201,7 +202,7 @@ func smack(_strength: float) -> void:
 		if not is_nan(amount):
 			WORLD.flank(flank).set_jiggle_amount(amount * jiggle_smack_intensity)
 	apply_radius()
-	if pose_family == "standing" and is_instance_valid(tail):
+	if pose_family == "standing" and tail != null:
 		tail.thrust(size_scale * jiggle_smack_intensity)
 
 

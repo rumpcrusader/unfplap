@@ -147,9 +147,9 @@ func presentation() -> PRESENTATION:
 func apply_presentation() -> bool:
 	var row := presentation()
 	pose.settle()
-	pose.set_tail_target(row.tail_target)
+	pose.tail().target(row.tail_target)
 	if row.tail_flicks > 0:
-		pose.flick_tail(row.tail_flicks)
+		pose.tail().flick(row.tail_flicks)
 	if is_instance_valid(hud):
 		hud.set_state(row.hud_state)
 	return row.wings

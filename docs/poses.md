@@ -909,7 +909,8 @@ is `## Player frame`.
   changed value adds only the difference.
 - Tail aside/lift/flick runs on the visible tail chain (`poses/tail_chain.gd`): the devkit hair
   chain `mTail1..mTail6` when present, otherwise the fitted body chain
-  `pony_tail_01..pony_tail_05`. The princess exports weight the tail into the body and skip the
+  `pony_tail_01..pony_tail_05`. The session exposes the live tail as its `PoseTail` handle; the
+  reaction facade binds it for the thrust wave, and the afterglow sets its target and flicks. The princess exports weight the tail into the body and skip the
   devkit hair, so their body chain is the one moved; a devkit mare keeps its hair tail. Side
   randomized per act. `presentation.standing.tail.yaw_deg` (aside) and `pitch_deg` (lift) are
   the live amounts, in degrees. A damped spring driven by raw `depth` also rocks the

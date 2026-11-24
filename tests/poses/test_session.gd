@@ -335,6 +335,11 @@ func _check_standing_begin() -> void:
 		"the begin carries the live size name to the pose node")
 	check(session.view().family == "standing" and session.view().pose_state == VIEW.STEADY,
 		"the standing begin fills the view")
+	check(session.tail() != null, "the standing begin exposes the tail handle")
+	session.tail().target(0.4)
+	session.tail().flick(2)
+	session.tail().thrust(0.5)
+	check(session._tail == null, "a rig without a tail chain keeps the handle a no-op")
 	session.release_pose()
 	root.remove_child(bed)
 	bed.free()

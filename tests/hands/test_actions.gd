@@ -30,11 +30,12 @@ const HIP_THRUST := preload("res://mods/unfplap/poses/anon_hip_thrust.gd")
 const MISSIONARY_ANON := preload("res://mods/unfplap/poses/missionary_anon.gd")
 const TAIL := preload("res://mods/unfplap/poses/tail_pose.gd")
 
-class FakeTail extends SkeletonModifier3D:
+## The tail handle's host: records the thrust the facade sends.
+class FakeTailHost extends RefCounted:
 	var last_strength := 0.0
 
-	func thrust(strength: float) -> void:
-		last_strength = strength
+	func _thrust_tail(weight: float) -> void:
+		last_strength = weight
 
 
 class FakeFlank extends Node3D:
@@ -512,14 +513,12 @@ func run() -> void:
 	smack.configure(tune({"smack_intensity": 0.5}, "standing"))
 	var jiggle_pony := Node3D.new()
 	root.add_child(jiggle_pony)
-	var fake_tail := FakeTail.new()
-	root.add_child(fake_tail)
+	var tail_host := FakeTailHost.new()
+	var fake_tail := POSES.PoseTail.new(tail_host)
 	smack.bind_scene(jiggle_pony)
 	smack.bind_tail(fake_tail)
 	smack.smack(0.8)
-	check(near(fake_tail.last_strength, 0.5), "smack carries the tail jiggle in standing")
-	root.remove_child(fake_tail)
-	fake_tail.free()
+	check(near(tail_host.last_strength, 0.5), "smack carries the tail jiggle in standing")
 	root.remove_child(jiggle_pony)
 	jiggle_pony.free()
 	smack.free()

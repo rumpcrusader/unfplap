@@ -50,8 +50,8 @@ close window without its reward.
 ## Held pose
 
 The afterglow holds the current pose: the pose the act ended in, unchanged. The presentation row
-carries no pose mode and no afterglow pose id, and `apply_presentation()` only re-asserts
-`target_amount`/`amount` alongside the tail, HUD and wings. The pose evaluator keeps its current
+carries no pose mode and no afterglow pose id, and `apply_presentation()` only settles the live
+weight and moves the tail handle alongside the HUD and wings. The pose evaluator keeps its current
 driver/delta pair and config; nothing rebuilds, releases or re-poses the body at the phase change.
 The close window comes from the view's `afterglow.close_window`. The phase has no `pose_changed`
 hook. The runtime and facade source must not name a pose mode.

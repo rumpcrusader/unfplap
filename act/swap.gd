@@ -209,7 +209,7 @@ func rebuild_act_pose() -> void:
 	if not context.pose.rebuild_act(start):
 		LOG.debug("body swap: the new body has no pose skeleton")
 		return
-	context.reactions.bind_tail(context.pose.tail)
+	context.reactions.bind_tail(context.pose.tail())
 
 
 func reset_lean() -> void:

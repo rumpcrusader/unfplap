@@ -79,12 +79,33 @@ class PoseStart extends RefCounted:
 	var camera_at := Vector3.INF
 
 
+## The standing tail, as consumers move it.
+class PoseTail extends RefCounted:
+	var _session: Variant = null
+
+	func _init(session: Variant) -> void:
+		_session = session
+
+	## The lift/flick weight the afterglow sets.
+	func target(value: float) -> void:
+		_session._set_tail_target(value)
+
+	func flick(count: int) -> void:
+		_session._flick_tail(count)
+
+	## The thrust wave the reaction facade adds at the stroke.
+	func thrust(weight: float) -> void:
+		_session._thrust_tail(weight)
+
+
 ## The act's live view fields.
 var bed_node: Node3D = null
 ## True between a successful `begin()` and `release_pose()`. The runtime keeps one session per pony.
 var _started := false
 ## The live pose config, one object shared by the view and the evaluator.
 var _pose_config: Dictionary = {}
+## The standing tail handle consumers move; it no-ops while no tail is installed.
+var _tail_handle: PoseTail = null
 ## The one pose read model for the act, and the registry that validates the static spec table.
 var _view: POSE_VIEW
 var _registry: REGISTRY
@@ -107,7 +128,7 @@ var _target_asset: AUTHORED = null
 
 ## The pose modifier and the extra scene modifiers the act installs.
 var pose_node: POSE = null
-var tail: TAIL = null
+var _tail: TAIL = null
 var tail_lay: TAIL_LAY = null
 var body_sway: BODY_SWAY = null
 var prone_sway: PRONE_SWAY = null
@@ -167,6 +188,7 @@ func _init(facts: ACT_FACTS = null) -> void:
 	_registry = REGISTRY.new()
 	_oral_turn = ORAL_TURN.new()
 	_face_driver = FACE_CONTACT.new()
+	_tail_handle = PoseTail.new(self)
 	_bind_oral()
 	_bind_face()
 
@@ -182,6 +204,11 @@ func _pony() -> Node3D:
 ## The act's stable id, or "" outside an act.
 func _pony_id() -> String:
 	return _facts.pony_id if _facts != null else ""
+
+
+## The standing tail consumers move; a released pose's handle is a no-op.
+func tail() -> PoseTail:
+	return _tail_handle
 
 
 ## The one pose read model the act view carries. `begin()` fills it and `release_pose()` clears it;
@@ -859,9 +886,9 @@ func _sync_live_config() -> bool:
 	_pose_config.merge(_config_for_group(group, presentation), true)
 	if is_instance_valid(pose_node):
 		pose_node.pose_config = _pose_config
-	if group == CATALOG.STANDING and is_instance_valid(tail):
-		tail.aside_angle = float(_pose_config.get("tail_aside", 0.0))
-		tail.lift_angle = float(_pose_config.get("tail_lift", 0.0))
+	if group == CATALOG.STANDING and is_instance_valid(_tail):
+		_tail.aside_angle = float(_pose_config.get("tail_aside", 0.0))
+		_tail.lift_angle = float(_pose_config.get("tail_lift", 0.0))
 	return true
 
 
@@ -1110,10 +1137,10 @@ func release_pose() -> void:
 	pose_node = null
 	_from_asset = null
 	_target_asset = null
-	if is_instance_valid(tail):
-		tail.restore_tail()
-		_drop(tail)
-	tail = null
+	if is_instance_valid(_tail):
+		_tail.restore_tail()
+		_drop(_tail)
+	_tail = null
 	_started = false
 	_pose_config.clear()
 	rig_checked = false
@@ -1211,14 +1238,14 @@ func _sync_owner(owner: String, wanted: bool, retarget: bool, view: POSE_VIEW,
 				ear_twitch = null
 		"tail":
 			if keep:
-				if not is_instance_valid(tail):
+				if not is_instance_valid(_tail):
 					_install_tail()
 				elif retarget:
-					tail.pose_changed(view)
-			elif is_instance_valid(tail):
-				tail.restore_tail()
-				_drop(tail)
-				tail = null
+					_tail.pose_changed(view)
+			elif is_instance_valid(_tail):
+				_tail.restore_tail()
+				_drop(_tail)
+				_tail = null
 		"tail_lay":
 			if keep:
 				if not is_instance_valid(tail_lay):
@@ -1362,7 +1389,7 @@ func _drop(node: Node) -> void:
 
 func _install_tail() -> void:
 	var pony := _pony()
-	if is_instance_valid(tail) or not is_instance_valid(pony):
+	if is_instance_valid(_tail) or not is_instance_valid(pony):
 		return
 	var found: Dictionary = TAIL_CHAIN.resolve(pony)
 	var custom := TAIL_CHAIN.custom_root(pony)
@@ -1373,20 +1400,20 @@ func _install_tail() -> void:
 		skeleton = pony.get("skeleton") as Skeleton3D
 	if skeleton == null:
 		return
-	tail = TAIL.new()
-	tail.name = "UnfplapTail"
-	tail.mare = pony
-	tail.facts = _facts
-	tail.aside_angle = float(_pose_config.get("tail_aside", 0.0))
-	tail.lift_angle = float(_pose_config.get("tail_lift", 0.0))
-	tail.amount = 0.0
-	tail.target_amount = 1.0
+	_tail = TAIL.new()
+	_tail.name = "UnfplapTail"
+	_tail.mare = pony
+	_tail.facts = _facts
+	_tail.aside_angle = float(_pose_config.get("tail_aside", 0.0))
+	_tail.lift_angle = float(_pose_config.get("tail_lift", 0.0))
+	_tail.amount = 0.0
+	_tail.target_amount = 1.0
 	var side_anchor: Variant = _tail_anchor
 	if not side_anchor is Vector3:
 		side_anchor = Vector3.INF
-	tail.choose_side(side_anchor)
-	tail.process_priority = 20
-	skeleton.add_child(tail)
+	_tail.choose_side(side_anchor)
+	_tail.process_priority = 20
+	skeleton.add_child(_tail)
 
 
 func _install_tail_lay() -> void:
@@ -1535,9 +1562,10 @@ func write_render_frame(body_scale: float) -> void:
 	render_write(RenderFrame.of(frame, body_scale))
 
 
-func set_tail_target(value: float) -> void:
-	if is_instance_valid(tail):
-		tail.target_amount = value
+## The tail handle's one write: the lift/flick weight the afterglow sets.
+func _set_tail_target(value: float) -> void:
+	if is_instance_valid(_tail):
+		_tail.target_amount = value
 
 
 ## The live standing glance's head throw-back; a released pose takes no write.
@@ -1546,9 +1574,15 @@ func set_head_back(value: float) -> void:
 		pose_node.head_back = value
 
 
-func flick_tail(count: int) -> void:
-	if is_instance_valid(tail):
-		tail.flick(count)
+func _flick_tail(count: int) -> void:
+	if is_instance_valid(_tail):
+		_tail.flick(count)
+
+
+## The tail handle's thrust wave, scaled by the caller.
+func _thrust_tail(weight: float) -> void:
+	if is_instance_valid(_tail):
+		_tail.thrust(weight)
 
 
 ## A rebuilt pose starts settled. The body swap re-poses the surviving act inside the flame, so
@@ -1557,9 +1591,9 @@ func settle() -> void:
 	if is_instance_valid(pose_node):
 		pose_node.amount = 1.0
 		pose_node.target_amount = 1.0
-	if is_instance_valid(tail):
-		tail.amount = 1.0
-		tail.target_amount = 1.0
+	if is_instance_valid(_tail):
+		_tail.amount = 1.0
+		_tail.target_amount = 1.0
 
 
 func basis_amount() -> float:
@@ -1570,8 +1604,8 @@ func basis_amount() -> float:
 func fade_out() -> void:
 	if is_instance_valid(pose_node):
 		pose_node.target_amount = 0.0
-	if is_instance_valid(tail):
-		tail.target_amount = 0.0
+	if is_instance_valid(_tail):
+		_tail.target_amount = 0.0
 
 
 ## Aim the live pose's look point for this rendered frame; the head solve reads it after the pose

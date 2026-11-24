@@ -5,6 +5,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ##     --script res://mods/unfplap/tests/reactions/test_reactions.gd
 
 const REACTIONS := preload("res://mods/unfplap/reactions/api.gd")
+const POSES := preload("res://mods/unfplap/poses/api.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const RUMP_CONE := preload("res://mods/unfplap/shared/rump_cone.gd")
@@ -34,11 +35,12 @@ class FakeFlank extends Node:
 		processed += 1
 
 
-class FakeTail extends SkeletonModifier3D:
+## The tail handle's host: records the thrust the facade sends.
+class FakeTailHost extends RefCounted:
 	var last_strength := 0.0
 
-	func thrust(strength: float) -> void:
-		last_strength = strength
+	func _thrust_tail(weight: float) -> void:
+		last_strength = weight
 
 
 class FakeAnatomy extends ANATOMY:
@@ -273,29 +275,27 @@ func _check_smack() -> void:
 	var flank := FakeFlank.new()
 	flank._jiggle_targets = []
 	flank._jiggle_amount = 0.08
-	var tail := FakeTail.new()
+	var tail_host := FakeTailHost.new()
+	var tail := POSES.PoseTail.new(tail_host)
 	var pony := FakePony.new()
 	root.add_child(pony)
-	root.add_child(tail)
 	var reactions := REACTIONS.new()
 	reactions.bind_scene(pony, flank)
 	reactions.bind_tail(tail)
 	reactions.configure(tune({"smack_intensity": 0.5}, "standing", 1.0))
 	reactions.smack(0.8)
 	check(near(flank._jiggle_amount, 0.04), "the act smack scales the resolved jiggle")
-	check(near(tail.last_strength, 0.5), "the standing smack carries the tail jiggle")
+	check(near(tail_host.last_strength, 0.5), "the standing smack carries the tail jiggle")
 	reactions.configure(tune({"smack_intensity": 0.5}, "bed", 0.66))
-	tail.last_strength = 0.0
+	tail_host.last_strength = 0.0
 	reactions.smack(0.8)
-	check(near(tail.last_strength, 0.0), "the missionary smack does not move the tail")
+	check(near(tail_host.last_strength, 0.0), "the missionary smack does not move the tail")
 	reactions.configure(tune({"intensity": 0.2}, "standing", 0.66))
 	reactions.tail_thrust(0.4)
-	check(near(tail.last_strength, 0.4 * 0.66 * 0.2),
+	check(near(tail_host.last_strength, 0.4 * 0.66 * 0.2),
 		"the thrust tail impulse scales with the stroke and the size")
 	reactions.free()
 	flank.free()
-	root.remove_child(tail)
-	tail.free()
 	root.remove_child(pony)
 	pony.free()
 

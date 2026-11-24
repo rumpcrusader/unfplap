@@ -92,7 +92,7 @@ func run() -> void:
 	check(session.tail_lay == null and tail_lay.is_queued_for_deletion(),
 		"the target loses the source-only tail lay")
 	var sway: Node = session.body_sway
-	var tail: Node = session.tail
+	var tail: Node = session._tail
 	check(sway != null and sway.get_parent() == body, "the target-only body sway is installed")
 	check(tail != null and tail.get_parent() == hair, "the target-only standing tail is installed")
 	check(session.ear_twitch == null, "the disabled feature keeps its owner out")
@@ -116,7 +116,7 @@ func run() -> void:
 	session.leave_pose_body()
 	check(session.body_sway == null and sway.is_queued_for_deletion(),
 		"the act-exit leave still removes the extra modifier")
-	check(session.tail == tail and tail.get_parent() == hair,
+	check(session._tail == tail and tail.get_parent() == hair,
 		"the pose-body leave keeps the standing tail")
 
 	# The `anon` channel: blend carries the edge weight and switch names the authored profile; a
@@ -142,7 +142,7 @@ func run() -> void:
 	session.act_body = null
 
 	session.release_pose()
-	check(session.pose_node == null and session.body_sway == null and session.tail == null,
+	check(session.pose_node == null and session.body_sway == null and session._tail == null,
 		"the final release clears the pose and the tail")
 	check(session.tail_lay == null and session.prone_sway == null,
 		"the final release keeps every extra owner cleared")

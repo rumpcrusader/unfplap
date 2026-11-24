@@ -160,7 +160,7 @@ func _check_missionary_scope() -> void:
 		"the pose-body leave frees the extra modifiers")
 	check(session.pose_node == pose_node and pose_node.get_parent() != null,
 		"the pose-body leave keeps the pose node")
-	check(session.tail == null, "the missionary pose has no standing tail")
+	check(session._tail == null, "the missionary pose has no standing tail")
 	check(is_same(session._pose_config, config) and not config.is_empty(),
 		"the pose-body leave keeps the live config")
 	check(view.pose_state == VIEW.STEADY and view.id == CATALOG.MISSIONARY,
@@ -199,10 +199,17 @@ func _check_standing_scope() -> void:
 	var config: Dictionary = session._pose_config
 	var pose_node: Node = session.pose_node
 	var body_sway: Node = session.body_sway
-	var tail: Variant = session.tail
+	var tail: Variant = session._tail
 	check(body_sway != null and body_sway.get_parent() == body,
 		"the standing begin installs body sway")
 	check(tail != null and tail.get_parent() != null, "the standing begin installs the tail")
+	check(session.tail() != null, "the standing begin exposes the tail handle")
+	session.tail().target(0.4)
+	check(near(tail.target_amount, 0.4), "the tail handle sets the live target")
+	session.tail().flick(2)
+	check(near(float(tail.get("_flick_cycles")), 2.0), "the tail handle flicks the live tail")
+	session.tail().thrust(0.5)
+	check(near(float(tail.get("_thrust_strength")), 0.5), "the tail handle thrusts the live tail")
 	check(view.pose_state == VIEW.STEADY and view.id == CATALOG.STANDING,
 		"the standing begin fills the view")
 	check(session.ground_frame is Transform3D,
@@ -213,7 +220,7 @@ func _check_standing_scope() -> void:
 		"the pose-start leave clears the ground frame")
 	check(session.body_sway == body_sway and body_sway.get_parent() == body,
 		"the pose-start leave keeps the extra modifiers")
-	check(session.tail == tail and tail.get_parent() != null,
+	check(session._tail == tail and tail.get_parent() != null,
 		"the pose-start leave keeps the standing tail")
 	check(session.pose_node == pose_node and pose_node.get_parent() == body,
 		"the pose-start leave keeps the pose node")
@@ -226,7 +233,7 @@ func _check_standing_scope() -> void:
 		"the pose-body leave frees the extra modifiers")
 	check(session.pose_node == pose_node and pose_node.get_parent() == body,
 		"the pose-body leave keeps the pose node")
-	check(session.tail == tail and tail.get_parent() != null,
+	check(session._tail == tail and tail.get_parent() != null,
 		"the pose-body leave keeps the standing tail")
 	check(is_same(session._pose_config, config) and not config.is_empty()
 		and view.pose_state == VIEW.STEADY,
@@ -235,7 +242,7 @@ func _check_standing_scope() -> void:
 	session.release_pose()
 	check(session.pose_node == null and pose_node.get_parent() == null,
 		"the standing final release frees the pose node")
-	check(session.tail == null and tail.get_parent() == null
+	check(session._tail == null and tail.get_parent() == null
 		and tail.is_queued_for_deletion(),
 		"the standing final release frees the tail")
 	check(session._pose_config.is_empty() and view.pose_state == VIEW.IDLE and view.id == "",
@@ -251,7 +258,7 @@ func _check_body_tail_scope() -> void:
 	var made := _fixture(CATALOG.STANDING, {}, true)
 	var session: SESSION = made["session"]
 	var body: Skeleton3D = made["body"]
-	var tail: Variant = session.tail
+	var tail: Variant = session._tail
 	check(tail != null and tail.get_parent() == body,
 		"the standing tail installs on a fitted body skeleton")
 	_free_fixture(made)

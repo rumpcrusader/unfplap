@@ -418,7 +418,9 @@ func _act_key(runtime: Node, key: InputEventKey, state: int) -> void:
 
 
 ## Take one key from the game and from other mods. `PASS_KEYS` stay live while the shield is on;
-## the act's own polled keys are consumed but keep their state (see `RAW_KEYS`).
+## the act's own polled keys are consumed but keep their state (see `RAW_KEYS`). Two traps follow:
+## a key still held when the act ends reads released until pressed again, and rebinding the act key
+## does not clear the old key because the hold needs its state.
 func _consume(key: InputEventKey) -> void:
 	if _shield and key.physical_keycode in PASS_KEYS:
 		return

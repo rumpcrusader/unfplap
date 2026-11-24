@@ -90,6 +90,7 @@ func idle() -> bool:
 
 ## The scan's quiet gate: not paused, no menu, captured input, a free player, an idle director with
 ## no group exchange or hearing, AI allowed and no recent chat. `chat_gap_s` is the pacing window.
+## The AI check is the game's own background policy, never a mod setting.
 func quiet(chat_gap_s: float) -> bool:
 	return quiet_reason(chat_gap_s) == ""
 

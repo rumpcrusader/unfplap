@@ -145,7 +145,8 @@ class ActAudio extends RefCounted:
 			_play_bed(level, _bed_point(rump))
 		_world._pool.play("slide_in", rump, level, -12.0)
 
-	## True only on the frames that will fire the outward slide.
+	## True only on the frames that will fire the outward slide. The caller hands in the depth pair;
+	## keeping a local cursor would leave it behind whenever the tracker skips a frame.
 	func crossing_out(before: float, now: float) -> bool:
 		return before > CATALOGUE.WITHDRAW_DEPTH and now <= CATALOGUE.WITHDRAW_DEPTH
 

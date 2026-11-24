@@ -1,173 +1,68 @@
 # HUD
 
-The mod's one screen surface: the act's text readouts (the cue/hearts line, the readiness/preference
-line, the auto readout, the `End` tint and the control card), the single toast line, the game
-caption's act-only move to the top, and the one-time act-key notice. The card itself is
-`hud/api.gd`; the style rules are this doc. The readiness values are `docs/readiness.md`; the
-close window is `docs/afterglow.md`.
+The HUD is the mod's one screen surface: the act's text readouts, the control card, the toast line,
+the game caption's act-only move and the act-key notice, plus the borrowed quick-slot card. It owns
+what is on screen and gives back what it borrowed. The readiness values behind the readouts belong
+to the act readiness system, and the close window belongs to the afterglow.
 
-## Ownership
+## The act card
 
-| File | Role |
-|---|---|
-| `hud/lines.gd` | pure text and tint: `cue_line`, `readiness_line`, `auto_text`, `y_pink`, `auto_panel_label` |
-| `hud/game.gd` | the game's speech caption node internals: the preview check, its card and scale, and the one write that places the card |
-| `hud/api.gd` | the facade and the scene card: rows, key caps, prompt row, visibility, the act wiring, the borrowed quick-slot card, the toast line and the caption tracking and move |
-| `docs/hud.md` | this contract |
+The card appears for the act's active, climax and afterglow states, and an act outside them has no
+line. Its top is the cue line, which carries the hearts and the current cue; underneath sit the
+readiness line, the form row, the automatic readout and then the controls. The card reads one typed
+act view per rendered frame, never probing the runtime.
 
-The service owns:
+The cue line always keeps the hearts; with `hud_readouts` off the cue and readiness segments hide.
+The afterglow keeps the close prompt in the cue when one exists; otherwise the cue carries the
+summary, and where the cue must keep the close prompt the summary takes the readiness line. An empty
+cue reads as a dash where the segment is still shown.
 
-| Member | What it owns |
-|---|---|
-| `update_from(view)`, `show_act()`, `hide_act()`, `hide_all()`, `show_prompt()`, `hide_prompt()` | the act card and the offer hint's fallback row |
-| `set_act_key(label)`, `apply_settings()` | the act-key row's cap and the cached caption mode, re-read on every settings edit |
-| `toast(text, seconds)` / `anatomy_status(text, seconds)` | the one toast line; the only sink the rest of the mod uses |
-| `caption_node(node)` / `caption_tick(state)` | the game's `SpeechCaption` tracking and its act-only move to the top |
-| `on_world()` / `on_world_closed()` / `on_player(body)` | the world scoped begin and end, and the once-per-world Dance Mod key notice |
-| `set_inventory_hidden()`, `inventory_hidden()`, `ensure_act_inventory_visible(owner)` | the borrowed quick-slot card and the idle safety that restores it |
+The automatic readout shows only while the automatic stroke runs. Opening the auto settings replaces
+the card with the depth, pace and shape rows, because those keys mean something else while the layer
+is open.
 
-`act/view.gd` fills the typed act view (`shared/act_facts.gd`) with the live values: state, climax
-count and limit, cue, close hint, summary, heat, the raw `close_earned` flag, the auto values and
-the anatomy row gates. `hud/lines.gd` formats the text, the `End` tint and the auto readout. The
-entry calls `runtime.act.facts()` once per rendered frame and passes that object to
-`hud/api.gd`, which reads fields and never probes the runtime for a method. The control visibility reads `view.pose_view.family` (`bed` for missionary, `standing` for
-standing) instead of a raw pose id. The pure module has no Node, tree, `Settings` or game access,
-so the formats are testable without a scene.
+The act-key row is the card's one changing control: it reads whether the act is early, active or
+closing, and its colour warms one step per climax up to a cap. Only the earned standing afterglow
+caress turns it fully to the accent colour. The pose rows name actions rather than both keys, and
+they follow the pose family rather than a raw pose id.
 
-## Base-game access
+The form row stays in the card even though the act never fills it, so the rows above and below keep
+their places. The shape reveal and the gift are something the player works out from her words and
+behaviour; no build names them on the HUD.
 
-`hud/game.gd` is the HUD's one base-game accessor: the caption's preview flag, its card, its own
-scale and the one write that places the card. A handle is an argument, and the move in
-`hud/api.gd` names no caption field itself; the speech-mode setting stays
-`SETTINGS.caption_mode()` through the settings channel.
+## Afterglow
 
-## Lines
+The control card as a whole belongs to `act_controls`. The afterglow hides what cannot act: the
+automatic stroke, the smack and the thrust row are gone, while the missionary arrangement keeps the
+lean, caress, caress movement and act key, and standing keeps the lean, reach, caress, caress
+movement, kiss and act key. The summary stays visible regardless of the readout setting.
 
-`cue_line(state, pony_climaxes, max_climaxes, cue, close_text, summary_hud, show_readouts)`:
+## The caption move
 
-```text
-❤ N/M | cue
-❤ N/∞ | cue        (0 = unlimited)
-❤ N/M              (readouts off; hearts stay)
-❤ N/M | Close: 6   (afterglow keeps the close prompt with readouts off)
-```
+The game caption moves to the top only during the act's opening, active and climax states, only when
+the `captions_on_top` option is on, and only when the game's own speech setting is the explicit
+bottom caption; the afterglow puts it back. Every caption the game builds is tracked, a caption
+created while the act runs is positioned immediately, and the settings-page preview is never moved.
 
-An act outside `ACTIVE`/`CLIMAX`/`AFTERGLOW` has no line. The afterglow prefers the close prompt;
-when the close prompt is empty it shows the summary instead. An empty cue becomes `—` when the
-segment is shown.
+The move lands after the caption's own layout pass because the entry that reports the live act state
+runs later in the frame. The HUD never subscribes to the game autoload; it listens on the settings
+service's game channel and re-applies the mode only when the speech setting changes.
 
-`readiness_line(state, readouts, last_intensity, last_pattern, want_intensity, want_pattern,
-heat, close_text, summary_hud)`:
+## The offer hint and the toast
 
-```text
-Wants: firm & steady | You: soft & quick
-Wants: … | You: … | In heat
-summary            (afterglow with the close prompt in the cue)
-```
+The offer hint uses the game's own prompt row so it sits beside base prompts: a drawn key cap for
+the act key, which the game has no icon for, beside the words. Without that row the same hint is
+built into the HUD's own centred prompt. A steady frame re-applies neither the row nor its text, so
+holding the camera still touches neither the tree nor the row.
 
-The line is empty when the readouts are off or outside `ACTIVE`/`CLIMAX`. In the afterglow it only
-shows the summary when the cue already shows the close prompt.
+The toast is the mod's only toast: a short corner line that the next one replaces, at the caller's
+duration. A caller holds a live HUD and guards for its absence, so a bare runtime is a quiet no-op.
+The act-key notice is one toast per world, shown once when the bundled Dance Mod is on and the act
+key is not its Y.
 
-`auto_text(min_depth, max_depth, pace, shape)`:
+## The borrowed quick slots
 
-```text
-Auto · 20–80% · 1.50/s · Normal
-```
-
-`y_pink(standing, afterglow, close_earned, pony_climaxes, max_climaxes)` returns the `End` shade:
-one `Y_END_TINT_MAX = 0.75` step per climax, or `1.0` only after the earned standing afterglow
-caress. An unlimited limit uses the 3-climax reference.
-
-## Card
-
-Two declaration comments in `settings/api.gd` describe the card's two switches. With the
-control card off, the cue, readiness line and close prompt remain.
-- Top to bottom: cue line `❤ N/limit | cue` (or `❤ N/∞` when the climax limit is unlimited),
-  readiness line `Wants: intensity & pattern | You: intensity & pattern`, the (always empty) form
-  row, auto readout `Auto · 20–80% · 1.50/s · Normal` while auto is on, blank separator, controls.
-- The form-change row stays in the card for layout compatibility but the runtime never fills it.
-  A release must not name the reveal or the gift: the player discovers both from her own words and
-  behaviour. **Enable debug** writes the state to the run log through `docs/runtime.md`, not to
-  `view.form_hint`; the row is empty outside a manually supplied view string. It is independent of
-  `hud_readouts` and `hud_controls`.
-- While the hold-X layer is open the control card is replaced by X (`Hold`, `Auto settings`),
-  Q A (`Min depth N%`), W S (`Max depth N%`), E D (`Pace N/s`) and Z (`Shape: …`).
-- When readouts are off, the hearts remain; the cue and readiness line are hidden.
-- In afterglow the summary is always shown: missionary puts it in the cue line, standing keeps its
-  close prompt in the cue and puts the summary on the readiness line. Early end shows no summary.
-- There is no penetration/depth bar; the thrust mechanic, `thrust.orientation` and auto thrust
-  still apply.
-- The controls list keeps its act-key row dynamic: `End early` at 0 climaxes, then `End` in `ACTIVE`
-  with 1+, `CLIMAX` and `AFTERGLOW`. `End` shades from ink toward the pink accent one step per
-  climax, capped at 75%; only the earned standing afterglow caress reward makes it fully pink.
-  The thrust row reads `Thrust` (manual only), the X row reads `Switch to auto` or
-  `Switch to manual`, and a second X row (`Hold`, `Auto settings`) shows while auto is on. The
-  pose rows read `Lean`, `Reach`, `Caress` and `Caress movement`; they do not spell out both
-  directions. `Kiss` only shows in the standing pose. Only the `Hold` rows carry the modifier
-  column, so an icon is followed by its words with no reserved blank space.
-- The control card stays at full opacity while Anon leans or leans in for a kiss and returns after
-  it; the cue and readiness readouts stay at full opacity.
-- The pose title is the spec's `presentation.hud_label`; the internal bed face-sit says `Face-sit`
-  with the same missionary presentation profile.
-- Afterglow shows `❤ N/limit | close hint` instead of `Wants`/`You`. Missionary keeps only the
-  act-key row; standing keeps lean, reach, caress, caress movement, kiss and the act-key row;
-  thrust, auto and smack are hidden.
-- `set_act_key(label)` swaps the act-key row's cap when the captured key changes, so the glyph
-  follows any key without rebuilding the card.
-- Captions move to the top of the screen only while an act is in `POSING_IN`, `ACTIVE` or
-  `CLIMAX`, and only when the player picked **Move captions to top** (`captions_on_top`) and the
-  game's own speech setting is the explicit bottom caption; afterglow returns them to the bottom.
-  The entry registers one `Mods.on_node` hook on `CAPTION_PATH` and forwards every caption to
-  `caption_node()`, which tracks it by weak reference and places it at once if an act is live.
-  `caption_tick(state)` is the per-frame move: the entry reports the live act state and the HUD
-  decides whether anything moves. It sets the caption's private `_card` position to
-  `CAPTION_TOP_MARGIN` rounded, scaled by the caption's own `_scale`, which lands after the
-  caption's own `_process` because the entry runs at process priority 100. It leaves the
-  settings-page preview alone and does nothing if the card fields disappear. The HUD never
-  subscribes to the game autoload: it listens on the settings service's game channel, and only
-  `access/speech_text` re-applies the mode.
-- **Enable debug** gates the detailed overlay and the mod's logging, not the HUD.
-  **Print perf logs** separately gates the per-second performance block and needs it on too.
-
-The card uses the game's own prompt row (`world/ui/interaction_hints.gd`) and its
-`player/cradle_controls.gd` style: the game's `prompts/<name>.png` icons where it has one, a dark
-drawn key cap for keys it does not (W/S/A/D/Z, `↕`), ink words in `#f4f1ff` with a `#1a1624`
-outline, and muted `#f4f1ff` at 60% for modifiers. `hud/api.gd` exposes `text_label()`, `keycap(key, scale)`,
-`button_icon()` and `prompt_row(icon, text, cap)` as the one style source. The offer hint is
-`OFFER_HINT = "Make love"` in the game's own prompt row: a drawn act-key cap at the row's 52 px
-scale beside 30 px words, placed by `hud.prompt_row()` so it sits beside base prompts. The game
-has no `key_6.png`, so the cap is drawn by `hud.keycap()` at the prompt-row scale. Without that row
-(VR or no `InteractionHints`) the same row is built into the HUD's own centered prompt above the
-caption line. `offer/api.gd` resolves the hints node and that row once per world and
-re-resolves them only when the row leaves the tree, and an unchanged hint text is not re-applied,
-so a steady frame touches neither the tree nor the row.
-
-## Toast and act-key notice
-
-`toast(text, seconds)` is the mod's only toast: a short line in the corner for four seconds unless
-the caller passes its own duration, replaced by the next one. It is an instance method; a caller
-holds the HUD and guards for its absence, so a bare runtime with no HUD is a quiet no-op. Callers:
-the Negotiation host's player feedback and the offer's block notes (four seconds), the wheel's
-one-line result (three), the runtime's form status (2.5) and `anatomy_status(text, seconds)`, the
-anatomy status line at two seconds, which falls back to the debug log on a HUD that is not in the
-tree.
-
-The act-key notice is one toast per world: when the bundled Dance Mod is active and the act key is
-not its `Y`, the HUD says so once, as soon as the player exists. The note is re-armed on every
-world enter and never repeats inside one world.
-
-## Gates
-
-- `features.hud_readouts` hides the cue and readiness segments; the hearts and the
-  close prompt stay. The form-change hint is not a readout and stays visible.
-- `features.act_controls` hides the whole control card; the cue, readiness and close
-  prompt stay.
-- The afterglow summary is independent of `hud_readouts` and is always shown.
-- The quick-slot inventory HUD is hidden for the whole act via `inventory.hud_hidden` and the
-  hotbar's `set_hud_visible(false)`. `hud/api.gd` owns the borrowed state
-  (`set_inventory_hidden()`, `inventory_hidden()`) and restores exactly what it found, so the act
-  start and the one exit call it unconditionally. The idle safety is the HUD's too:
-  `ensure_act_inventory_visible(owner)` restores the card only while the act owner's live frame
-  is absent or `IDLE`, because every idle sibling runtime sees the same borrowed flag and must not
-  take it from a running act. Each idle runtime passes its record's `act_owner.active()` in its
-  idle tick; the HUD reads that owner's public `state` and does not import the act owner.
+The act borrows the game's quick-slot card and hides it, saving exactly what it found so the same
+call can put it back. The idle safety check restores it only when the live act owner's state is idle,
+because every idle sibling runtime sees the same borrowed flag and none may take it from a running
+act.

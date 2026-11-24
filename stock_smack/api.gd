@@ -77,6 +77,8 @@ func shutdown() -> void:
 	on_world_closed()
 
 
+## Swap the stock player's stream in place. A second player would duplicate the impact; the game's
+## own decal, blush, jiggle and reaction stay on its native play call.
 func _install(pony: Variant) -> void:
 	if not _enabled or not is_instance_valid(pony) or pony == _act_pony:
 		return
@@ -97,6 +99,8 @@ func _install(pony: Variant) -> void:
 	player.pitch_scale = 1.0
 
 
+## Give back exactly what the player had at install: its stream, level and pitch, never the shipped
+## defaults.
 func _restore_pony(pony: Variant) -> void:
 	if not is_instance_valid(pony):
 		return
@@ -162,7 +166,8 @@ func _prune() -> void:
 
 
 ## The two pack variants behind one stream, so the native player picks a new one on every
-## `play()`. The randomizer's no-repeat mode keeps the previous slap out of the next one.
+## `play()`. The randomizer keeps consecutive slaps distinct and supplies the pitch spread itself;
+## the player's pitch is pinned at unity so no second shift stacks on it.
 func _smack_stream() -> AudioStreamRandomizer:
 	if is_instance_valid(_randomizer):
 		return _randomizer

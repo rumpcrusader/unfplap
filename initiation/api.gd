@@ -200,8 +200,8 @@ func on_world_closed() -> void:
 	_scan_cursor = 0
 
 
-## Lab entry that skips quiet, cooldown, retry and reasoning but keeps clearance and poses.
-## A pre-ask route failure comes back in `reject`.
+## Lab and debug entry that skips quiet, cooldown, retry and the reasoning call but keeps the
+## eligibility row, the pose list and a free bed. A pre-ask route failure comes back in `reject`.
 func force(runtime: Node, pose := "") -> ForceResult:
 	var out := ForceResult.new()
 	if not is_instance_valid(WORLD.world_root()) or not is_instance_valid(runtime):

@@ -13,7 +13,9 @@ const AIM_TUBE_M := 1.5
 static var target: Node = null
 
 ## Debug actions; `method` runs on `target`. The registry claims no global hotkeys, so only a
-## settings button or a wheel slot fires one; entries sharing a `row` must stay adjacent.
+## settings button or a wheel slot fires one; entries sharing a `row` must stay adjacent. The
+## game's developer console is not part of this table: its own flag decides availability, and an
+## act's control lock closes it for the duration.
 const ACTIONS := {
 	"reload_pose": {
 		"label": "Reload posed base",

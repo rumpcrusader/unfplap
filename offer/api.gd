@@ -593,6 +593,7 @@ func _native_row() -> HBoxContainer:
 
 ## Match the native prompt row's style so the hint blends in beside base prompts.
 func _make_native_hint_label(text: String) -> Control:
+	# The base game has no key_6 icon, so the offer row asks for a drawn cap instead of an icon.
 	var cap := _act_key_label() if text == OFFER_HINT else ""
 	return HUD.prompt_row("", text, cap)
 

@@ -128,7 +128,8 @@ func _ready() -> void:
 	_hint_readiness.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_hint_readiness.visible = false
 	_hint.add_child(_hint_readiness)
-	# The form-change invitation: the existing talk channel, never a new key.
+	# The form-change invitation uses the existing talk channel, never a new key. Kept empty in the
+	# card so the row order never shifts; the reveal and the gift stay a discovery, never a label.
 	_hint_form = text_label("", 15, ACCENT, 5)
 	_hint_form.name = "HintForm"
 	_hint_form.custom_minimum_size = Vector2(580.0, 0.0)

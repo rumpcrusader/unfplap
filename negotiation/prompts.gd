@@ -20,7 +20,7 @@ class Reply:
 
 
 ## One model request for the Negotiation service. `kind` is `anon_offer`, `anon_decision` or
-## `mare_response`. The service builds it; the host adapter turns it into the classifier call.
+## `mare_response`. The bridge builds it; the director turns it into the classifier call.
 class Request:
 	var kind := ""
 	var text := ""

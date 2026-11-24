@@ -7,7 +7,7 @@ extends "res://mods/unfplap/shared/service.gd"
 const AGREEMENT := preload("res://mods/unfplap/shared/agreement.gd")
 const PROMPTS := preload("res://mods/unfplap/negotiation/prompts.gd")
 const HOST := preload("res://mods/unfplap/negotiation/host.gd")
-const ADAPTER := preload("res://mods/unfplap/negotiation/adapter.gd")
+const DIRECTOR := preload("res://mods/unfplap/director/api.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/api.gd")
 const ACT_GATE := preload("res://mods/unfplap/act_gate/api.gd")
 const MEMORY := preload("res://mods/unfplap/memory/api.gd")
@@ -137,7 +137,7 @@ class Exchange:
 
 var _host: Host
 var _bridge: HOST = null
-var _adapter: ADAPTER = null
+var _voice: DIRECTOR = null
 var _phase := _PHASE_NONE
 var _locked := false
 var _exchange: Exchange = null
@@ -161,34 +161,30 @@ var _act_owner: ACT_OWNER = null
 var _ponies: PONIES = null
 
 
-## Takes the peers this service calls; the composition root is the only caller. The adapter and the
-## bridge are built in `_ready()`, after every peer is wired.
+## Takes the peers this service calls; the composition root is the only caller. The bridge is built
+## in `_ready()`, after every peer is wired.
 func wire(eligibility_service: ELIGIBILITY, gate_service: ACT_GATE, memory_service: MEMORY,
-		privacy_service: PRIVACY, initiation_service: Node,
+		privacy_service: PRIVACY, initiation_service: Node, voice: DIRECTOR,
 		owner: ACT_OWNER, hud_service: Node = null, ponies_service: PONIES = null) -> void:
 	_eligibility = eligibility_service
 	_gate = gate_service
 	_memory = memory_service
 	_privacy = privacy_service
 	_initiation = initiation_service
+	_voice = voice
 	_act_owner = owner
 	_hud = hud_service
 	_ponies = ponies_service
 	assert(_eligibility != null and _gate != null and _memory != null)
-	assert(_privacy != null and _initiation != null and _act_owner != null)
+	assert(_privacy != null and _initiation != null and _voice != null and _act_owner != null)
 
 
-## Builds the one adapter and bridge as this service's children, then binds the typed host to them.
+## Builds the bridge, then binds the typed host to it.
 func _ready() -> void:
-	if not is_instance_valid(_adapter):
-		_adapter = ADAPTER.new()
-		_adapter.name = "UnfplapNegotiationAdapter"
-		_adapter.classifier_source = Callable(self, "_classifier")
-		add_child(_adapter)
 	if _bridge == null:
 		_bridge = HOST.new()
 	_bridge.service = self
-	_bridge.adapter = _adapter
+	_bridge.voice = _voice
 	_bridge.eligibility = _eligibility
 	_bridge.gate = _gate
 	_bridge.memory = _memory
@@ -200,11 +196,6 @@ func _ready() -> void:
 	_bind_host()
 
 
-## The adapter is this service's; the Proactive service and the model calls reach it here.
-func adapter() -> ADAPTER:
-	return _adapter if is_instance_valid(_adapter) else null
-
-
 ## A world started: close the world that is gone, bind the host again, then drop its watch.
 func on_world(_host: Node) -> void:
 	on_world_closed()
@@ -214,7 +205,7 @@ func on_world(_host: Node) -> void:
 	_bridge.disarm()
 
 
-## Build the typed host from the bridge. Every model callback is the one adapter; every world read
+## Build the typed host from the bridge. Every model callback is the director's; every world read
 ## is the bridge or the form view below.
 func _bind_host() -> void:
 	if _bridge == null:
@@ -238,14 +229,6 @@ func _bind_host() -> void:
 	host.on_outcome = Callable(self, "_on_outcome_terminal")
 	host.on_agreement = Callable(self, "_on_agreement_handle")
 	_host = host
-
-
-## This side only calls the classifier; the Proactive service owns that node.
-func _classifier() -> Node:
-	if not is_instance_valid(_initiation) or not _initiation.has_method("classifier_node"):
-		return null
-	var node: Variant = _initiation.classifier_node()
-	return node as Node if is_instance_valid(node) else null
 
 
 ## The suite seam: a typed host replaces the bridge the entry builds. The entry never calls it.
@@ -462,7 +445,7 @@ func _form_view() -> _FormView:
 ## The shared terminal line. Its purpose follows the close reason: a counter-offer still wants
 ## him, a privacy loss lets the moment go, anything else is the generic release.
 func _react_line(pony: Node, reason: String) -> void:
-	if not is_instance_valid(pony) or not is_instance_valid(_adapter):
+	if not is_instance_valid(pony) or not is_instance_valid(_voice):
 		return
 	var id := PONY_ID.from(str(pony.get_meta("relationship_id", "")), pony.get("identity"))
 	if id.is_empty():
@@ -480,8 +463,8 @@ func _react_line(pony: Node, reason: String) -> void:
 			purpose = "The offer ended. Say one short, in-character line letting it go, without " \
 				+ "anger. Do not ask again and do not narrate actions."
 	var key := "unfplap:negotiation:react:%d" % Time.get_ticks_usec()
-	_adapter.queue(id, purpose,
-		key, func() -> bool: return is_instance_valid(pony) and pony.is_inside_tree(), false)
+	_voice.queue(id, purpose, key, DIRECTOR.Validity.of(func() -> bool:
+		return is_instance_valid(pony) and pony.is_inside_tree()), false)
 
 
 ## The terminal outcome reaches the Proactive pacing through this one line.

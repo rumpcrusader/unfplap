@@ -14,7 +14,7 @@ const ACT_GATE := preload("res://mods/unfplap/act_gate/api.gd")
 const MEMORY := preload("res://mods/unfplap/memory/api.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const CLASSIFIER := preload("res://mods/unfplap/initiation/classifier.gd")
-const ADAPTER := preload("res://mods/unfplap/negotiation/adapter.gd")
+const DIRECTOR := preload("res://mods/unfplap/director/api.gd")
 const PONIES := preload("res://mods/unfplap/ponies/api.gd")
 
 
@@ -49,13 +49,11 @@ class FixtureHost extends Node:
 	var game: Node
 
 
-## The Negotiation facade as the Proactive service sees it: the lock, the typed Mare offer and the
-## one adapter.
+## The Negotiation facade as the Proactive service sees it: the lock and the typed Mare offer.
 class FakeNegotiation extends NEGOTIATION:
 	var locked := false
 	var handed: NEGOTIATION.MareOffer = null
 	var handoff_ok := true
-	var adapter_node: ADAPTER = null
 
 	func is_locked() -> bool:
 		return locked
@@ -63,9 +61,6 @@ class FakeNegotiation extends NEGOTIATION:
 	func begin_mare_offer(mare_offer: NEGOTIATION.MareOffer) -> bool:
 		handed = mare_offer
 		return handoff_ok
-
-	func adapter() -> ADAPTER:
-		return adapter_node
 
 
 class FakeGame extends Node:
@@ -152,7 +147,7 @@ class FakePrivacy extends "res://mods/unfplap/tests/support/fakes/fake_privacy.g
 	pass
 
 
-class FakeAdapter extends ADAPTER:
+class FakeDirector extends DIRECTOR:
 	var quiet_reason_value := ""
 	var reason_reply := "{\"offer\":false}"
 	var reason_error := ""
@@ -163,6 +158,10 @@ class FakeAdapter extends ADAPTER:
 	var situations: Array = []
 	var reason_payloads: Array = []
 	var auto := true
+	var classifier: Node = null
+
+	func attach_classifier(node: Node) -> void:
+		classifier = node
 
 	func quiet_reason(_gap: float) -> String:
 		return quiet_reason_value
@@ -174,22 +173,18 @@ class FakeAdapter extends ADAPTER:
 		greetings.append([id, context])
 		return greeting_ok
 
-	func queue(id: String, purpose: String, key: String, _valid: Callable,
+	func queue(id: String, purpose: String, key: String, _valid: DIRECTOR.Validity,
 			_priority: bool) -> bool:
 		queued.append([id, purpose, key])
 		return true
 
-	func cancel_keys(keys: Array) -> void:
-		cancelled.append_array(keys)
-
 	func record_situation(text: String, ids: Array, key: String) -> void:
 		situations.append({"text": text, "ids": ids, "key": key})
 
-	func complete_raw(_system: String, payload: Dictionary, _scope: String,
-			done: Callable) -> bool:
-		reason_payloads.append(payload)
+	func complete_raw(call: DIRECTOR.Call) -> bool:
+		reason_payloads.append(call.payload)
 		if auto:
-			done.call(reason_reply, reason_error)
+			call.reply.call(reason_reply, reason_error)
 		return true
 
 	func cancel_scope(scope: String) -> void:
@@ -222,7 +217,7 @@ func _fixture() -> Dictionary:
 	runtime.pony = target
 	target.add_child(runtime)
 	var eligibility := FakeEligibility.new()
-	var adapter := FakeAdapter.new()
+	var director := FakeDirector.new()
 	var privacy := FakePrivacy.new()
 	var memory := FakeMemory.new()
 	var offer := FakeOffer.new()
@@ -233,25 +228,24 @@ func _fixture() -> Dictionary:
 	main.game = game
 	WORLD.bind_world(main.game)
 	var negotiation := FakeNegotiation.new()
-	negotiation.adapter_node = adapter
 	var roster := PONIES.new()
 	roster.name = "UnfplapPonies"
 	root.add_child(roster)
 	roster.wire(null, null, null, null, null, null, null)
 	roster.factory = func(_pony_node: Node) -> Node: return runtime
 	roster.attach(target)
-	for node: Node in [game, player, target, adapter, negotiation, offer]:
+	for node: Node in [game, player, target, director, negotiation, offer]:
 		root.add_child(node)
 	root.add_child(main)
 	var service := INIT.new()
 	service.name = "UnfplapInitiation"
 	var gate := FakeGate.new()
-	service.wire(eligibility, gate, privacy, memory, negotiation, offer, roster)
+	service.wire(eligibility, gate, privacy, memory, negotiation, director, offer, roster)
 	service.setup()
 	root.add_child(service)
 	return {"main": main, "game": game, "context": context, "player": player,
 		"target": target, "nav": nav, "runtime": runtime, "eligibility": eligibility,
-		"gate": gate, "adapter": adapter, "privacy": privacy, "memory": memory,
+		"gate": gate, "director": director, "privacy": privacy, "memory": memory,
 		"service": service, "offer": offer, "negotiation": negotiation, "ponies": roster}
 
 
@@ -260,7 +254,7 @@ func _free(made: Dictionary) -> void:
 	roster.shutdown()
 	root.remove_child(roster)
 	roster.free()
-	for key: String in ["service", "main", "game", "player", "target", "adapter", "offer",
+	for key: String in ["service", "main", "game", "player", "target", "director", "offer",
 			"negotiation"]:
 		var node: Node = made[key]
 		root.remove_child(node)
@@ -275,7 +269,7 @@ func run() -> void:
 	check(CLASSIFIER.DEADLINE_SECONDS >= 8.0,
 		"the negotiation classifier deadline covers reasoning")
 	_check_force()
-	_check_adapter_resolution()
+	_check_director_resolution()
 	_check_clearance_and_options()
 	_check_reasoning()
 	_check_handoff_failure()
@@ -296,7 +290,7 @@ func _check_force() -> void:
 	var main: FixtureHost = made["main"]
 	var nav: FakeNavigator = made["nav"]
 	var context: FakeWorldContext = made["context"]
-	var adapter: FakeAdapter = made["adapter"]
+	var director: FakeDirector = made["director"]
 	var target: FakePony = made["target"]
 	target.global_position = Vector3.ZERO
 	var forced: INIT.ForceResult = service.force(runtime, CATALOG.STANDING)
@@ -310,9 +304,10 @@ func _check_force() -> void:
 	check(negotiation.handed.hold_token == "unfplap:request:rarity",
 		"the handoff carries the request lease")
 	check(not negotiation.handed.option.cuddle, "a standing offer is not a cuddle")
-	check(adapter.greetings.size() == 1 and adapter.greetings[0][0] == "rarity",
+	check(director.greetings.size() == 1 and director.greetings[0][0] == "rarity",
 		"the ask line opens with the greeting")
-	check(adapter.situations.size() == 1 and adapter.situations[0]["key"].ends_with(":situation"),
+	check(director.situations.size() == 1
+		and director.situations[0]["key"].ends_with(":situation"),
 		"the ask records one situation")
 	check(service.debug_rows(target).size() > 0, "the request rows render")
 	# The negotiation owns the lease after the handoff; the fake negotiator ends it here.
@@ -325,42 +320,40 @@ func _check_force() -> void:
 	service.on_world_closed()
 	check(nav.command_owner.is_empty() and nav.wander_enabled,
 		"reset leaves the released lease untouched")
-	adapter.greeting_ok = false
-	adapter.queued.clear()
+	director.greeting_ok = false
+	director.queued.clear()
 	var asked: INIT.ForceResult = service.force(runtime, CATALOG.STANDING)
 	check(asked.ok, "force still asks without a greeting")
-	check(adapter.queued.size() == 1 and str(adapter.queued[0][2]).ends_with(":ask"),
+	check(director.queued.size() == 1 and str(director.queued[0][2]).ends_with(":ask"),
 		"the fallback ask key names the request")
-	adapter.greeting_ok = true
+	director.greeting_ok = true
 
 	# A distant Anon starts the walk, not the ask.
 	service.on_world_closed()
 	nav.command_owner = ""
 	nav.wander_enabled = true
-	adapter.greetings.clear()
-	adapter.queued.clear()
+	director.greetings.clear()
+	director.queued.clear()
 	target.global_position = Vector3(10.0, 0.0, 0.0)
 	var walking: INIT.ForceResult = service.force(runtime, CATALOG.STANDING)
 	check(walking.ok, "force starts a distant walk")
 	check(nav.command_owner.begins_with("unfplap:request:rarity") and nav._has_target,
 		"the walk owns the navigator and has a route")
-	check(adapter.greetings.is_empty() and adapter.queued.is_empty(),
+	check(director.greetings.is_empty() and director.queued.is_empty(),
 		"a distant walk has not asked yet")
 	target.global_position = Vector3(2.0, 0.0, 0.0)
 	service.tick(0.0)
 	check(not nav._has_target, "arriving stops the walk")
-	check(adapter.greetings.is_empty(), "the arrival still settles")
+	check(director.greetings.is_empty(), "the arrival still settles")
 	_free(made)
 
 
-## The Negotiation adapter is resolved in `setup()`, never captured by `wire()`: the composition
-## wires every service before any attaches, so `adapter()` is null at wire time on the live path.
-func _check_adapter_resolution() -> void:
+## `setup()` builds the classifier and hands it to the director, the mod's one model transport.
+func _check_director_resolution() -> void:
 	var negotiation := FakeNegotiation.new()
-	var adapter := FakeAdapter.new()
-	negotiation.adapter_node = adapter
+	var director := FakeDirector.new()
 	root.add_child(negotiation)
-	root.add_child(adapter)
+	root.add_child(director)
 	var roster := PONIES.new()
 	roster.wire(null, null, null, null, null, null, null)
 	var service := INIT.new()
@@ -370,10 +363,13 @@ func _check_adapter_resolution() -> void:
 	var privacy := FakePrivacy.new()
 	var memory := FakeMemory.new()
 	var offer := FakeOffer.new()
-	service.wire(eligibility, gate, privacy, memory, negotiation, offer, roster)
-	check(service.get("_adapter") == null, "wire() leaves the adapter unresolved")
+	service.wire(eligibility, gate, privacy, memory, negotiation, director, offer, roster)
+	check(service.get("_director") == director, "wire() takes the director")
+	check(service.get("_classifier") == null, "wire() builds no classifier")
 	service.setup()
-	check(service.get("_adapter") == adapter, "setup() takes the live Negotiation adapter")
+	check(service.get("_classifier") != null, "setup() builds the classifier")
+	check(director.classifier == service.get("_classifier"),
+		"setup() hands the classifier to the director transport")
 	root.remove_child(service)
 	service.free()
 	roster.free()
@@ -382,8 +378,8 @@ func _check_adapter_resolution() -> void:
 	privacy.free()
 	memory.free()
 	offer.free()
-	root.remove_child(adapter)
-	adapter.free()
+	root.remove_child(director)
+	director.free()
 	root.remove_child(negotiation)
 	negotiation.free()
 
@@ -429,14 +425,14 @@ func _check_reasoning() -> void:
 	var service: Node = made["service"]
 	var negotiation: FakeNegotiation = made["negotiation"]
 	var runtime: FakeRuntime = made["runtime"]
-	var adapter: FakeAdapter = made["adapter"]
+	var director: FakeDirector = made["director"]
 	var main: FixtureHost = made["main"]
 	var target: FakePony = made["target"]
 	target.global_position = Vector3.ZERO
-	adapter.reason_reply = "{\"offer\":false}"
+	director.reason_reply = "{\"offer\":false}"
 	service.tick(0.5)
-	check(adapter.reason_payloads.size() == 1, "the scan runs one reasoning call")
-	var payload: Dictionary = adapter.reason_payloads[0]
+	check(director.reason_payloads.size() == 1, "the scan runs one reasoning call")
+	var payload: Dictionary = director.reason_payloads[0]
 	check((payload.get("options", []) as Array).size() == 1,
 		"the scan sends the one placeable option")
 	check((payload.get("context", {}) as Dictionary).get("willing") == true,
@@ -444,16 +440,16 @@ func _check_reasoning() -> void:
 	check(negotiation.handed == null, "a no-offer reasoning forms nothing")
 
 	service.on_world_closed()
-	adapter.reason_payloads.clear()
+	director.reason_payloads.clear()
 	service.tick(0.5)
 
 	# Clear the stamped cooldown so the next scan may reason again.
 	service.clear_cooldown(target)
-	adapter.reason_payloads.clear()
-	adapter.reason_reply = "{\"offer\":true,\"option\":0}"
+	director.reason_payloads.clear()
+	director.reason_reply = "{\"offer\":true,\"option\":0}"
 	service.tick(0.5)
 	check(negotiation.handed != null, "a reasoning yes forms the offer")
-	check(adapter.greetings.size() == 1, "the reasoning yes asks")
+	check(director.greetings.size() == 1, "the reasoning yes asks")
 	_free(made)
 
 
@@ -464,13 +460,13 @@ func _check_handoff_failure() -> void:
 	var runtime: FakeRuntime = made["runtime"]
 	var main: FixtureHost = made["main"]
 	var nav: FakeNavigator = made["nav"]
-	var adapter: FakeAdapter = made["adapter"]
+	var director: FakeDirector = made["director"]
 	negotiation.handoff_ok = false
 	var result: INIT.ForceResult = service.force(runtime, CATALOG.STANDING)
 	check(not result.ok, "a refused handoff forms no offer")
 	check(result.reject == "handoff refused", "a refused handoff reports the close reason")
 	check(nav.command_owner.is_empty(), "a refused handoff releases the request lease")
-	check(adapter.greetings.is_empty(), "a refused handoff speaks no ask line")
+	check(director.greetings.is_empty(), "a refused handoff speaks no ask line")
 	check("\n".join(PackedStringArray(service.debug_rows(made["target"]))).contains("retry left="),
 		"a refused handoff sets the short retry")
 	_free(made)
@@ -507,7 +503,7 @@ func _check_cuddle_target() -> void:
 	var negotiation: FakeNegotiation = made["negotiation"]
 	var runtime: FakeRuntime = made["runtime"]
 	var main: FixtureHost = made["main"]
-	var adapter: FakeAdapter = made["adapter"]
+	var director: FakeDirector = made["director"]
 	var target: FakePony = made["target"]
 	var offer: FakeOffer = made["offer"]
 	var bed := Node3D.new()
@@ -515,13 +511,13 @@ func _check_cuddle_target() -> void:
 	runtime.cuddle = true
 	runtime.bed_under = bed
 	service.clear_cooldown(target)
-	adapter.reason_reply = "{\"offer\":true,\"option\":0}"
+	director.reason_reply = "{\"offer\":true,\"option\":0}"
 
 	# The act key would start another pony, so the scan's cuddle candidate is skipped, not forced.
 	offer.target = null
 	service.tick(0.5)
 	check(offer.reads > 0, "the scan reads the offer facade's current target")
-	check(adapter.reason_payloads.is_empty(),
+	check(director.reason_payloads.is_empty(),
 		"a cuddle the act key would not start reasons nothing")
 	check(negotiation.handed == null, "a cuddle the act key would not start forms nothing")
 
@@ -565,16 +561,16 @@ func _check_scan_quiet() -> void:
 	var made := _fixture()
 	var service: Node = made["service"]
 	var negotiation: FakeNegotiation = made["negotiation"]
-	var adapter: FakeAdapter = made["adapter"]
+	var director: FakeDirector = made["director"]
 	var main: FixtureHost = made["main"]
-	adapter.quiet_reason_value = "chat"
+	director.quiet_reason_value = "chat"
 	service.tick(0.5)
 	service.tick(0.5)
-	check(adapter.reason_payloads.is_empty(), "a recent chat reasons nothing")
-	adapter.quiet_reason_value = ""
+	check(director.reason_payloads.is_empty(), "a recent chat reasons nothing")
+	director.quiet_reason_value = ""
 	negotiation.locked = true
-	adapter.reason_payloads.clear()
+	director.reason_payloads.clear()
 	service.tick(0.5)
-	check(adapter.reason_payloads.is_empty(), "a live negotiation keeps the scan quiet")
+	check(director.reason_payloads.is_empty(), "a live negotiation keeps the scan quiet")
 	negotiation.locked = false
 	_free(made)

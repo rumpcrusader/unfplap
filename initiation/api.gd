@@ -26,6 +26,7 @@ const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
 const RELATIONSHIP_CUE := preload("res://mods/unfplap/shared/relationship_cue.gd")
 const OFFER := preload("res://mods/unfplap/offer/api.gd")
 const NEGOTIATION := preload("res://mods/unfplap/negotiation/api.gd")
+const DIRECTOR := preload("res://mods/unfplap/director/api.gd")
 const PONIES := preload("res://mods/unfplap/ponies/api.gd")
 
 const KEY_PREFIX := "unfplap:request"
@@ -108,13 +109,12 @@ var _privacy: PRIVACY
 var _memory: MEMORY = null
 ## The idle offer service; a cuddle must target the mare the act key would start.
 var _offer: OFFER
-## The Negotiation service, which owns the exchange, the lock, the form and the Context.
+## The Negotiation service, which owns the exchange, the lock and the Agreement.
 var _negotiation: NEGOTIATION = null
 ## The roster that answers the runtimes and the per-pony scene handles.
 var _ponies: PONIES = null
-## The director bridge and model host. The Negotiation service owns it; see
-## `negotiation/adapter.gd`.
-var _adapter: NEGOTIATION.ADAPTER = null
+## The director peer: the quiet gate, the lines and the model transport.
+var _director: DIRECTOR = null
 ## This service's bounded classifier: the negotiation model calls and both reasoning stages go
 ## through it.
 var _classifier: CLASSIFIER = null
@@ -125,29 +125,30 @@ var _reasoning_serial := 0
 var _reasoning_scope := ""
 
 
-## The peers this service calls; the composition root is the only caller. The Negotiation adapter
-## is resolved in `setup()`, because the negotiation has not attached when this runs.
+## The peers this service calls; the composition root is the only caller.
 func wire(eligibility: ELIGIBILITY, act_gate: ACT_GATE, privacy: PRIVACY, memory: MEMORY,
-		negotiation: NEGOTIATION, offer: OFFER, ponies: PONIES) -> void:
+		negotiation: NEGOTIATION, director: DIRECTOR, offer: OFFER, ponies: PONIES) -> void:
 	self.eligibility = eligibility
 	self.act_gate = act_gate
 	_privacy = privacy
 	_memory = memory
 	_negotiation = negotiation
+	_director = director
 	_offer = offer
 	_ponies = ponies
 	assert(eligibility != null and act_gate != null and privacy != null and memory != null)
-	assert(negotiation != null and offer != null and _ponies != null)
+	assert(negotiation != null and director != null and offer != null and _ponies != null)
 
 
-## Builds the bounded classifier, the place node and the adapter read this service owns; `_ready`
-## calls it once the composition has attached the Negotiation before this service.
+## Builds the bounded classifier and the place node, then hands the classifier to the director, the
+## one model transport. `_ready` runs it; the suites call it after `wire()`.
 func setup() -> void:
-	_adapter = _negotiation.adapter() if is_instance_valid(_negotiation) else null
 	if not is_instance_valid(_classifier):
 		_classifier = CLASSIFIER.new()
 		_classifier.name = "UnfplapClassifier"
 		add_child(_classifier)
+	if is_instance_valid(_director):
+		_director.attach_classifier(_classifier)
 	if not is_instance_valid(_venue):
 		_venue = VENUE.new()
 		_venue.name = "UnfplapRequestPlace"
@@ -157,17 +158,6 @@ func setup() -> void:
 
 func _ready() -> void:
 	setup()
-
-
-## The bounded classifier this service owns, or null. The negotiation's adapter makes the one
-## bounded call on it; no other service imports `initiation/classifier.gd`.
-func classifier_node() -> Node:
-	return _classifier if is_instance_valid(_classifier) else null
-
-
-## True while a model call can be made: the Anon-offer watch asks this before it forms anything.
-func classifier_available() -> bool:
-	return is_instance_valid(_classifier) and bool(_classifier.available())
 
 
 func tick(delta: float) -> void:
@@ -198,8 +188,8 @@ func on_world_closed() -> void:
 		_close_episode("")
 	_reasoning_serial += 1
 	_reasoning_pending = false
-	if is_instance_valid(_adapter) and not _reasoning_scope.is_empty():
-		_adapter.cancel_scope(_reasoning_scope)
+	if is_instance_valid(_director) and not _reasoning_scope.is_empty():
+		_director.cancel_scope(_reasoning_scope)
 	_reasoning_scope = ""
 	_cuddle_asked.clear()
 	_retry_at.clear()
@@ -313,11 +303,11 @@ func _tick_cuddle_edges() -> void:
 # --------------------------------------------------------------------------- scan and reasoning
 
 func _consider_start() -> void:
-	if not is_instance_valid(_adapter):
+	if not is_instance_valid(_director):
 		return
 	if is_instance_valid(_negotiation) and _negotiation.is_locked():
 		return
-	var quiet := _adapter.quiet_reason(POLICY.QUIET_CHAT_GAP_S)
+	var quiet := _director.quiet_reason(POLICY.QUIET_CHAT_GAP_S)
 	if not quiet.is_empty():
 		if quiet != _quiet_reason:
 			_quiet_reason = quiet
@@ -443,7 +433,7 @@ func _options_for(placement: POSE_OPTIONS.Placement, form: String, view: String,
 ## One bounded Mare Initiation Reasoning call. A reasoning "no" applies the full pacing cooldown;
 ## an unavailable or failed call applies the short retry.
 func _start_reasoning(candidate: Candidate) -> void:
-	if not is_instance_valid(_adapter):
+	if not is_instance_valid(_director):
 		return
 	candidate.context = _context(candidate.pony)
 	_reasoning_serial += 1
@@ -452,10 +442,10 @@ func _start_reasoning(candidate: Candidate) -> void:
 	_reasoning_pending = true
 	LOG.debug("request reasoning start id=%s options=%d", [candidate.id, candidate.options.size()])
 	var payload := REASONING.payload(candidate.context, candidate.options)
-	var started := _adapter.complete_raw(REASONING.instruction(), payload,
+	var started := _director.complete_raw(DIRECTOR.Call.of(REASONING.instruction(), payload,
 		_reasoning_scope,
 		func(reply: String, error: String) -> void:
-			_on_reasoning(candidate, serial, reply, error))
+			_on_reasoning(candidate, serial, reply, error)))
 	if not started:
 		_reasoning_pending = false
 		_reasoning_scope = ""
@@ -598,8 +588,8 @@ func _tick_approach() -> void:
 	if not is_instance_valid(pony) or not is_instance_valid(nav):
 		_close_episode("approach lost")
 		return
-	if not _episode.forced and is_instance_valid(_adapter) \
-			and not _adapter.quiet(POLICY.QUIET_CHAT_GAP_S):
+	if not _episode.forced and is_instance_valid(_director) \
+			and not _director.quiet(POLICY.QUIET_CHAT_GAP_S):
 		_close_episode("approach quiet")
 		return
 	var player: Node3D = WORLD.player_rig()
@@ -754,15 +744,15 @@ func _start_ask_handoff() -> String:
 	if episode.option.cuddle:
 		_cuddle_asked[episode.id] = true
 	var started := false
-	if is_instance_valid(_adapter):
-		started = _adapter.begin_greeting(episode.id, line)
-	if not started and is_instance_valid(_adapter):
+	if is_instance_valid(_director):
+		started = _director.begin_greeting(episode.id, line)
+	if not started and is_instance_valid(_director):
 		var key := "%s:%s:%d:ask" % [KEY_PREFIX, episode.id, episode.serial]
-		_adapter.queue(episode.id, PROMPTS.ask_purpose(request), key,
-			Callable(self, "_line_valid").bind(runtime), true)
-	if is_instance_valid(_adapter):
+		_director.queue(episode.id, PROMPTS.ask_purpose(request), key,
+			DIRECTOR.Validity.of(Callable(self, "_line_valid").bind(runtime)), true)
+	if is_instance_valid(_director):
 		var ids: Array[String] = [episode.id]
-		_adapter.record_situation(PROMPTS.situation_ask(request), ids,
+		_director.record_situation(PROMPTS.situation_ask(request), ids,
 			"%s:%s:%d:situation" % [KEY_PREFIX, episode.id, episode.serial])
 	LOG.debug("request ask %s pose=%s private=%s cuddle=%s", [
 		episode.id, option.pose, str(episode.private), str(option.cuddle)])

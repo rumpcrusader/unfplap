@@ -17,14 +17,6 @@
       "expires": "next-review"
     },
     {
-      "from": "initiation/api.gd",
-      "to": "negotiation/adapter.gd",
-      "kind": "re-export",
-      "owner": "initiation",
-      "reason": "the adapter field is a separation-of-concerns reach-in; fix when the negotiation facade hands the adapter",
-      "expires": "next-review"
-    },
-    {
       "from": "kiss/legs.gd",
       "to": "poses/pose_rig.gd",
       "kind": "service-private",

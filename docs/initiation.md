@@ -34,7 +34,7 @@ or the act start: those are `docs/negotiation.md` and `docs/runtime.md`.
 | `initiation/venue.gd` | scene adapter: the only reader of navigators, posture and beds, and the builder of the placement facts |
 | `initiation/classifier.gd` | the bounded classifier this service owns: one client, one queue, one deadline and the two reasoning budgets |
 | `privacy/api.gd` | world privacy provider: the house, the other mares, the radius and the one offer/cuddle predicate |
-| `negotiation/adapter.gd` | the director bridge and model host the Negotiation service owns and hands over: the quiet gate, the ask queue, the situation record, the reasoning call |
+| `director/api.gd` | the conversation director and model transport: the quiet gate, the ask queue, the situation record and the raw completion the reasoning call runs on |
 | `negotiation/api.gd` | the Act Negotiation: the answer, privacy, the Agreement and the global lock |
 | `docs/initiation.md` | this contract |
 | `tests/initiation/` | the pure rules, facts, reasoning and wording suites, plus the facade API suite |
@@ -51,23 +51,21 @@ The purity boundary is deliberate:
   `command_pace_target`, `reserved_by`, `_has_target`), `request_posture`/`posture_status`, the bed
   rest (`_front_for`, `_mare_fits`, `_guest`, `_sleeper`), the player seat, the `couches` group and
   `WorldLayout`. It also builds the placement facts the option builder consumes.
-- The director bridge is the `negotiation/adapter.gd` the Negotiation service owns and hands over
-  through its facade; this service never reads the director. `setup()` resolves that adapter, so
-  reasoning reads the live bridge instead of a copy taken before the negotiation attached. The
-  bounded classifier is this service's own (`classifier.gd`), created in `setup()`: the
-  Negotiation's adapter and both reasoning stages make every model call on it, and no other
-  service imports it. Its model client comes from the director view, so the classifier imports no
-  base-game module.
+- The conversation director is the `director` service (`docs/director.md`); this service never
+  reads the director's stock fields. `setup()` builds the bounded classifier and hands it to the
+  director, the mod's one model transport, so reasoning reads the live bridge and every model call
+  in the mod runs on one node. The classifier is this service's own (`classifier.gd`), and no
+  other service imports it. Its model client comes from the director view, so the classifier
+  imports no base-game module.
 - The facade is the only file that preloads `eligibility/api.gd`, `act_gate/api.gd`,
-  `privacy/api.gd`, `memory/api.gd`,
-  `negotiation/api.gd`, `shared/clearance.gd`, `shared/context.gd`, `shared/pose_options.gd`,
-  `shared/pose_catalog.gd` and `shared/cycle.gd`; `cooldowns.gd` preloads
-  `shared/act_history.gd`.
+  `privacy/api.gd`, `memory/api.gd`, `negotiation/api.gd`, `director/api.gd`,
+  `shared/clearance.gd`, `shared/context.gd`, `shared/pose_options.gd`, `shared/pose_catalog.gd`
+  and `shared/cycle.gd`; `cooldowns.gd` preloads `shared/act_history.gd`.
 - No file outside `initiation/api.gd` and `initiation/` preloads `initiation/*` except the
   orchestrator, which owns the service.
 - The world root creates the service, wires it once (the live `eligibility` and `act_gate`
-  instances and its privacy, memory, Negotiation and offer peers), attaches it after the
-  Negotiation so the `setup()` its `_ready()` runs resolves the live adapter, and drives it: `tick`,
+  instances and its privacy, memory, Negotiation, director and offer peers), attaches it, and
+  drives it: `tick`,
   `on_world`/`on_world_closed`, `force`,
   `cancel_approach`, `placement_for` and the outcome handoff. `runtime.gd` exposes
   `cuddle_active()` and the scene-only verdict; the offer facade answers which pony the act key
@@ -79,11 +77,10 @@ The purity boundary is deliberate:
 
 `eligibility` is the entry's live identity instance and `act_gate` the live dynamic one, both
 wired once at construction and read for the whole process; the identity target comes from
-`eligibility` and the Base clearance relationship row from `act_gate`. `classifier_node()` is the
-node the Negotiation adapter runs its one bounded call on, and
-`classifier_available()` is the Anon-offer watch's gate. `on_world` and `on_world_closed` are the
-same close: a world enter and a world close both end every scope, because a scope belongs to the
-world that is gone.
+`eligibility` and the Base clearance relationship row from `act_gate`. `setup()` hands the
+classifier it builds to the director, whose availability read gates the Anon-offer watch.
+`on_world` and `on_world_closed` are the same close: a world enter and a world close both end every
+scope, because a scope belongs to the world that is gone.
 
 `force()` is the debug/lab entry: it bypasses the quiet, cooldown, retry and reasoning checks but
 keeps Base clearance, the placeable options and the scene-only formation rows. An empty `pose` lets
@@ -137,7 +134,7 @@ presentation in this service. Timers come only from `initiation/policy.gd`;
 
 ## Admission
 
-An automatic scan runs every `0.5 s` and needs a quiet moment through the Negotiation's adapter.
+An automatic scan runs every `0.5 s` and needs a quiet moment through the director.
 While an Act Negotiation owns the lock (`negotiation.is_locked()`), the scan stays quiet: no second
 mare starts a reasoning call, a walk or a handoff.
 
@@ -217,7 +214,7 @@ the live privacy sampling after formation; this service does not monitor it.
 
 ## Ask and handoff
 
-The ask line uses `begin_greeting` through the adapter, otherwise one `queue_generated_intent` row
+The ask line uses `begin_greeting` through the director, otherwise one `queue_generated_intent` row
 keyed `unfplap:request:<id>:<serial>:ask`. It uses the observed-situation context and the
 generated-intent purpose, and records one `situation` world-context event. There is no negotiation
 face and no presentation: she asks in the normal standing pose.
@@ -287,7 +284,8 @@ ponies are around. The heat line is appended only in heat and is empty otherwise
 
 ## Known limits
 
-- The adapter reads stock director fields (`_player_text`, `_held_text`, `_now`, `characters`) and
+- The director bridge reads stock director fields (`_player_text`, `_held_text`, `_now`,
+  `characters`) and
   the venue adapter reads stock navigator fields through the `Navigator` view and bed-rest fields
   through the `Bed` view. A game change can remove them; every read is guarded and the offer
   simply stops.

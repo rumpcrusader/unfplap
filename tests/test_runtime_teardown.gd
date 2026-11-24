@@ -248,7 +248,6 @@ class FakeHandle extends AGREEMENT.Handle:
 	func _init() -> void:
 		id = 1
 		generation = 1
-		cancel = func(_reason: String) -> bool: return true
 
 
 func run() -> void:

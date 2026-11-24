@@ -55,6 +55,7 @@ block; its `_compose()` constructs and binds them once per pony and attaches the
 | Act scene hold | `scene_hold/api.gd` | `docs/scene_hold.md` | `tests/scene_hold/` | `pony` |
 | Privacy | `privacy/api.gd` | `docs/privacy.md` | `tests/privacy/` | `world` |
 | Act negotiation | `negotiation/api.gd` | `docs/negotiation.md` | `tests/negotiation/` | `world` |
+| Conversation director and model transport | `director/api.gd` | `docs/director.md` | `tests/director/` | `world` |
 | Mod integrations | `integrations/api.gd` | `docs/integrations.md` | `tests/integrations/` | `world` |
 | Bed rest and rejoin | `rest/api.gd` | `docs/rest.md` | `tests/rest/` | `pony` |
 | Hands | `hands/api.gd` | `docs/hands.md` | `tests/hands/` | `pony` |

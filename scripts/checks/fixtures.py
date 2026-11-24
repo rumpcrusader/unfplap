@@ -97,9 +97,9 @@ GAME_ALLOWED = (
     ("world/game.gd", "res://world/life/player_form.gd"),
     ("debug/game.gd", "res://world/ui/menu_style.gd"),
 )
-REEXPORTS = (
-    ("initiation/api.gd", "negotiation/adapter.gd"),
-)
+# Real cross-module preload-const reach-throughs, one per known site. The last one
+# (`initiation/api.gd` reading the negotiation's adapter const) went with that field.
+REEXPORTS = ()
 NOTE_CASES = (
     ("noted type", "## A note.\nclass Noted:\n\tpass\n", 0),
     ("unnoted type", "class Unnoted:\n\tpass\n", 1),

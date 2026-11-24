@@ -2,7 +2,7 @@ extends RefCounted
 ## Builds the typed `Host` the service runs on from the live world, and owns the Anon-offer watch.
 
 const PROMPTS := preload("res://mods/unfplap/negotiation/prompts.gd")
-const ADAPTER := preload("res://mods/unfplap/negotiation/adapter.gd")
+const DIRECTOR := preload("res://mods/unfplap/director/api.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/api.gd")
 const ACT_GATE := preload("res://mods/unfplap/act_gate/api.gd")
 const MEMORY := preload("res://mods/unfplap/memory/api.gd")
@@ -26,8 +26,8 @@ func _state_of(runtime: Node) -> int:
 
 ## The negotiation service: the lock read, the Anon answer and the Agreement cancel.
 var service: Node = null
-## The adapter node the service builds; this bridge only calls into it.
-var adapter: ADAPTER = null
+## The director peer: the quiet gate, the lines and the one model transport.
+var voice: DIRECTOR = null
 ## The services this bridge reads, set once by the facade from its `wire()` peers.
 var eligibility: ELIGIBILITY = null
 ## The dynamic gate: the relationship row and the Context facts.
@@ -40,7 +40,7 @@ var initiation: Node = null
 var act_owner: ACT_OWNER = null
 ## The roster that answers the per-pony runtime and its handles.
 var ponies: PONIES = null
-## True while the adapter's global Anon-offer watch is armed.
+## True while the director's global Anon-offer watch is armed.
 var _watching := false
 
 
@@ -90,21 +90,51 @@ func hold_for(runtime: Node) -> Node:
 	return presentation.hold_handle() if presentation != null else null
 
 
+## The Anon dialogue classifier: one typed request in, one parsed reply out.
 func classify(request: PROMPTS.Request, scope: String, done: Callable) -> bool:
-	return is_instance_valid(adapter) and adapter.classify(request, scope, done)
+	return _complete(request, scope, done)
 
 
+## The Mare Response Reasoning: the same bounded call with a different instruction.
 func reason(request: PROMPTS.Request, scope: String, done: Callable) -> bool:
-	return is_instance_valid(adapter) and adapter.reason(request, scope, done)
+	return _complete(request, scope, done)
+
+
+## One typed request over the director's raw completion; the caller owns the schema and the parse
+## here is this file's, so the transport knows no request kind.
+func _complete(request: PROMPTS.Request, scope: String, done: Callable) -> bool:
+	if request == null or not done.is_valid() or scope.is_empty() \
+			or not is_instance_valid(voice):
+		return false
+	var system := PROMPTS.system_for(request.kind)
+	if system.is_empty():
+		LOG.debug("classifier skip kind=%s reason=unknown_kind", [request.kind])
+		return false
+	var payload := PROMPTS.payload_for(request)
+	var count := request.options.size()
+	LOG.debug("classifier start kind=%s scope=%s options=%d text_len=%d", [
+		request.kind, scope, count, request.text.length()])
+	return voice.complete_raw(DIRECTOR.Call.of(system, payload, scope,
+		func(reply: String, error: String) -> void:
+			var parsed := PROMPTS.parse(request.kind, reply, error, count)
+			LOG.debug("classifier result kind=%s scope=%s answer=%s option=%d failed=%s out_of_range=%s reply=%s error=%s", [
+				request.kind, scope, parsed.answer, parsed.option_index, str(parsed.failed),
+				str(parsed.out_of_range), _reply_text(reply), error])
+			done.call(parsed)))
+
+
+func _reply_text(reply: String) -> String:
+	var text := reply.strip_edges()
+	return text if text.length() <= 512 else text.left(512) + "..."
 
 
 func await_answer(pony: Node, scope: String, done: Callable) -> bool:
-	return is_instance_valid(adapter) and adapter.await_answer(pony, scope, done)
+	return is_instance_valid(voice) and voice.await_answer(pony, scope, DIRECTOR.Reply.of(done))
 
 
 func cancel_scope(scope: String) -> void:
-	if is_instance_valid(adapter):
-		adapter.cancel_scope(scope)
+	if is_instance_valid(voice):
+		voice.cancel_scope(scope)
 
 
 func toast(text: String) -> void:
@@ -169,31 +199,31 @@ func _relation_note(id: String) -> String:
 ## The global Anon-offer watch runs only while nothing is negotiating or acting, so a line that
 ## answers a Mare offer is never read as a new one.
 func tick_watch() -> void:
-	if not is_instance_valid(adapter) or not is_instance_valid(service):
+	if not is_instance_valid(voice) or not is_instance_valid(service):
 		return
 	var free: bool = not (act_owner.act_running() if is_instance_valid(act_owner) else false) \
 		and not bool(service.is_locked())
 	if free:
 		if not _watching:
 			_watching = true
-			adapter.watch_player(Callable(self, "on_anon_line"))
+			voice.watch_player(DIRECTOR.Line.of(Callable(self, "on_anon_line")))
 			LOG.debug("anon_watch armed")
 		return
 	if _watching:
 		_watching = false
-		adapter.unwatch_player()
+		voice.unwatch_player()
 		LOG.debug("anon_watch disarmed reason=%s", [
 			"act" if (act_owner.act_running() if is_instance_valid(act_owner) else false) \
 				else "locked"])
 
 
-## Drop the adapter's global watch, which still holds the world that is gone.
+## Drop the director's global watch, which still holds the world that is gone.
 func disarm() -> void:
 	if not _watching:
 		return
 	_watching = false
-	if is_instance_valid(adapter):
-		adapter.unwatch_player()
+	if is_instance_valid(voice):
+		voice.unwatch_player()
 
 
 ## The first new player line while he talks to a mare: an Anon offer. The service classifies
@@ -232,8 +262,7 @@ func on_anon_line(text: String) -> void:
 
 ## A missing classifier means no answer; the Proactive service owns that node.
 func _classifier_ready() -> bool:
-	return is_instance_valid(initiation) and initiation.has_method("classifier_available") \
-		and initiation.classifier_available()
+	return is_instance_valid(voice) and voice.model_available()
 
 
 ## The mare whose conversation target is Anon, nearest first. The game's own target decides; the

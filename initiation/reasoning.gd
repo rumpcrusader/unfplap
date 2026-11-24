@@ -1,6 +1,6 @@
 extends RefCounted
 ## Mare Initiation Reasoning: whether to offer, and which available option.
-## Pure instruction, payload and parser; the adapter owns the model call.
+## Pure instruction, payload and parser; the director owns the model call.
 ## Context and the placeable options are the only inputs; no service, scene, clock or file.
 
 const CONTEXT := preload("res://mods/unfplap/shared/context.gd")

@@ -13,6 +13,7 @@ const HUD := preload("res://mods/unfplap/hud/api.gd")
 const INPUT := preload("res://mods/unfplap/input/api.gd")
 const INITIATION := preload("res://mods/unfplap/initiation/api.gd")
 const NEGOTIATION := preload("res://mods/unfplap/negotiation/api.gd")
+const DIRECTOR := preload("res://mods/unfplap/director/api.gd")
 const PRIVACY := preload("res://mods/unfplap/privacy/api.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const PERF := preload("res://mods/unfplap/shared/perf.gd")
@@ -69,9 +70,11 @@ var audio: AUDIO
 ## Outside-act stock smack sound layer; see `docs/stock_smack.md`.
 var stock_smack: STOCK_SMACK
 var initiation: INITIATION
+## The conversation-director bridge and model transport; see `docs/director.md`.
+var director: DIRECTOR
 var privacy: PRIVACY
-## The Act Negotiation service: the Anon offer, the Mare exchange, the Agreement, the lock, the
-## director bridge and the Anon-offer watch. See `docs/negotiation.md`.
+## The Act Negotiation service: the Anon offer, the Mare exchange, the Agreement, the lock and the
+## Anon-offer watch. See `docs/negotiation.md`.
 var negotiation: NEGOTIATION
 ## Internal eligibility service; see docs/eligibility.md. Never part of the cross-mod API.
 var eligibility: ELIGIBILITY
@@ -160,6 +163,7 @@ func _build_world() -> void:
 	memory = MEMORY.new()
 	privacy = PRIVACY.new()
 	negotiation = NEGOTIATION.new()
+	director = DIRECTOR.new()
 	# The HUD exists before the player does: it owns the act card, the toast line, the caption
 	# move and the one-time key notice.
 	hud = HUD.new()
@@ -190,8 +194,8 @@ func _build_world() -> void:
 	# `initiation` and `negotiation` wire each other. Two-phase wiring makes the pair legal
 	# because construction order no longer matters; the pair is a future merge candidate, not
 	# a violation.
-	initiation.wire(eligibility, act_gate, privacy, memory, negotiation, offer, ponies)
-	negotiation.wire(eligibility, act_gate, memory, privacy, initiation, act_owner, hud,
+	initiation.wire(eligibility, act_gate, privacy, memory, negotiation, director, offer, ponies)
+	negotiation.wire(eligibility, act_gate, memory, privacy, initiation, director, act_owner, hud,
 		ponies)
 	anatomy.wire(eligibility)
 	estrus.wire(anatomy)
@@ -202,8 +206,6 @@ func _build_world() -> void:
 	debug_actions.wire(body_change, initiation, negotiation, anatomy, integrations.pantyhose(),
 		act_owner, hud, ponies, eligibility, estrus)
 
-	# `negotiation` attaches before `initiation`: the latter's `_ready` resolves the former's
-	# adapter.
 	_attach(eligibility, "UnfplapEligibility")
 	_attach(act_gate, "UnfplapActGate")
 	_attach(memory, "UnfplapMemory")
@@ -211,6 +213,7 @@ func _build_world() -> void:
 	# Attached after privacy and before negotiation: nothing reads the owner at attach, and the
 	# list order only has to keep it before `debug_actions`.
 	_attach(act_owner, "UnfplapActOwner")
+	_attach(director, "UnfplapDirector")
 	_attach(negotiation, "UnfplapNegotiation")
 	_attach(hud, "UnfplapHUD")
 	_attach(offer, "UnfplapOffer")

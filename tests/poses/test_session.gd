@@ -326,6 +326,8 @@ func _check_standing_begin() -> void:
 	check(session.ground_frame_source_saved, "the standing begin saves the ground frame source")
 	check(session.pose_node.authored != null and bool(session.pose_node.authored.get("available")),
 		"the standing begin installs the standing asset")
+	check(is_same(session.view().authored, session.pose_node.authored),
+		"the view carries the live rendered asset")
 	check(session.pose_node.size_name == "canon",
 		"the begin carries the supplied size name to the pose node")
 	check(session.view().family == "standing" and session.view().pose_state == VIEW.STEADY,
@@ -352,6 +354,9 @@ func _check_bed_frame() -> void:
 	session.sync_bed_frame()
 	check((session.bed_frame as Transform3D).origin.is_equal_approx(Vector3(1.0, 1.0, 0.0)),
 		"the bed frame follows the bed")
+	check(session.view().bed_frame is Transform3D and (session.view().bed_frame as Transform3D)
+		.origin.is_equal_approx(Vector3(1.0, 1.0, 0.0)),
+		"the view carries the followed bed frame")
 	bed.position = Vector3(1.0, 0.0, 0.0)
 	session.sync_bed_frame()
 	check((session.bed_frame as Transform3D).origin.is_equal_approx(Vector3(1.0, 1.0, 0.0)),
@@ -363,6 +368,7 @@ func _check_bed_frame() -> void:
 		"an unsaved bed source skips the follow")
 	session.leave_pose_start()
 	check(session.bed_frame == null, "the pose-start leave clears the bed frame")
+	check(session.view().bed_frame == null, "the pose-start leave clears the view's bed frame")
 	root.remove_child(bed)
 	bed.free()
 	root.remove_child(pony)
@@ -1196,6 +1202,8 @@ func _check_asset_adoption() -> void:
 		"the to side is the target standing asset")
 	check(is_same(session.authored_asset(), missionary),
 		"the camera holds the source asset through the edge")
+	check(is_same(view.authored, missionary),
+		"the view holds the source asset through the edge")
 	check(str(view.id) == target, "the view follows the target")
 	var info: Variant = session.base_info()
 	check(info.live_path == "poses/missionary_pose.json",
@@ -1219,6 +1227,8 @@ func _check_asset_adoption() -> void:
 	check(session._target_asset == null, "completion drops the target asset cache")
 	check(is_same(session.authored_asset(), standing),
 		"the published asset is the target after completion")
+	check(is_same(view.authored, standing),
+		"the view carries the target asset after completion")
 	check(session.sync_missionary_config(),
 		"the target's settings group still syncs after completion")
 	check(is_same(session.pose_node.authored, standing),

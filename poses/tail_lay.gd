@@ -92,7 +92,8 @@ func _process_modification_with_delta(delta: float) -> void:
 	if amount <= 0.001:
 		return
 	var world_back := Vector3.ZERO
-	var frame: Variant = facts.bed_frame if facts != null else null
+	var frame: Variant = facts.pose_view.bed_frame \
+			if facts != null and facts.pose_view != null else null
 	if frame is Transform3D:
 		world_back = -(frame as Transform3D).basis.z
 	else:

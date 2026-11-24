@@ -394,6 +394,7 @@ func begin(values: ActPose) -> bool:
 		pose_node.authored = start_asset
 	_from_asset = pose_node.authored
 	_target_asset = _from_asset
+	_sync_view_asset()
 	pose_node.set_pose(_effective_driver(start_spec), _effective_driver(start_spec),
 		_effective_delta(start_spec), _effective_delta(start_spec), pose_config, pose_config,
 		_from_asset, _target_asset)
@@ -412,6 +413,7 @@ func begin(values: ActPose) -> bool:
 		if bed_frame_source_saved:
 			bed_frame_source = (bed_node as Node3D).global_transform
 		pose_node.bed_frame = bed_frame
+		_view.bed_frame = bed_frame
 	else:
 		var ground := ground_pose_frame()
 		if has_frame(ground):
@@ -796,6 +798,7 @@ func tick(delta: float) -> void:
 		pose_node.set_weight(1.0)
 		pose_node.pose_config = pose_config
 	_from_asset = completed_asset
+	_sync_view_asset()
 	if is_instance_valid(act_body):
 		act_body.set_pose_assets(completed_asset, completed_asset, 1.0)
 	_state = POSE_STATE.next(_state, "complete")
@@ -1038,6 +1041,11 @@ func live_authored() -> AUTHORED:
 	return authored("")
 
 
+## Mirror the live rendered asset into the view, the one source presentation modules read.
+func _sync_view_asset() -> void:
+	_view.authored = live_authored()
+
+
 ## The parsed authored pose for the debug action and the pose lab. With no candidate this is the
 ## live rendered asset, not the target of a running edge.
 func authored_asset(candidate: String = "") -> AUTHORED:
@@ -1107,6 +1115,7 @@ func reload_authored(candidate: String = "") -> String:
 		if _target_spec != null:
 			_target_asset = _asset_for_spec(_target_spec)
 			pose_node.to_authored = _target_asset
+		_sync_view_asset()
 	return ""
 
 
@@ -1151,6 +1160,7 @@ func sync_bed_frame() -> void:
 	bed_frame_source = now
 	if is_instance_valid(pose_node):
 		pose_node.bed_frame = bed_frame
+	_view.bed_frame = bed_frame
 
 
 ## Turn the ground frame with the pony root each tick; the oral turn moves the root, so the frame
@@ -1222,6 +1232,7 @@ func leave_pose_start() -> void:
 	bed_frame = null
 	bed_frame_source_saved = false
 	bed_frame_source = Transform3D.IDENTITY
+	_view.bed_frame = null
 	ground_frame = null
 	ground_frame_source_saved = false
 	ground_frame_source = Transform3D.IDENTITY
@@ -2078,9 +2089,3 @@ func _num(value: Variant, fallback := 0.0) -> float:
 func sync_start_config(group: String) -> void:
 	if group == "missionary":
 		sync_missionary_config()
-
-
-## The moments the host-callback bindings need: the bed frame the anatomy bridge mirrors, and the
-## pose handle the bridge calls.
-func _bed_frame_value() -> Variant:
-	return bed_frame

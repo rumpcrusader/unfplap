@@ -8,6 +8,7 @@ const TAIL_CHAIN := preload("res://mods/unfplap/poses/tail_chain.gd")
 const TAIL_POSE := preload("res://mods/unfplap/poses/tail_pose.gd")
 const TAIL_LAY := preload("res://mods/unfplap/poses/tail_lay.gd")
 const TAIL_TUCK := preload("res://mods/unfplap/poses/tail_tuck.gd")
+const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 
 
 
@@ -17,7 +18,7 @@ class FakePony extends Node3D:
 
 
 class FakeFacts extends RefCounted:
-	var bed_frame: Variant = null
+	var pose_view: Variant = null
 
 
 ## A fitted body tail: ponytail root under the body hips, with five rest segments.
@@ -82,7 +83,8 @@ func run() -> void:
 	tail.free()
 
 	var facts := FakeFacts.new()
-	facts.bed_frame = Transform3D.IDENTITY
+	facts.pose_view = VIEW.new()
+	facts.pose_view.bed_frame = Transform3D.IDENTITY
 	var lay: SkeletonModifier3D = TAIL_LAY.new()
 	lay.mare = pony
 	lay.facts = facts

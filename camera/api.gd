@@ -61,6 +61,8 @@ var camera_owned := false
 var camera: Camera3D = null
 var free_camera_active := false
 var camera_basis_ready := false
+## The look point the last render wrote, so `aim_eyes()` reads this frame's aim without the pose.
+var _look_point := Vector3.ZERO
 
 ## The lean. `lean_forward`/`lean_side` are the input target; `lean_view_*` the smoothed view and
 ## `lean_sway` the idle-breathing offset the shot adds on top (never folded into the view).
@@ -190,6 +192,7 @@ func write_look_target(pose: POSES.POSE) -> void:
 			pose.look_point = eye.global_position
 	pose.kiss = kiss.amount() if custom_kiss else 0.0
 	pose.climaxing = int(facts.state) == STATE_CLIMAX
+	_look_point = pose.look_point
 
 
 ## Her missionary gaze target: the act body's eye, then the kiss's mouth, or ZERO.
@@ -217,12 +220,9 @@ func aim_eyes() -> void:
 	if not is_instance_valid(pony) or facts == null:
 		return
 	var target := gaze_point()
-	var pose: Variant = facts.pose
-	if pose != null:
-		var value: Variant = pose.look_point
-		if value is Vector3 and (value as Vector3).is_finite() \
-				and (value as Vector3).length_squared() > 0.0001:
-			target = value
+	var value := _look_point
+	if value.is_finite() and value.length_squared() > 0.0001:
+		target = value
 	if not target.is_finite():
 		return
 	WORLD.pony(pony).aim_eyes(target)
@@ -241,6 +241,7 @@ func begin_act(family: String, player_pony: bool, headset: bool) -> bool:
 	camera_basis_ready = false
 	free_camera_active = false
 	camera = null
+	_look_point = Vector3.ZERO
 	reset_lean_state()
 	reset_shot()
 	if standing_anon != null:
@@ -277,6 +278,7 @@ func finish_act() -> void:
 	camera_basis_ready = false
 	camera = null
 	free_camera_active = false
+	_look_point = Vector3.ZERO
 	reset_shot()
 
 

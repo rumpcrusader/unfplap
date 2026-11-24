@@ -53,6 +53,11 @@ var contact_target := Vector3.INF
 var facing := Basis.IDENTITY
 var facing_amount := 0.0
 
+## The live space the authored pose is rendered in, or null outside a pose.
+var bed_frame: Variant = null
+## The authored asset the live rig renders, or null when the pose has none.
+var authored: Variant = null
+
 ## The empty values `clear()` points at, allocated once so a release never allocates another.
 var _empty_config: Dictionary = {}
 var _empty_profile: Dictionary = {}
@@ -124,3 +129,5 @@ func clear() -> void:
 	contact_target = Vector3.INF
 	facing = Basis.IDENTITY
 	facing_amount = 0.0
+	bed_frame = null
+	authored = null

@@ -494,7 +494,7 @@ func stage_anatomy(delta: float) -> void:
 	context.stage.penetration_m = context.readiness.penetration_m_value()
 	context.stage.size_scale = context.camera.size_scale()
 	if context.pose_view != null:
-		context.pose_view.bed_frame = context.pose._bed_frame_value()
+		context.pose_view.bed_frame = context.pose.view().bed_frame
 	context.anatomy.stage(delta, context.stage)
 	var point: Vector3 = context.anatomy.frame_point()
 	context.facts.anatomy_opening = point if point.is_finite() else Vector3.ZERO

@@ -58,7 +58,7 @@ forced_glance, pose_view, presentation_config
 kiss_amount, kiss_active, kiss_side
 thrust_travel, same_height_scale, anon_height_scale, palm_scale_factor
 standing_sway_offset
-bed_frame (the live missionary bed frame, or null), bed, profile
+bed, profile
 physics_delta (the physics tick delta the hand and reach easing uses)
 ```
 
@@ -67,7 +67,8 @@ standing Anon controller adds it to his pinned hip. It is zero outside the stand
 while the oral segment holds the body still.
 
 `pose_view` is the pose read model (`shared/pose_view.gd`): the pose identity, the spec profiles,
-the live config and the live contact and facing values. It is the read path for every
+the live config, the live space (`bed_frame`), the rendered asset (`authored`) and the live contact
+and facing values. It is the read path for every
 presentation module. During an authored transition, `pose_state` is `TRANSITIONING` and
 `from_id`/`to_id`, `edge_id`, `edge_t`, `weight`, `from_config` and `to_config` carry the two
 sides; the view's identity and profiles are the target. On completion the session adopts the
@@ -96,7 +97,7 @@ readout, not the runtime.
 Scene handles:
 
 ```
-pony, camera, pose, viewport
+pony, camera, viewport
 ```
 
 A presentation module is a scene adapter, so it may receive the nodes it works on. It must not read
@@ -123,7 +124,6 @@ A missing callback is a no-op, so a test can build the object without a runtime.
 | `auto_panel_open` | the hold-X layer |
 | `view`, `missionary_anon` | the live act view and the pose-owned Anon body |
 | `missionary_face_point` | her face point for the eye view's kiss lean |
-| `authored_pose_asset` | the live authored asset, read only for the missionary look path |
 | `gaze_point` | the camera's missionary gaze target |
 | `free_look_rotation` | the debug view rotation |
 | `desktop_pose_driver` | the game's pose driver |

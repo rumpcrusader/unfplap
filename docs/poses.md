@@ -198,9 +198,10 @@ typed record (`poses/pose_base_info.gd`), so the base diagnostics have a single 
 The body wrappers that move with the pose (`poses/missionary_anon.gd`, `poses/standing_anon.gd`,
 `poses/standing_presentation.gd`) and the pose modifiers the session installs (`poses/skeleton_pose.gd`,
 `poses/tail_pose.gd`, `poses/tail_lay.gd`, `poses/body_sway.gd`, `poses/prone_sway.gd`, `poses/ear_twitch.gd`) read
-`shared/act_facts.gd`, never the runtime node. The view carries the pose config, the presentation config,
-the per-mare profile, the pose id and state, the live depth and bed frame, the scene handles, the
-lean and thrust values and the callbacks they call back through. `pose_config` is one live
+`shared/act_facts.gd`, never the runtime node. The facts carry the pose config, the presentation
+config, the per-mare profile, the pose id and state, the live depth, the scene handles, the lean and
+thrust values and the callbacks they call back through; the live space and the rendered asset are
+the pose view's. `pose_config` is one live
 dictionary for the session: `set_pose_config()` and `sync_standing_config()` take the typed
 `SettingsBlock`, `refresh_modifiers()` the typed `FeatureFlags`, and every sync, including
 `sync_missionary_config()`, merges into the one dictionary in place, so the pose modifier,
@@ -213,7 +214,8 @@ that preloads `runtime.gd` or `main.gd` fails the static gate.
 
 `shared/pose_view.gd` is the pose read model the session fills and clears. It holds the identity
 and support fields from the registry, the ten spec profiles by reference, the live config (the same
-object as `view.pose_config`) and the per-tick contact and facing values. `pose_state` is `STEADY`
+object as `view.pose_config`), the live space (`bed_frame`) and rendered asset (`authored`), and the
+per-tick contact and facing values. `pose_state` is `STEADY`
 while the pose is live, `TRANSITIONING` while an edge runs, and `EXITING`/`IDLE` on release; the
 pose-scope leave steps keep it `STEADY`. During an edge, `from_id`/`to_id`, `edge_id`, `edge_t`,
 `weight`, `from_config` and `to_config` carry the transition: `from_config` is the live config, the
@@ -680,8 +682,8 @@ here.
   - `up = sk.global_basis.inverse() * pony.global_basis.y`
   - `forward = sk.global_basis.inverse() * -pony.global_basis.z`
 - `up` is world gravity, not the pony's rolled dorsal axis.
-- `bed_frame` is the live mattress top and the bed's axes; it follows a moving bed. The tail-lay
-  direction reads it, so a laid tail lies toward her rump on any bed orientation. `ground_frame`
+- The view's `bed_frame` is the live mattress top and the bed's axes; it follows a moving bed. The
+  tail-lay direction reads it, so a laid tail lies toward her rump on any bed orientation. `ground_frame`
   is the pony root's orthonormal basis and position at pose start, and it follows the root's
   position and yaw each physics tick. A ground asset is authored in that frame; the bed and the
   ground never mix.
@@ -710,8 +712,8 @@ Missionary is its own state, not the game's bed rest:
 - **She stands.** The bed rest is released and she is asked to `stand`, so the solver and the clip
   tier hold a neutral pose instead of `lie_down`; the act poses her body from the asset.
 - **The bed is only a frame**: `bed_frame` (mattress top and axes) plus the offer/eligibility path.
-- **The bed frame follows the bed.** The session's `bed_frame` (`facts.bed_frame` for
-  presentation modules) is updated each tick by the bed's rigid delta; a moving bed (the
+- **The bed frame follows the bed.** The pose view's `bed_frame` is updated each tick by the bed's
+  rigid delta; a moving bed (the
   Cloudominium's CloudDrift) carries the authored pose, the act body and the eye view instead of
   leaving them at the world transform where the act started. The mattress top is not re-measured.
 - **The end restores the scene relative to the bed** (`restore_scene()`: player, pony and camera
@@ -970,13 +972,13 @@ The aftercare lifetime, positive tail-up rule and the held mood face are in `doc
 
 - `act/tick.gd:render`: the render-time pose write, the climax progress, the surge/bob tick and the
   breath. `act/view.gd:pose_render()` supplies the body scale to
-  `poses/api.gd:write_render_frame()`. `render_write()` owns the render-time order:
-  `sync_frame(family)` picks the bed or ground frame; for the bed family it places the act's Anon
-  body, writes her pose, replays the prone sway, then lets `camera/view.gd:write_eye()` read his
-  posed head; for the standing family it writes her pose and replays the body sway after every game
-  writer. It then calls `camera/api.gd`'s `write_look_target()`, which owns the look point (the
-  missionary gaze, the kissing-mouth blend and the authored-Anon fallback) and the pose's kiss and
-  climax weights.
+  `poses/api.gd:write_render_frame()`, then lets `camera/view.gd:write_eye()` read his posed head
+  after the pose write. `render_write()` owns the render-time order: `sync_frame(family)` picks the
+  bed or ground frame; for the bed family it places the act's Anon body, writes her pose and
+  replays the prone sway; for the standing family it writes her pose and replays the body sway
+  after every game writer. It then calls `camera/api.gd`'s `write_look_target()`, which owns the
+  look point (the missionary gaze, the kissing-mouth blend and the authored-Anon fallback) and the
+  pose's kiss and climax weights.
 - `act/tick.gd:_tick`: presentation, timers, facing lock, glances, auto-cuddle suppression.
 - the entry's `_process`: calls `active_runtime.act.apply_camera_motion()` every rendered frame.
   Keep this single owner.

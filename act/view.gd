@@ -51,7 +51,6 @@ func refresh(facts: ACT_FACTS, session: ACT_SESSION) -> void:
 	facts.pony = host.pony
 	facts.camera = context.camera.camera
 	facts.viewport = host.viewport()
-	facts.pose = pose_session.pose()
 	facts.event_id = session.event_id
 	facts.pony_id = session.pony_id
 	facts.display_name = session.display_name
@@ -115,7 +114,6 @@ func refresh(facts: ACT_FACTS, session: ACT_SESSION) -> void:
 	facts.back = cam.back
 	facts.back_target = cam.back_target
 	facts.forced_glance = session.forced_glance
-	facts.bed_frame = pose_session.bed_frame
 	var kiss: Variant = context.kiss
 	if kiss != null:
 		facts.kiss_amount = float(kiss.amount())
@@ -227,6 +225,7 @@ func face_rows(session: ACT_SESSION) -> Array[String]:
 func pose_render(_session: ACT_SESSION) -> void:
 	var body_scale: Variant = host.pony.get("body_scale") if is_instance_valid(host.pony) else null
 	context.pose.write_render_frame(float(body_scale) if body_scale != null else 1.0)
+	context.view.write_eye()
 
 
 func camera_motion(session: ACT_SESSION) -> void:

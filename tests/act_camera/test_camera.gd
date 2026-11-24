@@ -439,8 +439,10 @@ func _check_missionary_look_path() -> void:
 		return
 	var frame := Transform3D(Basis(Vector3.UP, 0.3), Vector3(1.0, 2.0, 3.0))
 	var facts := FACTS.new()
-	facts.authored_pose_asset = func() -> Variant: return asset
-	facts.bed_frame = frame
+	var shot_view: RefCounted = VIEW.new()
+	shot_view.authored = asset
+	shot_view.bed_frame = frame
+	facts.pose_view = shot_view
 	facts.missionary_face_point = func() -> Vector3: return Vector3(0.0, 1.0, 0.0)
 	var view: RefCounted = CAMERA_VIEW.new(facts)
 	var shots: Dictionary = asset.get("shots")
@@ -1160,12 +1162,12 @@ func _check_view_writes() -> void:
 	facts.presentation_config = {"camera_pitch_deg": 0.0, "glance_back_speed": 1.0}
 	var no_kiss := FakeKiss.new()
 	facts.kiss = func() -> Variant: return no_kiss
-	facts.pose = pose
 	facts.set_head_back = func(value: float) -> void: pose.head_back = value
 	var pose_view: RefCounted = VIEW.new()
 	pose_view.id = CATALOG.STANDING
 	pose_view.family = "standing"
 	pose_view.settings_group = "standing"
+	pose_view.pose_state = VIEW.STEADY
 	var config: Dictionary = _standing_config()
 	pose_view.from_config = config
 	pose_view.pose_config = config

@@ -73,8 +73,6 @@ var same_height_scale := 1.0
 var anon_height_scale := 1.0
 var palm_scale_factor := 1.0
 var standing_sway_offset := Vector3.ZERO
-## The act's bed frame, or null outside a missionary act.
-var bed_frame: Variant = null
 ## The act's bed node and the per-mare profile the presentation reads.
 var bed: Variant = null
 var profile: Dictionary = {}
@@ -105,7 +103,6 @@ var form_hint := ""
 # they work on rather than reading the runtime's fields.
 var pony: Variant = null
 var camera: Camera3D = null
-var pose: Variant = null
 var viewport: Variant = null
 ## The act's Anon part handle, or null outside an act.
 var anon: Variant = null
@@ -134,7 +131,6 @@ var auto_panel_open := Callable()
 var view := Callable()
 var missionary_anon := Callable()
 var missionary_face_point := Callable()
-var authored_pose_asset := Callable()
 ## The missionary gaze target (the authored Anon's face), owned by the anatomy bridge.
 var gaze_point := Callable()
 var free_look_rotation := Callable()

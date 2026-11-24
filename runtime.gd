@@ -296,7 +296,6 @@ func _compose() -> void:
 	facts.view = Callable(camera, "view_controller")
 	facts.missionary_anon = Callable(_pose, "act_body_handle")
 	facts.missionary_face_point = Callable(camera, "missionary_face_point")
-	facts.authored_pose_asset = Callable(_pose, "authored_asset")
 	facts.gaze_point = Callable(camera, "gaze_point")
 	facts.free_look_rotation = Callable(camera, "free_look_rotation")
 	facts.desktop_pose_driver = Callable(standing_anon, "driver")

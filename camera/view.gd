@@ -6,6 +6,7 @@ const WORLD := preload("res://mods/unfplap/world/api.gd")
 const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
+const POSE_VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 const CANON_STANDING_CAMERA_DROP_M := 0.10
@@ -378,7 +379,7 @@ func _drive_glance(delta: float) -> void:
 	# The base kiss owns the head and gaze while it runs or releases. Clear the shoulder reach's
 	# forced over-the-shoulder look so the two head poses do not fight and clip.
 	if kiss.standing_active() or kiss.base_active():
-		if is_instance_valid(facts.pose) and facts.set_head_back.is_valid():
+		if _pose_live() and facts.set_head_back.is_valid():
 			_glance_head_back = move_toward(_glance_head_back, 0.0, delta / _glance_back_fade())
 			facts.set_head_back.call(_glance_head_back)
 		facts.write_forced_glance("")
@@ -389,7 +390,7 @@ func _drive_glance(delta: float) -> void:
 	# look up at Anon instead of waiting for a random glance.
 	var lean_up: bool = float(facts.lean_forward) >= 0.95 \
 		and absf(float(facts.lean_side)) <= 0.2 and not kiss.standing_active()
-	if is_instance_valid(facts.pose) and facts.set_head_back.is_valid():
+	if _pose_live() and facts.set_head_back.is_valid():
 		var back_target := 1.0 if (not str(facts.forced_glance).is_empty() or lean_up \
 			or (_glance_left > 0.0 and _glance_back)) else 0.0
 		_glance_head_back = move_toward(_glance_head_back, back_target, delta / _glance_back_fade())
@@ -519,6 +520,12 @@ func _pose_family() -> String:
 	return str(view.family) if view != null else ""
 
 
+## True while a pose is live; the glance's head write only lands on one.
+func _pose_live() -> bool:
+	var view: Variant = facts.pose_view if facts != null else null
+	return view != null and int(view.pose_state) != POSE_VIEW.IDLE
+
+
 ## The missionary view: the position is his posed eye; the basis is the authored look path so the
 ## action is framed and the lean follows it. The kiss still leans the eye in towards the aim.
 func _tick_eye(kiss: Variant, look: Vector3) -> void:
@@ -564,8 +571,9 @@ func _tick_eye(kiss: Variant, look: Vector3) -> void:
 func _shot_basis(at: Vector3, fallback: Basis) -> Basis:
 	if facts == null:
 		return fallback
-	var asset: Variant = facts.call_value(facts.authored_pose_asset)
-	var frame: Variant = facts.bed_frame
+	var pose_view: Variant = facts.pose_view if facts != null else null
+	var asset: Variant = pose_view.authored if pose_view != null else null
+	var frame: Variant = pose_view.bed_frame if pose_view != null else null
 	if asset == null or not frame is Transform3D:
 		return fallback
 	_refresh_shots(asset)

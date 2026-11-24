@@ -371,8 +371,9 @@ the API's `PlayerHost` pushes the part to every controller on a player rebuild, 
 `player.set_aim()` and `player.set_bed_inset()`.
 
 `act/tick.gd` is the single per-frame anatomy caller: it fills `ActStage.phase` from the act
-state, `depth` and `penetration_m` from readiness and `size_scale` from the camera, then calls
-`ActPresentation.stage(delta, stage)` for every state from `POSING_IN` through `RESTORE`.
+state, `depth` and `penetration_m` from readiness, `size_scale` from the camera and the pose view's
+`bed_frame` into `PoseView`, then calls `ActPresentation.stage(delta, stage)` for every state from
+`POSING_IN` through `RESTORE`.
 `act/tick._fanout` copies the live pose family, frame and contact into `PoseView` and calls
 `ActPresentation.pose(view)` on every change. `act/phases.gd` calls the handle's `climax()` on
 each climax event, and `act/exit.gd` calls `session.release_anatomy()` before the pose is freed.

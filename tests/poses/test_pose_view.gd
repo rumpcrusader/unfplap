@@ -38,6 +38,8 @@ func _check_defaults(view: RefCounted) -> void:
 	check(view.contact_target == Vector3.INF, "a fresh view has no contact target")
 	check(view.facing == Basis.IDENTITY and view.facing_amount == 0.0,
 		"a fresh view has no facing")
+	check(view.bed_frame == null and view.authored == null,
+		"a fresh view carries no live space or asset")
 	check(view.forms.is_empty() and view.views.is_empty(), "a fresh view declares no support")
 	check(not view.public_pose and not view.offerable, "a fresh view is not offered")
 
@@ -63,6 +65,10 @@ func _check_fill(view: RefCounted, spec: Variant, config: Dictionary) -> void:
 	check(view.public_pose and view.offerable, "the view carries the support flags")
 	view.contact_kind = "mouth"
 	check(view.contact_kind == "mouth", "the contact kind is writable")
+	view.bed_frame = Transform3D.IDENTITY
+	view.authored = spec
+	check(view.bed_frame is Transform3D and is_same(view.authored, spec),
+		"the live space and asset are writable")
 
 
 ## The transition fields the session writes: writable on a filled view and reset by `clear()`.
@@ -105,6 +111,8 @@ func _check_clear(view: RefCounted, spec: Variant, config: Dictionary) -> void:
 	check(view.contact_kind == "none", "clear drops the contact kind")
 	check(view.contact_target == Vector3.INF, "clear drops the contact target")
 	check(view.facing == Basis.IDENTITY and view.facing_amount == 0.0, "clear drops the facing")
+	check(view.bed_frame == null and view.authored == null,
+		"clear drops the live space and asset")
 	check(view.forms.is_empty() and view.views.is_empty(), "clear empties the support lists")
 	check(not view.public_pose and not view.offerable, "clear drops the support flags")
 	for profile: String in PROFILES:

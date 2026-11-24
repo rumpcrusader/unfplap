@@ -449,22 +449,13 @@ static func _check_id(id: String, errors: Array[String]) -> void:
 	if id.is_empty():
 		errors.append("id: required")
 		return
-	if id.length() > 64:
-		errors.append("id: must be at most 64 characters")
 	if id in RESERVED_IDS:
 		errors.append("id: %s is reserved" % id)
-	if id.contains(".") or id.contains(":"):
-		errors.append("id: must not contain '.' or ':'")
 
 
 static func _check_source(source: String, errors: Array[String]) -> void:
 	if source.is_empty():
 		errors.append("source: required")
-		return
-	if source.length() > 64:
-		errors.append("source: must be at most 64 characters")
-	if source.contains(".") or source.contains(":"):
-		errors.append("source: must not contain '.' or ':'")
 
 
 static func _validate_preferences(raw: Variant, warnings: Array[String], errors: Array[String]) -> Dictionary:

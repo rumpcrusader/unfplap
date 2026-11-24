@@ -345,6 +345,11 @@ func _check_validation() -> void:
 	bad = api.register_mare(owner, {"id": "default", "source": "test"})
 	check(not bool(bad.get("ok", true)), "a reserved id is rejected")
 
+	var dotted: Dictionary = api.register_mare(owner, {"id": "dotted.id", "source": "test"})
+	check(bool(dotted.get("ok", false)), "a dotted id registers")
+	check(bool(api.describe_mare("dotted.id").get("known", false)), "a dotted id resolves")
+	api.unregister_mare(owner, "dotted.id")
+
 	bad = api.register_mare(owner, {"id": "bad_owner", "source": "test", "placement": {"scale": 0.0}})
 	check(not bool(bad.get("ok", true)), "a non-positive placement scale is rejected")
 

@@ -445,7 +445,9 @@ static func _declared_placement_defaults() -> Dictionary:
 static func anatomy_placement_default(id: String, fit_id: String = "") -> ROWS.Rows:
 	var key := fit_id if not fit_id.is_empty() else id
 	var base := _persisted_placement_default_values()
-	var shipped: Variant = DEFAULTS.characters_block("anatomy.placement." + key)
+	# The id is an opaque key, not a path segment: a provider id may contain a dot.
+	var shipped_block: Dictionary = DEFAULTS.characters_block("anatomy.placement")
+	var shipped: Variant = shipped_block.get(key, {})
 	var placed := PLACEMENT.merge(base, shipped)
 	var provided := MARE_REGISTRY.placement(key)
 	if provided.is_empty():

@@ -754,7 +754,8 @@ func _start_ask_handoff() -> String:
 	return ""
 
 
-## The Anon decision classifier's offer context: what she just asked him.
+## The Anon decision classifier's offer context: what she just asked him. It is this fixed sentence
+## rather than the line she spoke, so the answer never hinges on how the wording came out.
 func _offer_line(option: POSE_OPTIONS.Option) -> String:
 	if option.cuddle or option.pose == CATALOG.MISSIONARY:
 		return "The pony has just invited Anon to bed. She is waiting for his answer."

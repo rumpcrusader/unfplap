@@ -235,7 +235,8 @@ func configure(camera_block: CAMERA_CONFIG.Config) -> void:
 
 
 ## Begin the act's view. Returns true when the standing VR act must start: the act starts it on the
-## anatomy bridge, because the camera never reaches that system.
+## anatomy bridge, because the camera never reaches that system. The mod view belongs to the desktop
+## human alone: AnonPony and a headset keep the stock camera and are never leaned.
 func begin_act(family: String, player_pony: bool, headset: bool) -> bool:
 	camera_owned = true
 	camera_basis_ready = false
@@ -379,8 +380,8 @@ func tick_lean(delta: float, paused: bool, auto_open: bool) -> void:
 	apply_standing_lean_look()
 
 
-## Oral keeps the shot neutral: no reach, no lean and no lean kiss, while the caress still ticks
-## and A/D and Z/C keep their own input.
+## Oral keeps the shot neutral: no reach, no lean and no lean kiss, while the caress still ticks,
+## the standing look response still runs, and A/D and Z/C keep their own input.
 func oral_lean_tick(delta: float) -> void:
 	end_lean_action()
 	lean_forward = move_toward(lean_forward, 0.0, delta / MOTION.LEAN_RETURN_SECONDS)

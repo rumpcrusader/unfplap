@@ -13,7 +13,8 @@ var _flank_path: FLANK_PATH = null
 var _oral_path: ORAL_PATH = null
 
 
-## The current pose's path provider; the contact kind chooses the oral head path.
+## The one place a pose becomes a path: the contact kind and the path choice pick the provider, so
+## no module under this line looks a pose up again.
 func path(pony: Node3D, facts: ACT_FACTS) -> PATH_BASE:
 	if facts == null or not is_instance_valid(pony):
 		return null

@@ -627,6 +627,8 @@ func complete_resume(change: BODY_CHANGE, changed: bool, confirmed := false) -> 
 		host.id(), shape if not shape.is_empty() else "self"])
 
 
+## A failed player ask puts the shape offer back. An AI-started change neither spends nor restores
+## it, so her own initiative leaves the player's pending offer standing.
 func _restore_shape_offer(target: String, by_player: bool) -> void:
 	if not by_player or target.is_empty():
 		return

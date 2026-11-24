@@ -54,7 +54,9 @@ func build(pony_node: Node3D, hand_side: MODEL.Side, _camera_position := Vector3
 	return true
 
 
-## The marked caress areas as a lean-sampled chain, one fitted sphere per area.
+## The marked caress areas as a lean-sampled chain, one fitted sphere per area. The area file is
+## written in her own body sides, so the hand side is taken as it stands; the slot chains are
+## written from Anon's side instead, which is why the oral single area reads the other one.
 func build_areas(pony_node: Node3D, hand_side: MODEL.Side, pose_name: String) -> bool:
 	valid = false
 	anchors.clear()
@@ -315,7 +317,8 @@ func _anchor(pony_node: Node3D, region: String, position: Vector3) -> MODEL.Anch
 	return out
 
 
-## Authored areas are mare rest points; a winking body reads them through the anatomy rig map.
+## Authored areas are mare rest points; a winking body reads them through the anatomy rig map. A
+## head area is exempt: the head is the game's own head on every body it sits on.
 static func _body_position(pony_node: Node3D, region: String, position: Vector3) -> Vector3:
 	if region == "head":
 		return position

@@ -256,6 +256,8 @@ func _tick_offer(delta: float) -> void:
 		return
 	var private := _exchange.private if _phase == _PHASE_OFFERED else _agreement.private
 	if not private:
+		# A public exchange is never sampled: its visibility was read once when it formed and
+		# nothing later can take that away.
 		return
 	_privacy_clock += delta
 	if _privacy_clock < _PRIVACY_SAMPLE_S:
@@ -364,7 +366,8 @@ func cancel(handle: AGREEMENT.Handle, reason: String) -> bool:
 	return true
 
 
-## One press: a match keeps the live Agreement, anything else live is ended first.
+## One press: a match keeps the live Agreement, anything else live is ended first. A locked exchange
+## turns every other request away, so this key is the one caller that can break it.
 func press(runtime: Node, option: POSE_OPTIONS.Option) -> AGREEMENT.Handle:
 	if _phase == _PHASE_AGREEMENT and _agreement != null and _host != null \
 			and is_instance_valid(runtime) and _agreement.runtime == runtime \

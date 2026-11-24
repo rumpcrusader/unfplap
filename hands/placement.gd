@@ -41,7 +41,8 @@ func frame(pony: Node3D, path: PATH_BASE, side: MODEL.Side,
 	return _last_or_invalid(side)
 
 
-## Hull placement used by the reach hand and the smack recovery.
+## Hull placement used by the reach hand and the smack recovery. The caress never comes through
+## here: a contact that only the body hull could give is not a caress.
 func coat_frame(pony: Node3D, side: MODEL.Side, point: Vector3, outward_hint: Vector3,
 		finger: Vector3, clearance: float, context: MODEL.CoatContext) -> Transform3D:
 	var key := context.state_key if not context.state_key.is_empty() else side_key(side)

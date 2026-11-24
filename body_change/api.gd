@@ -312,6 +312,8 @@ func unbind_body(body: Node3D) -> void:
 
 ## The provider reports that its own observed state changed. Only a registered source may move the
 ## active-change maps; an unknown source cannot inject one. A settled or failed change is cleared.
+## The base service never asks a provider for this: each one watches its own pack at whatever
+## cadence it chose.
 func notify_source_changed(source: Node) -> void:
 	if not is_instance_valid(source) or not source is BODY_CHANGE_SOURCE:
 		return
@@ -457,6 +459,10 @@ func _drop_body_index(change: BODY_CHANGE) -> void:
 			_active_by_body.erase(body)
 
 
+## A leaving body gives up only the index entry that names it. The old body's key goes while its
+## successor is still alive, so the live change stays readable through the new body; the successor's
+## own exit clears the change for its provider, and so does an old body whose successor is already
+## gone.
 func _prune_body_change(body: Node3D) -> void:
 	var stored: Variant = _active_by_body.get(body)
 	if not stored is BODY_CHANGE:

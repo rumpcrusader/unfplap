@@ -72,7 +72,7 @@ class Terminal:
 
 
 ## One live negotiation's private state. It is cleared when the Agreement forms.
-class Exchange:
+class _Exchange:
 	var id := 0
 	var generation := 0
 	var runtime: Node = null
@@ -99,7 +99,7 @@ var _bridge: HOST = null
 var _voice: DIRECTOR = null
 var _phase := _PHASE_NONE
 var _locked := false
-var _exchange: Exchange = null
+var _exchange: _Exchange = null
 var _agreement: AGREEMENT.Package = null
 var _handle: AGREEMENT.Handle = null
 var _generation := 0
@@ -273,7 +273,7 @@ func begin_mare_offer(offer: MareOffer) -> bool:
 	if not base.ok():
 		_formation_failure(offer.pony, _OUTCOME_NO_OFFER, base.reason())
 		return false
-	var live := Exchange.new()
+	var live := _Exchange.new()
 	_begin_state(live, offer.runtime, offer.pony, offer.option, AGREEMENT.Trigger.MARE_OFFER,
 		offer.line, offer.option.cuddle)
 	live.base = base
@@ -315,7 +315,7 @@ func begin_anon_offer(runtime: Node, text: String) -> bool:
 	if options.is_empty():
 		_formation_failure(pony, _OUTCOME_NO_OFFER, AGREEMENT.REASON_NO_CONTEXT_POSE)
 		return false
-	var live := Exchange.new()
+	var live := _Exchange.new()
 	_begin_state(live, runtime, pony, null, AGREEMENT.Trigger.ANON_OFFER, text, false)
 	live.base = base
 	live.options = options
@@ -452,7 +452,7 @@ func _on_agreement_handle(handle: AGREEMENT.Handle) -> void:
 
 # --------------------------------------------------------------------------- state
 
-func _begin_state(live: Exchange, runtime: Node, pony: Node3D, option: POSE_OPTIONS.Option,
+func _begin_state(live: _Exchange, runtime: Node, pony: Node3D, option: POSE_OPTIONS.Option,
 		trigger: int, line: String, cuddle: bool) -> void:
 	_generation += 1
 	_serial += 1
@@ -536,7 +536,7 @@ func _report_outcome(pony: Node, reason: String, cooldown: float) -> void:
 	_host.on_outcome.call(terminal)
 
 
-func _accept(live: Exchange) -> void:
+func _accept(live: _Exchange) -> void:
 	_generation += 1
 	var package := AGREEMENT.Package.new()
 	package.id = live.id
@@ -595,7 +595,7 @@ func _interrupt_reason(reason: String) -> String:
 
 # --------------------------------------------------------------------------- decisions
 
-func _on_anon_answer(live: Exchange, text: String, error: String) -> void:
+func _on_anon_answer(live: _Exchange, text: String, error: String) -> void:
 	if not _current(live):
 		return
 	_cancel_scope(live.scope)
@@ -615,7 +615,7 @@ func _on_anon_answer(live: Exchange, text: String, error: String) -> void:
 		_close(_OUTCOME_REFUSED, AGREEMENT.REASON_CLASSIFIER_UNAVAILABLE, 0.0)
 
 
-func _on_anon_decision(live: Exchange, reply: PROMPTS.Reply) -> void:
+func _on_anon_decision(live: _Exchange, reply: PROMPTS.Reply) -> void:
 	if not _current(live):
 		return
 	_cancel_scope(live.scope)
@@ -637,7 +637,7 @@ func _on_anon_decision(live: Exchange, reply: PROMPTS.Reply) -> void:
 		_close(_OUTCOME_REFUSED, "", _COOLDOWN_S)
 
 
-func _on_anon_offer_classified(live: Exchange, reply: PROMPTS.Reply) -> void:
+func _on_anon_offer_classified(live: _Exchange, reply: PROMPTS.Reply) -> void:
 	if not _current(live):
 		return
 	_cancel_scope(live.scope)
@@ -688,7 +688,7 @@ func _on_anon_offer_classified(live: Exchange, reply: PROMPTS.Reply) -> void:
 		_close(_OUTCOME_REFUSED, AGREEMENT.REASON_REASONING_FAILED, 0.0)
 
 
-func _on_mare_response(live: Exchange, reply: PROMPTS.Reply) -> void:
+func _on_mare_response(live: _Exchange, reply: PROMPTS.Reply) -> void:
 	if not _current(live):
 		return
 	_cancel_scope(live.scope)
@@ -709,7 +709,7 @@ func _on_mare_response(live: Exchange, reply: PROMPTS.Reply) -> void:
 
 ## True while a callback still belongs to the live offer. A late result after any terminal
 ## transition can never form an Agreement.
-func _current(live: Exchange) -> bool:
+func _current(live: _Exchange) -> bool:
 	return live != null and _exchange == live and _phase == _PHASE_OFFERED \
 		and live.generation == _generation
 
@@ -756,7 +756,7 @@ func _placement_ok(option: POSE_OPTIONS.Option) -> bool:
 
 # --------------------------------------------------------------------------- hold
 
-func _claim_mare_hold(live: Exchange, offer: MareOffer) -> bool:
+func _claim_mare_hold(live: _Exchange, offer: MareOffer) -> bool:
 	var hold: Variant = _hold()
 	if hold == null:
 		return false
@@ -779,7 +779,7 @@ func _claim_mare_hold(live: Exchange, offer: MareOffer) -> bool:
 	return true
 
 
-func _claim_anon_hold(live: Exchange) -> bool:
+func _claim_anon_hold(live: _Exchange) -> bool:
 	var hold: Variant = _hold()
 	if hold == null:
 		return false

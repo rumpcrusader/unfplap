@@ -3,7 +3,9 @@
 The summary service owns the mod's judgement of a finished act: whether it was good, neutral or bad,
 what the memory receives, and what the lasting per-mare history becomes. It is the only place that
 decides an act's worth, and the row it writes is read by every later system that cares about how she
-feels toward Anon. The act state, the readiness meter and the memory store are not its own.
+feels toward Anon. Scoring and committing are separate steps: the service keeps no per-act state,
+and the act holds the verdict it was given so its own presentation can read it. The act state, the
+readiness meter and the memory store are not its own.
 
 ## The grade
 
@@ -34,7 +36,8 @@ decision; a new act clears it. Staying close and caressing rewards a good or non
 and repairs hurt a little after a bad one.
 
 One strongest clean act per mare is kept as a peak: it needs a positive summary, no disliked handling
-and either a very high peak or many matched strokes. A later higher-scoring act replaces it. Its text
+and either a very high peak or many matched strokes. The peak is written with the verdict, so an act
+that ended before its afterglow still leaves one, and a later higher-scoring act replaces it. Its text
 is the last player exchange, or a generic warm beat when he did not speak.
 
 There is no break-up path: the last tier only refuses further acts.

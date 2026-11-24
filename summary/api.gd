@@ -1,263 +1,99 @@
 extends Node
 ## Scope: pony
-## Owns the scoring trigger, the grade-aware commit and the peak-memory record.
+## Scores one finished act and commits its lasting consequences; the act holds the verdict.
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const ACT_SUMMARY := preload("res://mods/unfplap/summary/score.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
 const MEMORY := preload("res://mods/unfplap/memory/api.gd")
-const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
+const ACT_METER := preload("res://mods/unfplap/shared/act_meter.gd")
 const RELATIONSHIP_CUE := preload("res://mods/unfplap/shared/relationship_cue.gd")
-const READINESS := preload("res://mods/unfplap/readiness/api.gd")
-const DIALOGUE := preload("res://mods/unfplap/dialogue/api.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
-## The world memory the summary commits to; the runtime wires it once.
-var memory: MEMORY = null
-## The readiness meter and the dialogue the peak reads; the runtime wires them once.
-var readiness: READINESS = null
-var dialogue: DIALOGUE = null
+## The world memory the commit writes to; the runtime wires it once.
+var _memory: MEMORY = null
 
 
-## Hand the facade its peers; the runtime's composition is the only caller.
-func wire(memory_in: MEMORY, readiness_in: READINESS, dialogue_in: DIALOGUE) -> void:
-	memory = memory_in
-	readiness = readiness_in
-	dialogue = dialogue_in
+## The act as it ended, assembled once by the act at its verdict. The identity and the ending are
+## required; every other value comes from the act's own facts and one readiness read.
+class ActSnapshot extends RefCounted:
+	## The act's ending: exactly one of these, from the route that ended the act.
+	enum Ending { COMPLETE, EARLY, STOPPED }
 
-## The scorer's input for one act. The readiness meter owns the counters; `from_dict` is the edge
-## that reads the flat snapshot and `to_dict` is the pure scorer's own shape.
-class Inputs extends RefCounted:
-	var pony_id := ""
-	var event_id := ""
-	var preferences: Dictionary = {}
-	var seconds := 0.0
-	var thrusts := 0
-	var pony_climaxes := 0
-	var talk_liked := 0
-	var talk_dislikes := 0
-	var touches_liked := 0
-	var touch_dislikes: Dictionary = {}
-	var player_lines := 0
-	var intensity_total := 0
-	var intensity_right := 0
-	var pattern_total := 0
-	var pattern_right := 0
-	var ended_early := false
-	var stopped_by_her := false
-	var form_reveal := false
-	var tolerance := "normal"
-	var forced := false
+	var pony_id: String
+	var event_id: String
+	var seconds: float
+	var act_spoken_at: float
+	var ending: Ending
+	## The player's stored preference document. It stays a dictionary because the game saves it and
+	## the pure scorer reads it by key; a missing key reads as no opinion.
+	var preferences: Dictionary
+	var form_reveal: bool
+	var meter: ACT_METER
 
-	## The edge: the act's flat snapshot document.
-	static func from_dict(context: Dictionary) -> Inputs:
-		var out := Inputs.new()
-		out.pony_id = str(context.get("pony_id", ""))
-		out.event_id = str(context.get("event_id", ""))
-		var preference_value: Variant = context.get("preferences", {})
-		if preference_value is Dictionary:
-			out.preferences = preference_value
-		var dislike_value: Variant = context.get("touch_dislikes", {})
-		if dislike_value is Dictionary:
-			out.touch_dislikes = dislike_value
-		out.seconds = float(context.get("seconds", 0.0))
-		out.thrusts = int(context.get("thrusts", 0))
-		out.pony_climaxes = int(context.get("pony_climaxes", 0))
-		out.talk_liked = int(context.get("talk_liked", 0))
-		out.talk_dislikes = int(context.get("talk_dislikes", 0))
-		out.touches_liked = int(context.get("touches_liked", 0))
-		out.player_lines = int(context.get("player_lines", 0))
-		out.intensity_total = int(context.get("intensity_total", 0))
-		out.intensity_right = int(context.get("intensity_right", 0))
-		out.pattern_total = int(context.get("pattern_total", 0))
-		out.pattern_right = int(context.get("pattern_right", 0))
-		out.ended_early = bool(context.get("ended_early", false))
-		out.stopped_by_her = bool(context.get("stopped_by_her", false))
-		out.form_reveal = bool(context.get("form_reveal", false))
-		out.forced = bool(context.get("forced", false))
-		return out
-
-	## The pure scorer's shape: no identity, a detached dislike map and the derived tolerance.
-	func to_dict() -> Dictionary:
-		return {
-			"preferences": preferences,
-			"seconds": seconds,
-			"thrusts": thrusts,
-			"pony_climaxes": pony_climaxes,
-			"talk_liked": talk_liked,
-			"talk_dislikes": talk_dislikes,
-			"touches_liked": touches_liked,
-			"touch_dislikes": touch_dislikes.duplicate(true),
-			"player_lines": player_lines,
-			"intensity_total": intensity_total,
-			"intensity_right": intensity_right,
-			"pattern_total": pattern_total,
-			"pattern_right": pattern_right,
-			"ended_early": ended_early,
-			"stopped_by_her": stopped_by_her,
-			"form_reveal": form_reveal,
-			"tolerance": tolerance,
-			"forced": forced,
-		}
+	func _init(pony_id_in: String, event_id_in: String, ending_in: Ending) -> void:
+		pony_id = pony_id_in
+		event_id = event_id_in
+		ending = ending_in
 
 
-## One act's committed summary or peak record: who it belongs to, the scorer's input and the peak
-## counters. The session fills one at each commit boundary.
-class Context extends RefCounted:
-	var pony_id := ""
-	var event_id := ""
-	var inputs: Inputs = null
-	var satisfaction := 0.0
-	var both_matches := 0
-	var dislikes := 0
-	var liked_touch := 0
-	var liked_talk := 0
-	var player_talk := ""
-	var her_at := -1e9
-	var her_line := ""
+## Her last spoken line and when, taken by the act at commit time. The pair means nothing apart,
+## which is why it is one value and not two arguments.
+class Exchange extends RefCounted:
+	var at: float
+	var line: String
 
-	static func of(inputs: Inputs) -> Context:
-		var out := Context.new()
-		if inputs != null:
-			out.pony_id = inputs.pony_id
-			out.event_id = inputs.event_id
-			out.inputs = inputs
-		return out
+	func _init(at_in: float, line_in: String) -> void:
+		at = at_in
+		line = line_in
 
 
-## The act values one summary records. The session fills one at each commit boundary; the
-## readiness and dialogue facades supply the action counters and the spoken line.
-class ActInput extends RefCounted:
-	var pony_id := ""
-	var event_id := ""
-	var preferences: Dictionary = {}
-	var seconds := 0.0
-	var ended_early := false
-	var stopped_by_her := false
-	var form_reveal := false
-	var act_spoken_at := -1e9
-
-	## The scorer's input for this act. The readiness meter owns the counters.
-	func as_inputs(readiness: READINESS) -> Inputs:
-		var out := Inputs.new()
-		out.pony_id = pony_id
-		out.event_id = event_id
-		out.preferences = preferences
-		out.seconds = seconds
-		out.thrusts = readiness.act_thrusts
-		out.pony_climaxes = readiness.pony_climaxes
-		out.talk_liked = readiness.act_liked_talk
-		out.talk_dislikes = readiness.act_talk_dislikes
-		out.touches_liked = readiness.act_liked_touch
-		out.touch_dislikes = readiness.act_touch_dislikes
-		out.player_lines = readiness.act_player_lines
-		out.intensity_total = readiness.act_intensity_total
-		out.intensity_right = readiness.act_intensity_right
-		out.pattern_total = readiness.act_pattern_total
-		out.pattern_right = readiness.act_pattern_right
-		out.ended_early = ended_early
-		out.stopped_by_her = stopped_by_her
-		out.form_reveal = form_reveal
-		return out
+## The act's verdict, frozen once scored; only `score()` builds one. The record stays a dictionary
+## because it is the pure scorer's own output, read by the face, the afterglow beat and the history
+## store; it is empty on a skip, and `skipped` is what a caller tests.
+class ActScore extends RefCounted:
+	var pony_id: String
+	var event_id: String
+	var act_spoken_at: float
+	var skipped: bool
+	var outcome: Dictionary
+	var meter: ACT_METER
 
 
-## The committed summary, empty until one is written.
-var summary: Dictionary = {}
-var summary_done := false
-var peak_recorded := false
+## Hand the facade its peer; the runtime's composition is the only caller.
+func wire(memory: MEMORY) -> void:
+	_memory = memory
 
 
-## Start a fresh act: clear the summary and the peak flag.
-func reset_act() -> void:
-	summary = {}
-	summary_done = false
-	peak_recorded = false
-
-
-## The summary inputs the pure scorer reads. The runtime gathers its act counters and the scene
-## values; the facade owns the shape `summary/score.gd` scores, so a new input lands in one place.
-func summary_inputs(context: Inputs) -> Inputs:
-	var out := Inputs.new()
-	out.pony_id = context.pony_id
-	out.event_id = context.event_id
-	out.preferences = context.preferences
-	out.seconds = context.seconds
-	out.thrusts = context.thrusts
-	out.pony_climaxes = context.pony_climaxes
-	out.talk_liked = context.talk_liked
-	out.talk_dislikes = context.talk_dislikes
-	out.touches_liked = context.touches_liked
-	out.touch_dislikes = context.touch_dislikes.duplicate(true)
-	out.player_lines = context.player_lines
-	out.intensity_total = context.intensity_total
-	out.intensity_right = context.intensity_right
-	out.pattern_total = context.pattern_total
-	out.pattern_right = context.pattern_right
-	out.ended_early = context.ended_early
-	out.stopped_by_her = context.stopped_by_her
-	out.form_reveal = context.form_reveal
-	out.tolerance = str(out.preferences.get("tolerance", "normal"))
-	out.forced = context.forced
-	return out
-
-
-## The context `commit_summary()` takes: the ids plus the normalised inputs above.
-func summary_context(context: Inputs) -> Context:
-	var out := Context.of(summary_inputs(context))
-	if not context.pony_id.is_empty():
-		out.pony_id = context.pony_id
-	if not context.event_id.is_empty():
-		out.event_id = context.event_id
-	return out
-
-
-## Score one act from its typed input. The readiness meter owns the counters.
-func commit_act(values: ActInput, real_act: bool) -> void:
-	commit_summary(real_act, summary_context(values.as_inputs(readiness)))
-
-
-## Store the strongest clean act per mare from the typed input and the last spoken line.
-func record_act_peak(values: ActInput) -> void:
-	var context := summary_context(values.as_inputs(readiness))
-	context.satisfaction = readiness.peak_satisfaction
-	context.both_matches = readiness.act_both_matches
-	context.dislikes = readiness.act_dislikes
-	context.liked_touch = readiness.act_liked_touch
-	context.liked_talk = readiness.act_liked_talk
-	context.player_talk = readiness.last_player_talk
-	context.her_at = dialogue.last_spoken_at()
-	context.her_line = dialogue.last_spoken_line()
-	record_peak_memory(context, values.act_spoken_at)
-
-
-## The after-act record in one place: the summary, the peak and the witness pass.
-func commit_after_act(values: ActInput, pony_name: String, serial: int, pony: Node) -> void:
-	commit_act(values, true)
-	record_act_peak(values)
-	if not is_instance_valid(WORLD.world_root()):
-		return
-	for row: MEMORY.Witness in memory.witnesses(values.pony_id, pony_name, serial, pony):
-		LOG.debug("witness %s", [row.to_dict()])
-
-
-## One summary per act. It is scored from the action counters, stored in the world's module
-## state, and written to the game's impression once. Forced stops never call it.
-func commit_summary(real_act: bool, context: Context) -> void:
-	if summary_done:
-		return
-	summary_done = true
-	if not _game_ok():
-		return
-	var inputs: Dictionary = context.inputs.to_dict()
-	var outcome: Dictionary = ACT_SUMMARY.evaluate(inputs, ACT_SUMMARY.rules())
-	if bool(outcome.get("skip", false)):
+## Score one act from its snapshot. Nothing is written and no peer is read, so a caller may shape an
+## act before a world exists; the rules come from the live settings the scorer already reads.
+func score(snapshot: ActSnapshot) -> ActScore:
+	var out := ActScore.new()
+	out.pony_id = snapshot.pony_id
+	out.event_id = snapshot.event_id
+	out.act_spoken_at = snapshot.act_spoken_at
+	out.meter = snapshot.meter
+	var inputs := _scorer_dict(snapshot)
+	var scored: Dictionary = ACT_SUMMARY.evaluate(inputs, ACT_SUMMARY.rules())
+	out.skipped = bool(scored.get("skip", false))
+	if out.skipped:
+		# The scorer's reasons exist only in the record, and a skipped act does not keep one.
 		LOG.debug("summary skip reasons=%s seconds=%.1f thrusts=%d", [
-			_reasons(outcome), float(inputs.get("seconds", 0.0)),
-			int(inputs.get("thrusts", 0))])
+			_reasons(scored), float(inputs["seconds"]), int(inputs["thrusts"])])
+		return out
+	out.outcome = scored
+	return out
+
+
+## Commit one scored act: its history row and save, her impression and the act's peak. A skipped
+## act writes nothing, so the route that ended it keeps its own fallback note.
+func commit(score: ActScore, exchange: Exchange) -> void:
+	if score == null or score.skipped or score.outcome.is_empty():
 		return
-	summary = outcome
-	var id := context.pony_id
-	var event_id := context.event_id
+	if not _game_ok() or not is_instance_valid(_memory):
+		return
+	var outcome := score.outcome
+	var id := score.pony_id
 	var result: Dictionary = ACT_HISTORY.commit(
 		WORLD.mods().state(ACT_HISTORY.MOD_ID).rows, id, outcome, ACT_HISTORY.day_now())
 	WORLD.mods().save()
@@ -266,13 +102,15 @@ func commit_summary(real_act: bool, context: Context) -> void:
 	# renamable line; the thought is her private first person.
 	var impression := MEMORY.Impression.new()
 	impression.id = id
-	impression.event_id = event_id
-	impression.slot = MEMORY.ImpressionSlot.ACT if real_act else MEMORY.ImpressionSlot.ACT_EARLY
+	impression.event_id = score.event_id
+	impression.slot = MEMORY.ImpressionSlot.ACT_EARLY if _ended_early(outcome) \
+		else MEMORY.ImpressionSlot.ACT
 	impression.mood = str(outcome.get("mood", "relaxed"))
 	impression.romance = int(outcome.get("romance", 0))
 	impression.thought = str(outcome.get("thought", ""))
 	impression.event_text = str(outcome.get("text", ""))
-	memory.commit(impression)
+	_memory.commit(impression)
+	_record_peak(score, exchange)
 	var row: Dictionary = result.get("row", {})
 	var events: PackedStringArray = []
 	var raw_events: Variant = result.get("events", [])
@@ -286,25 +124,50 @@ func commit_summary(real_act: bool, context: Context) -> void:
 		int(row.get("hurt", 0)), int(row.get("comfort", 0)), ",".join(events)])
 
 
-## Store the strongest clean act per mare. The exchange is the useful part: a later cue can
-## infer that she liked it without any name-specific instruction.
-func record_peak_memory(context: Context, act_spoken_at: float) -> void:
-	if peak_recorded:
+## The pure scorer's input. The act's identity is not its business; her tolerance is her stored
+## preference, read by key here so the scorer needs no settings handle of its own.
+func _scorer_dict(snapshot: ActSnapshot) -> Dictionary:
+	var meter := snapshot.meter
+	return {
+		"preferences": snapshot.preferences,
+		"seconds": snapshot.seconds,
+		"thrusts": meter.thrusts,
+		"pony_climaxes": meter.pony_climaxes,
+		"talk_liked": meter.talk_liked,
+		"talk_dislikes": meter.talk_dislikes,
+		"touches_liked": meter.touches_liked,
+		"touch_dislikes": meter.touch_dislikes.duplicate(true),
+		"player_lines": meter.player_lines,
+		"intensity_total": meter.intensity_total,
+		"intensity_right": meter.intensity_right,
+		"pattern_total": meter.pattern_total,
+		"pattern_right": meter.pattern_right,
+		"ended_early": snapshot.ending == ActSnapshot.Ending.EARLY,
+		"stopped_by_her": snapshot.ending == ActSnapshot.Ending.STOPPED,
+		"form_reveal": snapshot.form_reveal,
+		"tolerance": str(snapshot.preferences.get("tolerance", "normal")),
+	}
+
+
+## True when the act ended before its afterglow, by the player or by her: the early impression slot
+## keeps the base game from reading a full act's mood.
+func _ended_early(outcome: Dictionary) -> bool:
+	return bool(outcome.get("early", false)) or bool(outcome.get("stopped", false))
+
+
+## Keep the strongest clean act per mare as a peak. The exchange is the useful part: a later cue
+## can infer that she liked it without any name-specific instruction.
+func _record_peak(score: ActScore, exchange: Exchange) -> void:
+	if not bool(score.outcome.get("positive", false)):
 		return
-	peak_recorded = true
-	if not _game_ok():
+	var meter := score.meter
+	if not RELATIONSHIP_CUE.peak_eligible(meter.peak_satisfaction, meter.both_matches,
+			meter.dislikes):
 		return
-	if not summary.is_empty() and not bool(summary.get("positive", false)):
-		return
-	var peak_satisfaction := context.satisfaction
-	var both := context.both_matches
-	var dislikes := context.dislikes
-	if not RELATIONSHIP_CUE.peak_eligible(peak_satisfaction, both, dislikes):
-		return
-	var player := context.player_talk.strip_edges()
+	var player := meter.player_talk.strip_edges()
 	var her := ""
-	if context.her_at > act_spoken_at:
-		her = context.her_line.strip_edges()
+	if exchange != null and exchange.at > score.act_spoken_at:
+		her = exchange.line.strip_edges()
 	if player.length() > 160:
 		player = player.left(160).strip_edges()
 	if her.length() > 160:
@@ -316,14 +179,13 @@ func record_peak_memory(context: Context, act_spoken_at: float) -> void:
 			text += " You answered: \"%s\"." % her
 	else:
 		text = "Anon made you feel completely wanted."
-	var score := RELATIONSHIP_CUE.peak_score(peak_satisfaction, both,
-		context.liked_touch, context.liked_talk, dislikes)
 	var peak := MEMORY.Peak.new()
-	peak.id = context.pony_id
-	peak.event_id = context.event_id
+	peak.id = score.pony_id
+	peak.event_id = score.event_id
 	peak.text = text
-	peak.score = score
-	memory.record_peak(peak)
+	peak.score = RELATIONSHIP_CUE.peak_score(meter.peak_satisfaction, meter.both_matches,
+		meter.liked_touch, meter.liked_talk, meter.dislikes)
+	_memory.record_peak(peak)
 
 
 func _reasons(outcome: Dictionary) -> String:
@@ -337,5 +199,3 @@ func _reasons(outcome: Dictionary) -> String:
 
 func _game_ok() -> bool:
 	return is_instance_valid(WORLD.world_root())
-
-

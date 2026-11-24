@@ -6,6 +6,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const FACE := preload("res://mods/unfplap/face/api.gd")
+const SUMMARY := preload("res://mods/unfplap/summary/api.gd")
 const TOLERANCE := preload("res://mods/unfplap/readiness/tolerance.gd")
 
 
@@ -59,10 +60,19 @@ class FakeTolerance extends TOLERANCE:
 	pass
 
 
+## The act's verdict, as the funnel stores it; the face reads the record and nothing else.
+func _verdict(runtime: Node, outcome: Dictionary) -> void:
+	var score := SUMMARY.ActScore.new()
+	score.outcome = outcome
+	runtime.act.act_score = score
+
+
 ## The runtime's post-act face path without the runtime wrapper: the afterglow's plan carries
 ## the values, the face facade owns the face.
 func _start_post_act_face(runtime: Node) -> void:
-	var summary: Dictionary = runtime.act.context.summary.summary
+	var summary: Dictionary = {}
+	if runtime.act.act_score != null:
+		summary = runtime.act.act_score.outcome
 	var plan: RefCounted = runtime.act.context.afterglow.post_act(false, runtime.act.context.readiness.satisfaction,
 		runtime.act.aftercare_min, not summary.is_empty(), bool(summary.get("positive", false)))
 	runtime.act.context.face.start_post_act(plan.face_context(summary))
@@ -118,8 +128,8 @@ func run() -> void:
 	runtime.act.face_beat("warning")
 	check(expressions.dialogue_face == "sad", "forgiving warning is sad")
 
-	runtime.act.context.summary.summary = {"grade": "great", "positive": true, "reward": true,
-		"severe": false, "early": false, "mood": "happy"}
+	_verdict(runtime, {"grade": "great", "positive": true, "reward": true,
+		"severe": false, "early": false, "mood": "happy"})
 	runtime.act.face_beat("afterglow")
 	check(expressions.dialogue_face == "affectionate", "positive afterglow is affectionate")
 
@@ -157,8 +167,8 @@ func run() -> void:
 	expressions.dialogue_face = ""
 	runtime.act.context.readiness.satisfaction = 100.0
 	runtime.act.aftercare_min = 10
-	runtime.act.context.summary.summary = {"grade": "great", "positive": true, "reward": true,
-		"severe": false, "early": false, "mood": "happy"}
+	_verdict(runtime, {"grade": "great", "positive": true, "reward": true,
+		"severe": false, "early": false, "mood": "happy"})
 	_start_post_act_face(runtime)
 	check(is_instance_valid(runtime.act.context.face.mood_face), "positive act starts the mood face")
 	check(expressions.dialogue_face == "relaxed", "positive mood face is relaxed")
@@ -170,8 +180,8 @@ func run() -> void:
 		"mood face clears on a new act")
 
 	expressions.dialogue_face = ""
-	runtime.act.context.summary.summary = {"grade": "bad", "positive": false, "reward": false,
-		"severe": false, "early": false, "mood": "sad"}
+	_verdict(runtime, {"grade": "bad", "positive": false, "reward": false,
+		"severe": false, "early": false, "mood": "sad"})
 	_start_post_act_face(runtime)
 	check(is_instance_valid(runtime.act.context.face.mood_face), "bad act starts the mood face")
 	check(expressions.dialogue_face == "sad", "bad mood face is sad")

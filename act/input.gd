@@ -112,10 +112,12 @@ func cancel() -> void:
 	LOG.debug("cancel state=%d pony=%s", [_session().state, host.pony_name()])
 	if _session().state in [State.POSING_IN, State.ACTIVE]:
 		_session().ended_early = true
-		_session().commit_summary(false)
+		_session().finish()
+		var score := _session().act_score
+		var outcome: Dictionary = score.outcome if score != null else {}
 		# The early summary already records this end. Keep the basic event only when the summary
 		# was skipped, so the story never holds the same end twice.
-		if context.summary.summary.is_empty() and context.memory != null:
+		if (score == null or score.skipped) and context.memory != null:
 			context.memory.note(MEMORY.NoteKind.CANCELLED, _session().pony_id, _session().event_id)
 		context.dialogue.end_act(_session().event_id, true)
 		exit.restore_begin()
@@ -133,7 +135,7 @@ func cancel() -> void:
 				return context.memory != null \
 					and context.memory.line_state(end_early_key) == MEMORY.LineState.SPEAKING)
 			var key: String = context.dialogue.reaction_line(MEMORY.Reaction.END_EARLY, act_id,
-				ACT_SUMMARY.early_end_prompt(context.summary.summary), valid)
+				ACT_SUMMARY.early_end_prompt(outcome), valid)
 			end_early_key = key
 			if not key.is_empty():
 				var now := _session().clock_s()
@@ -143,7 +145,7 @@ func cancel() -> void:
 			# for the same act, even when the roll chose silence. A skipped summary must not
 			# clear an older act's pending reminder.
 			var history: Dictionary = WORLD.mods().state(ACT_HISTORY.MOD_ID).rows
-			if not context.summary.summary.is_empty() \
+			if not outcome.is_empty() \
 					and ACT_HISTORY.mark_announced(history, _session().pony_id, "complaint"):
 				WORLD.mods().save()
 	elif _session().state == State.AFTERGLOW:

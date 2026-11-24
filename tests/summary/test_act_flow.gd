@@ -1,6 +1,7 @@
 extends "res://mods/unfplap/tests/support/suite.gd"
-## Act-history wiring that can be checked without a live world: the runtime commits one
-## summary, the afterglow HUD carries it, and the snapshot uses the action counters.
+## Act-history wiring that can be checked without a live world: the summary scores a hand-built
+## snapshot, commits one history row, her impression and the peak, and the afterglow HUD carries
+## the act's verdict.
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/summary/test_act_flow.gd
 
@@ -9,10 +10,10 @@ const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const HANDLES := preload("res://mods/unfplap/world/handles.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const SUMMARY := preload("res://mods/unfplap/summary/api.gd")
+const ACT_METER := preload("res://mods/unfplap/shared/act_meter.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
 const MEMORY := preload("res://mods/unfplap/memory/api.gd")
 const HUD_LINES := preload("res://mods/unfplap/hud/lines.gd")
-
 
 
 class FakeMods extends "res://mods/unfplap/tests/support/fakes/fake_mods.gd":
@@ -36,8 +37,14 @@ class FakeImpressions extends "res://mods/unfplap/tests/support/fakes/fake_impre
 	pass
 
 
-class FakePeakSink extends MEMORY:
+class FakeMemory extends MEMORY:
+	var impressions: Array = []
 	var peaks: Array = []
+
+	func commit(impression: MEMORY.Impression) -> void:
+		impressions.append(impression)
+		# The real service keeps the game-facing writes, so the suite sees the impression and event.
+		super.commit(impression)
 
 	func record_peak(peak: MEMORY.Peak) -> void:
 		peaks.append(peak)
@@ -54,8 +61,51 @@ func _hud_view(runtime: Node) -> RefCounted:
 	return runtime.act.facts()
 
 
+## One act's snapshot with a clean outcome; the ending is the route's. Every value the scorer and
+## the peak read is set, so a check that changes one names exactly what it changes.
+func _snapshot(ending: SUMMARY.ActSnapshot.Ending) -> SUMMARY.ActSnapshot:
+	var out := SUMMARY.ActSnapshot.new("rarity", "intimacy_test", ending)
+	out.seconds = 90.0
+	out.act_spoken_at = 5.0
+	out.preferences = {"intensity": "firm", "pattern": "steady", "talk": [], "touch": [],
+		"dislikes": [], "tolerance": "normal"}
+	out.form_reveal = false
+	out.meter = ACT_METER.new()
+	out.meter.thrusts = 10
+	out.meter.pony_climaxes = 1
+	out.meter.intensity_total = 5
+	out.meter.intensity_right = 5
+	out.meter.pattern_total = 5
+	out.meter.pattern_right = 5
+	out.meter.peak_satisfaction = 95.0
+	out.meter.both_matches = 6
+	out.meter.player_talk = "you are perfect"
+	return out
+
+
+## The same act, cut short: no time and no real thrusts.
+func _short_snapshot() -> SUMMARY.ActSnapshot:
+	var out := _snapshot(SUMMARY.ActSnapshot.Ending.COMPLETE)
+	out.seconds = 1.0
+	out.meter.thrusts = 0
+	return out
+
+
+## The verdict the presentation reads, as the act's funnel would have stored it.
+func _verdict(outcome: Dictionary) -> SUMMARY.ActScore:
+	var out := SUMMARY.ActScore.new()
+	out.pony_id = "rarity"
+	out.event_id = "intimacy_test"
+	out.outcome = outcome
+	return out
+
+
 func run() -> void:
-	_check_summary_shapes()
+	var good_outcome := {
+		"hud": "Great · she felt adored",
+		"thought": "He gave me what I needed; I felt wanted.",
+		"positive": true, "reward": true, "grade": "great",
+	}
 	var runtime: Node = RUNTIME.new()
 	var body := Node3D.new()
 	runtime.add_child(body)
@@ -66,11 +116,7 @@ func run() -> void:
 	runtime.act.pose_id = CATALOG.MISSIONARY
 	runtime.act.snapshot_settings()
 	runtime.act.context.readiness.pony_climaxes = 2
-	runtime.act.context.summary.summary = {
-		"hud": "Great · she felt adored",
-		"thought": "He gave me what I needed; I felt wanted.",
-		"positive": true, "reward": true, "grade": "great",
-	}
+	runtime.act.act_score = _verdict(good_outcome)
 	check(HUD_LINES.cue_line_for(_hud_view(runtime), true).contains("Great"),
 		"missionary afterglow cue shows the summary")
 	runtime.act.context.afterglow.beat = "You are warm and quiet."
@@ -90,129 +136,105 @@ func run() -> void:
 		"standing afterglow readiness line shows the summary")
 	check(HUD_LINES.readiness_line_for(_hud_view(runtime), false).contains("Great"),
 		"the afterglow summary ignores the readouts toggle")
+	runtime.act.act_score = null
+	check(HUD_LINES.readiness_line_for(_hud_view(runtime), true).is_empty(),
+		"an unscored act shows no summary line")
+	runtime.act.act_score = _verdict(good_outcome)
 	runtime.act._set_state(2) # ACTIVE
 	check(not HUD_LINES.readiness_line_for(_hud_view(runtime), true).is_empty(),
 		"active readiness line still works")
 	runtime.free()
 
-	# The snapshot must carry the per-act counters the pure scorer expects.
+	# The act's snapshot must carry the meter the pure scorer expects and the route's ending.
 	var probe: Node = RUNTIME.new()
 	root.add_child(probe)
-	probe.act.context.readiness.act_touch_counts = {"smack": 2}
-	probe.act.context.readiness.act_touch_dislikes = {"smack": 2}
-	probe.act.context.readiness.act_talk_dislikes = 1
-	probe.act.context.readiness.act_player_lines = 0
-	probe.act.context.readiness.act_thrusts = 5
-	probe.act.context.readiness.act_intensity_total = 4
-	probe.act.context.readiness.act_intensity_right = 3
-	probe.act.context.readiness.act_pattern_total = 3
-	probe.act.context.readiness.act_pattern_right = 1
-	probe.act.context.readiness.act_liked_touch = 0
-	probe.act.context.readiness.act_liked_talk = 0
+	var readiness: Variant = probe.act.context.readiness
+	readiness.act_touch_counts = {"smack": 2}
+	readiness.act_touch_dislikes = {"smack": 2}
+	readiness.act_talk_dislikes = 1
+	readiness.act_player_lines = 0
+	readiness.act_thrusts = 5
+	readiness.act_intensity_total = 4
+	readiness.act_intensity_right = 3
+	readiness.act_pattern_total = 3
+	readiness.act_pattern_right = 1
+	readiness.act_liked_touch = 0
+	readiness.act_liked_talk = 0
 	probe.act.ended_early = false
-	probe.act.context.readiness.pony_climaxes = 1
+	readiness.pony_climaxes = 1
 	probe.act._act_seconds = 90.0
-	var inputs: SUMMARY.Inputs = probe.act.context.summary.summary_inputs(
-		probe.act.act_input().as_inputs(probe.act.context.readiness))
-	check(inputs.thrusts == 5, "snapshot carries real thrusts")
-	check(int((inputs.touch_dislikes as Dictionary).get("smack", 0)) == 2,
+	var snapshot: SUMMARY.ActSnapshot = probe.act.view.summary_snapshot(probe.act)
+	check(snapshot.meter.thrusts == 5, "snapshot carries real thrusts")
+	check(int((snapshot.meter.touch_dislikes as Dictionary).get("smack", 0)) == 2,
 		"snapshot carries disliked touch kinds")
-	check(inputs.talk_dislikes == 1, "snapshot carries disliked talk")
-	check(inputs.player_lines == 0, "snapshot carries player lines")
-	check(inputs.pattern_right == 1, "snapshot carries pattern matches")
+	check(snapshot.meter.talk_dislikes == 1, "snapshot carries disliked talk")
+	check(snapshot.meter.player_lines == 0, "snapshot carries player lines")
+	check(snapshot.meter.pattern_right == 1, "snapshot carries pattern matches")
+	check(is_equal_approx(snapshot.seconds, 90.0), "snapshot carries the act seconds")
+	check(int(snapshot.ending) == SUMMARY.ActSnapshot.Ending.COMPLETE,
+		"an act that ended no way early is complete")
+	probe.act.ended_early = true
+	check(int(probe.act.view.summary_snapshot(probe.act).ending) == SUMMARY.ActSnapshot.Ending.EARLY,
+		"a cancel is the early ending")
+	probe.act.ended_early = false
+	probe.act.stopped_by_her = true
+	check(int(probe.act.view.summary_snapshot(probe.act).ending) == SUMMARY.ActSnapshot.Ending.STOPPED,
+		"her stop is the stopped ending")
 	probe.free()
 
+	_check_score()
 	_check_commit()
-	_check_peak_commit()
 
 	if failures == 0:
 		print("ACT_FLOW_PASS")
 	finish()
 
 
-func _check_summary_shapes() -> void:
-	var main := FakeMain.new()
-	root.add_child(main)
+## `score` reads a snapshot and writes nothing: a clean act, a bad act, the two end routes and a
+## skipped act, each from a hand-built snapshot.
+func _check_score() -> void:
 	var summary := SUMMARY.new()
-	var gathered: Dictionary = {
-		"main": main,
-		"pony_id": "rarity",
-		"event_id": "intimacy_test",
-		"preferences": {"tolerance": "forgiving", "touch": ["cheek"]},
-		"seconds": 42.5,
-		"thrusts": 7,
-		"pony_climaxes": 2,
-		"talk_liked": 1,
-		"talk_dislikes": 0,
-		"touches_liked": 2,
-		"touch_dislikes": {"smack": 1},
-		"player_lines": 3,
-		"intensity_total": 6,
-		"intensity_right": 5,
-		"pattern_total": 4,
-		"pattern_right": 3,
-		"ended_early": false,
-		"stopped_by_her": true,
-	}
-	var built := summary.summary_inputs(SUMMARY.Inputs.from_dict(gathered))
-	check(is_equal_approx(built.seconds, 42.5), "the input keeps the act seconds")
-	check(built.thrusts == 7, "the input keeps the real thrusts")
-	check(int((built.touch_dislikes as Dictionary).get("smack", 0)) == 1,
-		"the input keeps the disliked touch kinds")
-	check(built.tolerance == "forgiving",
-		"the tolerance comes from the gathered preferences")
-	check(built.stopped_by_her, "the input keeps the partner stop")
-	check(not built.forced, "a missing forced flag reads false")
-	var wrapped := summary.summary_context(SUMMARY.Inputs.from_dict(gathered))
-	check(wrapped.pony_id == "rarity" and wrapped.event_id == "intimacy_test",
-		"the context keeps the ids")
-	check(wrapped.inputs.to_dict().has("touch_dislikes"),
-		"the context wraps the built inputs")
-	main.free()
+	var good := summary.score(_snapshot(SUMMARY.ActSnapshot.Ending.COMPLETE))
+	check(not good.skipped, "a clean act is not skipped")
+	check(not good.outcome.is_empty(), "a scored act keeps the scorer's record")
+	check(str(good.outcome.get("grade", "")) == "good", "a clean act scores good")
+	check(good.pony_id == "rarity" and good.event_id == "intimacy_test",
+		"the score keeps the act's identity")
+	check(good.meter != null and good.meter.thrusts == 10, "the score keeps the act's meter")
+
+	var bad_snapshot := _snapshot(SUMMARY.ActSnapshot.Ending.COMPLETE)
+	bad_snapshot.preferences = {"intensity": "firm", "pattern": "steady", "talk": [],
+		"touch": ["caress"], "dislikes": ["smack"], "tolerance": "normal"}
+	bad_snapshot.meter.pony_climaxes = 0
+	bad_snapshot.meter.touches_liked = 0
+	bad_snapshot.meter.touch_dislikes = {"smack": 3}
+	bad_snapshot.meter.intensity_right = 0
+	bad_snapshot.meter.pattern_right = 0
+	var bad := summary.score(bad_snapshot)
+	check(str(bad.outcome.get("grade", "")) == "bad", "disliked handling scores bad")
+	check(bool(bad.outcome.get("severe", false)), "repeated disliked handling is severe")
+	check(int(bad.outcome.get("romance", 0)) == -1, "a bad act gives no romance")
+
+	var short := summary.score(_short_snapshot())
+	check(short.skipped, "an act that was too short is skipped")
+	check(short.outcome.is_empty(), "a skipped act keeps no record")
+	check(short.meter != null and short.meter.thrusts == 0, "the skipped score still carries its meter")
+
+	var early := summary.score(_snapshot(SUMMARY.ActSnapshot.Ending.EARLY))
+	check(bool(early.outcome.get("early", false)), "an early end is scored as one")
+	check("ended_early" in (early.outcome.get("reasons", []) as Array),
+		"the early end is one of its reasons")
+
+	var stopped := summary.score(_snapshot(SUMMARY.ActSnapshot.Ending.STOPPED))
+	check(bool(stopped.outcome.get("stopped", false)), "her stop is scored as one")
+	check(str(stopped.outcome.get("grade", "")) == "bad", "her stop is a bad act")
+	check(bool(stopped.outcome.get("severe", false)), "her stop is severe")
+	check(int(stopped.outcome.get("romance", 0)) == -1, "her stop gives no romance")
 	summary.free()
 
 
-## The peak memory is written once per act from the committed summary, with the act's exchange.
-func _check_peak_commit() -> void:
-	var game := FakeGame.new()
-	root.add_child(game)
-	var sink := FakePeakSink.new()
-	root.add_child(sink)
-	var main := FakeMain.new()
-	main.game = game
-	WORLD.bind_world(main.game)
-	main.memory = sink
-	root.add_child(main)
-	var summary := SUMMARY.new()
-	summary.wire(sink, null, null)
-	check(not summary.peak_recorded, "the peak flag starts clear")
-	summary.summary = {"positive": true, "grade": "good"}
-	var context := SUMMARY.Context.new()
-	context.pony_id = "rarity"
-	context.event_id = "intimacy_test"
-	context.satisfaction = 95.0
-	context.both_matches = 6
-	context.dislikes = 0
-	context.liked_touch = 1
-	context.liked_talk = 0
-	context.player_talk = "you are perfect"
-	context.her_at = 10.0
-	context.her_line = "I know."
-	summary.record_peak_memory(context, 5.0)
-	check(sink.peaks.size() == 1, "a peak act is stored once")
-	if not sink.peaks.is_empty():
-		var peak: MEMORY.Peak = sink.peaks[0]
-		check(peak.text.contains("you are perfect") and peak.text.contains("I know."),
-			"the peak quotes the act's exchange")
-		check(peak.score > 0.0, "the peak keeps its score")
-	summary.record_peak_memory(SUMMARY.Context.new(), 0.0)
-	check(sink.peaks.size() == 1, "the peak is stored once per act")
-	main.free()
-	game.free()
-	sink.free()
-	summary.free()
-
-
+## `commit` writes the history row, her impression and the peak once, and nothing at all for a
+## skipped act.
 func _check_commit() -> void:
 	var mods := FakeMods.new()
 	var existing: Node = root.get_node_or_null("Mods")
@@ -230,70 +252,73 @@ func _check_commit() -> void:
 	root.add_child(impressions)
 	var main := FakeMain.new()
 	main.game = game
-	WORLD.bind_world(main.game)
-	main.memory = MEMORY.new()
-	var memory: Node = main.memory
 	root.add_child(main)
-	var world := HANDLES.new()
-	world.memory = memory
-	var runtime: Node = RUNTIME.new(null, world)
-	root.add_child(runtime)
-	runtime.act.pony_id = "rarity"
-	runtime.act.pony_id = "rarity"
-	runtime.act.display_name = "Rarity"
-	runtime.act.event_id = "intimacy_test"
-	runtime.act.preferences = {"intensity": "firm", "pattern": "steady", "talk": [],
-		"touch": [], "dislikes": []}
-	runtime.act._act_seconds = 90.0
-	runtime.act.context.readiness.act_thrusts = 10
-	runtime.act.context.readiness.pony_climaxes = 1
-	runtime.act.context.readiness.act_intensity_total = 5
-	runtime.act.context.readiness.act_intensity_right = 5
-	runtime.act.context.readiness.act_pattern_total = 5
-	runtime.act.context.readiness.act_pattern_right = 5
-	runtime.act.context.readiness.act_player_lines = 0
-	runtime.act.context.readiness.act_liked_talk = 0
-	runtime.act.context.readiness.act_liked_touch = 0
-	runtime.act.context.readiness.act_touch_dislikes = {}
-	runtime.act.ended_early = false
-	runtime.act.commit_summary(true)
-	check(not (runtime.act.context.summary.summary as Dictionary).is_empty(), "the runtime commits one summary")
-	check(str((runtime.act.context.summary.summary as Dictionary).get("grade", "")) == "good",
-		"a clean act summary is good")
+	WORLD.bind_world(main.game)
+	var memory := FakeMemory.new()
+	root.add_child(memory)
+	main.memory = memory
+	var summary := SUMMARY.new()
+	summary.wire(memory)
+
+	var good := summary.score(_snapshot(SUMMARY.ActSnapshot.Ending.COMPLETE))
+	summary.commit(good, SUMMARY.Exchange.new(10.0, "I know."))
 	check(mods.saves >= 1, "the summary is saved to the mod state")
 	var section: Dictionary = mods.data.get("unfplap", {})
 	var rows: Dictionary = section.get("act_history", {})
 	check(rows.has("rarity"), "the history row is written")
 	check(int((rows.get("rarity", {}) as Dictionary).get("acts", 0)) == 1,
 		"the history row counts the act once")
-	check(impressions.calls.size() == 1, "the grade-aware impression is written once")
-	if not impressions.calls.is_empty():
-		check(int((impressions.calls[0]["data"] as Dictionary).get("romance", 0)) == 2,
-			"a good summary gives romance +2")
+	check(memory.impressions.size() == 1, "the grade-aware impression is written once")
+	if not memory.impressions.is_empty():
+		var impression: MEMORY.Impression = memory.impressions[0]
+		check(int(impression.romance) == 2, "a good summary gives romance +2")
+		check(int(impression.slot) == MEMORY.ImpressionSlot.ACT, "a full act keeps the act slot")
 	check(context.events.size() == 1, "the summary relationship event is written once")
-	runtime.act.commit_summary(true)
-	check(int((rows.get("rarity", {}) as Dictionary).get("acts", 0)) == 1,
-		"a second commit is a no-op")
-	check(impressions.calls.size() == 1, "a second commit writes no second impression")
+	check(memory.peaks.size() == 1, "a clean act records one peak")
+	if not memory.peaks.is_empty():
+		var peak: MEMORY.Peak = memory.peaks[0]
+		check(peak.text.contains("you are perfect") and peak.text.contains("I know."),
+			"the peak quotes the act's exchange")
+		check(peak.score > 0.0, "the peak keeps its score")
 
-	# A partner stop forces a severe bad summary and a history cooldown.
-	runtime.act.stopped_by_her = true
-	runtime.act.context.summary.summary = {}
-	runtime.act.context.summary.summary_done = false
-	runtime.act.context.readiness.act_touch_dislikes = {"smack": 2}
-	runtime.act.context.readiness.act_talk_dislikes = 0
-	runtime.act.preferences = {"tolerance": "strict", "intensity": "soft", "pattern": "steady",
-		"talk": [], "touch": [], "dislikes": ["smack"]}
-	runtime.act.commit_summary(false)
-	var stopped_summary: Dictionary = runtime.act.context.summary.summary
-	check(str(stopped_summary.get("grade", "")) == "bad", "a partner stop is a bad summary")
-	check(bool(stopped_summary.get("severe", false)), "a partner stop is severe")
-	check(int(stopped_summary.get("romance", 0)) == -1, "a partner stop gives no romance")
-	var stopped_row: Dictionary = (rows.get("rarity", {}) as Dictionary)
-	check(float(stopped_row.get("stop_until", 0.0)) > Time.get_unix_time_from_system(),
-		"a partner stop writes a future sex cooldown")
-	check(ACT_HISTORY.blocks_start(stopped_row), "a partner stop blocks the next start")
-	runtime.free()
+	# The peak keeps only her line spoken after the last player turn.
+	var late := summary.score(_snapshot(SUMMARY.ActSnapshot.Ending.COMPLETE))
+	summary.commit(late, SUMMARY.Exchange.new(1.0, "Too early to count."))
+	if memory.peaks.size() == 2:
+		check(not (memory.peaks[1] as MEMORY.Peak).text.contains("Too early"),
+			"a line spoken before his turn is not the answer")
+
+	# An early end keeps the early slot; a stop writes the severe bad act.
+	summary.commit(summary.score(_snapshot(SUMMARY.ActSnapshot.Ending.EARLY)),
+		SUMMARY.Exchange.new(10.0, ""))
+	check(memory.impressions.size() == 3, "an early end writes its own impression")
+	if memory.impressions.size() == 3:
+		check(int((memory.impressions[2] as MEMORY.Impression).slot)
+			== MEMORY.ImpressionSlot.ACT_EARLY, "an early end keeps the early slot")
+	var stopped := summary.score(_snapshot(SUMMARY.ActSnapshot.Ending.STOPPED))
+	summary.commit(stopped, SUMMARY.Exchange.new(10.0, ""))
+	check(memory.impressions.size() == 4, "her stop writes its own impression")
+	if memory.impressions.size() == 4:
+		check(str((memory.impressions[3] as MEMORY.Impression).mood) == "annoyed",
+			"her stop writes the stopped mood")
+		check(int((memory.impressions[3] as MEMORY.Impression).slot)
+			== MEMORY.ImpressionSlot.ACT_EARLY, "her stop keeps the early slot")
+
+	# A skipped act writes nothing at all.
+	var written := memory.impressions.size()
+	var peaks := memory.peaks.size()
+	var saves := mods.saves
+	var events := context.events.size()
+	var short := summary.score(_short_snapshot())
+	summary.commit(short, SUMMARY.Exchange.new(10.0, ""))
+	check(memory.impressions.size() == written and memory.peaks.size() == peaks,
+		"a skipped act writes no impression and no peak")
+	check(mods.saves == saves and context.events.size() == events,
+		"a skipped act saves nothing and writes no event")
+	check(ACT_HISTORY.blocks_start(rows.get("rarity", {})),
+		"her stop blocks the next start")
+
+	summary.free()
 	main.free()
 	game.free()
 	context.free()

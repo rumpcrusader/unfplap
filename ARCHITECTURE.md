@@ -89,6 +89,18 @@ prefer delegation over inherited public methods.
   `SETTINGS.act_snapshot(group)`; there are no default copies, no private settings module and no
   per-service cache. If a hot path regresses, improve the settings service.
 
+**No sentinel defaults.** A value the caller must supply has no initialiser: an empty id or a
+placeholder time that can reach storage or a comparison is a defect in the type, not a case in the
+reader. A default exists only where the default is the truth — `false`, an empty set, a zero count.
+GDScript zero-fills an uninitialised field, so "required" means a constructor parameter, and
+everything else is supplied by the type's one construction site.
+
+**A constructor exists to make an invalid object unrepresentable** — an identity that must exist, an
+enum that must be one of its values, a pair that is meaningless apart. A constructor that mirrors
+every field is not documentation: the fields carry their own names, a wide record is completed at
+its single construction site, and a test that sets every source value to a distinct one is the
+check.
+
 ## How services reach each other
 
 A service reaches another through typed injection or a preload of its facade; a host never hands it

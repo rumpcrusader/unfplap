@@ -15,6 +15,7 @@ const POSE_SESSION := preload("res://mods/unfplap/poses/api.gd")
 const HUD := preload("res://mods/unfplap/hud/api.gd")
 const READINESS := preload("res://mods/unfplap/readiness/api.gd")
 const SUMMARY := preload("res://mods/unfplap/summary/api.gd")
+const ACT_METER := preload("res://mods/unfplap/shared/act_meter.gd")
 const DIALOGUE := preload("res://mods/unfplap/dialogue/api.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 const FAKE_GATE := preload("res://mods/unfplap/tests/support/fakes/fake_act_gate.gd")
@@ -134,14 +135,25 @@ class FakeHud extends HUD:
 		statuses.append(text)
 
 
-## The summary commit's view seam: the act's collected values, no tree and no context.
+## The summary commit's view seam: the act's own values, one readiness read and the route's
+## ending, with no tree and no context.
 class FakeView extends RefCounted:
-	func summary_input(session: Variant) -> SUMMARY.ActInput:
-		var out := SUMMARY.ActInput.new()
-		out.pony_id = str(session.pony_id)
-		out.event_id = str(session.event_id)
+	var meter := ACT_METER.new()
+
+	func summary_snapshot(session: Variant) -> SUMMARY.ActSnapshot:
+		var ending := SUMMARY.ActSnapshot.Ending.COMPLETE
+		if session.stopped_by_her:
+			ending = SUMMARY.ActSnapshot.Ending.STOPPED
+		elif session.ended_early:
+			ending = SUMMARY.ActSnapshot.Ending.EARLY
+		var out := SUMMARY.ActSnapshot.new(str(session.pony_id), str(session.event_id), ending)
 		out.seconds = float(session.act_seconds())
+		out.preferences = session.preferences
+		out.meter = meter
 		return out
+
+	func summary_exchange() -> SUMMARY.Exchange:
+		return SUMMARY.Exchange.new(-1e9, "")
 
 
 ## The peak record's line read; the suite has no spoken line.
@@ -321,7 +333,7 @@ func _check_report() -> void:
 	context.readiness = readiness
 	context.summary = summary
 	context.dialogue = dialogue
-	summary.wire(null, readiness, dialogue)
+	summary.wire(null)
 	session.view = FakeView.new()
 	session.ticker = FakeTicker.new([])
 	session.pony_id = "chrysalis"
@@ -393,11 +405,10 @@ func _check_report() -> void:
 	readiness.pony_climaxes = 2
 	session.pose_id = "missionary"
 	session.advance_act_seconds(167.8)
-	summary.summary = {
-		"grade": "great", "romance": 2, "mood": "happy", "severe": false,
-		"early": false, "stopped": false, "reasons": [], "positive": true,
-	}
-	session.commit_afterglow()
+	var view: FakeView = session.view
+	view.meter.thrusts = 143
+	view.meter.pony_climaxes = 2
+	session.finish()
 	check_size(results, 1, "the normal end emits one result")
 	var result: Dictionary = results[0] if not results.is_empty() else {}
 	check_eq(_keys(result), RESULT_KEYS, "the result payload key surface")
@@ -422,39 +433,48 @@ func _check_report() -> void:
 	_check_string_array(result.get("forms"), "result.forms")
 	_check_string_array(result.get("stop_reasons"), "result.stop_reasons")
 
-	session.commit_afterglow()
+	session.finish()
 	check_size(results, 1, "a second commit emits no second result")
+	check(session.act_score != null and not bool(session.act_score.skipped),
+		"the session holds the act's verdict")
 
-	summary.reset_act()
-	summary.summary = {
-		"grade": "bad", "romance": -1, "mood": "annoyed", "severe": true,
-		"early": false, "stopped": true, "positive": false,
-		"reasons": ["stopped_by_her", "disliked_smack"],
-	}
 	session.reset_act()
+	check(session.act_score == null, "reset_act clears the verdict")
 	session.serial = 13
 	session.pose_id = "missionary"
 	session.event_id = "intimacy_chrysalis_13"
 	session.advance_act_seconds(42.0)
 	readiness.act_thrusts = 20
 	readiness.pony_climaxes = 1
+	session.preferences = {"tolerance": "strict", "intensity": "soft", "pattern": "steady",
+		"talk": [], "touch": [], "dislikes": ["smack"]}
+	view.meter.thrusts = 20
+	view.meter.pony_climaxes = 1
+	view.meter.touch_dislikes = {"smack": 2}
+	session.stopped_by_her = true
 	session.adopt_display_name(form, null)
-	session.commit_summary(false)
-	check_size(results, 2, "the early end emits one result")
+	session.finish()
+	check_size(results, 2, "her stop emits one result")
 	var early: Dictionary = results[1] if results.size() > 1 else {}
-	check_eq(early.get("stop_reasons"), ["stopped_by_her", "disliked_smack"],
+	check_eq(early.get("stop_reasons"), ["stopped_by_her", "disliked_smack", "severe_smack"],
 		"the summary's reasons are copied to the result")
-	check_eq(early.get("outcome"), {"romance": -1, "mood": "annoyed"},
+	check_eq(early.get("outcome"), {"romance": -1, "mood": "angry"},
 		"the stopped outcome is reported")
 	check_eq(early.get("forms"), ["fluttershy"],
 		"a new act starts its sequence from the form in use")
 
 	session.reset_act()
+	session.stopped_by_her = false
 	check(not bool(session._result_emitted), "reset_act clears the result guard")
 	check_empty(session._forms_taken, "reset_act clears the form sequence")
-	summary.reset_act()
-	session.commit_summary(false)
-	check_size(results, 2, "a skipped summary emits no result")
+	view.meter.thrusts = 0
+	view.meter.pony_climaxes = 0
+	view.meter.touch_dislikes = {}
+	session.preferences = {}
+	session.finish()
+	check(session.act_score != null and bool(session.act_score.skipped),
+		"an act with no time and no strokes is a skipped verdict")
+	check_size(results, 2, "a skipped act emits no result")
 
 	context.readiness = null
 	context.summary = null
@@ -477,7 +497,7 @@ func _check_form_sequence() -> void:
 	context.readiness = readiness
 	context.summary = summary
 	context.dialogue = dialogue
-	summary.wire(null, readiness, dialogue)
+	summary.wire(null)
 	session.view = FakeView.new()
 	session.ticker = FakeTicker.new([])
 	session.pony_id = "chrysalis"
@@ -489,10 +509,6 @@ func _check_form_sequence() -> void:
 	var form := BODY_FORM.BodyForm.new()
 	form.pony_id = "chrysalis"
 	form.form_name = "Chrysalis"
-	summary.summary = {
-		"grade": "great", "romance": 2, "mood": "happy", "severe": false,
-		"early": false, "stopped": false, "reasons": [], "positive": true,
-	}
 	session.adopt_display_name(form, null)
 	form.form_id = "fluttershy"
 	form.form_name = "Fluttershy"
@@ -503,28 +519,27 @@ func _check_form_sequence() -> void:
 	form.form_id = "rarity"
 	form.form_name = "Rarity"
 	session.adopt_display_name(form, null)
-	session.commit_summary(false)
+	session.advance_act_seconds(60.0)
+	var view: FakeView = session.view
+	view.meter.thrusts = 10
+	session.finish()
 	check_size(results, 1, "the literal sequence emits one result")
 	var data: Dictionary = results[0] if not results.is_empty() else {}
 	check_eq(data.get("forms"), ["chrysalis", "fluttershy", "chrysalis", "rarity"],
 		"the forms keep every change in order, repeats included")
 	check_eq(str(data.get("form_id", "")), "rarity", "the result form is the current form")
 
-	summary.reset_act()
 	session.reset_act()
 	session.serial = 22
 	session.event_id = "intimacy_chrysalis_22"
-	summary.summary = {
-		"grade": "good", "romance": 1, "mood": "relaxed", "severe": false,
-		"early": false, "stopped": false, "reasons": [], "positive": true,
-	}
 	form.form_id = "fluttershy"
 	form.form_name = "Fluttershy"
 	session.adopt_display_name(form, null)
 	form.form_id = ""
 	form.form_name = "Chrysalis"
 	session.adopt_display_name(form, null)
-	session.commit_summary(false)
+	session.advance_act_seconds(60.0)
+	session.finish()
 	check_size(results, 2, "the disguised start emits one result")
 	var disguised: Dictionary = results[1] if results.size() > 1 else {}
 	check_eq(disguised.get("forms"), ["fluttershy", "chrysalis"],

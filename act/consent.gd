@@ -146,10 +146,13 @@ func stop_with_her(reason: String) -> void:
 	if stop.is_empty():
 		return
 	var strict := bool(stop.get("strict", false))
-	session.commit_summary(false)
+	session.finish()
+	var score := session.act_score
+	var outcome: Dictionary = score.outcome if score != null else {}
 	# The stopped summary already says why. The basic event is the fallback when the summary was
 	# skipped, so one partner stop is never two memories.
-	if context.summary.summary.is_empty() and is_instance_valid(WORLD.world_root()) and context.memory != null:
+	if (score == null or score.skipped) and is_instance_valid(WORLD.world_root()) \
+			and context.memory != null:
 		context.memory.note(MEMORY.NoteKind.STOPPED, session.pony_id, session.event_id,
 			MEMORY.StopReason.WITHDREW)
 	if session.pose_family() == "bed":
@@ -157,7 +160,7 @@ func stop_with_her(reason: String) -> void:
 	context.dialogue.end_act(session.event_id, true)
 	exit.run(false)
 	exit.finalize(true)
-	finish_stop(strict, not context.summary.summary.is_empty())
+	finish_stop(strict, not outcome.is_empty())
 	LOG.debug("stop withdrew tier=%s distress=%.1f reason=%s strict=%s", [
 		str(stop.get("tolerance", "normal")), float(stop.get("distress", 0.0)),
 		reason, str(strict)])

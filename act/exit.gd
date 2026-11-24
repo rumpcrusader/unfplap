@@ -131,15 +131,15 @@ func reset_after_act() -> void:
 		return
 	session.reset_thrust_state()
 	context.afterglow.decay_satisfaction(context.readiness.satisfaction)
+	var outcome := _verdict()
 	var plan: AFTERGLOW.PostAct = context.afterglow.post_act(session.stopped_by_her,
 		context.readiness.satisfaction, session.aftercare_min,
-		not context.summary.summary.is_empty(),
-		bool(context.summary.summary.get("positive", false)))
+		not outcome.is_empty(), bool(outcome.get("positive", false)))
 	if plan.tail_tuck:
 		host.start_tail_tuck()
 	elif is_instance_valid(host.pony) and context.afterglow.start_aftercare(host.pony, plan):
 		context.face.ensure_bound(host.pony, host.node)
-		context.face.start_post_act(plan.face_context(context.summary.summary))
+		context.face.start_post_act(plan.face_context(outcome))
 
 
 ## Give the bed back: restore the pre-act scene and stand her; a bed act that ended well is
@@ -160,6 +160,11 @@ func _start_frame() -> String:
 	return str(POSE_SPECS.spec(session.pose_id).get("frame", ""))
 
 
+## The committed verdict the exit's post-act and rejoin decisions read; empty on a skip.
+func _verdict() -> Dictionary:
+	return session.act_score.outcome if session.act_score != null else {}
+
+
 ## The live act values the rejoin decides on, read fresh so an async path sees a new act or an
 ## ended session instead of the values from the call that started it.
 func _rejoin_wanted() -> bool:
@@ -169,7 +174,7 @@ func _rejoin_wanted() -> bool:
 		"state": session.state,
 		"player_pony": session.player_pony,
 		"headset": WORLD.headset_view(),
-		"summary": context.summary.summary,
+		"summary": _verdict(),
 		"satisfaction": context.readiness.satisfaction,
 		"aftercare_min": session.aftercare_min,
 	}))
@@ -185,12 +190,11 @@ func end_afterglow() -> void:
 	restore_begin()
 
 
-## Begin RESTORE: keep the peak memory, stop the act's work and hand the scene back to the pose's
-## release. The state change is the session's; this is its side-effect ledger.
+## Begin RESTORE: stop the act's work and hand the scene back to the pose's release. The state
+## change is the session's; this is its side-effect ledger.
 func restore_begin() -> void:
 	if session.state == State.IDLE or session.state == State.RESTORE:
 		return
-	session.record_peak_memory()
 	context.afterglow.cancel_close()
 	context.readiness.stop_auto()
 	context.dialogue.end_act(session.event_id, true)

@@ -163,7 +163,7 @@ func _compose() -> void:
 	camera.standing_anon = standing_anon
 	reactions.wire(_world.anatomy)
 	_face.wire(memory, readiness)
-	summary.wire(memory, readiness, dialogue)
+	summary.wire(memory)
 	dialogue.wire(memory)
 	# The act's own host, record, session and modules, in binding order.
 	_host = ACT_NODE.new()

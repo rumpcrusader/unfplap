@@ -406,7 +406,7 @@ func _set_memory(runtime: Node, memory: Node) -> void:
 	runtime.act.context.memory = memory
 	runtime.act.context.handover.memory = memory
 	runtime.act.context.dialogue.memory = memory
-	runtime.act.context.summary.memory = memory
+	runtime.act.context.summary.wire(memory)
 	runtime.act.context.face.memory = memory
 	runtime.act.context.afterglow.memory = memory
 
@@ -1005,8 +1005,8 @@ func _check_form_reveal() -> void:
 	if not memory.peaks.is_empty():
 		check(is_equal_approx(float(memory.peaks[0].score), policy.peak),
 			"the reveal peak uses the policy's score")
-	var values: SUMMARY.ActInput = runtime.act.act_input()
-	check(values.form_reveal, "the summary sees the reveal")
+	var values: SUMMARY.ActSnapshot = runtime.act.view.summary_snapshot(runtime.act)
+	check(values.form_reveal, "the summary snapshot sees the reveal")
 	# Once per act: a second ask while disguised again does nothing.
 	source.shape = "rarity"
 	source.true_requests = 0

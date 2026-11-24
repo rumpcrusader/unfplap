@@ -11,6 +11,7 @@ const WING := preload("res://mods/unfplap/poses/wing_control.gd")
 const PREF := preload("res://mods/unfplap/shared/preferences.gd")
 const HANDS := preload("res://mods/unfplap/hands/api.gd")
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
+const SUMMARY := preload("res://mods/unfplap/summary/api.gd")
 
 
 class Host extends RefCounted:
@@ -264,8 +265,10 @@ func run() -> void:
 	var ended_pony: Node3D = ended.pony
 	ended.act.context.readiness.satisfaction = 80.0
 	ended.act.aftercare_min = 10
-	ended.act.context.summary.summary = {"grade": "great", "positive": true, "reward": true,
+	var verdict := SUMMARY.ActScore.new()
+	verdict.outcome = {"grade": "great", "positive": true, "reward": true,
 		"severe": false, "early": false, "mood": "happy"}
+	ended.act.act_score = verdict
 	ended.act.exit.reset_after_act()
 	check(ended.act.context.afterglow.aftercare != null, "a healthy act starts the aftercare")
 	check(ended_pony.has_meta("sex_aftercare"), "the aftercare marks the pony")

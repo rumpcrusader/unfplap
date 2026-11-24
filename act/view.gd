@@ -129,8 +129,8 @@ func sync_hud(facts: ACT_FACTS, session: ACT_SESSION, max_climaxes: int,
 		cycle_heat: bool, pose_family: String) -> void:
 	var features: Dictionary = session.features if session.features is Dictionary else {}
 	var summary: Dictionary = {}
-	if context.summary != null and context.summary.summary is Dictionary:
-		summary = context.summary.summary
+	if session.act_score != null:
+		summary = session.act_score.outcome
 	var afterglow: Variant = context.afterglow
 	var anatomy: Variant = context.anatomy
 	var readiness: Variant = context.readiness
@@ -197,6 +197,9 @@ func reset_act_state(session: ACT_SESSION) -> void:
 
 
 func _face_values(session: ACT_SESSION) -> FACE.ActValues:
+	var outcome: Dictionary = {}
+	if session.act_score != null:
+		outcome = session.act_score.outcome
 	var values := FACE.ActValues.new()
 	values.state = session.state
 	values.pony_id = session.pony_id
@@ -204,7 +207,7 @@ func _face_values(session: ACT_SESSION) -> FACE.ActValues:
 	values.first_time = session.first_time
 	values.tolerance = str(session.preferences.get("tolerance", "normal"))
 	values.climax_mode = session.climax_mode
-	values.summary = BEAT.Summary.from_dict(context.summary.summary)
+	values.summary = BEAT.Summary.from_dict(outcome)
 	values.blush_arc = session.feature("blush_arc")
 	return values
 
@@ -281,14 +284,25 @@ func climax_line(session: ACT_SESSION) -> void:
 		context.readiness.pony_climaxes, session.snapshot.cue_reaction_max_age_s)
 
 
-func summary_input(session: ACT_SESSION) -> SUMMARY.ActInput:
-	var values := SUMMARY.ActInput.new()
-	values.pony_id = session.pony_id
-	values.event_id = session.event_id
-	values.preferences = session.preferences
-	values.seconds = session.act_seconds()
-	values.ended_early = session.ended_early
-	values.stopped_by_her = session.stopped_by_her
-	values.form_reveal = context.handover.reveal_done
-	values.act_spoken_at = session.act_spoken_at
-	return values
+## The one act snapshot the summary scores: her identity, the route that ended the act, the act's
+## own values and one readiness read. It is built once, at the verdict, so nothing else names a
+## counter.
+func summary_snapshot(session: ACT_SESSION) -> SUMMARY.ActSnapshot:
+	var ending := SUMMARY.ActSnapshot.Ending.COMPLETE
+	if session.stopped_by_her:
+		ending = SUMMARY.ActSnapshot.Ending.STOPPED
+	elif session.ended_early:
+		ending = SUMMARY.ActSnapshot.Ending.EARLY
+	var out := SUMMARY.ActSnapshot.new(session.pony_id, session.event_id, ending)
+	out.seconds = session.act_seconds()
+	out.act_spoken_at = session.act_spoken_at
+	out.preferences = session.preferences
+	out.form_reveal = context.handover.reveal_done
+	out.meter = context.readiness.act_output()
+	return out
+
+
+## Her last spoken line and when, taken with the snapshot so the summary keeps the act's own timing.
+func summary_exchange() -> SUMMARY.Exchange:
+	return SUMMARY.Exchange.new(context.dialogue.last_spoken_at(),
+		context.dialogue.last_spoken_line())

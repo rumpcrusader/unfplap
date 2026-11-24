@@ -102,7 +102,6 @@ func run(pose: String, bed_in: Variant, act_source: String, skip_presentation :=
 	context.consent.reset()
 	context.handover.reset_act()
 	host.end_tail_tuck()
-	context.summary.reset_act()
 	context.dialogue.prepare_vocal(session.pony_id)
 	context.afterglow.stop_decay()
 	_remember_talk_turn()

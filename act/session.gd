@@ -88,6 +88,8 @@ var cue_gap := 0.0
 var first_time := false
 var act_spoken_at := -1e9
 var ended_early := false
+## The one verdict this act produced; the presentation reads it across the afterglow.
+var act_score: SUMMARY.ActScore = null
 var cycle_heat := false
 var preserve_auto_shape := false
 var snapshot: SETTINGS.ActSnapshot:
@@ -280,6 +282,7 @@ func reset_act() -> void:
 	_act_seconds = 0.0
 	_forms_taken.clear()
 	_form_id = ""
+	act_score = null
 	_progress_due = false
 	_result_emitted = false
 	_last_state = State.IDLE
@@ -634,19 +637,21 @@ func prompt_note() -> String:
 func debug_context() -> Dictionary:
 	return view.debug_context(self)
 
-func act_input() -> SUMMARY.ActInput:
-	return view.summary_input(self)
-
-func commit_summary(real_act: bool) -> void:
-	context.summary.commit_act(act_input(), real_act)
+## The one verdict funnel: the act's snapshot is scored once, its consequences are committed, and
+## the verdict is kept here for the presentation. The afterglow entry, a cancel and a partner stop
+## are its only callers, so an act commits exactly once and never after its afterglow has ended.
+func finish() -> void:
+	if act_score != null or not is_instance_valid(context.summary):
+		return
+	var score := context.summary.score(view.summary_snapshot(self))
+	context.summary.commit(score, view.summary_exchange())
+	act_score = score
 	_emit_result_once()
 
-func record_peak_memory() -> void:
-	context.summary.record_act_peak(act_input())
 
-func commit_afterglow() -> void:
-	context.summary.commit_after_act(act_input(), display_name, serial, host.pony)
-	_emit_result_once()
+## The verdict's record as the presentation reads it; empty before the verdict and on a skip.
+func _outcome() -> Dictionary:
+	return act_score.outcome if act_score != null else {}
 
 
 ## One progress emission per frame at most: a scalar comparison, then a payload only on a change.
@@ -684,11 +689,11 @@ func _emit_progress_if_changed() -> void:
 	progress.emit(report.to_dict())
 
 
-## One result per act, only once the summary has been written; a forced or skipped act sends none.
+## One result per act, only once the act has a verdict; a skipped or never-scored act sends none.
 func _emit_result_once() -> void:
-	if _result_emitted or context.summary == null or not is_instance_valid(context.summary):
+	if _result_emitted or act_score == null:
 		return
-	var summary: Dictionary = context.summary.summary
+	var summary: Dictionary = act_score.outcome
 	if summary.is_empty():
 		return
 	var readiness := context.readiness
@@ -737,7 +742,13 @@ func begin_afterglow() -> void:
 	# Bed afterglow keeps only lean and caress; standing keeps its kiss.
 	if pose_family() != "standing":
 		context.kiss.end_lean_kiss()
-	commit_afterglow()
+	finish()
+	# The adults who can perceive the pair remember it here: the afterglow entry is the one moment
+	# this route reaches, and it still holds the scene the witness pass reads.
+	if is_instance_valid(WORLD.world_root()) and context.memory != null:
+		for row: MEMORY.Witness in context.memory.witnesses(pony_id, display_name, serial,
+				host.pony):
+			LOG.debug("witness %s", [row.to_dict()])
 	enter_afterglow()
 	context.handover.hint_tick()
 	context.handover.dispatch_event(BODY_CHANGE_POLICY.ActEvent.AFTERGLOW)
@@ -749,7 +760,7 @@ func begin_afterglow() -> void:
 	context.afterglow.set_act(pony_id, event_id)
 	context.afterglow.bind_view(context.pose.view())
 	var summary := AFTERGLOW_SUMMARY.new()
-	summary.fill(context.summary.summary)
+	summary.fill(_outcome())
 	context.afterglow.begin(summary)
 	context.readiness.clear_cues()
 	context.face.release_stare()
@@ -906,7 +917,7 @@ func rest_context() -> Dictionary:
 		"serial": serial,
 		"player_pony": player_pony,
 		"headset": WORLD.headset_view(),
-		"summary": context.summary.summary,
+		"summary": _outcome(),
 		"satisfaction": context.readiness.satisfaction,
 		"aftercare_min": aftercare_min,
 	}

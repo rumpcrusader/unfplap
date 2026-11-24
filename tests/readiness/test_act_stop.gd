@@ -209,7 +209,6 @@ func fixture(kind: String) -> Dictionary:
 	runtime.act.event_id = "intimacy_stop_test"
 	runtime.act.preferences = {"tolerance": kind, "intensity": "soft", "pattern": "steady",
 		"talk": [], "touch": [], "dislikes": ["smack"]}
-	runtime.act.context.summary.summary_done = false
 	runtime.act._set_state(2) # ACTIVE
 	runtime.act.pose_id = "standing"
 	runtime.act.snapshot_settings()
@@ -238,7 +237,7 @@ func run() -> void:
 	normal_runtime.act.context.consent.stop_with_her("smack")
 	check(int(normal_runtime.act.state) == 0, "a normal stop ends the act")
 	check(bool(normal_runtime.act.stopped_by_her), "a normal stop is flagged")
-	var normal_summary: Dictionary = normal_runtime.act.context.summary.summary
+	var normal_summary: Dictionary = normal_runtime.act.act_score.outcome
 	check(str(normal_summary.get("grade", "")) == "bad", "a normal stop commits a bad summary")
 	check(int(normal["bonds"].requests) == 0, "a normal stop does not request space")
 	check(int(normal["affection"].bucks) == 0, "a normal stop does not buck")
@@ -273,7 +272,7 @@ func run() -> void:
 	var strict_runtime: Node = strict["runtime"]
 	strict_runtime.act.context.consent.stop_with_her("smack")
 	check(bool(strict_runtime.act.stopped_by_her), "a strict stop is flagged")
-	var strict_summary: Dictionary = strict_runtime.act.context.summary.summary
+	var strict_summary: Dictionary = strict_runtime.act.act_score.outcome
 	check(str(strict_summary.get("mood", "")) == "angry", "a strict stop is angry")
 	var strict_calls: Array = (strict["impressions"] as Node).calls
 	check(strict_calls.size() == 1, "a strict stop writes one impression")

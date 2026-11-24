@@ -38,8 +38,9 @@ wires the camera's peers and the one act view once, and the runtime refreshes th
 phase (idle, physics after the pose tick and before the fan-out, render before the camera work, and
 `apply_camera_motion()`), and the modules read the camera fields
 (`lean_*`, `bob`, `lean`, `shot_lean_forward`, `free_camera_active`, `look_*`,
-`head_clearance`, `camera`, `bed_frame`, `viewport`) plus the `kiss_controller()`,
-`missionary_body()`, `authored_pose_asset()` and `mark_camera_basis_ready()` callbacks. The pose family, the contact kind
+`head_clearance`, `camera`, `viewport`) plus the `kiss_controller()`, `missionary_body()` and
+`mark_camera_basis_ready()` callbacks. The authored asset and the bed frame are the pose view's
+(`authored`, `bed_frame`). The pose family, the contact kind
 (`view.contact_kind`) and the presentation lean profile come from `facts.pose_view`; the camera
 does not read a start pose id or a contact mirror. The field and callback contract is
 `docs/act_facts.md`; a camera module that preloads `runtime.gd` or `main.gd` fails the static
@@ -132,7 +133,7 @@ and caches it by settings group and pose id, so a held debug pair does not snap.
 ## Missionary view
 
 The view is **Anon's eye position with the authored look path**. `camera/view.gd` mounts one
-`Camera3D` and copies `poses/missionary_anon.gd`'s `eye_transform()` every rendered frame — his posed
+`Camera3D` and copies the act body handle's node eye transform every rendered frame — his posed
 `Head` bone with the game's eye offset, cached by `apply()` for the frame before `HeadHide` collapses
 the head bone — so the position follows the player. The basis is the five authored shot bases
 `start`/`back`/`front`/`left`/`right` from the pose asset, blended by the same weights the old

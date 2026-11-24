@@ -388,8 +388,9 @@ point in the mouth contact and `Vector3.INF` otherwise; the act falls back to th
 it is not finite.
 
 The pose-owned oral turn supplies the mouth and opening points through the act session's
-`anatomy_mouth_point()` and `anatomy_opening()`. `poses/api.gd` owns the missionary Anon body;
-the act facts' `missionary_anon` callback reads it, so anatomy no longer carries that body. The
+`anatomy_mouth_point()` and `anatomy_opening()`. `poses/api.gd` owns the missionary Anon body and
+publishes it as its typed `PoseActBody` handle through the act facts, so anatomy no longer carries
+that body. The
 gaze target and pupil aim move to `camera/api.gd:gaze_point()` and `:aim_eyes()`, which read
 the same act body. VR scene construction moves to `vr/act.gd:attach()`, called by the session
 with the act's typed callbacks.

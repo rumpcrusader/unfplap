@@ -1,6 +1,7 @@
 extends "res://mods/unfplap/hands/port.gd"
 ## Composition root for the per-hand actions; it never places a palm.
 
+const POSES := preload("res://mods/unfplap/poses/api.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
@@ -286,10 +287,8 @@ func _hand_driver() -> Node:
 	if facts == null:
 		return null
 	if _pose_family() == "bed":
-		var body: Variant = facts.missionary_body()
-		if is_instance_valid(body) and body is Node:
-			return body as Node
-		return null
+		var body := facts.missionary_body() as POSES.PoseActBody
+		return body.node() if body != null and body.live() else null
 	var driver: Variant = facts.pose_driver()
 	if is_instance_valid(driver) and driver is Node:
 		return driver as Node

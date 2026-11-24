@@ -14,6 +14,7 @@ const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
 const CAMERA_VIEW := preload("res://mods/unfplap/camera/view.gd")
+const POSES := preload("res://mods/unfplap/poses/api.gd")
 const CAMERA_CONFIG := preload("res://mods/unfplap/camera/config.gd")
 const HANDS := preload("res://mods/unfplap/hands/api.gd")
 const KISS := preload("res://mods/unfplap/kiss/api.gd")
@@ -61,6 +62,17 @@ class FakeActBody extends Node:
 
 	func eye_transform() -> Variant:
 		return eye
+
+
+## The act-body handle's session: live while its node exists, and the node itself.
+class FakeActSession extends RefCounted:
+	var body: Node = null
+
+	func _act_body_live() -> bool:
+		return is_instance_valid(body)
+
+	func _act_body_node() -> Node:
+		return body
 
 
 class FakePlayer extends Node3D:
@@ -540,7 +552,10 @@ func _eye_fixture() -> Dictionary:
 	facts.viewport = root
 	facts.head_clearance = 0.0
 	var body := FakeActBody.new()
-	facts.missionary_anon = func() -> Variant: return body
+	var act_session := FakeActSession.new()
+	act_session.body = body
+	var body_handle := POSES.PoseActBody.new(act_session)
+	facts.missionary_anon = func() -> Variant: return body_handle
 	var kiss := FakeKiss.new()
 	facts.kiss = func() -> Variant: return kiss
 	_pose(facts, "bed")

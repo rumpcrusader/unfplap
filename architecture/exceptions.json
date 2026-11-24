@@ -33,14 +33,6 @@
       "expires": "next-review"
     },
     {
-      "from": "kiss/api.gd",
-      "to": "poses/missionary_anon.gd",
-      "kind": "re-export",
-      "owner": "kiss",
-      "reason": "the missionary pose cast is a separation-of-concerns reach-in; fix when the kiss takes a pose handle",
-      "expires": "next-review"
-    },
-    {
       "from": "readiness/api.gd",
       "to": "dialogue/utterance_scheduler.gd",
       "kind": "service-private",

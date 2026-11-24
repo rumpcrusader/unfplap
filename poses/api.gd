@@ -98,6 +98,38 @@ class PoseTail extends RefCounted:
 		_session._thrust_tail(weight)
 
 
+## The act's own Anon body, as consumers see it.
+class PoseActBody extends RefCounted:
+	var _session: Variant = null
+
+	func _init(session: Variant) -> void:
+		_session = session
+
+	## True while the adapter is installed and active.
+	func live() -> bool:
+		return _session._act_body_live()
+
+	func mouth_point() -> Vector3:
+		return _session._act_body_mouth_point()
+
+	func eye_point() -> Vector3:
+		return _session._act_body_eye_point()
+
+	## His placed avatar's world transform.
+	func transform() -> Transform3D:
+		return _session._act_body_transform()
+
+	func diag_row(face: Vector3, vulva: Vector3) -> String:
+		return _session._act_body_diag_row(face, vulva)
+
+	func refresh_palm() -> void:
+		_session._act_body_refresh_palm()
+
+	## The adapter node, or null outside a bed act body.
+	func node() -> Node:
+		return _session._act_body_node()
+
+
 ## The act's live view fields.
 var bed_node: Node3D = null
 ## True between a successful `begin()` and `release_pose()`. The runtime keeps one session per pony.
@@ -106,6 +138,8 @@ var _started := false
 var _pose_config: Dictionary = {}
 ## The standing tail handle consumers move; it no-ops while no tail is installed.
 var _tail_handle: PoseTail = null
+## The act-body handle consumers read; it reports nothing while no body is installed.
+var _act_body_handle: PoseActBody = null
 ## The one pose read model for the act, and the registry that validates the static spec table.
 var _view: POSE_VIEW
 var _registry: REGISTRY
@@ -141,7 +175,7 @@ var _oral_turn: ORAL_TURN
 var _face_driver: FACE_CONTACT
 ## The act's own Anon body on the `act_body` specs, or null on the player-body specs. The session
 ## creates, installs and frees it; the anatomy bridge only receives the opaque handle.
-var act_body: MISSIONARY_ANON = null
+var _act_body: MISSIONARY_ANON = null
 ## The authored profile table with a test seam: a synthetic profile can be added without touching
 ## the shipped const.
 var modifier_profiles: Dictionary = SPECS.MODIFIER_PROFILES.duplicate()
@@ -189,6 +223,7 @@ func _init(facts: ACT_FACTS = null) -> void:
 	_oral_turn = ORAL_TURN.new()
 	_face_driver = FACE_CONTACT.new()
 	_tail_handle = PoseTail.new(self)
+	_act_body_handle = PoseActBody.new(self)
 	_bind_oral()
 	_bind_face()
 
@@ -209,6 +244,11 @@ func _pony_id() -> String:
 ## The standing tail consumers move; a released pose's handle is a no-op.
 func tail() -> PoseTail:
 	return _tail_handle
+
+
+## The act's own Anon body; a released pose's handle reports not live.
+func act_body() -> PoseActBody:
+	return _act_body_handle
 
 
 ## The one pose read model the act view carries. `begin()` fills it and `release_pose()` clears it;
@@ -526,10 +566,10 @@ func _request_views() -> Array[String]:
 ## Why the bed face-sit cannot start right now, or "" when it can: the anatomy master, the live act
 ## body and the anatomy bridge, and no running kiss.
 func _face_ready() -> String:
-	if not SETTINGS.anatomy_on() or not is_instance_valid(act_body):
+	if not SETTINGS.anatomy_on() or not is_instance_valid(_act_body):
 		return "the anatomy is not available"
 	var anatomy_body: Variant = _facts.missionary_body() if _facts != null else null
-	if not is_instance_valid(anatomy_body):
+	if anatomy_body == null or not bool(anatomy_body.live()):
 		return "the anatomy is not available"
 	if _facts != null and bool(_facts.kiss_active):
 		return "a kiss is running"
@@ -675,8 +715,8 @@ func tick(delta: float) -> void:
 		pose_node.pose_config = _pose_config
 	_from_asset = completed_asset
 	_sync_view_asset()
-	if is_instance_valid(act_body):
-		act_body.set_pose_assets(completed_asset, completed_asset, 1.0)
+	if is_instance_valid(_act_body):
+		_act_body.set_pose_assets(completed_asset, completed_asset, 1.0)
 	_state = POSE_STATE.next(_state, "complete")
 	_view.pose_state = _state
 	_view.contact_kind = _spec_contact_kind(_target_spec)
@@ -826,8 +866,8 @@ func apply_live_settings() -> void:
 		_target_config.merge(fresh, true)
 		_oral_turn.write_config(_view)
 	pose_changed(_view)
-	if is_instance_valid(act_body):
-		act_body.refresh_palm()
+	if is_instance_valid(_act_body):
+		_act_body.refresh_palm()
 
 
 ## Drop the target snapshot and the running edge without touching the live pose or the view.
@@ -1288,28 +1328,28 @@ func _apply_anon_channel(view: POSE_VIEW) -> void:
 	if str(anon.get("mode", "")) != "act_body":
 		return
 	_install_act_body()
-	if not is_instance_valid(act_body):
+	if not is_instance_valid(_act_body):
 		return
 	if _run == null:
 		# Outside an edge the spec's profile is the hold and both assets are the live one.
 		var live: AUTHORED = live_authored()
-		act_body.set_pose_assets(live, live, 1.0)
-		act_body.pose_changed(str(anon.get("profile", "")), 1.0)
+		_act_body.set_pose_assets(live, live, 1.0)
+		_act_body.pose_changed(str(anon.get("profile", "")), 1.0)
 		return
 	var channel := _anon_channel()
 	match str(channel.get("kind", "hold")):
 		"blend":
-			act_body.set_pose_assets(_from_asset, _target_asset,
+			_act_body.set_pose_assets(_from_asset, _target_asset,
 				clampf(view.weight, 0.0, 1.0))
-			act_body.set_weight(clampf(view.weight, 0.0, 1.0))
+			_act_body.set_weight(clampf(view.weight, 0.0, 1.0))
 		"switch":
 			var switched := str(channel.get("profile", ""))
 			if switched.is_empty():
 				switched = str(channel.get("set", ""))
 			if switched.is_empty():
 				switched = str(anon.get("profile", ""))
-			act_body.set_pose_assets(_target_asset, _target_asset, 1.0)
-			act_body.pose_changed(switched, 1.0)
+			_act_body.set_pose_assets(_target_asset, _target_asset, 1.0)
+			_act_body.pose_changed(switched, 1.0)
 		_:
 			# A hold keeps the adapter's current profile, weight and asset pair.
 			pass
@@ -1322,34 +1362,55 @@ func _act_body_wanted(view: POSE_VIEW) -> bool:
 	return not _facts.player_pony and not _facts.headset_view
 
 
-## The live act body, or null. The pose service owns it; camera, hands and kiss read it here.
-func act_body_handle() -> Node:
-	return act_body if is_instance_valid(act_body) else null
+## True while the act body is installed and its adapter is active.
+func _act_body_live() -> bool:
+	return is_instance_valid(_act_body) and bool(_act_body.get("active"))
 
 
 ## The act body's authored mouth point; INF when it is missing, inactive or non-finite.
-func act_body_face_point() -> Vector3:
-	if not is_instance_valid(act_body) or not bool(act_body.get("active")):
+func _act_body_mouth_point() -> Vector3:
+	if not _act_body_live():
 		return Vector3.INF
-	var value: Variant = act_body.mouth_point()
+	var value: Variant = _act_body.mouth_point()
 	return value if value is Vector3 and (value as Vector3).is_finite() else Vector3.INF
 
 
+## The act body's authored eye point; INF when it is missing, inactive or non-finite.
+func _act_body_eye_point() -> Vector3:
+	if not _act_body_live():
+		return Vector3.INF
+	var value: Variant = _act_body.eye_point()
+	return value if value is Vector3 and (value as Vector3).is_finite() else Vector3.INF
+
+
+## The act body's placed avatar transform, or the identity when no body is installed.
+func _act_body_transform() -> Transform3D:
+	if not is_instance_valid(_act_body):
+		return Transform3D.IDENTITY
+	var avatar: Variant = _act_body.get("avatar")
+	return (avatar as Node3D).global_transform if avatar is Node3D else Transform3D.IDENTITY
+
+
 ## The act body's debug row, or "" when no body is installed.
-func act_body_diag_row(face: Vector3, vulva: Vector3) -> String:
-	if not is_instance_valid(act_body):
+func _act_body_diag_row(face: Vector3, vulva: Vector3) -> String:
+	if not is_instance_valid(_act_body):
 		return ""
-	return str(act_body.diag_row(face, vulva))
+	return str(_act_body.diag_row(face, vulva))
 
 
-func refresh_act_body_palm() -> void:
-	if is_instance_valid(act_body):
-		act_body.refresh_palm()
+func _act_body_refresh_palm() -> void:
+	if is_instance_valid(_act_body):
+		_act_body.refresh_palm()
+
+
+## The act body's node, or null when none is installed.
+func _act_body_node() -> Node:
+	return _act_body if is_instance_valid(_act_body) else null
 
 
 ## The act's own Anon body, created on the runtime host. The pose service owns it and frees it.
 func _install_act_body() -> void:
-	if is_instance_valid(act_body):
+	if is_instance_valid(_act_body):
 		return
 	var host := get_parent()
 	if host == null or not _act_body_wanted(_view):
@@ -1362,18 +1423,18 @@ func _install_act_body() -> void:
 		body.queue_free()
 		return
 	body.set_pose_assets(live_authored(), live_authored(), 1.0)
-	act_body = body
+	_act_body = body
 
 
 ## Clear the bridge handle first, then restore and free the act body once. A transition never
 ## reaches this.
 func _release_act_body() -> void:
-	if not is_instance_valid(act_body):
-		act_body = null
+	if not is_instance_valid(_act_body):
+		_act_body = null
 		return
-	act_body.remove()
-	_drop(act_body)
-	act_body = null
+	_act_body.remove()
+	_drop(_act_body)
+	_act_body = null
 
 
 ## Detach a modifier before freeing it: `queue_free()` alone leaves it parented for the rest of the
@@ -1533,8 +1594,8 @@ func render_write(frame: RenderFrame) -> void:
 		return
 	if family != "bed":
 		return
-	if is_instance_valid(act_body) and has_frame(frame.bed_frame):
-		act_body.apply(frame.bed_frame, frame.body_scale)
+	if is_instance_valid(_act_body) and has_frame(frame.bed_frame):
+		_act_body.apply(frame.bed_frame, frame.body_scale)
 	var sk: Variant = pony.get("skeleton")
 	if is_instance_valid(pose_node) and sk is Skeleton3D:
 		apply_render(sk as Skeleton3D)

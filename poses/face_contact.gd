@@ -161,7 +161,7 @@ func _face_point() -> Vector3:
 	if facts == null:
 		return Vector3.INF
 	var body: Variant = facts.missionary_body()
-	if body == null or not bool(body.get("active")):
+	if body == null or not bool(body.live()):
 		return Vector3.INF
 	var value: Variant = body.mouth_point()
 	return value if value is Vector3 and (value as Vector3).is_finite() else Vector3.INF

@@ -6,6 +6,10 @@ var opening := Vector3.ZERO
 ## The act body stand-in reads as live so the face driver follows its mouth.
 var active := true
 
+## The pose service's act-body handle stand-in reads as live.
+func live() -> bool:
+	return active
+
 func mouth_point() -> Vector3:
 	return mouth
 

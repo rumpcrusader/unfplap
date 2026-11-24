@@ -457,7 +457,7 @@ func anatomy_opening() -> Vector3:
 
 ## The missionary body handle the pose service owns.
 func missionary_anon_body() -> Variant:
-	return context.pose.act_body_handle()
+	return context.pose.act_body()
 
 
 func anatomy_react() -> void:

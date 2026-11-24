@@ -10,6 +10,7 @@ const HANDS := preload("res://mods/unfplap/hands/api.gd")
 const KISS := preload("res://mods/unfplap/kiss/api.gd")
 const CAMERA_VIEW := preload("res://mods/unfplap/camera/view.gd")
 const CAMERA_CONFIG := preload("res://mods/unfplap/camera/config.gd")
+const POSES := preload("res://mods/unfplap/poses/api.gd")
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 const POSE_VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
@@ -200,11 +201,11 @@ func write_look_target() -> void:
 func gaze_point() -> Vector3:
 	if facts == null:
 		return Vector3.ZERO
-	var body: Variant = facts.missionary_body()
-	if is_instance_valid(body) and bool(body.active):
-		var point: Variant = body.eye_point()
-		if point is Vector3 and (point as Vector3).is_finite():
-			var aim: Vector3 = point
+	var body := facts.missionary_body() as POSES.PoseActBody
+	if body != null and body.live():
+		var point := body.eye_point()
+		if point.is_finite():
+			var aim := point
 			aim.y += SETTINGS.gaze_offset_mm_for(SETTINGS.pony_size_name()) / 1000.0
 			if view != null and view.has_method("head_look_point_at"):
 				return view.head_look_point_at(aim)

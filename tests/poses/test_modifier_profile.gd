@@ -123,7 +123,7 @@ func run() -> void:
 	# hold keeps the adapter. The adapter here is a fake so the channel contract is pinned without
 	# a game scene.
 	var fake_body := FakeActBody.new()
-	session.act_body = fake_body
+	session._act_body = fake_body
 	view.anon = {"mode": "act_body", "profile": "missionary"}
 	view.weight = 0.4
 	var run := FakeRun.new()
@@ -139,7 +139,7 @@ func run() -> void:
 	session._apply_anon_channel(view)
 	check(fake_body.profile == "authored", "the anon hold keeps the retargeted adapter")
 	session._run = null
-	session.act_body = null
+	session._act_body = null
 
 	session.release_pose()
 	check(session.pose_node == null and session.body_sway == null and session._tail == null,

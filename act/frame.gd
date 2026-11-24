@@ -477,10 +477,7 @@ func _place_act_body(plan: PlayerPlan) -> void:
 	var body_scale: Variant = host.pony.get("body_scale") if is_instance_valid(host.pony) else null
 	context.pose.render_write(POSE_SESSION.RenderFrame.of(frame as Transform3D,
 		float(body_scale) if body_scale != null else 1.0))
-	var body: Variant = context.pose.act_body
-	var avatar: Variant = body.get("avatar") if is_instance_valid(body) else null
-	if is_instance_valid(avatar) and avatar is Node3D:
-		plan.act_body_transform = (avatar as Node3D).global_transform
+	plan.act_body_transform = context.pose.act_body().transform()
 
 
 ## Apply a hand-made rig's plan (the pure solve path and the suites).

@@ -88,7 +88,8 @@ subscription, so it takes no world lifecycle hooks.
 
 `hands/api.gd` is the facade; the controller and the action modules read `shared/act_facts.gd`,
 never the runtime node. The controller takes the view in `_init(facts)`, the caress and the reach
-receive the same view, and the path selector and path base hold it. They read `state`,
+receive the same view, and the path selector and path base hold it. The bed act's hand driver is
+the pose service's `PoseActBody.node()`. They read `state`,
 `lean_forward`, `lean_side`, `size_name`, `size_scale`, `same_height_scale`, `physics_delta`,
 `presentation_config`, `profile`, `camera`, `pony`, `pose_view` and the
 `feature()`, `call_value()`, `pose_driver()`, `missionary_body()`, `touch()` and `smack_hit()`

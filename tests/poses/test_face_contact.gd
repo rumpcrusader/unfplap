@@ -16,6 +16,9 @@ class FakePoints:
 	var mouth_calls := 0
 	var opening_calls := 0
 
+	func live() -> bool:
+		return active
+
 	func mouth_point() -> Vector3:
 		mouth_calls += 1
 		return mouth

@@ -51,7 +51,7 @@ func log_settled() -> void:
 
 ## The posed Anon body's diagnostic row, or silence when the act has no Anon body.
 func pose_diag_row() -> String:
-	return context.pose.act_body_diag_row(context.camera.missionary_face_point(),
+	return context.pose.act_body().diag_row(context.camera.missionary_face_point(),
 		context.camera.missionary_vulva_point())
 
 

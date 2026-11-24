@@ -48,6 +48,19 @@ class FakeActBody extends "res://mods/unfplap/poses/missionary_anon.gd":
 	var assets: Array = []
 	var profiles: Array = []
 	var weights: Array = []
+	var palms := 0
+
+	func mouth_point() -> Vector3:
+		return Vector3(0.1, 0.2, 0.3)
+
+	func eye_point() -> Vector3:
+		return Vector3(0.4, 0.5, 0.6)
+
+	func diag_row(_face: Vector3, _vulva: Vector3) -> String:
+		return "row"
+
+	func refresh_palm() -> void:
+		palms += 1
 
 	func apply(_frame: Transform3D, _scale: float) -> void:
 		sink.append("anon")
@@ -121,6 +134,7 @@ func run() -> void:
 	_check_release_abort()
 	_check_pose_changed()
 	_check_anon_pair()
+	_check_act_body_handle()
 	_check_no_act_exit()
 
 	if failures == 0:
@@ -568,7 +582,7 @@ func _check_render_write() -> void:
 	var body := FakeActBody.new()
 	body.sink = order
 	root.add_child(body)
-	session.act_body = body
+	session._act_body = body
 	session._view.family = "bed"
 	session.render_write(_render(Transform3D.IDENTITY, 0.66))
 	check(order == ["anon"], "the render write places the Anon body")
@@ -577,7 +591,7 @@ func _check_render_write() -> void:
 	session.render_write(_render())
 	check(order.is_empty(), "a standing render write places no Anon body")
 	session._view.family = "bed"
-	session.act_body = null
+	session._act_body = null
 	session.render_write(_render())
 	check(order.is_empty(), "an absent act body is a no-op")
 	root.remove_child(body)
@@ -915,7 +929,7 @@ func _check_facesit_edge() -> void:
 	session._facts.anatomy_opening = points.opening
 	var previous_anatomy := SETTINGS.anatomy_mode.get_choice()
 	SETTINGS.anatomy_mode.set_choice("act")
-	session.act_body = FakeActBody.new()
+	session._act_body = FakeActBody.new()
 	session._facts.kiss_active = true
 	var kiss_refused: SESSION.PoseResult = session.request_pose(CATALOG.BED_FACESIT, "facesit")
 	check(kiss_refused.code == "refused" and kiss_refused.reason == "a kiss is running",
@@ -927,13 +941,13 @@ func _check_facesit_edge() -> void:
 		and anatomy_refused.reason == "the anatomy is not available",
 		"the anatomy master off refuses the face-sit")
 	SETTINGS.anatomy_mode.set_choice("act")
-	var body: Variant = session.act_body
-	session.act_body = null
+	var body: Variant = session._act_body
+	session._act_body = null
 	var body_refused: SESSION.PoseResult = session.request_pose(CATALOG.BED_FACESIT, "facesit")
 	check(body_refused.code == "refused"
 		and body_refused.reason == "the anatomy is not available",
 		"a missing act body refuses the face-sit")
-	session.act_body = body
+	session._act_body = body
 	session._state = VIEW.TRANSITIONING
 	var changing: SESSION.PoseResult = session.request_pose(CATALOG.BED_FACESIT, "facesit")
 	check(changing.code == "busy", "a changing pose refuses the face-sit")
@@ -1328,13 +1342,13 @@ func _check_pose_changed() -> void:
 	var session: SESSION = made["session"]
 	var view: RefCounted = session.view()
 	var body := FakeActBody.new()
-	session.act_body = body
+	session._act_body = body
 	session.pose_changed(view)
-	check(session.act_body == body, "a player-body spec keeps the service-owned body handle")
+	check(session._act_body == body, "a player-body spec keeps the service-owned body handle")
 	check(str(view.anon.get("mode", "")) == "player_body",
 		"the standing spec is the player body")
 	session.release_pose()
-	check(session.act_body == null and body.is_queued_for_deletion(),
+	check(session._act_body == null and body.is_queued_for_deletion(),
 		"the final release frees the act body once")
 	check(body.sink.has("remove"), "the released body restores the avatar")
 	_free_live(made)
@@ -1348,7 +1362,7 @@ func _check_anon_pair() -> void:
 	var session: SESSION = made["session"]
 	var view: RefCounted = session.view()
 	var body := FakeActBody.new()
-	session.act_body = body
+	session._act_body = body
 	view.anon = {"mode": "act_body", "profile": "missionary"}
 	var live: Variant = session.pose_node.authored
 	session.pose_changed(view)
@@ -1395,7 +1409,7 @@ func _check_anon_pair() -> void:
 	var switch_session: SESSION = switch_made["session"]
 	var switch_view: RefCounted = switch_session.view()
 	var switch_body := FakeActBody.new()
-	switch_session.act_body = switch_body
+	switch_session._act_body = switch_body
 	var switch_target := "synthetic_anon_switch"
 	_synthetic_spec(switch_session, switch_target)
 	_synthetic_edge(switch_session, CATALOG.STANDING, switch_target, {},
@@ -1416,6 +1430,33 @@ func _check_anon_pair() -> void:
 		and str(switch_body.profiles[0][0]) == "missionary_switch",
 		"an anon switch names the switched profile")
 	_free_live(switch_made)
+
+
+## The typed act-body handle: live, node, mouth, eye, row, palm and transform, and the empty state.
+func _check_act_body_handle() -> void:
+	var made := _live_session(CATALOG.MISSIONARY)
+	var session: SESSION = made["session"]
+	var body := FakeActBody.new()
+	body.active = true
+	session._act_body = body
+	var handle: SESSION.PoseActBody = session.act_body()
+	check(handle != null and handle.live(), "the act body handle reads live")
+	check(handle.node() == body, "the handle exposes the adapter node")
+	check(handle.mouth_point().is_equal_approx(Vector3(0.1, 0.2, 0.3)),
+		"the handle reads his mouth")
+	check(handle.eye_point().is_equal_approx(Vector3(0.4, 0.5, 0.6)), "the handle reads his eye")
+	check(handle.diag_row(Vector3.ZERO, Vector3.ZERO) == "row", "the handle reads his debug row")
+	check(handle.transform() == Transform3D.IDENTITY,
+		"a body without an avatar reports no transform")
+	handle.refresh_palm()
+	check(body.palms == 1, "the handle refreshes the palm")
+	body.active = false
+	check(not handle.live() and not handle.mouth_point().is_finite(),
+		"an inactive body reports not live and no mouth")
+	session._act_body = null
+	check(not handle.live() and handle.node() == null, "a released body's handle is empty")
+	body.free()
+	_free_live(made)
 
 
 ## A live edge aborted by `_end_session` frees the act body once and never calls an act exit from

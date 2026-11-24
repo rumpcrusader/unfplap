@@ -99,7 +99,6 @@ GAME_ALLOWED = (
 )
 REEXPORTS = (
     ("initiation/api.gd", "negotiation/adapter.gd"),
-    ("kiss/api.gd", "poses/missionary_anon.gd"),
 )
 NOTE_CASES = (
     ("noted type", "## A note.\nclass Noted:\n\tpass\n", 0),

@@ -641,8 +641,10 @@ it.
 The pose service owns the missionary `act_body` adapter (`poses/missionary_anon.gd`): it creates the
 node on the runtime host as `UnfplapMissionaryAnon`, installs it through the `anon` channel,
 binds the service's authored asset pair, applies it from `render_write()` and frees it once in
-`release_pose()`. Anatomy receives only the part handle from the act facts; it never creates, installs, applies,
-frees or re-parents the pose body. The adapter
+`release_pose()`. Consumers read the body through the pose service's `PoseActBody` handle
+(`live`, `mouth_point`, `eye_point`, `transform`, `diag_row`, `refresh_palm`, `node`); anatomy
+receives only the part handle from the act facts and never creates, installs, applies, frees or
+re-parents the pose body. The adapter
 exists only for a view whose `anon.mode` is `act_body` and desktop human Anon; the `player_body`
 specs (`standing`, `standing_test`) keep the runtime's standing Anon controller. The `anon` channel
 accepts `hold` (keep the adapter), `blend` (carry the live edge weight) and `switch` (name an

@@ -7,6 +7,7 @@ const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 const POSE_VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
+const POSES := preload("res://mods/unfplap/poses/api.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 const CANON_STANDING_CAMERA_DROP_M := 0.10
@@ -533,10 +534,13 @@ func _tick_eye(kiss: Variant, look: Vector3) -> void:
 		_make_missionary_view()
 	if not is_instance_valid(_missionary_view):
 		return
-	var body: Node = facts.missionary_body() if facts != null else null
-	if body == null:
+	var body := facts.missionary_body() as POSES.PoseActBody if facts != null else null
+	if body == null or not body.live():
 		return
-	var eye := WORLD.pony(body).eye_transform()
+	var node := body.node()
+	if node == null:
+		return
+	var eye := WORLD.pony(node).eye_transform()
 	if not eye.origin.is_finite():
 		return
 	var eye_basis := eye.basis.orthonormalized()

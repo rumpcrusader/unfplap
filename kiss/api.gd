@@ -491,8 +491,8 @@ func _target(view: Camera3D) -> Vector3:
 	# still belongs to: aim her at his posed mouth, never at that camera.
 	if _pose_family() == "bed":
 		var raw: Variant = facts.missionary_body()
-		var body := raw as POSES.MISSIONARY_ANON
-		if body != null and body.active:
+		var body := raw as POSES.PoseActBody
+		if body != null and body.live():
 			var mouth := body.mouth_point()
 			if mouth.is_finite():
 				return mouth

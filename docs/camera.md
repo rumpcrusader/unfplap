@@ -144,7 +144,7 @@ her face from the eye. The camera position is never taken from a shot. The lean 
 **`Spine`** joint: chest, neck, head, shoulders, arms and hands tilt as a unit, while his hips,
 thighs and legs stay on the authored pose and keep the thrust. W tips the hinge forward/down toward
 her, S back/up, and Q/E add the side lean. The view is written after the pose write in the same
-frame (`poses/api.gd:render_write()` calls the view's `write_eye()` last).
+frame (`poses/api.gd:write_render_frame()` runs, then the render path's `write_eye()`).
 
 Her gaze and the kiss target his authored eye and mouth (`eye_point()` / `mouth_point()`), never the
 game camera on his standing player rig; the game's eye modifier is pointed at the same target, with
@@ -202,7 +202,7 @@ and the game camera follows as his child. `camera/view.gd` applies the live lean
   line is measured in Anon's root frame, which terrain and the footstool may raise. A missing
   skeleton or head bone keeps the preset.
 - The base aim is the frame's: her authored target neck (`pony_neck1`/`pony_neck2` midpoint in
-  world space, after `apply_target_once()`) once at start, then the live lean on top. The next
+  world space, after `stance_neck_point()`) once at start, then the live lean on top. The next
   start is independent because the solve is canonical.
 - A presented body's entrance follows its `BodyForm`: `form.rig` supplies the rear anchor and scale
   and `form.body_scale` the live scale (`camera/api.gd:entrance_offset_for()` delegates the

@@ -125,7 +125,7 @@ A missing callback is a no-op, so a test can build the object without a runtime.
 | `set_mouth_viseme` | the oral edge's authored mouth viseme |
 | `act_actions_allowed` | the camera's action window |
 | `auto_panel_open` | the hold-X layer |
-| `view`, `missionary_anon` | the live act view and the pose-owned Anon body |
+| `view`, `missionary_anon` | the live act view and the pose service's `PoseActBody` handle |
 | `missionary_face_point` | her face point for the eye view's kiss lean |
 | `gaze_point` | the camera's missionary gaze target |
 | `free_look_rotation` | the debug view rotation |

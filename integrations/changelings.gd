@@ -7,11 +7,11 @@ extends "res://mods/unfplap/body_change/source.gd"
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const BODY_PROFILE := preload("res://mods/unfplap/shared/body_profile.gd")
 const CHANGELINGS_POLICY := preload("res://mods/unfplap/integrations/changelings_policy.gd")
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
-const PONIES := preload("res://mods/unfplap/ponies/service.gd")
-const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
-const BODY_CHANGE_SERVICE := preload("res://mods/unfplap/body_change/service.gd")
+const PONIES := preload("res://mods/unfplap/ponies/api.gd")
+const ELIGIBILITY := preload("res://mods/unfplap/eligibility/api.gd")
+const BODY_CHANGE_SERVICE := preload("res://mods/unfplap/body_change/api.gd")
 
 const MOD_ID := "changelings"
 const GROUP := "changelings_mod"

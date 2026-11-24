@@ -2,7 +2,7 @@
 
 ## Scope
 
-`afterglow/service.gd` owns the held post-act phase: the private afterglow beat, the standing
+`afterglow/api.gd` owns the held post-act phase: the private afterglow beat, the standing
 close window with its caress reward, the presentation row the phase asks for, and the reward's
 memory, history, face, heart and cue writes. It does not own the `AFTERGLOW` state or the phase's
 other presentation.
@@ -14,7 +14,7 @@ and the frame schedule (`act/tick.gd`) calls the facade's `phase_tick()` while t
 facade's reward writes through its bound `face`, `reactions` and `readiness` and the act ids
 `set_act()` records.
 
-`afterglow/service.gd` is the facade and the only module another system calls. The private records
+`afterglow/api.gd` is the facade and the only module another system calls. The private records
 are `afterglow/summary.gd` (the typed act summary the phase reads) and `afterglow/presentation.gd`
 (the typed presentation row); the phase has no other useful sub-module.
 
@@ -22,7 +22,7 @@ are `afterglow/summary.gd` (the typed act summary the phase reads) and `afterglo
 
 | Piece | Owns |
 |---|---|
-| `afterglow/service.gd` | the private beat, the close-window timer and its reward decision, the presentation row |
+| `afterglow/api.gd` | the private beat, the close-window timer and its reward decision, the presentation row |
 | `afterglow/summary.gd` | the typed summary the afterglow beat, the positive flag and the face context read |
 | `afterglow/presentation.gd` | the typed row: tail target and flicks, HUD state, wings |
 | `afterglow/aftercare.gd` | the ten-second hosted body language node |

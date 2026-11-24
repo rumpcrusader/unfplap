@@ -3,11 +3,11 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/stool/test_gate.gd
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
-const ACT_GATE := preload("res://mods/unfplap/act_gate/service.gd")
+const ACT_GATE := preload("res://mods/unfplap/act_gate/api.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const HANDLES := preload("res://mods/unfplap/world/handles.gd")
-const STOOL := preload("res://mods/unfplap/stool/service.gd")
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const STOOL := preload("res://mods/unfplap/stool/api.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const STORE := preload("res://world/inventory/inventory_store.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
 const PLAYER_HOST := preload("res://mods/unfplap/anatomy/player_host.gd")

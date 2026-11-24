@@ -5,7 +5,7 @@ extends Node
 ## Act readiness: her satisfaction, mood and cue, the stroke score, touch/talk input, the
 ## neglect-tolerance meter and the counters the act summary reads.
 
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
 const UTTERANCE_SCHEDULER := preload("res://mods/unfplap/dialogue/utterance_scheduler.gd")
 const AUTO_THRUST := preload("res://mods/unfplap/readiness/auto_thrust.gd")

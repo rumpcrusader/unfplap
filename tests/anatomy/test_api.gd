@@ -7,7 +7,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
 const ACT := preload("res://mods/unfplap/anatomy/act.gd")
 const CONTROLLER := preload("res://mods/unfplap/anatomy/controller.gd")
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 
 
 class FakeController extends "res://mods/unfplap/anatomy/controller.gd":

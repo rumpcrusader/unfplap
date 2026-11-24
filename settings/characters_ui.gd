@@ -3,7 +3,7 @@ extends RefCounted
 ## pill pieces so it does not read as a different panel. The entry hands it the live off-roster ids
 ## and a participation lookup.
 
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const ROWS := preload("res://mods/unfplap/settings/rows.gd")
 const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
 const PARTICIPATION := preload("res://mods/unfplap/shared/participation.gd")

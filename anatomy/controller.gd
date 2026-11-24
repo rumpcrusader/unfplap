@@ -2,7 +2,7 @@ extends Node
 ## integration: the runtime anatomy attachment. One per adult mare, including mares added by
 ## other mods, persistent across acts. The mesh and textures ship with the mod.
 
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 const GEOMETRY := preload("res://mods/unfplap/anatomy/geometry.gd")
 const SHAPES := preload("res://mods/unfplap/anatomy/shapes.gd")

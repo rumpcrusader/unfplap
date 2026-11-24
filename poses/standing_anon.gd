@@ -8,7 +8,7 @@ const HIP_THRUST := preload("res://mods/unfplap/poses/anon_hip_thrust.gd")
 const PALM_SCALE := preload("res://mods/unfplap/shared/hands_scale.gd")
 const CHEST_BACK := preload("res://mods/unfplap/poses/chest_back.gd")
 const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 const THRUST_MAX_M := 0.045

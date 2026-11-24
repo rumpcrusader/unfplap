@@ -3,7 +3,7 @@ extends RefCounted
 ## The handover's read side: act values, dialogue calls and scene reads. The runtime implements it,
 ## and the handover only calls it.
 
-const DIALOGUE := preload("res://mods/unfplap/dialogue/service.gd")
+const DIALOGUE := preload("res://mods/unfplap/dialogue/api.gd")
 
 
 @abstract func runtime() -> Node

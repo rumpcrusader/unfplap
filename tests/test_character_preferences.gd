@@ -5,7 +5,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 
 const PROFILES := preload("res://mods/unfplap/shared/character_preferences.gd")
 const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 
 ## The base game's young ponies and the two adults whose identity resource does not match
 ## their written profile. They must stay out of the preference roster.

@@ -412,7 +412,7 @@ static func build_settings_block(list: VBoxContainer, font_size: int, tab: Strin
 
 
 ## The aimed mare: the mare closest to the camera's aim ray, or a cradled prop in Anon's arms
-## while he is not in pony form. `debug_actions/service.gd` and the placement editor share this rule.
+## while he is not in pony form. `debug_actions/api.gd` and the placement editor share this rule.
 static func aimed_pony(view: Camera3D) -> Node:
 	if not is_instance_valid(WORLD.player_rig()) or not WORLD.ready():
 		return null

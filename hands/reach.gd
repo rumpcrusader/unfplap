@@ -6,7 +6,7 @@ const MODEL := preload("res://mods/unfplap/hands/model.gd")
 const PORT := preload("res://mods/unfplap/hands/port.gd")
 const FLANK_PATH := preload("res://mods/unfplap/hands/paths/standing.gd")
 const PLACEMENT := preload("res://mods/unfplap/hands/placement.gd")
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 ## Ease the hand from its rest frame onto the shoulder instead of teleporting it.

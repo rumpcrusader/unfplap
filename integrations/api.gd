@@ -7,9 +7,9 @@ extends "res://mods/unfplap/shared/service.gd"
 const PANTYHOSE := preload("res://mods/unfplap/integrations/pantyhose.gd")
 const CHANGELINGS := preload("res://mods/unfplap/integrations/changelings.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
-const BODY_CHANGE_SERVICE := preload("res://mods/unfplap/body_change/service.gd")
-const PONIES := preload("res://mods/unfplap/ponies/service.gd")
-const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
+const BODY_CHANGE_SERVICE := preload("res://mods/unfplap/body_change/api.gd")
+const PONIES := preload("res://mods/unfplap/ponies/api.gd")
+const ELIGIBILITY := preload("res://mods/unfplap/eligibility/api.gd")
 
 var _anatomy: ANATOMY = null
 var _body_change: BODY_CHANGE_SERVICE = null

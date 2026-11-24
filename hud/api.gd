@@ -5,7 +5,7 @@ extends CanvasLayer
 ## Desktop HUD: prompt and a bottom-left controls/cue list.
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const ACT_KEYS := preload("res://mods/unfplap/shared/act_keys.gd")

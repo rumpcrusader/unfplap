@@ -6,11 +6,11 @@ extends "res://mods/unfplap/shared/service.gd"
 
 const POLICY := preload("res://mods/unfplap/act_gate/policy.gd")
 const FACTS := preload("res://mods/unfplap/act_gate/facts.gd")
-const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
+const ELIGIBILITY := preload("res://mods/unfplap/eligibility/api.gd")
 const PARTICIPATION := preload("res://mods/unfplap/shared/participation.gd")
 const CONSENT := preload("res://mods/unfplap/shared/consent.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const CYCLE := preload("res://mods/unfplap/shared/cycle.gd")
 const CYCLE_STATE := preload("res://mods/unfplap/shared/cycle_state.gd")
 const CLEARANCE := preload("res://mods/unfplap/shared/clearance.gd")

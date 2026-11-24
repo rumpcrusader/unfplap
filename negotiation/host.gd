@@ -3,19 +3,19 @@ extends RefCounted
 
 const PROMPTS := preload("res://mods/unfplap/negotiation/prompts.gd")
 const ADAPTER := preload("res://mods/unfplap/negotiation/adapter.gd")
-const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
-const ACT_GATE := preload("res://mods/unfplap/act_gate/service.gd")
-const MEMORY := preload("res://mods/unfplap/memory/service.gd")
+const ELIGIBILITY := preload("res://mods/unfplap/eligibility/api.gd")
+const ACT_GATE := preload("res://mods/unfplap/act_gate/api.gd")
+const MEMORY := preload("res://mods/unfplap/memory/api.gd")
 const PRIVACY := preload("res://mods/unfplap/privacy/api.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
-const PONIES := preload("res://mods/unfplap/ponies/service.gd")
-const ACT_OWNER := preload("res://mods/unfplap/act_owner/service.gd")
+const PONIES := preload("res://mods/unfplap/ponies/api.gd")
+const ACT_OWNER := preload("res://mods/unfplap/act_owner/api.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
 const RELATIONSHIP_CUE := preload("res://mods/unfplap/shared/relationship_cue.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const POSE_OPTIONS := preload("res://mods/unfplap/shared/pose_options.gd")
-const SCENE_GATE := preload("res://mods/unfplap/scene_gate/service.gd")
+const SCENE_GATE := preload("res://mods/unfplap/scene_gate/api.gd")
 
 ## The longest player line the Anon-offer classifier reads; a longer line is not an ask.
 const MAX_LINE := 600

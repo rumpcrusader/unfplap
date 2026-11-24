@@ -1,4 +1,4 @@
-extends "res://mods/unfplap/eligibility/service.gd"
+extends "res://mods/unfplap/eligibility/api.gd"
 ## Shared act-target fake: the ponies an offer fixture allows.
 
 var allowed: Array = []

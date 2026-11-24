@@ -4,18 +4,18 @@ extends "res://mods/unfplap/shared/service.gd"
 ## Contract: docs/offer.md
 ## The idle act offer: what a press could start, and the start itself.
 
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const PERF := preload("res://mods/unfplap/shared/perf.gd")
-const HUD := preload("res://mods/unfplap/hud/service.gd")
-const PONIES := preload("res://mods/unfplap/ponies/service.gd")
-const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
-const ACT_GATE := preload("res://mods/unfplap/act_gate/service.gd")
-const NEGOTIATION := preload("res://mods/unfplap/negotiation/service.gd")
+const HUD := preload("res://mods/unfplap/hud/api.gd")
+const PONIES := preload("res://mods/unfplap/ponies/api.gd")
+const ELIGIBILITY := preload("res://mods/unfplap/eligibility/api.gd")
+const ACT_GATE := preload("res://mods/unfplap/act_gate/api.gd")
+const NEGOTIATION := preload("res://mods/unfplap/negotiation/api.gd")
 const AGREEMENT := preload("res://mods/unfplap/shared/agreement.gd")
-const POSES := preload("res://mods/unfplap/poses/service.gd")
+const POSES := preload("res://mods/unfplap/poses/api.gd")
 const PRIVACY := preload("res://mods/unfplap/privacy/api.gd")
 const ACT_KEYS := preload("res://mods/unfplap/shared/act_keys.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
@@ -24,7 +24,7 @@ const POSE_OPTIONS := preload("res://mods/unfplap/shared/pose_options.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const FAN_SENSOR := preload("res://mods/unfplap/offer/fan_sensor.gd")
-const ACT_OWNER := preload("res://mods/unfplap/act_owner/service.gd")
+const ACT_OWNER := preload("res://mods/unfplap/act_owner/api.gd")
 
 ## The act-key hint in the prompt row. A press taps it like a base prompt, so it never reads as a
 ## hold.

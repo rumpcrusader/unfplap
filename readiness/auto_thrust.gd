@@ -4,7 +4,7 @@ extends RefCounted
 ## It emits absolute depth only; the runtime feeds the delta into the same tracker as the mouse, so
 ## scoring, intensity, pattern and presentation stay identical.
 
-## Wheel bounds. Keep these equal to `settings/service.gd`'s `auto_thrust.*` bounds.
+## Wheel bounds. Keep these equal to `settings/api.gd`'s `auto_thrust.*` bounds.
 const PACE_MIN := 1.0
 const PACE_MAX := 3.75
 ## One mouse-wheel notch while auto owns the stroke. Fixed: it is not a setting.

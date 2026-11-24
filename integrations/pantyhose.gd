@@ -3,7 +3,7 @@ extends "res://mods/unfplap/shared/service.gd"
 ## anatomy, lets the cloth follow the rump wobble and starts each act undressed.
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
 const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")

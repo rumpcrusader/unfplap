@@ -25,7 +25,7 @@ writes the facts those systems read.
 
 | File | Role |
 |---|---|
-| `memory/service.gd` | facade: the typed internal API, the three writes, the four line-channel calls and the four reads; composes the adapters and reads `WORLD.world_root()` and its wired eligibility peer per call |
+| `memory/api.gd` | facade: the typed internal API, the three writes, the four line-channel calls and the four reads; composes the adapters and reads `WORLD.world_root()` and its wired eligibility peer per call |
 | `memory/facts.gd` | pure typed boundary data: `LineState`, `LineKind`, `Reaction`, `NoteKind`, `StopReason`, `ImpressionSlot`, `Sense`, and the `Impression`, `Peak`, `Witness`, `Observer`, `CueFacts`, `MemoryHit`, `Line`, `LineRequest` types |
 | `memory/text.gd` | pure wording and ids: the director key and its prefix, the keep-active rule, the impression/event suffixes, the event kinds, the stop names, the event texts, the witness texts |
 | `memory/world.gd` | scene adapter: the builder of the private cue facts and the shared-memory hit, and the only memory reader of the world context, the impressions and the story journal |
@@ -50,7 +50,7 @@ The purity boundary is deliberate:
   sound, house and place each row carries, all read through the world facade. The age rule comes
   from the eligibility capability answer (`eligibility.witness_age`), never from a local copy.
 - `store.gd` owns the `Mods` lookup and the save. No other memory file writes the section.
-- The facade is the only file that preloads `memory/*`; no file outside `memory/service.gd` and
+- The facade is the only file that preloads `memory/*`; no file outside `memory/api.gd` and
   `memory/` preloads `memory/*`.
 - The entry creates the service and passes the instance to the per-pony consumers: `dialogue`,
   `summary`, `face` and `afterglow` are handed it in `wire()` by the runtime's composition, the

@@ -5,7 +5,7 @@ extends RefCounted
 ## declared, never hand-built. The Characters form and the Integrations tab have their own
 ## builders.
 
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 const ACT_KEYS := preload("res://mods/unfplap/shared/act_keys.gd")
 const CHARACTERS_UI := preload("res://mods/unfplap/settings/characters_ui.gd")

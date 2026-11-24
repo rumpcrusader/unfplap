@@ -7,7 +7,7 @@ extends Node
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const KISS_LEGS := preload("res://mods/unfplap/kiss/legs.gd")
-const POSES := preload("res://mods/unfplap/poses/service.gd")
+const POSES := preload("res://mods/unfplap/poses/api.gd")
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 const POSE_VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")

@@ -6,7 +6,7 @@ extends "res://mods/unfplap/shared/service.gd"
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
-const OFFER := preload("res://mods/unfplap/offer/service.gd")
+const OFFER := preload("res://mods/unfplap/offer/api.gd")
 const STOCK_SMACK := preload("res://mods/unfplap/stock_smack/api.gd")
 
 

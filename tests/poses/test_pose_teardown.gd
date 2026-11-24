@@ -5,7 +5,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/poses/test_pose_teardown.gd
 
-const SESSION := preload("res://mods/unfplap/poses/service.gd")
+const SESSION := preload("res://mods/unfplap/poses/api.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")

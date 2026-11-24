@@ -2,18 +2,18 @@ extends RefCounted
 ## The World services the Pony scope reads, as one fixed typed record.
 
 const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
-const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
-const ACT_GATE := preload("res://mods/unfplap/act_gate/service.gd")
-const BODY_CHANGE_SERVICE := preload("res://mods/unfplap/body_change/service.gd")
-const ESTRUS := preload("res://mods/unfplap/estrus/service.gd")
-const OFFER := preload("res://mods/unfplap/offer/service.gd")
+const ELIGIBILITY := preload("res://mods/unfplap/eligibility/api.gd")
+const ACT_GATE := preload("res://mods/unfplap/act_gate/api.gd")
+const BODY_CHANGE_SERVICE := preload("res://mods/unfplap/body_change/api.gd")
+const ESTRUS := preload("res://mods/unfplap/estrus/api.gd")
+const OFFER := preload("res://mods/unfplap/offer/api.gd")
 const STOCK_SMACK := preload("res://mods/unfplap/stock_smack/api.gd")
-const STOOL := preload("res://mods/unfplap/stool/service.gd")
+const STOOL := preload("res://mods/unfplap/stool/api.gd")
 const AUDIO := preload("res://mods/unfplap/audio/api.gd")
-const ACT_OWNER := preload("res://mods/unfplap/act_owner/service.gd")
-const HUD := preload("res://mods/unfplap/hud/service.gd")
-const MEMORY := preload("res://mods/unfplap/memory/service.gd")
-const PONIES := preload("res://mods/unfplap/ponies/service.gd")
+const ACT_OWNER := preload("res://mods/unfplap/act_owner/api.gd")
+const HUD := preload("res://mods/unfplap/hud/api.gd")
+const MEMORY := preload("res://mods/unfplap/memory/api.gd")
+const PONIES := preload("res://mods/unfplap/ponies/api.gd")
 
 
 var anatomy: ANATOMY = null

@@ -19,8 +19,8 @@ removing the provider leaves the player's choices intact.
 
 ## Ownership
 
-`registry/service.gd` is a static process-wide, main-thread-only store. It owns the provider layers
-in memory and nothing on disk. `settings/service.gd` owns the player's persisted `characters.<id>` overrides.
+`registry/api.gd` is a static process-wide, main-thread-only store. It owns the provider layers
+in memory and nothing on disk. `settings/api.gd` owns the player's persisted `characters.<id>` overrides.
 `api.gd` owns the cross-mod registration surface; its contract is `docs/api.md`.
 
 The registry is empty until a provider registers, so a run without other mods behaves exactly as
@@ -28,7 +28,7 @@ the base game.
 
 ## Facade
 
-`registry/service.gd` extends `RefCounted` and exposes static methods. Each payload is a typed
+`registry/api.gd` extends `RefCounted` and exposes static methods. Each payload is a typed
 record; a provider's dictionary is read only at the edge.
 
 `Descriptor` carries whatever document a provider sent, and `register` checks each recognised key,
@@ -49,9 +49,9 @@ world teardown.
 
 | Data | Stored where | Owner |
 |---|---|---|
-| Provider descriptor layers | memory only | `registry/service.gd` |
-| Resolved template | derived per call | `registry/service.gd` |
-| Player's character overrides | `characters.json` -> `characters.<id>` | `settings/service.gd` |
+| Provider descriptor layers | memory only | `registry/api.gd` |
+| Resolved template | derived per call | `registry/api.gd` |
+| Player's character overrides | `characters.json` -> `characters.<id>` | `settings/api.gd` |
 | Cross-mod registration call | memory only | `api.gd` |
 
 No provider value is saved. Removing a provider leaves the player's saved differences in place.

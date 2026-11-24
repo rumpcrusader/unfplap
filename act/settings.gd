@@ -5,14 +5,14 @@ extends RefCounted
 ##
 ## See `docs/runtime.md` and `docs/settings.md`.
 
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const REACTIONS_CONTEXT := preload("res://mods/unfplap/reactions/context.gd")
 const ACT_HOST := preload("res://mods/unfplap/act/host.gd")
 const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")
-const POSE_SESSION := preload("res://mods/unfplap/poses/service.gd")
+const POSE_SESSION := preload("res://mods/unfplap/poses/api.gd")
 const CAMERA_CONFIG := preload("res://mods/unfplap/camera/config.gd")
-const DIALOGUE := preload("res://mods/unfplap/dialogue/service.gd")
-const READINESS := preload("res://mods/unfplap/readiness/service.gd")
+const DIALOGUE := preload("res://mods/unfplap/dialogue/api.gd")
+const READINESS := preload("res://mods/unfplap/readiness/api.gd")
 
 ## The `CLIMAX` length the reaction window and the face beat read.
 const CLIMAX_SECONDS := 5.0

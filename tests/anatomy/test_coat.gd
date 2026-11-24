@@ -13,7 +13,7 @@ const RIG := preload("res://mods/unfplap/anatomy/rig.gd")
 const COAT := preload("res://mods/unfplap/anatomy/coat.gd")
 const COAT_PATCH := preload("res://mods/unfplap/anatomy/body_coat_patch.gd")
 const GEOMETRY := preload("res://mods/unfplap/anatomy/geometry.gd")
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const SHAPES := preload("res://mods/unfplap/anatomy/shapes.gd")
 const STILL_ZONES := preload("res://mods/unfplap/anatomy/still_zone_debug.gd")
 

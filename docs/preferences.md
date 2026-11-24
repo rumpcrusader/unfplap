@@ -11,7 +11,7 @@ framework is `docs/settings.md`.
 talk keyword map. The global profile default lives under `default.preferences` in
 `settings/characters.json`; the per-mare shipped profiles live under `characters` in the same
 document. `shared/character_preferences.gd` holds the display names and the selector order and
-reads those profiles once. `settings/service.gd` stores the per-mare overrides under
+reads those profiles once. `settings/api.gd` stores the per-mare overrides under
 `characters.<id>` in the player's `characters.json` and resolves the provider layer.
 `settings/characters_ui.gd` builds the Characters form (interim home until a characters service
 owns it); `settings/ui.gd` owns the declaration rows for the global settings. The entry supplies

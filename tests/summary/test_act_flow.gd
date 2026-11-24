@@ -8,9 +8,9 @@ const WORLD := preload("res://mods/unfplap/world/api.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const HANDLES := preload("res://mods/unfplap/world/handles.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
-const SUMMARY := preload("res://mods/unfplap/summary/service.gd")
+const SUMMARY := preload("res://mods/unfplap/summary/api.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
-const MEMORY := preload("res://mods/unfplap/memory/service.gd")
+const MEMORY := preload("res://mods/unfplap/memory/api.gd")
 const HUD_LINES := preload("res://mods/unfplap/hud/lines.gd")
 
 

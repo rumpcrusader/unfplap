@@ -4,8 +4,8 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/poses/test_session.gd
 
-const SESSION := preload("res://mods/unfplap/poses/service.gd")
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const SESSION := preload("res://mods/unfplap/poses/api.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const ACT_COMMANDS := preload("res://mods/unfplap/shared/act_commands.gd")
 const SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")

@@ -4,9 +4,9 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/reactions/test_reactions.gd
 
-const REACTIONS := preload("res://mods/unfplap/reactions/service.gd")
+const REACTIONS := preload("res://mods/unfplap/reactions/api.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const RUMP_CONE := preload("res://mods/unfplap/shared/rump_cone.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
 const FLANK_TOUCH := preload("res://world/characters/hybrid_mare/pony_flank_touch.gd")

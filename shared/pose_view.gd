@@ -1,6 +1,6 @@
 extends RefCounted
 ## The pose read model: one scene-free mutable object per pose session, filled by
-## `poses/service.gd` and carried by `shared/act_facts.gd`. Presentation modules read this; it
+## `poses/api.gd` and carried by `shared/act_facts.gd`. Presentation modules read this; it
 ## mirrors the session, it is not a second authority. Contract: `docs/poses.md`.
 
 ## The pose state values. A3 owns the transitions; A1 fills a live session with `STEADY` and

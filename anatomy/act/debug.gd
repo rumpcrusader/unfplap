@@ -2,7 +2,7 @@ extends RefCounted
 ## Debug aim markers for the two openings and the player tip.
 ## Debug-only: they stay out of the act's normal state.
 
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const CONTROLLER := preload("res://mods/unfplap/anatomy/controller.gd")
 const PLAYER := preload("res://mods/unfplap/anatomy/player.gd")
 

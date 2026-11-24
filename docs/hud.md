@@ -3,7 +3,7 @@
 The mod's one screen surface: the act's text readouts (the cue/hearts line, the readiness/preference
 line, the auto readout, the `End` tint and the control card), the single toast line, the game
 caption's act-only move to the top, and the one-time act-key notice. The card itself is
-`hud/service.gd`; the style rules are this doc. The readiness values are `docs/readiness.md`; the
+`hud/api.gd`; the style rules are this doc. The readiness values are `docs/readiness.md`; the
 close window is `docs/afterglow.md`.
 
 ## Ownership
@@ -12,7 +12,7 @@ close window is `docs/afterglow.md`.
 |---|---|
 | `hud/lines.gd` | pure text and tint: `cue_line`, `readiness_line`, `auto_text`, `y_pink`, `auto_panel_label` |
 | `hud/game.gd` | the game's speech caption node internals: the preview check, its card and scale, and the one write that places the card |
-| `hud/service.gd` | the facade and the scene card: rows, key caps, prompt row, visibility, the act wiring, the borrowed quick-slot card, the toast line and the caption tracking and move |
+| `hud/api.gd` | the facade and the scene card: rows, key caps, prompt row, visibility, the act wiring, the borrowed quick-slot card, the toast line and the caption tracking and move |
 | `docs/hud.md` | this contract |
 
 The service owns:
@@ -30,7 +30,7 @@ The service owns:
 count and limit, cue, close hint, summary, heat, the raw `close_earned` flag, the auto values and
 the anatomy row gates. `hud/lines.gd` formats the text, the `End` tint and the auto readout. The
 entry calls `runtime.act.facts()` once per rendered frame and passes that object to
-`hud/service.gd`, which reads fields and never probes the runtime for a method. The control visibility reads `view.pose_view.family` (`bed` for missionary, `standing` for
+`hud/api.gd`, which reads fields and never probes the runtime for a method. The control visibility reads `view.pose_view.family` (`bed` for missionary, `standing` for
 standing) instead of a raw pose id. The pure module has no Node, tree, `Settings` or game access,
 so the formats are testable without a scene.
 
@@ -38,7 +38,7 @@ so the formats are testable without a scene.
 
 `hud/game.gd` is the HUD's one base-game accessor: the caption's preview flag, its card, its own
 scale and the one write that places the card. A handle is an argument, and the move in
-`hud/service.gd` names no caption field itself; the speech-mode setting stays
+`hud/api.gd` names no caption field itself; the speech-mode setting stays
 `SETTINGS.caption_mode()` through the settings channel.
 
 ## Lines
@@ -80,7 +80,7 @@ caress. An unlimited limit uses the 3-climax reference.
 
 ## Card
 
-Two declaration comments in `settings/service.gd` describe the card's two switches. With the
+Two declaration comments in `settings/api.gd` describe the card's two switches. With the
 control card off, the cue, readiness line and close prompt remain.
 - Top to bottom: cue line `❤ N/limit | cue` (or `❤ N/∞` when the climax limit is unlimited),
   readiness line `Wants: intensity & pattern | You: intensity & pattern`, the (always empty) form
@@ -132,13 +132,13 @@ control card off, the cue, readiness line and close prompt remain.
 The card uses the game's own prompt row (`world/ui/interaction_hints.gd`) and its
 `player/cradle_controls.gd` style: the game's `prompts/<name>.png` icons where it has one, a dark
 drawn key cap for keys it does not (W/S/A/D/Z, `↕`), ink words in `#f4f1ff` with a `#1a1624`
-outline, and muted `#f4f1ff` at 60% for modifiers. `hud/service.gd` exposes `text_label()`, `keycap(key, scale)`,
+outline, and muted `#f4f1ff` at 60% for modifiers. `hud/api.gd` exposes `text_label()`, `keycap(key, scale)`,
 `button_icon()` and `prompt_row(icon, text, cap)` as the one style source. The offer hint is
 `OFFER_HINT = "Make love"` in the game's own prompt row: a drawn act-key cap at the row's 52 px
 scale beside 30 px words, placed by `hud.prompt_row()` so it sits beside base prompts. The game
 has no `key_6.png`, so the cap is drawn by `hud.keycap()` at the prompt-row scale. Without that row
 (VR or no `InteractionHints`) the same row is built into the HUD's own centered prompt above the
-caption line. `offer/service.gd` resolves the hints node and that row once per world and
+caption line. `offer/api.gd` resolves the hints node and that row once per world and
 re-resolves them only when the row leaves the tree, and an unchanged hint text is not re-applied,
 so a steady frame touches neither the tree nor the row.
 
@@ -164,7 +164,7 @@ world enter and never repeats inside one world.
   prompt stay.
 - The afterglow summary is independent of `hud_readouts` and is always shown.
 - The quick-slot inventory HUD is hidden for the whole act via `inventory.hud_hidden` and the
-  hotbar's `set_hud_visible(false)`. `hud/service.gd` owns the borrowed state
+  hotbar's `set_hud_visible(false)`. `hud/api.gd` owns the borrowed state
   (`set_inventory_hidden()`, `inventory_hidden()`) and restores exactly what it found, so the act
   start and the one exit call it unconditionally. The idle safety is the HUD's too:
   `ensure_act_inventory_visible(owner)` restores the card only while the act owner's live frame

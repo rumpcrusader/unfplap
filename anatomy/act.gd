@@ -2,7 +2,7 @@ extends Node
 ## integration: per-act anatomy behaviour. It reads the act's pose view and stage, and drives the
 ## anatomy meshes, the Anon part and the fluid. It never touches thrust scoring or the camera.
 
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const SHAPE_DRIVE := preload("res://mods/unfplap/anatomy/act/shape_drive.gd")
 const DEBUG := preload("res://mods/unfplap/anatomy/act/debug.gd")
 const ORAL := preload("res://mods/unfplap/anatomy/act/oral.gd")

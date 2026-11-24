@@ -31,12 +31,12 @@ face beats (`docs/face.md`).
 
 | File | Role |
 |---|---|
-| `dialogue/service.gd` | facade: scheduler state, cue admission, prompt assembly, reactions, the idle history scan, bystander and recent-line reads |
+| `dialogue/api.gd` | facade: scheduler state, cue admission, prompt assembly, reactions, the idle history scan, bystander and recent-line reads |
 | `shared/act_facts.gd` | the runtime's typed act view: state, ids, mood/cue, stroke and touch/talk values, preferences, features and the director clock |
 | `dialogue/utterance_scheduler.gd` | pure admission policy: stability, gaps, demand budget, the one pending slot |
 | `dialogue/utterance.gd` | pure line values (the seed choice and the state line) and the private line seed |
 | `dialogue/prompts.gd` | pure normal-dialogue note assembly: warm, mid-act, afterglow, caress/lean, presented body |
-| `memory/service.gd` | the mod's line channel: queue, key, state, cancel and cancel-by-act |
+| `memory/api.gd` | the mod's line channel: queue, key, state, cancel and cancel-by-act |
 | `docs/dialogue.md` | this contract |
 | `tests/dialogue/` | the pure scheduler and line-value suites and the facade suite |
 
@@ -66,7 +66,7 @@ act line is cancelled, `act/session.gd:oral_speech_stop()` stops her base-game v
 the oral mouth shape, and `climax_line()` queues nothing while oral lasts. Bystanders keep their own
 turns.
 
-`readiness/service.gd` owns `mood`, `cue` and the override lifetime; the session forwards those values and
+`readiness/api.gd` owns `mood`, `cue` and the override lifetime; the session forwards those values and
 sets them on `act_facts` immediately before calling the facade.
 
 ## Prompt notes

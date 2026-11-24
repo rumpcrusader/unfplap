@@ -6,7 +6,7 @@ Promiscuity floor, player form, cycle, act history and per-mare consent. This fi
 technical contract for the service; the scene rows are `docs/scene_gate.md` and the identity rules
 are `docs/eligibility.md`.
 
-The internal API is `act_gate/service.gd`. It stores nothing but its own attach-warm marks, and it
+The internal API is `act_gate/api.gd`. It stores nothing but its own attach-warm marks, and it
 never writes the game, the settings or the history.
 
 ## Scope
@@ -26,7 +26,7 @@ live scene rows (that is `scene_gate`), readiness or tolerance (`docs/readiness.
 
 | File | Role |
 |---|---|
-| `act_gate/service.gd` | public API and the scene adapter: the typed verdict, the relationship row and consent |
+| `act_gate/api.gd` | public API and the scene adapter: the typed verdict, the relationship row and consent |
 | `act_gate/policy.gd` | pure truth table: facts dictionary plus mode -> verdict dictionary and the Promiscuity floor |
 | `act_gate/facts.gd` | pure dynamic fact schema and merge |
 | `docs/act_gate.md` | this contract |
@@ -44,15 +44,15 @@ cleared with the world. Every fact is read per call; the verdict is never cached
 | Data | Stored where | Owner |
 |---|---|---|
 | Relationship stage, love, willingness, romance, adults | game save (`player_bonds`, impressions) | base game |
-| Promiscuity floor | `settings.json` -> `relationship.promiscuity` | `settings/service.gd` |
-| Per-mare consent | `characters.json` -> `characters.<id>.consent` | `settings/service.gd` plus `shared/consent.gd` |
+| Promiscuity floor | `settings.json` -> `relationship.promiscuity` | `settings/api.gd` |
+| Per-mare consent | `characters.json` -> `characters.<id>.consent` | `settings/api.gd` plus `shared/consent.gd` |
 | Cycle phase | derived, never saved | `shared/cycle_state.gd` |
 | Act history | `Mods.state("unfplap").act_history` | `shared/act_history.gd` |
-| Gate facts and verdict | nowhere | `act_gate/service.gd` per call |
+| Gate facts and verdict | nowhere | `act_gate/api.gd` per call |
 
 Rules:
 
-- `act_gate/service.gd` never calls `SETTINGS.save_*`, `ACT_HISTORY.commit` or
+- `act_gate/api.gd` never calls `SETTINGS.save_*`, `ACT_HISTORY.commit` or
   `Mods.save_changed`.
 - `facts.consent` is a snapshot of the resolved consent block. `consent(pony, key)` re-resolves
   live through `SETTINGS.consent(id)`.
@@ -60,7 +60,7 @@ Rules:
 
 ## Facade
 
-`act_gate/service.gd` extends `shared/service.gd`, the world-service base. The entry creates one
+`act_gate/api.gd` extends `shared/service.gd`, the world-service base. The entry creates one
 instance per world after `eligibility`, calls `wire()`, and binds the gate into the World record,
 `initiation`, `negotiation`, `scene_gate` and `debug`. The types are declared in the facade, so a
 consumer names them `ACT_GATE.Verdict`, `ACT_GATE.Row`, and so on.

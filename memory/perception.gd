@@ -2,7 +2,7 @@ extends RefCounted
 ## Scene adapter for the witness perception: the mares' senses, sleep, place and the age rule.
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
-const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
+const ELIGIBILITY := preload("res://mods/unfplap/eligibility/api.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const FACTS := preload("res://mods/unfplap/memory/facts.gd")
 const TEXT := preload("res://mods/unfplap/memory/text.gd")

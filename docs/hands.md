@@ -260,14 +260,14 @@ areas are never rig-mapped: the loose heads are the shared native head.
 
 ## Settings
 
-The caress declarations live in `settings/service.gd`, and each one's `##` comment describes its
+The caress declarations live in `settings/api.gd`, and each one's `##` comment describes its
 row.
 
 The service layers read their typed settings handles at use, including on the hot path; they keep
 no snapshot and no hands cache. `hands/caress.gd`, `hands/reach.gd` and `hands/smack_target.gd`
 resolve the values and fill the typed context; the placement engine and the paths receive the
 resolved values and never read settings. The `caress_tick` / `caress_precise` perf rows are the
-signal to improve `settings/service.gd`, not to add a hands cache.
+signal to improve `settings/api.gd`, not to add a hands cache.
 
 The three smoothing values apply to the two base poses. `0` restores the exact behaviour. The caress
 offsets are multiplied by `facts.same_height_scale` for the Same Height preset; the other

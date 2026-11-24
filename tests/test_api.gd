@@ -4,11 +4,11 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_api.gd
 
 const API := preload("res://mods/unfplap/api.gd")
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const ROWS := preload("res://mods/unfplap/settings/rows.gd")
-const REGISTRY := preload("res://mods/unfplap/registry/service.gd")
+const REGISTRY := preload("res://mods/unfplap/registry/api.gd")
 const PLACEMENT := preload("res://mods/unfplap/shared/anatomy_placement.gd")
-const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
+const ELIGIBILITY := preload("res://mods/unfplap/eligibility/api.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 

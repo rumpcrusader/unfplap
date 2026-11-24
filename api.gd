@@ -5,9 +5,9 @@ extends Node
 ## Discovery is by group, `unfplap_api` and the pinned `unfplap_api_v1`; the human contract is
 ## `docs/api.md`.
 
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
-const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
-const REGISTRY := preload("res://mods/unfplap/registry/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
+const ELIGIBILITY := preload("res://mods/unfplap/eligibility/api.gd")
+const REGISTRY := preload("res://mods/unfplap/registry/api.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")

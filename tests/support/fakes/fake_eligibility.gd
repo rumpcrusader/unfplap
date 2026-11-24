@@ -1,4 +1,4 @@
-extends "res://mods/unfplap/eligibility/service.gd"
+extends "res://mods/unfplap/eligibility/api.gd"
 ## Shared eligibility fake: counts the act-target and relationship calls a gate suite makes.
 
 var eligible_calls := 0

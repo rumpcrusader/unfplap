@@ -5,7 +5,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const HANDLES := preload("res://mods/unfplap/world/handles.gd")
-const ACT_GATE := preload("res://mods/unfplap/act_gate/service.gd")
+const ACT_GATE := preload("res://mods/unfplap/act_gate/api.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 const PONY_GROUP := "unfplap_pony_service"

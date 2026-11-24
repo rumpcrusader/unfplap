@@ -8,7 +8,7 @@ const PATH_BASE := preload("res://mods/unfplap/hands/path_base.gd")
 const PLACEMENT := preload("res://mods/unfplap/hands/placement.gd")
 const ANCHORS := preload("res://mods/unfplap/hands/paths/anchors.gd")
 const DEBUG_DRAW := preload("res://mods/unfplap/hands/debug_draw.gd")
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 const PERF := preload("res://mods/unfplap/shared/perf.gd")
 

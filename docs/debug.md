@@ -7,7 +7,7 @@ scripts are in `WORKFLOW.md`.
 
 ## Scope
 
-`debug/service.gd` is the facade: the registry, the wheel page order, the labels, the aimed-mare
+`debug/api.gd` is the facade: the registry, the wheel page order, the labels, the aimed-mare
 rule, the wheel's open-gate decision and the dispatch. It holds no node and runs no action itself:
 the executor publishes itself to the table when it enters the tree, and every read resolves it
 there, so no caller passes it in. `debug/ui.gd` renders the block's buttons and the placement-target
@@ -53,7 +53,7 @@ on their own. Read it there rather than re-deriving the rule at a call site.
 
 The registry declares no global hotkeys. The game's own dev keys (`F4` render breakdown, `F9` trace,
 `F10` fps overlay, `F11` free camera) must stay usable while the mod is loaded, so a Debug block
-button or the action wheel is the only trigger. `input/service.gd` still routes a declared hotkey
+button or the action wheel is the only trigger. `input/api.gd` still routes a declared hotkey
 for a future action that genuinely must fire while the world is unpaused. See `docs/input.md`.
 
 ## Base-game access

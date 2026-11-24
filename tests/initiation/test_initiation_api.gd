@@ -5,16 +5,16 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ##     --script res://mods/unfplap/tests/initiation/test_initiation_api.gd
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
-const INIT := preload("res://mods/unfplap/initiation/service.gd")
-const OFFER := preload("res://mods/unfplap/offer/service.gd")
-const NEGOTIATION := preload("res://mods/unfplap/negotiation/service.gd")
+const INIT := preload("res://mods/unfplap/initiation/api.gd")
+const OFFER := preload("res://mods/unfplap/offer/api.gd")
+const NEGOTIATION := preload("res://mods/unfplap/negotiation/api.gd")
 const PRIVACY := preload("res://mods/unfplap/privacy/api.gd")
-const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
+const ELIGIBILITY := preload("res://mods/unfplap/eligibility/api.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const CONTEXT := preload("res://mods/unfplap/shared/context.gd")
 const CLASSIFIER := preload("res://mods/unfplap/initiation/classifier.gd")
 const ADAPTER := preload("res://mods/unfplap/negotiation/adapter.gd")
-const PONIES := preload("res://mods/unfplap/ponies/service.gd")
+const PONIES := preload("res://mods/unfplap/ponies/api.gd")
 
 
 

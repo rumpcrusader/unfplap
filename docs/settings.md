@@ -1,6 +1,6 @@
 # Settings: one declaration, one shipped default, one accessor
 
-Every global setting in the mod is declared **once**, in `settings/service.gd`, and read through a
+Every global setting in the mod is declared **once**, in `settings/api.gd`, and read through a
 typed accessor on that setting. The declaration owns the JSON path, label, help, tab, group,
 bounds and options; the **default value lives in `settings/settings.json`**, never in the
 declaration or in a second constant. There is no path-keyed read outside the settings service.
@@ -46,7 +46,7 @@ detached copy, so an act gate pays a lookup instead of a template build.
 
 ## Ownership
 
-`settings/service.gd` owns the declaration catalog, the shipped-data loaders, both player files,
+`settings/api.gd` owns the declaration catalog, the shipped-data loaders, both player files,
 the merge, the typed accessors and the per-mare profiles; `settings/game.gd` owns its base-game
 access. `settings/settings.json`, `settings/characters.json` and `settings/prompts.json` are shipped
 data, not code: they are tracked, packed, read-only in a build and parsed once per process. The
@@ -75,12 +75,12 @@ not import this facade.
 
 ## Contributing a setting
 
-1. Add the declaration in `settings/service.gd`, in the tab and group where the player should see
+1. Add the declaration in `settings/api.gd`, in the tab and group where the player should see
    it, with its one- or two-line `##` description above it. The declaration owns the path, label,
    help, bounds, options and debug flag — not the value.
 2. Add the same dotted path to `settings/settings.json` with its default value. The schema test
    fails when a declaration and the shipped document disagree.
-3. Depend on `settings/service.gd` and use the typed handle; do not restate the row in the owning
+3. Depend on `settings/api.gd` and use the typed handle; do not restate the row in the owning
    service's doc.
 
 There is no `<service>/settings.gd` module, no registration call and no second layout list. The
@@ -91,7 +91,7 @@ player-facing example, and the anatomy placement target is the hidden debug one.
 ## Reading and writing
 
 ```gdscript
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 
 if SETTINGS.mute_ponese_audio.get_bool(): ...
 var raise_m: float = SETTINGS.raise_m.get_num()
@@ -249,7 +249,7 @@ for the mod's own settings edits and one for the game's own settings. `SETTINGS.
 notifies the mod channel:
 
 ```gdscript
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 
 CHANGE.on_changed(Callable(self, "apply_settings"))    # construction
@@ -281,7 +281,7 @@ to nothing.
 
 `api.gd`, `eligibility.set_profile()` and a provider's settled body change call
 `SETTINGS.apply_live()` too: a provider layer is a live input like a panel edit. The list lives in
-`shared/` rather than in `settings/service.gd` because a shared module may not import a service and
+`shared/` rather than in `settings/api.gd` because a shared module may not import a service and
 the log sink joins the same list.
 
 ## Persistence, defaults and migration
@@ -298,7 +298,7 @@ the log sink joins the same list.
   `characters()` and `prompts()`, each parsed once per process, plus `settings_block()`,
   `characters_block()` and `prompts_block()` for a detached block. It preloads nothing, so the pure
   modules (`preferences`, `pose_catalog`, `character_preferences`, `prompt_text` consumers) and
-  `settings/service.gd` read it without a cycle.
+  `settings/api.gd` read it without a cycle.
 - `SETTINGS.defaults()` returns the base a fresh profile starts from: the shipped declared
   settings, the one block that still lives in code (`ui.sections`) and the shipped `default`
   profile, detached and with no player values. `SETTINGS.data()` returns that base with the
@@ -359,7 +359,7 @@ the log sink joins the same list.
   load.
 - `anatomy.dock_style` and the tail/dock placement behavior are in `docs/anatomy.md`. The
   settings layer owns only its path, default and the placement migration above.
-- `settings/service.gd` owns both player files. `SETTINGS.load_settings()` parses them once per
+- `settings/api.gd` owns both player files. `SETTINGS.load_settings()` parses them once per
   process into `_cache` and writes the merged result; the typed getters only read the
   generation-cached flat table, so a per-frame read never touches the disk.
   `SETTINGS.reload_file()` resets both loaded flags, bumps the generation once and re-reads both
@@ -464,7 +464,7 @@ split out into the character document on every write.
 
 `Settings → Unfplap` has six sub-tabs: **General**, **Anatomy**, **Poses**, **World**,
 **Characters** and **Integrations**. **Poses** sits after Anatomy.
-Every setting row comes from one declaration in `settings/service.gd` — label, help, section,
+Every setting row comes from one declaration in `settings/api.gd` — label, help, section,
 bounds — and applies live. Which row sits in which tab, section and order is the declaration's, so
 this doc does not list them; the `##` comment above each declaration describes it.
 
@@ -501,7 +501,7 @@ Unknown settings keys are ignored.
 
 ## Settings authoring rules for agents
 
-- Add a setting with one declaration in `settings/service.gd` and its `##` description above it,
+- Add a setting with one declaration in `settings/api.gd` and its `##` description above it,
   one value in `settings/settings.json`, and read it with its typed accessor; never add a widget, a
   default constant, a path-keyed read or a save function anywhere else.
 - Contribute the setting from its owning service: add the declaration and its description, add its
@@ -528,7 +528,7 @@ Unknown settings keys are ignored.
   clamping versus debug bypass, validation, section state, the panel drawing every declaration,
   the Poses tab's player rows and Debug block, migration and the per-mare merge. Extend that file
   only for new API behaviour.
-- A retired setting is one `deprecated()` entry in `settings/service.gd` with its mapping; bump
+- A retired setting is one `deprecated()` entry in `settings/api.gd` with its mapping; bump
   `SCHEMA_VERSION` only for a structural change in `_migrate()`. Neither needs a manual file edit.
 - **A group needs at least three related settings.** Fewer, and the setting goes directly in the
   tab (or its Debug block) with `group` empty and no heading; a subgroup that small merges into its
@@ -537,7 +537,7 @@ Unknown settings keys are ignored.
   shows or hides it. Put new debug-only settings behind `.as_debug()`; the Actions buttons live
   inside the Debug block of the action's tab.
 - A debug action that belongs with others shares a `row` caption and a `short` label in
-  `debug/service.gd`; consecutive entries with the same row render on one line.
+  `debug/api.gd`; consecutive entries with the same row render on one line.
 - The Anatomy Actions block starts with the **Placement target** pill (`Default` / `Pointed
   mare`), backed by the persisted hidden `anatomy.placement_target` setting. The Placement
   buttons then write the selected target immediately: Default persists the
@@ -562,7 +562,7 @@ Unknown settings keys are ignored.
 
 ## Debug actions and hotkeys
 
-Debug commands are entries in `debug/service.gd`:
+Debug commands are entries in `debug/api.gd`:
 
 ```gdscript
 "give_stool": {
@@ -583,7 +583,7 @@ plus one method. An entry with `"phase"` and
 the settings buttons and the wheel both resolve it through `action_label()`/`action_short()`.
 
 The registry declares no global hotkeys, so the game's own dev keys (`F4`, `F9`, `F10`, `F11`) stay
-usable while the mod is loaded; `input/service.gd` still routes a declared `"hotkey"` for a future
+usable while the mod is loaded; `input/api.gd` still routes a declared `"hotkey"` for a future
 action that must fire while the world is unpaused. The action list and the wheel pages are in
 `docs/debug.md`; the executor's action behaviour is in `docs/debug_actions.md`.
 

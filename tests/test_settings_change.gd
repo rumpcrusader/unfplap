@@ -6,7 +6,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/test_settings_change.gd
 
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 
 ## The order the listeners were called in, shared by every listener of one check.

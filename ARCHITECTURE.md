@@ -325,8 +325,8 @@ One rule is architecture's own: `shared/log.gd`, `shared/perf.gd`, `api.gd`, `do
 4. Add `docs/<id>.md` and its one row in `docs/README.md`; the row owns the contract and test
    router.
 5. Add `tests/<id>/`, keeping pure-core tests separate from facade tests.
-6. Contribute the service's settings as declarations in `settings/service.gd` and its debug actions
-   to `debug/service.gd`; document the behaviour in the service contract.
+6. Contribute the service's settings as declarations in `settings/api.gd` and its debug actions
+   to `debug/api.gd`; document the behaviour in the service contract.
 7. A World service extends `shared/service.gd` (or `body_change/source.gd` for a provider),
    overrides the lifecycle hooks it needs and adds one line to `_build_world()`; a Pony service
    extends `Node` and is attached by `_compose()`.

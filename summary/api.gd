@@ -7,11 +7,11 @@ extends Node
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const ACT_SUMMARY := preload("res://mods/unfplap/summary/score.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
-const MEMORY := preload("res://mods/unfplap/memory/service.gd")
+const MEMORY := preload("res://mods/unfplap/memory/api.gd")
 const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
 const RELATIONSHIP_CUE := preload("res://mods/unfplap/shared/relationship_cue.gd")
-const READINESS := preload("res://mods/unfplap/readiness/service.gd")
-const DIALOGUE := preload("res://mods/unfplap/dialogue/service.gd")
+const READINESS := preload("res://mods/unfplap/readiness/api.gd")
+const DIALOGUE := preload("res://mods/unfplap/dialogue/api.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 ## The world memory the summary commits to; the runtime wires it once.

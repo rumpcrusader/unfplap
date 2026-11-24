@@ -4,8 +4,8 @@ extends "res://mods/unfplap/shared/service.gd"
 ## Contract: docs/anatomy.md
 ## The anatomy presentation service: roster verbs, act presentation, tail seat and the player part.
 
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
-const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
+const ELIGIBILITY := preload("res://mods/unfplap/eligibility/api.gd")
 const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 const GARMENT_HULL := preload("res://mods/unfplap/anatomy/garment_hull.gd")

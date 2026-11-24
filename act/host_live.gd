@@ -7,9 +7,9 @@ extends "res://mods/unfplap/body_change/act_host.gd"
 const ACT_NODE := preload("res://mods/unfplap/act/host.gd")
 const ACT_SESSION := preload("res://mods/unfplap/act/session.gd")
 const ACT_SWAP := preload("res://mods/unfplap/act/swap.gd")
-const ACT_DIALOGUE := preload("res://mods/unfplap/dialogue/service.gd")
-const READINESS := preload("res://mods/unfplap/readiness/service.gd")
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const ACT_DIALOGUE := preload("res://mods/unfplap/dialogue/api.gd")
+const READINESS := preload("res://mods/unfplap/readiness/api.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 
 var host: ACT_NODE = null
 var act: ACT_SESSION = null

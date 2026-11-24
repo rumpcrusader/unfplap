@@ -27,13 +27,13 @@ def check_body(failure: Failure) -> None:
     for needle in ("binding.bind_body(", "binding.refresh_body(", "binding.unbind_body("):
         callers = [rel(path) for path in shipped_sources()
                    if needle in read_text(str(path))]
-        if callers != ["body_change/service.gd"]:
-            failure.add("%s must only be dispatched from body_change/service.gd (found %s)" % (
+        if callers != ["body_change/api.gd"]:
+            failure.add("%s must only be dispatched from body_change/api.gd (found %s)" % (
                 needle, ", ".join(callers) or "none"))
-    service = read_text(str(ROOT / "body_change" / "service.gd"))
+    service = read_text(str(ROOT / "body_change" / "api.gd"))
     for name in ("_notify_bind", "_notify_refresh"):
         if service.count("func %s(" % name) != 1:
-            failure.add("body_change/service.gd must define one %s()" % name)
+            failure.add("body_change/api.gd must define one %s()" % name)
 
     # One resume: the swap module keeps the only resume path, and adoption never resumes itself.
     swap_path = ROOT / "act" / "swap.gd"
@@ -84,12 +84,12 @@ def check_body(failure: Failure) -> None:
                 failure.add("body_change/runtime_binding.gd must not call %s" % needle)
     # The service builds every binding from the facades the entry hands it, so a new body-bound
     # system adds a preload and a register call to the service and no line to the entry.
-    service_source = read_text(str(ROOT / "body_change" / "service.gd"))
+    service_source = read_text(str(ROOT / "body_change" / "api.gd"))
     if "func wire(" not in service_source:
-        failure.add("body_change/service.gd must build its bindings in wire()")
+        failure.add("body_change/api.gd must build its bindings in wire()")
     for needle in BODY_BINDINGS:
         if service_source.count(needle) != 1:
-            failure.add("body_change/service.gd must name the body binding %s once" % needle)
+            failure.add("body_change/api.gd must name the body binding %s once" % needle)
     main_source = read_text(str(ROOT / "main.gd"))
     for number, line in enumerate(main_source.splitlines(), start=1):
         if "_binding.gd" in line or "register_binding" in line:

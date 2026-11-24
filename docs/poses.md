@@ -11,7 +11,7 @@ settings tab's Debug block; its two player rows are **Enable Oral** and **Enable
 
 ## Ownership
 
-`poses/service.gd` is the pose session facade. It owns the live state machine (`IDLE`/`ENTERING`/
+`poses/api.gd` is the pose session facade. It owns the live state machine (`IDLE`/`ENTERING`/
 `STEADY`/`TRANSITIONING`/`EXITING`), the active edge and its clock, the per-pose configs and the
 target snapshot, the skeleton pose modifier, the authored bases, the bed and ground frames and their
 follow, the extra modifiers (tail, tail lay, body sway, prone sway, ear twitch), the pony bone
@@ -25,7 +25,7 @@ the pose view through `shared/act_facts.gd`.
 `act/frame.gd` owns the act's player frame: the standing placement, the stance, the controls lock,
 the avatar hold and the one restore, from a pure solve over the pose and the rig. The runtime keeps
 the ordered start adapters and the stool handle; `docs/poses.md` (`## Player frame`) is its
-contract. `camera/service.gd` and `camera/view.gd` own the view and its live offsets.
+contract. `camera/api.gd` and `camera/view.gd` own the view and its live offsets.
 
 `poses/pose_rig.gd` is the bone cache and body-relative axes. `poses/tail_chain.gd` resolves the
 visible tail chain: the devkit hair chain `mTail1..mTail6` when present, otherwise the fitted body
@@ -39,8 +39,8 @@ whole-pose `apply()`, the base/overlay split a delta needs and the delta entry p
 `shared/pose_catalog.gd` owns the pose ids
 and the `POSE_KEYS` schema; the shipped per-pose values live under `default.poses` in
 `settings/characters.json`.
-`poses/service.gd` owns the live pose. `shared/act_motion.gd` is pure lean-travel and pose-action
-math; `camera/service.gd` owns the lean state and `camera/view.gd` the act view.
+`poses/api.gd` owns the live pose. `shared/act_motion.gd` is pure lean-travel and pose-action
+math; `camera/api.gd` owns the lean state and `camera/view.gd` the act view.
 
 `shared/pose_specs.gd` is the static pose capability table: family, frame, driver, settings group,
 the ten profiles, forms, views, the scene block, the `start` block and the public/offerable flags.
@@ -73,7 +73,7 @@ pitch, eye line, look, controls or the act body's first placement
   tuned value, scaled with Anon's own height for Same Height, plus the body's entrance back offset
   and `presentation.standing.gap_offset_m`.
 - **The base aim** reads her authored target neck in world space, after
-  `poses/service.gd:apply_target_once()` puts her in the target pose; the fallback is her live eye
+  `poses/api.gd:apply_target_once()` puts her in the target pose; the fallback is her live eye
   line above his floor. The entered pitch is clamped to `±1` rad.
 - **The stance** is player state: yaw, `_pitch`, `_stand_eye`/`_eye_height` through `_set_eye_y`,
   and the captured look in the typed view. A player who is a pony, a seated player and a headset rig
@@ -102,7 +102,7 @@ A pose row's `asset` names its authored document under `poses/`; an internal row
 and inherit it through its `base` chain, or own its asset. The shipped internal rows inherit. The
 scene gate's `pose_asset`/`pose_rig` rows read the resolved
 document. `poses/authored_pose.gd` is the one loader; it reads version 7 and the version 6 bed-space
-migration path, and never converts a pose per frame. `poses/service.gd` exposes `warm_asset(path)`
+migration path, and never converts a pose per frame. `poses/api.gd` exposes `warm_asset(path)`
 so a caller parses one authored asset into the shared cache before it reads it: the two offerable
 assets are warmed at world ready, under the loading cover, so the idle hint's `pose_asset` row does
 not load them inside its first scan. `reload_authored_base()` is the debug block's **Reload posed
@@ -408,7 +408,7 @@ setup, and `poses/registry.gd`'s `check_table()` covers every shipped row.
 
 ## Session requests and ticks
 
-`poses/service.gd` owns the live state machine, one running `Run` and the target snapshot.
+`poses/api.gd` owns the live state machine, one running `Run` and the target snapshot.
 `begin()` enters `ENTERING`, fills the start view and settles `STEADY`; `release_pose()` exits
 through `EXITING` to `IDLE`; the pose-scope leave steps keep `STEADY`. A failed `begin()` leaves the
 state unchanged. For a ground view, `begin()` captures the pony root's ground frame before it
@@ -853,7 +853,7 @@ is `## Player frame`.
   conversation facing, so `face_point`/conversation target are cleared late each tick and
   `face_turn_rate` is held at `0` for the act; locomotion and emotions keep running.
   Conversation attention is not a stop condition: another character addressing Anon can talk
-  while `scene_hold/service.gd:keep_attention()` clears her listener each tick.
+  while `scene_hold/api.gd:keep_attention()` clears her listener each tick.
 - Act start keeps her where she stands. `act/frame.gd` owns the placement math
   (`## Player frame`): `act/setup.gd:standing_place()` keeps her where she stands and
   `act/start.gd` calls `context.frame.begin()` next. For desktop human Anon it places him at
@@ -925,7 +925,7 @@ is `## Player frame`.
   tail with the thrust: sagittal `ROCK_PITCH = 0.12` and lateral `ROCK_YAW = 0.08`. Each thrust
   adds a short decaying wave (`JIGGLE_DECAY = 3.6`, `JIGGLE_FREQ = 18`, `JIGGLE_PITCH = 0.16`,
   `JIGGLE_YAW = 0.08`) at the same strength as the rump shader, strongest at the tail root and
-  lagging down the chain. A smack adds the same wave through `reactions/service.gd` at
+  lagging down the chain. A smack adds the same wave through `reactions/api.gd` at
   `1.0 × size_scale × smack_intensity`, where `size_scale` is the camera's `jiggle_size_scale()`
   that `act/session.gd:snapshot_settings()` passes in; the thrust wave scales with `jiggle.intensity`.
   The `jiggle` radius, intensity and smack amount, the stock-mark clear and the body-coat target
@@ -982,11 +982,11 @@ The aftercare lifetime, positive tail-up rule and the held mood face are in `doc
 
 - `act/tick.gd:render`: the render-time pose write, the climax progress, the surge/bob tick and the
   breath. `act/view.gd:pose_render()` supplies the body scale and the size name to
-  `poses/service.gd:write_render_frame()`. `render_write()` owns the render-time order:
+  `poses/api.gd:write_render_frame()`. `render_write()` owns the render-time order:
   `sync_frame(family)` picks the bed or ground frame; for the bed family it places the act's Anon
   body, writes her pose, replays the prone sway, then lets `camera/view.gd:write_eye()` read his
   posed head; for the standing family it writes her pose and replays the body sway after every game
-  writer. It then calls `camera/service.gd`'s `write_look_target()`, which owns the look point (the
+  writer. It then calls `camera/api.gd`'s `write_look_target()`, which owns the look point (the
   missionary gaze, the kissing-mouth blend and the authored-Anon fallback) and the pose's kiss and
   climax weights.
 - `act/tick.gd:_tick`: presentation, timers, facing lock, glances, auto-cuddle suppression.

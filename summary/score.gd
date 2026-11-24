@@ -5,7 +5,7 @@ extends RefCounted
 const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
 const DEFAULTS_DATA := preload("res://mods/unfplap/shared/defaults_data.gd")
 const PROMPT_TEXT := preload("res://mods/unfplap/shared/prompt_text.gd")
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 
 ## The live setting behind each rule key, declared once so `rules()` needs no path strings.
 static var _RULES := {

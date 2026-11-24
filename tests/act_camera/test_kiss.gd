@@ -4,7 +4,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/act_camera/test_kiss.gd
 
-const KISS := preload("res://mods/unfplap/kiss/service.gd")
+const KISS := preload("res://mods/unfplap/kiss/api.gd")
 const FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 

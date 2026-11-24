@@ -53,7 +53,7 @@ The node's public surface is exactly:
 | Surface | Contract |
 |---|---|
 | `act` | the typed `ActSession` handle (`act/session.gd`) |
-| `scene` | the per-pony `SceneGate` handle (`scene_gate/service.gd`) |
+| `scene` | the per-pony `SceneGate` handle (`scene_gate/api.gd`) |
 | `start` | the per-pony start handle (`shared/start_port.gd`, implemented by `act/agreement.gd`) |
 | `presentation` | the per-pony presentation handle (`shared/presentation_port.gd`, implemented by `act/session.gd`) |
 | `pony` | the presented body |
@@ -71,18 +71,18 @@ The static gate holds this list as `NODE_SURFACE` (functions) and `NODE_PROPERTI
 |---|---|
 | pony, parent, `_swapping_parent` | `runtime.gd` |
 | stable id, display name | `shared/pony_identity.gd`, read by the act |
-| live act, serial, swap record | `act_owner/service.gd`, read from the record |
+| live act, serial, swap record | `act_owner/api.gd`, read from the record |
 | act state, timers, clock, `pose_id`, `source`, `bed`, `event_id`, `serial`, act flags | `act/session.gd` |
 | act settings snapshot and live apply | `act/settings.gd`, reached through the session |
-| satisfaction, mood, cue, climax count, tolerance, heat | `readiness/service.gd` |
+| satisfaction, mood, cue, climax count, tolerance, heat | `readiness/api.gd` |
 | form offer/reveal/policy | `body_change/act.gd` |
 | suspension flag | `body_change/act.gd`, read through `session.suspended()` |
-| pose, pose view, bones | `poses/service.gd` |
-| lean, surge/bob, free look | `camera/service.gd` |
+| pose, pose view, bones | `poses/api.gd` |
+| lean, surge/bob, free look | `camera/api.gd` |
 | act view, glance, facing lock, eye | `camera/view.gd` |
 | player placement, stance, restore, scene token | `act/frame.gd` |
 | audio, voice | `audio/api.gd` |
-| aftercare plan, satisfaction decay, close window | `afterglow/service.gd` |
+| aftercare plan, satisfaction decay, close window | `afterglow/api.gd` |
 | face/eyes, reactions, dialogue, hands, kiss, wings, integrations, anatomy | their services |
 | act view | `shared/act_facts.gd`, filled by `act/view.gd` |
 | injected HUD, memory, stool and audio | the entry's factory, passed to `RUNTIME.new()` and `act/context.gd` |
@@ -239,7 +239,7 @@ Act physics, in call order (`act/tick.gd:_tick`):
    form offer and the bystanders (timed `runtime_talk`).
 7. The utterance tick, then `session.tick_timers(delta)`: the returned verdict is applied by
    `enter_active_act()`, `finish_climax()` or `act/exit.gd:finish_restore()`; the climax hearts
-   tick while `CLIMAX`, and `afterglow/service.gd:phase_tick()` runs while `AFTERGLOW`.
+   tick while `CLIMAX`, and `afterglow/api.gd:phase_tick()` runs while `AFTERGLOW`.
 8. The camera block (facing lock, glance, auto-cuddle suppression, clamp, depth, Anon phase,
    blush, `session.apply_camera_motion()`), the session's `0.25 s` check window (the scene gate's
    running verdict applied through `act/exit.gd:stop()`) and the face's eyes.
@@ -273,7 +273,7 @@ entry). The three entry points live in `act/agreement.gd`:
   frozen pose capability (`scene_only_verdict`), then `act/start.gd:run()`. It answers
   `AGREEMENT_WAIT`, `AGREEMENT_STARTED` or `AGREEMENT_FAILED`; the offer, its only caller, reports
   `Started` or `StartFailed` to the Negotiation service.
-- **Auto-start** consumes a live Agreement with no key press; `negotiation/service.gd:ready_offer()`
+- **Auto-start** consumes a live Agreement with no key press; `negotiation/api.gd:ready_offer()`
   decides whether the live scene accepts it, and the offer cancels a private Agreement whose fresh
   privacy sample is now public.
 
@@ -343,7 +343,7 @@ restores, so a failed start runs the same body and restores only what it took.
   the palm scale, the smoothed state and the act view after `frame.end()` gave the player back. It
   is an act-level path, not part of the pose teardown.
 - A forced stop never rejoins the missionary bed cuddle. A normal end of a bed-sourced act that did
-  not go badly re-seats Anon on the bed's player seat and re-invites her through `rest/service.gd`.
+  not go badly re-seats Anon on the bed's player seat and re-invites her through `rest/api.gd`.
 
 The afterglow, close window and aftercare are `docs/afterglow.md`; the face and mood are
 `docs/face.md`; the summary is `docs/summary.md`.
@@ -377,7 +377,7 @@ bind the new body, pose, face and anatomy but do not resume. `body_change/act.gd
 one resume body and `act/swap.gd:resume()` its only caller; it ends the act through the one exit
 when the resume fails. The resume re-reads the settings and the new body's size, ends the old
 anatomy act and begins a new one at the current depth, rebuilds the live pose at the pose the act
-was in (`poses/service.gd`'s `settle()` skips the entrance ramp), resets the visual frame through
+was in (`poses/api.gd`'s `settle()` skips the entrance ramp), resets the visual frame through
 `body_change/act.gd:rebind()` (clear the smoothed shot and `frame.refit()` the new form, which
 re-places a standing Anon at the new gap and stance without an entrance), restarts auto at its
 preserved values and state, reopens the camera, re-claims the new navigator, pauses the new
@@ -461,7 +461,7 @@ pass and the `apply_camera_motion()` hand-off all call it. It runs once per phas
 idle systems, physics after the pose tick and before the fan-out, render before the camera work.
 `act/view.gd:sync_hud()` adds the HUD card's live values and runs from `apply_camera_motion()` and
 the act boundaries; the HUD reads fields and never probes the runtime. The view keeps raw values;
-`shared/act_facts.gd` owns the field list, and the HUD strings live in `hud/service.gd` and
+`shared/act_facts.gd` owns the field list, and the HUD strings live in `hud/api.gd` and
 `hud/lines.gd`.
 
 `runtime.act.facts()` is the typed view. `runtime.act.pose_view()` and the input protocol's

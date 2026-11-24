@@ -21,7 +21,7 @@ const GAME := preload("res://mods/unfplap/settings/game.gd")
 ## and the runtime merge read them through these aliases.
 const CHARACTERS := preload("res://mods/unfplap/shared/character_preferences.gd")
 ## Cross-mod provider layers; see docs/api.md. Provider data is in memory only.
-const MARE_REGISTRY := preload("res://mods/unfplap/registry/service.gd")
+const MARE_REGISTRY := preload("res://mods/unfplap/registry/api.gd")
 
 const ID := "unfplap"
 const FILE := "settings.json"
@@ -686,7 +686,7 @@ static func set_section_open(tab: String, group: String, open: bool) -> void:
 
 # -- (ungrouped)
 
-## The keycode the hand-built capture row stores; input/service.gd matches it to start
+## The keycode the hand-built capture row stores; input/api.gd matches it to start
 ## and end an act. The act never takes a dev key.
 static var act_key := num("act_key", "controls.act_key",
 	"Act Key", "Key that starts and ends the act.", GENERAL, "") \
@@ -1235,7 +1235,7 @@ static func palm_scale_for(size: String) -> float:
 
 # -- Standing  (debug)
 
-## Head lift at the chin in the standing bake; poses/service.gd reads it when it builds the
+## Head lift at the chin in the standing bake; poses/api.gd reads it when it builds the
 ## standing frame.
 static var chin_up_deg := num("chin_up_deg", "presentation.standing.chin_up_deg",
 	"Chin up", "Standing head lift at the chin.", POSES, "Standing") \
@@ -1289,7 +1289,7 @@ static var gap_offset_m := num("gap_offset_m", "presentation.standing.gap_offset
 	"Gap offset", "Move Anon closer (negative) or farther (positive) when a standing act starts.",
 	POSES, "Standing › Motion") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
-## The reach gap above which the act spends footstools; stool/service.gd compares it with
+## The reach gap above which the act spends footstools; stool/api.gd compares it with
 ## the live hoof and part heights.
 static var stool_gap_m := num("stool_gap_m", "presentation.standing.stool_gap_m",
 	"Stool gap",
@@ -1321,12 +1321,12 @@ static var torso_angle_deg := num("torso_angle_deg", "presentation.standing.tors
 
 # -- Standing › Kiss  (debug)
 
-## Over-the-shoulder yaw toward her at the kiss; kiss/service.gd reads the block when the
+## Over-the-shoulder yaw toward her at the kiss; kiss/api.gd reads the block when the
 ## kiss starts.
 static var camera_yaw_deg := num("camera_yaw_deg", "presentation.standing.kiss.camera_yaw_deg", "Kiss camera yaw", "Over-the-shoulder yaw toward her at the kiss.", POSES,
 	"Standing › Kiss") \
 	.with_unit("°").with_step(1.0).as_debug()
-## How far he drops over her at the kiss; kiss/service.gd applies it when the kiss starts.
+## How far he drops over her at the kiss; kiss/api.gd applies it when the kiss starts.
 static var lean_drop := num("lean_drop", "presentation.standing.kiss.lean_drop",
 	"Kiss lean drop", "How far he drops over her at the kiss.", POSES, "Standing › Kiss") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
@@ -1671,7 +1671,7 @@ static var draw_still_zones := flag("draw_still_zones", "anatomy.draw_still_zone
 	"Draw still zones",
 	"Overlay the vulva still-zone ellipsoid on the body coat.",
 	ANATOMY, "Holes").as_debug()
-## Draws nearby ponies' skeletons; `debug_actions/service.gd` owns the overlay.
+## Draws nearby ponies' skeletons; `debug_actions/api.gd` owns the overlay.
 static var skeleton_overlay := flag("skeleton_overlay", "anatomy.skeleton_overlay",
 	"Show skeleton overlay",
 	"Draw nearby ponies' body, face and hair/tail skeletons. Left-click a joint to print it. Requires Enable debug.",

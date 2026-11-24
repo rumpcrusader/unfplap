@@ -4,7 +4,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ##     --script res://mods/unfplap/tests/dialogue/test_utterance_scheduler.gd
 
 const SCHED := preload("res://mods/unfplap/dialogue/utterance_scheduler.gd")
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 
 
 func fresh() -> RefCounted:

@@ -4,12 +4,12 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/integrations/test_service.gd
 
 const ADAPTER := preload("res://mods/unfplap/integrations/act.gd")
-const FACADE := preload("res://mods/unfplap/integrations/service.gd")
+const FACADE := preload("res://mods/unfplap/integrations/api.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
-const BODY_CHANGE_SERVICE := preload("res://mods/unfplap/body_change/service.gd")
-const PONIES := preload("res://mods/unfplap/ponies/service.gd")
-const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
+const BODY_CHANGE_SERVICE := preload("res://mods/unfplap/body_change/api.gd")
+const PONIES := preload("res://mods/unfplap/ponies/api.gd")
+const ELIGIBILITY := preload("res://mods/unfplap/eligibility/api.gd")
 
 
 

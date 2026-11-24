@@ -33,7 +33,7 @@ WORLD_IMPORT = re.compile(r'(?:preload|load)\("(res://[^"]+\.gd)"\)')
 WORLD_EXTENDS = re.compile(r'^extends\s+"(res://[^"]+)"', re.MULTILINE)
 # The lifecycle base is a no-behaviour contract; the HUD is the one non-base list service.
 SERVICE_BASE = "shared/service.gd"
-HUD_FACADE = "hud/service.gd"
+HUD_FACADE = "hud/api.gd"
 # runtime.gd is the per-pony Node host: it owns lifetime and node operations and implements no
 # system's rules. The state-writer rule, the fixed public surface and the settings/child-node
 # allow-lists are the invariant. The allow-lists are compared both ways, so a new read or node
@@ -274,10 +274,10 @@ def check_runtime_shape(failure: Failure) -> None:
         if name not in properties:
             failure.add("the node property allow-list row %s is stale (%s)" % (name, reason))
 
-    # Raw input has one owner: input/service.gd owns it.
+    # Raw input has one owner: input/api.gd owns it.
     for pattern in RUNTIME_RAW_INPUT:
         for match in pattern.finditer(text):
-            failure.add("runtime.gd:%d decodes raw input (%s); input/service.gd owns it" % (
+            failure.add("runtime.gd:%d decodes raw input (%s); input/api.gd owns it" % (
                 line_of(text, match.start()), match.group(0).strip()))
 
     # Settings arrive once per act and again on apply_live_settings(), never per frame.
@@ -408,7 +408,7 @@ def check_service_bases(failure: Failure) -> None:
         for hook in ("on_world", "on_world_closed", "on_player", "shutdown"):
             if not re.search(r"^func %s\(" % hook, hud_text, re.MULTILINE):
                 failure.add(
-                    "hud/service.gd is missing %s(); it is the one non-base list service" % hook)
+                    "hud/api.gd is missing %s(); it is the one non-base list service" % hook)
 
 
 def check_log_bleed(failure: Failure) -> None:

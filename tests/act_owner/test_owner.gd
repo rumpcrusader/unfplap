@@ -4,8 +4,8 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/act_owner/test_owner.gd
 
-const ACT_OWNER := preload("res://mods/unfplap/act_owner/service.gd")
-const OFFER := preload("res://mods/unfplap/offer/service.gd")
+const ACT_OWNER := preload("res://mods/unfplap/act_owner/api.gd")
+const OFFER := preload("res://mods/unfplap/offer/api.gd")
 const STOCK_SMACK := preload("res://mods/unfplap/stock_smack/api.gd")
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
 const FAKE_MODS := preload("res://mods/unfplap/tests/support/fakes/fake_mods.gd")
@@ -15,7 +15,7 @@ class FakeRuntime extends Node:
 	var pony: Node = null
 
 
-class FakeOffer extends "res://mods/unfplap/offer/service.gd":
+class FakeOffer extends "res://mods/unfplap/offer/api.gd":
 	var cleared := 0
 
 	func clear_current() -> void:

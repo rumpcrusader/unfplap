@@ -3,9 +3,9 @@ extends Node
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
-const ACT_OWNER := preload("res://mods/unfplap/act_owner/service.gd")
+const ACT_OWNER := preload("res://mods/unfplap/act_owner/api.gd")
 const ITEM := preload("res://mods/unfplap/stool/item.gd")
-const SERVICE := preload("res://mods/unfplap/stool/service.gd")
+const SERVICE := preload("res://mods/unfplap/stool/api.gd")
 const SPAWN_COUNT := 3
 const RANGE_M := 80.0
 const RETRY_S := 2.0

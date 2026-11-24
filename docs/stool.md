@@ -23,7 +23,7 @@ in `docs/eligibility.md`, `docs/readiness.md`, `docs/poses.md`, `docs/camera.md`
 
 | File | Role |
 |---|---|
-| `stool/service.gd` | facade: the only other systems preload or call; owns the supply child, `new_act()` and the stateless helpers |
+| `stool/api.gd` | facade: the only other systems preload or call; owns the supply child, `new_act()` and the stateless helpers |
 | `stool/act.gd` | per-act handle: the live rule, case loans, placed stack, player lift, failed flag and the hotkey pair (`hotkey_pair`, `hint_pair`); the runtime owns one per pony, resets it per act and forwards its queries one line each |
 | `stool/measure.gd` | pure reach-gap, threshold and stack-count arithmetic |
 | `stool/item.gd` | static `goods:footstool` case-slot, case-count, owned-count and free-slot checks through the world facade's `Inventory` view |
@@ -105,7 +105,7 @@ idle hint and the act start.
 - The scene-only formation rows, the Agreement's placement check and `scene_gate.hotkey_ready()`
   (forwarded by the runtime) use the same row, so a tall mare neither offers nor shows the hint
   when Anon cannot reach.
-- `offer/service.gd` shows **Make love** when the start is possible and **Needs a footstool** or
+- `offer/api.gd` shows **Make love** when the start is possible and **Needs a footstool** or
   **Needs N footstools** when the stack is the only missing thing. The blocked note has no act-key
   icon. A one-time toast points at houses.
 - The idle hint reads the reach and case pair once per scan (once per second) through
@@ -161,7 +161,7 @@ idle hint and the act start.
 
 ## Settings and debug
 
-- The footstool switch and its two standing values are declarations in `settings/service.gd`,
+- The footstool switch and its two standing values are declarations in `settings/api.gd`,
   each described by its `##` comment. A live reach gap over the shipped gap needs enough
   `goods:footstool` stacks of the shipped step height.
 - **Give footstool** adds one to the briefcase.

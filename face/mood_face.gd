@@ -4,7 +4,7 @@ extends Node
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const ACT_FACE := preload("res://mods/unfplap/shared/act_face.gd")
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 const DURATION := 300.0

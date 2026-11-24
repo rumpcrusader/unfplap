@@ -6,14 +6,14 @@ const WORLD := preload("res://mods/unfplap/world/api.gd")
 const ACT := preload("res://mods/unfplap/stool/act.gd")
 const ITEM := preload("res://mods/unfplap/stool/item.gd")
 const PROP := preload("res://mods/unfplap/stool/prop.gd")
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const STORE := preload("res://world/inventory/inventory_store.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
 const PLAYER_HOST := preload("res://mods/unfplap/anatomy/player_host.gd")
 
 
 
-class FakeFacade extends "res://mods/unfplap/stool/service.gd":
+class FakeFacade extends "res://mods/unfplap/stool/api.gd":
 	var gap_value := 0.40
 	var need := 2
 	var threshold := 0.20

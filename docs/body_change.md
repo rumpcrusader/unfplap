@@ -7,7 +7,7 @@ the base service never polls.
 
 ## Scope
 
-`body_change/service.gd` owns the per-body form store, the default own form, the typed source and
+`body_change/api.gd` owns the per-body form store, the default own form, the typed source and
 binding registries, the per-body active-change read and the legacy metadata mirror.
 `body_change/source.gd` is the documented provider base, `body_change/wire.gd` writes the legacy
 keys from the typed form, and `integrations/changelings.gd` plus
@@ -175,7 +175,7 @@ names, its shape lookup and whether a named form is copyable and adult.
 
 ## Facade
 
-`body_change/service.gd` is the service; its handle reaches consumers through the World record.
+`body_change/api.gd` is the service; its handle reaches consumers through the World record.
 
 Registration rejects an object that is not the typed base. Registration order is the binding
 fan-out order and the source lookup order. `wire()` is the one call that builds the built-in

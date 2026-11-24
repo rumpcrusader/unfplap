@@ -4,7 +4,7 @@ The one World service that owns the act frame: which runtime is acting, the seri
 act ids and the one suspended body swap. It is the only place an act start, an act end and a
 body-change adoption agree on who owns the act.
 
-`act_owner/service.gd` is the facade. Every caller injects it: the entry builds and wires it, the
+`act_owner/api.gd` is the facade. Every caller injects it: the entry builds and wires it, the
 World record carries it to the runtimes and the act modules read it from there, and the World
 services that gate on a live act take it as a `wire` peer.
 

@@ -2,7 +2,7 @@
 
 ## Scope
 
-`face/service.gd` owns the act's one face: the beat table driven by the pure `shared/act_face.gd`, the
+`face/api.gd` owns the act's one face: the beat table driven by the pure `shared/act_face.gd`, the
 line-face ownership rule, the stare release, the eyelids, the smile and its hold timer, the climax
 quality shape, the held post-act mood face node and the warm prompt note. It does not own the
 runtime state, the blush, the kiss, the HUD or the summary grade.
@@ -14,7 +14,7 @@ start, close, warning, climax, afterglow and stop moments; the runtime calls `ey
 the tick, and the start and exit ledgers call `set_face()`/`clear_face()`/`end_face()` at the
 transitions. The aftercare's `start_post_act()` and the upset face are the ledgers' calls.
 
-`face/service.gd` is the facade and the only module another system calls. `shared/face_beat.gd` holds the
+`face/api.gd` is the facade and the only module another system calls. `shared/face_beat.gd` holds the
 typed beat context and its plan, summary and climax-quality records; `shared/act_face.gd` stays
 pure and `face/mood_face.gd` stays the held-face node. The expression table is the caller's:
 `act_face` validates every name against the `line_faces` it is handed, and the Face view supplies
@@ -24,7 +24,7 @@ it.
 
 | Piece | Owns |
 |---|---|
-| `face/service.gd` | the act face, the line-face owner, the stare release, the lids and smile with their timer, the climax quality shape, the mood-face lifetime and the warm note |
+| `face/api.gd` | the act face, the line-face owner, the stare release, the lids and smile with their timer, the climax quality shape, the mood-face lifetime and the warm note |
 | `shared/face_beat.gd` | the typed beat context, the plan parser and the summary and climax-quality records |
 | `shared/act_face.gd` | pure: beat plans, climax style, blush, summary faces, prompt hints |
 | `face/mood_face.gd` | the 300 s held base-game face, its own `finished` signal and its blush |

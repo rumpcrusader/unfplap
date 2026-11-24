@@ -7,14 +7,14 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ##
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_settings.gd
 
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const ROWS := preload("res://mods/unfplap/settings/rows.gd")
 const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 const SETTINGS_UI := preload("res://mods/unfplap/settings/ui.gd")
 const GAME := preload("res://mods/unfplap/settings/game.gd")
 const CHARACTERS_UI := preload("res://mods/unfplap/settings/characters_ui.gd")
 const DEBUG_UI := preload("res://mods/unfplap/debug/ui.gd")
-const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/service.gd")
+const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/api.gd")
 const CONSENT := preload("res://mods/unfplap/shared/consent.gd")
 const INTEGRATIONS := preload("res://mods/unfplap/shared/integrations.gd")
 

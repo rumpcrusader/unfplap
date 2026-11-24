@@ -5,14 +5,14 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/eligibility/test_eligibility_api.gd
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
-const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
+const ELIGIBILITY := preload("res://mods/unfplap/eligibility/api.gd")
 const IDENTITY_RECORD := preload("res://mods/unfplap/eligibility/identity_record.gd")
 const FACTS := preload("res://mods/unfplap/eligibility/facts.gd")
 const PARTICIPATION := preload("res://mods/unfplap/shared/participation.gd")
 const CONSENT := preload("res://mods/unfplap/shared/consent.gd")
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const ROWS := preload("res://mods/unfplap/settings/rows.gd")
-const MARE_REGISTRY := preload("res://mods/unfplap/registry/service.gd")
+const MARE_REGISTRY := preload("res://mods/unfplap/registry/api.gd")
 
 
 class FakeIdentity extends RefCounted:

@@ -87,7 +87,7 @@ owns the concepts; this section owns the complete roster. Every rule has both di
   preload a service, and a service that preloads it is a host import and refused. Any other shipped
   path has no owner and is refused; an edge naming one is classified external.
 - **Every anatomy file reads the game through `GAME`.** No anatomy file may preload a base-game
-  module; no anatomy file may preload another mod service except `settings/service.gd`; and no
+  module; no anatomy file may preload another mod service except `settings/api.gd`; and no
   outside file may preload an anatomy file except `anatomy/api.gd`.
 - **Every script dependency is a top-level preload.** In every `.gd`, `tests/` and `tools/`
   included, each `const … := preload(...)` sits in the contiguous block directly below the doc

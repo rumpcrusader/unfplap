@@ -9,7 +9,7 @@ const WORLD := preload("res://mods/unfplap/world/api.gd")
 const BOND_RECORD := preload("res://mods/unfplap/shared/bond_record.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
-const ACT_GATE := preload("res://mods/unfplap/act_gate/service.gd")
+const ACT_GATE := preload("res://mods/unfplap/act_gate/api.gd")
 
 ## The bond stages the sex-ready write never lowers: an engaged or married mare keeps her stage.
 const KEPT_STAGES := ["dating", "engaged", "married"]

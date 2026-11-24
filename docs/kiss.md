@@ -7,7 +7,7 @@ live view is `docs/camera.md`; the face beats are `docs/face.md`; the hands are
 
 ## Ownership
 
-`kiss/service.gd` is the act kiss controller. It owns the kiss state, the lean-in, the side latch,
+`kiss/api.gd` is the act kiss controller. It owns the kiss state, the lean-in, the side latch,
 the mouth target, the base-kiss bridge, the foreleg pin and the sound cadence. The runtime owns
 the state machine, the action latch (`F` held at a full lean), the camera and the teardown.
 `kiss/legs.gd` is the standing foreleg pin. `affection_pose.gd` is the game's kiss pose. The
@@ -101,7 +101,7 @@ turns her head across the mattress. Missionary always uses the custom head-aim p
 
 The live standing values are the `presentation.standing.kiss.*` declarations, each described by its
 `##` comment. The missionary/bed lean constants (`KISS_LEAN_M`, `KISS_LEAN_SIDE_M`, `KISS_LEAN_DROP_M`, `KISS_CAMERA_YAW_DEG`) stay
-in `kiss/service.gd`: `_kiss_controls()` is empty for the bed family, so the same values serve the
+in `kiss/api.gd`: `_kiss_controls()` is empty for the bed family, so the same values serve the
 missionary path and are not copies of `presentation.standing.kiss`. `KISS_LEAN_SIDE_M` is also the
 pure side-geometry constant the hands suite pins. Heights scale with `Settings.anon_height_scale()`,
 matching `player/player_mouth.gd`. See `docs/settings.md` for the settings framework.

@@ -3,8 +3,8 @@ extends CanvasLayer
 ## It never pauses the tree, claims a hotkey or writes a setting. See `docs/debug_actions.md`.
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
-const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/service.gd")
-const ACTIONS_NODE := preload("res://mods/unfplap/debug_actions/service.gd")
+const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/api.gd")
+const ACTIONS_NODE := preload("res://mods/unfplap/debug_actions/api.gd")
 
 ## The executor node that owns the gate, the context and the slots.
 var actions: ACTIONS_NODE

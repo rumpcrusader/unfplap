@@ -2,7 +2,7 @@ extends Node
 ## The player part: the human player's mesh on his Hips, its placement, shaping and throb.
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 const SKIN := Color(0.34, 0.66, 0.34)

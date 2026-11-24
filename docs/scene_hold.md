@@ -16,7 +16,7 @@ which ownership is taken, which is held, and in which order it is released.
 
 ## Ownership and boundary
 
-`scene_hold/service.gd` is the facade. It owns the ownership flags and the per-flag release. The
+`scene_hold/api.gd` is the facade. It owns the ownership flags and the per-flag release. The
 act exit ledger (`act/exit.gd`), the start ledger, the frame schedule (`act/tick.gd`) and the
 body-swap seams (`act/swap.gd`) call it; the service never touches the act's state.
 

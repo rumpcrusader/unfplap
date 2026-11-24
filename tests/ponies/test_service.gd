@@ -4,14 +4,14 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/ponies/test_service.gd
 
-const PONIES := preload("res://mods/unfplap/ponies/service.gd")
-const ACT_OWNER := preload("res://mods/unfplap/act_owner/service.gd")
+const PONIES := preload("res://mods/unfplap/ponies/api.gd")
+const ACT_OWNER := preload("res://mods/unfplap/act_owner/api.gd")
 const HANDLES := preload("res://mods/unfplap/world/handles.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
-const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
+const ELIGIBILITY := preload("res://mods/unfplap/eligibility/api.gd")
 
 
 
@@ -76,7 +76,7 @@ class FakeAnatomy extends ANATOMY:
 		journal.append("withdraw:" + str(pony.name))
 
 
-class FakeBodyChange extends "res://mods/unfplap/body_change/service.gd":
+class FakeBodyChange extends "res://mods/unfplap/body_change/api.gd":
 	var journal: Array[String] = []
 	var installed: Array[String] = []
 

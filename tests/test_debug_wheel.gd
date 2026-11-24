@@ -6,9 +6,9 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ## Pure: the wheel layout, the settings-only split, the dynamic cycle labels, the open gate and the
 ## registry dispatch to the actions node.
 
-const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/service.gd")
+const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/api.gd")
 const DEBUG_WHEEL := preload("res://mods/unfplap/debug_actions/wheel.gd")
-const DEBUG_ACTION_NODE := preload("res://mods/unfplap/debug_actions/service.gd")
+const DEBUG_ACTION_NODE := preload("res://mods/unfplap/debug_actions/api.gd")
 
 
 
@@ -21,7 +21,7 @@ class PhaseNode extends Node:
 
 
 ## A stand-in for the actions node: the gate, the context and the slot dispatch.
-class WheelActions extends "res://mods/unfplap/debug_actions/service.gd":
+class WheelActions extends "res://mods/unfplap/debug_actions/api.gd":
 	var last_action := ""
 
 	func debug_wheel_allowed() -> bool:

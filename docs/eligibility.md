@@ -4,7 +4,7 @@ The permanent identity gate: may this character take part in acts, be assigned a
 as a character, and did she grant a specific action. It never answers "right now"; the dynamic
 question is `docs/act_gate.md` and the live scene rows are `docs/scene_gate.md`.
 
-The internal API is `eligibility/service.gd`. The typed surface is `eligible`, `eligible_id`,
+The internal API is `eligibility/api.gd`. The typed surface is `eligible`, `eligible_id`,
 `get_profile`, `set_profile`, `witness_age` and `warm`. Cross-mod exposure stays `docs/api.md`,
 which this contract does not change.
 
@@ -24,7 +24,7 @@ consent question: they belong to `act_gate`. It does not cover poses, acts, read
 
 | File | Role |
 |---|---|
-| `eligibility/service.gd` | public API: the cached identity record, the capability answers and the profile layer |
+| `eligibility/api.gd` | public API: the cached identity record, the capability answers and the profile layer |
 | `eligibility/identity_record.gd` | the typed per-pony identity record: scalars as fields and the one participation document, reused until its era moves |
 | `eligibility/policy.gd` | pure identity predicates and the age category over plain values |
 | `eligibility/facts.gd` | pure identity fact schema; the one adulthood predicate stays private here |
@@ -35,8 +35,8 @@ The purity boundary is deliberate:
 
 - `policy.gd` and `facts.gd` have no `Node`, `Time`, `SceneTree`, `FileAccess`, `SETTINGS` preload
   or scene preload. They receive plain data and return plain data.
-- `eligibility/service.gd` is read-only. It never saves settings, history or consent.
-- Only `eligibility/scene.gd` reads `world/api.gd`; only `eligibility/service.gd` reads
+- `eligibility/api.gd` is read-only. It never saves settings, history or consent.
+- Only `eligibility/scene.gd` reads `world/api.gd`; only `eligibility/api.gd` reads
   `bonds`-free identity values, `SETTINGS.profile_identity` and `SETTINGS.consent`.
 - The service is a leaf: it preloads its own files, shared data, the settings and registry facades
   and the scene boundary. It preloads no other service. The static gate enforces
@@ -55,16 +55,16 @@ and the participation block, so a per-frame capability read is a dictionary look
 
 | Data | Stored where | Owner |
 |---|---|---|
-| Per-mare participation (`acts`, `anatomy`) | `characters.json` -> `characters.<id>.profile.participation` (differences only) | `settings/service.gd` plus the `shared/participation.gd` resolver |
-| Per-mare consent (public, anal, oral) | `characters.json` -> `characters.<id>.consent` (differences only) | `settings/service.gd` plus the `shared/consent.gd` resolver |
-| Provider assertion, participation and consent | the registry's provider layers | `registry/service.gd` |
-| Eligibility facts | nowhere | `eligibility/service.gd` per call |
+| Per-mare participation (`acts`, `anatomy`) | `characters.json` -> `characters.<id>.profile.participation` (differences only) | `settings/api.gd` plus the `shared/participation.gd` resolver |
+| Per-mare consent (public, anal, oral) | `characters.json` -> `characters.<id>.consent` (differences only) | `settings/api.gd` plus the `shared/consent.gd` resolver |
+| Provider assertion, participation and consent | the registry's provider layers | `registry/api.gd` |
+| Eligibility facts | nowhere | `eligibility/api.gd` per call |
 
 Rules:
 
 - No `characters.<id>.eligibility`, no eligibility block in `settings.json`, no eligibility block
   in `Mods.state("unfplap")`.
-- `eligibility/service.gd` never calls `SETTINGS.save_*` or `Mods.save_changed`.
+- `eligibility/api.gd` never calls `SETTINGS.save_*` or `Mods.save_changed`.
 - `shared/participation.gd:KEYS` and `shared/consent.gd:KEYS` are the capability and consent key
   tables. `PARTICIPATION.all_keys()` adds the deprecated `tail` key, which is still accepted,
   validated and returned but ignored by every capability.
@@ -74,7 +74,7 @@ Rules:
 
 ## Facade
 
-`eligibility/service.gd` extends `shared/service.gd`, the world-service base. The entry creates one
+`eligibility/api.gd` extends `shared/service.gd`, the world-service base. The entry creates one
 instance per world and attaches it to `unfplap_world`; the World record carries it, so `anatomy`,
 `act_gate`, `initiation`, `negotiation`, `debug`, `memory`, `api` and the standing presentation read
 the peer they were wired with. The types are declared in the facade, so a consumer names them

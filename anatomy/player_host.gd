@@ -2,7 +2,7 @@ extends RefCounted
 ## Owns the one `anatomy/player.gd` node and its warm/body resolution.
 ## The public surface is `api.AnonBody`; nothing outside anatomy reaches this module.
 
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const PLAYER := preload("res://mods/unfplap/anatomy/player.gd")
 const RIG := preload("res://mods/unfplap/anatomy/rig.gd")
 

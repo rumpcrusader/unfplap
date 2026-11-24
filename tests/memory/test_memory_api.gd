@@ -5,7 +5,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ##     --script res://mods/unfplap/tests/memory/test_memory_api.gd
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
-const MEMORY := preload("res://mods/unfplap/memory/service.gd")
+const MEMORY := preload("res://mods/unfplap/memory/api.gd")
 
 
 

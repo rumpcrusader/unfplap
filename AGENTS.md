@@ -22,7 +22,7 @@ restate a contract.
 | `world/game.gd` | `docs/world.md` |
 | `world/handles.gd` | `docs/world.md` |
 | `settings/game.gd` | `docs/settings.md` |
-| `offer/service.gd` | `docs/offer.md` |
+| `offer/api.gd` | `docs/offer.md` |
 | `api.gd` | `docs/api.md` |
 | `tests/**` | `docs/tests.md` |
 | `tests/body_change/**` | `docs/tests.md`, `docs/body_change.md` |
@@ -214,14 +214,14 @@ are in `ARCHITECTURE.md` (`## The service contract`).
 - **Settings reads.** A service may read its typed handles at use, hot or cold; a bulk block uses
   `SETTINGS.act_snapshot(group)`. No default copies, no private settings module, no per-service
   cache; if a hot path regresses, improve the settings service. One declaration in
-  `settings/service.gd`, one shipped value in `settings/settings.json`, one typed read; the
+  `settings/api.gd`, one shipped value in `settings/settings.json`, one typed read; the
   framework is `docs/settings.md`.
 - **No game-file edits and no JSON merges.** Everything lives under `res://mods/unfplap/`.
 - **The cross-mod API is frozen.** `api.gd` and `docs/api.md` are edited only with the user's
   explicit approval; that approval starts the task and the edit follows the same-commit rule.
   `tests/test_api.gd` follows the same approval, and is edited only when the plan changes the API
   contract or its fixtures.
-- **No global debug hotkeys.** `debug/service.gd` declares none; a debug action is a button in its
+- **No global debug hotkeys.** `debug/api.gd` declares none; a debug action is a button in its
   Debug block and the game's dev keys stay the game's.
 - **Tests move with the code.** A change is not done while its suite reads the old private path,
   unless it is explicitly retargeted to the facade.
@@ -266,7 +266,7 @@ are in `ARCHITECTURE.md` (`## The service contract`).
   never force a comment edit. The comment gate enforces the shape in `scripts/lint.sh`.
 - A doc names settings and behaviour, not copied numeric defaults; the shipped
   `settings/settings.json` is the source for the default and the declaration in
-  `settings/service.gd` for the bounds.
+  `settings/api.gd` for the bounds.
 - `docs/api.md` is the only cross-mod API contract. `README.md` is human-owned: do not edit it;
   report the needed change with exact replacement text.
 

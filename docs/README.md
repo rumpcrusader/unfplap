@@ -46,41 +46,41 @@ block; its `_compose()` constructs and binds them once per pony and attaches the
 | Service | Facade | Contract | Tests | Scope |
 |---|---|---|---|---|
 | World reads | `world/api.gd` | `docs/world.md` | `tests/world/` | `world` |
-| Pony runtimes | `ponies/service.gd` | `docs/ponies.md` | `tests/ponies/` | `world` |
-| Act frame | `act_owner/service.gd` | `docs/act_owner.md` | `tests/act_owner/` | `world` |
-| Identity eligibility | `eligibility/service.gd` | `docs/eligibility.md` | `tests/eligibility/` | `world` |
-| Act gate | `act_gate/service.gd` | `docs/act_gate.md` | `tests/act_gate/` | `world` |
-| Estrus cycle | `estrus/service.gd` | `docs/estrus.md` | `tests/estrus/` | `world` |
-| Scene gate and refusal | `scene_gate/service.gd` | `docs/scene_gate.md` | `tests/scene_gate/` | `pony` |
-| Act scene hold | `scene_hold/service.gd` | `docs/scene_hold.md` | `tests/scene_hold/` | `pony` |
+| Pony runtimes | `ponies/api.gd` | `docs/ponies.md` | `tests/ponies/` | `world` |
+| Act frame | `act_owner/api.gd` | `docs/act_owner.md` | `tests/act_owner/` | `world` |
+| Identity eligibility | `eligibility/api.gd` | `docs/eligibility.md` | `tests/eligibility/` | `world` |
+| Act gate | `act_gate/api.gd` | `docs/act_gate.md` | `tests/act_gate/` | `world` |
+| Estrus cycle | `estrus/api.gd` | `docs/estrus.md` | `tests/estrus/` | `world` |
+| Scene gate and refusal | `scene_gate/api.gd` | `docs/scene_gate.md` | `tests/scene_gate/` | `pony` |
+| Act scene hold | `scene_hold/api.gd` | `docs/scene_hold.md` | `tests/scene_hold/` | `pony` |
 | Privacy | `privacy/api.gd` | `docs/privacy.md` | `tests/privacy/` | `world` |
-| Act negotiation | `negotiation/service.gd` | `docs/negotiation.md` | `tests/negotiation/` | `world` |
-| Mod integrations | `integrations/service.gd` | `docs/integrations.md` | `tests/integrations/` | `world` |
-| Bed rest and rejoin | `rest/service.gd` | `docs/rest.md` | `tests/rest/` | `pony` |
+| Act negotiation | `negotiation/api.gd` | `docs/negotiation.md` | `tests/negotiation/` | `world` |
+| Mod integrations | `integrations/api.gd` | `docs/integrations.md` | `tests/integrations/` | `world` |
+| Bed rest and rejoin | `rest/api.gd` | `docs/rest.md` | `tests/rest/` | `pony` |
 | Hands | `hands/api.gd` | `docs/hands.md` | `tests/hands/` | `pony` |
 | Anatomy | `anatomy/api.gd` | `docs/anatomy.md` | `tests/anatomy/` | `world` |
-| Body change | `body_change/service.gd` | `docs/body_change.md` | `tests/body_change/` | `world` |
-| Idle act offer and start | `offer/service.gd` | `docs/offer.md` | `tests/offer/` | `world` |
-| Proactive requests | `initiation/service.gd` | `docs/initiation.md` | `tests/initiation/` | `world` |
-| Act memory | `memory/service.gd` | `docs/memory.md` | `tests/memory/` | `world` |
-| Act dialogue and prompt notes | `dialogue/service.gd` | `docs/dialogue.md` | `tests/dialogue/` | `pony` |
-| Readiness, strength, auto | `readiness/service.gd` | `docs/readiness.md` | `tests/readiness/` | `pony` |
-| Poses and skeleton | `poses/service.gd` | `docs/poses.md` | `tests/poses/` | `pony` |
-| Act camera and live view | `camera/service.gd` | `docs/camera.md` | `tests/act_camera/` | `pony` |
-| Kiss | `kiss/service.gd` | `docs/kiss.md` | `tests/act_camera/`, `tests/face/`, `tests/hands/` | `pony` |
-| Act summary | `summary/service.gd` | `docs/summary.md` | `tests/summary/` | `pony` |
-| Afterglow | `afterglow/service.gd` | `docs/afterglow.md` | `tests/afterglow/` | `pony` |
-| Face and mood | `face/service.gd` | `docs/face.md` | `tests/face/` | `pony` |
-| Reactions | `reactions/service.gd` | `docs/reactions.md` | `tests/reactions/` | `pony` |
-| Stool | `stool/service.gd` | `docs/stool.md` | `tests/stool/` | `world` |
+| Body change | `body_change/api.gd` | `docs/body_change.md` | `tests/body_change/` | `world` |
+| Idle act offer and start | `offer/api.gd` | `docs/offer.md` | `tests/offer/` | `world` |
+| Proactive requests | `initiation/api.gd` | `docs/initiation.md` | `tests/initiation/` | `world` |
+| Act memory | `memory/api.gd` | `docs/memory.md` | `tests/memory/` | `world` |
+| Act dialogue and prompt notes | `dialogue/api.gd` | `docs/dialogue.md` | `tests/dialogue/` | `pony` |
+| Readiness, strength, auto | `readiness/api.gd` | `docs/readiness.md` | `tests/readiness/` | `pony` |
+| Poses and skeleton | `poses/api.gd` | `docs/poses.md` | `tests/poses/` | `pony` |
+| Act camera and live view | `camera/api.gd` | `docs/camera.md` | `tests/act_camera/` | `pony` |
+| Kiss | `kiss/api.gd` | `docs/kiss.md` | `tests/act_camera/`, `tests/face/`, `tests/hands/` | `pony` |
+| Act summary | `summary/api.gd` | `docs/summary.md` | `tests/summary/` | `pony` |
+| Afterglow | `afterglow/api.gd` | `docs/afterglow.md` | `tests/afterglow/` | `pony` |
+| Face and mood | `face/api.gd` | `docs/face.md` | `tests/face/` | `pony` |
+| Reactions | `reactions/api.gd` | `docs/reactions.md` | `tests/reactions/` | `pony` |
+| Stool | `stool/api.gd` | `docs/stool.md` | `tests/stool/` | `world` |
 | Audio and voice | `audio/api.gd` | `docs/audio.md` | `tests/act_audio/` | `world` |
 | Outside-act smack | `stock_smack/api.gd` | `docs/stock_smack.md` | `tests/stock_smack/` | `world` |
-| HUD | `hud/service.gd` | `docs/hud.md` | `tests/hud/` | `world` |
-| Settings | `settings/service.gd` | `docs/settings.md` | `tests/test_settings.gd` | `process` |
-| Mare registry | `registry/service.gd` | `docs/registry.md` | `tests/test_api.gd` | `process` |
-| Input | `input/service.gd` | `docs/input.md` | `tests/test_input.gd` | `world` |
-| Debug tooling | `debug/service.gd` | `docs/debug.md` | `tests/test_debug_wheel.gd`, `tests/test_settings.gd` | `process` |
-| Debug actions executor | `debug_actions/service.gd` | `docs/debug_actions.md` | `tests/test_debug_pony.gd`, `tests/test_deep_stretch.gd`, `tests/test_face_sit_action.gd` | `world` |
+| HUD | `hud/api.gd` | `docs/hud.md` | `tests/hud/` | `world` |
+| Settings | `settings/api.gd` | `docs/settings.md` | `tests/test_settings.gd` | `process` |
+| Mare registry | `registry/api.gd` | `docs/registry.md` | `tests/test_api.gd` | `process` |
+| Input | `input/api.gd` | `docs/input.md` | `tests/test_input.gd` | `world` |
+| Debug tooling | `debug/api.gd` | `docs/debug.md` | `tests/test_debug_wheel.gd`, `tests/test_settings.gd` | `process` |
+| Debug actions executor | `debug_actions/api.gd` | `docs/debug_actions.md` | `tests/test_debug_pony.gd`, `tests/test_deep_stretch.gd`, `tests/test_face_sit_action.gd` | `world` |
 
 The facade header declares the service scope; each contract owns the service's responsibility and
 boundary. A facade is internal API; the only stable external surface is `docs/api.md`.

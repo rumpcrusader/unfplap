@@ -15,7 +15,7 @@ const LOD_BINDING := preload("res://mods/unfplap/body_change/lod_binding.gd")
 const RUNTIME_BINDING := preload("res://mods/unfplap/body_change/runtime_binding.gd")
 const SMACK_BINDING := preload("res://mods/unfplap/body_change/smack_binding.gd")
 const WIRE := preload("res://mods/unfplap/body_change/wire.gd")
-const PONIES := preload("res://mods/unfplap/ponies/service.gd")
+const PONIES := preload("res://mods/unfplap/ponies/api.gd")
 const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 

@@ -5,7 +5,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 
 const STOCK := preload("res://mods/unfplap/stock_smack/api.gd")
 const CUES := preload("res://mods/unfplap/shared/smack_cues.gd")
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 
 
 func run() -> void:

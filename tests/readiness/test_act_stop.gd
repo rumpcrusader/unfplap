@@ -8,8 +8,8 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
-const MEMORY := preload("res://mods/unfplap/memory/service.gd")
-const HUD := preload("res://mods/unfplap/hud/service.gd")
+const MEMORY := preload("res://mods/unfplap/memory/api.gd")
+const HUD := preload("res://mods/unfplap/hud/api.gd")
 const HANDLES := preload("res://mods/unfplap/world/handles.gd")
 
 

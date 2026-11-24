@@ -4,7 +4,7 @@ extends RefCounted
 ## No scene access.
 
 const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 
 var tier := "normal"
 var distress := 0.0

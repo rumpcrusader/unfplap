@@ -59,7 +59,7 @@ var bob := 0.0
 var back := 0.0
 var back_target := 0.0
 var forced_glance := ""
-## The pose read model `poses/service.gd` fills and clears. Its `id`, profiles, live config and
+## The pose read model `poses/api.gd` fills and clears. Its `id`, profiles, live config and
 ## contact are the one pose source for the presentation modules.
 var pose_view: Variant = null
 var presentation_config: Dictionary = {}

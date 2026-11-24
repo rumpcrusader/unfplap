@@ -1,6 +1,6 @@
 # Estrus cycle
 
-The optional 30-day mare cycle. `estrus/service.gd` owns the per-pony wink schedule and the idle
+The optional 30-day mare cycle. `estrus/api.gd` owns the per-pony wink schedule and the idle
 rest push to anatomy; the phase it reads comes from `shared/cycle_state.gd`, the one derivation the
 act gate also uses. It is off when `features.estrus_cycle` is off; the session-only debug override
 is honoured either way.

@@ -7,7 +7,7 @@ are `docs/dialogue.md`; the HUD text is `docs/hud.md`; the camera response is `d
 
 ## Ownership
 
-`readiness/service.gd` is the system facade. It owns the scoring state, the public act values
+`readiness/api.gd` is the system facade. It owns the scoring state, the public act values
 `satisfaction`, `mood`, `cue` and `pony_climaxes`, and the neglect-tolerance meter; the act session
 keeps the state machine and the face beats, and `act/consent.gd` presents a tolerance decision.
 `begin_climax()` owns the climax count, mood and cue; `end_climax()` owns the post-climax reset;
@@ -18,7 +18,7 @@ the per-mare profile as the facade's typed `Profile` record; the profile math an
 `shared/preferences.gd`.
 
 `readiness/thrust.gd`, `readiness/auto_thrust.gd`, `readiness/auto_panel.gd` and
-`readiness/tolerance.gd` are pure modules behind the facade. `input/service.gd` reads the input
+`readiness/tolerance.gd` are pure modules behind the facade. `input/api.gd` reads the input
 and calls the runtime's protocol; the runtime forwards the mouse travel and the sampled keys and
 applies the depth through `_thrust_move`, so audio, camera, jiggle and presentation keep one path.
 
@@ -211,7 +211,7 @@ testing.
   `reset()` takes all four explicitly.
 - `readiness/auto_panel.gd` is the pure hold-X layer: tap/hold detection, the 0.28 s grace, key repeats and
   the four live rows.
-- `input/service.gd` reads `Input` and passes the key states to `act/input.gd:auto_panel_input()`
+- `input/api.gd` reads `Input` and passes the key states to `act/input.gd:auto_panel_input()`
   (`runtime.act.input`); readiness returns the actions and the generated depth. The mouse does
   nothing while auto is on. The wheel sets pace through the same protocol's
   `auto_thrust_wheel()`.
@@ -231,7 +231,7 @@ testing.
 ## Settings
 
 The thrust, auto-thrust, cooldown, receptive-window and cue-pacing declarations are in
-`settings/service.gd`, each described by its `##` comment. See `docs/settings.md` for the framework.
+`settings/api.gd`, each described by its `##` comment. See `docs/settings.md` for the framework.
 
 The per-mare neglect-tolerance tier is a preference field, not a global setting: edit it in
 **Characters**. The thresholds, like relief, decay and stop cooldowns, are the `tolerance.*` debug

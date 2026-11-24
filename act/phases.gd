@@ -7,7 +7,7 @@ extends RefCounted
 const ACT_HOST := preload("res://mods/unfplap/act/host.gd")
 const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")
 const ACT_SESSION := preload("res://mods/unfplap/act/session.gd")
-const POSE_SESSION := preload("res://mods/unfplap/poses/service.gd")
+const POSE_SESSION := preload("res://mods/unfplap/poses/api.gd")
 const PERF := preload("res://mods/unfplap/shared/perf.gd")
 const ACT_FACE := preload("res://mods/unfplap/shared/act_face.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")

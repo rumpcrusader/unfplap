@@ -1,6 +1,6 @@
 # Idle act offer
 
-`offer/service.gd` (Node, world scope) owns the idle act offer and the start it leads to: the fan
+`offer/api.gd` (Node, world scope) owns the idle act offer and the start it leads to: the fan
 sensor and the scene fingerprint that trigger it, the standing fan candidates behind it, the typed
 offer the act key would start, the footstool block, the "Make love" hint beside the game's prompt
 row, the live Agreement offer, the act key's one press and the Agreement auto-start. It answers what
@@ -172,13 +172,13 @@ the `offer_sensor_read` child), its `fan_discover` and `fan_hash` children at th
 
 | Callback | Type | Contract |
 |---|---|---|
-| `negotiation` | `negotiation/service.gd` | the Negotiation service; only its public `handle()`, `ready_offer()`, `is_locked()`, `hotkey_handle()`, `interrupt_for_hotkey()`, `cancel()` and `report()` reads are used |
+| `negotiation` | `negotiation/api.gd` | the Negotiation service; only its public `handle()`, `ready_offer()`, `is_locked()`, `hotkey_handle()`, `interrupt_for_hotkey()`, `cancel()` and `report()` reads are used |
 | `privacy` | `privacy/api.gd` | the live visibility provider, sampled fresh before a private Agreement auto-starts |
 | `hud` | `Node` | the desktop HUD, bound at construction; `show_prompt`/`hide_prompt` (toasts go through the bound `hud.toast()`) |
-| `act_owner` | `act_owner/service.gd` | the act frame the press and the sensor gate on (`docs/act_owner.md`) |
-| `ponies` | `ponies/service.gd` | the roster the runtime, scene, start and presentation reads go through (`docs/ponies.md`); handed to the fan sensor too |
-| `eligibility` | `eligibility/service.gd` | the act-target capability |
-| `act_gate` | `act_gate/service.gd` | the Base clearance relationship row |
+| `act_owner` | `act_owner/api.gd` | the act frame the press and the sensor gate on (`docs/act_owner.md`) |
+| `ponies` | `ponies/api.gd` | the roster the runtime, scene, start and presentation reads go through (`docs/ponies.md`); handed to the fan sensor too |
+| `eligibility` | `eligibility/api.gd` | the act-target capability |
+| `act_gate` | `act_gate/api.gd` | the Base clearance relationship row |
 
 `_ready()` joins the settings change notification and `_exit_tree()` leaves it, so an edit reaches
 `apply_settings()` with no entry path. The act-running read is the wired act owner

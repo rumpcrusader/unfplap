@@ -9,7 +9,7 @@ const ACT := preload("res://mods/unfplap/anatomy/act.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
 const RIG := preload("res://mods/unfplap/anatomy/rig.gd")
 const PLAYER_PART := preload("res://mods/unfplap/anatomy/player.gd")
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 
 

@@ -5,7 +5,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const BED := preload("res://mods/unfplap/rest/bed.gd")
-const REST := preload("res://mods/unfplap/rest/service.gd")
+const REST := preload("res://mods/unfplap/rest/api.gd")
 
 
 

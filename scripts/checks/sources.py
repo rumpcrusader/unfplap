@@ -39,9 +39,9 @@ def check_sources(failure: Failure) -> None:
     check_release(failure)
 
     # One settings declaration module, one facade per assignment and no root composition shim.
-    settings = read_text(str(ROOT / "settings" / "service.gd"))
+    settings = read_text(str(ROOT / "settings" / "api.gd"))
     if "static func all_settings() -> Array[Setting]" not in settings:
-        failure.add("settings/service.gd must expose all_settings() -> Array[Setting]")
+        failure.add("settings/api.gd must expose all_settings() -> Array[Setting]")
     declaring: list[str] = []
     for path in shipped_sources():
         source = read_text(str(path))
@@ -52,8 +52,8 @@ def check_sources(failure: Failure) -> None:
         # `settings/` is a second declaration surface.
         if path.name == "settings.gd" and path.parent.name not in ("settings", "act"):
             failure.add("no per-service settings module: %s" % rel(path))
-    if declaring != ["settings/service.gd"]:
-        failure.add("only settings/service.gd may declare settings (found %s)" % declaring)
+    if declaring != ["settings/api.gd"]:
+        failure.add("only settings/api.gd may declare settings (found %s)" % declaring)
     for name in ("settings_page.gd", "settings_layout.gd"):
         if (ROOT / name).exists():
             failure.add("no root settings composition file: %s" % name)

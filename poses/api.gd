@@ -26,7 +26,7 @@ const ORAL_TURN := preload("res://mods/unfplap/poses/oral_turn.gd")
 const FACE_CONTACT := preload("res://mods/unfplap/poses/face_contact.gd")
 const SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const REGISTRY := preload("res://mods/unfplap/poses/registry.gd")
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 

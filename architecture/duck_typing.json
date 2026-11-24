@@ -5,7 +5,7 @@
   ],
   "baseline": [
     {
-      "file": "act_owner/service.gd",
+      "file": "act_owner/api.gd",
       "count": 2
     },
     {
@@ -17,7 +17,7 @@
       "count": 1
     },
     {
-      "file": "debug/service.gd",
+      "file": "debug/api.gd",
       "count": 5
     },
     {
@@ -25,11 +25,11 @@
       "count": 2
     },
     {
-      "file": "debug_actions/service.gd",
+      "file": "debug_actions/api.gd",
       "count": 3
     },
     {
-      "file": "initiation/service.gd",
+      "file": "initiation/api.gd",
       "count": 6
     },
     {
@@ -37,7 +37,7 @@
       "count": 1
     },
     {
-      "file": "input/service.gd",
+      "file": "input/api.gd",
       "count": 2
     },
     {
@@ -57,7 +57,7 @@
       "count": 1
     },
     {
-      "file": "negotiation/service.gd",
+      "file": "negotiation/api.gd",
       "count": 3
     },
     {
@@ -65,7 +65,7 @@
       "count": 1
     },
     {
-      "file": "ponies/service.gd",
+      "file": "ponies/api.gd",
       "count": 5
     },
     {

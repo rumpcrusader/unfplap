@@ -47,7 +47,7 @@ It does not cover eligibility, act readiness, thrust scoring, pose or camera rul
 | `anatomy/udder.gd` | the generated two-lobe teats, grown from her own belly surface |
 | `anatomy/heat.gd` | the idle rest shape and one wink burst; estrus owns the schedule |
 | `anatomy/player.gd` | player part mesh, placement, the aim/bed-inset write seam, girth/head/length shaping, throb and the hip-offset handshake |
-| `estrus/service.gd` | the optional cycle: phase, per-pony wink schedule and the idle rest push |
+| `estrus/api.gd` | the optional cycle: phase, per-pony wink schedule and the idle rest push |
 | `shared/anatomy_placement.gd` | pure placement schema, merge/sanitize/diff and the one-time legacy migration |
 | `shared/body_profile.gd` | the typed `RigProfile`, the legacy body profiles, the body-fit key and the standing entrance offset |
 | `anatomy/tail/seat.gd` | world controller: seats every adult mare's hair tail at the reference dock, installs the dock cuff, applies placement and restores the original |
@@ -80,8 +80,8 @@ The internal entry points are:
 - `poses/missionary_anon.gd` and `poses/standing_anon.gd` read the `AnonBody` handle from the act
   facts: the standing body applies its wanted pelvis offset through `drive_hip()`, and the bed
   body asks for `hip_offset()` and records the applied value.
-- `input/service.gd` calls the act session's anatomy action gates; `hud/service.gd` renders the matching rows.
-- `settings/service.gd` and `registry/service.gd` use `shared/anatomy_placement.gd` as the shared pure schema.
+- `input/api.gd` calls the act session's anatomy action gates; `hud/api.gd` renders the matching rows.
+- `settings/api.gd` and `registry/api.gd` use `shared/anatomy_placement.gd` as the shared pure schema.
 
 The controller reads only its injected `anatomy/rig.gd` and Settings; it never reads the runtime
 node or eligibility. `anatomy/attach.gd` owns the mesh, dock, visibility and fluid, so the
@@ -125,7 +125,7 @@ controller, not a snapshot.
 
 The Placement editor no longer selects a pony: `debug_placement(pony, op, value, tail_owned)` and
 `debug_show(pony)` take the body the debug caller aimed at. A source-owned tail is passed as
-`tail_owned` by `debug_actions/service.gd`, which also applies the source's wrapper after a write.
+`tail_owned` by `debug_actions/api.gd`, which also applies the source's wrapper after a write.
 
 `ActPresentation` stages the act with the caller-owned `PoseView` and `ActStage`. `act/tick.gd`
 calls `stage(delta, stage)` every frame from `POSING_IN` through `RESTORE`; `act/tick._fanout`
@@ -147,7 +147,7 @@ the grip and releases the fluid; the phase decides when a climax event calls it.
   `eligibility.consent(pony, "anal")` pass, it calls `target_anus()`; otherwise it calls
   `target_vulva()`. A refusal is the input's HUD line, not an anatomy signal.
 - `N` calls `can_target_mouth()`, requests the authored `standing ↔ standing_oral` edge through
-  `poses/service.gd` with the per-mare `oral` consent, and shows the pose's refusal line. When
+  `poses/api.gd` with the per-mare `oral` consent, and shows the pose's refusal line. When
   the new view reports `contact_kind == "mouth"`, the fan-out's `pose()` selects the mouth target.
 - `pose(view)` clears a `MOUTH` target back to `VULVA` when the contact is no longer mouth, so the
   key cannot be locked out after the oral edge ends. A face contact overrides every target and
@@ -341,7 +341,7 @@ fade. The hull block is in the copied compatibility shaders under
   block, and a mare edit writes her override. **Reset** returns the Default block to its shipped
   values, or drops the pointed mare's override so her resolved row applies.
   `anatomy/placement_editor.gd` owns the target resolution (`WORLD.camera()` →
-  `debug/service.gd`'s `aimed_pony()` → `nearest_pony()`) and the placement and reset calls; the
+  `debug/api.gd`'s `aimed_pony()` → `nearest_pony()`) and the placement and reset calls; the
   facade keeps `placement_debug()`/`placement_show()` as one-line delegates. The aim rule is one
   implementation shared with the debug action wheel.
 - `anatomy/placement.gd` and the player part keep only the live placement fields: `load()` and
@@ -387,9 +387,9 @@ point in the mouth contact and `Vector3.INF` otherwise; the act falls back to th
 it is not finite.
 
 The pose-owned oral turn supplies the mouth and opening points through the act session's
-`anatomy_mouth_point()` and `anatomy_opening()`. `poses/service.gd` owns the missionary Anon body;
+`anatomy_mouth_point()` and `anatomy_opening()`. `poses/api.gd` owns the missionary Anon body;
 the act facts' `missionary_anon` callback reads it, so anatomy no longer carries that body. The
-gaze target and pupil aim move to `camera/service.gd:gaze_point()` and `:aim_eyes()`, which read
+gaze target and pupil aim move to `camera/api.gd:gaze_point()` and `:aim_eyes()`, which read
 the same act body. VR scene construction moves to `vr/act.gd:attach()`, called by the session
 with the act's typed callbacks.
 
@@ -485,7 +485,7 @@ with the act's typed callbacks.
 
 ## Idle heat
 
-- `estrus/service.gd` owns the cycle phase and the per-pony wink schedule. It is the only reader
+- `estrus/api.gd` owns the cycle phase and the per-pony wink schedule. It is the only reader
   of `features.estrus_cycle`, `anatomy.wink_min_s`, `anatomy.wink_max_s` and
   `anatomy.heat_rest_open`; it snapshots them on world enter and on a settings change.
 - On a phase change estrus calls `anatomy.rest(pony, heat_rest_open)` and, in heat, a burst timer
@@ -768,7 +768,7 @@ one target rule.
 
 ## Settings
 
-The declarations are in `settings/service.gd` and their values in `settings/settings.json`; each
+The declarations are in `settings/api.gd` and their values in `settings/settings.json`; each
 declaration's `##` comment describes its row, so no label, hint or bound is repeated here. This
 section is the anatomy-specific behaviour. `SETTINGS.anatomy_on()` is the one gate the mode drives.
 
@@ -776,7 +776,7 @@ The frame-path values are snapshotted: the coat-line and draw toggles, the anato
 grip/aim/scale tuning, the placement trims and the part standoff are read on `setup()`,
 `apply_live()` or the visibility poll. A live edit applies at that refresh; `part_inset_m` applies
 at the next act. The wink burst shape/timing and the action feature flags stay event-time reads.
-`estrus/service.gd` is the only reader of `features.estrus_cycle`, `anatomy.wink_min_s`,
+`estrus/api.gd` is the only reader of `features.estrus_cycle`, `anatomy.wink_min_s`,
 `anatomy.wink_max_s` and `anatomy.heat_rest_open`; it snapshots them on world enter and on a
 settings change.
 
@@ -877,8 +877,8 @@ Anatomy is not a game-layer service and owns no `game.gd`: every base-game read 
 
 - Every anatomy body read goes through `world/api.gd` and its views; no anatomy file preloads a
   base-game module.
-- Outside `anatomy/api.gd`, no anatomy file preloads a mod service but `settings/service.gd` and
-  `world/api.gd`; the facade also reads `eligibility/service.gd`. No outside file preloads an
+- Outside `anatomy/api.gd`, no anatomy file preloads a mod service but `settings/api.gd` and
+  `world/api.gd`; the facade also reads `eligibility/api.gd`. No outside file preloads an
   anatomy file except `anatomy/api.gd`.
 - The static gate enforces both rules; its fixtures pin an allowed and a
   forbidden synthetic edge.

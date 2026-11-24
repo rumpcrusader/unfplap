@@ -9,7 +9,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const PRESENTATION := preload("res://mods/unfplap/poses/standing_presentation.gd")
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
-const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
+const ELIGIBILITY := preload("res://mods/unfplap/eligibility/api.gd")
 const AWAY_YAW := PI
 const AWAY_EPSILON := deg_to_rad(60.0)
 const PRESENT_FACE := "affectionate"

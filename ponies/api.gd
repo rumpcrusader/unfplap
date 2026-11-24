@@ -4,19 +4,19 @@ extends "res://mods/unfplap/shared/service.gd"
 ## Contract: docs/ponies.md
 ## The roster that owns one runtime per pony body.
 
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
-const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
-const ACT_GATE := preload("res://mods/unfplap/act_gate/service.gd")
+const ELIGIBILITY := preload("res://mods/unfplap/eligibility/api.gd")
+const ACT_GATE := preload("res://mods/unfplap/act_gate/api.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
-const BODY_CHANGE_SERVICE := preload("res://mods/unfplap/body_change/service.gd")
+const BODY_CHANGE_SERVICE := preload("res://mods/unfplap/body_change/api.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
-const ESTRUS := preload("res://mods/unfplap/estrus/service.gd")
+const ESTRUS := preload("res://mods/unfplap/estrus/api.gd")
 const STOCK_SMACK := preload("res://mods/unfplap/stock_smack/api.gd")
-const ACT_OWNER := preload("res://mods/unfplap/act_owner/service.gd")
+const ACT_OWNER := preload("res://mods/unfplap/act_owner/api.gd")
 
 ## The roster's own group, and the set of live runtimes it reads.
 const GROUP := "unfplap_ponies"

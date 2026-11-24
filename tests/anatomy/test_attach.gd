@@ -7,7 +7,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 const API := preload("res://mods/unfplap/anatomy/api.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const ROWS := preload("res://mods/unfplap/settings/rows.gd")
 
 
@@ -15,7 +15,7 @@ class FakeIdentity extends "res://mods/unfplap/tests/support/fakes/fake_identity
 	pass
 
 
-class FakeEligibility extends "res://mods/unfplap/eligibility/service.gd":
+class FakeEligibility extends "res://mods/unfplap/eligibility/api.gd":
 	var allow := true
 	var calls := 0
 

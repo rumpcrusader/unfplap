@@ -5,8 +5,8 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const HANDLES := preload("res://mods/unfplap/world/handles.gd")
-const STOOL := preload("res://mods/unfplap/stool/service.gd")
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const STOOL := preload("res://mods/unfplap/stool/api.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const FRAME := preload("res://mods/unfplap/act/frame.gd")
 
 

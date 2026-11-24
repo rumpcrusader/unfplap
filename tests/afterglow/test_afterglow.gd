@@ -5,7 +5,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ##     --script res://mods/unfplap/tests/afterglow/test_afterglow.gd
 
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
-const AFTERGLOW := preload("res://mods/unfplap/afterglow/service.gd")
+const AFTERGLOW := preload("res://mods/unfplap/afterglow/api.gd")
 const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 const WING := preload("res://mods/unfplap/poses/wing_control.gd")
 const PREF := preload("res://mods/unfplap/shared/preferences.gd")

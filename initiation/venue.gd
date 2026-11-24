@@ -6,7 +6,7 @@ const WORLD := preload("res://mods/unfplap/world/api.gd")
 const POLICY := preload("res://mods/unfplap/initiation/policy.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const POSE_OPTIONS := preload("res://mods/unfplap/shared/pose_options.gd")
-const PONIES := preload("res://mods/unfplap/ponies/service.gd")
+const PONIES := preload("res://mods/unfplap/ponies/api.gd")
 
 ## The roster the facade hands this adapter; a bare node answers no scene handle.
 var ponies: PONIES = null

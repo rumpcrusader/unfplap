@@ -5,7 +5,7 @@ extends RefCounted
 ##
 ## See `docs/anatomy.md` (`## Act anatomy`).
 
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const GEOMETRY := preload("res://mods/unfplap/anatomy/geometry.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 

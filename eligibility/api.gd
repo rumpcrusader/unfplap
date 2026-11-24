@@ -11,8 +11,8 @@ const IDENTITY_RECORD := preload("res://mods/unfplap/eligibility/identity_record
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const PARTICIPATION := preload("res://mods/unfplap/shared/participation.gd")
 const CONSENT := preload("res://mods/unfplap/shared/consent.gd")
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
-const MARE_REGISTRY := preload("res://mods/unfplap/registry/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
+const MARE_REGISTRY := preload("res://mods/unfplap/registry/api.gd")
 
 ## Capability targets: a consumer names its own target and never reads identity.
 ## See `docs/eligibility.md` (`## Capability targets`).

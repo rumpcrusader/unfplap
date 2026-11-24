@@ -2,7 +2,7 @@
 
 ## Scope
 
-`reactions/service.gd` owns the scene reactions that ride the act's thrust and climax events:
+`reactions/api.gd` owns the scene reactions that ride the act's thrust and climax events:
 
 - the standing rump jiggle and its body-coat shader target;
 - the act smack reaction (the native cheek jiggle carried into the tail);
@@ -22,7 +22,7 @@ audio facade (`docs/audio.md`).
 
 | Part | Rule |
 |---|---|
-| `reactions/service.gd` | the facade: scene handles, live blush/heart state and the per-act tuning |
+| `reactions/api.gd` | the facade: scene handles, live blush/heart state and the per-act tuning |
 | `reactions/context.gd` | the typed act tuning: pose family, size, climax length and the five `jiggle.*` values |
 | `runtime.gd` | binds the scene, snapshots the settings, calls the facade from the stroke/climax paths |
 

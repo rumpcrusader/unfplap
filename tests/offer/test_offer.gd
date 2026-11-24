@@ -6,19 +6,19 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/offer/test_offer.gd
 
-const OFFER := preload("res://mods/unfplap/offer/service.gd")
-const HUD := preload("res://mods/unfplap/hud/service.gd")
+const OFFER := preload("res://mods/unfplap/offer/api.gd")
+const HUD := preload("res://mods/unfplap/hud/api.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const POSE_OPTIONS := preload("res://mods/unfplap/shared/pose_options.gd")
 const AGREEMENT := preload("res://mods/unfplap/shared/agreement.gd")
-const NEGOTIATION := preload("res://mods/unfplap/negotiation/service.gd")
-const PONIES := preload("res://mods/unfplap/ponies/service.gd")
-const ACT_OWNER := preload("res://mods/unfplap/act_owner/service.gd")
+const NEGOTIATION := preload("res://mods/unfplap/negotiation/api.gd")
+const PONIES := preload("res://mods/unfplap/ponies/api.gd")
+const ACT_OWNER := preload("res://mods/unfplap/act_owner/api.gd")
 const FAKE_GATE := preload("res://mods/unfplap/tests/support/fakes/fake_act_gate.gd")
-const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
+const ELIGIBILITY := preload("res://mods/unfplap/eligibility/api.gd")
 
 
 

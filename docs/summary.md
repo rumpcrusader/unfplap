@@ -8,7 +8,7 @@ Readiness is `docs/readiness.md`; the afterglow phase is `docs/afterglow.md`; th
 
 ## Ownership
 
-`summary/service.gd` is the system facade. It owns the summary trigger and commit, the typed
+`summary/api.gd` is the system facade. It owns the summary trigger and commit, the typed
 `Inputs`/`Context` records the pure scorer reads (`summary_inputs()`, `summary_context()`) and the
 peak-memory record. The stored ledger is read from `shared/act_history.gd` directly, by this facade
 and by every other consumer. `act/session.gd` keeps the act state machine; `act/view.gd` gathers the
@@ -100,7 +100,7 @@ caressing is a one-point hurt repair instead. The caress reward threshold is in 
 ### Memory and rewards
 
 - **First pony climax:** one world-context event; every climax gets a generated reaction.
-- **Once at afterglow:** `summary/service.gd:commit_after_act()` scores the act,
+- **Once at afterglow:** `summary/api.gd:commit_after_act()` scores the act,
   `memory.commit()` writes the grade-aware romance and mood, and
   `memory.witnesses()` follows.
 - **Standing close reward:** `memory.commit()` (the `STAY_CLOSE` slot) records a private

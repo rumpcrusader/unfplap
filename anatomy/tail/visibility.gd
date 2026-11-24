@@ -5,7 +5,7 @@ extends Node
 ## The facade pushes the switch, so this node processes only while the toggle is on.
 
 const TAIL_HIDE := preload("res://mods/unfplap/anatomy/tail/hide.gd")
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const RIG := preload("res://mods/unfplap/anatomy/rig.gd")
 const GROUP := "ai_characters"
 ## Only the chain root is collapsed; every child bone inherits its scale, so the whole tail

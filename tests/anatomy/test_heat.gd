@@ -6,7 +6,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 
 const HEAT := preload("res://mods/unfplap/anatomy/heat.gd")
 const SHAPES := preload("res://mods/unfplap/anatomy/shapes.gd")
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 
 
 func run() -> void:

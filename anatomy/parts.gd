@@ -2,7 +2,7 @@ extends RefCounted
 ## Keeps each presented body's controller and form, plus the shared tail and player pieces.
 ## The API constructs it; nothing else reaches into it.
 
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 const CONTROLLER := preload("res://mods/unfplap/anatomy/controller.gd")
 const PLAYER_HOST := preload("res://mods/unfplap/anatomy/player_host.gd")

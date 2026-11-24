@@ -5,7 +5,7 @@ extends RefCounted
 ## See `docs/runtime.md`.
 
 const ACT_NODE := preload("res://mods/unfplap/act/host.gd")
-const ACT_OWNER := preload("res://mods/unfplap/act_owner/service.gd")
+const ACT_OWNER := preload("res://mods/unfplap/act_owner/api.gd")
 const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")
 const ACT_SESSION := preload("res://mods/unfplap/act/session.gd")
 const PERF := preload("res://mods/unfplap/shared/perf.gd")
@@ -35,7 +35,7 @@ func tick(delta: float) -> void:
 	PERF.end("runtime_history")
 
 
-## Idle-only history scan. `dialogue/service.gd` reads the scene and owns the decisions and the
+## Idle-only history scan. `dialogue/api.gd` reads the scene and owns the decisions and the
 ## line queueing.
 func history_tick(delta: float) -> void:
 	context.dialogue.history_tick(delta, host.pony as Node3D, session.pony_id, session.event_id,

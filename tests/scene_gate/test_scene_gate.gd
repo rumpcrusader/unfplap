@@ -6,8 +6,8 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ##     --script res://mods/unfplap/tests/scene_gate/test_scene_gate.gd
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
-const GATE := preload("res://mods/unfplap/scene_gate/service.gd")
-const ACT_GATE := preload("res://mods/unfplap/act_gate/service.gd")
+const GATE := preload("res://mods/unfplap/scene_gate/api.gd")
+const ACT_GATE := preload("res://mods/unfplap/act_gate/api.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 
 const STATE_IDLE := 0
@@ -71,7 +71,7 @@ class FixtureHost extends Node:
 	var game: Variant = null
 
 
-class FakePose extends "res://mods/unfplap/poses/service.gd":
+class FakePose extends "res://mods/unfplap/poses/api.gd":
 	var asset_ready := true
 	var reason := ""
 	var missing: Array[String] = []

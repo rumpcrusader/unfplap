@@ -7,7 +7,7 @@ extends Node
 
 const CONTEXT := preload("res://mods/unfplap/reactions/context.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
 const RUMP_CONE := preload("res://mods/unfplap/shared/rump_cone.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")

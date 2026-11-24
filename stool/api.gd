@@ -10,8 +10,8 @@ const ITEM := preload("res://mods/unfplap/stool/item.gd")
 const PROP := preload("res://mods/unfplap/stool/prop.gd")
 const SUPPLY := preload("res://mods/unfplap/stool/supply.gd")
 const ACT := preload("res://mods/unfplap/stool/act.gd")
-const ACT_OWNER := preload("res://mods/unfplap/act_owner/service.gd")
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const ACT_OWNER := preload("res://mods/unfplap/act_owner/api.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 
 const ID := ITEM.ID
 

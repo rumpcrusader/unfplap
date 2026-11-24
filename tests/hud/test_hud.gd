@@ -2,7 +2,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ## HUD style and control rows.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/hud/test_hud.gd
 
-const HUD := preload("res://mods/unfplap/hud/service.gd")
+const HUD := preload("res://mods/unfplap/hud/api.gd")
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 const POSE_VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 

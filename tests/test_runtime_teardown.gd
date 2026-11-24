@@ -3,8 +3,8 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/test_runtime_teardown.gd
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
-const MEMORY := preload("res://mods/unfplap/memory/service.gd")
-const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
+const MEMORY := preload("res://mods/unfplap/memory/api.gd")
+const ELIGIBILITY := preload("res://mods/unfplap/eligibility/api.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const ANATOMY_API := preload("res://mods/unfplap/anatomy/api.gd")
 const MISSIONARY_ANON := preload("res://mods/unfplap/poses/missionary_anon.gd")
@@ -14,12 +14,12 @@ const ACT_AGREEMENT := preload("res://mods/unfplap/act/agreement.gd")
 const AGREEMENT := preload("res://mods/unfplap/shared/agreement.gd")
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
-const PONIES := preload("res://mods/unfplap/ponies/service.gd")
-const ACT_OWNER := preload("res://mods/unfplap/act_owner/service.gd")
+const PONIES := preload("res://mods/unfplap/ponies/api.gd")
+const ACT_OWNER := preload("res://mods/unfplap/act_owner/api.gd")
 const HANDLES := preload("res://mods/unfplap/world/handles.gd")
-const HUD := preload("res://mods/unfplap/hud/service.gd")
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
-const POSES := preload("res://mods/unfplap/poses/service.gd")
+const HUD := preload("res://mods/unfplap/hud/api.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
+const POSES := preload("res://mods/unfplap/poses/api.gd")
 const CATALOG_STANDING := "standing"
 const CATALOG_STANDING_TEST := "standing_test"
 

@@ -1,7 +1,7 @@
 # Ponies
 
 The World roster: one runtime per pony body, the attach and prepare hooks, the live-body list and
-the prompt note the game reads. `ponies/service.gd` is a World Node and the only owner of "which
+the prompt note the game reads. `ponies/api.gd` is a World Node and the only owner of "which
 body has which runtime", so no consumer reads the entry for it.
 
 ## Scope

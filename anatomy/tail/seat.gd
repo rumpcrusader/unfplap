@@ -4,7 +4,7 @@ extends Node
 ## skeleton, mane or act systems.
 ## Originals are cached up front, so a restore returns the game tail and dock.
 
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 const IDENTITY := preload("res://mods/unfplap/anatomy/identity.gd")

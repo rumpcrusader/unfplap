@@ -7,7 +7,7 @@ extends "res://mods/unfplap/shared/service.gd"
 const CATALOGUE := preload("res://mods/unfplap/audio/cues.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const POOL := preload("res://mods/unfplap/audio/pool.gd")
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const SOUND := preload("res://mods/unfplap/audio/sound.gd")
 const VOICE := preload("res://mods/unfplap/shared/voice_status.gd")
 const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")

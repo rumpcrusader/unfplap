@@ -5,10 +5,10 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/readiness/test_readiness_auto.gd
 
-const READINESS := preload("res://mods/unfplap/readiness/service.gd")
+const READINESS := preload("res://mods/unfplap/readiness/api.gd")
 const AUTO_THRUST := preload("res://mods/unfplap/readiness/auto_thrust.gd")
 const AUTO_PANEL := preload("res://mods/unfplap/readiness/auto_panel.gd")
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 
 const STATE_IDLE := 0
 const STATE_ACTIVE := 2

@@ -6,13 +6,13 @@ extends "res://mods/unfplap/shared/service.gd"
 ## While an act is active it consumes the act keys and the interaction keys.
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
-const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/service.gd")
-const OFFER := preload("res://mods/unfplap/offer/service.gd")
-const ACT_OWNER := preload("res://mods/unfplap/act_owner/service.gd")
+const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/api.gd")
+const OFFER := preload("res://mods/unfplap/offer/api.gd")
+const ACT_OWNER := preload("res://mods/unfplap/act_owner/api.gd")
 const ACT_KEYS := preload("res://mods/unfplap/shared/act_keys.gd")
 const ACT_COMMANDS := preload("res://mods/unfplap/shared/act_commands.gd")
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 

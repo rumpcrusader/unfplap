@@ -3,9 +3,9 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ## game's speech setting and the game's mods host, so both are faked under `/root` here.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/hud/test_caption.gd
 
-const HUD := preload("res://mods/unfplap/hud/service.gd")
+const HUD := preload("res://mods/unfplap/hud/api.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 const ACT_KEYS := preload("res://mods/unfplap/shared/act_keys.gd")
 const GAME := preload("res://mods/unfplap/hud/game.gd")
@@ -52,7 +52,7 @@ class ToastSink extends Node:
 
 
 ## A real HUD with its toast label replaced by the same recorder, for the duration defaults.
-class SinkHud extends "res://mods/unfplap/hud/service.gd":
+class SinkHud extends "res://mods/unfplap/hud/api.gd":
 	var shown: Array = []
 
 	func _show_toast(text: String, seconds := 2.0) -> void:
@@ -60,7 +60,7 @@ class SinkHud extends "res://mods/unfplap/hud/service.gd":
 
 
 ## A real HUD with its toast sink counted, so the notice rule reads what it asked to show.
-class NoticeHud extends "res://mods/unfplap/hud/service.gd":
+class NoticeHud extends "res://mods/unfplap/hud/api.gd":
 	var shown: Array[String] = []
 
 	func _show_toast(text: String, seconds := 2.0) -> void:

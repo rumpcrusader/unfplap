@@ -1,4 +1,4 @@
-extends "res://mods/unfplap/act_gate/service.gd"
+extends "res://mods/unfplap/act_gate/api.gd"
 ## Shared act-gate fake: the readiness, relationship and consent answers a suite sets.
 
 var ready_ok := true

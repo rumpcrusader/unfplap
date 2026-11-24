@@ -52,7 +52,7 @@ is document metadata; `validate()` skips it and the renderer never walks it.
 
 | Group | Read by | Holds |
 |---|---|---|
-| `act` | `dialogue/service.gd`, `dialogue/prompts.gd`, `dialogue/utterance.gd`, `memory/service.gd`, `summary/score.gd` | cue, utterance, climax and early-end lines, the bystander line, the normal note, the state line, the private seeds, the fresh angles and the speech feel |
+| `act` | `dialogue/api.gd`, `dialogue/prompts.gd`, `dialogue/utterance.gd`, `memory/api.gd`, `summary/score.gd` | cue, utterance, climax and early-end lines, the bystander line, the normal note, the state line, the private seeds, the fresh angles and the speech feel |
 | `ask` | `initiation/prompts.gd` | the context and purpose composites, the situation text, the openings, the privacy modes, the heat sentence and the crowd hint |
 | `classify` | `negotiation/prompts.gd`, `initiation/reasoning.gd` | the classifier and reasoning instructions |
 | `history` | `shared/act_history.gd` | the stored-history tiers and the idle-scan lines |

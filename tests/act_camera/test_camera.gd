@@ -6,7 +6,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
-const CAMERA := preload("res://mods/unfplap/camera/service.gd")
+const CAMERA := preload("res://mods/unfplap/camera/api.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 const BODY_PROFILE := preload("res://mods/unfplap/shared/body_profile.gd")
 const FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
@@ -16,7 +16,7 @@ const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
 const CAMERA_VIEW := preload("res://mods/unfplap/camera/view.gd")
 const CAMERA_CONFIG := preload("res://mods/unfplap/camera/config.gd")
 const HANDS := preload("res://mods/unfplap/hands/api.gd")
-const KISS := preload("res://mods/unfplap/kiss/service.gd")
+const KISS := preload("res://mods/unfplap/kiss/api.gd")
 const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 const POSE := preload("res://mods/unfplap/poses/skeleton_pose.gd")
 

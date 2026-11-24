@@ -5,11 +5,11 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ##     --script res://mods/unfplap/tests/test_face_sit_action.gd
 
 const MAIN := preload("res://mods/unfplap/main.gd")
-const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/service.gd")
+const DEBUG_ACTIONS := preload("res://mods/unfplap/debug/api.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
-const POSES := preload("res://mods/unfplap/poses/service.gd")
+const POSES := preload("res://mods/unfplap/poses/api.gd")
 const MISSIONARY_ANON := preload("res://mods/unfplap/poses/missionary_anon.gd")
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 

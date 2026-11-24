@@ -6,7 +6,7 @@ whether or not the other mod is installed.
 
 ## Scope
 
-- `integrations/service.gd` is the World facade: it owns the two optional pack modules, registers
+- `integrations/api.gd` is the World facade: it owns the two optional pack modules, registers
   the body-change provider and forwards the runtime's act start.
 - `integrations/act.gd` is the per-pony scene adapter: it resolves the catalog's bindings, saves the
   originals and restores them at the act's lifecycle points.
@@ -398,7 +398,7 @@ timing. The summary reads its own `form_reveal` flag for the extra comfort (`doc
 
 ## Settings
 
-One declaration per supported integration in `settings/service.gd`, each with its `##` description.
+One declaration per supported integration in `settings/api.gd`, each with its `##` description.
 
 Each supported mod gets its own collapsible section, named `$mod_name by $author` and open by
 default, under one blue **Experimental** notice at the top of the tab. The section body carries the hint `Verified with version: $verified_version`, then that

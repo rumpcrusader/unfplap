@@ -6,10 +6,10 @@ extends Node
 ## the buck. Eligibility owns the policy.
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
-const ACT_GATE := preload("res://mods/unfplap/act_gate/service.gd")
+const ACT_GATE := preload("res://mods/unfplap/act_gate/api.gd")
 const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
-const POSE_SESSION := preload("res://mods/unfplap/poses/service.gd")
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const POSE_SESSION := preload("res://mods/unfplap/poses/api.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const STATE_IDLE := ACT_STATE.State.IDLE

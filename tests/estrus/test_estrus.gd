@@ -3,7 +3,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/estrus/test_estrus.gd
 
-const ESTRUS := preload("res://mods/unfplap/estrus/service.gd")
+const ESTRUS := preload("res://mods/unfplap/estrus/api.gd")
 const CYCLE := preload("res://mods/unfplap/shared/cycle.gd")
 const CYCLE_STATE := preload("res://mods/unfplap/shared/cycle_state.gd")
 

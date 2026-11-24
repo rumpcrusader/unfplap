@@ -9,12 +9,12 @@ const ACT_FACE := preload("res://mods/unfplap/shared/act_face.gd")
 const BEAT := preload("res://mods/unfplap/shared/face_beat.gd")
 const MOOD_FACE := preload("res://mods/unfplap/face/mood_face.gd")
 const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
-const READINESS := preload("res://mods/unfplap/readiness/service.gd")
+const READINESS := preload("res://mods/unfplap/readiness/api.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 ## The act states the lids answer. The runtime owns the enum; these are its values.
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
-const MEMORY := preload("res://mods/unfplap/memory/service.gd")
+const MEMORY := preload("res://mods/unfplap/memory/api.gd")
 
 ## The world memory the cue mood reads; the runtime wires it once.
 var memory: MEMORY = null

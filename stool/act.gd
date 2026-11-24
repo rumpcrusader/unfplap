@@ -3,10 +3,10 @@ extends RefCounted
 
 const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
-const SERVICE := preload("res://mods/unfplap/stool/service.gd")
+const SERVICE := preload("res://mods/unfplap/stool/api.gd")
 const PROP := preload("res://mods/unfplap/stool/prop.gd")
 
 ## The world-scope stool facade the session creates this handle from. It holds the settings reads

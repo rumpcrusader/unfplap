@@ -4,16 +4,16 @@ extends RefCounted
 ## the reparent and the adoption binding; this handle decides when they run and owns the record.
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
-const PONIES := preload("res://mods/unfplap/ponies/service.gd")
-const ACT_OWNER := preload("res://mods/unfplap/act_owner/service.gd")
+const PONIES := preload("res://mods/unfplap/ponies/api.gd")
+const ACT_OWNER := preload("res://mods/unfplap/act_owner/api.gd")
 const BODY_CHANGE := preload("res://mods/unfplap/shared/body_change.gd")
 const BODY_CHANGE_POLICY := preload("res://mods/unfplap/shared/body_change_policy.gd")
-const BODY_CHANGE_SERVICE := preload("res://mods/unfplap/body_change/service.gd")
+const BODY_CHANGE_SERVICE := preload("res://mods/unfplap/body_change/api.gd")
 const BODY_CHANGE_SOURCE := preload("res://mods/unfplap/body_change/source.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const ACT_HOST := preload("res://mods/unfplap/body_change/act_host.gd")
-const MEMORY := preload("res://mods/unfplap/memory/service.gd")
+const MEMORY := preload("res://mods/unfplap/memory/api.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 ## Watcher cadence and the watchdog that gives up on a swap with no new body.

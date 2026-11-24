@@ -5,7 +5,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ##     --script res://mods/unfplap/tests/face/test_runtime_face.gd
 
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
-const FACE := preload("res://mods/unfplap/face/service.gd")
+const FACE := preload("res://mods/unfplap/face/api.gd")
 const TOLERANCE := preload("res://mods/unfplap/readiness/tolerance.gd")
 
 

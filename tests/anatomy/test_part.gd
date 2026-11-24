@@ -11,7 +11,7 @@ const ANATOMY_API := preload("res://mods/unfplap/anatomy/api.gd")
 const RIG := preload("res://mods/unfplap/anatomy/rig.gd")
 const PLAYER_PART := preload("res://mods/unfplap/anatomy/player.gd")
 const SHAPES := preload("res://mods/unfplap/anatomy/shapes.gd")
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 
 

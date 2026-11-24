@@ -25,7 +25,7 @@ or the act start: those are `docs/negotiation.md` and `docs/runtime.md`.
 
 | File | Role |
 |---|---|
-| `initiation/service.gd` | facade: scan, admission, Base clearance, the one attempt object, the single route entry and its reject reasons, phase dispatch, the reasoning call, the ask and the handoff |
+| `initiation/api.gd` | facade: scan, admission, Base clearance, the one attempt object, the single route entry and its reject reasons, phase dispatch, the reasoning call, the ask and the handoff |
 | `initiation/facts.gd` | pure typed `Request`: the plain values the wording reads |
 | `initiation/policy.gd` | pure pacing: scan, cooldown, heat, retry, approach, bed search, wording mode and the phase names |
 | `initiation/reasoning.gd` | pure Mare Initiation Reasoning: the instruction, the payload and the parser |
@@ -35,7 +35,7 @@ or the act start: those are `docs/negotiation.md` and `docs/runtime.md`.
 | `initiation/classifier.gd` | the bounded classifier this service owns: one client, one queue, one deadline and the two reasoning budgets |
 | `privacy/api.gd` | world privacy provider: the house, the other mares, the radius and the one offer/cuddle predicate |
 | `negotiation/adapter.gd` | the director bridge and model host the Negotiation service owns and hands over: the quiet gate, the ask queue, the situation record, the reasoning call |
-| `negotiation/service.gd` | the Act Negotiation: the answer, privacy, the Agreement and the global lock |
+| `negotiation/api.gd` | the Act Negotiation: the answer, privacy, the Agreement and the global lock |
 | `docs/initiation.md` | this contract |
 | `tests/initiation/` | the pure rules, facts, reasoning and wording suites, plus the facade API suite |
 
@@ -58,12 +58,12 @@ The purity boundary is deliberate:
   Negotiation's adapter and both reasoning stages make every model call on it, and no other
   service imports it. Its model client comes from the director view, so the classifier imports no
   base-game module.
-- The facade is the only file that preloads `eligibility/service.gd`, `act_gate/service.gd`,
+- The facade is the only file that preloads `eligibility/api.gd`, `act_gate/api.gd`,
   `privacy/api.gd`,
-  `negotiation/service.gd`, `shared/clearance.gd`, `shared/context.gd`, `shared/pose_options.gd`,
+  `negotiation/api.gd`, `shared/clearance.gd`, `shared/context.gd`, `shared/pose_options.gd`,
   `shared/pose_catalog.gd` and `shared/cycle.gd`; `cooldowns.gd` preloads
   `shared/act_history.gd`.
-- No file outside `initiation/service.gd` and `initiation/` preloads `initiation/*` except the
+- No file outside `initiation/api.gd` and `initiation/` preloads `initiation/*` except the
   orchestrator, which owns the service.
 - The world root creates the service, wires it once (the live `eligibility` and `act_gate`
   instances and its privacy, Negotiation and offer peers), attaches it after the Negotiation so
@@ -76,7 +76,7 @@ The purity boundary is deliberate:
 
 ## Facade
 
-`initiation/service.gd` is the proactive request service.
+`initiation/api.gd` is the proactive request service.
 
 `eligibility` is the entry's live identity instance and `act_gate` the live dynamic one, both
 wired once at construction and read for the whole process; the identity target comes from
@@ -104,7 +104,7 @@ before taking ownership. `ensure_stand` is the only posture request the facade u
 | The live attempt, the cuddle edge and one-ask map, retry deadlines and scan skip reasons | memory only | this facade |
 | Act history and its offer cooldown | `Mods.state("unfplap").act_history` | `shared/act_history.gd` |
 | Cycle phase | runtime, derived from the day | `shared/cycle.gd` |
-| The formed Mare offer and the Agreement | memory only | `negotiation/service.gd` |
+| The formed Mare offer and the Agreement | memory only | `negotiation/api.gd` |
 | Relationship, stage, love, willingness | game save | base game |
 
 Rules:

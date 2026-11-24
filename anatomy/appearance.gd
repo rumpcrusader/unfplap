@@ -4,7 +4,7 @@ extends RefCounted
 ##
 ## See `docs/anatomy.md` (`## Appearance`).
 
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const TEAT_JIGGLE := preload("res://mods/unfplap/anatomy/teat_jiggle.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 const BODY_PROFILE := preload("res://mods/unfplap/shared/body_profile.gd")

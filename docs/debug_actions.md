@@ -7,7 +7,7 @@ and the skeleton overlay. The Process table that names, labels and gates those a
 
 ## Scope
 
-`debug_actions/service.gd` is the facade: one node per process, a child of the entry and a member of
+`debug_actions/api.gd` is the facade: one node per process, a child of the entry and a member of
 `unfplap_world`. It publishes itself as the table's target when it enters the tree and clears that
 target when it leaves, so a caller never passes it in. Its own methods are one per table entry; its
 helpers are `wheel.gd` (the wheel), `skeleton.gd` (the overlay), `bed.gd` (the stock bed cuddle),
@@ -17,7 +17,7 @@ Idle Life deep-stretch bridge).
 ## Boundary
 
 - **No table.** Action ids, labels, wheel pages and the open-gate decision belong to
-  `debug/service.gd`; the executor declares no entry, no label and no page order. Its preload of the
+  `debug/api.gd`; the executor declares no entry, no label and no page order. Its preload of the
   table is the only edge between the two services.
 - **No hotkeys, no settings writes.** The registry declares none, and the executor neither polls
   input for an action nor writes a setting. It reads the debug and skeleton flags it follows at use,

@@ -5,7 +5,7 @@ extends RefCounted
 ##
 ## See `docs/anatomy.md` (`## Architecture`).
 
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const CLIMAX_FLUID := preload("res://mods/unfplap/anatomy/fluid.gd")
 const CONTROLLER := preload("res://mods/unfplap/anatomy/controller.gd")
 const RIG := preload("res://mods/unfplap/anatomy/rig.gd")

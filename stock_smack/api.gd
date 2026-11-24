@@ -5,7 +5,7 @@ extends "res://mods/unfplap/shared/service.gd"
 ## The outside-act flank smack: the native player's pack layer while she is not in an act.
 
 const CUES := preload("res://mods/unfplap/shared/smack_cues.gd")
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const CHANGE := preload("res://mods/unfplap/shared/settings_change.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 

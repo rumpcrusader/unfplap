@@ -5,7 +5,7 @@ const MODEL := preload("res://mods/unfplap/hands/model.gd")
 const PORT := preload("res://mods/unfplap/hands/port.gd")
 const PLACEMENT := preload("res://mods/unfplap/hands/placement.gd")
 const CONTACT := preload("res://mods/unfplap/hands/contact.gd")
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 
 const SMACK_UP_M := 0.08
 const SMACK_BACK_M := 0.08

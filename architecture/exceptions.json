@@ -9,7 +9,7 @@
       "expires": "next-review"
     },
     {
-      "from": "afterglow/service.gd",
+      "from": "afterglow/api.gd",
       "to": "summary/score.gd",
       "kind": "service-private",
       "owner": "afterglow",
@@ -17,7 +17,7 @@
       "expires": "next-review"
     },
     {
-      "from": "camera/service.gd",
+      "from": "camera/api.gd",
       "to": "poses/skeleton_pose.gd",
       "kind": "re-export",
       "owner": "camera",
@@ -25,7 +25,7 @@
       "expires": "next-review"
     },
     {
-      "from": "initiation/service.gd",
+      "from": "initiation/api.gd",
       "to": "negotiation/adapter.gd",
       "kind": "re-export",
       "owner": "initiation",
@@ -41,7 +41,7 @@
       "expires": "next-review"
     },
     {
-      "from": "kiss/service.gd",
+      "from": "kiss/api.gd",
       "to": "poses/missionary_anon.gd",
       "kind": "re-export",
       "owner": "kiss",
@@ -49,7 +49,7 @@
       "expires": "next-review"
     },
     {
-      "from": "readiness/service.gd",
+      "from": "readiness/api.gd",
       "to": "dialogue/utterance_scheduler.gd",
       "kind": "service-private",
       "owner": "readiness",

@@ -5,12 +5,12 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/act_gate/test_act_gate.gd
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
-const ACT_GATE := preload("res://mods/unfplap/act_gate/service.gd")
+const ACT_GATE := preload("res://mods/unfplap/act_gate/api.gd")
 const FACTS := preload("res://mods/unfplap/act_gate/facts.gd")
 const POLICY := preload("res://mods/unfplap/act_gate/policy.gd")
-const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
+const ELIGIBILITY := preload("res://mods/unfplap/eligibility/api.gd")
 const CYCLE := preload("res://mods/unfplap/shared/cycle.gd")
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const ROWS := preload("res://mods/unfplap/settings/rows.gd")
 
 

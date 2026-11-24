@@ -3,7 +3,7 @@ extends RefCounted
 ## It owns placement state only; the controller supplies the mesh, the bone bind and the depth.
 ## See `docs/anatomy.md` (`## Placement`).
 
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const IDENTITY := preload("res://mods/unfplap/anatomy/identity.gd")
 const BODY_PROFILE := preload("res://mods/unfplap/shared/body_profile.gd")

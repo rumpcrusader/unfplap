@@ -17,7 +17,7 @@ the runtime orchestrator and the scene adapters.
   live-edit paths call `refresh_view()` directly. The idle standing invitation, the debug actions
   and the suites therefore read the view the phase boundary just wrote, not a per-getter rebind.
 - The consumers are `poses/missionary_anon.gd`, `camera/view.gd`, `poses/standing_anon.gd`,
-  `poses/standing_presentation.gd`, `camera/service.gd`, `act/frame.gd`, `kiss/service.gd`,
+  `poses/standing_presentation.gd`, `camera/api.gd`, `act/frame.gd`, `kiss/api.gd`,
   `hands/api.gd`, `hands/controller.gd`, `hands/caress.gd`, `hands/reach.gd`,
   `hands/smack_target.gd`, `hands/path_selector.gd`, `hands/path_base.gd` and its paths,
   and the pose modifiers (`poses/skeleton_pose.gd`, plus
@@ -80,7 +80,7 @@ logs and the start/teardown path; `view.id` is the active pose. The pose-owned o
 live `facing` and `facing_amount` into the view each tick without copying a dictionary, and the
 view's `contact_kind` is the one contact source.
 
-HUD card (the runtime fills these once per rendered frame; `hud/service.gd` reads them instead of
+HUD card (the runtime fills these once per rendered frame; `hud/api.gd` reads them instead of
 calling back into the runtime):
 
 ```
@@ -110,7 +110,7 @@ A missing callback is a no-op, so a test can build the object without a runtime.
 |---|---|
 | `on_touch` | one readiness touch event, by kind |
 | `on_smack` | one smack impact, by strength |
-| `kiss` | return the live `kiss/service.gd` controller |
+| `kiss` | return the live `kiss/api.gd` controller |
 | `neck_point` | her neck midpoint for the standing aim |
 | `set_look` | write back the captured player look |
 | `set_forced_glance` | set the forced over-shoulder glance |

@@ -3,8 +3,8 @@ extends RefCounted
 ## as the transitions the offer reconsiders on. It reads the scene at the poll cadence.
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
-const PONIES := preload("res://mods/unfplap/ponies/service.gd")
-const ACT_OWNER := preload("res://mods/unfplap/act_owner/service.gd")
+const PONIES := preload("res://mods/unfplap/ponies/api.gd")
+const ACT_OWNER := preload("res://mods/unfplap/act_owner/api.gd")
 const RUMP_CONE := preload("res://mods/unfplap/shared/rump_cone.gd")
 const PERF := preload("res://mods/unfplap/shared/perf.gd")
 

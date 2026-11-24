@@ -22,7 +22,7 @@ to the idle offer service (`offer.try_start()`).
 
 ## Ownership
 
-`input/service.gd` is a world-scoped Node built by the entry's service list, before any player exists, and
+`input/api.gd` is a world-scoped Node built by the entry's service list, before any player exists, and
 added to the tree. It owns no saved data. Its state is transient:
 
 - `_shield` — the cached `features.act_input_shield`;
@@ -30,7 +30,7 @@ added to the tree. It owns no saved data. Its state is transient:
 - `_mouse_recapture_logged` — the one recapture log per act.
 
 The entry owns construction, the service list and world teardown. `runtime.gd` owns the per-pony
-act state and exposes the protocol this service calls; `debug/service.gd` owns the action registry.
+act state and exposes the protocol this service calls; `debug/api.gd` owns the action registry.
 
 ## Input routing
 
@@ -85,7 +85,7 @@ are game consts, `Settings.bind_key()` saves and resets only `BINDABLE` actions,
 autoload cannot be extended by a mod (`mods/README.md`). A mod-owned capture is the only safe path;
 a base-game `register_bindable` API would be needed to put the action on the game page.
 
-A debug action declares its own hotkey in `debug/service.gd` (none today); the action behavior
+A debug action declares its own hotkey in `debug/api.gd` (none today); the action behavior
 belongs to the owning service.
 
 ## Act input shield (HACK)
@@ -155,7 +155,7 @@ protocol sees an `InputEvent`; the service owns every decode, hold and key sampl
 The controls table is `docs/runtime.md`. The action table is `docs/debug.md` and the wheel
 `docs/debug_actions.md`.
 
-- A **middle mouse button press or release** is forwarded through `debug/service.gd`'s
+- A **middle mouse button press or release** is forwarded through `debug/api.gd`'s
   `wheel_input()` to the debug actions node. The press opens the wheel while allowed; the release
   runs the hovered slot, or closes in the centre. With debug off, or while a menu/text field/headset
   owns the input, the event is not consumed.

@@ -6,7 +6,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ##     --script res://mods/unfplap/tests/offer/test_fan_sensor.gd
 
 const SENSOR := preload("res://mods/unfplap/offer/fan_sensor.gd")
-const ACT_OWNER := preload("res://mods/unfplap/act_owner/service.gd")
+const ACT_OWNER := preload("res://mods/unfplap/act_owner/api.gd")
 const HANDLES := preload("res://mods/unfplap/world/handles.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 

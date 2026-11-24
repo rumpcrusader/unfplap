@@ -27,7 +27,7 @@ const ACT_HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
 const PONY_ID := preload("res://mods/unfplap/shared/pony_id.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const LAB_POPULATION := preload("res://world/population/pony_population_config.gd")
-const MOD_SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const MOD_SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const TEST_IDS := ["twilight_sparkle", "fluttershy", "rarity", "derpy_hooves", "applejack",
 	"tempest_shadow", "lily_valley", "minuette"]
 ## Strangers start at friendship 0 (Stranger level), with no romance tier and no dating record.

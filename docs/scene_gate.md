@@ -5,7 +5,7 @@ answers whether the *scene* is ready right now.
 
 ## Ownership
 
-`scene_gate/service.gd` (Node) owns:
+`scene_gate/api.gd` (Node) owns:
 
 - the scene-only gate rows: runtime state, paused tree, player conversation, sleep, an active act
   or aftercare, cuddle, affection, the pose profile/form/view/source, player readiness, navigator

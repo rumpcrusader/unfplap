@@ -8,12 +8,12 @@ const AGREEMENT := preload("res://mods/unfplap/shared/agreement.gd")
 const PROMPTS := preload("res://mods/unfplap/negotiation/prompts.gd")
 const HOST := preload("res://mods/unfplap/negotiation/host.gd")
 const ADAPTER := preload("res://mods/unfplap/negotiation/adapter.gd")
-const ELIGIBILITY := preload("res://mods/unfplap/eligibility/service.gd")
-const ACT_GATE := preload("res://mods/unfplap/act_gate/service.gd")
-const MEMORY := preload("res://mods/unfplap/memory/service.gd")
+const ELIGIBILITY := preload("res://mods/unfplap/eligibility/api.gd")
+const ACT_GATE := preload("res://mods/unfplap/act_gate/api.gd")
+const MEMORY := preload("res://mods/unfplap/memory/api.gd")
 const PRIVACY := preload("res://mods/unfplap/privacy/api.gd")
-const PONIES := preload("res://mods/unfplap/ponies/service.gd")
-const ACT_OWNER := preload("res://mods/unfplap/act_owner/service.gd")
+const PONIES := preload("res://mods/unfplap/ponies/api.gd")
+const ACT_OWNER := preload("res://mods/unfplap/act_owner/api.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const CLEARANCE := preload("res://mods/unfplap/shared/clearance.gd")
 const CONTEXT := preload("res://mods/unfplap/shared/context.gd")
@@ -95,7 +95,7 @@ class Host:
 	var scene_ready: Callable
 	## () -> FormView: the player's live form and display.
 	var form_view: Callable
-	## (runtime) -> RefCounted: the per-pony `scene_hold/service.gd` ledger.
+	## (runtime) -> RefCounted: the per-pony `scene_hold/api.gd` ledger.
 	var hold_for: Callable
 	## (PROMPTS.Request, scope, done) -> bool: the dialogue classifier. `done` gets a
 	## PROMPTS.Reply.

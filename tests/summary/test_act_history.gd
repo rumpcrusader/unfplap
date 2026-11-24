@@ -4,7 +4,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ##     --script res://mods/unfplap/tests/summary/test_act_history.gd
 
 const HISTORY := preload("res://mods/unfplap/shared/act_history.gd")
-const SETTINGS := preload("res://mods/unfplap/settings/service.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 
 
 

@@ -218,5 +218,5 @@ const NAMES := {
 }
 
 ## The shipped per-mare templates, read once from `settings/characters.json`. Read-only: callers
-## copy a template before merging. A provider layer is applied by `settings/service.gd`, never here.
+## copy a template before merging. A provider layer is applied by `settings/api.gd`, never here.
 static var TEMPLATES: Dictionary = DEFAULTS_DATA.characters_block("characters")

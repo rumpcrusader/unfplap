@@ -7,7 +7,7 @@ authored look path), the head clearance and the debug free look. The player's ow
 
 ## Ownership
 
-`camera/service.gd` is the act camera facade. It holds the hands, kiss and view controllers typed
+`camera/api.gd` is the act camera facade. It holds the hands, kiss and view controllers typed
 and calls them directly, and the `camera_thrust` block arrives as the typed `camera/config.gd`
 record. It owns the lean input and its smoothing, the speed-driven surge/bob response and the
 afterglow back-off, the debug free look, and every size/torso helper the view and the hands read.
@@ -26,10 +26,10 @@ calls the frame's `begin()` and the camera's `begin_act()`, `act/exit.gd:run()` 
 
 The look point is the camera's too: `write_look_target()` picks the missionary gaze, blends toward
 the kissing mouth by the kiss's own fade and writes the pose's `look_point`, `kiss` and `climaxing`
-for the rendered frame. The pose node arrives as `poses/service.gd`'s `POSE` and the three fields
+for the rendered frame. The pose node arrives as `poses/api.gd`'s `POSE` and the three fields
 are written directly, never by name. The runtime calls it after the pose render write and the eye
 view's own write, so the next frame's head solves against this frame's lean. The gaze target
-is computed by `camera/service.gd:gaze_point()` from the pose-owned act body and the kiss.
+is computed by `camera/api.gd:gaze_point()` from the pose-owned act body and the kiss.
 
 ## Typed view
 
@@ -101,21 +101,21 @@ and caches it by settings group and pose id, so a held debug pair does not snap.
   live stepping pose, so the legs do not walk through the lean. With no lean the game's stepping
   feet are left alone. The capture clears at act end; the old planted-lower-body switch is retired.
 - The view is **speed-driven**, never an impulse. The physics tick filters the signed depth
-  speed (`CAM_SPEED_SMOOTH_S = 0.06`) and `camera/service.gd` follows it with one critically damped
+  speed (`CAM_SPEED_SMOOTH_S = 0.06`) and `camera/api.gd` follows it with one critically damped
   response (`CAM_RESPONSE_S = 0.12`). `CAM_SPEED_REF = 4.0` depth/s reaches full travel; outward
   strokes use `CAM_BACK_RATIO = 0.5`. The bob target is negative, so the view dips toward her on
   the inward stroke and rises on the return. Surge and Bob are cached from the complete
   `camera_thrust.*` block in `configure()` at act start and on a live settings edit; the facade
   keeps no fallback value.
 - Side lean rolls the view outward (`-LEAN_SIDE_ROLL_DEG × side`).
-- The displayed lean is always smoothed at `CAMERA_INERTIA_SMOOTH = 5.0` (`camera/service.gd`).
+- The displayed lean is always smoothed at `CAMERA_INERTIA_SMOOTH = 5.0` (`camera/api.gd`).
 - `Q`/`E` fire their pose action at `LEAN_FIRE = 0.75` and release at `LEAN_RELEASE = 0.60`. The
   action is latched while above release.
 - The lean always holds a released position. The step only ramps toward a pressed target;
   the explicit `S` shoulder recentre uses `return_to_zero`. The act end and paused paths still
   return the lean over `LEAN_RETURN_SECONDS = 1.6`. There is no auto-return mode or toggle.
 - With `idle_camera_sway` enabled the view gets a small, slow forward rock
-  (`0.010`). It is a **separate offset** (`camera/service.gd:shot_lean_forward()`), never added into
+  (`0.010`). It is a **separate offset** (`camera/api.gd:shot_lean_forward()`), never added into
   `lean_view_forward`: folded in, the inertia smoother amplified it about twelvefold and the view
   crept while nobody was leaning. There is no side sway. Pressing `S` arms a gradual side return,
   so the shoulder roll decays to neutral without leaning the other way.
@@ -143,7 +143,7 @@ her face from the eye. The camera position is never taken from a shot. The lean 
 **`Spine`** joint: chest, neck, head, shoulders, arms and hands tilt as a unit, while his hips,
 thighs and legs stay on the authored pose and keep the thrust. W tips the hinge forward/down toward
 her, S back/up, and Q/E add the side lean. The view is written after the pose write in the same
-frame (`poses/service.gd:render_write()` calls the view's `write_eye()` last).
+frame (`poses/api.gd:render_write()` calls the view's `write_eye()` last).
 
 Her gaze and the kiss target his authored eye and mouth (`eye_point()` / `mouth_point()`), never the
 game camera on his standing player rig; the game's eye modifier is pointed at the same target, with
@@ -204,7 +204,7 @@ and the game camera follows as his child. `camera/view.gd` applies the live lean
   world space, after `apply_target_once()`) once at start, then the live lean on top. The next
   start is independent because the solve is canonical.
 - A presented body's entrance follows its `BodyForm`: `form.rig` supplies the rear anchor and scale
-  and `form.body_scale` the live scale (`camera/service.gd:entrance_offset_for()` delegates the
+  and `form.body_scale` the live scale (`camera/api.gd:entrance_offset_for()` delegates the
   math to `shared/body_profile.gd`). The preset moves by the entrance height, a raise capped at
   Anon's own eye or at a preset that is already higher; the standing gap adds the back offset, so
   Anon keeps the same distance from her entrance. The frame reads the presented form on every
@@ -246,7 +246,7 @@ and the game camera follows as his child. `camera/view.gd` applies the live lean
 
 `presentation.missionary.free_look` (debug) turns the act view where it stands — his eye in
 missionary, the player camera in standing — instead of holding the act's orientation: mouse look
-works, and `input/service.gd` sends the motion to `runtime.act.input.look_motion()` instead of
+works, and `input/api.gd` sends the motion to `runtime.act.input.look_motion()` instead of
 `thrust_motion()` through the act input protocol (`act/input.gd`). The pose and act keep running.
 Standing has no separate view, so the view leaves the player camera's base orientation alone. The
 setting is live through `apply_live_settings`; the settings page pauses the world, so it takes

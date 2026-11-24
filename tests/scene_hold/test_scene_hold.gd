@@ -7,6 +7,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 const INTERACTOR := preload("res://player/interactor.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const HOLD := preload("res://mods/unfplap/scene_hold/service.gd")
+const GAME := preload("res://mods/unfplap/world/game.gd")
 
 const STATE_IDLE := 0
 const STATE_ACTIVE := 2
@@ -334,7 +335,7 @@ func _check_player() -> void:
 	body.seat = "chair"
 	hold.lock_player()
 	check(body.has_meta("kiss_hold"), "the lock sets the kiss hold")
-	check(bool(body.get("_q_held")), "a seated player holds Q")
+	check(bool(GAME.q_held(body)), "a seated player holds Q")
 	check(not kisser.is_physics_processing(), "the kisser physics pauses")
 	check(hold.locked_player, "the lock records ownership")
 	hold.unlock_player()

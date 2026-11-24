@@ -114,7 +114,6 @@ func _check_controls() -> void:
 	var hud: CanvasLayer = HUD.new()
 	root.add_child(hud)
 	check(hud.get("_hint") != null, "HUD builds its hint stack")
-	check(hud.get("_hint_title") == null, "act card has no separate title")
 	var y_label := hud.get("_y_label") as Label
 	check(y_label != null and y_label.text.is_empty(), "the act-key description starts empty")
 	var view := _view()

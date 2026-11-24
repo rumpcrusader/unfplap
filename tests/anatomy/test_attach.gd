@@ -67,8 +67,7 @@ func run() -> void:
 	api.present(pony, revised)
 	check(api._parts.controller(pony) == null, "an ineligible body has no controller")
 	check(api._parts.form_for(pony) == revised, "the ineligible body still remembers its form")
-	var rows: Dictionary = api._parts.tail_seat.get("_rows")
-	check(not rows.has(pony), "an ineligible body seats no tail")
+	check(api._parts.tail_seat.row(pony) == null, "an ineligible body seats no tail")
 	eligibility.allow = true
 	api.present(pony, revised)
 	check(is_instance_valid(api._parts.controller(pony)), "an eligible body presents again")
@@ -90,7 +89,7 @@ func run() -> void:
 	check(eligibility.calls == before + 1, "the listener asks the gate once per remembered body")
 	check(api._parts.controller(pony) == null, "a settings edit withdraws a now-ineligible body")
 	check(api._parts.form_for(pony) == kept, "the listener keeps the remembered form")
-	check(not (api._parts.tail_seat.get("_rows") as Dictionary).has(pony),
+	check(api._parts.tail_seat.row(pony) == null,
 		"the listener releases the tail")
 	before = eligibility.calls
 	eligibility.allow = true
@@ -106,7 +105,7 @@ func run() -> void:
 	check(api._parts.controller(pony) == null, "withdraw releases the controller")
 	check(api._parts.form_for(pony) == null, "withdraw forgets the form")
 	check(api._parts.controllers.is_empty(), "no controller returns after the deferred retry")
-	check(not (api._parts.tail_seat.get("_rows") as Dictionary).has(pony),
+	check(api._parts.tail_seat.row(pony) == null,
 		"no tail row returns after the deferred retry")
 	api.withdraw(pony)
 	api.present(null)
@@ -119,7 +118,7 @@ func run() -> void:
 	unbound.present(body)
 	check(unbound._parts.controller(body) == null, "an unbound anatomy creates no controller")
 	check(unbound._parts.form_for(body) != null, "an unbound anatomy still stores the form")
-	check(not (unbound._parts.tail_seat.get("_rows") as Dictionary).has(body),
+	check(unbound._parts.tail_seat.row(body) == null,
 		"an unbound anatomy seats no tail")
 	unbound.shutdown()
 	root.remove_child(unbound)

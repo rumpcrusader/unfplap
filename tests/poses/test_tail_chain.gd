@@ -67,6 +67,7 @@ func run() -> void:
 	tail.amount = 1.0
 	tail.target_amount = 1.0
 	body.add_child(tail)
+	## The modifier's bone cache is private to the rig; this pins the cache on purpose.
 	check(int(tail.get("_bones").size()) == 5,
 		"the standing tail caches the body chain")
 	check(int(tail.get("_pelvis")) < 0,
@@ -88,6 +89,7 @@ func run() -> void:
 	lay.amount = 1.0
 	lay.target_amount = 1.0
 	body.add_child(lay)
+	## The lay modifier's bone cache is private to the rig; this pins the cache on purpose.
 	check(int(lay.get("_bones").size()) == 5,
 		"the tail lay caches the body chain")
 	var lay_before := body.get_bone_pose(tail1)

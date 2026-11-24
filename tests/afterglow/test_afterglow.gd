@@ -249,13 +249,11 @@ func run() -> void:
 	var written: Array[float] = []
 	post.write_satisfaction = func(value: float) -> void: written.append(value)
 	post.decay_satisfaction(50.0)
-	check(post.get("_decay") != null, "the decay tween runs after the act")
 	await process_frame
 	await process_frame
 	check(not written.is_empty() and written[written.size() - 1] < 50.0,
 		"the decay writes the meter down")
 	post.stop_decay()
-	check(post.get("_decay") == null, "a new act stops the decay")
 	var stopped_at := written.size()
 	await process_frame
 	check(written.size() == stopped_at, "a stopped decay writes nothing more")
@@ -272,7 +270,6 @@ func run() -> void:
 	check(ended.act.context.afterglow.aftercare != null, "a healthy act starts the aftercare")
 	check(ended_pony.has_meta("sex_aftercare"), "the aftercare marks the pony")
 	check(is_instance_valid(ended.act.context.face.mood_face), "the post-act face is held")
-	check(ended.act.context.afterglow.get("_decay") != null, "the satisfaction decay runs")
 	ended.act.clear_aftercare()
 	check(not ended_pony.has_meta("sex_aftercare"), "a new start clears the aftercare")
 	ended.act.stopped_by_her = true

@@ -68,6 +68,7 @@ func run() -> void:
 	var service: Node = AUDIO.new()
 	root.add_child(service)
 	var audio: AUDIO.ActAudio = AUDIO.ActAudio.new(service)
+	## The service's pool and sound children are its private cache; this pins them on purpose.
 	var pool: Node = service.get("_pool")
 	var sound: Node = service.get("_sound")
 	check(is_instance_valid(pool), "the world audio service builds its cue pool")
@@ -107,6 +108,7 @@ func run() -> void:
 	couch.name = "Couch"
 	root.add_child(couch)
 	audio.begin_act(pony, "rarity", couch)
+	## The act handle's bed profile is a private cache; this pins it on purpose.
 	check(audio.get("_bed_soft"), "a couch is a soft bed")
 	check(audio.get("_impact_profile") == "missionary", "a bound bed selects the bed layer")
 	check(audio._bed_point(Vector3.ONE).is_equal_approx(couch.global_position
@@ -121,6 +123,7 @@ func run() -> void:
 	pony.boop_node = boop
 
 	# The bound bed decides the fabric: a bed-less (standing) act plays none.
+	## The pool's cue cooldown clock is a private cache; this pins it on purpose.
 	var ready: Dictionary = pool.get("_ready_at")
 	ready["fabric"] = 0.0
 	audio.impact("rough", 0.9, Vector3.ZERO, 0.0, true)
@@ -257,6 +260,7 @@ func run() -> void:
 	SETTINGS._game_settings = saved_settings
 
 	# The act's end silences it and the next act reuses the same pool and players.
+	## The process pool is a private cache; this pins its reuse on purpose.
 	var first_plap: AudioStreamPlayer3D = (pool.get("_pools") as Dictionary)["plap_firm"][0]
 	audio.end_act()
 	check(not (pool.get("_pools") as Dictionary).is_empty(),

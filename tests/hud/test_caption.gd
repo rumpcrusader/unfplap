@@ -59,6 +59,15 @@ class SinkHud extends "res://mods/unfplap/hud/service.gd":
 		shown.append([text, seconds])
 
 
+## A real HUD with its toast sink counted, so the notice rule reads what it asked to show.
+class NoticeHud extends "res://mods/unfplap/hud/service.gd":
+	var shown: Array[String] = []
+
+	func _show_toast(text: String, seconds := 2.0) -> void:
+		shown.append(text)
+		super(text, seconds)
+
+
 ## The game's quick-slot inventory and its bar, for the HUD's borrowed-card accessors.
 class FakeInventory extends Node:
 	var hud_hidden := false
@@ -387,16 +396,17 @@ func _check_dance_notice() -> void:
 	mods.name = "Mods"
 	mods.active = ["dance_mod"]
 	root.add_child(mods)
-	var hud: CanvasLayer = HUD.new()
+	var hud := NoticeHud.new()
 	root.add_child(hud)
 	var label := hud.get("_toast_label") as Label
 	var key_label := ACT_KEYS.label(int(SETTINGS.act_key.get_num()))
 
 	hud.call("on_world", null)
 	hud.call("on_player", null)
-	var shown: int = int(hud.get("_toast_serial"))
+	var shown := hud.shown.size()
 	hud.call("on_player", null)
-	check(int(hud.get("_toast_serial")) == shown, "the key notice is one per world")
+	check(hud.shown.size() == shown and bool(hud.get("_dance_hint_shown")),
+		"the key notice is one per world")
 	if int(SETTINGS.act_key.get_num()) == KEY_Y:
 		check(not label.visible, "no notice while the act key is the Dance Mod's own Y")
 	else:
@@ -405,15 +415,16 @@ func _check_dance_notice() -> void:
 
 	# A world re-enter arms the note again.
 	hud.call("on_world", null)
+	var armed := not bool(hud.get("_dance_hint_shown"))
 	hud.call("on_player", null)
-	check(int(hud.get("_toast_serial")) == shown + 1, "a new world shows the notice once more")
+	check(armed and hud.shown.size() == shown + 1, "a new world shows the notice once more")
 
 	# The Dance Mod off: nothing to warn about.
 	mods.active = []
 	hud.call("on_world", null)
-	var quiet: int = int(hud.get("_toast_serial"))
+	var quiet := hud.shown.size()
 	hud.call("on_player", null)
-	check(int(hud.get("_toast_serial")) == quiet, "no notice without the Dance Mod")
+	check(hud.shown.size() == quiet, "no notice without the Dance Mod")
 
 	root.remove_child(hud)
 	hud.free()

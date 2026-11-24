@@ -9,16 +9,14 @@ const CARESS := "caress"
 const KISS := "kiss"
 const ORAL := "oral"
 const HOLE := "hole"
-const POSE_BACK := "pose_back"
-const POSE_FORWARD := "pose_forward"
 const END := "end"
 
 ## The whole vocabulary. `CONTINUOUS` and `DISCRETE` partition it.
-const ALL := [THRUST, LEAN, CARESS, KISS, ORAL, HOLE, POSE_BACK, POSE_FORWARD, END]
+const ALL := [THRUST, LEAN, CARESS, KISS, ORAL, HOLE, END]
 ## The ids the act samples every frame; they are not dispatched through `runtime.command()`.
 const CONTINUOUS := [THRUST, LEAN, CARESS, KISS]
 ## The ids one key press or one request emits.
-const DISCRETE := [ORAL, HOLE, POSE_BACK, POSE_FORWARD, END]
+const DISCRETE := [ORAL, HOLE, END]
 
 
 ## True for a known id.

@@ -329,7 +329,7 @@ The oral pair is `standing__standing_oral.json` and `standing_oral__standing.jso
 edge requires the `anatomy_oral` feature, `consent: "oral"`, both forms and views; it runs for
 `1.6 s` with the base delta easing over the whole edge, switches
 `contact` to `mouth` at `0.9` (floored by `contact after base@0.55`), switches `audio` to `oral` at
-`0.0`, locks `controls` to `oral`/`pose_back`/`end`, and fires `speech_stop`, `viseme D` and a final
+`0.0`, locks `controls` to `oral`/`end`, and fires `speech_stop`, `viseme D` and a final
 `status oral`. The reverse edge requires only the feature, both forms and both views, returns
 `contact` to `opening` at `0.0` and `audio` to `standing`, allows only `end` during the lock, and
 fires `status standing` at its end. The reverse edge has no consent, so a return is always
@@ -442,18 +442,17 @@ maps each pose's `controls.set` profile to its allowed ids:
 
 | Pose | Allowed ids |
 |---|---|
-| `missionary` | `thrust`, `lean`, `caress`, `kiss`, `hole`, `finish`, `end` |
-| `standing` | `thrust`, `lean`, `caress`, `kiss`, `oral`, `hole`, `finish`, `pose_back`, `pose_forward`, `end` |
+| `missionary` | `thrust`, `lean`, `caress`, `kiss`, `hole`, `end` |
+| `standing` | `thrust`, `lean`, `caress`, `kiss`, `oral`, `hole`, `end` |
 | `standing_test` | `end` |
-| `standing_oral` | `oral`, `pose_back`, `end` |
+| `standing_oral` | `oral`, `end` |
 | `bed_facesit` | `thrust`, `lean`, `caress`, `end` |
 
 `request_command(command_id)` is the one allow check: an empty or unknown id is refused, `end` is
 reserved and always allowed, and otherwise the id must be in the active view's `controls.set`
 profile. A missing set allows only `end`. A lock channel's `block` list denies its commands and a
 non-empty `allow` list denies anything outside it; the lock is checked only inside the profile and
-cannot deny `end`. `pose_back`/`pose_forward` are reserved for pose navigation and no key emits them
-yet. The input protocol's `command("oral")` (`act/input.gd`) requests `standing_oral` from
+cannot deny `end`. The input protocol's `command("oral")` (`act/input.gd`) requests `standing_oral` from
 `standing` and the reverse edge from `standing_oral` through `request_pose`; it passes `consent: "oral"` only when `act_gate.consent(pony, "oral")` is
 true, and its refusal reason is the input's HUD line.
 

@@ -187,8 +187,6 @@ func command(command_id: String) -> bool:
 			return _toggle_hole()
 		ACT_COMMANDS.ORAL:
 			return _toggle_oral()
-		ACT_COMMANDS.POSE_BACK, ACT_COMMANDS.POSE_FORWARD:
-			return false
 		ACT_COMMANDS.END:
 			return true
 	return false

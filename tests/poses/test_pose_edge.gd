@@ -158,8 +158,7 @@ func _check_oral_documents() -> void:
 	var channels: Dictionary = forward.get("channels", {})
 	var lock: Dictionary = channels.get("controls", {})
 	check(str(lock.get("kind", "")) == "lock", "the oral forward controls are a lock")
-	check(lock.get("allow") == ["oral", "pose_back", "end"],
-		"the oral lock allows oral, pose_back and end")
+	check(lock.get("allow") == ["oral", "end"], "the oral lock allows oral and end")
 	var reverse_channels: Dictionary = reverse.get("channels", {})
 	check(str((reverse_channels.get("audio", {}) as Dictionary).get("profile", "")) == "standing",
 		"the oral reverse audio returns to the standing speech profile")

@@ -16,7 +16,7 @@
     "anon": {"kind": "hold"},
     "contact": {"kind": "switch", "at": 0.9, "to": "mouth"},
     "camera": {"kind": "hold"},
-    "controls": {"kind": "lock", "allow": ["oral", "pose_back", "end"]},
+    "controls": {"kind": "lock", "allow": ["oral", "end"]},
     "audio": {"kind": "switch", "at": 0.0, "profile": "oral"},
     "presentation": {"kind": "hold"}
   },

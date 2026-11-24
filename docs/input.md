@@ -121,9 +121,8 @@ real state. This is a deliberate, global lie about key state, kept only for the 
 ## Act commands
 
 `shared/act_commands.gd` is the act's command vocabulary: `thrust`, `lean`, `caress`, `kiss`,
-`oral`, `hole`, `pose_back`, `pose_forward` and `end`. `thrust`, `lean`, `caress` and `kiss` are
-the continuous ids; the rest are discrete. `end` is reserved and always allowed, and
-`pose_back`/`pose_forward` are reserved for pose navigation with no key emitting them.
+`oral`, `hole` and `end`. `thrust`, `lean`, `caress` and `kiss` are the continuous ids; the rest
+are discrete. `end` is reserved and always allowed.
 
 The discrete act keys emit a command id through the active runtime's input protocol instead of
 calling an anatomy verb directly: `V` emits `hole` and `N` emits `oral`, each only when its
@@ -133,8 +132,7 @@ nothing. The key is consumed whether the command is allowed or refused.
 
 `N` is the standing oral request: `act/input.gd:_toggle_oral()` requests `standing_oral`
 from `standing` with the per-mare `oral` consent, and the reverse edge from `standing_oral`. The oral
-forward lock allows `oral`/`pose_back`/`end`, so `N` can return; the reverse lock allows only
-`end`. `V` is denied while the oral lock is live even when its feature gate is on. The VR
+forward lock allows `oral`/`end`, so `N` can return; the reverse lock allows only `end`. `V` is denied while the oral lock is live even when its feature gate is on. The VR
 left `by_button` emits the same `oral` command through the VR controller's command callable.
 
 The continuous `thrust`, `lean`, `caress` and `kiss` inputs stay on their polled `RAW_KEYS`/mouse

@@ -128,6 +128,21 @@ first progress update to its one result; there is no other correlation key.
 
 ### `act_progress`
 
+```json
+{
+	"schema": 1,
+	"act_id": 12,
+	"state": "ACTIVE",
+	"pony_id": "chrysalis",
+	"form_id": "fluttershy",
+	"pose": "missionary",
+	"duration_s": 63.4,
+	"mood": "close",
+	"climaxes": {"current": 1, "limit": 2},
+	"heat": false
+}
+```
+
 | Key | Type | Meaning |
 |---|---|---|
 | `schema` | int | Payload version; `1` in this build. |
@@ -152,13 +167,30 @@ after-act satisfaction decay, or after the runtime leaves the world.
 
 ### `act_result`
 
+```json
+{
+	"schema": 1,
+	"act_id": 12,
+	"pony_id": "chrysalis",
+	"form_id": "chrysalis",
+	"forms": ["chrysalis", "fluttershy", "chrysalis"],
+	"pose": "missionary",
+	"duration_s": 186.4,
+	"thrusts": 143,
+	"climaxes": {"current": 2, "limit": 0},
+	"grade": "great",
+	"stop_reasons": [],
+	"outcome": {"romance": 2, "mood": "happy", "severe": false, "early": false, "stopped": false}
+}
+```
+
 | Key | Type | Meaning |
 |---|---|---|
 | `schema` | int | Payload version; `1` in this build. |
 | `act_id` | int | The act serial, shared with its progress updates. |
 | `pony_id` | String | Her stable identity. |
 | `form_id` | String | The presented form at the commit. |
-| `forms` | Array | The original form first, then each distinct form she presented, in first-appearance order. |
+| `forms` | Array | The forms she presented, in order: the form at act start, then one entry per change, repeats included; her own form reads as `pony_id`. |
 | `pose` | String | The pose the act ran. |
 | `duration_s` | float | The act's elapsed seconds at the commit. |
 | `thrusts` | int | Her real inward strokes. |
@@ -171,9 +203,12 @@ One result is emitted per act where the summary is committed: the normal aftergl
 end, or a partner stop. A forced stop, a failed start, a world close, and an early end the summary
 skips emit nothing.
 
-`forms` never repeats a form and always starts with her own: an ordinary mare is `["fluttershy"]`,
-a disguised changeling is `["chrysalis", "fluttershy"]`, and a return to her own form adds no
-entry. `outcome.romance` is what the summary actually writes; `outcome.mood` is her lasting
+`forms` is the literal sequence of presented forms, from the form at act start to the form at the
+commit: an ordinary mare is `["fluttershy"]`, a changeling who stays herself is `["chrysalis"]`, own
+→ Fluttershy → own → Rarity is `["chrysalis", "fluttershy", "chrysalis", "rarity"]`, and a disguised
+start that reveals is `["fluttershy", "chrysalis"]`. `form_id` is the current form at the commit, so
+it repeats the last entry, and a new act starts a new sequence from the form it starts in.
+`outcome.romance` is what the summary actually writes; `outcome.mood` is her lasting
 `happy`, `relaxed`, `sad`, `annoyed` or `angry` impression. `stop_reasons` carries
 `ended_early`, `no_climax`, `silent_talk`, `talk_miss`, `disliked_<kind>`, `severe_<kind>`,
 `too_many_dislikes`, `no_liked_touch`, `intensity_mismatch`, `pattern_mismatch` and

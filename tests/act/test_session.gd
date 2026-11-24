@@ -29,6 +29,40 @@ const RESULT_KEYS: Array[String] = [
 	"outcome", "pony_id", "pose", "schema", "stop_reasons", "thrusts",
 ]
 const OUTCOME_KEYS: Array[String] = ["early", "mood", "romance", "severe", "stopped"]
+const PROGRESS_TYPES := {
+	"schema": TYPE_INT,
+	"act_id": TYPE_INT,
+	"state": TYPE_STRING,
+	"pony_id": TYPE_STRING,
+	"form_id": TYPE_STRING,
+	"pose": TYPE_STRING,
+	"duration_s": TYPE_FLOAT,
+	"mood": TYPE_STRING,
+	"climaxes": TYPE_DICTIONARY,
+	"heat": TYPE_BOOL,
+}
+const CLIMAX_TYPES := {"current": TYPE_INT, "limit": TYPE_INT}
+const RESULT_TYPES := {
+	"schema": TYPE_INT,
+	"act_id": TYPE_INT,
+	"pony_id": TYPE_STRING,
+	"form_id": TYPE_STRING,
+	"pose": TYPE_STRING,
+	"duration_s": TYPE_FLOAT,
+	"thrusts": TYPE_INT,
+	"climaxes": TYPE_DICTIONARY,
+	"grade": TYPE_STRING,
+	"forms": TYPE_ARRAY,
+	"stop_reasons": TYPE_ARRAY,
+	"outcome": TYPE_DICTIONARY,
+}
+const OUTCOME_TYPES := {
+	"romance": TYPE_INT,
+	"mood": TYPE_STRING,
+	"severe": TYPE_BOOL,
+	"early": TYPE_BOOL,
+	"stopped": TYPE_BOOL,
+}
 
 
 
@@ -228,6 +262,8 @@ func run() -> void:
 	orphan.free()
 
 	_check_report()
+	_check_form_sequence()
+	_check_states()
 	_check_hole_command()
 	_free_frame(made)
 	finish()
@@ -320,6 +356,8 @@ func _check_report() -> void:
 	check_eq(str(first.get("mood", "")), "warming", "the readiness mood is reported")
 	check_eq(first.get("climaxes"), {"current": 0, "limit": 0}, "the climax pair is reported")
 	check_eq(bool(first.get("heat", true)), false, "heat is reported")
+	_check_types(first, PROGRESS_TYPES, "progress")
+	_check_types(first.get("climaxes", {}) as Dictionary, CLIMAX_TYPES, "progress.climaxes")
 
 	session.tick(0.02)
 	check_size(progress, 1, "an unchanged tick emits no progress")
@@ -382,6 +420,11 @@ func _check_report() -> void:
 	check_eq(result.get("outcome"), {
 		"romance": 2, "mood": "happy", "severe": false, "early": false, "stopped": false,
 	}, "the outcome is the summary's own values")
+	_check_types(result, RESULT_TYPES, "result")
+	_check_types(result.get("climaxes", {}) as Dictionary, CLIMAX_TYPES, "result.climaxes")
+	_check_types(result.get("outcome", {}) as Dictionary, OUTCOME_TYPES, "result.outcome")
+	_check_string_array(result.get("forms"), "result.forms")
+	_check_string_array(result.get("stop_reasons"), "result.stop_reasons")
 
 	session.commit_afterglow()
 	check_size(results, 1, "a second commit emits no second result")
@@ -408,8 +451,8 @@ func _check_report() -> void:
 	check_eq(early.get("outcome"), {
 		"romance": -1, "mood": "annoyed", "severe": true, "early": false, "stopped": true,
 	}, "the stopped outcome is reported")
-	check_eq(early.get("forms"), ["chrysalis", "fluttershy"],
-		"a new act starts its own form sequence")
+	check_eq(early.get("forms"), ["fluttershy"],
+		"a new act starts its sequence from the form in use")
 
 	session.reset_act()
 	check(not bool(session._result_emitted), "reset_act clears the result guard")
@@ -425,6 +468,153 @@ func _check_report() -> void:
 	summary.free()
 	dialogue.free()
 	_free_frame(made)
+
+
+## The literal change sequence: the form at act start first, then one entry per change, repeats
+## included; a disguised start begins with the form she was wearing.
+func _check_form_sequence() -> void:
+	var made := _frame()
+	var session: RefCounted = made["session"]
+	var context: RefCounted = made["context"]
+	var readiness := READINESS.new()
+	var summary := SUMMARY.new()
+	var dialogue := FakeDialogue.new()
+	context.readiness = readiness
+	context.summary = summary
+	context.dialogue = dialogue
+	summary.wire(null, readiness, dialogue)
+	session.view = FakeView.new()
+	session.ticker = FakeTicker.new([])
+	session.pony_id = "chrysalis"
+	session.serial = 21
+	session.pose_id = "missionary"
+	session.event_id = "intimacy_chrysalis_21"
+	var results: Array[Dictionary] = []
+	session.result.connect(func(data: Dictionary) -> void: results.append(data))
+	var form := BODY_FORM.BodyForm.new()
+	form.pony_id = "chrysalis"
+	form.form_name = "Chrysalis"
+	summary.summary = {
+		"grade": "great", "romance": 2, "mood": "happy", "severe": false,
+		"early": false, "stopped": false, "reasons": [], "positive": true,
+	}
+	session.adopt_display_name(form, null)
+	form.form_id = "fluttershy"
+	form.form_name = "Fluttershy"
+	session.adopt_display_name(form, null)
+	form.form_id = ""
+	form.form_name = "Chrysalis"
+	session.adopt_display_name(form, null)
+	form.form_id = "rarity"
+	form.form_name = "Rarity"
+	session.adopt_display_name(form, null)
+	session.commit_summary(false)
+	check_size(results, 1, "the literal sequence emits one result")
+	var data: Dictionary = results[0] if not results.is_empty() else {}
+	check_eq(data.get("forms"), ["chrysalis", "fluttershy", "chrysalis", "rarity"],
+		"the forms keep every change in order, repeats included")
+	check_eq(str(data.get("form_id", "")), "rarity", "the result form is the current form")
+
+	summary.reset_act()
+	session.reset_act()
+	session.serial = 22
+	session.event_id = "intimacy_chrysalis_22"
+	summary.summary = {
+		"grade": "good", "romance": 1, "mood": "relaxed", "severe": false,
+		"early": false, "stopped": false, "reasons": [], "positive": true,
+	}
+	form.form_id = "fluttershy"
+	form.form_name = "Fluttershy"
+	session.adopt_display_name(form, null)
+	form.form_id = ""
+	form.form_name = "Chrysalis"
+	session.adopt_display_name(form, null)
+	session.commit_summary(false)
+	check_size(results, 2, "the disguised start emits one result")
+	var disguised: Dictionary = results[1] if results.size() > 1 else {}
+	check_eq(disguised.get("forms"), ["fluttershy", "chrysalis"],
+		"a disguised start begins with the form in use, not a synthetic own form")
+	check_eq(str(disguised.get("form_id", "")), "chrysalis",
+		"the revealed result form is her own")
+
+	context.readiness = null
+	context.summary = null
+	context.dialogue = null
+	readiness.free()
+	summary.free()
+	dialogue.free()
+	_free_frame(made)
+
+
+## Every act state reports once, and an unchanged tick adds none.
+func _check_states() -> void:
+	var made := _frame()
+	var session: RefCounted = made["session"]
+	var context: RefCounted = made["context"]
+	var readiness := READINESS.new()
+	context.readiness = readiness
+	session.ticker = FakeTicker.new([])
+	var progress: Array[Dictionary] = []
+	session.progress.connect(func(data: Dictionary) -> void: progress.append(data))
+	var seen := progress.size()
+	session.begin_pose_in()
+	session.tick(0.02)
+	_check_state(progress, seen, "POSING_IN", "the pose-in transition")
+	seen = progress.size()
+	session.tick(0.02)
+	check_size(progress, seen, "an unchanged tick after a transition adds no progress")
+	seen = progress.size()
+	session.enter_active()
+	session.tick(0.02)
+	_check_state(progress, seen, "ACTIVE", "the active transition")
+	seen = progress.size()
+	session.enter_climax()
+	session.tick(0.02)
+	_check_state(progress, seen, "CLIMAX", "the climax transition")
+	seen = progress.size()
+	session.enter_active()
+	session.tick(0.02)
+	_check_state(progress, seen, "ACTIVE", "the climax return")
+	seen = progress.size()
+	session.enter_afterglow()
+	session.tick(0.02)
+	_check_state(progress, seen, "AFTERGLOW", "the afterglow transition")
+	seen = progress.size()
+	session.begin_restore()
+	session.tick(0.02)
+	_check_state(progress, seen, "RESTORE", "the restore transition")
+	seen = progress.size()
+	session.enter_idle()
+	session.tick(0.02)
+	_check_state(progress, seen, "IDLE", "the idle transition")
+	seen = progress.size()
+	session.tick(0.02)
+	check_size(progress, seen, "the settled act emits no further progress")
+	check_size(progress, 7, "each act state emits exactly one progress update")
+
+	context.readiness = null
+	readiness.free()
+	_free_frame(made)
+
+
+func _check_state(progress: Array[Dictionary], before: int, expected: String,
+		label: String) -> void:
+	check_size(progress, before + 1, "%s emits one progress update" % label)
+	var data: Dictionary = progress[before] if progress.size() > before else {}
+	check_eq(str(data.get("state", "")), expected, "%s reports %s" % [label, expected])
+
+
+func _check_types(data: Dictionary, types: Dictionary, label: String) -> void:
+	for key: String in types:
+		check_eq(typeof(data.get(key)), int(types[key]), "%s.%s payload type" % [label, key])
+
+
+func _check_string_array(value: Variant, label: String) -> void:
+	check(value is Array, "%s is an array" % label)
+	if not value is Array:
+		return
+	for item: Variant in value:
+		check_eq(typeof(item), TYPE_STRING, "%s element is a string" % label)
 
 
 func _keys(data: Dictionary) -> Array[String]:

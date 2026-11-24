@@ -72,7 +72,7 @@ var serial := 0
 var pony_id := ""
 ## The live form id; her own body reports the stable pony id.
 var _form_id := ""
-## Every distinct form presented during the act, in first-appearance order.
+## Every form she wore during the act, in order; a repeated form stays in the list.
 var _forms_taken: Array[String] = []
 ## The relationship meta the last identity refresh read; a late assignment is caught without an
 ## allocation per physics frame.
@@ -216,9 +216,10 @@ func pose_values(pose: String, look: Vector3, camera_at: Vector3, size_name: Str
 func adopt_display_name(form: BODY_FORM.BodyForm, body: Variant) -> void:
 	display_name = PONY_IDENTITY.display_name(form, body if is_instance_valid(body) else null, pony_id)
 	var form_id := form.form_id.strip_edges() if form != null else ""
-	_form_id = form_id if not form_id.is_empty() else pony_id
-	if not _form_id.is_empty() and not _forms_taken.has(_form_id):
-		_forms_taken.append(_form_id)
+	var next_id := form_id if not form_id.is_empty() else pony_id
+	if not next_id.is_empty() and (_forms_taken.is_empty() or next_id != _forms_taken.back()):
+		_forms_taken.append(next_id)
+	_form_id = next_id
 
 func refresh_identity() -> bool:
 	_cycle_dirty = true
@@ -718,19 +719,12 @@ func _emit_result_once() -> void:
 
 
 func _report_forms() -> Array[String]:
-	var out: Array[String] = []
-	_append_form(out, pony_id)
-	for id: String in _forms_taken:
-		_append_form(out, id)
-	_append_form(out, _form_id)
-	return out
-
-
-static func _append_form(out: Array[String], id: String) -> void:
-	var form_id := id.strip_edges()
-	if form_id.is_empty() or out.has(form_id):
-		return
-	out.append(form_id)
+	var out: Array[String] = _forms_taken.duplicate()
+	if not out.is_empty():
+		return out
+	if not _form_id.is_empty():
+		return [_form_id]
+	return [pony_id]
 
 
 static func _summary_reasons(summary: Dictionary) -> Array[String]:

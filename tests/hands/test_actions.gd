@@ -75,6 +75,7 @@ func _check_tail_tuning() -> void:
 	var tail_pony := Node3D.new()
 	root.add_child(tail_pony)
 	tail_runtime.set("pony", tail_pony)
+	tail_runtime.act.context.facts.pony = tail_pony
 	tail_runtime.act.pony_id = "twilight_sparkle"
 	tail_runtime.act.pose_id = CATALOG.STANDING
 	tail_runtime.act.context.pose._view.settings_group = CATALOG.STANDING

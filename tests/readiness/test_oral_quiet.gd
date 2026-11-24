@@ -124,11 +124,8 @@ class FakePose extends POSE_SESSION:
 	var ear_checks := 0
 	var pose_id := ""
 
-	func bind(_runtime: Node, _pony_node: Node3D) -> void:
-		pass
-
 	func view() -> VIEW:
-		return facts.pose_view as VIEW if facts != null else null
+		return _facts.pose_view as VIEW if _facts != null else null
 
 	func pose_changed(_view: VIEW) -> void:
 		pass
@@ -251,7 +248,7 @@ func _fixture() -> Dictionary:
 	var presentation := FakePresentation.new()
 	var reactions := FakeReactions.new()
 	var wings := FakeWings.new()
-	var pose := FakePose.new()
+	var pose := FakePose.new(runtime.act.context.facts)
 	var audio := FakeAudio.new()
 	var dialogue := FakeDialogue.new()
 	dialogue.facts = runtime.act.context.facts
@@ -276,7 +273,6 @@ func _fixture() -> Dictionary:
 	runtime.act.context.reactions = reactions
 	runtime.act.context.wings = wings
 	runtime.act.context.pose = pose
-	pose.facts = runtime.act.context.facts
 	runtime.act.context.audio = audio
 	runtime.act.context.dialogue = dialogue
 	runtime.act.context.camera = act_camera
@@ -339,11 +335,8 @@ func run() -> void:
 	var kiss: FakeKiss = made["kiss"]
 
 	# A regular standing impact is untouched.
-	var pose_facts := FACTS.new()
 	var view: RefCounted = VIEW.new()
 	view.contact_kind = "opening"
-	pose_facts.pose_view = view
-	pose.facts = pose_facts
 	runtime.act.context.facts.pose_view = view
 	runtime.act.context.impact.impact(_impact())
 	check(audio.impacts.size() == 1 and bool(audio.impacts[0]["plap"]),

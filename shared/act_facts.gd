@@ -107,8 +107,9 @@ var viewport: Variant = null
 ## The act's Anon part handle, or null outside an act.
 var anon: Variant = null
 
-# The act's live anatomy opening, written by the anatomy stage.
+# The act's live anatomy opening and mouth, written by the anatomy stage.
 var anatomy_opening := Vector3.ZERO
+var anatomy_mouth := Vector3.ZERO
 
 # Host callbacks. A missing callback is a no-op.
 var on_touch := Callable()
@@ -126,6 +127,9 @@ var director := Callable()
 var now := Callable()
 ## The presentation and input dispatch the runtime still owns.
 var play_mouth_kiss := Callable()
+## The oral edge's speech stop and mouth viseme, fired by its authored events.
+var speech_stop := Callable()
+var set_mouth_viseme := Callable()
 var act_actions_allowed := Callable()
 var auto_panel_open := Callable()
 var view := Callable()

@@ -113,8 +113,6 @@ func abort() -> void:
 ## The one pose teardown ledger: the pose-scope start and body steps at their current positions,
 ## the act-scope releases between them, then the session's final pose clear; never a transition.
 func free_pose() -> void:
-	# A lost body must not reach the pose session's oral/face bindings.
-	context.pose.bind(host.node, host.pony if is_instance_valid(host.pony) else null)
 	context.pose.leave_pose_start()
 	context.presentation.clear_presentation()
 	context.camera.end_lean_action()

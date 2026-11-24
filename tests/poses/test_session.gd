@@ -145,9 +145,10 @@ var _sessions: Array[Node] = []
 func _session(pose: String) -> Dictionary:
 	var pony := FakePony.new()
 	root.add_child(pony)
-	var session: SESSION = SESSION.new()
+	var facts := FakeFacts.new()
+	facts.pony = pony
+	var session: SESSION = SESSION.new(facts)
 	_sessions.append(session)
-	session.bind(null, pony)
 	session.id = "twilight_sparkle"
 	# A start identity for the diagnostics and bed-frame checks; `begin()` still fills the view.
 	var spec: Dictionary = SPECS.spec(pose)
@@ -562,18 +563,16 @@ func _check_render_write() -> void:
 	root.add_child(body)
 	session.act_body = body
 	session._view.family = "bed"
-	session.eye_camera = func() -> void: order.append("eye")
 	session.render_write(_render(Transform3D.IDENTITY, 0.66))
-	check(order == ["anon", "eye"], "the render write places the Anon body and then the eye view")
+	check(order == ["anon"], "the render write places the Anon body")
 	order.clear()
 	session._view.family = "standing"
 	session.render_write(_render())
-	check(order.is_empty(), "a standing render write places no Anon body or eye view")
+	check(order.is_empty(), "a standing render write places no Anon body")
 	session._view.family = "bed"
 	session.act_body = null
-	session.eye_camera = Callable()
 	session.render_write(_render())
-	check(order.is_empty(), "an absent eye callback is a no-op")
+	check(order.is_empty(), "an absent act body is a no-op")
 	root.remove_child(body)
 	body.free()
 	root.remove_child(pony)
@@ -588,7 +587,6 @@ func _live_session(pose: String) -> Dictionary:
 	var body := Skeleton3D.new()
 	body.add_bone("pony_hips")
 	pony.skeleton = body
-	session.facts = FakeFacts.new()
 	check(session.begin(_values({
 		"pose_id": pose,
 		"id": "twilight_sparkle",
@@ -757,11 +755,11 @@ func _check_oral_edge() -> void:
 	var speech_stops: Array = []
 	var visemes: Array[String] = []
 	var kisses: Array = []
-	session.mouth_point = func() -> Vector3: return pony.to_global(Vector3(0.0, 1.3, 0.5))
-	session.opening_point = func() -> Vector3: return Vector3(0.8, 0.0, 1.2)
-	session.oral_speech_stop = func() -> void: speech_stops.append(true)
-	session.oral_viseme = func(value: String) -> void: visemes.append(value)
-	session.oral_kiss = func() -> void: kisses.append(true)
+	session._facts.anatomy_mouth = pony.to_global(Vector3(0.0, 1.3, 0.5))
+	session._facts.anatomy_opening = Vector3(0.8, 0.0, 1.2)
+	session._facts.speech_stop = func() -> void: speech_stops.append(true)
+	session._facts.set_mouth_viseme = func(value: String) -> void: visemes.append(value)
+	session._facts.play_mouth_kiss = func() -> void: kisses.append(true)
 	var from: Vector3 = pony.global_position
 	var from_basis: Basis = pony.global_transform.basis.orthonormalized()
 	var frame_start: Transform3D = session.ground_frame
@@ -875,8 +873,8 @@ func _check_oral_edge() -> void:
 	var refused: SESSION = refused_made["session"]
 	var refused_pony: FakePony = refused_made["pony"]
 	var refused_view: RefCounted = refused.view()
-	refused.mouth_point = func() -> Vector3: return refused_pony.to_global(Vector3.UP)
-	refused.opening_point = func() -> Vector3: return Vector3(1.0, 0.0, 1.0)
+	refused._facts.anatomy_mouth = refused_pony.to_global(Vector3.UP)
+	refused._facts.anatomy_opening = Vector3(1.0, 0.0, 1.0)
 	var before: Vector3 = refused_pony.global_position
 	for case: Dictionary in [
 		{"act_state": 2, "consent": "oral", "features": {}},
@@ -905,8 +903,8 @@ func _check_facesit_edge() -> void:
 	points.mouth = Vector3(0.0, 0.82, 0.65)
 	points.opening = Vector3(0.0, 0.34, 0.45)
 	session.bed_frame = Transform3D(Basis.IDENTITY, Vector3(0.0, 0.65, 0.0))
-	session.face_point = Callable(points, "mouth_point")
-	session.opening_point = Callable(points, "opening_point")
+	session._facts.missionary_anon = func() -> Variant: return points
+	session._facts.anatomy_opening = points.opening
 	var forward: SESSION.PoseResult = session.request_pose(CATALOG.BED_FACESIT, "facesit",
 		_request({"act_state": 2}))
 	check(forward.ok, "the face-sit forward request is accepted")
@@ -1022,7 +1020,6 @@ func _check_refusals() -> void:
 	var fresh_made := _session(CATALOG.STANDING)
 	var fresh: SESSION = fresh_made["session"]
 	var fresh_pony: FakePony = fresh_made["pony"]
-	fresh.facts = FakeFacts.new()
 	var not_steady: SESSION.PoseResult = fresh.request_pose(CATALOG.STANDING_TEST, "test",
 		_request({"act_state": 2}))
 	check(not_steady.code == "not_steady",
@@ -1296,9 +1293,6 @@ func _check_pose_changed() -> void:
 	var view: RefCounted = session.view()
 	var body := FakeActBody.new()
 	session.act_body = body
-	var handles: Array = []
-	session.set_act_body = func(value: Variant) -> void:
-		handles.append(value)
 	session.pose_changed(view)
 	check(session.act_body == body, "a player-body spec keeps the service-owned body handle")
 	check(str(view.anon.get("mode", "")) == "player_body",
@@ -1307,8 +1301,6 @@ func _check_pose_changed() -> void:
 	check(session.act_body == null and body.is_queued_for_deletion(),
 		"the final release frees the act body once")
 	check(body.sink.has("remove"), "the released body restores the avatar")
-	check(handles.size() == 1 and handles[0] == null,
-		"the release clears the anatomy handle before the free")
 	_free_live(made)
 
 

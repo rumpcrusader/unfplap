@@ -13,6 +13,20 @@ const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 class FakePony extends Node3D:
 	pass
 
+
+## The facts the turn reads: the live mouth follows the pony, the opening is fixed.
+class FakeFacts extends RefCounted:
+	var pony: Node3D = null
+	var anatomy_opening := Vector3(3.0, 0.0, 4.0)
+	var play_mouth_kiss := Callable()
+
+	var anatomy_mouth: Vector3:
+		get:
+			if not is_instance_valid(pony):
+				return Vector3.INF
+			return pony.to_global(Vector3(0.0, 1.3, 0.5))
+
+
 func _live(scale := 1.0) -> Dictionary:
 	var pony := FakePony.new()
 	pony.position = Vector3(1.0, 0.0, 2.0)
@@ -24,11 +38,11 @@ func _live(scale := 1.0) -> Dictionary:
 	view.to_config = {"marker": 2}
 	view.contact_kind = "opening"
 	var kisses: Array = []
+	var facts := FakeFacts.new()
+	facts.pony = pony
+	facts.play_mouth_kiss = func() -> void: kisses.append(true)
 	var turn: RefCounted = TURN.new()
-	turn.bind(pony,
-		func() -> Vector3: return pony.to_global(Vector3(0.0, 1.3, 0.5)),
-		func() -> Vector3: return Vector3(3.0, 0.0, 4.0),
-		func() -> void: kisses.append(true))
+	turn.bind(facts)
 	return {"pony": pony, "view": view, "turn": turn, "kisses": kisses}
 
 

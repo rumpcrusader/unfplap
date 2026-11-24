@@ -15,7 +15,8 @@ const ORAL_STYLES := [
 	[Vector3(0.1, 0.22, 0.1), 0.6],
 ]
 
-var pony: Node3D = null
+## The act facts the driver reads: the pony, her live mouth and opening, and the soft kiss.
+var facts: Variant = null
 ## True between `begin()` and `restore()`: the forward edge settles, the reverse edge restores.
 var active := false
 var forward := true
@@ -24,9 +25,6 @@ var facing := Basis.IDENTITY
 var facing_amount := 0.0
 var contact_target := Vector3.INF
 
-var mouth_point := Callable()
-var opening_point := Callable()
-var oral_kiss := Callable()
 ## The auto-thrust pace the style sequence follows, written by the service from the live facts.
 var pace := 1.0
 
@@ -46,19 +44,15 @@ var _kiss_left := 0.0
 var _pose_delta: Dictionary = {}
 
 
-## Point the module at the live scene and the host callbacks. Called on every session access, so a
-## suite can bind the values after the session was built.
-func bind(pony_node: Node3D, mouth: Callable, opening: Callable, kiss: Callable) -> void:
-	pony = pony_node
-	mouth_point = mouth
-	opening_point = opening
-	oral_kiss = kiss
+## Point the module at the act facts. The session binds once at construction.
+func bind(context: Variant) -> void:
+	facts = context
 
 
 ## Start the forward or reverse turn. The forward capture is the only read of the root, the facing,
 ## the opening and the mirrored target; a reverse edge reuses it.
 func begin(is_forward: bool, view: Variant) -> bool:
-	if not is_instance_valid(pony):
+	if not is_instance_valid(_pony()):
 		return false
 	forward = is_forward
 	active = true
@@ -74,10 +68,11 @@ func begin(is_forward: bool, view: Variant) -> bool:
 
 
 func _capture() -> void:
+	var pony := _pony()
 	_from = pony.global_position
 	_from_basis = pony.global_transform.basis.orthonormalized()
-	_opening = _point(opening_point)
-	var mouth := _point(mouth_point)
+	_opening = _opening_point()
+	var mouth := _mouth_point()
 	if mouth.is_finite() and _opening.is_finite():
 		var scale: Vector3 = pony.global_transform.basis.get_scale()
 		var local: Vector3 = pony.global_transform.affine_inverse() * mouth
@@ -99,6 +94,7 @@ func _capture() -> void:
 ## Advance the turn from the edge weight: forward eases 0 -> 1, reverse walks the same clock back.
 ## The style motion writes the oral keys into both config sides.
 func tick(delta: float, view: Variant, weight: float) -> void:
+	var pony := _pony()
 	if not active or not _captured or not is_instance_valid(pony):
 		return
 	var eased := smoothstep(0.0, 1.0, clampf(weight, 0.0, 1.0))
@@ -107,7 +103,7 @@ func tick(delta: float, view: Variant, weight: float) -> void:
 	facing = Basis(Vector3.UP, PI * eased) * _from_basis
 	facing_amount = eased
 	pony.global_position = _from.lerp(_to, eased)
-	var mouth := _point(mouth_point)
+	var mouth := _mouth_point()
 	var mouth_contact := view != null and str(view.contact_kind) == "mouth"
 	if forward and mouth_contact and eased >= 0.999:
 		_anchor = _anchor_step(_anchor, mouth, _opening, 1.0, true, ORAL_ANCHOR_RATE, delta)
@@ -139,6 +135,7 @@ func release_contact(view: Variant) -> void:
 ## Put the captured root and facing back and erase the oral keys once. All three exit routes
 ## call it, and a repeat call changes nothing.
 func restore(view: Variant) -> void:
+	var pony := _pony()
 	if _captured and is_instance_valid(pony):
 		pony.global_position = _from
 		var scale: Vector3 = pony.global_transform.basis.get_scale()
@@ -235,8 +232,8 @@ func _kiss_tick(delta: float) -> void:
 	if _kiss_left > 0.0:
 		return
 	_kiss_left = randf_range(ORAL_KISS_IDLE_MIN_S, ORAL_KISS_IDLE_MAX_S)
-	if oral_kiss.is_valid():
-		oral_kiss.call()
+	if facts != null and facts.play_mouth_kiss.is_valid():
+		facts.play_mouth_kiss.call()
 
 
 func _write_keys(view: Variant) -> void:
@@ -272,8 +269,21 @@ func _erase_from(config: Variant) -> void:
 	data.erase("oral_roll")
 
 
-func _point(callback: Callable) -> Vector3:
-	if not callback.is_valid():
-		return Vector3.INF
-	var value: Variant = callback.call()
+## The presented body, or null outside a scene.
+func _pony() -> Node3D:
+	if facts == null:
+		return null
+	var value: Variant = facts.pony
+	return value as Node3D if is_instance_valid(value) else null
+
+
+## Her live mouth point, or INF when the anatomy stage has not written one.
+func _mouth_point() -> Vector3:
+	var value: Variant = facts.anatomy_mouth if facts != null else Vector3.INF
+	return value if value is Vector3 and (value as Vector3).is_finite() else Vector3.INF
+
+
+## Her live opening point, or INF when the anatomy stage has not written one.
+func _opening_point() -> Vector3:
+	var value: Variant = facts.anatomy_opening if facts != null else Vector3.INF
 	return value if value is Vector3 and (value as Vector3).is_finite() else Vector3.INF

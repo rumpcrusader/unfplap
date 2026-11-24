@@ -628,7 +628,7 @@ func _check_handover() -> void:
 	check(new_pony.has_meta("sex_active"), "the new body carries the act flag")
 	var nav: FakeNav = new_pony.get_node("Navigator")
 	check(nav.command_owner == "unfplap:test_mare", "the new navigator is claimed")
-	check(runtime.act.context.pose.pony == new_pony, "the pose session binds the new body")
+	check(runtime.act.context.pose._pony() == new_pony, "the pose session binds the new body")
 	var view: Variant = runtime.act.context.pose.view()
 	check(view != null and str(view.id) == CATALOG.STANDING, "the pose is rebuilt at the act pose")
 	check(runtime.act.context.pose.pose() != null and runtime.act.context.pose.basis_amount() > 0.99,
@@ -1476,7 +1476,7 @@ func _check_idle_body_binding() -> void:
 	check(int(runtime.act.state) == ACT_STATE.State.IDLE, "an idle form bind leaves the state idle")
 	check(not runtime.act.suspended(), "an idle form bind never suspends")
 	check(runtime.pony == old_pony, "the idle body keeps its runtime")
-	check(runtime.act.context.pose.pony == old_pony, "the idle form bind binds the pose session")
+	check(runtime.act.context.pose._pony() == old_pony, "the idle form bind binds the pose session")
 	check(runtime.act.context.face.pony == old_pony, "the idle form bind binds the face")
 	check(_roster(f).live_ponies().size() == 1, "the idle form bind creates no second runtime")
 	check(is_zero_approx(float(runtime.act.context.facts.player_eye_height)),
@@ -1525,7 +1525,7 @@ func _check_same_node_refresh() -> void:
 	check(not runtime.act.suspended() and not owner.body_swap_pending(),
 		"a live same-node revision starts no swap")
 	check(not owner.body_swap_pending(), "a live same-node revision starts no handover")
-	check(runtime.act.context.pose.pony == old_pony, "the live revision keeps the pose bound")
+	check(runtime.act.context.pose._pony() == old_pony, "the live revision keeps the pose bound")
 	check(float(runtime.act.context.facts.player_eye_height) > 0.0,
 		"the live revision refreshes the player stance")
 	check(body_change.form_for(old_pony) == revised, "the live body takes the revised form")

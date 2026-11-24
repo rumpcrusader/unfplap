@@ -9,6 +9,7 @@ const SESSION := preload("res://mods/unfplap/poses/api.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
+const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 
 
 
@@ -83,8 +84,9 @@ func _fixture(pose: String, features: Dictionary, body_tail := false) -> Diction
 	var bed := Node3D.new()
 	bed.name = "Bed"
 	root.add_child(bed)
-	var session: SESSION = SESSION.new()
-	session.bind(null, pony)
+	var facts := ACT_FACTS.new()
+	facts.pony = pony
+	var session: SESSION = SESSION.new(facts)
 	check(session.begin(_values({
 		"pose_id": pose,
 		"id": "twilight_sparkle",
@@ -313,8 +315,8 @@ func _check_facesit_transition() -> void:
 	var points := FakeFacePoints.new()
 	points.mouth = Vector3(0.0, 0.82, 0.65)
 	points.opening = Vector3(0.0, 0.34, 0.45)
-	session.face_point = Callable(points, "mouth_point")
-	session.opening_point = Callable(points, "opening_point")
+	session._facts.missionary_anon = func() -> Variant: return points
+	session._facts.anatomy_opening = points.opening
 	var act_body := FakeActBody.new()
 	session.act_body = act_body
 	var forward: SESSION.PoseResult = session.request_pose(CATALOG.BED_FACESIT, "facesit",

@@ -498,6 +498,8 @@ func stage_anatomy(delta: float) -> void:
 	context.anatomy.stage(delta, context.stage)
 	var point: Vector3 = context.anatomy.frame_point()
 	context.facts.anatomy_opening = point if point.is_finite() else Vector3.ZERO
+	var mouth: Vector3 = context.anatomy.mouth_point()
+	context.facts.anatomy_mouth = mouth if mouth.is_finite() else Vector3.ZERO
 
 
 ## Release the act handle and hide the persistent part. The one exit calls this before the pose.
@@ -945,7 +947,6 @@ func refresh_anatomy() -> void:
 ## The adopted body's bind before the handover's one resume: the pose, face, identity name, view,
 ## anatomy and scene gate. It never resumes by itself.
 func bind_adopted_body(body: Node) -> void:
-	context.pose.bind(host.node, body)
 	context.face.bind(body as Node3D, host.node)
 	context.audio.rebind_body(body, pony_id, bed)
 	adopt_display_name(context.handover.form(), body)

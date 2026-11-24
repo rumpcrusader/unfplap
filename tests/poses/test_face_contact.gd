@@ -12,6 +12,7 @@ const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
 class FakePoints:
 	var mouth := Vector3.ZERO
 	var opening := Vector3.ZERO
+	var active := true
 	var mouth_calls := 0
 	var opening_calls := 0
 
@@ -22,6 +23,18 @@ class FakePoints:
 	func opening_point() -> Vector3:
 		opening_calls += 1
 		return opening
+
+
+## The facts the driver reads: his mouth is the fake body, her opening is read live.
+class FakeFacts extends RefCounted:
+	var points: FakePoints = null
+
+	var anatomy_opening: Vector3:
+		get:
+			return points.opening_point() if points != null else Vector3.ZERO
+
+	func missionary_body() -> Variant:
+		return points
 
 
 class FakePoseNode extends "res://mods/unfplap/poses/skeleton_pose.gd":
@@ -54,9 +67,10 @@ func run() -> void:
 
 
 func _make(points: FakePoints) -> Variant:
+	var facts := FakeFacts.new()
+	facts.points = points
 	var driver: Variant = FACE.new()
-	driver.call("bind", null, Callable(points, "mouth_point"),
-		Callable(points, "opening_point"))
+	driver.call("bind", facts)
 	return driver
 
 

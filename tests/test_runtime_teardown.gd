@@ -636,7 +636,7 @@ func run() -> void:
 	runtime11.act.bind_body_services(pony11, form11)
 	check(int(runtime11.act.state) == 2, "a body bind leaves a live act live")
 	check(not runtime11.act.suspended(), "a body bind never suspends the act")
-	check(runtime11.act.context.pose.pony == pony11, "the body bind binds the pose session")
+	check(runtime11.act.context.pose._pony() == pony11, "the body bind binds the pose session")
 	check(runtime11.act.context.face.pony == pony11, "the body bind binds the face")
 	check(f11["owner"].active() == runtime11, "a body bind never runs the act exit")
 	form11.form_id = "rarity"

@@ -135,7 +135,8 @@ func _compose() -> void:
 	var swap: ACT_SWAP = ACT_SWAP.new()
 	var tick: ACT_TICK = ACT_TICK.new()
 	var phases: ACT_PHASES = ACT_PHASES.new()
-	_pose = POSE_SESSION.new()
+	var facts: ACT_FACTS = ACT_FACTS.new()
+	_pose = POSE_SESSION.new(facts)
 	_gate = SCENE_GATE.new()
 	var rest: REST_REJOIN = REST_REJOIN.new()
 	var camera: ACT_CAMERA = ACT_CAMERA.new()
@@ -143,7 +144,6 @@ func _compose() -> void:
 	var summary: SUMMARY = SUMMARY.new()
 	_face = FACE.new()
 	var reactions: REACTIONS = REACTIONS.new()
-	var facts: ACT_FACTS = ACT_FACTS.new()
 	var dialogue: ACT_DIALOGUE = ACT_DIALOGUE.new(facts)
 	_afterglow = AFTERGLOW.new()
 	var hold: SCENE_HOLD = SCENE_HOLD.new()
@@ -241,19 +241,6 @@ func _compose() -> void:
 	_act.start = start_ledger
 	_act.view = act_view
 	exit.start = start_ledger
-	# The pose session's host callbacks; the body itself is rebound by the pony setter.
-	_pose.bind(self, null)
-	_pose.id = _act.pony_id
-	_pose.eye_camera = Callable(view, "write_eye")
-	_pose.facts = facts
-	_pose.mouth_point = Callable(_act, "anatomy_mouth_point")
-	_pose.opening_point = Callable(_act, "anatomy_opening")
-	_pose.face_point = Callable(_pose, "act_body_face_point")
-	_pose.oral_kiss = Callable(audio, "oral_kiss")
-	_pose.oral_speech_stop = Callable(phases, "oral_speech_stop")
-	_pose.oral_viseme = Callable(_act, "anatomy_set_mouth_viseme")
-	if is_instance_valid(hud):
-		_pose.oral_status = Callable(hud, "anatomy_status")
 	# The act view, readiness, afterglow, face, scene gate, rest, scene hold and controller bindings.
 	facts.kiss = Callable(_act, "kiss_service")
 	facts.neck_point = Callable(camera, "neck_midpoint")
@@ -291,6 +278,8 @@ func _compose() -> void:
 	hold_host.pose_family = Callable(_act, "pose_family")
 	hold.bind(hold_host)
 	facts.play_mouth_kiss = Callable(audio, "mouth_kiss")
+	facts.speech_stop = Callable(phases, "oral_speech_stop")
+	facts.set_mouth_viseme = Callable(_act, "anatomy_set_mouth_viseme")
 	facts.act_actions_allowed = Callable(camera, "at_actions_allowed")
 	facts.auto_panel_open = Callable(input, "auto_panel_open")
 	facts.view = Callable(camera, "view_controller")
@@ -350,9 +339,6 @@ func _attach(service: Node, service_name: String) -> void:
 ## Assign the presented body: the pose session's host and the act host's pony follow it. The
 ## runtime's setter and `_ready()` are the only callers.
 func _bind_pony(value: Node) -> void:
-	_pose.bind(self, value if is_instance_valid(value) else null)
-	if _act != null:
-		_pose.id = _act.pony_id
 	if _host != null:
 		_host.pony = value
 	if is_instance_valid(_context.reactions) and value is Node3D:

@@ -14,9 +14,8 @@ const PRESS_M := 0.025
 const ROCK_M := 0.012
 const ROCK_RATE := 2.4
 
-var pony: Node3D = null
-var face_point := Callable()
-var opening_point := Callable()
+## The act facts the driver reads: the pony, his posed mouth and her opening.
+var facts: Variant = null
 ## True between `begin()` and `restore()`. The service only ticks it while the view names `face`.
 var active := false
 ## True when `begin()` captured a finite mouth and opening. A missing provider leaves the driver
@@ -36,12 +35,9 @@ var _clock := 0.0
 var _missing_logged := false
 
 
-## Point the driver at the live scene and the host reads. Called on every session access, so a
-## suite can bind the callbacks after the session was built.
-func bind(pony_node: Node3D, face: Callable, opening: Callable) -> void:
-	pony = pony_node
-	face_point = face
-	opening_point = opening
+## Point the driver at the act facts. The session binds once at construction.
+func bind(context: Variant) -> void:
+	facts = context
 
 
 ## Capture the live frame, his mouth and her opening point. A missing frame or point still
@@ -57,8 +53,8 @@ func begin(view: POSE_VIEW, frame: Variant) -> bool:
 		_log_once("face contact: no bed frame")
 		return false
 	_frame = frame as Transform3D
-	var mouth := _point(face_point)
-	var opening := _point(opening_point)
+	var mouth := _face_point()
+	var opening := _opening_point()
 	if not mouth.is_finite() or not opening.is_finite():
 		_log_once("face contact: no mouth/opening provider")
 		if view != null and mouth.is_finite():
@@ -88,7 +84,7 @@ func tick(delta: float, view: POSE_VIEW, depth: float, frame: Variant, pose_node
 		return
 	if not frame is Transform3D:
 		return
-	var mouth := _point(face_point)
+	var mouth := _face_point()
 	if not mouth.is_finite():
 		_log_once("face contact: mouth provider is unavailable; holding the last offset")
 		_write_offset(pose_node, frame as Transform3D)
@@ -160,8 +156,18 @@ func _log_once(text: String) -> void:
 	LOG.debug(text)
 
 
-func _point(callback: Callable) -> Vector3:
-	if not callback.is_valid():
+## His posed mouth, or INF while the act body is absent.
+func _face_point() -> Vector3:
+	if facts == null:
 		return Vector3.INF
-	var value: Variant = callback.call()
+	var body: Variant = facts.missionary_body()
+	if body == null or not bool(body.get("active")):
+		return Vector3.INF
+	var value: Variant = body.mouth_point()
+	return value if value is Vector3 and (value as Vector3).is_finite() else Vector3.INF
+
+
+## Her live opening point, or INF when the anatomy stage has not written one.
+func _opening_point() -> Vector3:
+	var value: Variant = facts.anatomy_opening if facts != null else Vector3.INF
 	return value if value is Vector3 and (value as Vector3).is_finite() else Vector3.INF

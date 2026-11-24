@@ -16,9 +16,9 @@ settings tab's Debug block; its two player rows are **Enable Oral** and **Enable
 target snapshot, the skeleton pose modifier, the authored bases, the bed and ground frames and their
 follow, the extra modifiers (tail, tail lay, body sway, prone sway, ear twitch), the pony bone
 snapshots, the pose rig check, the pose diagnostics, the retarget hook and the pose-scope teardown
-steps. The runtime owns the act state, the start ordering and the one teardown ledger; it binds the
-session and reads its `pose()`, `pose_config` and `bed_frame` for
-the start/teardown and the standing gap, not as the consumer contract. The camera's standing glance
+steps. The runtime owns the act state, the start ordering and the one teardown ledger; it constructs
+the session with the act facts and reads its `pose()`, `pose_config` and `view()` for the
+start/teardown and the standing gap, not as the consumer contract. The camera's standing glance
 writes the live pose's head throw-back through `set_head_back()`. Presentation modules read
 the pose view through `shared/act_facts.gd`.
 
@@ -208,8 +208,8 @@ dictionary for the session: `set_pose_config()` and `sync_standing_config()` tak
 `view.pose_config` and the standing camera's cached config all alias the same object.
 `poses/body_sway.gd` publishes its
 world-space sway through `facts.standing_sway_offset`; that field is the one owner and the
-standing Anon controller reads it from there. The session binds `facts`, `perf` and
-`log` for the modifiers. The field and callback contract is `docs/act_facts.md`; a pose module
+standing Anon controller reads it from there. The session hands the facts to the modifiers it
+installs. The field and callback contract is `docs/act_facts.md`; a pose module
 that preloads `runtime.gd` or `main.gd` fails the static gate.
 
 `shared/pose_view.gd` is the pose read model the session fills and clears. It holds the identity

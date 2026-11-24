@@ -74,9 +74,7 @@ func _fixture() -> Dictionary:
 	var view: Variant = VIEW.new()
 	view.id = CATALOG.MISSIONARY
 	view.pose_state = VIEW.STEADY
-	var pose: POSES = POSES.new()
-	pose.bind(runtime, null)
-	pose.facts = runtime.act.context.facts
+	var pose: POSES = POSES.new(runtime.act.context.facts)
 	pose._view = view
 	pose.act_body = MISSIONARY_ANON.new()
 	runtime.act._set_state(2)

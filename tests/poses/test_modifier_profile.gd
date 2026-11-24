@@ -10,6 +10,7 @@ const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const POSE_SPEC := preload("res://mods/unfplap/poses/pose_spec.gd")
 const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
+const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 const POSE_STATE := preload("res://mods/unfplap/poses/pose_state.gd")
 
 
@@ -59,8 +60,9 @@ func run() -> void:
 	pony.hair_skeleton = hair
 	var bed := Node3D.new()
 	root.add_child(bed)
-	var session: SESSION = SESSION.new()
-	session.bind(null, pony)
+	var facts := ACT_FACTS.new()
+	facts.pony = pony
+	var session: SESSION = SESSION.new(facts)
 	check(session.begin(_values({
 		"pose_id": CATALOG.MISSIONARY,
 		"id": "twilight_sparkle",

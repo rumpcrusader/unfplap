@@ -120,6 +120,8 @@ A missing callback is a no-op, so a test can build the object without a runtime.
 | `director` | the live conversation director |
 | `now` | the act's processed-time clock |
 | `play_mouth_kiss` | the mouth kiss sound |
+| `speech_stop` | the oral edge's authored speech stop |
+| `set_mouth_viseme` | the oral edge's authored mouth viseme |
 | `act_actions_allowed` | the camera's action window |
 | `auto_panel_open` | the hold-X layer |
 | `view`, `missionary_anon` | the live act view and the pose-owned Anon body |
@@ -133,8 +135,8 @@ A missing callback is a no-op, so a test can build the object without a runtime.
 | `hold_excitement`, `release_excitement` | the act-level excitement Beat hold |
 | `mod_enabled` | whether another mod's entry is active this launch, by mod id |
 
-`anon` and `anatomy_opening` are values, not callbacks: the anatomy part handle and the
-opening the anatomy stage writes each frame.
+`anon`, `anatomy_opening` and `anatomy_mouth` are values, not callbacks: the anatomy part handle
+and the opening and mouth the anatomy stage writes each frame.
 
 Helper methods: `touch()`, `smack_hit()`,
 `kiss_controller()`, `neck_midpoint()`, `write_look()`, `write_forced_glance()`,

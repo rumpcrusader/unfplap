@@ -197,6 +197,8 @@ func abort() -> void:
 ## The new-act prep: the pose teardown runs first, so an offer's leftover pose cannot stack, then
 ## the act's pose is built from the session's typed values.
 func _build_pose() -> void:
+	# The session reads the pony, id, bed and features from the facts; a start refreshes them first.
+	session.refresh_view()
 	exit.free_pose()
 	var camera: Camera3D = WORLD.camera()
 	var look: Vector3 = host.pony.global_position

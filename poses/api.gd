@@ -200,11 +200,6 @@ class ActPose extends RefCounted:
 		return out
 
 
-## The runtime node that parents the debug nodes and receives their `runtime` field. It is the
-## host boundary; the session never reads the runtime's fields.
-var host: Node = null
-var pony: Node3D = null
-
 ## The act's identity and the live view's fields.
 var id := ""
 var features: FeatureFlags = FeatureFlags.new()
@@ -284,28 +279,9 @@ var saved_hair: Array[Transform3D] = []
 var saved_skeleton: Skeleton3D
 var saved_hair_skeleton: Skeleton3D
 
-## The typed act view the pose modifiers read for the live depth, state and bed frame.
-var facts: ACT_FACTS = null
-## Publish or clear the opaque Anon handle on the anatomy bridge. The service owns the body.
-var set_act_body := Callable()
-## The eye-shot camera tick, which must run after the render write.
-var eye_camera := Callable()
-## The oral host boundary: the mouth and opening points, the soft kiss and the speech/viseme
-## actions the edge events fire. A missing callback is a no-op.
-var mouth_point := Callable()
-var opening_point := Callable()
-## The face contact's real anchor on the act body, read by the face driver; without a bound callback
-## it does nothing.
-var face_point := Callable()
-var oral_kiss := Callable()
-var oral_speech_stop := Callable()
-var oral_viseme := Callable()
-var oral_status := Callable()
-
-
-func bind(host_node: Node, pony_node: Node3D) -> void:
-	host = host_node
-	pony = pony_node
+## The act context the session reads for the pony, its id, the bed, the features and the live
+## presentation. The runtime builds it before the session.
+var _facts: ACT_FACTS = null
 
 
 ## The act's stable id, for the pose request rows and the per-mare pose config.
@@ -313,11 +289,27 @@ func set_id(value: String) -> void:
 	id = value
 
 
-func _init() -> void:
+func _init(facts: ACT_FACTS = null) -> void:
+	_facts = facts
 	_view = POSE_VIEW.new()
 	_registry = REGISTRY.new()
 	_oral_turn = ORAL_TURN.new()
 	_face_driver = FACE_CONTACT.new()
+	_bind_oral()
+	_bind_face()
+
+
+## The presented body, or null outside a scene.
+func _pony() -> Node3D:
+	if _facts == null:
+		return null
+	var value: Variant = _facts.pony
+	return value as Node3D if is_instance_valid(value) else null
+
+
+## The act's stable id, or "" outside an act.
+func _pony_id() -> String:
+	return _facts.pony_id if _facts != null else ""
 
 
 ## The one pose read model the act view carries. `begin()` fills it and `release_pose()` clears it;
@@ -353,6 +345,7 @@ func begin(values: ActPose) -> bool:
 	if _started:
 		LOG.debug("pose session: begin refused, a pose is already live")
 		return false
+	var pony := _pony()
 	var skeleton: Variant = pony.get("skeleton") if is_instance_valid(pony) else null
 	if not skeleton is Skeleton3D:
 		LOG.debug("pose session: no body skeleton to pose")
@@ -360,7 +353,6 @@ func begin(values: ActPose) -> bool:
 	# A fresh act starts with no edge and no target snapshot; a failed begin never gets here.
 	_abort_target()
 	_oral_turn.reset()
-	_bind_face()
 	_face_driver.reset()
 	_state = POSE_STATE.next(_state, "begin")
 	var start_id := values.pose_id
@@ -470,20 +462,18 @@ func _spec_contact_kind(spec: POSE_SPEC) -> String:
 	return str((value as Dictionary).get("kind", "none")) if value is Dictionary else "none"
 
 
-## Point the turn at this pony and the host callbacks. Cheap field writes; the runtime re-binds
-## the session on every access, so a suite can set the callbacks after construction.
+## Point the turn at the act facts; the driver reads the live mouth, opening and kiss from them.
 func _bind_oral() -> void:
 	if _oral_turn == null:
 		_oral_turn = ORAL_TURN.new()
-	_oral_turn.bind(pony, mouth_point, opening_point, oral_kiss)
+	_oral_turn.bind(_facts)
 
 
-## Bind the face driver's host reads. The driver is the session's own; the anatomy bridge stays
-## behind `face_point` and is never preloaded here.
+## Bind the face driver to the act facts; the anatomy bridge stays behind the facts handle.
 func _bind_face() -> void:
 	if _face_driver == null:
 		_face_driver = FACE_CONTACT.new()
-	_face_driver.bind(pony, face_point, opening_point)
+	_face_driver.bind(_facts)
 
 
 ## True for the authored oral pair in either direction.
@@ -593,7 +583,7 @@ func request_pose(target_id: String, trigger: String, request: PoseRequest = nul
 	var edge_id := from_id + "__" + target_id
 	var edge: TRANSITION_SPEC = _registry.edge(edge_id)
 	var act_state := request.act_state if request != null and request.act_state >= 0 \
-		else (facts.state if facts != null else 0)
+		else (_facts.state if _facts != null else 0)
 	var forms := _request_forms(request)
 	var views := _request_views(request)
 	var features := _request_features(request)
@@ -625,8 +615,6 @@ func request_pose(target_id: String, trigger: String, request: PoseRequest = nul
 		_effective_delta(from_spec), _effective_delta(_target_spec),
 		pose_config, _target_config, _from_asset, _target_asset)
 	pose_node.set_weight(_run.weight)
-	_bind_oral()
-	_bind_face()
 	if _oral_pair(from_id, target_id):
 		_oral_turn.begin(target_id == CATALOG.STANDING_ORAL, _view)
 	LOG.debug("pose request %s -> %s (%s): ok", [from_id, target_id, trigger])
@@ -658,17 +646,17 @@ func _request_features(request: PoseRequest) -> FeatureFlags:
 
 
 func _player_pony() -> bool:
-	return facts != null and bool(facts.player_pony)
+	return _facts != null and bool(_facts.player_pony)
 
 
 func _headset_view() -> bool:
-	return facts != null and bool(facts.headset_view)
+	return _facts != null and bool(_facts.headset_view)
 
 
 func _facts_features() -> FeatureFlags:
-	if facts == null:
+	if _facts == null:
 		return FeatureFlags.new()
-	var value: Variant = facts.features
+	var value: Variant = _facts.features
 	return FeatureFlags.from_dict(value as Dictionary if value is Dictionary else {})
 
 
@@ -763,10 +751,8 @@ func _fill_transition_view() -> void:
 ## Advance the live edge, apply its switches and events, then settle the view; a no-op outside an
 ## edge. The oral turn follows the same weight, so the frame write and the blend are one frame.
 func tick(delta: float) -> void:
-	_bind_oral()
-	_bind_face()
-	if facts != null:
-		_oral_turn.pace = facts.auto_pace
+	if _facts != null:
+		_oral_turn.pace = _facts.auto_pace
 	if _run == null:
 		_oral_turn.tick(maxf(delta, 0.0), _view, 1.0)
 		_face_tick(delta)
@@ -837,13 +823,11 @@ func _apply_contact_switch(kind: String) -> void:
 	var previous := str(_view.contact_kind)
 	_view.contact_kind = kind
 	if kind == "face":
-		_bind_face()
 		_face_driver.begin(_view, bed_frame)
 	elif previous == "face":
-		_bind_face()
 		_face_driver.restore(_view, pose_node)
-	if kind != "mouth" and oral_viseme.is_valid():
-		oral_viseme.call("")
+	if kind != "mouth" and _facts != null and _facts.set_mouth_viseme.is_valid():
+		_facts.set_mouth_viseme.call("")
 
 
 ## Release the mouth contact while the turn continues: the afterglow holds the turned frame and neck
@@ -861,8 +845,8 @@ func _face_tick(delta: float) -> void:
 	if _face_driver == null or str(_view.contact_kind) != "face":
 		return
 	var level := 0.0
-	if facts != null:
-		level = clampf(facts.depth, 0.0, 1.0)
+	if _facts != null:
+		level = clampf(_facts.depth, 0.0, 1.0)
 	_face_driver.tick(maxf(delta, 0.0), _view, level, bed_frame, pose_node)
 
 
@@ -893,11 +877,11 @@ func _absorb_events() -> void:
 			"status":
 				LOG.debug("pose status %s: %s", [_target_id, str(event.get("value", ""))])
 			"speech_stop":
-				if oral_speech_stop.is_valid():
-					oral_speech_stop.call()
+				if _facts != null and _facts.speech_stop.is_valid():
+					_facts.speech_stop.call()
 			"viseme":
-				if oral_viseme.is_valid():
-					oral_viseme.call(str(event.get("value", "")))
+				if _facts != null and _facts.set_mouth_viseme.is_valid():
+					_facts.set_mouth_viseme.call(str(event.get("value", "")))
 
 
 ## Whether the active control set and the live edge lock allow this command. `end` is reserved and
@@ -996,6 +980,7 @@ func _config_for_group(group: String, presentation: Dictionary) -> Dictionary:
 ## The standing recipe reads these from pose_config every frame. Re-reading the character's pose
 ## first keeps the other pose overrides, then the presentation neck/head controls win.
 func sync_standing_config(presentation: SettingsBlock) -> bool:
+	var pony := _pony()
 	if str(_view.settings_group) != CATALOG.STANDING or not is_instance_valid(pony):
 		return false
 	var block: Dictionary = presentation.values if presentation != null else {}
@@ -1012,6 +997,7 @@ func sync_standing_config(presentation: SettingsBlock) -> bool:
 ## Refresh the missionary block in place each frame. The session's own begin, request, completion,
 ## reload and release own the authored asset, so this must never reset a live pose's asset.
 func sync_missionary_config() -> bool:
+	var pony := _pony()
 	if str(_view.settings_group) != CATALOG.MISSIONARY or not is_instance_valid(pony):
 		return false
 	pose_config.clear()
@@ -1057,6 +1043,7 @@ func authored_asset(candidate: String = "") -> AUTHORED:
 ## Ground space for an authored ground pose, seeded from the pony root. Like the bed frame with its
 ## bed, it is carried by the root from then on.
 func ground_pose_frame() -> Transform3D:
+	var pony := _pony()
 	if not is_instance_valid(pony):
 		return NO_FRAME
 	return Transform3D(pony.global_basis.orthonormalized(), pony.global_position)
@@ -1064,7 +1051,7 @@ func ground_pose_frame() -> Transform3D:
 
 ## The live size name from the facts, or "" when no act context is bound.
 func _size_name() -> String:
-	return facts.size_name if facts != null else ""
+	return _facts.size_name if _facts != null else ""
 
 
 ## True when the candidate's own asset loaded and is usable for its frame. A row with no asset is
@@ -1166,6 +1153,7 @@ func sync_bed_frame() -> void:
 ## Turn the ground frame with the pony root each tick; the oral turn moves the root, so the frame
 ## turns with her exactly once.
 func sync_ground_frame() -> void:
+	var pony := _pony()
 	if str(_view.frame) != "ground" or not is_instance_valid(pony) \
 			or not ground_frame_source_saved or not ground_frame is Transform3D:
 		return
@@ -1181,6 +1169,7 @@ func sync_ground_frame() -> void:
 
 ## Snapshot before the act changes her posture or the pose writes bones.
 func snapshot_bones() -> void:
+	var pony := _pony()
 	saved_bones.clear()
 	saved_hair.clear()
 	saved_skeleton = null
@@ -1257,9 +1246,7 @@ func leave_pose_body() -> void:
 func release_pose() -> void:
 	# A release aborts a live edge and returns the oral frame before the view is cleared; it never
 	# runs a second act exit.
-	_bind_oral()
 	_oral_turn.restore(_view)
-	_bind_face()
 	_face_driver.restore(_view, pose_node)
 	_face_driver.reset()
 	_abort_target()
@@ -1327,6 +1314,7 @@ func _profile_owners(profile: String) -> Array:
 func _reconcile_modifiers(from_profile: String, to_profile: String, view: POSE_VIEW) -> void:
 	var from_owners := _profile_owners(from_profile)
 	var to_owners := _profile_owners(to_profile)
+	var pony := _pony()
 	var skeleton_value: Variant = pony.get("skeleton") if is_instance_valid(pony) else null
 	var skeleton := skeleton_value as Skeleton3D
 	for owner: String in MODIFIER_ORDER:
@@ -1451,9 +1439,9 @@ func _apply_anon_channel(view: POSE_VIEW) -> void:
 
 ## The act body exists only on a bed spec's `act_body` mode for desktop human Anon.
 func _act_body_wanted(view: POSE_VIEW) -> bool:
-	if facts == null or str(view.anon.get("mode", "")) != "act_body":
+	if _facts == null or str(view.anon.get("mode", "")) != "act_body":
 		return false
-	return not facts.player_pony and not facts.headset_view
+	return not _facts.player_pony and not _facts.headset_view
 
 
 ## The live act body, or null. The pose service owns it; camera, hands and kiss read it here.
@@ -1485,26 +1473,23 @@ func refresh_act_body_palm() -> void:
 func _install_act_body() -> void:
 	if is_instance_valid(act_body):
 		return
+	var host := get_parent()
 	if host == null or not _act_body_wanted(_view):
 		return
 	var body := MISSIONARY_ANON.new()
 	body.name = "UnfplapMissionaryAnon"
 	host.add_child(body)
-	if not body.install(facts):
+	if not body.install(_facts):
 		host.remove_child(body)
 		body.queue_free()
 		return
 	body.set_pose_assets(live_authored(), live_authored(), 1.0)
 	act_body = body
-	if set_act_body.is_valid():
-		set_act_body.call(body)
 
 
 ## Clear the bridge handle first, then restore and free the act body once. A transition never
 ## reaches this.
 func _release_act_body() -> void:
-	if set_act_body.is_valid():
-		set_act_body.call(null)
 	if not is_instance_valid(act_body):
 		act_body = null
 		return
@@ -1532,6 +1517,7 @@ func _drop(node: Node) -> void:
 
 
 func _install_tail() -> void:
+	var pony := _pony()
 	if is_instance_valid(tail) or not is_instance_valid(pony):
 		return
 	var found: Dictionary = TAIL_CHAIN.resolve(pony)
@@ -1546,7 +1532,7 @@ func _install_tail() -> void:
 	tail = TAIL.new()
 	tail.name = "UnfplapTail"
 	tail.mare = pony
-	tail.facts = facts
+	tail.facts = _facts
 	tail.aside_angle = float(pose_config.get("tail_aside", 0.0))
 	tail.lift_angle = float(pose_config.get("tail_lift", 0.0))
 	tail.amount = 0.0
@@ -1560,6 +1546,7 @@ func _install_tail() -> void:
 
 
 func _install_tail_lay() -> void:
+	var pony := _pony()
 	if not is_instance_valid(pony):
 		return
 	var found: Dictionary = TAIL_CHAIN.resolve(pony)
@@ -1574,31 +1561,34 @@ func _install_tail_lay() -> void:
 	tail_lay = TAIL_LAY.new()
 	tail_lay.name = "UnfplapTailLay"
 	tail_lay.mare = pony
-	tail_lay.facts = facts
+	tail_lay.facts = _facts
 	tail_lay.process_priority = 20
 	skeleton.add_child(tail_lay)
 
 
 func _install_body_sway(skeleton: Skeleton3D) -> void:
+	var pony := _pony()
 	if not _feature("standing_body_sway"):
 		return
 	body_sway = BODY_SWAY.new()
 	body_sway.name = "UnfplapBodySway"
 	body_sway.mare = pony
-	body_sway.facts = facts
+	body_sway.facts = _facts
 	skeleton.add_child(body_sway)
 	_reset_sway_base()
 
 
 func _install_prone_sway(skeleton: Skeleton3D) -> void:
+	var pony := _pony()
 	prone_sway = PRONE_SWAY.new()
 	prone_sway.name = "UnfplapProneSway"
 	prone_sway.mare = pony
-	prone_sway.facts = facts
+	prone_sway.facts = _facts
 	skeleton.add_child(prone_sway)
 
 
 func _install_ear_twitch() -> void:
+	var pony := _pony()
 	if not _feature("thrust_ear_twitch"):
 		return
 	var head := head_skeleton(pony.get("boop_node"))
@@ -1607,7 +1597,7 @@ func _install_ear_twitch() -> void:
 	ear_twitch = EAR_TWITCH.new()
 	ear_twitch.name = "UnfplapEarTwitch"
 	ear_twitch.mare = pony
-	ear_twitch.facts = facts
+	ear_twitch.facts = _facts
 	head.add_child(ear_twitch)
 
 
@@ -1629,6 +1619,7 @@ func apply_render(skeleton: Skeleton3D) -> void:
 ## Apply the live pose at its target amount for one start measurement, then put the entrance amount
 ## back. The caller measures the authored stance, never the game's idle pose or the ramp's blend.
 func apply_target_once() -> bool:
+	var pony := _pony()
 	var skeleton: Variant = pony.get("skeleton") if is_instance_valid(pony) else null
 	if not is_instance_valid(pose_node) or not skeleton is Skeleton3D:
 		return false
@@ -1647,6 +1638,7 @@ func apply_target_once() -> bool:
 ## The whole render-time step for one frame, in order: place the act's own Anon body, write her
 ## pose, replay the sway, then let the live view read his posed head.
 func render_write(frame: RenderFrame) -> void:
+	var pony := _pony()
 	if frame == null or not is_instance_valid(pony):
 		return
 	var family := str(_view.family)
@@ -1669,8 +1661,6 @@ func render_write(frame: RenderFrame) -> void:
 		apply_render(sk as Skeleton3D)
 		if is_instance_valid(prone_sway):
 			prone_sway.apply_render(sk as Skeleton3D)
-	if eye_camera.is_valid():
-		eye_camera.call()
 
 
 func trigger_ear_twitch(impact: float) -> void:
@@ -1779,6 +1769,7 @@ static func has_frame(frame: Transform3D) -> bool:
 ## The authored body bones the live rig lacks: the pose writes only the bones it holds, so a missing
 ## one leaves the game's pose on that link. Cached per skeleton instance and asset revision.
 func rig_missing(candidate: String = "") -> Array[String]:
+	var pony := _pony()
 	var sk: Variant = pony.get("skeleton") if is_instance_valid(pony) else null
 	if not sk is Skeleton3D:
 		return []
@@ -1814,6 +1805,7 @@ func rig_reason(missing: Array[String]) -> String:
 ## Render-time placement trace, printed from idle after every writer of the frame so it reads the
 ## pose the renderer is about to use; `diag_root` is the armature bone the placement is written to.
 func idle_sample(state: int) -> void:
+	var pony := _pony()
 	if pose_trace_frames >= 2 or str(_view.frame) != "bed" or state == 0:
 		return
 	if not is_instance_valid(pose_node) or basis_amount() < 0.9:
@@ -1858,6 +1850,7 @@ func _transform_angle(a: Transform3D, b: Transform3D) -> float:
 ## Rig, modifier and posture diagnostics: which skeleton the modifier drives, which skeleton every
 ## mesh is actually bound to, whether the pose survives between frames, and who else is near the bed.
 func diagnostics(skeleton: Skeleton3D, info: BASE_INFO) -> Array[String]:
+	var pony := _pony()
 	var rows: Array[String] = []
 	var modifier := pose_node
 	var parent: Node = modifier.get_parent() if is_instance_valid(modifier) else null
@@ -1966,9 +1959,9 @@ func face_sit_error(act_state: int) -> String:
 		return "the act is not active"
 	if int(_view.pose_state) != POSE_VIEW.STEADY:
 		return "the pose is changing"
-	if facts != null and bool(facts.kiss_active):
+	if _facts != null and bool(_facts.kiss_active):
 		return "a kiss is running"
-	var anatomy_body: Variant = facts.missionary_body() if facts != null else null
+	var anatomy_body: Variant = _facts.missionary_body() if _facts != null else null
 	if not SETTINGS.anatomy_on() or not is_instance_valid(act_body) \
 			or not is_instance_valid(anatomy_body):
 		return "the anatomy is not available"
@@ -1978,6 +1971,7 @@ func face_sit_error(act_state: int) -> String:
 ## Multi-row pose diagnostic for the debug action: base source, asset state, bed frame and where
 ## the live pose actually put her (world and bed space).
 func state_rows(state: int) -> Array[String]:
+	var pony := _pony()
 	var info := base_info()
 	var frame: Transform3D = info.frame
 	var rows: Array[String] = []
@@ -2030,6 +2024,7 @@ func log_base() -> void:
 
 ## One line with where the pose actually put her, in world and bed space, once the weight settles.
 func log_settled(state: int, anon_diag: AnonDiag) -> void:
+	var pony := _pony()
 	if pose_logged or str(_view.frame) != "bed" or state == 0:
 		return
 	if basis_amount() < 0.9:
@@ -2066,6 +2061,7 @@ func log_settled(state: int, anon_diag: AnonDiag) -> void:
 
 ## Absolute body scale from the rig's own pivot, 1.0 when the pony is gone.
 func body_scale() -> float:
+	var pony := _pony()
 	var value: Variant = pony.get("body_scale") if is_instance_valid(pony) else null
 	return float(value) if value != null else 1.0
 

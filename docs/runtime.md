@@ -169,17 +169,18 @@ attached service Nodes until the runtime leaves.
 
 `_compose()` runs, in order:
 
-1. the early modules (`swap`, `tick`, `phases`, the pose session, the scene gate, rest, the camera
-   facade, readiness, summary, face, reactions, the act view, dialogue, afterglow, the scene hold),
-   the HUD, memory and stool read from the record, and the act audio handle;
+1. the early modules (`swap`, `tick`, `phases`, the act facts, the pose session built on them, the
+   scene gate, rest, the camera facade, readiness, summary, face, reactions, the act view, dialogue,
+   afterglow, the scene hold), the HUD, memory and stool read from the record, and the act audio
+   handle;
 2. the per-act systems: the handover and its host, wings, hands, kiss, the per-pony integrations
    adapter (`integrations/act.gd`), the one live view, the two standing body controllers, the
    camera and audio bindings;
 3. `act/host.gd` (node operations), `act/context.gd` filled from the constructed objects,
    `act/session.gd`, the handover host's typed fields, then frame, consent, impact, view, idle,
    exit, input, swap, phases, tick, start and agreement and their sibling handles;
-4. the pose host callbacks, then the readiness, face, reactions, gate, rest, scene-hold, afterglow,
-   controller and act-view callbacks;
+4. the facts' oral and viseme callbacks, then the readiness, face, reactions, gate, rest,
+   scene-hold, afterglow, controller and act-view callbacks;
 5. the scene gate's wire and its one configuration, and the attach of the 13 Pony service Nodes in
    their fixed order, each named, parented and put in the service group.
 
@@ -191,8 +192,9 @@ construction; `anatomy` receives the HUD
 in `setup(hud)`, `negotiation` and `debug_actions` in their `wire()`, and `offer` at construction.
 A null field is an absent peer: the act modules guard every call, and a bare runtime remains valid.
 
-The `pony` setter and `_ready()` rebind through the runtime's own fields: the pose session's host
-and id, the act host's pony and the reactions' scene. There is no second bind pass and no facade
+The `pony` setter and `_ready()` rebind through the runtime's own fields: the act host's pony and
+the reactions' scene. The pose session reads the body from the facts, which `act/view.gd` refreshes
+on every phase and every start or resume path. There is no second bind pass and no facade
 re-export.
 
 `_compose()` is a composition root, so it calls only the composition verbs: construct, `wire`/`bind`
@@ -205,7 +207,7 @@ Every callback names its owner rather than a runtime method:
 
 - act state and act values are session accessors (`act.state_value`, `act.act_id`, …);
 - a system value is its own service's method (`readiness.depth_value`,
-  `camera.view_controller`, `pose._bed_frame_value`, …);
+  `camera.view_controller`, `pose.view().bed_frame`, …);
 - node and scene operations are `act/host.gd` (`pony_value`, `runtime`, `director`, `mod_enabled`,
   `vr_scene`, `near_mesh`, `tier`);
 - logging is `shared/log.gd` (`debug`, `warning`, `error`, `block`);

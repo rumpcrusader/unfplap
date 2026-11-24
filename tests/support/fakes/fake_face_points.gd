@@ -3,6 +3,8 @@ extends RefCounted
 
 var mouth := Vector3.ZERO
 var opening := Vector3.ZERO
+## The act body stand-in reads as live so the face driver follows its mouth.
+var active := true
 
 func mouth_point() -> Vector3:
 	return mouth

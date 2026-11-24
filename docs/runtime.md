@@ -309,10 +309,9 @@ passes the name to `act/setup.gd:run()`.
 | Setup | Adapter | Placement |
 |---|---|---|
 | `bed_stand_up` | `act/setup.gd:bed_stand_up()` | a human Anon `force_stand_up()`; the cradle or bed rest release already ran in the prelude; `request_posture("stand")`; the bed frame |
-| `bed_keep_lying` | `act/setup.gd:bed_keep_lying()` | no `force_stand_up()`; a `dialogue` source releases managed rest; `request_posture("stand")` so the authored act body owns her pose; the bed frame |
 | `standing_place` | `act/setup.gd:standing_place()` | `request_posture("stand")`; `act/start.gd` then runs `context.frame.begin()`, which places her player-pony/headset rig in front or Anon behind her, checks the stool and writes the view's `begin_facing()` |
 
-A missing bed fails the two bed adapters closed; a failed cradle/bed rest release already aborted
+A missing bed fails the bed adapter closed; a failed cradle/bed rest release already aborted
 in the prelude. An unknown or missing setup logs one `start blocked setup=...` line and aborts
 through the partial-start funnel; the gate already passed, so this is a spec/data error.
 

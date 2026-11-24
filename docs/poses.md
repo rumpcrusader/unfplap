@@ -375,9 +375,9 @@ Every row declares `start`, the pose's act-start contract:
 "start": {"setup": "bed_stand_up"},
 ```
 
-`setup` is the closed placement vocabulary `bed_stand_up`, `bed_keep_lying` or `standing_place`.
-The start sequence dispatches on this name (`act/setup.gd:run()`) and never on a pose id, so a new pose
-adds a row, an asset and a recipe, not a start branch. The adapters and the start order are
+`setup` is the closed placement vocabulary `bed_stand_up` or `standing_place`. The start
+sequence dispatches on this name (`act/setup.gd:run()`) and never on a pose id, so a new pose adds
+a row, an asset and a recipe, not a start branch. The adapters and the start order are
 `docs/runtime.md`.
 
 | Pose | setup |
@@ -387,12 +387,6 @@ adds a row, an asset and a recipe, not a start branch. The adapters and the star
 | `standing_test` | `standing_place` |
 | `standing_oral` | `standing_place` |
 | `bed_facesit` | `bed_stand_up` |
-
-`bed_keep_lying` has no shipped consumer yet: the riding pose is its first intended user. The
-focused `tests/poses/test_start_setup.gd` proves the vocabulary, the validator, the helpers and the
-`act/setup.gd` dispatcher with a synthetic `bed_keep_lying` row; that row stays out of the shipped
-table and the catalog. `poses/pose_spec.gd` rejects a missing block or an unknown setup, and
-`poses/registry.gd`'s `check_table()` covers every shipped row.
 
 ## Session requests and ticks
 

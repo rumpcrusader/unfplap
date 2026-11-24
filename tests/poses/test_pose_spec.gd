@@ -143,7 +143,7 @@ func _check_errors() -> void:
 		"an empty start setup is rejected")
 	check(not _mutated({"start": {"setup": "bench_place"}}).is_empty(),
 		"an unknown start setup is rejected")
-	check(_mutated({"start": {"setup": "bed_keep_lying", "why": "test"}}).is_empty(),
+	check(_mutated({"start": {"setup": "standing_place", "why": "test"}}).is_empty(),
 		"an extra start key is additive")
 	check(not _without("camera", "profile").is_empty(), "a missing profile key is rejected")
 	check(not _without("afterglow", "close_window").is_empty(),

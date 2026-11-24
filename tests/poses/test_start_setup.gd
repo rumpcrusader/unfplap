@@ -1,7 +1,7 @@
 extends "res://mods/unfplap/tests/support/suite.gd"
 ## The closed act-start vocabulary and the runtime setup dispatch: the shipped rows, the helper
-## defaults, a synthetic `bed_keep_lying` row, and the two bed adapters through the same
-## dispatcher the real start uses.
+## defaults, a refused retired name, and both adapters through the same dispatcher the real start
+## uses.
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/poses/test_start_setup.gd
 
@@ -35,7 +35,7 @@ class FakeMain extends Node:
 
 func run() -> void:
 	_check_vocabulary()
-	_check_synthetic_row()
+	_check_retired_name()
 	_check_dispatch()
 	if failures == 0:
 		print("START_SETUP_PASS")
@@ -43,7 +43,7 @@ func run() -> void:
 
 
 func _check_vocabulary() -> void:
-	check(SPECS.START_SETUPS == ["bed_stand_up", "bed_keep_lying", "standing_place"],
+	check(SPECS.START_SETUPS == ["bed_stand_up", "standing_place"],
 		"the start setups are a closed vocabulary")
 	var expected := {
 		CATALOG.MISSIONARY: "bed_stand_up",
@@ -60,35 +60,22 @@ func _check_vocabulary() -> void:
 	check(SPECS.start_setup("not_a_pose").is_empty(), "a missing row has no setup and fails closed")
 
 
-## The riding pose is the first intended bed_keep_lying consumer. The row is synthetic here: it
-## validates as data, and it never enters the shipped table or the catalog.
-func _check_synthetic_row() -> void:
+## The retired bed-lying name is no longer part of the closed vocabulary: a synthetic row that
+## still names it is refused by the spec validator and never enters the shipped table.
+func _check_retired_name() -> void:
 	var row: Dictionary = SPECS.spec(CATALOG.MISSIONARY).duplicate(true)
 	row["id"] = "riding_probe"
 	row["display_name"] = "Riding probe"
 	row["start"] = {"setup": "bed_keep_lying"}
 	var found := POSE_SPEC.errors("riding_probe", row, SPECS.SPECS)
-	check(found.is_empty(), "the synthetic bed_keep_lying row validates: %s" % str(found))
+	check(not found.is_empty(), "the retired bed_keep_lying setup is refused")
 	var spec: Variant = POSE_SPEC.from_dict("riding_probe", row, SPECS.SPECS)
-	check(spec != null, "the synthetic row builds a typed spec")
-	check(spec != null and spec.start_setup == "bed_keep_lying",
-		"the typed spec carries the synthetic start block")
+	check(spec == null, "the retired row does not build a typed spec")
 	check(SPECS.spec("riding_probe").is_empty() and not SPECS.ids().has("riding_probe"),
 		"the synthetic row stays out of the shipped table")
 
 
 func _check_dispatch() -> void:
-	var keep := _fixture()
-	var keep_runtime: Node = keep["runtime"]
-	var keep_pony: FakePony = keep["pony"]
-	var keep_player: FakePlayer = keep["player"]
-	check(bool(keep_runtime.act.start.setup.run("bed_keep_lying")),
-		"the dispatcher runs the bed_keep_lying adapter")
-	check(keep_pony.posture_requests == ["stand"],
-		"bed_keep_lying gives the authored body her pose")
-	check(keep_player.stood == 0, "bed_keep_lying never stands Anon up")
-	_free_fixture(keep)
-
 	var stand := _fixture()
 	var stand_runtime: Node = stand["runtime"]
 	var stand_pony: FakePony = stand["pony"]
@@ -98,6 +85,16 @@ func _check_dispatch() -> void:
 	check(stand_player.stood == 1, "bed_stand_up stands Anon up")
 	check(stand_pony.posture_requests == ["stand"], "bed_stand_up asks her to stand")
 	_free_fixture(stand)
+
+	var place := _fixture()
+	var place_runtime: Node = place["runtime"]
+	var place_pony: FakePony = place["pony"]
+	var place_player: FakePlayer = place["player"]
+	check(bool(place_runtime.act.start.setup.run("standing_place")),
+		"the dispatcher runs the standing_place adapter")
+	check(place_pony.posture_requests == ["stand"], "standing_place asks her to stand")
+	check(place_player.stood == 0, "standing_place never stands Anon up")
+	_free_fixture(place)
 
 	var unknown := _fixture()
 	var unknown_runtime: Node = unknown["runtime"]

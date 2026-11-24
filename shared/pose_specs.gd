@@ -21,7 +21,7 @@ const BED_FACESIT := "bed_facesit"
 
 ## The closed act-start vocabulary: `setup` names the runtime placement adapter. The start sequence
 ## dispatches on `setup`, never on a pose id.
-const START_SETUPS := ["bed_stand_up", "bed_keep_lying", "standing_place"]
+const START_SETUPS := ["bed_stand_up", "standing_place"]
 
 ## `asset` is the row's authored pose document; a base chain supplies it to an internal row.
 ## `driver` is the procedural recipe, `base` an inherited pose id, `delta` an authored asset.

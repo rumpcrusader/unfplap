@@ -1,7 +1,7 @@
 extends RefCounted
-## The closed `start.setup` adapter set: the bed stand-up, the bed keep-lying and the standing
-## place. It never selects on a pose id; a new pose row adds its setup name and data, not a branch
-## here. A missing or unknown name is a data error after the gate passed.
+## The closed `start.setup` adapter set: the bed stand-up and the standing place. It never selects
+## on a pose id; a new pose row adds its setup name and data, not a branch here. A missing or
+## unknown name is a data error after the gate passed.
 ##
 ## See `docs/runtime.md` and `docs/poses.md`.
 
@@ -10,7 +10,6 @@ const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")
 const ACT_SESSION := preload("res://mods/unfplap/act/session.gd")
 const ACT_VIEW := preload("res://mods/unfplap/act/view.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
-const REST := preload("res://mods/unfplap/rest/control.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 var host: ACT_HOST = null
@@ -32,8 +31,6 @@ func run(setup: String) -> bool:
 	match setup:
 		"bed_stand_up":
 			return bed_stand_up()
-		"bed_keep_lying":
-			return bed_keep_lying()
 		"standing_place":
 			return standing_place()
 		_:
@@ -54,19 +51,6 @@ func bed_stand_up() -> bool:
 		context.rest.place_on_start()
 	else:
 		host.pony.reset_physics_interpolation()
-	if host.pony.get("posture") != null:
-		host.pony.request_posture("stand")
-	return true
-
-
-## The bed lying start: Anon does not stand up, and the authored act body takes over her pose.
-## The riding pose is the first intended consumer; no shipped row uses this setup yet.
-func bed_keep_lying() -> bool:
-	if session.bed == null:
-		return false
-	if session.source == "dialogue" and not REST.release_managed(host.pony):
-		return false
-	host.pony.reset_physics_interpolation()
 	if host.pony.get("posture") != null:
 		host.pony.request_posture("stand")
 	return true

@@ -51,20 +51,22 @@ func look_motion(relative: Vector2) -> void:
 	context.camera.look_input(relative)
 
 
-## One hold-X policy frame. The input service samples the keys; readiness owns the tap, the rows
-## and the shape write.
+## One hold-X policy frame. The input service samples the keys; the auto service owns the tap,
+## the layer's actions and the shape write.
 func auto_panel_input(delta: float, x_down: bool, keys: Array[bool]) -> void:
-	context.readiness.auto_panel_tick(delta, x_down, keys, context.readiness.depth)
+	if _session().state not in [State.ACTIVE, State.CLIMAX]:
+		return
+	context.auto.panel(delta, x_down, keys, context.readiness.depth)
 
 
 ## True while the hold-X auto settings layer is open.
 func auto_panel_open() -> bool:
-	return context.readiness.auto_panel_open()
+	return context.auto.readout().panel_open
 
 
 ## True while the auto stroke owns the act; the input service's mouse thrust is off.
 func auto_active() -> bool:
-	return context.readiness.auto_active()
+	return context.auto.readout().active
 
 
 ## The act's pause overlay. The input service's hold and auto layer stop in the same window.
@@ -154,13 +156,15 @@ func cancel() -> void:
 
 ## One wheel notch while auto owns the stroke.
 func auto_thrust_wheel(direction: int) -> void:
-	context.readiness.auto_wheel(direction)
+	context.auto.wheel(direction)
 
 
 ## Switch the automatic stroke on or off. Turning it on starts from the hand's current depth, so
 ## the shot does not snap; turning it off leaves the depth where it is.
 func toggle_auto_thrust() -> void:
-	context.readiness.toggle_auto(context.readiness.depth)
+	if _session().state not in [State.ACTIVE, State.CLIMAX]:
+		return
+	context.auto.toggle(context.readiness.depth)
 
 
 ## True while the debug free look owns the player camera instead of the act shot.

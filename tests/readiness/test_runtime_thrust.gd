@@ -157,7 +157,6 @@ func run() -> void:
 
 	# Auto thrust feeds the same tracker and scores through it.
 	runtime.act._set_state(2)
-	runtime.act.context.readiness.configure_auto(1.5, 0.9, "cosine", 0.0)
 	runtime.act.reset_thrust_state()
 	var auto_thrusts := int(runtime.act.context.readiness.act_intensity_total)
 	runtime.act.input.toggle_auto_thrust()
@@ -167,7 +166,7 @@ func run() -> void:
 		runtime.act.context.impact.auto_advance(1.0 / 60.0)
 	check(int(runtime.act.context.readiness.act_intensity_total) > auto_thrusts, "auto thrust feeds the same tracker")
 	check(not str(runtime.act.context.readiness.last_intensity).is_empty(), "auto thrust classifies intensity")
-	runtime.act.context.readiness.stop_auto()
+	runtime.act.context.auto.stop()
 	check(not runtime.act.input.auto_active(), "stopping auto clears the mode")
 	runtime.act.reset_thrust_state()
 	check(not runtime.act.input.auto_active(), "thrust reset clears auto for the next act")

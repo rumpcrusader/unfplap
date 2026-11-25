@@ -143,13 +143,14 @@ func sync_hud(facts: ACT_FACTS, session: ACT_SESSION, max_climaxes: int,
 	facts.hud_controls = bool(features.get("act_controls", false))
 	facts.hole_ready = bool(anatomy.can_target_vulva()) if anatomy != null else false
 	facts.oral_ready = bool(anatomy.can_target_mouth()) if anatomy != null else false
-	facts.auto_on = bool(readiness.auto_active()) if readiness != null else false
+	var auto: Variant = context.auto.readout() if context.auto != null else null
+	facts.auto_on = auto != null and bool(auto.active)
 	if facts.auto_on:
-		facts.auto_min_depth = readiness.auto_min_depth()
-		facts.auto_max_depth = readiness.auto_max_depth()
-		facts.auto_pace = readiness.auto_pace()
-		facts.auto_shape = readiness.auto_shape()
-	facts.auto_layer_open = bool(readiness.auto_panel_open()) if readiness != null else false
+		facts.auto_min_depth = float(auto.min_depth)
+		facts.auto_max_depth = float(auto.max_depth)
+		facts.auto_pace = float(auto.pace)
+		facts.auto_shape = str(auto.shape)
+	facts.auto_layer_open = auto != null and bool(auto.panel_open)
 
 
 ## The standing close prompt, or "" outside the standing afterglow. The runtime passes its live pose
@@ -185,7 +186,7 @@ func apply_live(session: ACT_SESSION) -> void:
 
 func reset_act_state(session: ACT_SESSION) -> void:
 	context.readiness.reset_thrust()
-	context.readiness.reset_auto()
+	context.auto.start_act()
 	context.readiness.reset(READINESS.Profile.from_dict(session.preferences))
 	context.standing_anon.reset_phase()
 	context.view.reset_depth()

@@ -1,8 +1,8 @@
 extends RefCounted
-## Hold-X auto settings layer. Pure: the caller feeds the key state in and executes the actions.
-##
-## Layer keys are positional: top row adds, home row subtracts, in the same order the HUD shows.
-## A press that ever opened the layer can never toggle, so a slow release cannot surprise.
+## Pure hold-X layer: the auto service feeds it the key state each frame and applies the returned
+## actions. The keys are positional and follow the order of the layer's rows on screen; a press
+## steps once and then repeats while it stays held. A press that opened the layer is never a
+## toggle, so a slow release cannot surprise the player.
 
 const HOLD_S := 0.28
 const GRACE_S := 0.28

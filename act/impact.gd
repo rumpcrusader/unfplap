@@ -58,12 +58,12 @@ func set_depth(value: float) -> void:
 	context.readiness.penetration_m = value
 
 
-## One auto frame: the generated depth through the same tracker.
+## One auto frame: the generated movement through the same tracker.
 func auto_advance(delta: float) -> void:
-	var before := context.readiness.depth
-	var at := now()
-	var events: Array[THRUST_STATE.StrokeEvent] = context.readiness.auto_advance(delta, at)
-	finish_stroke(before, at, events)
+	var movement := context.auto.step(delta, context.readiness.depth)
+	if is_zero_approx(movement):
+		return
+	move(movement, now())
 
 
 ## The one post-move path: the withdrawal slide when the tip crosses her lips outward, then the

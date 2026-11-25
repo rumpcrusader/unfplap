@@ -1,10 +1,10 @@
-# Act readiness, strength and auto thrust
+# Act readiness, strength and tolerance
 
 Readiness is the act's readiness loop: the measured stroke, the physical strength value,
-satisfaction, mood and cues, the pony's climax count, the touch and talk assist, the
-neglect-tolerance meter and the automatic stroke. The long-term summary and history belong to
-`summary`, cue admission and the prompt to `dialogue`, the HUD shorthand to `hud` and the camera's
-response to `camera`.
+satisfaction, mood and cues, the pony's climax count, the touch and talk assist and the
+neglect-tolerance meter. The automatic stroke is `auto_thrust`'s. The long-term summary and history
+belong to `summary`, cue admission and the prompt to `dialogue`, the HUD shorthand to `hud` and the
+camera's response to `camera`.
 
 ## The stroke
 
@@ -65,19 +65,6 @@ per act: compensation can lower distress and avoid a stop, but it never replays 
 forgiving mare is never stopped, a normal one warns twice and then stops, and a strict one warns
 once and stops sooner. The meter yields at most one decision per frame, and a stop is the only
 decision the act acts on, through its own stop path.
-
-## Auto thrust
-
-The automatic stroke generates the depth the mouse would, through the same tracker, so it adds no
-score, heat or presentation path of its own: intensity, pattern, readiness, audio and the body all
-follow the manual rules. A tap of X starts and stops it at the hand's current depth; the wheel sets
-the pace; holding X opens a small layer for the band and the shape while it freezes the lean, the
-caress keys and the kiss. The band keeps each stroke wider than the tracker's reversal gap and the
-smallest peak still reaches a thrust's travel, so nothing generated is too shallow to count; every
-shape returns to the bottom, so the tracker only ever sees depth. The mouse does nothing meanwhile.
-
-A body swap stops the running stroke but keeps the live band, pace, shape and the on/off intent; the
-resumed act restarts it at the current depth, while a fresh act starts from the settings defaults.
 
 ## The cycle
 

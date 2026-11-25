@@ -24,13 +24,13 @@ MOD_PREFIX = "res://mods/unfplap/"
 # by the runtime. `tests/` and `tools/` are not shipped, so they never reach this map.
 ROOT_FOR_SCOPE = {"process": "main.gd", "world": "main.gd", "pony": "runtime.gd"}
 # The composition verbs each root may call. The three roots construct, wire, name and attach; the
-# Pony root also binds the act record's typed hosts, and `bind`/`bind_host` take a host or a value,
-# `configure`/`from_dict` a value.
+# Pony root also binds the act record's typed hosts and connects its services' events, and
+# `bind`/`bind_host` take a host or a value, `configure`/`from_dict` a value.
 ROOT_CALLS = {
     "_build_process": frozenset({"new", "_add_node"}),
     "_build_world": frozenset({"new", "wire", "_build_record", "_attach", "connect"}),
     "_compose": frozenset({
-        "new", "wire", "bind", "bind_host", "configure", "from_dict", "_attach"}),
+        "new", "wire", "bind", "bind_host", "configure", "from_dict", "_attach", "connect"}),
 }
 # Values and predicates a root may use; they build or test a value, they run no behaviour.
 ROOT_VALUE_CALLS = frozenset({"Callable", "is_instance_valid", "range", "str", "int", "float"})

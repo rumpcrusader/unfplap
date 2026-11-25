@@ -35,15 +35,12 @@ func bind(host_in: ACT_HOST, context_in: ACT_CONTEXT) -> void:
 
 ## Snapshot every tunable the act reads while running and push it to its owners. `group` is the
 ## start spec's settings group: an internal pose has no block of its own and must never come here.
-func snapshot_values(group: String, family: String, preferences: Dictionary,
-		preserve_auto_shape: bool) -> void:
+func snapshot_values(group: String, family: String, preferences: Dictionary) -> void:
 	snapshot = SETTINGS.act_snapshot(group)
 	features = snapshot.features
 	context.readiness.configure_thrust(snapshot.thrust_pixels_per_cm, snapshot.thrust_up,
 		snapshot.thrust_travel, snapshot.pelvis_gap_m)
 	max_pony_climaxes = snapshot.max_pony_climaxes
-	context.readiness.configure_auto(snapshot.auto_pace, snapshot.auto_max_depth,
-		snapshot.auto_curve, snapshot.auto_min_depth, preserve_auto_shape)
 	var tuning := REACTIONS_CONTEXT.new()
 	tuning.fill(snapshot.jiggle, family, context.camera.jiggle_size_scale(), CLIMAX_SECONDS)
 	context.reactions.configure(tuning)

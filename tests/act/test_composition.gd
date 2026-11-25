@@ -12,9 +12,13 @@ const PONY_GROUP := "unfplap_pony_service"
 const PONY_NAMES := [
 	"UnfplapPoses", "UnfplapCamera", "UnfplapHands", "UnfplapKiss", "UnfplapFace",
 	"UnfplapAfterglow", "UnfplapRest", "UnfplapSceneGate", "UnfplapSceneHold",
-	"UnfplapReadiness", "UnfplapReactions", "UnfplapSummary", "UnfplapDialogue",
+	"UnfplapReadiness", "UnfplapAutoThrust", "UnfplapReactions", "UnfplapSummary",
+	"UnfplapDialogue",
 ]
 const FRAME_HOOKS := ["_process", "_physics_process", "_exit_tree"]
+## The readiness meter owns a private process tick; the act never drives it and every other
+## service stays out of the engine frames.
+const PROCESS_OWNERS := ["UnfplapReadiness"]
 
 
 func run() -> void:
@@ -27,8 +31,10 @@ func run() -> void:
 		attached.append(str(child.name))
 		check(child.is_in_group(PONY_GROUP), "%s joins the Pony service group" % child.name)
 		for hook: String in FRAME_HOOKS:
+			if hook == "_process" and str(child.name) in PROCESS_OWNERS:
+				continue
 			check(not child.has_method(hook), "%s declares no %s" % [child.name, hook])
-	check(attached == PONY_NAMES, "the 13 Pony services are attached once, in their fixed order")
+	check(attached == PONY_NAMES, "the 14 Pony services are attached once, in their fixed order")
 	check(runtime.get_node_or_null("UnfplapPoses") == runtime.act.context.pose,
 		"the named child is the constructed pose session")
 	check(runtime.get_node_or_null("UnfplapDialogue") == runtime.act.context.dialogue,

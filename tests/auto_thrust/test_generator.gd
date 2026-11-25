@@ -1,10 +1,10 @@
 extends "res://mods/unfplap/tests/support/suite.gd"
-## Auto thrust: the generated depth must be real tracker strokes, and the pace range must
-## reach every intensity and pattern class the preference system uses.
-##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/readiness/test_auto_thrust.gd
+## The auto-thrust generator: the generated depth must be real tracker strokes, and the pace range
+## must reach every intensity and pattern class the preference system uses.
+##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/auto_thrust/test_generator.gd
 
 const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
-const AUTO := preload("res://mods/unfplap/readiness/auto_thrust.gd")
+const AUTO := preload("res://mods/unfplap/auto_thrust/auto_thrust.gd")
 const THRUST := preload("res://mods/unfplap/readiness/thrust.gd")
 const PREF := preload("res://mods/unfplap/shared/preferences.gd")
 

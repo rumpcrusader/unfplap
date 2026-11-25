@@ -20,6 +20,7 @@ const WING := preload("res://mods/unfplap/poses/wing_control.gd")
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 const ACT_DIALOGUE := preload("res://mods/unfplap/dialogue/api.gd")
 const READINESS := preload("res://mods/unfplap/readiness/api.gd")
+const AUTO_THRUST := preload("res://mods/unfplap/auto_thrust/api.gd")
 const SUMMARY := preload("res://mods/unfplap/summary/api.gd")
 const AFTERGLOW := preload("res://mods/unfplap/afterglow/api.gd")
 const FACE := preload("res://mods/unfplap/face/api.gd")
@@ -139,6 +140,7 @@ func _compose() -> void:
 	var rest: REST_REJOIN = REST_REJOIN.new()
 	var camera: ACT_CAMERA = ACT_CAMERA.new()
 	var readiness: READINESS = READINESS.new()
+	var auto: AUTO_THRUST = AUTO_THRUST.new()
 	var summary: SUMMARY = SUMMARY.new()
 	_face = FACE.new()
 	var reactions: REACTIONS = REACTIONS.new()
@@ -172,6 +174,7 @@ func _compose() -> void:
 	_context.pose = _pose
 	_context.camera = camera
 	_context.readiness = readiness
+	_context.auto = auto
 	_context.afterglow = _afterglow
 	_context.face = _face
 	_context.reactions = reactions
@@ -310,6 +313,7 @@ func _compose() -> void:
 	_attach(_gate, "UnfplapSceneGate")
 	_attach(hold, "UnfplapSceneHold")
 	_attach(readiness, "UnfplapReadiness")
+	_attach(auto, "UnfplapAutoThrust")
 	_attach(reactions, "UnfplapReactions")
 	_attach(summary, "UnfplapSummary")
 	_attach(dialogue, "UnfplapDialogue")

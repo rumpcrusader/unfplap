@@ -5,6 +5,7 @@ extends RefCounted
 
 const POSE_SESSION := preload("res://mods/unfplap/poses/api.gd")
 const ACT_CAMERA := preload("res://mods/unfplap/camera/api.gd")
+const AUTO_THRUST := preload("res://mods/unfplap/auto_thrust/api.gd")
 const READINESS := preload("res://mods/unfplap/readiness/api.gd")
 const AFTERGLOW := preload("res://mods/unfplap/afterglow/api.gd")
 const FACE := preload("res://mods/unfplap/face/api.gd")
@@ -35,6 +36,8 @@ const MEMORY := preload("res://mods/unfplap/memory/api.gd")
 var pose: POSE_SESSION = null
 var camera: ACT_CAMERA = null
 var readiness: READINESS = null
+## The automatic stroke; the act drives it and feeds its movement back through the meter.
+var auto: AUTO_THRUST = null
 ## The act audio handle; the field carries the anatomy handle's RefCounted convention.
 var audio: RefCounted = null
 var afterglow: AFTERGLOW = null
@@ -85,6 +88,7 @@ func release() -> void:
 	pose = null
 	camera = null
 	readiness = null
+	auto = null
 	audio = null
 	afterglow = null
 	face = null

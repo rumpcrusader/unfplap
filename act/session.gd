@@ -91,7 +91,6 @@ var ended_early := false
 ## The one verdict this act produced; the presentation reads it across the afterglow.
 var act_score: SUMMARY.ActScore = null
 var cycle_heat := false
-var preserve_auto_shape := false
 var snapshot: SETTINGS.ActSnapshot:
 	get:
 		return settings.snapshot
@@ -367,7 +366,7 @@ func enter_active_act() -> void:
 	context.handover.dispatch_event(BODY_CHANGE_POLICY.ActEvent.ACTIVE)
 
 func snapshot_settings() -> void:
-	settings.snapshot_values(start_group(), start_family(), preferences, preserve_auto_shape)
+	settings.snapshot_values(start_group(), start_family(), preferences)
 	refresh_gate()
 
 func apply_live_settings() -> void:
@@ -737,7 +736,7 @@ static func _summary_reasons(summary: Dictionary) -> Array[String]:
 
 func begin_afterglow() -> void:
 	LOG.debug("afterglow pose=%s pony=%s", [pose_id, host.pony_name()])
-	context.readiness.stop_auto()
+	context.auto.stop()
 	context.dialogue.end_act(event_id, true)
 	# Bed afterglow keeps only lean and caress; standing keeps its kiss.
 	if pose_family() != "standing":

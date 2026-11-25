@@ -127,8 +127,8 @@ func release_contacts() -> void:
 
 
 func remember_auto() -> void:
-	context.handover.remember_auto(context.readiness.auto_active())
-	context.readiness.stop_auto()
+	context.handover.remember_auto(context.auto.readout().on)
+	context.auto.stop()
 
 
 func release_act_body() -> void:
@@ -185,9 +185,7 @@ func prepare_anatomy_act() -> void:
 
 
 func apply_resume_settings() -> void:
-	session.preserve_auto_shape = true
 	session.snapshot_settings()
-	session.preserve_auto_shape = false
 
 
 func rebind_reactions() -> void:
@@ -265,6 +263,6 @@ func sync_hud() -> void:
 
 func resume_auto() -> void:
 	if context.handover.auto_on and session.state in [State.ACTIVE, State.CLIMAX]:
-		context.readiness.toggle_auto(context.readiness.depth)
+		context.auto.toggle(context.readiness.depth)
 	context.handover.clear_auto()
 

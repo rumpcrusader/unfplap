@@ -32,7 +32,7 @@ func bind(host_in: ACT_HOST, context_in: ACT_CONTEXT, session_in: ACT_SESSION) -
 ## The one teardown, in the order the pose and camera were built; each step restores only what its
 ## ownership flag says it took. End lines stay outside: `finish_restore()` must not cut them.
 func run(rejoin_cuddle: bool) -> void:
-	context.readiness.stop_auto()
+	context.auto.stop()
 	# A suspended act may end here (world close, a failed swap or an invalid body). Drop the
 	# handover before the normal teardown; it is not a second exit path.
 	context.handover.abort()
@@ -196,7 +196,7 @@ func restore_begin() -> void:
 	if session.state == State.IDLE or session.state == State.RESTORE:
 		return
 	context.afterglow.cancel_close()
-	context.readiness.stop_auto()
+	context.auto.stop()
 	context.dialogue.end_act(session.event_id, true)
 	LOG.debug("restore begin from state=%d pony=%s", [session.state, host.pony_name()])
 	session.begin_restore()

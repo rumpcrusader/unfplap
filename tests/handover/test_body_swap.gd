@@ -651,30 +651,41 @@ func _check_auto_survives_swap() -> void:
 	var host: FakeHost = f["host"]
 	var runtime: Node = f["runtime"]
 	var source: FakeSource = f["source"]
-	runtime.act.context.readiness.configure_auto(1.5, 0.8, "cosine", 0.2)
-	runtime.act.context.readiness.auto_thrust.pace = 2.75
-	runtime.act.context.readiness.auto_thrust.min_depth = 0.3
-	runtime.act.context.readiness.auto_thrust.max_depth = 0.7
-	runtime.act.context.readiness.auto_set_shape("saw")
-	runtime.act.context.readiness.toggle_auto(runtime.act.context.readiness.depth)
-	check(runtime.act.context.readiness.auto_active(), "auto is on before the swap")
+	var auto: Variant = runtime.act.context.auto
+	var saved := {"pace": SETTINGS.pace.get_num(), "max": SETTINGS.max_depth.get_num(),
+		"min": SETTINGS.min_depth.get_num(), "shape": SETTINGS.curve.get_choice()}
+	SETTINGS.pace.set_num(2.75)
+	SETTINGS.max_depth.set_num(0.7)
+	SETTINGS.min_depth.set_num(0.3)
+	SETTINGS.curve.set_choice("saw")
+	auto.start_act()
+	auto.toggle(runtime.act.context.readiness.depth)
+	check(auto.readout().on, "auto is on before the swap")
+	# A settings edit while the stroke runs is not a new act: the live values stay the act's.
+	SETTINGS.pace.set_num(1.0)
+	SETTINGS.max_depth.set_num(0.5)
+	SETTINGS.min_depth.set_num(0.0)
+	SETTINGS.curve.set_choice("hold")
 	source.changing = true
 	runtime.act.swap.suspend(source.active_change())
-	check(not runtime.act.context.readiness.auto_active(), "the swap interrupts the running stroke")
+	check(not auto.readout().on, "the swap interrupts the running stroke")
 	var new_pony := _pony("Auto Mare", "AutoBody")
 	root.add_child(new_pony)
 	source.new_pony = new_pony
 	_roster(f).attach(new_pony)
 	runtime.act.swap.tick(0.1)
-	check(runtime.act.context.readiness.auto_active(), "auto resumes after the adopted body")
-	check(absf(runtime.act.context.readiness.auto_pace() - 2.75) < 0.0001,
-		"auto keeps its pace across the swap")
-	check(absf(runtime.act.context.readiness.auto_min_depth() - 0.3) < 0.0001,
+	check(auto.readout().on, "auto resumes after the adopted body")
+	check(absf(auto.readout().pace - 2.75) < 0.0001, "auto keeps its pace across the swap")
+	check(absf(auto.readout().min_depth - 0.3) < 0.0001,
 		"auto keeps its bottom depth across the swap")
-	check(absf(runtime.act.context.readiness.auto_max_depth() - 0.7) < 0.0001,
+	check(absf(auto.readout().max_depth - 0.7) < 0.0001,
 		"auto keeps its peak depth across the swap")
-	check(runtime.act.context.readiness.auto_shape() == "saw", "auto keeps its shape across the swap")
+	check(auto.readout().shape == "saw", "auto keeps its shape across the swap")
 	check(not runtime.act.context.handover.auto_on, "the pending auto restore is cleared")
+	SETTINGS.pace.set_num(float(saved["pace"]))
+	SETTINGS.max_depth.set_num(float(saved["max"]))
+	SETTINGS.min_depth.set_num(float(saved["min"]))
+	SETTINGS.curve.set_choice(str(saved["shape"]))
 	await _free_fixture(f)
 
 

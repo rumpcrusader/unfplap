@@ -469,7 +469,7 @@ func run() -> void:
 	for child: Node in body8.get_children():
 		if str(child.name).begins_with("Unfplap"):
 			built += 1
-	check(built == 1, "the act installs its pose modifier on the body skeleton")
+	check(built == 2, "the act installs its pose and body-sway modifiers on the body skeleton")
 	check(runtime8.act.context.pose.view().id == CATALOG_STANDING
 		and runtime8.act.context.pose.view().pose_state == 2,
 		"the act fills the pose view")
@@ -509,7 +509,6 @@ func run() -> void:
 	# path.
 	runtime8.act.pose_id = CATALOG_STANDING
 	runtime8.act._set_state(2)
-	runtime8.act.features = {"standing_body_sway": true}
 	runtime8.act.start._build_pose()
 	var act_body8 := MISSIONARY_ANON.new()
 	runtime8.act.context.pose._act_body_host._body = act_body8
@@ -533,7 +532,6 @@ func run() -> void:
 	# aborts it: the root and the facing come back once and the view is idle.
 	runtime8.act.pose_id = CATALOG_STANDING
 	runtime8.act._set_state(2)
-	runtime8.act.features = {"anatomy_oral": true}
 	var oral_setting := SETTINGS.anatomy_oral.get_bool()
 	SETTINGS.anatomy_oral.set_bool(true)
 	var anatomy8: ANATOMY_API = ANATOMY_API.new()
@@ -565,7 +563,7 @@ func run() -> void:
 	# The oral feature gate refuses before the edge starts and leaves her where she is.
 	runtime8.act.pose_id = CATALOG_STANDING
 	runtime8.act._set_state(2)
-	runtime8.act.features = {}
+	SETTINGS.anatomy_oral.set_bool(false)
 	runtime8.act.start._build_pose()
 	var refused_from: Vector3 = pony8.global_position
 	runtime8.act.input._toggle_oral()

@@ -355,7 +355,7 @@ func tick_lean(delta: float, paused: bool, auto_open: bool) -> void:
 	# roughly twelvefold and the shot crept with nobody leaning.
 	lean_sway = 0.0
 	lean_block_logged = false
-	if feature("idle_camera_sway"):
+	if SETTINGS.idle_camera_sway.get_bool():
 		hold_rock_clock += delta
 		lean_sway = sin(hold_rock_clock * HOLD_SWAY_HZ) * MOTION.HOLD_SWAY_FORWARD
 	tick_lean_action()
@@ -780,10 +780,6 @@ func main_camera() -> Camera3D:
 func apply_standing_lean_look() -> void:
 	if pose_family() == "standing" and view != null:
 		view.apply_lean_look()
-
-
-func feature(name: String) -> bool:
-	return bool(facts.features.get(name, false)) if facts != null else false
 
 
 ## The one act view, for the host callbacks and the anatomy gaze.

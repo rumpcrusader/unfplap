@@ -4,6 +4,7 @@ extends Node
 ## bystanders.
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 const PROMPTS := preload("res://mods/unfplap/dialogue/prompts.gd")
 const DEFAULTS_DATA := preload("res://mods/unfplap/shared/defaults_data.gd")
@@ -389,7 +390,7 @@ func _queue_utterance(kind: String, prompt_key: String, key_suffix: String) -> S
 		if not face_note.is_empty() and not purpose.contains("[face"):
 			purpose += face_note
 		# integration: optional speech feel, independent of the always-on line angles.
-		if _feature("act_speech_feel", false):
+		if SETTINGS.act_speech_feel.get_bool():
 			purpose += _speech_feel_note()
 		purpose += _line_variety()
 	_serial += 1
@@ -700,12 +701,6 @@ func _line_state_name(state: int) -> String:
 			return "delivered"
 		_:
 			return "unknown"
-
-
-func _feature(name: String, fallback: bool) -> bool:
-	if facts == null:
-		return fallback
-	return bool(facts.features.get(name, fallback))
 
 
 func _director() -> Node:

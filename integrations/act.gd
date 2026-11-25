@@ -117,7 +117,7 @@ func afterglow() -> void:
 			_stop(provider, "write failed")
 
 
-## Re-read the act feature snapshot and start or stop providers live.
+## Re-read each provider's settings and start or stop it live.
 func apply_live_settings() -> void:
 	if not _begun or _facts == null:
 		return
@@ -434,8 +434,6 @@ func _sync_context(provider: ProviderState) -> void:
 	context.mod_active = false
 	if _facts != null and _facts.has_method("mod_active"):
 		context.mod_active = bool(_facts.call("mod_active", str(provider.spec.get("mod_id", ""))))
-	var features: Variant = _facts.get("features") if _facts != null else null
-	context.features = features if features is Dictionary else {}
 	context.bindings = provider.flags
 
 

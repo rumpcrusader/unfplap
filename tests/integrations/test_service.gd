@@ -6,6 +6,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 const ADAPTER := preload("res://mods/unfplap/integrations/act.gd")
 const FACADE := preload("res://mods/unfplap/integrations/api.gd")
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
 const BODY_CHANGE_SERVICE := preload("res://mods/unfplap/body_change/api.gd")
 const PONIES := preload("res://mods/unfplap/ponies/api.gd")
@@ -25,7 +26,6 @@ class FakeFacts extends RefCounted:
 	var seconds_since_stroke := 0.0
 	var act_seconds := 1.0
 	var pony: Variant = null
-	var features: Dictionary = {}
 	var beat: Variant = null
 	var beat_original := false
 	var beat_holders: Array[String] = []
@@ -122,7 +122,8 @@ func _setup(feature := true) -> Dictionary:
 	pony.add_child(affection)
 	var facts := FakeFacts.new()
 	facts.pony = pony
-	facts.features = {"kissing_reactions": feature}
+	var previous := SETTINGS.kissing_reactions.get_bool()
+	SETTINGS.kissing_reactions.set_bool(feature)
 	facts.beat = beat
 	root.add_child(pony)
 	return {
@@ -133,6 +134,7 @@ func _setup(feature := true) -> Dictionary:
 		"skeleton": skeleton,
 		"feelings": feelings,
 		"affection": affection,
+		"kissing_previous": previous,
 	}
 
 
@@ -147,6 +149,8 @@ func _free_scene(scene: Dictionary) -> void:
 	var pony: Variant = scene.get("pony")
 	if pony is Node and is_instance_valid(pony):
 		(pony as Node).free()
+	if scene.has("kissing_previous"):
+		SETTINGS.kissing_reactions.set_bool(bool(scene["kissing_previous"]))
 
 
 func run() -> void:
@@ -265,13 +269,13 @@ func _check_live_toggle() -> void:
 	var excitement: Variant = scene["excitement"]
 	service.begin()
 	check(service.active_ids().has("kissing"), "the provider starts before the edit")
-	facts.features = {"kissing_reactions": false}
+	SETTINGS.kissing_reactions.set_bool(false)
 	service.apply_live_settings()
 	check(service.active_ids().is_empty(), "turning the flag off stops the provider live")
 	check(not beat.paused, "turning the flag off releases the beat")
 	check(facts.beat_holders.is_empty(), "turning the flag off drops the provider hold")
 	check(near(excitement._until, 1.25, 0.00001), "turning the flag off restores the cause")
-	facts.features = {"kissing_reactions": true}
+	SETTINGS.kissing_reactions.set_bool(true)
 	service.apply_live_settings()
 	check(service.active_ids().has("kissing"), "turning the flag on starts the provider live")
 	check(beat.paused, "turning the flag on takes the shared hold")
@@ -293,7 +297,7 @@ func _check_two_owners() -> void:
 	service.begin()
 	check(facts.beat_holders.has("kissing"), "the provider takes its hold")
 	facts.hold_beat("kiss")
-	facts.features = {"kissing_reactions": false}
+	SETTINGS.kissing_reactions.set_bool(false)
 	service.apply_live_settings()
 	check(beat.paused, "releasing the provider hold keeps the Beat held by the kiss")
 	check(facts.beat_holders.has("kiss"), "the kiss owner remains")
@@ -302,7 +306,7 @@ func _check_two_owners() -> void:
 	check(facts.beat_holders.is_empty(), "no owner remains")
 	service.reset()
 	beat.paused = true
-	facts.features = {"kissing_reactions": true}
+	SETTINGS.kissing_reactions.set_bool(true)
 	service.begin()
 	check(beat.paused, "a pre-paused Beat stays paused while held")
 	service.reset()
@@ -338,7 +342,7 @@ func _check_climax_fidgets() -> void:
 	facts.state = 3
 	facts.mood = "climax"
 	facts.satisfaction = 100.0
-	facts.features = {"kissing_reactions": true}
+	SETTINGS.kissing_reactions.set_bool(true)
 	service.begin()
 	service.tick(0.1)
 	check(int(fidgets._root) == 7, "the climax restores the root sway")
@@ -442,8 +446,6 @@ func _free_runtime_beat(scene: Dictionary) -> void:
 func _check_world_only() -> void:
 	var scene := _setup()
 	var facts: FakeFacts = scene["facts"]
-	facts.features = {"kissing_reactions": true, "pantyhose_undress": true,
-		"pantyhose_bulge": true}
 	facts.mods_active = {"pantyhose": true}
 	var service := ADAPTER.new(facts)
 	service.begin()

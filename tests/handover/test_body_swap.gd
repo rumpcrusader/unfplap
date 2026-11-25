@@ -470,7 +470,6 @@ func _fixture() -> Dictionary:
 	runtime.act.event_id = "intimacy_test_mare_1"
 	runtime.act.serial = 1
 	runtime.act.preferences = SETTINGS.preferences("test_mare").raw()
-	runtime.act.features = {}
 	runtime.act.context.handover.set_form_hint_debug(true)
 	WORLD.bind_world(host)
 	roster.factory = func(_pony_node: Node) -> Node: return runtime

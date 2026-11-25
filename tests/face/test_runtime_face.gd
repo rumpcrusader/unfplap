@@ -7,6 +7,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const FACE := preload("res://mods/unfplap/face/api.gd")
 const SUMMARY := preload("res://mods/unfplap/summary/api.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 
 
 class FakeExpressions extends Node:
@@ -94,7 +95,6 @@ func _fixture() -> Dictionary:
 	pony.expressions = expressions
 	root.add_child(pony)
 	runtime.pony = pony
-	runtime.act.features = {}
 	runtime.act.preferences = {"tolerance": "normal", "intensity": "firm",
 		"pattern": "steady", "touch": [], "talk": []}
 	runtime.act.climax_mode = "auto"
@@ -104,6 +104,8 @@ func _fixture() -> Dictionary:
 
 
 func run() -> void:
+	var previous_face_debug := SETTINGS.face_debug.get_bool()
+	SETTINGS.face_debug.set_bool(false)
 	var f := _fixture()
 	var runtime: Node = f["runtime"]
 	var pony: Node3D = f["pony"]
@@ -228,6 +230,7 @@ func run() -> void:
 
 	pony.free()
 	runtime.free()
+	SETTINGS.face_debug.set_bool(previous_face_debug)
 	if failures == 0:
 		print("RUNTIME_FACE_PASS")
 	finish()

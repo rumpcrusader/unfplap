@@ -33,7 +33,6 @@ var last_talk := ""
 var thrust_pace := 0.0
 var cue_override := false
 var preferences: Dictionary = {}
-var features: Dictionary = {}
 
 # Size and camera values.
 var size_name := ""
@@ -270,7 +269,3 @@ func call_value(callback: Callable, fallback: Variant = null) -> Variant:
 
 func missionary_body() -> Variant:
 	return missionary_anon.call() if missionary_anon.is_valid() else null
-
-
-func feature(name: String, fallback := true) -> bool:
-	return bool(features.get(name, fallback))

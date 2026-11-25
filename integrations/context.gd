@@ -19,15 +19,8 @@ var afterglow := false
 var affection_kind := ""
 ## Whether the external mod is active now.
 var mod_active := false
-## The runtime's per-act feature snapshot.
-var features: Dictionary = {}
 ## Binding id -> whether the binding currently resolves to a live node.
 var bindings: Dictionary = {}
-
-
-## A feature flag from the act snapshot; unknown flags read as `fallback`.
-func feature(name: String, fallback := false) -> bool:
-	return bool(features.get(name, fallback))
 
 
 ## Whether a provider binding currently exists.

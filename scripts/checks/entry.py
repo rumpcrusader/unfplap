@@ -51,6 +51,7 @@ ACT_SETTINGS_READS = {
     ("<module>", "ActSnapshot"): "the typed `snapshot` field's zeroed default",
     ("snapshot_values", "act_snapshot"): "the act's one bulk snapshot",
     ("live_preferences", "preferences"): "the live preference refresh",
+    ("debug_face", "face_debug"): "the debug face flag",
 }
 # The Pony services the runtime composes into its own tree: one row per child, and the comparison
 # runs both ways, so a new child and a dead row both fail. Only the composition function may call

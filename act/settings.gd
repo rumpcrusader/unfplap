@@ -48,7 +48,7 @@ func snapshot_values(group: String, family: String) -> void:
 
 
 func debug_face() -> bool:
-	return bool(features.get("face_debug", false))
+	return SETTINGS.face_debug.get_bool()
 
 
 ## The act's live body is released; the one resume re-reads the snapshot and rebuilds the

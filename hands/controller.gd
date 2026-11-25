@@ -3,6 +3,7 @@ extends "res://mods/unfplap/hands/port.gd"
 
 const POSES := preload("res://mods/unfplap/poses/api.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const POSE_VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
@@ -193,7 +194,7 @@ func frozen() -> bool:
 
 
 func debug() -> bool:
-	return facts != null and facts.feature("caress_debug", false)
+	return facts != null and SETTINGS.caress_debug.get_bool()
 
 
 func smack_owns(side: MODEL.Side) -> bool:

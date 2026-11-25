@@ -196,9 +196,6 @@ func render(delta: float) -> void:
 func clock_s() -> float:
 	return _clock_s
 
-func feature(name: String) -> bool:
-	return bool(features.get(name, false))
-
 func start_row() -> Dictionary:
 	return POSE_SPECS.spec(pose_id)
 
@@ -462,7 +459,7 @@ func reload_pose_asset() -> String:
 
 ## The debug face preview. A speaking line still wins.
 func force_act_face(face: String) -> bool:
-	context.face.sync_settings(feature("face_debug"))
+	context.face.sync_settings(SETTINGS.face_debug.get_bool())
 	return context.face.force_face(face)
 
 

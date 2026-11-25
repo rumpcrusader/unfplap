@@ -53,7 +53,6 @@ func refresh(facts: ACT_FACTS, session: ACT_SESSION) -> void:
 	facts.pony_id = session.pony_id
 	facts.display_name = session.display_name
 	facts.preferences = session.preferences
-	facts.features = session.features
 	facts.player_pony = session.player_pony
 	facts.bed = session.bed
 	facts.presentation_config = session.presentation_config
@@ -118,7 +117,6 @@ func refresh(facts: ACT_FACTS, session: ACT_SESSION) -> void:
 ## just before the card updates, so the card reads fields instead of calling back.
 func sync_hud(facts: ACT_FACTS, session: ACT_SESSION, max_climaxes: int,
 		cycle_heat: bool, pose_family: String) -> void:
-	var features: Dictionary = session.features if session.features is Dictionary else {}
 	var summary: Dictionary = {}
 	if session.act_score != null:
 		summary = session.act_score.outcome
@@ -129,8 +127,8 @@ func sync_hud(facts: ACT_FACTS, session: ACT_SESSION, max_climaxes: int,
 	facts.summary_hud = str(summary.get("hud", ""))
 	facts.cycle_heat = cycle_heat
 	facts.close_earned = bool(afterglow.close_caress_earned) if afterglow != null else false
-	facts.hud_readouts = bool(features.get("hud_readouts", false))
-	facts.hud_controls = bool(features.get("act_controls", false))
+	facts.hud_readouts = SETTINGS.hud_readouts.get_bool()
+	facts.hud_controls = SETTINGS.act_controls.get_bool()
 	facts.hole_ready = bool(anatomy.can_target_vulva()) if anatomy != null else false
 	facts.oral_ready = bool(anatomy.can_target_mouth()) if anatomy != null else false
 	var auto: Variant = context.auto.readout() if context.auto != null else null
@@ -196,14 +194,14 @@ func _face_values(session: ACT_SESSION) -> FACE.ActValues:
 	values.tolerance = str(session.preferences.get("tolerance", "normal"))
 	values.climax_mode = session.climax_mode
 	values.summary = BEAT.Summary.from_dict(outcome)
-	values.blush_arc = session.feature("blush_arc")
+	values.blush_arc = SETTINGS.blush_arc.get_bool()
 	return values
 
 
 func face_beat(moment: String, session: ACT_SESSION) -> void:
 	context.face.ensure_bound(host.pony, host.node)
 	context.face.act_beat_for(moment, _face_values(session),
-		session.settings.debug_face())
+		SETTINGS.face_debug.get_bool())
 
 
 func face_rows(session: ACT_SESSION) -> Array[String]:

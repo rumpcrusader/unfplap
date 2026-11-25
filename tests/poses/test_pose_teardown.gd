@@ -88,12 +88,20 @@ func _fixture(pose: String, features: Dictionary, body_tail := false) -> Diction
 	facts.pony = pony
 	facts.pony_id = "twilight_sparkle"
 	facts.bed = bed
-	facts.features = features
 	facts.state = 2
+	var previous := {
+		"missionary_body_motion": SETTINGS.missionary_body_motion.get_bool(),
+		"standing_body_sway": SETTINGS.standing_body_sway.get_bool(),
+		"thrust_ear_twitch": SETTINGS.thrust_ear_twitch.get_bool(),
+	}
+	SETTINGS.missionary_body_motion.set_bool(bool(features.get("missionary_body_motion", false)))
+	SETTINGS.standing_body_sway.set_bool(bool(features.get("standing_body_sway", false)))
+	SETTINGS.thrust_ear_twitch.set_bool(bool(features.get("thrust_ear_twitch", false)))
 	var session: SESSION = SESSION.new(facts)
 	check(session.begin_act(_start({"pose_id": pose})),
 		"the %s pose begins" % pose)
-	return {"session": session, "pony": pony, "body": body, "hair": hair, "bed": bed}
+	return {"session": session, "pony": pony, "body": body, "hair": hair, "bed": bed,
+		"settings": previous}
 
 
 ## The staged teardown after the assertions: the leave steps are idempotent, so a fixture that
@@ -114,6 +122,10 @@ func _free_fixture(made: Dictionary) -> void:
 	root.remove_child(pony)
 	pony.free()
 	session.free()
+	var previous: Dictionary = made.get("settings", {})
+	SETTINGS.missionary_body_motion.set_bool(bool(previous.get("missionary_body_motion", true)))
+	SETTINGS.standing_body_sway.set_bool(bool(previous.get("standing_body_sway", true)))
+	SETTINGS.thrust_ear_twitch.set_bool(bool(previous.get("thrust_ear_twitch", true)))
 
 
 ## The pose-start step clears the rig cache, the tail lay and the bed frame; the pose node, the
@@ -170,8 +182,8 @@ func _check_missionary_scope() -> void:
 	check(session._pose_node == null and pose_node.get_parent() == null
 		and pose_node.is_queued_for_deletion(),
 		"the final release frees the pose node")
-	check(session.view().id == "" and bool(session._facts.features.get("missionary_body_motion", false)),
-		"the final release clears the view identity and leaves the facts' features")
+	check(session.view().id == "" and SETTINGS.missionary_body_motion.get_bool(),
+		"the final release clears the view identity and leaves the feature setting alone")
 	check(session._pose_config.is_empty() and config.is_empty(),
 		"the final release clears the live config")
 	check(session._space._bed_frame == null and not session._started,

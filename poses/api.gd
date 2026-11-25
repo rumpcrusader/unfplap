@@ -270,8 +270,8 @@ var _saved_hair: Array[Transform3D] = []
 var _saved_skeleton: Skeleton3D
 var _saved_hair_skeleton: Skeleton3D
 
-## The act context the session reads for the pony, its id, the bed, the features and the live
-## presentation. The runtime builds it before the session.
+## The act context the session reads for the pony, its id, the bed and the live presentation. The
+## runtime builds it before the session.
 var _facts: ACT_FACTS = null
 
 
@@ -484,8 +484,7 @@ func request_pose(target_id: String, trigger: String, consent := "") -> PoseResu
 	var act_state := _facts.state if _facts != null else 0
 	var forms := _request_forms()
 	var views := _request_views()
-	var features := _facts_features()
-	var checks := _request_checks(target_spec, edge, consent, forms, views, features)
+	var checks := _request_checks(target_spec, edge, consent, forms, views)
 	var code := POSE_STATE.request_code(_state, act_state, from_id, target_id,
 		edge != null, checks)
 	if code != "ok":
@@ -559,17 +558,10 @@ func _headset_view() -> bool:
 	return _facts != null and bool(_facts.headset_view)
 
 
-func _facts_features() -> Dictionary:
-	if _facts == null:
-		return {}
-	var value: Variant = _facts.features
-	return value as Dictionary if value is Dictionary else {}
-
-
 ## The target spec and the edge requirements against the request record, in the order
 ## `pose_state.request_code()` reports them. A missing flag passes.
 func _request_checks(target_spec: POSE_SPEC, edge: TRANSITION_SPEC, consent: String,
-		forms: Array[String], views: Array[String], features: Dictionary) -> Dictionary:
+		forms: Array[String], views: Array[String]) -> Dictionary:
 	var requires: Dictionary = {}
 	if edge != null:
 		requires = edge.requires
@@ -592,7 +584,7 @@ func _request_checks(target_spec: POSE_SPEC, edge: TRANSITION_SPEC, consent: Str
 	var wanted_features: Variant = requires.get("features", [])
 	if wanted_features is Array:
 		for name_value: Variant in wanted_features as Array:
-			if not bool(features.get(str(name_value), false)):
+			if not _feature(str(name_value)):
 				features_ok = false
 				break
 	var wanted_consent := str(requires.get("consent", ""))
@@ -1122,5 +1114,16 @@ func aim_look(point: Vector3, climaxing: bool) -> void:
 	_pose_node.climaxing = climaxing
 
 
+## The feature names the pose data may require, and no others. A `requires.features` row names one
+## of these; an unknown name fails closed instead of inventing a setting read.
 func _feature(name: String) -> bool:
-	return bool(_facts.features.get(name, false)) if _facts != null else false
+	match name:
+		"anatomy_oral":
+			return SETTINGS.anatomy_oral.get_bool()
+		"missionary_body_motion":
+			return SETTINGS.missionary_body_motion.get_bool()
+		"standing_body_sway":
+			return SETTINGS.standing_body_sway.get_bool()
+		"thrust_ear_twitch":
+			return SETTINGS.thrust_ear_twitch.get_bool()
+	return false

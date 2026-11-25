@@ -9,6 +9,7 @@ const POSE_SESSION := preload("res://mods/unfplap/poses/api.gd")
 const PERF := preload("res://mods/unfplap/shared/perf.gd")
 const ACT_FACE := preload("res://mods/unfplap/shared/act_face.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 
 var host: ACT_HOST = null
 var context: ACT_CONTEXT = null
@@ -34,7 +35,7 @@ func presentation(delta: float) -> void:
 		context.camera.aim_eyes()
 	var satisfaction := context.readiness.readout().satisfaction
 	WORLD.face(host.pony).sustain_blush(ACT_FACE.blush_for(ACT_FACE.phase_for(session.state),
-		satisfaction, session.feature("blush_arc")))
+		satisfaction, SETTINGS.blush_arc.get_bool()))
 	PERF.begin("wings_tick")
 	context.wings.tick(delta, str(context.pose.view().family), satisfaction,
 		session.act_seconds())

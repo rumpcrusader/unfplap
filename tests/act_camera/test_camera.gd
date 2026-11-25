@@ -6,6 +6,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const GAME := preload("res://mods/unfplap/world/game.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const CAMERA := preload("res://mods/unfplap/camera/api.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 const BODY_PROFILE := preload("res://mods/unfplap/shared/body_profile.gd")
@@ -217,7 +218,8 @@ func _fixture() -> Dictionary:
 	var facts: RefCounted = FACTS.new()
 	facts.player_pony = false
 	facts.state = STATE_ACTIVE
-	facts.features = {"idle_camera_sway": false}
+	var sway_previous := SETTINGS.idle_camera_sway.get_bool()
+	SETTINGS.idle_camera_sway.set_bool(false)
 	_pose(facts, "bed")
 	var camera: CAMERA = CAMERA.new()
 	var hands := FakeHands.new()
@@ -225,7 +227,7 @@ func _fixture() -> Dictionary:
 	camera.wire(facts, hands, view)
 	return {
 		"camera": camera, "facts": facts, "main": main, "player": player,
-		"hands": hands, "view": view, "game": game,
+		"hands": hands, "view": view, "game": game, "sway_previous": sway_previous,
 	}
 
 
@@ -244,6 +246,7 @@ func _free_fixture(made: Dictionary) -> void:
 	player.free()
 	(main.view as Camera3D).free()
 	main.free()
+	SETTINGS.idle_camera_sway.set_bool(bool(made.get("sway_previous", true)))
 
 
 ## Fill the pose read model the camera reads instead of the old raw facts.
@@ -507,7 +510,6 @@ func _eye_fixture() -> Dictionary:
 	var facts: RefCounted = FACTS.new()
 	facts.player_pony = false
 	facts.state = STATE_ACTIVE
-	facts.features = {}
 	facts.pony = pony
 	facts.viewport = root
 	facts.head_clearance = 0.0

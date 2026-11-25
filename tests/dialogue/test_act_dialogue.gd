@@ -4,6 +4,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/dialogue/test_act_dialogue.gd
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const DIALOGUE := preload("res://mods/unfplap/dialogue/api.gd")
 const FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
@@ -101,6 +102,8 @@ func _mods() -> FakeMods:
 
 
 func run() -> void:
+	var previous_speech_feel := SETTINGS.act_speech_feel.get_bool()
+	SETTINGS.act_speech_feel.set_bool(false)
 	var facts := FACTS.new()
 	var main := FakeMain.new()
 	WORLD.bind_world(main.game)
@@ -131,9 +134,6 @@ func run() -> void:
 	facts.preferences = {
 		"intensity": "soft", "pattern": "steady",
 		"touch": [], "dislikes": [], "talk": [],
-	}
-	facts.features = {
-		"act_speech_feel": false,
 	}
 	facts.director = Callable(host, "get_director")
 	facts.now = Callable(host, "clock_now")
@@ -298,6 +298,7 @@ func run() -> void:
 	main.game.free()
 	main.free()
 	pony.free()
+	SETTINGS.act_speech_feel.set_bool(previous_speech_feel)
 	if failures == 0:
 		print("ACT_DIALOGUE_PASS")
 	finish()

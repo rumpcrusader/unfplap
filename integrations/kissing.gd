@@ -7,8 +7,8 @@ extends "res://mods/unfplap/integrations/provider.gd"
 
 const ACTION := preload("res://mods/unfplap/integrations/action.gd")
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 
-const FEATURE := "kissing_reactions"
 const REQUIRED := ["feelings", "excitement", "beat"]
 
 ## The act's "she is close" cue, matching dialogue/utterance_scheduler.gd `CLOSE_AT`.
@@ -45,9 +45,7 @@ func holds_excitement() -> bool:
 
 
 func available(context: RefCounted) -> bool:
-	var features: Variant = context.get("features")
-	if not (features is Dictionary) \
-			or not bool((features as Dictionary).get(FEATURE, false)):
+	if not SETTINGS.kissing_reactions.get_bool():
 		return false
 	var bindings: Variant = context.get("bindings")
 	if not (bindings is Dictionary):

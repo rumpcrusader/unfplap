@@ -227,9 +227,7 @@ func _check_begin() -> void:
 	session.begin_act(_start({
 		"pose_id": CATALOG.MISSIONARY,
 		"id": "twilight_sparkle",
-		"features": {},
 		"bed": null,
-		"presentation": {},
 		"pose_config": {},
 		"look_point": Vector3.ZERO,
 		"camera_position": Vector3.INF,
@@ -264,9 +262,7 @@ func _check_begin() -> void:
 	check(not session.begin_act(_start({
 		"pose_id": CATALOG.MISSIONARY,
 		"id": "twilight_sparkle",
-		"features": {},
 		"bed": null,
-		"presentation": {},
 		"pose_config": {},
 		"look_point": Vector3.ZERO,
 		"camera_position": Vector3.INF,
@@ -284,7 +280,6 @@ func _check_begin() -> void:
 	check(session._pose_node == null, "a second pose release is a no-op")
 	check(session._pony_id() == "twilight_sparkle",
 		"the release leaves the act identity to the facts")
-	check(session._facts.features.is_empty(), "the release leaves the features to the facts")
 	check(session._pose_config.is_empty(), "the pose release clears the live config")
 	check(session._space._bed_frame == null, "the pose-start leave clears the bed frame")
 	check(session.view().id == "" and session.view().pose_state == VIEW.IDLE,
@@ -306,9 +301,7 @@ func _check_begin_refused() -> void:
 	check(not session.begin_act(_start({
 		"pose_id": CATALOG.MISSIONARY,
 		"id": "twilight_sparkle",
-		"features": {},
 		"bed": null,
-		"presentation": {},
 	})), "a pony without a body skeleton is refused")
 	check(not session._started and session._pose_node == null and session._mods._tail_lay == null,
 		"a refused begin installs nothing")
@@ -608,9 +601,7 @@ func _live_session(pose: String) -> Dictionary:
 	check(session.begin_act(_start({
 		"pose_id": pose,
 		"id": "twilight_sparkle",
-		"features": {},
 		"bed": null,
-		"presentation": {},
 		"pose_config": {},
 		"look_point": Vector3.ZERO,
 		"camera_position": Vector3.INF,
@@ -766,6 +757,7 @@ func _check_state_machine() -> void:
 ## The standing oral pair: the forward turn, the contact switch at 0.9, the control lock, the
 ## speech/viseme events, the settled delta, the afterglow contact release and the reverse restore.
 func _check_oral_edge() -> void:
+	var previous_oral := SETTINGS.anatomy_oral.get_bool()
 	var made := _live_session(CATALOG.STANDING)
 	var session: SESSION = made["session"]
 	var pony: FakePony = made["pony"]
@@ -781,7 +773,7 @@ func _check_oral_edge() -> void:
 	var from: Vector3 = pony.global_position
 	var from_basis: Basis = pony.global_transform.basis.orthonormalized()
 	var frame_start: Transform3D = session._space._ground_frame
-	session._facts.features = {"anatomy_oral": true}
+	SETTINGS.anatomy_oral.set_bool(true)
 	var forward: SESSION.PoseResult = session.request_pose(CATALOG.STANDING_ORAL, "oral", "oral")
 	check(forward.ok, "the oral forward request is accepted")
 	check(view.edge_id == "standing__standing_oral",
@@ -892,12 +884,12 @@ func _check_oral_edge() -> void:
 	refused._facts.anatomy_mouth = refused_pony.to_global(Vector3.UP)
 	refused._facts.anatomy_opening = Vector3(1.0, 0.0, 1.0)
 	var before: Vector3 = refused_pony.global_position
+	SETTINGS.anatomy_oral.set_bool(false)
 	for case: Dictionary in [
-		{"consent": "oral", "features": {}},
-		{"consent": "", "features": {"anatomy_oral": true}},
-		{"consent": "oral", "features": {}},
+		{"consent": "oral"},
+		{"consent": ""},
+		{"consent": "oral"},
 	]:
-		refused._facts.features = case["features"]
 		var result: SESSION.PoseResult = refused.request_pose(CATALOG.STANDING_ORAL, "oral",
 			str(case["consent"]))
 		check(result.code == "refused",
@@ -909,6 +901,7 @@ func _check_oral_edge() -> void:
 	check(refused._run == null and refused_view.contact_kind == "opening",
 		"a refused oral request starts no edge and keeps the opening contact")
 	_free_live(refused_made)
+	SETTINGS.anatomy_oral.set_bool(previous_oral)
 
 
 ## The bed face-sit pair: the forward edge from missionary, the contact switch starting the face
@@ -1085,7 +1078,6 @@ func _check_refusals() -> void:
 		var target := str(case[0])
 		_synthetic_spec(refused, target)
 		_synthetic_edge(refused, CATALOG.STANDING, target, case[1] as Dictionary)
-		refused._facts.features = {}
 		var result: SESSION.PoseResult = refused.request_pose(target, "test", str(case[2]))
 		check(result.code == "refused",
 			"the %s requirement refuses" % target)

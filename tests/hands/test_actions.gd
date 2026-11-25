@@ -508,7 +508,6 @@ func run() -> void:
 	live_runtime.act._set_state(2) # ACTIVE
 	live_runtime.act.pose_id = CATALOG.STANDING
 	live_runtime.act.apply_live_settings()
-	check(live_runtime.act.features.has("hud_readouts"), "live settings refresh feature flags")
 	check(live_runtime.act.context.camera.camera_surge >= 0.0 and live_runtime.act.context.camera.camera_surge <= 1.0,
 		"live settings refresh camera thrust")
 	live_runtime.free()
@@ -741,7 +740,6 @@ func run() -> void:
 	var plant_facts: RefCounted = ACT_FACTS.new()
 	plant_facts.pose_view = _standing_view()
 	plant_facts.free_camera_active = true
-	plant_facts.features = {}
 	plant_facts.pony = Node3D.new()
 	root.add_child(plant_facts.pony)
 	var plant_anon := STANDING_ANON.new(plant_facts)

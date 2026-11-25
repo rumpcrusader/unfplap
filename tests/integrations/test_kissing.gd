@@ -6,13 +6,14 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 const KISSING := preload("res://mods/unfplap/integrations/kissing.gd")
 const CONTEXT := preload("res://mods/unfplap/integrations/context.gd")
 const ACTION := preload("res://mods/unfplap/integrations/action.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 
 
 
 func _context(feature := true) -> RefCounted:
+	SETTINGS.kissing_reactions.set_bool(feature)
 	var context := CONTEXT.new()
 	context.state = 2
-	context.features = {"kissing_reactions": feature}
 	context.bindings = {
 		"feelings": true,
 		"excitement": true,
@@ -43,6 +44,7 @@ func _tick(policy: Variant, context: RefCounted, delta: float, count := 1) -> Ar
 
 
 func run() -> void:
+	var previous := SETTINGS.kissing_reactions.get_bool()
 	var policy := KISSING.new()
 	var context := _context()
 	check(policy.available(context), "Kissing runs when its required bindings exist")
@@ -173,4 +175,5 @@ func run() -> void:
 	check(_find(after, "fidgets", "_root").get("value") == -1,
 		"afterglow suppresses a climax's fidgets")
 
+	SETTINGS.kissing_reactions.set_bool(previous)
 	finish()

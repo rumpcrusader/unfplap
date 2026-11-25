@@ -12,6 +12,7 @@ const DIALOGUE := preload("res://mods/unfplap/dialogue/api.gd")
 const MEMORY := preload("res://mods/unfplap/memory/api.gd")
 const REST := preload("res://mods/unfplap/rest/control.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 const State := ACT_STATE.State
@@ -89,7 +90,7 @@ func warn(level: int, distress: float) -> void:
 	var cue := "She doesn't like that." if level <= 1 else "She is warning you."
 	context.readiness.cue(cue, 4.0)
 	context.face.ensure_bound(host.pony, host.node)
-	context.face.act_beat("warning", _face_context(), session.feature("face_debug"))
+	context.face.act_beat("warning", _face_context(), SETTINGS.face_debug.get_bool())
 	queue_warning(level)
 	LOG.debug("neglect warning=%d tier=%s distress=%.1f kind=%s", [
 		level, str(session.preferences.get("tolerance", "normal")),

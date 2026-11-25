@@ -6,6 +6,7 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 ##     --script res://mods/unfplap/tests/poses/test_modifier_profile.gd
 
 const SESSION := preload("res://mods/unfplap/poses/api.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const POSE_SPEC := preload("res://mods/unfplap/poses/pose_spec.gd")
@@ -48,6 +49,11 @@ func _start(raw: Dictionary) -> SESSION.PoseStart:
 
 
 func run() -> void:
+	var previous := {
+		"missionary_body_motion": SETTINGS.missionary_body_motion.get_bool(),
+		"standing_body_sway": SETTINGS.standing_body_sway.get_bool(),
+		"thrust_ear_twitch": SETTINGS.thrust_ear_twitch.get_bool(),
+	}
 	var pony := FakePony.new()
 	root.add_child(pony)
 	var body := Skeleton3D.new()
@@ -62,7 +68,9 @@ func run() -> void:
 	facts.pony = pony
 	facts.pony_id = "twilight_sparkle"
 	facts.bed = bed
-	facts.features = {"missionary_body_motion": true, "standing_body_sway": true}
+	SETTINGS.missionary_body_motion.set_bool(true)
+	SETTINGS.standing_body_sway.set_bool(true)
+	SETTINGS.thrust_ear_twitch.set_bool(false)
 	var session: SESSION = SESSION.new(facts)
 	check(session.begin_act(_start({"pose_id": CATALOG.MISSIONARY})),
 		"the missionary pose begins")
@@ -103,13 +111,13 @@ func run() -> void:
 	# session's `apply_live_settings()` path. A changed gate removes or installs its owner against
 	# the unchanged view, even on a shared keep.
 	_fill(view, CATALOG.STANDING, CATALOG.STANDING, CATALOG.STANDING, "standing", "standing")
-	facts.features = {"standing_body_sway": false}
+	SETTINGS.standing_body_sway.set_bool(false)
 	session.apply_live_settings()
 	check(session._mods._body_sway == null and sway.is_queued_for_deletion(),
 		"the live feature refresh removes the disabled owner")
-	check(not bool(session._facts.features.get("standing_body_sway", false)),
-		"the live feature refresh reads the facts' flags")
-	facts.features = {"standing_body_sway": true}
+	check(not SETTINGS.standing_body_sway.get_bool(),
+		"the live feature refresh reads the typed setting")
+	SETTINGS.standing_body_sway.set_bool(true)
 	session.apply_live_settings()
 	sway = session._mods._body_sway
 	check(sway != null and sway.get_parent() == body,
@@ -154,6 +162,9 @@ func run() -> void:
 	body.free()
 	hair.free()
 	session.free()
+	SETTINGS.missionary_body_motion.set_bool(previous["missionary_body_motion"])
+	SETTINGS.standing_body_sway.set_bool(previous["standing_body_sway"])
+	SETTINGS.thrust_ear_twitch.set_bool(previous["thrust_ear_twitch"])
 
 	if failures == 0:
 		print("MODIFIER_PROFILE_PASS")

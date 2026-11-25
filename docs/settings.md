@@ -23,8 +23,10 @@ mistyped name fails at parse time. A player-facing number clamps to its declared
 number is stored and returned verbatim, and its range only shapes the spin box. A choice or list
 validates its members instead of clamping, and a non-finite number falls back to the shipped
 default. One declaration, one shipped value and one typed read are the whole setting; a service
-carries no private default, no table copy and no cache. A bulk per-act block uses the act snapshot,
-and a service may read its typed handle at use, hot or cold.
+carries no private default, no table copy and no cache. A service reads its typed handle at use,
+hot or cold; there is no per-act settings snapshot and no per-service cache. The act's reaction,
+camera and dialogue configs are built once at the act start from the same typed handles because
+those services hold state; every feature, presentation and act value is read where it is used.
 
 ## Panels
 

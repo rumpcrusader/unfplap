@@ -10,6 +10,7 @@ const THRUST_STATE := preload("res://mods/unfplap/readiness/thrust_state.gd")
 const PREF := preload("res://mods/unfplap/shared/preferences.gd")
 const CYCLE := preload("res://mods/unfplap/shared/cycle.gd")
 const HUD_LINES := preload("res://mods/unfplap/hud/lines.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 
 ## One deepening move of a real thrust. It is shorter than the tracker's stroke timeout and longer
 ## than its bottom stall, so the hold scores no idle close of its own.
@@ -63,7 +64,7 @@ func _runtime() -> Node:
 		"talk": ["praise"],
 		"warmth": "normal",
 	})
-	runtime.act.snapshot_settings()
+	runtime.act.apply_start()
 	runtime.act._set_state(2) # ACTIVE
 	runtime.act.reset_thrust_state()
 	root.add_child(runtime)
@@ -72,6 +73,7 @@ func _runtime() -> Node:
 
 
 func run() -> void:
+	var previous_limit := SETTINGS.max_pony_climaxes.get_num()
 	var runtime: Node = _runtime()
 	var readiness: READINESS = runtime.act.context.readiness
 	# The act's own clocks still advance; the meter keeps its own tick, so the act never drives it.
@@ -164,21 +166,21 @@ func run() -> void:
 	runtime.act.finish_climax()
 	check(int(runtime.act.state) == 4, "third climax auto-enters AFTERGLOW")
 
-	runtime.act.max_pony_climaxes = 0
+	SETTINGS.max_pony_climaxes.set_num(0)
 	runtime.act._set_state(2)
 	_readout(runtime).climaxes = 5
 	check(HUD_LINES.cue_line_for(_view(runtime), true).begins_with("❤ 5/∞"),
 		"unlimited climax limit uses the infinity display")
 	runtime.act.finish_climax()
 	check(int(runtime.act.state) == 2, "zero climax limit keeps the act going")
-	runtime.act.max_pony_climaxes = 2
+	SETTINGS.max_pony_climaxes.set_num(2)
 	runtime.act._set_state(2)
 	_readout(runtime).climaxes = 2
 	check(HUD_LINES.cue_line_for(_view(runtime), true).begins_with("❤ 2/2"),
 		"configured climax limit shows the denominator")
 	runtime.act.finish_climax()
 	check(int(runtime.act.state) == 4, "configured climax limit enters AFTERGLOW")
-	runtime.act.max_pony_climaxes = 3
+	SETTINGS.max_pony_climaxes.set_num(3)
 
 	# Auto thrust feeds the same tracker and scores through it.
 	runtime.act._set_state(2)
@@ -227,6 +229,7 @@ func run() -> void:
 		check(near(float(impact.visual), 1.0), "a full fast stroke reaches full visual impact")
 		check(float(impact.jiggle) > 0.9, "a full stroke wobbles the flank")
 	runtime.free()
+	SETTINGS.max_pony_climaxes.set_num(previous_limit)
 
 	if failures == 0:
 		print("RUNTIME_THRUST_PASS")

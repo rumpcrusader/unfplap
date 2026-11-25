@@ -85,7 +85,6 @@ func run() -> void:
 	_check_characters()
 	_check_player_document()
 	_check_act_key()
-	_check_snapshot()
 	_check_placement()
 	_check_tail_seat()
 	_check_write_round_trip()
@@ -527,27 +526,6 @@ func _is_hex_color(value: String) -> bool:
 	return re.search(value) != null
 
 
-## The act snapshot carries the typed values the runtime reads per stroke or per frame.
-func _check_snapshot() -> void:
-	var snap := SETTINGS.act_snapshot("missionary")
-	check(near(snap.cue_override_seconds, SETTINGS.override_seconds.get_num()),
-		"the act snapshot carries the cue override lifetime")
-	check(snap.features is Dictionary and not snap.features.is_empty(),
-		"the act snapshot carries the feature flags")
-	check(snap.presentation.has("free_look"), "the act snapshot carries the pose presentation")
-	var standing := SETTINGS.act_snapshot("standing")
-	check(standing.presentation.has("chin_up_deg") and standing.presentation.has("neck_down_deg"),
-		"the standing group carries its presentation block")
-	check(SETTINGS.pose("", "standing_oral").raw().is_empty(),
-		"the internal oral pose has no settings block of its own")
-	check(SETTINGS.pose("", "bed_facesit").raw().is_empty(),
-		"the internal face-sit pose has no settings block of its own")
-	check(snap.climax_mode == SETTINGS.climax_mode.get_choice(),
-		"the act snapshot carries the climax face")
-	check(near(SETTINGS.palm_scale_for("canon"), SETTINGS.canon.get_num()),
-		"the palm scale resolves a size without a path read")
-
-
 ## Anatomy placement is one default block plus partial per-mare overrides.
 func _check_placement() -> void:
 	var base := SETTINGS.anatomy_placement_default("").raw()
@@ -811,6 +789,12 @@ func _check_groups() -> void:
 	var path_id := SETTINGS.by_name("path_id")
 	check(path_id != null and str(path_id.group) == "Missionary",
 		"the missionary caress path folds into the Missionary section")
+	check(SETTINGS.pose("", "standing_oral").raw().is_empty(),
+		"the internal oral pose has no settings block of its own")
+	check(SETTINGS.pose("", "bed_facesit").raw().is_empty(),
+		"the internal face-sit pose has no settings block of its own")
+	check(near(SETTINGS.palm_scale_for("canon"), SETTINGS.canon.get_num()),
+		"the palm scale resolves a size without a path read")
 
 
 ## Enable debug is the last player row of General: it governs the Debug block every section ends
@@ -1117,7 +1101,7 @@ func _check_migration_diff() -> void:
 ## A script constant resolves a built-in before a same-named static function, so an API name that
 ## exists on Script/GDScript would silently call the built-in instead of ours.
 func _check_api_names() -> void:
-	var names := ["all_settings", "by_name", "by_path", "tab_settings", "groups", "act_snapshot",
+	var names := ["all_settings", "by_name", "by_path", "tab_settings", "groups",
 		"get_value_at", "set_value_at", "default_at", "apply_live",
 		"on_changed", "off_changed", "notify", "listener_count",
 		"section_open", "set_section_open", "flag", "num", "choice", "list", "data", "defaults",

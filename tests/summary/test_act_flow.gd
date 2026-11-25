@@ -114,7 +114,7 @@ func run() -> void:
 	runtime.act.preferences = {"intensity": "firm", "pattern": "steady", "talk": ["praise"]}
 	runtime.act._set_state(4) # AFTERGLOW
 	runtime.act.pose_id = CATALOG.MISSIONARY
-	runtime.act.snapshot_settings()
+	runtime.act.apply_start()
 	runtime.act.context.readiness.readout().climaxes = 2
 	runtime.act.act_score = _verdict(good_outcome)
 	check(HUD_LINES.cue_line_for(_hud_view(runtime), true).contains("Great"),

@@ -26,7 +26,7 @@ var anatomy: ANATOMY = null
 ## The standing tail handle, null outside a standing act.
 var tail: POSES.PoseTail = null
 
-## Per-act configuration. `configure()` receives the runtime's act snapshot.
+## Per-act configuration. `configure()` receives the act's reaction tuning.
 var pose_family := ""
 var size_scale := 1.0
 var jiggle_radius_m: float
@@ -76,7 +76,7 @@ func bind_tail(tail_ctl: POSES.PoseTail) -> void:
 	tail = tail_ctl
 
 
-## Take the act's reaction tuning from the runtime's settings snapshot.
+## Take the act's reaction tuning.
 func configure(context: CONTEXT) -> void:
 	pose_family = context.pose_family
 	size_scale = context.size_scale

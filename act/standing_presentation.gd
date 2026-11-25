@@ -129,13 +129,10 @@ func _attach_present_pose() -> void:
 	_pose_cfg["foreleg"] = 0.0
 	_pose_cfg["foreleg_spread"] = 0.172
 	_pose_cfg["hind_spread"] = 0.0
-	var presentation_cfg: Dictionary = SETTINGS.act_snapshot(CATALOG.STANDING).presentation
-	_pose_cfg["chin_up_deg"] = float(presentation_cfg["chin_up_deg"])
-	_pose_cfg["neck_down_deg"] = float(presentation_cfg["neck_down_deg"])
-	var tail_cfg: Variant = presentation_cfg["tail"]
-	if tail_cfg is Dictionary:
-		_pose_cfg["tail_aside"] = deg_to_rad(float((tail_cfg as Dictionary)["yaw_deg"]))
-		_pose_cfg["tail_lift"] = deg_to_rad(float((tail_cfg as Dictionary)["pitch_deg"]))
+	_pose_cfg["chin_up_deg"] = SETTINGS.chin_up_deg.get_num()
+	_pose_cfg["neck_down_deg"] = SETTINGS.neck_down_deg.get_num()
+	_pose_cfg["tail_aside"] = deg_to_rad(SETTINGS.yaw_deg.get_num())
+	_pose_cfg["tail_lift"] = deg_to_rad(SETTINGS.tail_pitch_deg.get_num())
 	var skeleton: Variant = pony.get("skeleton")
 	if skeleton is Skeleton3D:
 		_present_pose = POSE.new()

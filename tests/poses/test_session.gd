@@ -168,27 +168,30 @@ func _session(pose: String) -> Dictionary:
 
 
 func _check_config() -> void:
+	var previous := {
+		"chin": SETTINGS.chin_up_deg.get_num(),
+		"neck": SETTINGS.neck_down_deg.get_num(),
+		"yaw": SETTINGS.yaw_deg.get_num(),
+		"pitch": SETTINGS.tail_pitch_deg.get_num(),
+	}
+	SETTINGS.chin_up_deg.set_num(40.0)
+	SETTINGS.neck_down_deg.set_num(20.0)
+	SETTINGS.yaw_deg.set_num(50.0)
+	SETTINGS.tail_pitch_deg.set_num(30.0)
 	var made := _session(CATALOG.STANDING)
 	var session: SESSION = made["session"]
 	var pony: FakePony = made["pony"]
-	var standing: Dictionary = session._config_for_group(CATALOG.STANDING, {
-		"chin_up_deg": 40.0,
-		"neck_down_deg": 20.0,
-		"tail": {"yaw_deg": 50.0, "pitch_deg": 30.0},
-	})
+	var standing: Dictionary = session._config_for_group(CATALOG.STANDING)
 	check(near(float(standing.get("chin_up_deg", 0.0)), 40.0),
-		"the presentation chin wins")
+		"the standing chin setting reaches the pose")
 	check(near(float(standing.get("neck_down_deg", 0.0)), 20.0),
-		"the presentation neck wins")
+		"the standing neck setting reaches the pose")
 	check(near(float(standing.get("tail_aside", 0.0)), deg_to_rad(50.0)),
-		"the presentation tail yaw reaches the pose")
+		"the standing tail yaw setting reaches the pose")
 	check(near(float(standing.get("tail_lift", 0.0)), deg_to_rad(30.0)),
-		"the presentation tail pitch reaches the pose")
+		"the standing tail pitch setting reaches the pose")
 	check(standing.has("gaps"), "the character pose overrides survive the fold")
-	var fallback: Dictionary = session._config_for_group(CATALOG.STANDING, {})
-	check(near(float(fallback.get("chin_up_deg", 0.0)),
-		float(SETTINGS.chin_up_deg.default)), "an empty presentation falls back to the defaults")
-	var missionary: Dictionary = session._config_for_group(CATALOG.MISSIONARY, {})
+	var missionary: Dictionary = session._config_for_group(CATALOG.MISSIONARY)
 	check(not missionary.has("chin_up_deg") and not missionary.has("tail_aside"),
 		"the missionary pose does not apply standing config")
 	check(missionary.has("nuzzle_scale"),
@@ -205,9 +208,12 @@ func _check_config() -> void:
 	session.apply_live_settings()
 	check(is_same(live, session._pose_config),
 		"the live settings edit keeps the live config object")
-	check(near(float(session._pose_config.get("chin_up_deg", 0.0)),
-		float(SETTINGS.chin_up_deg.default)),
-		"the live edit re-reads the presentation defaults")
+	check(near(float(session._pose_config.get("chin_up_deg", 0.0)), 40.0),
+		"the live edit re-reads the standing chin setting")
+	SETTINGS.chin_up_deg.set_num(float(previous["chin"]))
+	SETTINGS.neck_down_deg.set_num(float(previous["neck"]))
+	SETTINGS.yaw_deg.set_num(float(previous["yaw"]))
+	SETTINGS.tail_pitch_deg.set_num(float(previous["pitch"]))
 	session.release_pose()
 	body.free()
 	root.remove_child(pony)

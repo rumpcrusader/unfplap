@@ -233,9 +233,8 @@ var _run: POSE_STATE.Run = null
 var _from_id := ""
 var _target_id := ""
 var _target_spec: POSE_SPEC = null
-## The target's settings snapshot, by reference from the view's `to_config`.
+## The target's pose block, by reference from the view's `to_config`.
 var _target_config: Dictionary = {}
-var _target_presentation: Dictionary = {}
 ## The authored asset on each side of the live edge, or the live pose's asset outside one; the
 ## target side is cached at request and adopted on completion.
 var _from_asset: AUTHORED = null
@@ -503,8 +502,7 @@ func request_pose(target_id: String, trigger: String, consent := "") -> PoseResu
 	_target_id = target_id
 	_target_spec = target_spec
 	var group := str(target_spec.settings_group)
-	_target_presentation = SETTINGS.act_snapshot(group).presentation
-	_target_config = _config_for_group(group, _target_presentation)
+	_target_config = _config_for_group(group)
 	_target_asset = _assets.asset_for_spec(target_spec)
 	_from_asset = _assets.live_asset()
 	if _from_asset == null:
@@ -824,10 +822,7 @@ func apply_live_settings() -> void:
 		return
 	_sync_live_config()
 	if _target_spec != null:
-		var group := str(_target_spec.settings_group)
-		var presentation: Dictionary = SETTINGS.act_snapshot(group).presentation
-		_target_presentation = presentation
-		var fresh := _config_for_group(group, presentation)
+		var fresh := _config_for_group(str(_target_spec.settings_group))
 		_target_config.clear()
 		_target_config.merge(fresh, true)
 		_oral_turn.write_config(_view)
@@ -842,7 +837,6 @@ func _abort_target() -> void:
 	_target_id = ""
 	_target_spec = null
 	_target_config.clear()
-	_target_presentation.clear()
 	_target_asset = null
 
 
@@ -857,38 +851,28 @@ func _adopt_target_config() -> void:
 		_pose_node.pose_config = _pose_config
 
 
-## The pose block for a settings group plus that group's presentation values. Standing folds in the
-## presentation chin, neck and tail; other groups use the live settings block unchanged.
-func _config_for_group(group: String, presentation: Dictionary) -> Dictionary:
+## The pose block for a settings group. Standing folds in its typed chin, neck and tail settings;
+## other groups use the live settings block unchanged.
+func _config_for_group(group: String) -> Dictionary:
 	var config := SETTINGS.pose(_pony_id(), group).raw()
 	if group != CATALOG.STANDING:
 		return config
-	config["chin_up_deg"] = float(presentation.get("chin_up_deg",
-		SETTINGS.chin_up_deg.default))
-	config["neck_down_deg"] = float(presentation.get("neck_down_deg",
-		SETTINGS.neck_down_deg.default))
-	var tail_cfg: Variant = presentation.get("tail", {})
-	if not tail_cfg is Dictionary:
-		tail_cfg = {}
-	config["tail_aside"] = deg_to_rad(float((tail_cfg as Dictionary).get("yaw_deg",
-		SETTINGS.yaw_deg.default)))
-	config["tail_lift"] = deg_to_rad(float((tail_cfg as Dictionary).get("pitch_deg",
-		SETTINGS.tail_pitch_deg.default)))
+	config["chin_up_deg"] = SETTINGS.chin_up_deg.get_num()
+	config["neck_down_deg"] = SETTINGS.neck_down_deg.get_num()
+	config["tail_aside"] = deg_to_rad(SETTINGS.yaw_deg.get_num())
+	config["tail_lift"] = deg_to_rad(SETTINGS.tail_pitch_deg.get_num())
 	return config
 
 
-## Refresh the live config in place from the live view's settings group and presentation; it never
-## resets the authored asset the begin, request, completion, reload and release own.
+## Refresh the live config in place from the live view's settings group; it never resets the
+## authored asset the begin, request, completion, reload and release own.
 func _sync_live_config() -> bool:
 	var pony := _pony()
 	var group := str(_view.settings_group)
 	if group.is_empty() or not is_instance_valid(pony):
 		return false
-	var presentation: Dictionary = {}
-	if group == CATALOG.STANDING:
-		presentation = SETTINGS.act_snapshot(group).presentation
 	_pose_config.clear()
-	_pose_config.merge(_config_for_group(group, presentation), true)
+	_pose_config.merge(_config_for_group(group), true)
 	if is_instance_valid(_pose_node):
 		_pose_node.pose_config = _pose_config
 	if group == CATALOG.STANDING:

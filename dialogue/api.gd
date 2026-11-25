@@ -36,7 +36,7 @@ class ActValues extends RefCounted:
 	var form_borrowed := false
 
 
-## The seven cue-pacing values; the settings snapshot fills one per act and per live edit.
+## The seven cue-pacing values; the act start fills one.
 class Pacing extends RefCounted:
 	var base_stable := 0.0
 	var override_stable := 0.0

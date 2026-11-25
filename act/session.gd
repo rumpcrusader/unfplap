@@ -8,7 +8,6 @@ const AFTERGLOW_SUMMARY := preload("res://mods/unfplap/afterglow/summary.gd")
 const ACT_NODE := preload("res://mods/unfplap/act/host.gd")
 const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")
 const ACT_REPORT := preload("res://mods/unfplap/shared/act_report.gd")
-const ACT_SETTINGS := preload("res://mods/unfplap/act/settings.gd")
 const SUMMARY := preload("res://mods/unfplap/summary/api.gd")
 const ACT_METER := preload("res://mods/unfplap/shared/act_meter.gd")
 const POSE_SESSION := preload("res://mods/unfplap/poses/api.gd")
@@ -21,7 +20,6 @@ const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const MEMORY := preload("res://mods/unfplap/memory/api.gd")
 const STOOL := preload("res://mods/unfplap/stool/api.gd")
 const STOOL_ACT := preload("res://mods/unfplap/stool/act.gd")
-const SCENE_GATE := preload("res://mods/unfplap/scene_gate/api.gd")
 const CYCLE := preload("res://mods/unfplap/shared/cycle.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
 const ACT_COMMANDS := preload("res://mods/unfplap/shared/act_commands.gd")
@@ -29,7 +27,6 @@ const VR_ACT := preload("res://mods/unfplap/vr/act.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 const State := ACT_STATE.State
-const CLIMAX_SECONDS := ACT_SETTINGS.CLIMAX_SECONDS
 const POSE_IN_SECONDS := 0.6
 const RESTORE_SECONDS := 0.4
 const CHECK_SECONDS := 0.25
@@ -59,8 +56,6 @@ var ticker: Variant = null
 var exit: Variant = null
 ## The body-swap seams handle. The node's body binding and the suites read it.
 var swap: Variant = null
-## The act's settings snapshot and live apply, owned by `act/settings.gd`.
-var settings: ACT_SETTINGS = ACT_SETTINGS.new()
 ## The live act state, written only by the session itself.
 var state: int = State.IDLE
 var pose_id := ""
@@ -94,24 +89,6 @@ var act_score: SUMMARY.ActScore = null
 var cycle_heat := false
 ## The director turn the act has already read for the player's own words.
 var talk_turn := -1
-var snapshot: SETTINGS.ActSnapshot:
-	get:
-		return settings.snapshot
-var features: Dictionary:
-	get:
-		return settings.features
-	set(value):
-		settings.features = value
-var max_pony_climaxes: int:
-	get:
-		return settings.max_pony_climaxes
-	set(value):
-		settings.max_pony_climaxes = value
-var climax_mode: String:
-	get:
-		return settings.climax_mode
-	set(value):
-		settings.climax_mode = value
 var _pose_in_left := 0.0
 var _climax_left := 0.0
 var _restore_left := 0.0
@@ -135,7 +112,6 @@ var vr: Node = null
 func bind(host_in: ACT_NODE, context_in: ACT_CONTEXT) -> void:
 	host = host_in
 	context = context_in
-	settings.bind(host_in, context_in)
 
 
 ## Drop the composition's module references at runtime exit; the runtime calls it once, last.
@@ -171,7 +147,7 @@ func refresh_gate() -> void:
 		return
 	var pony_node: Node3D = host.pony if host != null and is_instance_valid(host.pony) else null
 	context.gate.bind_pony(pony_node)
-	context.gate.configure(state, pony_id, SCENE_GATE.Features.from_dict(features))
+	context.gate.configure(state, pony_id)
 
 func act_seconds() -> float:
 	return _act_seconds
@@ -197,11 +173,7 @@ func start_row() -> Dictionary:
 func start_family() -> String:
 	return str(start_row().get("family", ""))
 
-func start_group() -> String:
-	return str(start_row().get("settings_group", ""))
-
-## The pose's start values: its id and the two camera points. The id, bed and features come from
-## the facts; the size name and the block from settings.
+## The pose's start values: its id and the two camera points.
 func pose_start(pose: String, look: Vector3, camera_at: Vector3) -> POSE_SESSION.PoseStart:
 	var start := POSE_SESSION.PoseStart.new()
 	var target := pose if not pose.is_empty() else pose_id
@@ -243,7 +215,7 @@ func refresh_view() -> void:
 		view.refresh(context.facts, self)
 
 func sync_hud() -> void:
-	view.sync_hud(context.facts, self, max_pony_climaxes, cycle_heat, pose_family())
+	view.sync_hud(context.facts, self, climax_limit(), cycle_heat, pose_family())
 
 func stool() -> STOOL_ACT:
 	if not WORLD.ready() or not is_instance_valid(host.pony):
@@ -313,7 +285,7 @@ func consume_check_clock(delta: float) -> bool:
 	return true
 
 func refresh_climax_progress() -> void:
-	_climax_progress = clampf(1.0 - _climax_left / CLIMAX_SECONDS, 0.0, 1.0)
+	_climax_progress = clampf(1.0 - _climax_left / ACT_STATE.CLIMAX_SECONDS, 0.0, 1.0)
 
 func tick_timers(delta: float) -> int:
 	match state:
@@ -340,7 +312,7 @@ func begin_pose_in() -> void:
 
 func enter_climax() -> void:
 	_set_state(State.CLIMAX)
-	_climax_left = CLIMAX_SECONDS
+	_climax_left = ACT_STATE.CLIMAX_SECONDS
 	_climax_progress = 0.0
 
 func enter_afterglow() -> void:
@@ -361,9 +333,9 @@ func enter_active_act() -> void:
 	enter_active()
 	context.handover.dispatch_event(BODY_CHANGE_POLICY.ActEvent.ACTIVE)
 
-func snapshot_settings() -> void:
-	settings.snapshot_values(start_group(), start_family())
-	refresh_gate()
+## The act start's three stateful service configs: one construction, once per act and resume.
+func apply_start() -> void:
+	view.apply_start(self)
 
 func apply_live_settings() -> void:
 	view.apply_live(self)
@@ -787,7 +759,7 @@ func begin_afterglow() -> void:
 func climax() -> void:
 	if state != State.ACTIVE:
 		return
-	context.readiness.begin_climax(CLIMAX_SECONDS)
+	context.readiness.begin_climax(ACT_STATE.CLIMAX_SECONDS)
 	enter_climax()
 	context.handover.hint_tick()
 	context.reactions.schedule_hearts()
@@ -808,7 +780,8 @@ func climax() -> void:
 
 func finish_climax() -> void:
 	context.handover.dispatch_event(BODY_CHANGE_POLICY.ActEvent.CLIMAX_END)
-	if max_pony_climaxes > 0 and context.readiness.readout().climaxes >= max_pony_climaxes:
+	var limit := climax_limit()
+	if limit > 0 and context.readiness.readout().climaxes >= limit:
 		begin_afterglow()
 		return
 	enter_active()
@@ -902,11 +875,11 @@ func event_id_value() -> String:
 
 
 func climax_limit() -> int:
-	return max_pony_climaxes
+	return int(SETTINGS.max_pony_climaxes.get_num())
 
 
 func cue_reaction_max_age() -> float:
-	return snapshot.cue_reaction_max_age_s
+	return SETTINGS.reaction_max_age_seconds.get_num()
 
 
 func current_pose_id() -> String:
@@ -934,9 +907,9 @@ func rest_context() -> Dictionary:
 	}
 
 
-## The form handover's cue override uses the act's own duration, not a fresh settings read.
+## The form handover's cue override lifetime.
 func form_cue_override(text: String) -> void:
-	context.readiness.cue(text, snapshot.cue_override_seconds)
+	context.readiness.cue(text, SETTINGS.override_seconds.get_num())
 
 
 func form_set_face(smile: float) -> void:

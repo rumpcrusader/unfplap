@@ -177,7 +177,7 @@ func cancel() -> void:
 		# review or a next-time list.
 		if randf() >= 0.5:
 			var act_id := _session().event_id
-			var max_age := _session().snapshot.cue_reaction_max_age_s
+			var max_age := _session().cue_reaction_max_age()
 			var expires := _session().clock_s() + max_age
 			var valid := DIALOGUE.Validity.of(func() -> bool:
 				if not is_instance_valid(host.pony) or _session().event_id != act_id:

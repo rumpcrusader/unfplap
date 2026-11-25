@@ -466,7 +466,8 @@ func _fixture() -> Dictionary:
 	runtime.act.context.readiness.readout().depth = 0.42
 	runtime.act.context.readiness.readout().penetration_m = 0.11
 	runtime.act.context.readiness.readout().climaxes = 1
-	runtime.act.max_pony_climaxes = 3
+	var previous_limit := SETTINGS.max_pony_climaxes.get_num()
+	SETTINGS.max_pony_climaxes.set_num(3)
 	runtime.act.event_id = "intimacy_test_mare_1"
 	runtime.act.serial = 1
 	runtime.act.preferences = SETTINGS.preferences("test_mare").raw()
@@ -489,7 +490,8 @@ func _fixture() -> Dictionary:
 	# none, so the chain is the runtime and LOD links an idle or live act runs on.
 	body_change.call("wire", null, null, null, roster)
 	return {"host": host, "runtime": runtime, "old": old_pony, "source": source,
-		"body_change": body_change, "policy": policy, "world": world, "ponies": roster}
+		"body_change": body_change, "policy": policy, "world": world, "ponies": roster,
+		"limit_previous": previous_limit}
 
 
 func _free_fixture(made: Dictionary) -> void:
@@ -529,6 +531,7 @@ func _free_fixture(made: Dictionary) -> void:
 		owner.free()
 	# The roster queues the runtime; one frame lets the engine delete it and run its one exit.
 	await process_frame
+	SETTINGS.max_pony_climaxes.set_num(float(made.get("limit_previous", 3.0)))
 
 
 func run() -> void:
@@ -1054,7 +1057,7 @@ func _check_shape_offer() -> void:
 		"the offer context is the active stage")
 	check(int(policy.last_offer.get("pony_climaxes", -1)) == 1,
 		"the offer context carries the climax count")
-	check(int(policy.last_offer.get("max_climaxes", -1)) == runtime.act.max_pony_climaxes,
+	check(int(policy.last_offer.get("max_climaxes", -1)) == runtime.act.climax_limit(),
 		"the offer context carries the act's climax cap")
 	check(int(policy.last_offer.get("origin", -1)) == int(BODY_CHANGE.Origin.PROVIDER),
 		"the offer context is the provider's origin")

@@ -85,9 +85,12 @@ prefer delegation over inherited public methods.
 - Per-character blocks are owned by the domain service that understands them. The settings service
   owns the file and the generic block storage, not the consent, preference, participation or pose
   semantics.
-- A per-act service reads its typed settings handles at use, hot or cold. A bulk block uses
-  `SETTINGS.act_snapshot(group)`; there are no default copies, no private settings module and no
-  per-service cache. If a hot path regresses, improve the settings service.
+- A per-act service reads its typed settings handles at use, hot or cold. There is no bulk
+  act snapshot and no per-act cache: feature flags, presentation values and act values are
+  read where they are used. The act's reaction, camera and dialogue configs are built once at
+  the act start from the same typed handles because those services hold state. There are no
+  default copies, no private settings module and no per-service cache. If a hot path
+  regresses, improve the settings service.
 
 **No sentinel defaults.** A value the caller must supply has no initialiser: an empty id or a
 placeholder time that can reach storage or a comparison is a defect in the type, not a case in the

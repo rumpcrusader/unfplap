@@ -333,68 +333,13 @@ static func apply_live() -> void:
 	CHANGE.notify()
 
 
-## Nested dictionary of every value under a dotted prefix, e.g. `_block("features.")` for the
-## per-act snapshot. Private: `act_snapshot()` is the public bulk read.
-static func _block(prefix: String) -> Dictionary:
-	_ensure_flat()
-	var out: Dictionary = {}
-	for path: String in _by_path.keys():
-		if path.begins_with(prefix):
-			_write_path(out, path.substr(prefix.length()), _flat.get(path))
-	return out
-
-
-## The default block under a dotted prefix. Private to the migration and snapshot code.
+## The default block under a dotted prefix. Private to the migration code.
 static func _default_block(prefix: String) -> Dictionary:
 	var out: Dictionary = {}
 	for path: String in _by_path.keys():
 		if path.begins_with(prefix):
 			_write_path(out, path.substr(prefix.length()), (_by_path[path] as Setting).default)
 	return out
-
-
-# ---------------------------------------------------------------- per-act snapshot
-## The typed values an act reads on every stroke or frame. Dictionaries stay dictionaries for the
-## presentation modules that consume config dictionaries.
-class ActSnapshot:
-	var features: Dictionary
-	var max_pony_climaxes: int
-	var jiggle: Dictionary
-	var camera_thrust: Dictionary
-	var cue_override_seconds: float
-	var cue_base_stable_s: float
-	var cue_override_stable_s: float
-	var cue_utterance_gap_s: float
-	var cue_demand_gap_s: float
-	var cue_demand_repeat_s: float
-	var cue_max_age_s: float
-	var cue_reaction_max_age_s: float
-	var cue_release_hold_s: float
-	var cue_overwhelmed_s: float
-	var presentation: Dictionary
-	var climax_mode: String
-
-
-## Every act-tunable value in one typed snapshot. `pose_id` selects the presentation block.
-static func act_snapshot(pose_id: String) -> ActSnapshot:
-	var snap := ActSnapshot.new()
-	snap.features = _block("features.")
-	snap.max_pony_climaxes = int(max_pony_climaxes.get_num())
-	snap.jiggle = _block("jiggle.")
-	snap.camera_thrust = _block("camera_thrust.")
-	snap.cue_override_seconds = override_seconds.get_num()
-	snap.cue_base_stable_s = base_stable_seconds.get_num()
-	snap.cue_override_stable_s = override_stable_seconds.get_num()
-	snap.cue_utterance_gap_s = utterance_gap_seconds.get_num()
-	snap.cue_demand_gap_s = demand_gap_seconds.get_num()
-	snap.cue_demand_repeat_s = demand_repeat_seconds.get_num()
-	snap.cue_max_age_s = max_age_seconds.get_num()
-	snap.cue_reaction_max_age_s = reaction_max_age_seconds.get_num()
-	snap.cue_release_hold_s = release_hold_seconds.get_num()
-	snap.cue_overwhelmed_s = overwhelmed_seconds.get_num()
-	snap.presentation = _block("presentation." + pose_id + ".")
-	snap.climax_mode = climax_mode.get_choice()
-	return snap
 
 
 # ---------------------------------------------------------------- anatomy placement

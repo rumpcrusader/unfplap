@@ -301,8 +301,7 @@ func _compose() -> void:
 	facts.on_smack_hit = Callable(reactions, "smack")
 	facts.pose_host = Callable(_host, "runtime")
 	_gate.wire(_pose, _world.act_gate)
-	_gate.configure(_act.state, _act.pony_id,
-		SCENE_GATE.Features.from_dict(_act.features))
+	_gate.configure(_act.state, _act.pony_id)
 	_attach(_pose, "UnfplapPoses")
 	_attach(camera, "UnfplapCamera")
 	_attach(hands, "UnfplapHands")

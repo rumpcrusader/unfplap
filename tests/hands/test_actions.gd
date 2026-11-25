@@ -80,15 +80,22 @@ func _check_tail_tuning() -> void:
 	tail_runtime.act.pose_id = CATALOG.STANDING
 	tail_runtime.act.context.pose._view.settings_group = CATALOG.STANDING
 	var pose: Variant = tail_runtime.act.context.pose
-	var tuned: Dictionary = pose._config_for_group(CATALOG.STANDING,
-		{"tail": {"yaw_deg": 40.0, "pitch_deg": 10.0}})
+	var yaw_previous := SETTINGS.yaw_deg.get_num()
+	var pitch_previous := SETTINGS.tail_pitch_deg.get_num()
+	SETTINGS.yaw_deg.set_num(40.0)
+	SETTINGS.tail_pitch_deg.set_num(10.0)
+	var tuned: Dictionary = pose._config_for_group(CATALOG.STANDING)
 	check(near(float(tuned.get("tail_aside", 0.0)), deg_to_rad(40.0)),
 		"tail yaw tunable reaches the pose")
 	check(near(float(tuned.get("tail_lift", 0.0)), deg_to_rad(10.0)),
 		"tail pitch tunable reaches the pose")
-	var cfg: Dictionary = pose._config_for_group(CATALOG.STANDING, {})
+	SETTINGS.yaw_deg.set_num(35.0)
+	SETTINGS.tail_pitch_deg.set_num(25.0)
+	var cfg: Dictionary = pose._config_for_group(CATALOG.STANDING)
 	check(near(float(cfg.get("tail_aside", 0.0)), deg_to_rad(35.0)), "tail yaw default")
 	check(near(float(cfg.get("tail_lift", 0.0)), deg_to_rad(25.0)), "tail pitch default")
+	SETTINGS.yaw_deg.set_num(yaw_previous)
+	SETTINGS.tail_pitch_deg.set_num(pitch_previous)
 	tail_pony.free()
 	tail_runtime.free()
 

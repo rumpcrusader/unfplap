@@ -97,7 +97,6 @@ func _fixture() -> Dictionary:
 	runtime.pony = pony
 	runtime.act.preferences = {"tolerance": "normal", "intensity": "firm",
 		"pattern": "steady", "touch": [], "talk": []}
-	runtime.act.climax_mode = "auto"
 	runtime.act.first_time = true
 	runtime.act._set_state(2) # ACTIVE
 	return {"runtime": runtime, "pony": pony, "expressions": expressions}
@@ -105,7 +104,9 @@ func _fixture() -> Dictionary:
 
 func run() -> void:
 	var previous_face_debug := SETTINGS.face_debug.get_bool()
+	var previous_climax_mode := SETTINGS.climax_mode.get_choice()
 	SETTINGS.face_debug.set_bool(false)
+	SETTINGS.climax_mode.set_choice("auto")
 	var f := _fixture()
 	var runtime: Node = f["runtime"]
 	var pony: Node3D = f["pony"]
@@ -142,7 +143,7 @@ func run() -> void:
 	check(float(runtime.act.context.face.stare_release_until) > float(runtime.act.clock_s()),
 		"warm climax releases the stare")
 
-	runtime.act.climax_mode = "wide"
+	SETTINGS.climax_mode.set_choice("wide")
 	runtime.act.face_beat("climax")
 	check(expressions.dialogue_face == "", "forced wide climax clears the act face")
 
@@ -231,6 +232,7 @@ func run() -> void:
 	pony.free()
 	runtime.free()
 	SETTINGS.face_debug.set_bool(previous_face_debug)
+	SETTINGS.climax_mode.set_choice(previous_climax_mode)
 	if failures == 0:
 		print("RUNTIME_FACE_PASS")
 	finish()

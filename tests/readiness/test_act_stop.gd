@@ -211,7 +211,7 @@ func fixture(kind: String) -> Dictionary:
 		"talk": [], "touch": [], "dislikes": ["smack"]}
 	runtime.act._set_state(2) # ACTIVE
 	runtime.act.pose_id = "standing"
-	runtime.act.snapshot_settings()
+	runtime.act.apply_start()
 	runtime.act.context.readiness.readout().climaxes = 1
 	runtime.act._act_seconds = 90.0
 	runtime.act.context.readiness._act_thrusts = 10

@@ -44,15 +44,6 @@ RUNTIME_STATE_OWNER = ROOT / "act" / "session.gd"
 # and the reason it is a snapshot boundary rather than a per-frame read. A new read is a new row,
 # added on purpose with the service that owns the value; removing a read removes its row.
 RUNTIME_SETTINGS_READS = {}
-# The act session's settings owner holds the one snapshot, so its boundaries are checked the same
-# way: the bulk snapshot and the pre-edit preference refresh, never a per-frame read.
-ACT_SETTINGS_OWNER = ROOT / "act" / "settings.gd"
-ACT_SETTINGS_READS = {
-    ("<module>", "ActSnapshot"): "the typed `snapshot` field's zeroed default",
-    ("snapshot_values", "act_snapshot"): "the act's one bulk snapshot",
-    ("live_preferences", "preferences"): "the live preference refresh",
-    ("debug_face", "face_debug"): "the debug face flag",
-}
 # The Pony services the runtime composes into its own tree: one row per child, and the comparison
 # runs both ways, so a new child and a dead row both fail. Only the composition function may call
 # the attach helper; the other nodes the runtime needs are created by their owners.
@@ -295,27 +286,6 @@ def check_runtime_shape(failure: Failure) -> None:
         if key not in reads:
             failure.add("the runtime settings allow-list row %s -> %s is stale (%s)" % (
                 key[0], key[1], reason))
-
-    # The act's settings snapshot has the same boundary rule.
-    settings_path = ACT_SETTINGS_OWNER
-    if not settings_path.is_file():
-        failure.add("missing act/settings.gd: it owns the act's settings snapshot")
-    else:
-        settings_text = read_text(str(settings_path))
-        settings_offsets = function_offsets(settings_text)
-        settings_reads: dict[tuple[str, str], int] = {}
-        for match in re.finditer(r"SETTINGS\.(\w+)", settings_text):
-            key = (enclosing_function(settings_offsets, match.start()), match.group(1))
-            settings_reads.setdefault(key, line_of(settings_text, match.start()))
-        for key, line in sorted(settings_reads.items()):
-            if key not in ACT_SETTINGS_READS:
-                failure.add(
-                    "act/settings.gd:%d reads SETTINGS.%s in %s(); take a snapshot value or add "
-                    "an allow-list row only at an act boundary" % (line, key[1], key[0]))
-        for key, reason in sorted(ACT_SETTINGS_READS.items()):
-            if key not in settings_reads:
-                failure.add("the act settings allow-list row %s -> %s is stale (%s)" % (
-                    key[0], key[1], reason))
 
     # The runtime parents exactly the Pony service set, attached by `_attach()` from `_compose()`.
     for match in re.finditer(r"\badd_child\(", text):

@@ -1,5 +1,5 @@
 extends RefCounted
-## The act snapshot's reaction tuning; `configure()` reads one instance per act.
+## The act's reaction tuning; `configure()` reads one instance per act.
 
 var pose_family := ""
 var size_scale := 1.0
@@ -11,7 +11,7 @@ var jiggle_intensity := 0.0
 var jiggle_smack_intensity := 0.0
 
 
-## Read one act snapshot: the settings block plus the camera size and the act's climax length.
+## Read the act start's values: the settings block, the camera size and the act's climax length.
 func fill(block: Dictionary, family: String, size: float, climax: float) -> void:
 	pose_family = family
 	size_scale = size

@@ -12,6 +12,8 @@ const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 const FACE := preload("res://mods/unfplap/face/api.gd")
 const BEAT := preload("res://mods/unfplap/shared/face_beat.gd")
 const DIALOGUE := preload("res://mods/unfplap/dialogue/api.gd")
+const REACTIONS_CONTEXT := preload("res://mods/unfplap/reactions/context.gd")
+const CAMERA_CONFIG := preload("res://mods/unfplap/camera/config.gd")
 const SUMMARY := preload("res://mods/unfplap/summary/api.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const DEBUG_PONY := preload("res://mods/unfplap/debug_actions/pony.gd")
@@ -150,25 +152,65 @@ func close_hint(session: ACT_SESSION, pose_family: String) -> String:
 	return context.afterglow.hint()
 
 
+## The act start's three stateful service configs. Only these services hold state, so they are
+## built once per act and again on the body resume; every other value is read at its use site.
+func apply_start(session: ACT_SESSION) -> void:
+	var tuning := REACTIONS_CONTEXT.new()
+	tuning.fill({
+		"radius": SETTINGS.radius.get_num(),
+		"center_height_m": SETTINGS.center_height_m.get_num(),
+		"center_back_m": SETTINGS.center_back_m.get_num(),
+		"intensity": SETTINGS.intensity.get_num(),
+		"smack_intensity": SETTINGS.smack_intensity.get_num(),
+	}, session.start_family(), context.camera.jiggle_size_scale(), ACT_STATE.CLIMAX_SECONDS)
+	context.reactions.configure(tuning)
+	context.camera.configure(CAMERA_CONFIG.Config.from_dict({
+		"surge": SETTINGS.surge.get_num(),
+		"bob": SETTINGS.bob.get_num(),
+	}))
+	_apply_dialogue()
+
+
 func apply_live(session: ACT_SESSION) -> void:
-	var settings: Variant = session.settings
-	session.snapshot_settings()
-	if settings.suspended():
+	if context.handover != null and context.handover.suspended:
 		return
 	if session.state == State.IDLE:
 		refresh(context.facts, session)
-		settings.apply_idle_live()
+		context.presentation.apply_live_settings()
 		return
-	settings.apply_act_live_pre()
 	refresh(context.facts, session)
-	var live_preferences: Dictionary = settings.live_preferences(session.pony_id)
-	if not live_preferences.is_empty():
-		session.preferences = live_preferences
-	settings.apply_act_live(session.pose_family())
+	if not session.pony_id.is_empty():
+		var live_preferences: Dictionary = SETTINGS.preferences(session.pony_id).raw()
+		if not live_preferences.is_empty():
+			session.preferences = live_preferences
+	context.integrations.apply_live_settings()
+	context.reactions.apply_radius()
+	var family := session.pose_family()
+	if family == "standing":
+		context.kiss.refresh_rows()
+		context.presentation.apply_live_settings()
+	context.pose.apply_live_settings()
+	if family == "standing" and is_instance_valid(host.pony):
+		context.standing_anon.refresh_palm()
+	context.face.ensure_bound(host.pony, host.node)
+	context.face.sync_settings(SETTINGS.face_debug.get_bool())
 	if is_instance_valid(context.hud):
-		sync_hud(context.facts, session, settings.max_pony_climaxes, session.cycle_heat,
+		sync_hud(context.facts, session, session.climax_limit(), session.cycle_heat,
 			session.pose_family())
 		context.hud.update_from(context.facts)
+
+
+## The cue pacing the pure scheduler reads; built once at the act start and on each reset.
+func _apply_dialogue() -> void:
+	var pacing := DIALOGUE.Pacing.new()
+	pacing.base_stable = SETTINGS.base_stable_seconds.get_num()
+	pacing.override_stable = SETTINGS.override_stable_seconds.get_num()
+	pacing.utterance_gap = SETTINGS.utterance_gap_seconds.get_num()
+	pacing.demand_gap = SETTINGS.demand_gap_seconds.get_num()
+	pacing.demand_repeat = SETTINGS.demand_repeat_seconds.get_num()
+	pacing.max_age = SETTINGS.max_age_seconds.get_num()
+	pacing.release_hold = SETTINGS.release_hold_seconds.get_num()
+	context.dialogue.configure(pacing)
 
 
 func reset_act_state(session: ACT_SESSION) -> void:
@@ -177,7 +219,7 @@ func reset_act_state(session: ACT_SESSION) -> void:
 	context.facts.standing_sway_offset = Vector3.ZERO
 	context.afterglow.reset()
 	context.dialogue.reset(session.clock_s(), session.cue_gap)
-	session.settings.configure_dialogue()
+	_apply_dialogue()
 	session.clear_phase()
 
 
@@ -191,7 +233,7 @@ func _face_values(session: ACT_SESSION) -> FACE.ActValues:
 	values.event_id = session.event_id
 	values.first_time = session.first_time
 	values.tolerance = str(session.preferences.get("tolerance", "normal"))
-	values.climax_mode = session.climax_mode
+	values.climax_mode = SETTINGS.climax_mode.get_choice()
 	values.summary = BEAT.Summary.from_dict(outcome)
 	values.blush_arc = SETTINGS.blush_arc.get_bool()
 	return values
@@ -218,7 +260,7 @@ func camera_motion(session: ACT_SESSION) -> void:
 	if context.handover != null and context.handover.suspended:
 		return
 	refresh(context.facts, session)
-	sync_hud(context.facts, session, session.max_pony_climaxes, session.cycle_heat,
+	sync_hud(context.facts, session, session.climax_limit(), session.cycle_heat,
 		session.pose_family())
 	if context.camera.motion_ready():
 		context.camera.apply_motion()
@@ -248,7 +290,7 @@ func debug_context(session: ACT_SESSION) -> Dictionary:
 		"state": session.state,
 		"presenting": context.presentation.presentation_active(),
 		"cuddle": context.gate.cuddle_active(),
-		"max_pony_climaxes": session.max_pony_climaxes,
+		"max_pony_climaxes": session.climax_limit(),
 		"satisfaction": readout.satisfaction,
 		"pony_climaxes": readout.climaxes,
 		"last_intensity": readout.last_intensity,
@@ -268,7 +310,7 @@ func climax_line(session: ACT_SESSION) -> void:
 	var mouth_busy := live != null and str(live.contact_kind) == "mouth"
 	var readout := context.readiness.readout()
 	context.dialogue.climax_line(mouth_busy, readout.cue, session.event_id, readout.climaxes,
-		session.snapshot.cue_reaction_max_age_s)
+		session.cue_reaction_max_age())
 
 
 ## The one act snapshot the summary scores: her identity, the route that ended the act, the act's

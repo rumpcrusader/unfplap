@@ -127,11 +127,13 @@ mechanics — facade, typing, state and reach-in rules — are in `ARCHITECTURE.
   `const … := preload(...)` in the contiguous block directly below the doc header, in every `.gd`
   including `tests/` and `tools/`. A late or nested preload and a `load()` of a script are gate
   failures; a runtime asset `load(path)` stays allowed.
-- **Settings reads.** A service may read its typed handles at use, hot or cold; a bulk block uses
-  `SETTINGS.act_snapshot(group)`. No default copies, no private settings module, no per-service
-  cache; if a hot path regresses, improve the settings service. One declaration in
-  `settings/api.gd`, one shipped value in `settings/settings.json`, one typed read; the
-  framework is `docs/settings.md`.
+- **Settings reads.** A service reads its typed handles at use, hot or cold. There is no bulk
+  act snapshot and no per-act cache: feature flags, presentation values and act values are
+  read where they are used. The act's reaction, camera and dialogue configs are built once at
+  the act start from the same typed handles because those services hold state. No default
+  copies, no private settings module, no per-service cache; if a hot path regresses, improve
+  the settings service. One declaration in `settings/api.gd`, one shipped value in
+  `settings/settings.json`, one typed read; the framework is `docs/settings.md`.
 - **No game-file edits and no JSON merges.** Everything lives under `res://mods/unfplap/`.
 - **The cross-mod API is frozen.** `api.gd` and `docs/api.md` are edited only with the user's
   explicit approval; that approval starts the task and the edit follows the same-commit rule.

@@ -11,6 +11,9 @@ const STATE_CLIMAX := State.CLIMAX
 const STATE_AFTERGLOW := State.AFTERGLOW
 const STATE_RESTORE := State.RESTORE
 
+## The `CLIMAX` window the act timer, the reaction tuning and the face beat share.
+const CLIMAX_SECONDS := 5.0
+
 
 ## True while an act is live: from the start pose until the afterglow has ended.
 static func is_live(value: int) -> bool:

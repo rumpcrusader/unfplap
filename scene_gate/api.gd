@@ -22,7 +22,6 @@ var gate_service: ACT_GATE = null
 ## The act identity and state the rows read.
 var state := 0
 var id := ""
-var features: Features = null
 
 ## Host boundary. A missing callback is a no-op.
 var stool_need := Callable()
@@ -50,16 +49,6 @@ class RunningVerdict extends RefCounted:
 	func _init(ok_in: bool = true, reason_in: String = "") -> void:
 		ok = ok_in
 		reason = reason_in
-
-
-## The act's feature switches, held as the act's own live block.
-class Features extends RefCounted:
-	var flags: Dictionary = {}
-
-	static func from_dict(block: Dictionary) -> Features:
-		var out := Features.new()
-		out.flags = block
-		return out
 
 
 ## The merged start/offer answer: the policy snapshot, every row and the scene's own pass.
@@ -109,11 +98,10 @@ func bind_pony(pony_node: Node3D) -> void:
 	pony = pony_node
 
 
-## The runtime's live gate values. The act state, id and feature snapshot change per act.
-func configure(state_value: int, id_value: String, features_block: Features) -> void:
+## The runtime's live gate values. The act state and id change per act.
+func configure(state_value: int, id_value: String) -> void:
 	state = state_value
 	id = id_value
-	features = features_block
 
 
 ## The scene-only rows. They never enter the pure policy. `mode` is `start` or `offer`.

@@ -252,7 +252,7 @@ func _fixture() -> Dictionary:
 		"talk": ["praise"],
 		"warmth": "normal",
 	})
-	runtime.act.snapshot_settings()
+	runtime.act.apply_start()
 	runtime.act.context.reactions = reactions
 	runtime.act.context.wings = wings
 	runtime.act.context.pose = pose

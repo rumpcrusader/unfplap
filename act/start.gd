@@ -70,7 +70,7 @@ func run(pose: String, bed_in: Variant, act_source: String, skip_presentation :=
 	session.source = act_source
 	session.profile = SETTINGS.template_for(session.pony_id).raw()
 	session.preferences = SETTINGS.preferences(session.pony_id).raw()
-	session.snapshot_settings()
+	session.apply_start()
 	context.reactions.apply_radius()
 	session.aftercare_min = int(session.profile["aftercare_min"])
 	session.cue_gap = SETTINGS.cue_gap_value(float(session.profile["cue_gap"]))

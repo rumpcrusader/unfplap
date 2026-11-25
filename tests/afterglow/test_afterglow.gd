@@ -75,7 +75,7 @@ func _runtime(pose: String) -> Node:
 	runtime.act.pose_id = pose
 	runtime.act._set_state(4) # AFTERGLOW
 	runtime.act.preferences = PREF.resolve({})
-	runtime.act.snapshot_settings()
+	runtime.act.apply_start()
 	root.add_child(runtime)
 	return runtime
 

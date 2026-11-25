@@ -184,7 +184,7 @@ func prepare_anatomy_act() -> void:
 
 
 func apply_resume_settings() -> void:
-	session.snapshot_settings()
+	session.apply_start()
 
 
 func rebind_reactions() -> void:

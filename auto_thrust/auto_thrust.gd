@@ -25,7 +25,7 @@ const SHAPES := ["cosine", "thrust", "tease", "saw", "hold"]
 const MIN_BAND := 0.18
 
 var active := false
-## Thrusts per second. One cycle is one inward stroke. `reset()` sets it from the act snapshot.
+## Thrusts per second. One cycle is one inward stroke. `reset()` sets it from the act start.
 var pace: float
 ## Requested bottom and peak depth, 0..1 of the full tracker range. The stroke travels
 ## `max_depth - min_depth`, so the band must stay at least `MIN_BAND` wide.

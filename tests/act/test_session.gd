@@ -16,6 +16,7 @@ const HUD := preload("res://mods/unfplap/hud/api.gd")
 const READINESS := preload("res://mods/unfplap/readiness/api.gd")
 const SUMMARY := preload("res://mods/unfplap/summary/api.gd")
 const ACT_METER := preload("res://mods/unfplap/shared/act_meter.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const DIALOGUE := preload("res://mods/unfplap/dialogue/api.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
 const FAKE_GATE := preload("res://mods/unfplap/tests/support/fakes/fake_act_gate.gd")
@@ -196,16 +197,16 @@ func run() -> void:
 	# CLIMAX: the state, its whole timer and a zeroed progress.
 	session.enter_climax()
 	check(int(session.state) == State.CLIMAX, "enter_climax enters CLIMAX")
-	check(is_equal_approx(float(session._climax_left), SESSION.CLIMAX_SECONDS),
+	check(is_equal_approx(float(session._climax_left), ACT_STATE.CLIMAX_SECONDS),
 		"enter_climax arms the climax timer")
 	check(is_zero_approx(float(session._climax_progress)), "enter_climax clears the progress")
-	session.tick_timers(SESSION.CLIMAX_SECONDS * 0.5)
+	session.tick_timers(ACT_STATE.CLIMAX_SECONDS * 0.5)
 	session.refresh_climax_progress()
 	check(is_equal_approx(float(session._climax_progress), 0.5),
 		"the climax progress is one minus the remaining half")
 	check(is_equal_approx(session.climax_progress(), 0.5),
 		"the typed progress read is what the render frame passes to the camera")
-	check(int(session.tick_timers(SESSION.CLIMAX_SECONDS)) == SESSION.FINISH_CLIMAX,
+	check(int(session.tick_timers(ACT_STATE.CLIMAX_SECONDS)) == SESSION.FINISH_CLIMAX,
 		"the elapsed climax timer finishes the climax")
 	session.enter_active()
 	check(int(session.state) == State.ACTIVE, "the climax returns to ACTIVE by its own verb")
@@ -324,6 +325,8 @@ func _check_hole_command() -> void:
 
 ## The cross-mod reports: the progress change key, the final IDLE, and the one committed result.
 func _check_report() -> void:
+	var previous_limit := SETTINGS.max_pony_climaxes.get_num()
+	SETTINGS.max_pony_climaxes.set_num(0)
 	var made := _frame()
 	var session: RefCounted = made["session"]
 	var context: RefCounted = made["context"]
@@ -481,6 +484,7 @@ func _check_report() -> void:
 	summary.free()
 	dialogue.free()
 	_free_frame(made)
+	SETTINGS.max_pony_climaxes.set_num(previous_limit)
 
 
 ## The literal change sequence: the form at act start first, then one entry per change, repeats

@@ -46,10 +46,8 @@ def check_sources(failure: Failure) -> None:
         source = read_text(str(path))
         if SETTINGS_DECLARATION.search(source):
             declaring.append(rel(path))
-        # `act/settings.gd` is the act's snapshot owner, not a declaration module: it holds the
-        # one bulk copy of the act tunables and the live apply. Any other `settings.gd` outside
-        # `settings/` is a second declaration surface.
-        if path.name == "settings.gd" and path.parent.name not in ("settings", "act"):
+        # Any `settings.gd` outside `settings/` is a second declaration surface.
+        if path.name == "settings.gd" and path.parent.name != "settings":
             failure.add("no per-service settings module: %s" % rel(path))
     if declaring != ["settings/api.gd"]:
         failure.add("only settings/api.gd may declare settings (found %s)" % declaring)

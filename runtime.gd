@@ -9,7 +9,7 @@ const ACT_CAMERA := preload("res://mods/unfplap/camera/api.gd")
 const SCENE_GATE := preload("res://mods/unfplap/scene_gate/api.gd")
 const SCENE_HOLD := preload("res://mods/unfplap/scene_hold/api.gd")
 const HANDS := preload("res://mods/unfplap/hands/api.gd")
-const KISS := preload("res://mods/unfplap/kiss/api.gd")
+const KISS := preload("res://mods/unfplap/act/kiss.gd")
 const INTEGRATIONS_ACT := preload("res://mods/unfplap/integrations/act.gd")
 const CAMERA_VIEW := preload("res://mods/unfplap/camera/view.gd")
 const STANDING_ANON := preload("res://mods/unfplap/poses/standing_anon.gd")
@@ -155,13 +155,12 @@ func _compose() -> void:
 		_world.body_change, _world.ponies)
 	var wings: WING = WING.new(facts)
 	var hands: HANDS = HANDS.new(facts)
-	_kiss = KISS.new(facts)
 	var integrations: INTEGRATIONS_ACT = INTEGRATIONS_ACT.new(facts)
 	var view: CAMERA_VIEW = CAMERA_VIEW.new(facts)
 	var standing_anon: STANDING_ANON = STANDING_ANON.new(facts)
 	var standing_presentation: STANDING_PRESENTATION = \
 		STANDING_PRESENTATION.new(facts, _world.eligibility)
-	camera.wire(facts, hands, _kiss, view)
+	camera.wire(facts, hands, view)
 	camera.standing_anon = standing_anon
 	reactions.wire(_world.anatomy)
 	_face.wire(memory, readiness)
@@ -182,6 +181,8 @@ func _compose() -> void:
 	_context.handover = _handover
 	_context.gate = _gate
 	_context.facts = facts
+	_kiss = KISS.new()
+	_kiss.bind(_host, _context)
 	_context.kiss = _kiss
 	_context.summary = summary
 	_context.presentation = standing_presentation
@@ -243,7 +244,6 @@ func _compose() -> void:
 	_act.view = act_view
 	exit.start = start_ledger
 	# The act view, readiness, afterglow, face, scene gate, rest, scene hold and controller bindings.
-	facts.kiss = Callable(_act, "kiss_service")
 	facts.neck_point = Callable(camera, "neck_midpoint")
 	facts.set_look = Callable(phases, "set_look")
 	facts.set_forced_glance = Callable(phases, "set_forced_glance")
@@ -306,7 +306,6 @@ func _compose() -> void:
 	_attach(_pose, "UnfplapPoses")
 	_attach(camera, "UnfplapCamera")
 	_attach(hands, "UnfplapHands")
-	_attach(_kiss, "UnfplapKiss")
 	_attach(_face, "UnfplapFace")
 	_attach(_afterglow, "UnfplapAfterglow")
 	_attach(rest, "UnfplapRest")
@@ -421,14 +420,14 @@ func adopt_body(new_pony: Node) -> void:
 	WORLD.refresh_body_lod(new_pony)
 
 
-## World close or mod switch-off: release what outlives an act. The kiss foreleg overrides are
-## global AffectionPose settings, the anatomy nodes are persistent and none may be left behind.
+## World close or mod switch-off: release what outlives an act. The stock kiss rows are global
+## AffectionPose settings, the anatomy nodes are persistent and none may be left behind.
 func _exit_tree() -> void:
 	if _swapping_parent:
 		return
 	if _world != null and is_instance_valid(_world.act_owner):
 		_world.act_owner.clear_body_swap(self)
-	_kiss.restore_forelegs()
+	KISS.restore_rows()
 	_act.release_stool()
 	_host.end_tail_tuck()
 	_afterglow.clear_post_act(pony if is_instance_valid(pony) else null)

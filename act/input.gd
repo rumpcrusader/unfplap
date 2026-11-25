@@ -16,9 +16,11 @@ const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
 const DIALOGUE := preload("res://mods/unfplap/dialogue/api.gd")
 const MEMORY := preload("res://mods/unfplap/memory/api.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
+const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 const State := ACT_STATE.State
+const KISS_RESTART_COOLDOWN_MS := 500
 
 var host: ACT_HOST = null
 var context: ACT_CONTEXT = null
@@ -28,6 +30,10 @@ var _session_ref: WeakRef = null
 var exit: Variant = null
 ## The queued early-end line, so one cancel owns one post-act reaction.
 var end_early_key := ""
+## The kiss key's one start per hold, the latched side and the restart cooldown after a kiss.
+var _kiss_used := false
+var _kiss_ready_at := 0
+var _kiss_side := 0.0
 
 
 func bind(host_in: ACT_HOST, context_in: ACT_CONTEXT, session_in: ACT_SESSION) -> void:
@@ -67,6 +73,50 @@ func auto_panel_open() -> bool:
 ## True while the auto stroke owns the act; the input service's mouse thrust is off.
 func auto_active() -> bool:
 	return context.auto.readout().active
+
+
+## The kiss key and the lean, decoded by the input service: starts, holds and stops the act's kiss,
+## and writes the two facts every other system reads. It never reads a raw key.
+func kiss_input(key_down: bool, forward_down: bool) -> void:
+	var session := _session()
+	if session == null or context == null or context.facts == null:
+		return
+	var facts := context.facts
+	var family := _pose_family()
+	var allowed := session.state in [State.ACTIVE, State.CLIMAX] \
+		or (session.state == State.AFTERGLOW and family == "standing")
+	if not allowed or family not in ["bed", "standing"] \
+			or not bool(facts.call_value(facts.act_actions_allowed, false)) \
+			or bool(facts.call_value(facts.auto_panel_open, false)) or _mouth_contact():
+		_end_kiss()
+		_kiss_used = false
+		return
+	if not MOTION.kiss_wanted(family, key_down, forward_down,
+			float(facts.lean_side), float(facts.lean_forward)):
+		_end_kiss()
+		_kiss_used = false
+		return
+	if bool(facts.kiss_active):
+		# A stock hug or deep kiss can end the affection; the act's kiss goes with it.
+		if family == "standing" and not context.kiss.active():
+			_end_kiss()
+			_kiss_used = false
+		return
+	if _kiss_used or Time.get_ticks_msec() < _kiss_ready_at:
+		return
+	_kiss_used = true
+	_kiss_side = _latched_side(facts)
+	var started := true
+	if family == "standing":
+		# The stock kiss is the only standing kiss: a refusal is no kiss and no score.
+		started = context.kiss.start(MOTION.kiss_pony_side(_kiss_side))
+	facts.kiss_active = started
+	if not started:
+		return
+	facts.kiss_side = _kiss_side
+	facts.touch("kiss")
+	LOG.debug("kiss start pose=%s forward=%.2f side=%.2f", [
+		family, float(facts.lean_forward), _kiss_side])
 
 
 ## The act's pause overlay. The input service's hold and auto layer stop in the same window.
@@ -249,3 +299,45 @@ func _show_status(text: String) -> void:
 	if text.is_empty() or not is_instance_valid(context.hud):
 		return
 	context.hud.anatomy_status(text, 2.0)
+
+
+## The act's live pose view, or null outside a pose.
+func _pose_view() -> Variant:
+	return context.pose.view() if context != null else null
+
+
+## The pose family from the pose view: `bed` for missionary, `standing` for standing.
+func _pose_family() -> String:
+	var view: Variant = _pose_view()
+	return str(view.family) if view != null else ""
+
+
+## True while the pose's contact is the mouth; no kiss starts there.
+func _mouth_contact() -> bool:
+	var view: Variant = _pose_view()
+	return view != null and str(view.contact_kind) == "mouth"
+
+
+## The requested lean, never the smoothed view, so a side switch and an immediate press latch the
+## new side.
+func _latched_side(facts: Variant) -> float:
+	var lean := float(facts.lean_side)
+	return signf(lean) if absf(lean) > 0.01 else 0.0
+
+
+## The decision stopped the kiss: the stock affection eases out and every reader falls with the
+## facts, so a force-stop cannot leave a kiss latched.
+func _end_kiss() -> void:
+	if context == null or context.facts == null:
+		return
+	var facts := context.facts
+	if not bool(facts.kiss_active):
+		return
+	facts.kiss_active = false
+	context.kiss.stop()
+	_kiss_ready_at = Time.get_ticks_msec() + KISS_RESTART_COOLDOWN_MS
+	facts.write_forced_glance("")
+	var camera_view := context.camera.view_controller()
+	if camera_view != null:
+		camera_view.clear_glance()
+	LOG.debug("kiss stop")

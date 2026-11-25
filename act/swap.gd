@@ -72,7 +72,6 @@ func rebind_body() -> void:
 	context.reactions.bind_scene(host.pony as Node3D, _flank())
 	var view := context.pose.view()
 	context.hands.pose_changed(view)
-	context.kiss.pose_changed(view)
 	if context.audio != null and context.audio.has_method("pose_changed"):
 		context.audio.pose_changed(view)
 

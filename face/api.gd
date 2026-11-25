@@ -66,6 +66,8 @@ var pony: Node3D = null
 var host: Node = null
 ## The per-frame lid context, filled in place so the tick allocates nothing.
 var _eyes := BEAT.new()
+## Whether the kiss's expression layer is applied, so its release runs once at zero.
+var _kiss_face_on := false
 
 var clock := Callable()
 
@@ -151,6 +153,28 @@ func eyes_tick(context: BEAT) -> void:
 	if lids < 0.0:
 		return
 	face_view.stare(true, lids)
+
+
+## The kiss's expression layer, applied and released by its own amount: the smile source the act
+## already sums and the two mouth shapes. The camera owns the amount and the aim.
+func kiss_face(amount: float) -> void:
+	if not is_instance_valid(pony):
+		return
+	var face_view := WORLD.face(pony)
+	if face_view.controller() == null:
+		return
+	if amount <= 0.0001:
+		if not _kiss_face_on:
+			return
+		face_view.release_touch("affection")
+		face_view.set_expression("pout", 0.0)
+		face_view.set_expression("open_soft", 0.0)
+		_kiss_face_on = false
+		return
+	face_view.touch("affection", 0.25 * amount, 0.95 * amount)
+	face_view.set_expression("pout", 0.18 * amount)
+	face_view.set_expression("open_soft", 0.025 * amount)
+	_kiss_face_on = true
 
 
 ## One act moment, with the debug flag applied before the beat table runs. The runtime gathers the

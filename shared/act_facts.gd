@@ -71,6 +71,9 @@ var presentation_config: Dictionary = {}
 var kiss_amount := 0.0
 var kiss_active := false
 var kiss_side := 0.0
+## The kiss lean's live drop and travel, eased by the camera with the kiss amount.
+var lean_drop_m := 0.0
+var lean_distance_m := 0.0
 ## The pad the bed view keeps his head out of her skull and muzzle, in world metres.
 var head_clearance := 0.0
 var thrust_travel := 0.5
@@ -126,7 +129,6 @@ var on_anatomy_react := Callable()
 ## The reactions' smack impact, for the jiggle and the rump blush fan-out.
 var on_smack_hit := Callable()
 ## Services and write-backs that stay runtime-owned.
-var kiss := Callable()
 var neck_point := Callable()
 var set_look := Callable()
 var set_forced_glance := Callable()
@@ -164,10 +166,6 @@ var release_excitement := Callable()
 var mod_enabled := Callable()
 ## The opaque host handle for the Anon pose-driver write-backs.
 var pose_host := Callable()
-
-
-func kiss_controller() -> Variant:
-	return kiss.call() if kiss.is_valid() else null
 
 
 func neck_midpoint() -> Vector3:

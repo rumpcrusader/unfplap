@@ -95,4 +95,4 @@ a transition; it settles without a second entrance. The afterglow holds the pose
 
 The render-time pose write and look, the physics and presentation tick and the camera motion are
 separate owners; do not merge them blindly. The fan-out after the pose tick runs pose, camera,
-hands, kiss and anatomy in a fixed order, and a pose change is a retarget, never a teardown.
+hands and anatomy in a fixed order, and a pose change is a retarget, never a teardown.

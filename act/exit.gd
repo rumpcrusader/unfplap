@@ -55,13 +55,13 @@ func run(rejoin_cuddle: bool) -> void:
 	context.view.reset_facing()
 	if is_instance_valid(context.hud):
 		context.hud.set_inventory_hidden(false)
-	context.kiss.restore_forelegs()
 	context.hold.restore_face_turn()
 	context.frame.end()
 	context.view.unmount()
 	if is_instance_valid(host.pony):
 		context.face.clear_face()
 		context.face.end_face()
+		context.face.kiss_face(0.0)
 		context.wings.release()
 	context.hold.unlock_player()
 	session.refresh_view()

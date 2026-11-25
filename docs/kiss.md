@@ -1,65 +1,59 @@
 # Kiss
 
-The kiss service owns the act's kiss: the standing path through the game's own kiss, the missionary
-custom head aim, the lean and mouth values, the foreleg pin, the release and the restart cooldown.
-The act state, the camera and the face are not its own.
+The act's kiss belongs to four owners and no service. The input decision reads the kiss key and the
+lean and writes the two state facts every other system reads. The camera owns the lean-in: its own
+amount, the forward and sideways travel, the over-the-shoulder yaw, the missionary aim from his eye
+to his authored mouth, and the eye clearance. The face owns the bed kiss's expression layer. The
+act's standing kiss module alone calls the game's own kiss and holds her forelegs so they cannot
+slide under it. The kiss touch reaches her score, and the anatomy reacts, at the one call site that
+starts it.
 
-## Two paths
+## The decision
 
-In standing the act reuses the game's kiss, so her face, mouth, deep kiss and soft-kiss audio are the
-stock ones. The stock pose modifier is moved to the end of the skeleton so its IK layers on top of
-the act pose, and a release ends the game's affection. The side is latched from the input lean, not
-the lagging camera, and pinned to the complementary side so the two heads interlock instead of
-colliding; the stock side switch is held off for the act.
+The kiss key held at a full lean asks for a kiss: the side lean in standing, the forward lean plus
+the forward key in missionary. A side press also pushes the forward target, so the forward key is
+what separates a real front lean from a sideways one. A kiss starts once per hold, and a completed
+kiss holds off the next one briefly. The side is latched from the requested lean, not the lagging
+camera, so switching sides and pressing again cannot keep the old side.
 
-Missionary always takes the custom path. The stock kiss is authored for a standing pony: its chest
-and neck give lift a lying body off the mattress and turn her head across it. Her look blends from
-his eyes to his mouth as the kiss fades in, so her head leans in instead of snapping, and the target
-is his authored mouth on the bed rather than the game camera on his standing rig. The mouth
-expressions and the kiss sound still run.
+The key is live in the act and its climax, and in the standing afterglow; in the bed afterglow it
+is not. It is ignored while the oral turn is the contact, while the auto settings layer is open,
+and outside the two poses. A refused stock kiss means no kiss and no touch scored; there is no
+custom fallback. The kiss key never ends the act, and the act's kiss ends when the key or the lean
+does, or when the game's own affection ends underneath it.
 
-The kiss does not move the view's base: his eye keeps a clearance to her face, and the head aim does
-the reaching.
+## Standing
 
-## The lean
+Standing takes the game's kiss, so her face, mouth, deep kiss and soft audio are the stock ones. The
+stock pose modifier is moved to the end of the skeleton so its IK layers on top of the act pose, and
+the side is pinned to the complementary one so the heads interlock instead of colliding; the stock
+side switch is held off. A release ends the game's affection and its stare afterglow.
 
-Both paths start from a full lean with the kiss key held; standing reads the side lean, missionary
-the forward lean and requires the forward key too. A side press also pushes the forward target, so a
-side-only lean would otherwise start the kiss; the extra key prevents it. Releasing the key or
-dropping the lean ends it.
+The stock kiss bends her chest to reach him after the act's own upper-arm pin, so a last modifier
+captures both hoof tips before the bend and solves the real foreleg chains back to them. The stock
+rear and hoof kiss rows are zeroed for the run and put back after; the act-level Beat is held for
+the whole kiss, so no unicorn sparkle reads as a spell. The game's kisser is inactive for the act's
+length, so the act feeds it his live mouth and face itself.
 
-Anon leans in, shifts to the shoulder side and drops by the live presentation values, and the camera
-yaws toward her; the values apply live. The lateral offset crossfades from the lean's offset to the
-kiss's instead of adding both, which would overshoot her neck and push her muzzle back. The forced
-over-the-shoulder glance is cleared and her head eases back while the kiss and its release run, so
-the kiss head pose is not fought by the reach.
+## Bed
 
-The kiss key never ends the act, and a stock hug or deep kiss cannot end the act's kiss.
+The bed has no stock kiss: it is authored standing and would lift her off the mattress and turn her
+head across it. Her look instead slides from his eye to his authored mouth on the bed — never the
+game camera on his standing rig — as the kiss amount rises, and the pose solves the gaze. The mouth
+shapes and the kiss's smile follow the same amount, and the camera lean, yaw and Anon's hip follow
+the lean. There is no stock affection to end or restore.
 
-## What the stock kiss drags along
+## The lean and the sound
 
-The game's kisser is inactive for the act's whole length, so the act supplies the stock kiss with the
-current mouth, eye and face and repeats the mouth kiss sound itself. A shared lock keeps the game's
-excitement Beat paused, so no unicorn sparkle plays and reads as a spell; only the last release
-restores the Beat.
-
-The stock kiss bends her chest to reach him, and that motion arrives after the upper-arm pin, so her
-forelegs would slide. A modifier that runs last captures both hoof tips before the kiss and solves
-the real leg chains back to them. The stock rear and hoof kiss settings are saved and zeroed for the
-kiss and restored after.
-
-## Shared rules
-
-Either path may stop her current speech, but not thrusting or the act's stats. The act's own
-affection-driven kiss counts as part of the act, not as an interruption, and a changed pose family
-or kiss profile never ends a running kiss or releases its pin; a shared config keep is a no-op.
-
-The side latch and the pose lock clear when the lean returns to zero. A completed kiss has a short
-restart cooldown before another can start. The kiss also owns its own lid layer, so the act stare does
-not override it.
+The kiss amount ramps in and out on its own curve; the forward drop and travel are distances the
+camera eases with it, and the lateral offset crossfades from the lean's to the kiss's instead of
+adding both, which would overshoot her neck. The side lean is latched for the whole kiss, release
+included. The kiss's mouth sound repeats on its own interval for both poses, keyed on the kiss
+being active rather than on the fade.
 
 ## Boundaries
 
-The runtime owns the controls, the state machine, the camera and the teardown. The pose service owns
-the act body, and the world boundary owns the base-game reads and writes. This service keeps only the
-kiss state and the bridge to the stock pose.
+The act's state facts are the only place the kiss is visible to the rest of the act: active, amount
+and side, one writer each. A world close puts the stock rows back even when the act never reached
+its exit. The runtime owns the state machine and the teardown, the camera the shot and the aim, the
+face the expression and the act the trigger and the score.

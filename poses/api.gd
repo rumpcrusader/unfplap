@@ -1114,12 +1114,11 @@ func fade_out() -> void:
 
 
 ## Aim the live pose's look point for this rendered frame; the head solve reads it after the pose
-## write, and the camera owns the point, the kiss blend and the climax weight.
-func aim_look(point: Vector3, kiss: float, climaxing: bool) -> void:
+## write, and the camera owns the point and the climax weight.
+func aim_look(point: Vector3, climaxing: bool) -> void:
 	if not is_instance_valid(_pose_node):
 		return
 	_pose_node.look_point = point
-	_pose_node.kiss = kiss
 	_pose_node.climaxing = climaxing
 
 

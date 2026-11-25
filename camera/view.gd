@@ -80,15 +80,12 @@ func tick() -> void:
 	_sync()
 	if _pose_family() == "bed":
 		return
-	var kiss: Variant = facts.kiss_controller()
-	if kiss == null:
-		return
 	var lean_scale := float(facts.standing_lean_scale)
-	_set_camera_offsets(float(facts.bob) - kiss.lean_drop() * kiss.lean() - float(facts.anon_torso_drop),
+	_set_camera_offsets(float(facts.bob) - float(facts.lean_drop_m) - float(facts.anon_torso_drop),
 		float(facts.lean) - float(facts.back) + MOTION.lean_distance(
 			float(facts.lean_view_forward), lean_scale)
-		+ kiss.lean_distance() + float(facts.anon_torso_forward)
-		+ float(_presentation_cfg["camera_forward_m"]), kiss.lateral_offset(lean_scale))
+		+ float(facts.lean_distance_m) + float(facts.anon_torso_forward)
+		+ float(_presentation_cfg["camera_forward_m"]), _lateral_offset(lean_scale))
 	if bool(facts.free_camera_active) and is_instance_valid(camera):
 		camera.rotation.z = (-deg_to_rad(MOTION.LEAN_SIDE_ROLL_DEG) * float(facts.lean_view_side) \
 			+ deg_to_rad(MOTION.LEAN_ROLL_DEG) * float(facts.lean_view_forward)) * lean_scale
@@ -96,6 +93,26 @@ func tick() -> void:
 			float(facts.look_pitch) - deg_to_rad(MOTION.LEAN_PITCH_DEG) * absf(float(facts.lean_view_forward)) * lean_scale
 			+ deg_to_rad(float(_presentation_cfg["camera_pitch_deg"])),
 			-1.5, 1.5)
+
+
+## The camera's side travel: the lean's own offset crossfading into the kiss's as it blends in.
+func _lateral_offset(lean_scale: float) -> float:
+	return MOTION.kiss_lateral_offset(float(facts.lean_view_side), float(facts.kiss_side),
+		float(facts.kiss_amount), lean_scale, _kiss_side_m())
+
+
+## The kiss's lateral distance at Anon's height, from the standing presentation's own override.
+func _kiss_side_m() -> float:
+	var raw: Variant = _presentation_cfg.get("kiss", {})
+	var kiss: Dictionary = raw if raw is Dictionary else {}
+	return float(kiss.get("lean_side", MOTION.KISS_LEAN_SIDE_M)) * float(facts.anon_height_scale)
+
+
+## The camera's over-the-shoulder yaw at a full kiss lean, from the same presentation block.
+func _kiss_camera_yaw_deg() -> float:
+	var raw: Variant = _presentation_cfg.get("kiss", {})
+	var kiss: Dictionary = raw if raw is Dictionary else {}
+	return float(kiss.get("camera_yaw_deg", MOTION.KISS_CAMERA_YAW_DEG))
 
 
 ## The render-time eye write: the act body's posed head for the position, the authored look path
@@ -109,7 +126,7 @@ func write_eye() -> void:
 		var rotation: Variant = facts.call_value(facts.free_look_rotation, Vector3.ZERO)
 		if rotation is Vector3:
 			look = rotation
-	_tick_eye(facts.kiss_controller(), look)
+	_tick_eye(look)
 
 
 ## Mount the act's own view once the scene is settled.
@@ -281,18 +298,18 @@ func _depth_speed_tick(delta: float) -> void:
 
 ## Standing yaw/pitch from the lean vector, applied to the player camera on top of the base aim.
 func _apply_standing_lean_look() -> void:
-	var kiss: Variant = facts.kiss_controller()
 	if not bool(facts.free_camera_active) or _pose_family() != "standing" \
 			or bool(facts.player_pony) or bool(facts.headset_view):
 		return
-	if not WORLD.ready() or not is_instance_valid(WORLD.player_rig()) or kiss == null:
+	if not WORLD.ready() or not is_instance_valid(WORLD.player_rig()):
 		return
 	var body: Node3D = WORLD.player_rig()
 	var lean_scale := float(facts.standing_lean_scale)
 	var yaw := float(facts.look_yaw) + deg_to_rad(MOTION.LEAN_SIDE_YAW_DEG) \
 		* float(facts.lean_view_side) * lean_scale
 	# Turn a little further toward her while kissing, over the shoulder.
-	yaw += deg_to_rad(kiss.camera_yaw_deg()) * kiss.lean() * kiss.side()
+	yaw += deg_to_rad(_kiss_camera_yaw_deg()) * float(facts.kiss_amount) \
+		* float(facts.kiss_side)
 	var pitch := clampf(
 		float(facts.look_pitch) - deg_to_rad(MOTION.LEAN_PITCH_DEG) \
 			* absf(float(facts.lean_view_forward)) * lean_scale
@@ -372,14 +389,11 @@ func _glance_back_fade() -> float:
 ## Every few seconds she turns her head back toward Anon. The game's secondary gaze owns the turn;
 ## standing only adds the optional `head_back` throw-back, eased so it does not snap.
 func _drive_glance(delta: float) -> void:
-	var kiss: Variant = facts.kiss_controller()
 	if not _has_facing or _pose_family() != "standing" or not is_instance_valid(pony):
-		return
-	if kiss == null:
 		return
 	# The base kiss owns the head and gaze while it runs or releases. Clear the shoulder reach's
 	# forced over-the-shoulder look so the two head poses do not fight and clip.
-	if kiss.standing_active() or kiss.base_active():
+	if bool(facts.kiss_active):
 		if _pose_live() and facts.set_head_back.is_valid():
 			_glance_head_back = move_toward(_glance_head_back, 0.0, delta / _glance_back_fade())
 			facts.set_head_back.call(_glance_head_back)
@@ -390,7 +404,7 @@ func _drive_glance(delta: float) -> void:
 	# A full forward W lean (no side lean, no kiss) makes her throw her head fully back and
 	# look up at Anon instead of waiting for a random glance.
 	var lean_up: bool = float(facts.lean_forward) >= 0.95 \
-		and absf(float(facts.lean_side)) <= 0.2 and not kiss.standing_active()
+		and absf(float(facts.lean_side)) <= 0.2 and not bool(facts.kiss_active)
 	if _pose_live() and facts.set_head_back.is_valid():
 		var back_target := 1.0 if (not str(facts.forced_glance).is_empty() or lean_up \
 			or (_glance_left > 0.0 and _glance_back)) else 0.0
@@ -529,7 +543,7 @@ func _pose_live() -> bool:
 
 ## The missionary view: the position is his posed eye; the basis is the authored look path so the
 ## action is framed and the lean follows it. The kiss still leans the eye in towards the aim.
-func _tick_eye(kiss: Variant, look: Vector3) -> void:
+func _tick_eye(look: Vector3) -> void:
 	if not is_instance_valid(_missionary_view):
 		_make_missionary_view()
 	if not is_instance_valid(_missionary_view):
@@ -554,11 +568,11 @@ func _tick_eye(kiss: Variant, look: Vector3) -> void:
 	at -= basis.z * float(facts.lean)
 	var aim: Vector3 = facts.call_value(facts.missionary_face_point, Vector3.INF)
 	if aim.is_finite():
-		at += basis.x * kiss.lateral_offset(float(facts.lean_size_scale))
-		at.y -= kiss.lean_drop() * kiss.lean()
-		if kiss.lean() > 0.0:
+		at += basis.x * _lateral_offset(float(facts.lean_size_scale))
+		at.y -= float(facts.lean_drop_m)
+		if float(facts.kiss_amount) > 0.0:
 			var reach := (aim - at).length()
-			at -= basis.z * minf(kiss.lean_distance(),
+			at -= basis.z * minf(float(facts.lean_distance_m),
 				maxf(0.0, reach - KISS_CLEARANCE_M * _missionary_body_scale()))
 	at = _clear_live_head(at)
 	_missionary_view.global_position = at

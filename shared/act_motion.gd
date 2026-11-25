@@ -20,6 +20,15 @@ const HIP_SMOOTH_S := 0.04
 const GLANCE_BACK_FADE := 0.45
 ## Yaw limit for a look-back glance. She turns farther over her shoulder than a normal glance.
 const GLANCE_BACK_YAW := 1.62
+## The kiss lean's own distances, in metres at the reference height; callers scale by the actor.
+const KISS_LEAN_M := 0.27
+const KISS_LEAN_SIDE_M := 0.18
+const KISS_LEAN_DROP_M := 0.035
+## The camera's yaw toward her at a full kiss lean, in degrees.
+const KISS_CAMERA_YAW_DEG := 10.0
+## The lean the standing and missionary keys ask for, in the leaning axis' own units.
+const STANDING_KISS_LEAN := 0.90
+const MISSIONARY_KISS_LEAN := 0.90
 
 
 ## Pure mapping for tests: vector x is side, y is forward. Q/E contribute both.
@@ -57,6 +66,36 @@ static func lean_action_kind(profile: String, _side: float) -> String:
 	if profile == CATALOG.STANDING:
 		return "reach"
 	return ""
+
+
+## Whether the key and the lean ask for a kiss in this family. Pure, so the trigger is testable
+## without a scene; `forward_down` is required because the lean map folds a side press into the
+## forward axis.
+static func kiss_wanted(family: String, key_down: bool, forward_down: bool,
+		lean_side: float, lean_forward: float) -> bool:
+	if not key_down:
+		return false
+	if family == "standing":
+		return absf(lean_side) >= STANDING_KISS_LEAN
+	if family == "bed":
+		return forward_down and lean_forward >= MISSIONARY_KISS_LEAN
+	return false
+
+
+## Her head tilt is the opposite world side to his; a centred lean leaves the side to her.
+static func kiss_pony_side(lean_side: float) -> float:
+	if absf(lean_side) <= 0.001:
+		return 0.0
+	return signf(lean_side)
+
+
+## The side travel blended by the amount; the camera and his hip share one implementation.
+static func kiss_lateral_offset(lean_side: float, kiss_side: float, amount: float,
+		size_scale: float, kiss_side_m: float) -> float:
+	var blend := clampf(amount, 0.0, 1.0)
+	var lean := LEAN_SIDE_M * lean_side * size_scale
+	var kiss := kiss_side_m * kiss_side
+	return lerpf(lean, kiss, blend)
 
 
 ## Multiplier-based glance-back speed. Higher speed means a shorter fade.

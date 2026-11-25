@@ -103,6 +103,9 @@ class FakeActInput extends RefCounted:
 	func auto_panel_input(_delta: float, x_down: bool, keys: Array) -> void:
 		rt.panels.append([x_down, keys.duplicate()])
 
+	func kiss_input(key_down: bool, forward_down: bool) -> void:
+		rt.kisses.append([key_down, forward_down])
+
 	func command(command_id: String) -> bool:
 		rt.commands.append(command_id)
 		return rt.command_ok
@@ -157,6 +160,7 @@ class FakeRuntime extends Node:
 	var thrusts: Array[float] = []
 	var looks: Array[Vector2] = []
 	var panels: Array = []
+	var kisses: Array = []
 	var act := FakeAct.new()
 
 	func _init() -> void:
@@ -601,10 +605,20 @@ func _check_auto_layer() -> void:
 	check(keys.size() == 7 and bool(keys[0]), "Q is the first layer key")
 	check(not bool(keys[1]), "an unpressed layer key reads false")
 
+	# The kiss key rides the same physics frame and the same suspend guard.
+	runtime.kisses.clear()
+	service.call("_physics_process", 0.1)
+	check(runtime.kisses.size() == 1, "the kiss key is one protocol call per tick")
+	var kiss_row: Array = runtime.kisses[0]
+	check(not bool(kiss_row[0]) and not bool(kiss_row[1]),
+		"an unpressed kiss key reaches the act as released")
+
 	runtime.suspended = true
 	runtime.panels.clear()
+	runtime.kisses.clear()
 	service.call("_physics_process", 0.1)
 	check(runtime.panels.is_empty(), "a suspended act samples no auto keys")
+	check(runtime.kisses.is_empty(), "a suspended act samples no kiss key")
 	runtime.suspended = false
 
 	await _release(KEY_X)

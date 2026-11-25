@@ -112,15 +112,6 @@ func refresh(facts: ACT_FACTS, session: ACT_SESSION) -> void:
 	facts.back = cam.back
 	facts.back_target = cam.back_target
 	facts.forced_glance = session.forced_glance
-	var kiss: Variant = context.kiss
-	if kiss != null:
-		facts.kiss_amount = float(kiss.amount())
-		facts.kiss_active = bool(kiss.leaning_close())
-		facts.kiss_side = float(kiss.side())
-	else:
-		facts.kiss_amount = 0.0
-		facts.kiss_active = false
-		facts.kiss_side = 0.0
 
 
 ## Gather the HUD card's live values into the act view; `main.gd` calls it once per rendered frame
@@ -246,7 +237,7 @@ func prompt_note(session: ACT_SESSION) -> String:
 	values.beat = context.afterglow.beat
 	values.caressing = context.hands.any_active()
 	values.leaning = context.camera.lean_forward >= 0.35 \
-		or context.camera.lean_action_active or context.kiss.leaning_close()
+		or context.camera.lean_action_active or bool(context.facts.kiss_active)
 	values.missionary = session.pose_family() == "bed"
 	values.form_source = context.handover.source() != null
 	values.form_name = form.form_name.strip_edges() if form != null else ""

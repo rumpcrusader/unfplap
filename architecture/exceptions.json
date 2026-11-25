@@ -17,14 +17,6 @@
       "expires": "next-review"
     },
     {
-      "from": "kiss/legs.gd",
-      "to": "poses/pose_rig.gd",
-      "kind": "service-private",
-      "owner": "kiss",
-      "reason": "permits the kiss service to construct the pose rig; fix when poses hands kiss a pose handle",
-      "expires": "next-review"
-    },
-    {
       "from": "readiness/api.gd",
       "to": "dialogue/utterance_scheduler.gd",
       "kind": "service-private",

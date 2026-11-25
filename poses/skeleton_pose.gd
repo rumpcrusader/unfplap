@@ -39,7 +39,6 @@ var to_delta := ""
 var driver_objects: Dictionary = {}
 var look_point := Vector3.ZERO
 var head_back := 0.0
-var kiss := 0.0
 var amount := 0.0
 var target_amount := 0.0
 var climaxing := false
@@ -234,7 +233,6 @@ func _write(sk: Skeleton3D, weight: float, trace: bool) -> void:
 	var state := {
 		"look_point": look_point,
 		"head_back": head_back,
-		"kiss": kiss,
 		"climaxing": climaxing,
 		"clock": _clock,
 		"config": _from_config,

@@ -4,7 +4,7 @@ The act camera owns the player's view during a base pose: the lean input and its
 speed-driven surge and dip, the standing offsets and glance, the missionary eye with its authored
 look path, the head clearance he keeps out of her skull, and the debug free look. It is the
 authority for where the act's eye sits and what it looks at; his placement belongs to the pose, and
-the kiss owns its own lean-in.
+the camera's own kiss amount eases the lean-in and the aim.
 
 ## Whose view it is
 
@@ -21,7 +21,7 @@ lean is continuous, not a press: it ramps toward the pressed target and holds on
 The act end and a paused world return the lean to rest on a slower curve than the ramp; there is no
 auto-return mode or toggle, and pulling back with no side armed eases the shoulder roll to neutral
 instead of locking it until a lean the other way. A full side lean fires one pose action, the
-shoulder reach or the lean kiss, and latches until the lean falls back inside its release band. A
+shoulder reach, and latches until the lean falls back inside its release band. A
 reach the hands dropped, because a smack took that hand, ends the reach and its glance and does not
 fire again until the lean leaves the band. When a torso angle is set, the forward lean also hinges
 his upper body over her: chest, neck, head and arms tilt as one while the pelvis counters, so the eye
@@ -30,7 +30,7 @@ follows the spine arc instead of sinking into her.
 ## Standing oral
 
 While contact is oral the lean is deliberately locked. The lean keys are not read, an active
-shoulder reach ends, an active lean kiss releases, and the side lean, forward lean, displayed lean
+shoulder reach ends, a running kiss ends, and the side lean, forward lean, displayed lean
 and idle sway all settle to rest. The caress hands keep ticking and the standing look response keeps
 running, so the player can still touch and be looked at; only the shot stops moving. The oral turn's
 facing comes from the pose, and the view returns to its normal basis when the pose clears it, so no

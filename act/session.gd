@@ -765,7 +765,7 @@ func begin_afterglow() -> void:
 	context.dialogue.end_act(event_id, true)
 	# Bed afterglow keeps only lean and caress; standing keeps its kiss.
 	if pose_family() != "standing":
-		context.kiss.end_lean_kiss()
+		context.kiss.stop()
 	finish()
 	# The adults who can perceive the pair remember it here: the afterglow entry is the one moment
 	# this route reaches, and it still holds the scene the witness pass reads.
@@ -923,10 +923,6 @@ func current_pose_id() -> String:
 
 func in_heat() -> bool:
 	return cycle_phase() == CYCLE.HEAT
-
-
-func kiss_service() -> Variant:
-	return context.kiss
 
 
 func reactions_service() -> Variant:

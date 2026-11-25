@@ -7,8 +7,8 @@ from pathlib import Path
 from .context import DOCS, ROOT, SERVICES, facade_for
 from .failure import Failure, rel
 
-# The docs that are not service contracts: the frozen cross-mod surface and the three project docs.
-PROJECT_DOCS = ("api", "tests", "quality", "vr")
+# The docs that are not service contracts: the frozen cross-mod surface and the project docs.
+PROJECT_DOCS = ("api", "kiss", "tests", "quality", "vr")
 # A facade's public types carry a `##` note; api.gd's public members are the strict surface.
 PUBLIC_TYPE = re.compile(r"^(?:class|enum)\s+([A-Za-z_]\w*)\b", re.MULTILINE)
 API_MEMBER = re.compile(

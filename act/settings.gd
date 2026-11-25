@@ -79,7 +79,7 @@ func apply_act_live(family: String) -> void:
 	context.integrations.apply_live_settings()
 	context.reactions.apply_radius()
 	if family == "standing":
-		context.kiss.apply_live_settings()
+		context.kiss.refresh_rows()
 		context.presentation.apply_live_settings()
 	# The live block, the presentation, a running edge's target and the modifiers in one call.
 	context.pose.apply_live_settings()

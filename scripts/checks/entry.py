@@ -59,7 +59,6 @@ RUNTIME_CHILD_NODES = {
     "UnfplapPoses": "the per-pony pose session",
     "UnfplapCamera": "the act camera and the lean/travel math",
     "UnfplapHands": "the hand reach and palm fit",
-    "UnfplapKiss": "the kiss and the foreleg overrides",
     "UnfplapFace": "the face, mood and eyes",
     "UnfplapAfterglow": "the aftercare plan and the close window",
     "UnfplapRest": "the bed rejoin",

@@ -7,7 +7,6 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const WING := preload("res://mods/unfplap/poses/wing_control.gd")
-const KISS := preload("res://mods/unfplap/kiss/api.gd")
 const POSE_SESSION := preload("res://mods/unfplap/poses/api.gd")
 const POSE := preload("res://mods/unfplap/poses/skeleton_pose.gd")
 const ACT_CAMERA := preload("res://mods/unfplap/camera/api.gd")
@@ -19,9 +18,6 @@ const READINESS := preload("res://mods/unfplap/readiness/api.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const PREF := preload("res://mods/unfplap/shared/preferences.gd")
 const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
-const FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
-const HANDS := preload("res://mods/unfplap/hands/api.gd")
-const CAMERA_VIEW := preload("res://mods/unfplap/camera/view.gd")
 
 const STATE_ACTIVE := 2
 
@@ -76,21 +72,8 @@ class FakePresentation extends RefCounted:
 class FakeCamera extends ACT_CAMERA:
 	var ends := 0
 
-	func bind(_facts: FACTS, _hands: HANDS, _kiss: KISS, _view: CAMERA_VIEW) -> void:
-		pass
-
 	func end_lean_action() -> void:
 		ends += 1
-
-
-class FakeKiss extends KISS:
-	var ends := 0
-
-	func end_lean_kiss() -> void:
-		ends += 1
-
-	func restore_forelegs() -> void:
-		pass
 
 
 class FakeReactions extends REACTIONS:
@@ -254,7 +237,6 @@ func _fixture() -> Dictionary:
 	var dialogue := FakeDialogue.new()
 	dialogue.facts = runtime.act.context.facts
 	var act_camera := FakeCamera.new()
-	var kiss := FakeKiss.new()
 	runtime.pony = pony
 	runtime.act.pony_id = "rarity"
 	runtime.act.pony_id = "rarity"
@@ -277,7 +259,6 @@ func _fixture() -> Dictionary:
 	runtime.act.context.audio = audio
 	runtime.act.context.dialogue = dialogue
 	runtime.act.context.camera = act_camera
-	runtime.act.context.kiss = kiss
 	runtime.act.context.reactions = reactions
 	runtime.act.context.wings = wings
 	runtime.act.context.pose = pose
@@ -298,7 +279,7 @@ func _fixture() -> Dictionary:
 		"runtime": runtime, "pony": pony, "boop": boop, "director": director,
 		"main": main, "presentation": presentation,
 		"reactions": reactions, "wings": wings, "pose": pose,
-		"audio": audio, "dialogue": dialogue, "camera": act_camera, "kiss": kiss,
+		"audio": audio, "dialogue": dialogue, "camera": act_camera,
 	}
 
 
@@ -336,7 +317,6 @@ func run() -> void:
 	var audio: FakeAudio = made["audio"]
 	var dialogue: FakeDialogue = made["dialogue"]
 	var act_camera: FakeCamera = made["camera"]
-	var kiss: FakeKiss = made["kiss"]
 
 	# A regular standing impact is untouched.
 	var view: RefCounted = VIEW.new()
@@ -446,6 +426,5 @@ func run() -> void:
 	pose.free()
 	dialogue.free()
 	act_camera.free()
-	kiss.free()
 
 	finish()

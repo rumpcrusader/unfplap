@@ -97,6 +97,8 @@ func _physics_process(delta: float) -> void:
 			_hold_act_tick(delta, runtime)
 			if not bool(_act_for(runtime).body_swap_pending()):
 				_auto_layer_tick(delta, runtime)
+				_act_for(runtime).kiss_input(Input.is_physical_key_pressed(KEY_F),
+					Input.is_action_pressed("move_forward"))
 	else:
 		_mouse_recapture_logged = false
 		_restore_seated_q()

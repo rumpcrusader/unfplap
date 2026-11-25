@@ -14,7 +14,6 @@ const ACT_DIALOGUE := preload("res://mods/unfplap/dialogue/api.gd")
 const BODY_CHANGE_ACT := preload("res://mods/unfplap/body_change/act.gd")
 const SCENE_GATE := preload("res://mods/unfplap/scene_gate/api.gd")
 const SCENE_HOLD := preload("res://mods/unfplap/scene_hold/api.gd")
-const KISS := preload("res://mods/unfplap/kiss/api.gd")
 const SUMMARY := preload("res://mods/unfplap/summary/api.gd")
 const REST := preload("res://mods/unfplap/rest/api.gd")
 const STANDING_PRESENTATION := preload("res://mods/unfplap/act/standing_presentation.gd")
@@ -70,7 +69,9 @@ var impact: RefCounted = null
 ## The act's player frame: the start placement, the stance and the one restore.
 var frame: ACT_FRAME = null
 var facts: ACT_FACTS = null
-var kiss: KISS = null
+## The act's kiss module, typed by convention: the act module instance, and a suite may substitute
+## a fake.
+var kiss: RefCounted = null
 var summary: SUMMARY = null
 var presentation: STANDING_PRESENTATION = null
 var standing_anon: STANDING_ANON = null

@@ -5,7 +5,6 @@ extends Node
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const HANDS := preload("res://mods/unfplap/hands/api.gd")
-const KISS := preload("res://mods/unfplap/kiss/api.gd")
 const CAMERA_VIEW := preload("res://mods/unfplap/camera/view.gd")
 const CAMERA_CONFIG := preload("res://mods/unfplap/camera/config.gd")
 const POSES := preload("res://mods/unfplap/poses/api.gd")
@@ -35,6 +34,9 @@ const AFTERGLOW_BACK_SPEED := 0.16
 const RESTORE_BACK_SPEED := 0.6
 ## Idle breathing: one slow forward rock added on top of the displayed lean.
 const HOLD_SWAY_HZ := 0.80
+## The kiss amount's own ramp: the camera eases in with the kiss and out after it.
+const KISS_FADE_IN := 0.35
+const KISS_FADE_OUT := 0.45
 ## Anon's spine length used by the standing torso hinge.
 const ANON_TORSO_LEN_M := 0.65
 
@@ -48,7 +50,6 @@ const STATE_AFTERGLOW := ACT_STATE.State.AFTERGLOW
 var facts: ACT_FACTS = null
 ## The controllers the camera drives and asks, wired once with the view.
 var hands: HANDS = null
-var kiss: KISS = null
 ## The one act view. It owns the view node and every live offset; this facade owns the lean.
 var view: CAMERA_VIEW = null
 ## The standing act's Anon body controller, which the view drives by phase.
@@ -106,13 +107,11 @@ var free_look_was := false
 
 ## The collaborators the camera asks and the one act view, handed over once per runtime; none is
 ## built here.
-func wire(facts_context: ACT_FACTS, hands_ctl: HANDS, kiss_ctl: KISS,
-		view_ctl: CAMERA_VIEW) -> void:
+func wire(facts_context: ACT_FACTS, hands_ctl: HANDS, view_ctl: CAMERA_VIEW) -> void:
 	facts = facts_context
 	hands = hands_ctl
-	kiss = kiss_ctl
 	view = view_ctl
-	assert(facts != null and hands != null and kiss != null and view != null)
+	assert(facts != null and hands != null and view != null)
 
 
 ## The pose read model. A missing view reads as no family outside an act.
@@ -129,7 +128,7 @@ func pose_family() -> String:
 	return pose_view.family if pose_view != null else ""
 
 
-## True while the oral turn is the contact. The producer stays in the anatomy until A5.
+## True while the pose's contact is the mouth. The producer stays in the anatomy until A5.
 func mouth_contact() -> bool:
 	var pose_view := _pose_view()
 	return pose_view != null and pose_view.contact_kind == "mouth"
@@ -163,39 +162,28 @@ func pose_changed(pose_view: POSE_VIEW) -> void:
 func write_look_target() -> void:
 	if facts == null or not is_instance_valid(WORLD.player_rig()):
 		return
-	if kiss == null:
-		return
 	var eye: Camera3D = WORLD.camera()
 	if pose_family() == "bed" and view != null and is_instance_valid(view.view()):
 		eye = view.view()
-	var custom_kiss: bool = kiss.custom_visible()
-	var kiss_view: Camera3D = kiss.mouth_view()
+	var amount := clampf(float(facts.kiss_amount), 0.0, 1.0)
 	var point := _look_point
 	if is_instance_valid(eye):
-		if custom_kiss and is_instance_valid(kiss_view):
-			if pose_family() == "bed":
-				# Fade the mouth in with the kiss; the raw point would snap on the first frame.
-				var mouth: Vector3 = kiss.target(kiss_view)
-				var gaze := gaze_point()
-				if mouth.is_finite() and gaze.is_finite():
-					point = gaze.lerp(mouth, clampf(kiss.amount(), 0.0, 1.0))
-				else:
-					point = gaze
+		if pose_family() == "bed":
+			var gaze := gaze_point()
+			# Fade the mouth in with the kiss; the raw point would snap on the first frame.
+			var mouth := _missionary_mouth()
+			if mouth.is_finite() and gaze.is_finite():
+				point = gaze.lerp(mouth, amount)
 			else:
-				point = kiss.target(kiss_view)
-		elif pose_family() == "bed":
-			# Look at the authored Anon, not at the game camera: his body is placed by the act,
-			# and the player rig the camera belongs to is standing off the bed.
-			point = gaze_point()
+				point = gaze
 		else:
 			point = eye.global_position
 	_look_point = point
 	if facts.aim_look.is_valid():
-		facts.aim_look.call(point, kiss.amount() if custom_kiss else 0.0,
-			int(facts.state) == STATE_CLIMAX)
+		facts.aim_look.call(point, int(facts.state) == STATE_CLIMAX)
 
 
-## Her missionary gaze target: the act body's eye, then the kiss's mouth, or ZERO.
+## Her missionary gaze target: the act body's eye, or ZERO.
 func gaze_point() -> Vector3:
 	if facts == null:
 		return Vector3.ZERO
@@ -207,10 +195,14 @@ func gaze_point() -> Vector3:
 			aim.y += SETTINGS.gaze_offset_mm_for(SETTINGS.pony_size_name()) / 1000.0
 			if view != null and view.has_method("head_look_point_at"):
 				return view.head_look_point_at(aim)
-	var kiss_controller: Variant = facts.kiss_controller()
-	if view != null and view.has_method("head_look_point") and kiss_controller != null \
-			and kiss_controller.has_method("mouth_view"):
-		return view.head_look_point(kiss_controller.mouth_view())
+	return Vector3.INF
+
+
+## His authored mouth on the bed, the kiss's own aim once it blends in.
+func _missionary_mouth() -> Vector3:
+	var body := facts.missionary_body() as POSES.PoseActBody if facts != null else null
+	if body != null and body.live():
+		return body.mouth_point()
 	return Vector3.INF
 
 
@@ -307,6 +299,7 @@ func at_actions_allowed() -> bool:
 ## The lean input: Q/E side, W/S forward/back, with Q/E also firing the pose reaction once the
 ## smoothed side lean crosses MOTION.LEAN_FIRE. `auto_open` freezes the shot in place.
 func tick_lean(delta: float, paused: bool, auto_open: bool) -> void:
+	_kiss_ramp(delta)
 	if not at_actions_allowed():
 		lean_idle(delta)
 		return
@@ -328,8 +321,6 @@ func tick_lean(delta: float, paused: bool, auto_open: bool) -> void:
 		# snapped the camera by about a sway step. Freezing both values leaves nothing to jump.
 		side_return_armed = false
 		end_lean_action()
-		if kiss != null:
-			kiss.lean_kiss_tick()
 		PERF.begin("caress_tick")
 		if hands != null:
 			hands.tick(delta, true)
@@ -368,11 +359,6 @@ func tick_lean(delta: float, paused: bool, auto_open: bool) -> void:
 		hold_rock_clock += delta
 		lean_sway = sin(hold_rock_clock * HOLD_SWAY_HZ) * MOTION.HOLD_SWAY_FORWARD
 	tick_lean_action()
-	# Missionary afterglow keeps lean and caress live but not the kiss; standing keeps its kiss.
-	# The afterglow begin releases a missionary kiss when the state changes.
-	if pose_family() == "standing" or int(facts.state) != STATE_AFTERGLOW:
-		if kiss != null:
-			kiss.lean_kiss_tick()
 	PERF.begin("caress_tick")
 	if hands != null:
 		hands.tick(delta, true)
@@ -380,8 +366,8 @@ func tick_lean(delta: float, paused: bool, auto_open: bool) -> void:
 	apply_standing_lean_look()
 
 
-## Oral keeps the shot neutral: no reach, no lean and no lean kiss, while the caress still ticks,
-## the standing look response still runs, and A/D and Z/C keep their own input.
+## Oral keeps the shot neutral: no reach and no lean, while the caress still ticks, the standing
+## look response still runs, and A/D and Z/C keep their own input.
 func oral_lean_tick(delta: float) -> void:
 	end_lean_action()
 	lean_forward = move_toward(lean_forward, 0.0, delta / MOTION.LEAN_RETURN_SECONDS)
@@ -391,13 +377,33 @@ func oral_lean_tick(delta: float) -> void:
 	lean_sway = 0.0
 	side_return_armed = false
 	lean_block_logged = false
-	if kiss != null:
-		kiss.end_lean_kiss()
 	PERF.begin("caress_tick")
 	if hands != null:
 		hands.tick(delta, true)
 	PERF.end("caress_tick")
 	apply_standing_lean_look()
+
+
+## The kiss's own lean: the camera eases the amount in with the kiss and out after it, and every
+## other system reads the three values it writes.
+func _kiss_ramp(delta: float) -> void:
+	var amount := move_toward(float(facts.kiss_amount), 1.0 if bool(facts.kiss_active) else 0.0,
+		delta / maxf(KISS_FADE_IN if bool(facts.kiss_active) else KISS_FADE_OUT, 0.001))
+	facts.kiss_amount = amount
+	var controls := _kiss_controls()
+	var height := float(facts.anon_height_scale)
+	facts.lean_drop_m = float(controls.get("lean_drop", MOTION.KISS_LEAN_DROP_M)) * height * amount
+	facts.lean_distance_m = float(controls.get("lean_forward", MOTION.KISS_LEAN_M)) * height * amount
+
+
+## The standing kiss's presentation overrides; the fixed constants otherwise.
+func _kiss_controls() -> Dictionary:
+	if facts == null or pose_family() != "standing":
+		return {}
+	var raw: Variant = facts.presentation_config
+	var all: Dictionary = raw if raw is Dictionary else {}
+	var kiss: Variant = all.get("kiss", {})
+	return kiss if kiss is Dictionary else {}
 
 
 ## No input this frame: drop the hands, release the pose action and return the lean to rest.
@@ -529,13 +535,15 @@ func end_lean_action() -> void:
 	lean_action_kind = ""
 
 
-## Drop the lean, the hands and the kiss for a fresh act or a restored look.
+## Drop the lean and the hands for a fresh act or a restored look.
 func reset_lean_state() -> void:
 	end_lean_action()
 	if hands != null:
 		hands.reset()
-	if kiss != null:
-		kiss.reset()
+	if facts != null:
+		facts.kiss_amount = 0.0
+		facts.lean_drop_m = 0.0
+		facts.lean_distance_m = 0.0
 	lean_action_spent = false
 	lean_forward = 0.0
 	lean_side = 0.0

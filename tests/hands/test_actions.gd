@@ -22,7 +22,6 @@ const COAT := preload("res://mods/unfplap/hands/contact.gd")
 const HAND := preload("res://mods/unfplap/hands/palm.gd")
 const FLANK := preload("res://mods/unfplap/hands/paths/standing.gd")
 const MISSIONARY_PATH := preload("res://mods/unfplap/hands/paths/missionary.gd")
-const KISS := preload("res://mods/unfplap/kiss/api.gd")
 const CAMERA_VIEW := preload("res://mods/unfplap/camera/view.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const STANDING_ANON := preload("res://mods/unfplap/poses/standing_anon.gd")
@@ -316,8 +315,6 @@ func run() -> void:
 	lean_facts.lean_view_side = 0.0
 	lean_facts.shot_lean_forward = 1.0
 	lean_facts.depth = 0.0
-	var lean_kiss := KISS.new(lean_facts)
-	lean_facts.kiss = func() -> Variant: return lean_kiss
 	var lean_scale := 1.0
 	var lean_anon := STANDING_ANON.new(lean_facts)
 	lean_anon.call("apply_anon_lean", hip, Basis.IDENTITY)
@@ -350,9 +347,6 @@ func run() -> void:
 	sway_hip.free()
 	invalid_hip.free()
 	side_hip.free()
-	# The kiss callback closes a reference cycle; clear it, then free the service Node.
-	lean_facts.kiss = Callable()
-	lean_kiss.free()
 
 	check(near(MODEL.CARESS_SPEED_RAD_S, 3.6), "caress speed")
 	var right_palm: Basis = HAND.palm_basis("right", Vector3.RIGHT, Vector3.FORWARD)
@@ -442,26 +436,36 @@ func run() -> void:
 	check(blended.is_finite() and near(blended.basis.get_scale().x, 1.0, 0.001),
 		"the caress blend orthonormalizes scaled world bases")
 	check(near(WING.WING_STANDING_HOLD, 0.65), "standing wings start at 60 degrees")
-	check(near(KISS.STANDING_KISS_LEAN, 0.90), "standing F kiss needs a full shoulder lean")
-	check(KISS.standing_kiss_wanted(true, 1.0), "F kisses at a full shoulder lean")
-	check(not KISS.standing_kiss_wanted(true, 0.8), "F does not kiss at a partial lean")
+	check(near(MOTION.STANDING_KISS_LEAN, 0.90) and near(MOTION.MISSIONARY_KISS_LEAN, 0.90),
+		"both kiss keys ask for a full lean")
+	check(MOTION.kiss_wanted("standing", true, false, 1.0, 0.0),
+		"F kisses at a full shoulder lean")
+	check(not MOTION.kiss_wanted("standing", true, false, 0.8, 0.0),
+		"F does not kiss at a partial shoulder lean")
+	check(MOTION.kiss_wanted("bed", true, true, 0.0, 1.0),
+		"F and the forward key kiss at a full missionary lean")
+	check(not MOTION.kiss_wanted("bed", true, false, 0.0, 1.0),
+		"the missionary kiss needs the forward key too")
+	check(not MOTION.kiss_wanted("bed", true, false, 1.0, 1.0),
+		"a side press alone cannot start the missionary kiss")
+	check(not MOTION.kiss_wanted("unknown", true, true, 1.0, 1.0),
+		"a family outside the two poses never kisses")
 
 	check(near(REACTIONS.JIGGLE_RUMP_SCALE, 2.8), "thrust jiggle scale")
 	check(near(ACT_CAMERA.CAM_SURGE_M, 0.06), "camera surge amplitude")
 	check(near(ACT_CAMERA.CAM_BOB_M, 0.02), "camera bob amplitude")
-	check(near(KISS.KISS_LEAN_M, 0.27) and near(KISS.KISS_LEAN_SIDE_M, 0.18)
-		and near(KISS.KISS_LEAN_DROP_M, 0.035), "kiss leans in, sideways and slightly lower")
-	check(near(KISS.KISS_CAMERA_YAW_DEG, 10.0), "kiss camera turns 10 degrees toward her")
-	check(near(KISS.KISS_PONY_SIDE_SIGN, 1.0), "pony kiss side matches the input side sign")
-	check(near(KISS.kiss_pony_side(-1.0), -1.0), "left lean gives her the opposite head tilt")
-	check(near(KISS.kiss_pony_side(1.0), 1.0), "right lean gives her the opposite head tilt")
-	check(near(KISS.kiss_pony_side(0.0), 0.0), "centered kiss leaves the side to her")
-	check(near(KISS.kiss_lateral_offset(-1.0, -1.0, 0.0), -0.18),
-		"kiss starts at the lean lateral offset")
-	check(near(KISS.kiss_lateral_offset(-0.5, -1.0, 1.0), -0.18),
-		"full kiss uses one lateral offset")
-	check(near(KISS.kiss_lateral_offset(-0.5, -1.0, 0.5), -0.135),
-		"kiss lateral crossfades instead of stacking")
+	check(near(MOTION.KISS_LEAN_M, 0.27) and near(MOTION.KISS_LEAN_SIDE_M, 0.18)
+		and near(MOTION.KISS_LEAN_DROP_M, 0.035), "kiss leans in, sideways and slightly lower")
+	check(near(MOTION.KISS_CAMERA_YAW_DEG, 10.0), "kiss camera turns 10 degrees toward her")
+	check(near(MOTION.kiss_pony_side(-1.0), -1.0), "left lean gives her the opposite head tilt")
+	check(near(MOTION.kiss_pony_side(1.0), 1.0), "right lean gives her the opposite head tilt")
+	check(near(MOTION.kiss_pony_side(0.0), 0.0), "centered kiss leaves the side to her")
+	check(near(MOTION.kiss_lateral_offset(-1.0, -1.0, 0.0, 1.0, MOTION.KISS_LEAN_SIDE_M),
+		-0.18), "kiss starts at the lean lateral offset")
+	check(near(MOTION.kiss_lateral_offset(-0.5, -1.0, 1.0, 1.0, MOTION.KISS_LEAN_SIDE_M),
+		-0.18), "full kiss uses one lateral offset")
+	check(near(MOTION.kiss_lateral_offset(-0.5, -1.0, 0.5, 1.0, MOTION.KISS_LEAN_SIDE_M),
+		-0.135), "kiss lateral crossfades instead of stacking")
 
 	var sk := Skeleton3D.new()
 	root.add_child(sk)
@@ -738,8 +742,6 @@ func run() -> void:
 	plant_facts.pose_view = _standing_view()
 	plant_facts.free_camera_active = true
 	plant_facts.features = {}
-	var plant_kiss := KISS.new(plant_facts)
-	plant_facts.kiss = func() -> Variant: return plant_kiss
 	plant_facts.pony = Node3D.new()
 	root.add_child(plant_facts.pony)
 	var plant_anon := STANDING_ANON.new(plant_facts)
@@ -755,8 +757,6 @@ func run() -> void:
 	check(plant_left.global_position.is_equal_approx(Vector3(0.2, 0.0, 0.0))
 		and plant_right.global_position.is_equal_approx(Vector3(-0.2, 0.0, 0.0)),
 		"a lean pins the feet at their live stepping pose")
-	plant_facts.kiss = Callable()
-	plant_kiss.free()
 	root.remove_child(plant_facts.pony)
 	plant_facts.pony.free()
 	plant_hip.free()

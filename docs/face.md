@@ -2,7 +2,7 @@
 
 The face service owns the act's one expression owner: the beats at the act's moments, the rule that
 a spoken line owns the face, the stare release and eyelids, the smile with its hold, and the held
-post-act mood face with its warm note. It does not own blush, the kiss, the HUD or the summary grade.
+post-act mood face with its warm note. It does not own blush, the aim, the HUD or the summary grade.
 
 ## Beats
 
@@ -30,7 +30,8 @@ runs. The post-act mood face is independent of it.
 The act releases the stare on a warm climax or while a kiss is active, then reasserts the state's
 lids: half-lidded through positioning and the act, wide at the climax, sleepier in the afterglow and
 sleepier again when the close window was rewarded. The release is applied once, so a reassert does
-not run every frame. The act runs no expression of its own while a kiss owns her face.
+not run every frame. The bed kiss's expression layer is the face's own, driven by the camera's
+amount and released when it reaches zero; the stock standing kiss keeps her face.
 
 ## The held post-act face
 

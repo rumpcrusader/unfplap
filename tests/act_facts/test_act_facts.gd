@@ -14,7 +14,6 @@ class Sink extends RefCounted:
 	var look_pitch := 0.0
 	var glance := ""
 	var basis_ready := 0
-	var kiss_calls := 0
 	var neck := Vector3(1.0, 2.0, 3.0)
 	var touch_kind := ""
 	var touch_calls := 0
@@ -39,10 +38,6 @@ class Sink extends RefCounted:
 
 	func mark_ready() -> void:
 		basis_ready += 1
-
-	func controller() -> Variant:
-		kiss_calls += 1
-		return "kiss"
 
 	func neck_point() -> Vector3:
 		return neck
@@ -80,21 +75,22 @@ func run() -> void:
 	check(is_zero_approx(facts.clock()), "the line clock starts at zero")
 	check(not facts.director.is_valid(), "the director callback starts absent")
 	check(not facts.now.is_valid(), "the clock callback starts absent")
-	check(not facts.kiss.is_valid(), "kiss callback starts absent")
+	check(is_zero_approx(facts.kiss_amount) and not facts.kiss_active
+		and is_zero_approx(facts.kiss_side), "the kiss mirrors start clear")
+	check(is_zero_approx(facts.lean_drop_m) and is_zero_approx(facts.lean_distance_m),
+		"the kiss lean mirrors start clear")
 	check(not facts.neck_point.is_valid(), "neck callback starts absent")
 	check(not facts.set_look.is_valid(), "look write-back starts absent")
 
 	facts.write_look(1.0, 2.0)
 	facts.write_forced_glance("L")
 	facts.mark_camera_basis_ready()
-	check(facts.kiss_controller() == null, "absent kiss callback returns null")
 	check(facts.neck_midpoint() == Vector3.INF, "absent neck callback returns infinity")
 
 	var sink := Sink.new()
 	facts.set_look = Callable(sink, "look")
 	facts.set_forced_glance = Callable(sink, "force_glance")
 	facts.set_camera_basis_ready = Callable(sink, "mark_ready")
-	facts.kiss = Callable(sink, "controller")
 	facts.neck_point = Callable(sink, "neck_point")
 	facts.now = Callable(sink, "clock_now")
 	facts.write_look(0.4, -0.2)
@@ -104,8 +100,6 @@ func run() -> void:
 	check(sink.glance == "R", "the glance write-back keeps the side")
 	facts.mark_camera_basis_ready()
 	check(sink.basis_ready == 1, "the basis write-back fires once")
-	check(facts.kiss_controller() == "kiss" and sink.kiss_calls == 1,
-		"the kiss callback returns the controller")
 	check(facts.neck_midpoint() == sink.neck, "the neck callback returns the point")
 	check(is_equal_approx(facts.clock(), 7.5), "the clock callback supplies the act clock")
 

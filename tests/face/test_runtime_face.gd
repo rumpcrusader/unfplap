@@ -82,7 +82,7 @@ func _eyes(runtime: Node) -> FACE.BEAT:
 	var context := FACE.BEAT.new()
 	context.state = runtime.act.state
 	context.close_rewarded = runtime.act.context.afterglow.close_rewarded
-	context.eyes_active = runtime.act.context.kiss.eyes_active()
+	context.eyes_active = bool(runtime.act.context.facts.kiss_active)
 	return context
 
 

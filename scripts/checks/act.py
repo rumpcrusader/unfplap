@@ -50,7 +50,6 @@ POSE_FANOUT_ORDER = (
     "context.pose",
     "context.camera",
     "context.hands",
-    "context.kiss",
     "context.anatomy",
 )
 # The start ledger's recipe, in the order the act depends on: the presentation guard, the stool,

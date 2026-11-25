@@ -79,7 +79,6 @@ func apply_anon_thrust(_hip: Node3D, facing: Basis) -> void:
 ## Phase-2 Anon body lean: the view goes forward, sideways or down, so his torso folds over her.
 ## A live lean pins both foot targets; otherwise the stepping feet keep moving.
 func apply_anon_lean(hip: Node3D, facing: Basis) -> void:
-	var kiss: Variant = facts.kiss_controller()
 	if not _standing_family() or not bool(facts.free_camera_active) or not is_instance_valid(hip):
 		return
 	var forward := -facing.z.normalized()
@@ -93,16 +92,17 @@ func apply_anon_lean(hip: Node3D, facing: Basis) -> void:
 		var right: Variant = body.get("_right_foot")
 		var lean_scale: float = float(facts.standing_lean_scale)
 		var forward_shift: float = MOTION.lean_distance(maxf(float(facts.shot_lean_forward), 0.0), lean_scale) \
-			+ kiss.lean_distance() + float(facts.anon_torso_forward)
+			+ float(facts.lean_distance_m) + float(facts.anon_torso_forward)
 		hip.global_position -= forward * forward_shift
-		var side_shift: float = kiss.lateral_offset(lean_scale)
+		var side_shift: float = MOTION.kiss_lateral_offset(float(facts.lean_view_side),
+			float(facts.kiss_side), float(facts.kiss_amount), lean_scale, _kiss_side_m())
 		hip.global_position -= side * side_shift
 		# The kiss and torso angle drop the camera/head; keep the pelvis planted through the hinge.
-		hip.global_position.y += kiss.lean_drop() * kiss.lean() + float(facts.anon_torso_drop)
+		hip.global_position.y += float(facts.lean_drop_m) + float(facts.anon_torso_drop)
 		hip.global_position.y -= _hip_drop()
 		hip.global_position += _sway_offset()
 		# Keep the game's stepping feet and only pin the lower body while leaning.
-		if forward_shift > 0.001 or absf(side_shift) > 0.001 or kiss.lean() > 0.001:
+		if forward_shift > 0.001 or absf(side_shift) > 0.001 or float(facts.kiss_amount) > 0.001:
 			if not _lower_captured and left is Node3D and right is Node3D:
 				_lower_left = (left as Node3D).global_transform
 				_lower_right = (right as Node3D).global_transform
@@ -121,6 +121,16 @@ func apply_anon_lean(hip: Node3D, facing: Basis) -> void:
 ## Lower Anon's standing hips; use this when his body sits too high.
 func _hip_drop() -> float:
 	return SETTINGS.hip_drop_m.get_num()
+
+
+## The kiss's lateral distance at Anon's height, from the standing presentation's own override.
+func _kiss_side_m() -> float:
+	var raw: Variant = facts.presentation_config if facts != null else null
+	var all: Dictionary = raw if raw is Dictionary else {}
+	var controls: Variant = all.get("kiss", {})
+	var kiss: Dictionary = controls if controls is Dictionary else {}
+	return float(kiss.get("lean_side", MOTION.KISS_LEAN_SIDE_M)) \
+		* float(facts.anon_height_scale)
 
 
 func _sway_offset() -> Vector3:

@@ -10,7 +10,7 @@ const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 const PONY_GROUP := "unfplap_pony_service"
 const PONY_NAMES := [
-	"UnfplapPoses", "UnfplapCamera", "UnfplapHands", "UnfplapKiss", "UnfplapFace",
+	"UnfplapPoses", "UnfplapCamera", "UnfplapHands", "UnfplapFace",
 	"UnfplapAfterglow", "UnfplapRest", "UnfplapSceneGate", "UnfplapSceneHold",
 	"UnfplapReadiness", "UnfplapAutoThrust", "UnfplapReactions", "UnfplapSummary",
 	"UnfplapDialogue",
@@ -34,7 +34,7 @@ func run() -> void:
 			if hook == "_process" and str(child.name) in PROCESS_OWNERS:
 				continue
 			check(not child.has_method(hook), "%s declares no %s" % [child.name, hook])
-	check(attached == PONY_NAMES, "the 14 Pony services are attached once, in their fixed order")
+	check(attached == PONY_NAMES, "the 13 Pony services are attached once, in their fixed order")
 	check(runtime.get_node_or_null("UnfplapPoses") == runtime.act.context.pose,
 		"the named child is the constructed pose session")
 	check(runtime.get_node_or_null("UnfplapDialogue") == runtime.act.context.dialogue,

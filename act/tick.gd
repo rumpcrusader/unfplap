@@ -17,6 +17,8 @@ const WORLD := preload("res://mods/unfplap/world/api.gd")
 const PERF := preload("res://mods/unfplap/shared/perf.gd")
 
 const State := ACT_STATE.State
+const KISS_SOUND_MIN := 2.0
+const KISS_SOUND_MAX := 3.4
 
 var host: ACT_HOST = null
 var context: ACT_CONTEXT = null
@@ -28,6 +30,8 @@ var swap: ACT_SWAP = null
 var exit: ACT_EXIT = null
 ## The frame-level presentation and its write-backs.
 var phases: ACT_PHASES = null
+## The mouth-kiss repeat's own clock; the act's frame owns the interval and the sound.
+var _kiss_sound_clock := 0.0
 
 
 func bind(host_in: ACT_HOST, context_in: ACT_CONTEXT, session_in: ACT_SESSION,
@@ -95,7 +99,11 @@ func _tick(delta: float) -> void:
 			context.consent.stop_with_her(context.consent.stop_kind)
 	phases.log_settled()
 	PERF.begin("kiss_tick")
-	context.kiss.tick(delta)
+	context.kiss.tick()
+	# The stock standing kiss owns her face; the act's own layer is the bed kiss's.
+	if session.pose_family() == "bed":
+		context.face.kiss_face(float(context.facts.kiss_amount))
+	_kiss_sound_tick(delta)
 	PERF.end("kiss_tick")
 	if session.state in [State.ACTIVE, State.CLIMAX]:
 		PERF.begin("runtime_ai")
@@ -139,12 +147,12 @@ func _tick(delta: float) -> void:
 	if session.state in [State.POSING_IN, State.ACTIVE, State.CLIMAX, State.AFTERGLOW] \
 			and session.consume_check_clock(delta):
 		var verdict: Variant = context.gate.running_verdict(context.hold.nav, session.bed,
-			session.player_pony, context.kiss.base_active())
+			session.player_pony, context.kiss.active())
 		if not verdict.ok:
 			exit.stop(verdict.reason)
 	PERF.begin("runtime_face")
 	context.face.eyes_for(session.state, context.afterglow.close_rewarded,
-		context.kiss.eyes_active())
+		bool(context.facts.kiss_active))
 	PERF.end("runtime_face")
 
 
@@ -157,6 +165,20 @@ func talk(_delta: float) -> void:
 		context.readiness.talk(line)
 
 
+## The stock kiss's soft repeat, keyed on the act's kiss state for both families. A fresh kiss
+## sounds on its first frame; the gap holds the rest.
+func _kiss_sound_tick(delta: float) -> void:
+	var facts := context.facts
+	if not bool(facts.kiss_active):
+		_kiss_sound_clock = 0.0
+		return
+	_kiss_sound_clock -= delta
+	if _kiss_sound_clock > 0.0:
+		return
+	facts.call_value(facts.play_mouth_kiss)
+	_kiss_sound_clock = randf_range(KISS_SOUND_MIN, KISS_SOUND_MAX)
+
+
 ## The game's conversation director, or null outside the tree.
 func _director() -> Node:
 	if not is_instance_valid(host.node) or not host.node.is_inside_tree():
@@ -165,13 +187,12 @@ func _director() -> Node:
 
 
 ## The pose-change fan-out has a fixed order: the pose service reconciles its modifiers and the
-## act body, then the camera, hands, kiss and anatomy retarget. Every hook is idempotent.
+## act body, then the camera, hands and anatomy retarget. Every hook is idempotent.
 func _fanout() -> void:
 	var view := context.pose.view()
 	context.pose.pose_changed()
 	context.camera.pose_changed(view)
 	context.hands.pose_changed(view)
-	context.kiss.pose_changed(view)
 	if context.anatomy != null and context.pose_view != null and view != null:
 		context.pose_view.family = str(view.family)
 		context.pose_view.frame = str(view.frame)

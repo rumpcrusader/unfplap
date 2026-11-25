@@ -1299,12 +1299,11 @@ static var torso_angle_deg := num("torso_angle_deg", "presentation.standing.tors
 
 # -- Standing › Kiss  (debug)
 
-## Over-the-shoulder yaw toward her at the kiss; kiss/api.gd reads the block when the
-## kiss starts.
+## Over-the-shoulder yaw toward her at the kiss; the camera reads the block while the kiss runs.
 static var camera_yaw_deg := num("camera_yaw_deg", "presentation.standing.kiss.camera_yaw_deg", "Kiss camera yaw", "Over-the-shoulder yaw toward her at the kiss.", POSES,
 	"Standing › Kiss") \
 	.with_unit("°").with_step(1.0).as_debug()
-## How far he drops over her at the kiss; kiss/api.gd applies it when the kiss starts.
+## How far he drops over her at the kiss; the camera eases the drop with the kiss amount.
 static var lean_drop := num("lean_drop", "presentation.standing.kiss.lean_drop",
 	"Kiss lean drop", "How far he drops over her at the kiss.", POSES, "Standing › Kiss") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()

@@ -17,7 +17,6 @@ const CAMERA_VIEW := preload("res://mods/unfplap/camera/view.gd")
 const POSES := preload("res://mods/unfplap/poses/api.gd")
 const CAMERA_CONFIG := preload("res://mods/unfplap/camera/config.gd")
 const HANDS := preload("res://mods/unfplap/hands/api.gd")
-const KISS := preload("res://mods/unfplap/kiss/api.gd")
 const AUTHORED := preload("res://mods/unfplap/poses/authored_pose.gd")
 
 
@@ -115,43 +114,6 @@ class FakeHands extends HANDS:
 		if side == HANDS.Side.RIGHT:
 			return "RIGHT"
 		return "NONE"
-
-
-class FakeKiss extends KISS:
-	var calls: Array[String] = []
-
-	func lean() -> float:
-		return 0.0
-
-	func lean_drop() -> float:
-		return 0.0
-
-	func lean_distance() -> float:
-		return 0.0
-
-	func side() -> float:
-		return 1.0
-
-	func lateral_offset(_scale: float) -> float:
-		return 0.0
-
-	func camera_yaw_deg() -> float:
-		return 12.0
-
-	func standing_active() -> bool:
-		return false
-
-	func base_active() -> bool:
-		return false
-
-	func lean_kiss_tick() -> void:
-		calls.append("lean_kiss_tick")
-
-	func end_lean_kiss() -> void:
-		calls.append("end_lean_kiss")
-
-	func reset() -> void:
-		calls.append("reset")
 
 
 class FakeView extends CAMERA_VIEW:
@@ -259,20 +221,18 @@ func _fixture() -> Dictionary:
 	_pose(facts, "bed")
 	var camera: CAMERA = CAMERA.new()
 	var hands := FakeHands.new()
-	var kiss := FakeKiss.new()
 	var view := FakeView.new()
-	camera.wire(facts, hands, kiss, view)
+	camera.wire(facts, hands, view)
 	return {
 		"camera": camera, "facts": facts, "main": main, "player": player,
-		"hands": hands, "kiss": kiss, "view": view, "game": game,
+		"hands": hands, "view": view, "game": game,
 	}
 
 
-## Release a `_fixture()` scene: the three services, then the player rig and the game.
+## Release a `_fixture()` scene: the two services, then the player rig and the game.
 func _free_fixture(made: Dictionary) -> void:
 	(made["camera"] as Node).free()
 	(made["hands"] as Node).free()
-	(made["kiss"] as Node).free()
 	var main: FakeMain = made["main"]
 	var player: FakePlayer = made["player"]
 	var game: FakeGame = made["game"]
@@ -556,13 +516,11 @@ func _eye_fixture() -> Dictionary:
 	act_session.body = body
 	var body_handle := POSES.PoseActBody.new(act_session)
 	facts.missionary_anon = func() -> Variant: return body_handle
-	var kiss := FakeKiss.new()
-	facts.kiss = func() -> Variant: return kiss
 	_pose(facts, "bed")
 	var camera: RefCounted = CAMERA_VIEW.new(facts)
 	camera.call("mount")
 	return {
-		"camera": camera, "facts": facts, "body": body, "pony": pony, "kiss": kiss,
+		"camera": camera, "facts": facts, "body": body, "pony": pony,
 		"main": main, "game": game, "player": player,
 	}
 
@@ -573,7 +531,6 @@ func _free_eye_fixture(made: Dictionary) -> void:
 	var pony: FakePony = made["pony"]
 	var game: FakeGame = made["game"]
 	var body: FakeActBody = made["body"]
-	(made["kiss"] as Node).free()
 	WORLD.unbind()
 	root.remove_child(pony)
 	pony.free()
@@ -592,7 +549,6 @@ func _check_lean() -> void:
 	var camera: Variant = made["camera"]
 	var facts: Variant = made["facts"]
 	var hands: FakeHands = made["hands"]
-	var kiss: FakeKiss = made["kiss"]
 	camera.free_camera_active = true
 	camera.camera = (made["main"] as FakeMain).view
 	facts.state = STATE_IDLE
@@ -664,24 +620,24 @@ func _check_lean() -> void:
 	check(hands.calls.count("set_reach:RIGHT") == reach_starts + 1,
 		"leaving the release band re-arms the reach")
 
-	# A fresh lean state drops the hands and the kiss.
+	# A fresh lean state drops the hands.
 	hands.calls.clear()
-	kiss.calls.clear()
 	camera.lean_forward = 1.0
 	camera.call("reset_lean_state")
-	check(hands.calls.has("reset") and kiss.calls.has("reset"),
-		"the lean reset drops the hands and the kiss")
+	check(hands.calls.has("reset"), "the lean reset drops the hands")
 	check(near(camera.lean_forward, 0.0), "the lean reset returns to rest")
+	check(is_zero_approx(facts.kiss_amount) and is_zero_approx(facts.lean_drop_m)
+		and is_zero_approx(facts.lean_distance_m),
+		"the lean reset clears the kiss mirrors")
 	_free_fixture(made)
 
 
-## Oral locks the body: no lean, no Q/E reach and no F lean kiss, while the caress keeps running.
+## Oral locks the body: no lean and no Q/E reach, while the caress keeps running.
 func _check_oral_lean() -> void:
 	var made := _fixture()
 	var camera: Variant = made["camera"]
 	var facts: Variant = made["facts"]
 	var hands: FakeHands = made["hands"]
-	var kiss: FakeKiss = made["kiss"]
 	var view: FakeView = made["view"]
 	_pose(facts, "standing")
 	facts.pose_view.contact_kind = "mouth"
@@ -695,7 +651,6 @@ func _check_oral_lean() -> void:
 	camera.lean_action_kind = "reach"
 	camera.lean_action_side = 0.8
 	hands.calls.clear()
-	kiss.calls.clear()
 	view.calls.clear()
 	camera.call("oral_lean_tick", 0.1)
 	check(not camera.lean_action_active, "oral ends an active lean action")
@@ -705,8 +660,6 @@ func _check_oral_lean() -> void:
 		"oral returns the lean toward rest")
 	check(near(camera.lean_sway, 0.0), "oral zeroes the idle sway")
 	check(not camera.side_return_armed, "oral drops the side return latch")
-	check(kiss.calls.has("end_lean_kiss"), "oral ends a running lean kiss")
-	check(not kiss.calls.has("lean_kiss_tick"), "oral never restarts the lean kiss")
 	check(hands.calls.has("tick:true"), "oral keeps ticking the caress hands")
 	check(not hands.calls.has("tick:false"), "oral never stops the caress input")
 	check(view.calls.has("apply_lean_look"), "oral keeps the standing look response")
@@ -911,9 +864,6 @@ func _check_standing_shot_offsets() -> void:
 	facts.size_name = "same height"
 	facts.presentation_config = {"camera_forward_m": 0.0, "camera_pitch_deg": 0.0}
 	facts.look_captured = true
-	# Binds the node, not the fixture dictionary: a captured `made` holds `facts` and closes a cycle.
-	var kiss_node: FakeKiss = made["kiss"]
-	facts.kiss = func() -> Variant: return kiss_node
 	view.position = Vector3(0.0, 1.7, 0.0)
 	var standing: RefCounted = CAMERA_VIEW.new(facts)
 	standing.call("prepare")
@@ -1000,8 +950,6 @@ func _check_standing_cache() -> void:
 	var early_facts: RefCounted = FACTS.new()
 	early_facts.pose_view = early_view
 	early_facts.presentation_config = {"glance_back_speed": 1.0}
-	var early_kiss := FakeKiss.new()
-	early_facts.kiss = func() -> Variant: return early_kiss
 	var early_pony := FakePony.new()
 	var early_secondary := FakeSecondary.new()
 	early_pony.secondary = early_secondary
@@ -1019,7 +967,6 @@ func _check_standing_cache() -> void:
 		"the first wait stays armed until the pose config exists")
 	early_pony.free()
 	early_secondary.free()
-	early_kiss.free()
 
 
 func _check_neck() -> void:
@@ -1175,8 +1122,6 @@ func _check_view_writes() -> void:
 	facts.look_pitch = 0.1
 	facts.player_eye_height = 1.7
 	facts.presentation_config = {"camera_pitch_deg": 0.0, "glance_back_speed": 1.0}
-	var no_kiss := FakeKiss.new()
-	facts.kiss = func() -> Variant: return no_kiss
 	facts.set_head_back = func(value: float) -> void: pose.head_back = value
 	var pose_view: RefCounted = VIEW.new()
 	pose_view.id = CATALOG.STANDING
@@ -1275,27 +1220,24 @@ func _check_view_writes() -> void:
 	main.free()
 	root.remove_child(game)
 	game.free()
-	no_kiss.free()
 
 
 ## The camera's rendered look write lands on the typed pose node: the standing look goes to the
-## player camera, and the kiss amount and climax flag follow the frame's state.
+## player camera, and the climax flag follows the frame's state.
 func _check_look_target() -> void:
 	var made := _fixture()
 	var camera: Variant = made["camera"]
 	var facts: RefCounted = made["facts"]
-	var aimed := {"point": Vector3.INF, "kiss": 0.0, "climax": false}
-	facts.aim_look = func(point: Vector3, kiss_value: float, climaxing: bool) -> void:
+	var aimed := {"point": Vector3.INF, "climax": false}
+	facts.aim_look = func(point: Vector3, climaxing: bool) -> void:
 		aimed["point"] = point
-		aimed["kiss"] = kiss_value
 		aimed["climax"] = climaxing
 	_pose(facts, "standing")
 	camera.write_look_target()
 	check((aimed["point"] as Vector3).is_equal_approx(
 		(made["main"] as FakeMain).view.global_position),
 		"the standing look target is the player camera")
-	check(not bool(aimed["climax"]) and near(float(aimed["kiss"]), 0.0),
-		"a kissless active frame writes no climax")
+	check(not bool(aimed["climax"]), "a kissless active frame writes no climax")
 	facts.state = STATE_CLIMAX
 	camera.write_look_target()
 	check(bool(aimed["climax"]), "the climax frame marks the pose")

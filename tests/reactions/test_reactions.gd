@@ -108,7 +108,7 @@ class FakePony extends Node3D:
 	var skeleton: Variant = null
 	var hair_skeleton: Variant = null
 
-## The act snapshot the facade takes: the block plus the family, size and climax length.
+## The act tuning the facade takes: the block plus the family, size and climax length.
 func tune(block := {}, family := "", size := 1.0, climax := 5.0) -> RefCounted:
 	var context := REACTIONS.CONTEXT.new()
 	context.fill(jiggle_block(block), family, size, climax)

@@ -62,7 +62,7 @@ a chosen origin, which the standing afterglow close and the climax start use.
 
 ## Tuning and teardown
 
-The act snapshot pushes the pose family, her size, the climax length and the jiggle values in one
-configuration; the block is complete, so the service keeps no fallback of its own. A fresh act
+The act start pushes the pose family, her size, the climax length and the jiggle values in one
+configuration; the tuning is complete, so the service keeps no fallback of its own. A fresh act
 clears only the live visuals and keeps the tuning. The end frees the decal, drops the tail handle
 and restores the radius.

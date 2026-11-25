@@ -788,7 +788,7 @@ func _check_oral_edge() -> void:
 		"the oral forward fills the target and enters the transition")
 	check(view.contact_kind == "opening", "the oral forward keeps the opening before 0.9")
 	check(is_same(view.to_config, session._target_config),
-		"the oral target is the standing settings snapshot")
+		"the oral target is the standing settings block")
 	check(session._pose_node.mode == POSE.MODE_BLEND,
 		"the oral delta pair takes the two-base blend")
 	check(session._pose_node.from_delta == "" and session._pose_node.to_delta

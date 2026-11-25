@@ -816,7 +816,7 @@ static var idle_camera_sway := flag("idle_camera_sway", "features.idle_camera_sw
 
 # -- Talk & cues  (debug)
 
-## How long a base cue must hold before it can be spoken; the act snapshot carries it into
+## How long a base cue must hold before it can be spoken; the act start carries it into
 ## the cue scheduler.
 static var base_stable_seconds := num("base_stable_seconds", "cues.base_stable_seconds",
 	"Base stability", "How long a base cue must hold before it can be spoken.", GENERAL,
@@ -1236,7 +1236,7 @@ static var hip_drop_m := num("hip_drop_m", "presentation.standing.hip_drop_m", "
 	"Lower Anon's standing hips; use this when his body sits too high. 0 is off.", POSES,
 	"Standing › Motion") \
 	.with_unit("cm").with_step(0.5).with_scale(100.0).as_debug()
-## Hinges his upper body at the hips; the pose reads the presentation block.
+## Hinges his upper body at the hips; the pose reads its typed setting.
 static var torso_angle_deg := num("torso_angle_deg", "presentation.standing.torso_angle_deg", "Anon torso lean",
 	"Hinge Anon's upper body forward over her; the lower body stays planted.", POSES,
 	"Standing › Motion") \

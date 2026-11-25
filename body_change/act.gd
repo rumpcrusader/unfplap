@@ -57,7 +57,7 @@ var context: BODY_CHANGE_POLICY.BodyChangeActContext = \
 var talk_turn := -1
 ## The debug log's cached form label; an unchanged label is not logged again.
 var form_hint_log := ""
-## Debug mode at the act's settings snapshot: only then may the log name the form state.
+## Debug mode: only then may the log name the form state.
 var form_hint_debug := false
 ## The world memory a form effect writes; the runtime's builder passes it once.
 var memory: Node = null
@@ -445,14 +445,14 @@ func _fail(reason: String) -> int:
 
 # ------------------------------------------------------------------------- form interaction
 
-## Debug mode at the act's settings snapshot. The runtime writes this once per snapshot; the log
-## probe reads it, and no other state depends on it.
+## Debug mode. The host writes this once; the log probe reads it, and no other state depends on
+## it.
 func set_form_hint_debug(enabled: bool) -> void:
 	form_hint_debug = enabled
 
 
 ## A fresh act: the reveal and the offer are once-per-act, and the reused context and debug label
-## start empty. The debug flag comes from the settings snapshot and survives.
+## start empty. The debug flag survives.
 func reset_act() -> void:
 	reveal_done = false
 	offer_done = false

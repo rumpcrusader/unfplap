@@ -220,7 +220,7 @@ func aim_eyes() -> void:
 	WORLD.pony(pony).aim_eyes(target)
 
 
-## Take the act's camera tuning from the runtime's settings snapshot.
+## Take the act's camera tuning.
 func configure(camera_block: CAMERA_CONFIG.Config) -> void:
 	camera_surge = camera_block.surge
 	camera_bob = camera_block.bob

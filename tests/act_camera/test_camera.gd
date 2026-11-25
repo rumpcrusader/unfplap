@@ -864,7 +864,10 @@ func _check_standing_shot_offsets() -> void:
 	facts.free_camera_active = true
 	facts.player_eye_height = 1.7
 	facts.size_name = "same height"
-	facts.presentation_config = {"camera_forward_m": 0.0, "camera_pitch_deg": 0.0}
+	var forward_previous := SETTINGS.camera_forward_m.get_num()
+	var pitch_previous := SETTINGS.camera_pitch_deg.get_num()
+	SETTINGS.camera_forward_m.set_num(0.0)
+	SETTINGS.camera_pitch_deg.set_num(0.0)
 	facts.look_captured = true
 	view.position = Vector3(0.0, 1.7, 0.0)
 	var standing: RefCounted = CAMERA_VIEW.new(facts)
@@ -880,6 +883,8 @@ func _check_standing_shot_offsets() -> void:
 		"the thrust bob moves the camera vertically")
 	check(near(view.position.x, base.x), "no side lean keeps the camera on its line")
 	_free_fixture(made)
+	SETTINGS.camera_forward_m.set_num(forward_previous)
+	SETTINGS.camera_pitch_deg.set_num(pitch_previous)
 
 
 ## The standing camera re-reads the view's config only on a settings-group or pose-id change, so the
@@ -949,9 +954,10 @@ func _check_standing_cache() -> void:
 	early_view.id = CATALOG.STANDING
 	early_view.family = "standing"
 	early_view.settings_group = "standing"
+	var glance_previous := SETTINGS.glance_back_speed.get_num()
+	SETTINGS.glance_back_speed.set_num(1.0)
 	var early_facts: RefCounted = FACTS.new()
 	early_facts.pose_view = early_view
-	early_facts.presentation_config = {"glance_back_speed": 1.0}
 	var early_pony := FakePony.new()
 	var early_secondary := FakeSecondary.new()
 	early_pony.secondary = early_secondary
@@ -969,6 +975,7 @@ func _check_standing_cache() -> void:
 		"the first wait stays armed until the pose config exists")
 	early_pony.free()
 	early_secondary.free()
+	SETTINGS.glance_back_speed.set_num(glance_previous)
 
 
 func _check_neck() -> void:
@@ -1123,7 +1130,10 @@ func _check_view_writes() -> void:
 	facts.look_yaw = 0.0
 	facts.look_pitch = 0.1
 	facts.player_eye_height = 1.7
-	facts.presentation_config = {"camera_pitch_deg": 0.0, "glance_back_speed": 1.0}
+	var pitch_previous := SETTINGS.camera_pitch_deg.get_num()
+	var glance_previous := SETTINGS.glance_back_speed.get_num()
+	SETTINGS.camera_pitch_deg.set_num(0.0)
+	SETTINGS.glance_back_speed.set_num(1.0)
 	facts.set_head_back = func(value: float) -> void: pose.head_back = value
 	var pose_view: RefCounted = VIEW.new()
 	pose_view.id = CATALOG.STANDING
@@ -1203,6 +1213,8 @@ func _check_view_writes() -> void:
 	view.call("apply_lean_look")
 	check(near(main.view.rotation.x, 0.0), "her form driver keeps the camera pitch")
 	player.form_driver = null
+	SETTINGS.camera_pitch_deg.set_num(pitch_previous)
+	SETTINGS.glance_back_speed.set_num(glance_previous)
 
 	root.remove_child(pony)
 	pony.free()

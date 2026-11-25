@@ -3,6 +3,7 @@ extends RefCounted
 ## The frame owns the player; this module owns the view and its live offsets.
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
@@ -28,7 +29,6 @@ var facts: ACT_FACTS = null
 var pony: Node3D = null
 var bed: Node3D = null
 var camera: Camera3D
-var _presentation_cfg: Dictionary = {}
 var _pose_cfg: Dictionary = {}
 ## Re-read the pose config only on a settings-group or pose-id change, so the standing debug pair
 ## keeps the live values instead of snapping to the target every tick.
@@ -85,13 +85,13 @@ func tick() -> void:
 		float(facts.lean) - float(facts.back) + MOTION.lean_distance(
 			float(facts.lean_view_forward), lean_scale)
 		+ float(facts.lean_distance_m) + float(facts.anon_torso_forward)
-		+ float(_presentation_cfg["camera_forward_m"]), _lateral_offset(lean_scale))
+		+ SETTINGS.camera_forward_m.get_num(), _lateral_offset(lean_scale))
 	if bool(facts.free_camera_active) and is_instance_valid(camera):
 		camera.rotation.z = (-deg_to_rad(MOTION.LEAN_SIDE_ROLL_DEG) * float(facts.lean_view_side) \
 			+ deg_to_rad(MOTION.LEAN_ROLL_DEG) * float(facts.lean_view_forward)) * lean_scale
 		camera.rotation.x = clampf(
 			float(facts.look_pitch) - deg_to_rad(MOTION.LEAN_PITCH_DEG) * absf(float(facts.lean_view_forward)) * lean_scale
-			+ deg_to_rad(float(_presentation_cfg["camera_pitch_deg"])),
+			+ deg_to_rad(SETTINGS.camera_pitch_deg.get_num()),
 			-1.5, 1.5)
 
 
@@ -101,18 +101,14 @@ func _lateral_offset(lean_scale: float) -> float:
 		float(facts.kiss_amount), lean_scale, _kiss_side_m())
 
 
-## The kiss's lateral distance at Anon's height, from the standing presentation's own override.
+## The kiss's lateral distance at Anon's height.
 func _kiss_side_m() -> float:
-	var raw: Variant = _presentation_cfg.get("kiss", {})
-	var kiss: Dictionary = raw if raw is Dictionary else {}
-	return float(kiss.get("lean_side", MOTION.KISS_LEAN_SIDE_M)) * float(facts.anon_height_scale)
+	return SETTINGS.lean_side.get_num() * float(facts.anon_height_scale)
 
 
-## The camera's over-the-shoulder yaw at a full kiss lean, from the same presentation block.
+## The camera's over-the-shoulder yaw at a full kiss lean.
 func _kiss_camera_yaw_deg() -> float:
-	var raw: Variant = _presentation_cfg.get("kiss", {})
-	var kiss: Dictionary = raw if raw is Dictionary else {}
-	return float(kiss.get("camera_yaw_deg", MOTION.KISS_CAMERA_YAW_DEG))
+	return SETTINGS.camera_yaw_deg.get_num()
 
 
 ## The render-time eye write: the act body's posed head for the position, the authored look path
@@ -313,7 +309,7 @@ func _apply_standing_lean_look() -> void:
 	var pitch := clampf(
 		float(facts.look_pitch) - deg_to_rad(MOTION.LEAN_PITCH_DEG) \
 			* absf(float(facts.lean_view_forward)) * lean_scale
-		+ deg_to_rad(float(_presentation_cfg["camera_pitch_deg"])),
+		+ deg_to_rad(SETTINGS.camera_pitch_deg.get_num()),
 		-1.5, 1.5)
 	body.rotation.y = yaw
 	var anon := WORLD.anon()
@@ -383,7 +379,7 @@ func _lock_body_facing() -> void:
 
 
 func _glance_back_fade() -> float:
-	return MOTION.glance_back_fade_for(float(_presentation_cfg["glance_back_speed"]))
+	return MOTION.glance_back_fade_for(SETTINGS.glance_back_speed.get_num())
 
 
 ## Every few seconds she turns her head back toward Anon. The game's secondary gaze owns the turn;
@@ -515,8 +511,6 @@ func _sync() -> void:
 	pony = facts.pony if facts != null else null
 	bed = facts.bed if facts != null else null
 	camera = facts.camera if facts != null else null
-	var cfg: Variant = facts.presentation_config if facts != null else null
-	_presentation_cfg = cfg if cfg is Dictionary else {}
 	var view: Variant = facts.pose_view if facts != null else null
 	var group := str(view.settings_group) if view != null else ""
 	var key := str(view.id) if view != null else ""

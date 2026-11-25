@@ -19,7 +19,6 @@ var snapshot: SETTINGS.ActSnapshot = SETTINGS.ActSnapshot.new()
 ## The typed reads the act itself makes from the snapshot, so no caller reaches into the raw
 ## settings document.
 var features: Dictionary = {}
-var presentation_config: Dictionary = {}
 var max_pony_climaxes := 0
 var climax_mode := ""
 
@@ -42,7 +41,6 @@ func snapshot_values(group: String, family: String) -> void:
 	tuning.fill(snapshot.jiggle, family, context.camera.jiggle_size_scale(), CLIMAX_SECONDS)
 	context.reactions.configure(tuning)
 	context.camera.configure(CAMERA_CONFIG.Config.from_dict(snapshot.camera_thrust))
-	presentation_config = snapshot.presentation
 	climax_mode = snapshot.climax_mode
 	configure_dialogue()
 

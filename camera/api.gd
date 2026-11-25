@@ -390,20 +390,14 @@ func _kiss_ramp(delta: float) -> void:
 	var amount := move_toward(float(facts.kiss_amount), 1.0 if bool(facts.kiss_active) else 0.0,
 		delta / maxf(KISS_FADE_IN if bool(facts.kiss_active) else KISS_FADE_OUT, 0.001))
 	facts.kiss_amount = amount
-	var controls := _kiss_controls()
+	var drop := MOTION.KISS_LEAN_DROP_M
+	var forward := MOTION.KISS_LEAN_M
+	if pose_family() == "standing":
+		drop = SETTINGS.lean_drop.get_num()
+		forward = SETTINGS.lean_forward.get_num()
 	var height := float(facts.anon_height_scale)
-	facts.lean_drop_m = float(controls.get("lean_drop", MOTION.KISS_LEAN_DROP_M)) * height * amount
-	facts.lean_distance_m = float(controls.get("lean_forward", MOTION.KISS_LEAN_M)) * height * amount
-
-
-## The standing kiss's presentation overrides; the fixed constants otherwise.
-func _kiss_controls() -> Dictionary:
-	if facts == null or pose_family() != "standing":
-		return {}
-	var raw: Variant = facts.presentation_config
-	var all: Dictionary = raw if raw is Dictionary else {}
-	var kiss: Variant = all.get("kiss", {})
-	return kiss if kiss is Dictionary else {}
+	facts.lean_drop_m = drop * height * amount
+	facts.lean_distance_m = forward * height * amount
 
 
 ## No input this frame: drop the hands, release the pose action and return the lean to rest.
@@ -462,9 +456,9 @@ func standing_lean_scale() -> float:
 ## The standing torso hinge angle. The head and camera follow the spine arc, and the hip counters it
 ## so the pelvis stays put.
 func anon_torso_angle() -> float:
-	if facts == null:
+	if facts == null or pose_family() != "standing":
 		return 0.0
-	return deg_to_rad(float(facts.presentation_config.get("torso_angle_deg", 0.0)))
+	return deg_to_rad(SETTINGS.torso_angle_deg.get_num())
 
 
 func anon_torso_forward() -> float:

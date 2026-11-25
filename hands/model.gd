@@ -62,7 +62,7 @@ class FlankHit extends RefCounted:
 		face = index
 
 
-## The smack's presentation values from the pose spec.
+## The smack's presentation values; the defaults are the bed's own motion.
 class SmackPresentation extends RefCounted:
 	var raise_m := 0.30
 	var pitch_deg := 12.0

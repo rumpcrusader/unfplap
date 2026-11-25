@@ -10,6 +10,7 @@ const WORLD := preload("res://mods/unfplap/world/api.gd")
 const KISS_LEGS := preload("res://mods/unfplap/act/kiss_legs.gd")
 const MOTION := preload("res://mods/unfplap/shared/act_motion.gd")
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 const STATE_ACTIVE := ACT_STATE.State.ACTIVE
@@ -50,6 +51,12 @@ func _pony() -> Node3D:
 	if host == null or not is_instance_valid(host.pony):
 		return null
 	return host.pony as Node3D
+
+
+## The live pose family from the pose view; empty outside a built pose.
+func _pose_family() -> String:
+	var pose_view: Variant = context.pose.view() if context != null and context.pose != null else null
+	return str(pose_view.family) if pose_view != null else ""
 
 
 ## A kiss the act asked for; false when the game refused, so the act can tell and score nothing.
@@ -120,31 +127,29 @@ func active() -> bool:
 	return _base_kiss_active or _base_kiss_releasing
 
 
-## The standing kiss controls from the act's presentation; the fixed offsets otherwise.
-func _kiss_controls() -> Dictionary:
-	var raw: Variant = context.facts.presentation_config if context != null \
-		and context.facts != null else null
-	var all: Dictionary = raw if raw is Dictionary else {}
-	var kiss: Variant = all.get("kiss", {})
-	return kiss if kiss is Dictionary else {}
-
-
 ## Anon's chosen height over the reference rig, the scale his mouth offset was tuned on.
 func _kiss_height_scale() -> float:
 	return float(context.facts.anon_height_scale) if context != null and context.facts != null else 1.0
 
 
+## The standing kiss's mouth offset; the fixed constants outside the standing pose.
 func _kiss_mouth_offset() -> Vector3:
-	var kiss := _kiss_controls()
-	return Vector3(
-		float(kiss.get("mouth_right", 0.0)),
-		-float(kiss.get("mouth_drop", KISS_MOUTH_DROP_M)),
-		-float(kiss.get("mouth_forward", KISS_MOUTH_FORWARD_M))) * _kiss_height_scale()
+	var drop := KISS_MOUTH_DROP_M
+	var forward := KISS_MOUTH_FORWARD_M
+	var right := 0.0
+	if _pose_family() == "standing":
+		drop = SETTINGS.mouth_drop.get_num()
+		forward = SETTINGS.mouth_forward.get_num()
+		right = SETTINGS.mouth_right.get_num()
+	return Vector3(right, -drop, -forward) * _kiss_height_scale()
 
 
-## The kiss's lateral distance at Anon's height, from the standing presentation's own override.
+## The kiss's lateral distance at Anon's height; the fixed constant outside the standing pose.
 func _kiss_side_m() -> float:
-	return float(_kiss_controls().get("lean_side", MOTION.KISS_LEAN_SIDE_M)) * _kiss_height_scale()
+	var side := MOTION.KISS_LEAN_SIDE_M
+	if _pose_family() == "standing":
+		side = SETTINGS.lean_side.get_num()
+	return side * _kiss_height_scale()
 
 
 func _apply_kiss_forelegs() -> void:

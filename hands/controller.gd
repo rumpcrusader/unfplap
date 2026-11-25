@@ -17,7 +17,6 @@ const SMACK_ZONE_RADIUS_M := 0.035
 
 var facts: ACT_FACTS = null
 var _pony: Node3D = null
-var _presentation_cfg: Dictionary = {}
 var _profile: Dictionary = {}
 var _flank: Node = null
 ## The last pose-change path and contact the hook saw, so a steady tick does nothing.
@@ -271,12 +270,9 @@ func hook_contact() -> String:
 func _sync() -> void:
 	if facts == null:
 		_pony = null
-		_presentation_cfg = {}
 		_profile = {}
 		return
 	_pony = facts.pony if facts.pony is Node3D else null
-	var cfg: Variant = facts.presentation_config
-	_presentation_cfg = cfg if cfg is Dictionary else {}
 	var profile: Variant = facts.profile
 	_profile = profile if profile is Dictionary else {}
 	if not is_instance_valid(_flank) and is_instance_valid(_pony):
@@ -301,8 +297,16 @@ func _pose_family() -> String:
 	return str(view.family) if view != null else ""
 
 
+## The standing smack's own values; the bed keeps the model's defaults.
 func _smack_config() -> MODEL.SmackPresentation:
-	var smack: Variant = _presentation_cfg.get("smack", {})
-	if smack is Dictionary:
-		return MODEL.SmackPresentation.from_dict(smack)
-	return MODEL.SmackPresentation.new()
+	var out := MODEL.SmackPresentation.new()
+	if _pose_family() != "standing":
+		return out
+	out.raise_m = SETTINGS.raise_m.get_num()
+	out.pitch_deg = SETTINGS.smack_pitch_deg.get_num()
+	out.arc_m = SETTINGS.arc_m.get_num()
+	out.height_m = SETTINGS.height_m.get_num()
+	out.hind_m = SETTINGS.hind_m.get_num()
+	out.raise_speed = SETTINGS.raise_speed.get_num()
+	out.return_speed = SETTINGS.return_speed.get_num()
+	return out

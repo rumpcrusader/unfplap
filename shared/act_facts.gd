@@ -66,7 +66,6 @@ var forced_glance := ""
 ## The pose read model `poses/api.gd` fills and clears. Its `id`, profiles, live config and
 ## contact are the one pose source for the presentation modules.
 var pose_view: Variant = null
-var presentation_config: Dictionary = {}
 var kiss_amount := 0.0
 var kiss_active := false
 var kiss_side := 0.0

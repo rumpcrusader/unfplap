@@ -123,14 +123,9 @@ func _hip_drop() -> float:
 	return SETTINGS.hip_drop_m.get_num()
 
 
-## The kiss's lateral distance at Anon's height, from the standing presentation's own override.
+## The kiss's lateral distance at Anon's height.
 func _kiss_side_m() -> float:
-	var raw: Variant = facts.presentation_config if facts != null else null
-	var all: Dictionary = raw if raw is Dictionary else {}
-	var controls: Variant = all.get("kiss", {})
-	var kiss: Dictionary = controls if controls is Dictionary else {}
-	return float(kiss.get("lean_side", MOTION.KISS_LEAN_SIDE_M)) \
-		* float(facts.anon_height_scale)
+	return SETTINGS.lean_side.get_num() * float(facts.anon_height_scale)
 
 
 func _sway_offset() -> Vector3:

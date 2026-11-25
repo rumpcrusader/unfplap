@@ -102,11 +102,6 @@ var features: Dictionary:
 		return settings.features
 	set(value):
 		settings.features = value
-var presentation_config: Dictionary:
-	get:
-		return settings.presentation_config
-	set(value):
-		settings.presentation_config = value
 var max_pony_climaxes: int:
 	get:
 		return settings.max_pony_climaxes

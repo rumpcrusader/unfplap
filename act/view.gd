@@ -55,7 +55,6 @@ func refresh(facts: ACT_FACTS, session: ACT_SESSION) -> void:
 	facts.preferences = session.preferences
 	facts.player_pony = session.player_pony
 	facts.bed = session.bed
-	facts.presentation_config = session.presentation_config
 	facts.profile = session.profile
 	facts.physics_delta = host.physics_delta()
 	if session.state == State.IDLE:

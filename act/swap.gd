@@ -263,6 +263,6 @@ func sync_hud() -> void:
 
 func resume_auto() -> void:
 	if context.handover.auto_on and session.state in [State.ACTIVE, State.CLIMAX]:
-		context.auto.toggle(context.readiness.depth)
+		context.auto.toggle(context.readiness.readout().depth)
 	context.handover.clear_auto()
 

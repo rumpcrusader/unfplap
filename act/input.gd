@@ -56,7 +56,7 @@ func look_motion(relative: Vector2) -> void:
 func auto_panel_input(delta: float, x_down: bool, keys: Array[bool]) -> void:
 	if _session().state not in [State.ACTIVE, State.CLIMAX]:
 		return
-	context.auto.panel(delta, x_down, keys, context.readiness.depth)
+	context.auto.panel(delta, x_down, keys, context.readiness.readout().depth)
 
 
 ## True while the hold-X auto settings layer is open.
@@ -164,7 +164,7 @@ func auto_thrust_wheel(direction: int) -> void:
 func toggle_auto_thrust() -> void:
 	if _session().state not in [State.ACTIVE, State.CLIMAX]:
 		return
-	context.auto.toggle(context.readiness.depth)
+	context.auto.toggle(context.readiness.readout().depth)
 
 
 ## True while the debug free look owns the player camera instead of the act shot.

@@ -1,7 +1,7 @@
 extends RefCounted
-## The act's consent response: one frame asks the readiness meter, then presents its cue, face beat
-## and line; a stop leaves by the act's one exit. The meter's math stays in
-## `readiness/tolerance.gd`.
+## The act's consent response: the meter's one decision per input arrives as a signal, a warning
+## presents its cue, face beat and line at once, and a stop leaves by the act's one exit. The
+## meter's math stays in `readiness/tolerance.gd`.
 
 const ACT_HOST := preload("res://mods/unfplap/act/host.gd")
 const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")
@@ -30,6 +30,11 @@ var exit: Variant = null
 var warning_key := ""
 ## The reason text of the last stop decision (`smack`, `debug`, ...).
 var stop_kind := ""
+## A paused Debug-panel request, consumed on the next frame.
+var _debug := ""
+## A stop the meter reported; the act's next frame applies it.
+var _pending_stop := false
+var _pending_kind := ""
 
 
 func bind(host_in: ACT_HOST, context_in: ACT_CONTEXT, session_in: ACT_SESSION) -> void:
@@ -42,43 +47,53 @@ func bind(host_in: ACT_HOST, context_in: ACT_CONTEXT, session_in: ACT_SESSION) -
 func reset() -> void:
 	warning_key = ""
 	stop_kind = ""
+	_debug = ""
+	_pending_stop = false
+	_pending_kind = ""
 
 
-## One meter frame in POSING_IN/ACTIVE. A forced debug warning or stop is consumed here so it lands
-## on the next frame after the Debug panel closes.
-func tick(delta: float) -> int:
+## One decision from the meter: a warning presents itself now, two in one frame are two
+## presentations, and a stop waits for the act's next frame where the one exit runs.
+func on_tolerance(warning: int, stop: bool, distress: float, kind: String) -> void:
+	if session.state not in [State.POSING_IN, State.ACTIVE] or session.stopped_by_her:
+		return
+	if warning > 0:
+		warn(warning, distress)
+	elif stop:
+		_pending_stop = true
+		_pending_kind = kind
+
+
+## One consent frame in POSING_IN/ACTIVE. A forced debug warning or stop is consumed here so it
+## lands on the next frame after the Debug panel closes.
+func tick(_delta: float) -> int:
 	if session.state not in [State.POSING_IN, State.ACTIVE]:
 		return NONE
-	var action: String = context.readiness.take_debug()
-	if not action.is_empty():
+	if not _debug.is_empty():
+		var action := _debug
+		_debug = ""
 		if action == "warning":
-			warn(1)
+			warn(1, context.readiness.readout().distress)
 			return WARN
 		stop_kind = "debug"
 		return STOP
-	context.readiness.tolerance_tick(delta)
-	var decision := context.readiness.take_tolerance_decision()
-	if decision.is_empty() or session.stopped_by_her:
+	if not _pending_stop or session.stopped_by_her:
 		return NONE
-	if decision.warning > 0:
-		warn(decision.warning)
-		return WARN
-	if decision.stop:
-		stop_kind = decision.kind
-		return STOP
-	return NONE
+	_pending_stop = false
+	stop_kind = _pending_kind
+	return STOP
 
 
 ## Present one warning: the cue, the face beat, one generated line and the log.
-func warn(level: int) -> void:
+func warn(level: int, distress: float) -> void:
 	var cue := "She doesn't like that." if level <= 1 else "She is warning you."
-	context.readiness.set_cue_override(cue, 4.0)
+	context.readiness.cue(cue, 4.0)
 	context.face.ensure_bound(host.pony, host.node)
 	context.face.act_beat("warning", _face_context(), session.feature("face_debug"))
 	queue_warning(level)
 	LOG.debug("neglect warning=%d tier=%s distress=%.1f kind=%s", [
 		level, str(session.preferences.get("tolerance", "normal")),
-		context.readiness.distress(), context.readiness.last_dislike()])
+		distress, context.readiness.readout().last_dislike])
 
 
 ## The consent beat's act values: the same two the face table reads at every act moment.
@@ -123,7 +138,7 @@ func begin_stop(reason: String) -> Dictionary:
 	cancel_warning()
 	return {
 		"strict": str(session.preferences.get("tolerance", "normal")) == "strict",
-		"distress": context.readiness.distress(),
+		"distress": context.readiness.readout().distress,
 		"tolerance": str(session.preferences.get("tolerance", "normal")),
 	}
 
@@ -190,5 +205,5 @@ func queue_stop_line(strict: bool) -> void:
 func force(kind: String) -> bool:
 	if session.state not in [State.POSING_IN, State.ACTIVE]:
 		return false
-	context.readiness.request_debug(kind)
+	_debug = kind
 	return true

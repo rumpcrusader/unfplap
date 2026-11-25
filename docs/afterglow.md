@@ -1,8 +1,8 @@
 # Afterglow
 
 The afterglow service owns the held post-act phase: the private beat, the standing close window and
-its reward, the presentation row the phase asks for, the satisfaction run-down and the aftercare. The
-act state and the transition into and out of the phase belong to the act session.
+its reward, the presentation row the phase asks for and the aftercare. The act state and the
+transition into and out of the phase belong to the act session.
 
 ## A held phase
 
@@ -20,7 +20,8 @@ On entry from standing oral, the mouth contact is released: the contact returns 
 viseme clears and the soft-kiss timer stops. The turned root and facing stay until the one exit
 restores them. No reverse edge runs implicitly.
 
-The satisfaction meter runs down through the phase, and a new act kills a decay still in flight.
+The meter falls through the phase and the restore, and the phase reads it without writing it: the
+meter service owns the run-down, and a new act cancels one still going.
 
 ## The close window
 

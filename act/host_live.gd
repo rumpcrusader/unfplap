@@ -50,11 +50,11 @@ func event_id() -> String:
 
 
 func depth() -> float:
-	return readiness.depth_value()
+	return readiness.readout().depth
 
 
 func climaxes() -> int:
-	return readiness.climax_count()
+	return readiness.readout().climaxes
 
 
 func max_climaxes() -> int:
@@ -62,11 +62,11 @@ func max_climaxes() -> int:
 
 
 func satisfaction() -> float:
-	return readiness.satisfaction_value()
+	return readiness.readout().satisfaction
 
 
 func cue() -> String:
-	return readiness.cue_value()
+	return readiness.readout().cue
 
 
 func pose_view() -> Variant:
@@ -95,7 +95,7 @@ func note_reaction(key: String, cue_text: String, until: float) -> void:
 
 
 func add_heat(amount: float) -> void:
-	readiness.add_heat(amount)
+	readiness.heat(amount)
 
 
 func set_cue_override(text: String) -> void:

@@ -20,8 +20,6 @@ const LOG := preload("res://mods/unfplap/shared/log.gd")
 ## The close window only exists in the standing afterglow.
 const STAY_CLOSE_SECONDS := 8.0
 const STAY_CLOSE_CARESS_SECONDS := 2.5
-## The satisfaction meter runs down to zero over this window after every act.
-const SATISFACTION_DECAY_SECONDS := 30.0
 
 ## The post-act decision: the tail tuck after a partner stop, or the earned aftercare beat.
 ## The post-act face reads the same values.
@@ -64,8 +62,6 @@ var positive := false
 var caress_active := Callable()
 ## The host node the post-act children join. The runtime binds itself (D24: it owns the tree).
 var host: Node = null
-## The satisfaction decay's write: `(value: float)`. The runtime clamps into the meter's range.
-var write_satisfaction := Callable()
 ## The phase's act collaborators, wired once by the runtime. The close reward writes through
 ## them; an unbound facade (a pure suite) skips the presentation.
 var face: FACE = null
@@ -82,8 +78,6 @@ var event_id := ""
 
 ## The live aftercare node the host parented, or null. It frees itself after its beat.
 var aftercare: AFTERCARE = null
-## The satisfaction decay tween the runtime's node created for the facade.
-var _decay: Tween = null
 
 
 ## The phase's act collaborators, the pose session, the world HUD and memory, handed over once by
@@ -163,24 +157,6 @@ func reset() -> void:
 	close_rewarded = false
 	close_caress_earned = false
 	positive = false
-
-
-## Start the satisfaction meter's decay. The runtime's node creates the tween (D24); the facade
-## owns it, so a new act kills the one still running.
-func decay_satisfaction(from: float) -> void:
-	stop_decay()
-	if not is_instance_valid(host) or not host.is_inside_tree() or not write_satisfaction.is_valid():
-		return
-	_decay = host.create_tween()
-	if _decay == null:
-		return
-	_decay.tween_method(write_satisfaction, from, 0.0, SATISFACTION_DECAY_SECONDS)
-
-
-func stop_decay() -> void:
-	if _decay != null and _decay.is_valid():
-		_decay.kill()
-	_decay = null
 
 
 ## The after-act decision. A partner stop keeps the tail tucked; otherwise the healthy summary,
@@ -273,8 +249,6 @@ func _reward(caressed: bool, reward: bool) -> void:
 		face.set_face(0.9, FACE.AFTERGLOW_CLOSE_LIDS)
 	if reactions != null:
 		reactions.hearts_burst()
-	if readiness != null:
-		readiness.clear_cues()
 
 
 ## Leaving afterglow early closes the window without a reward.

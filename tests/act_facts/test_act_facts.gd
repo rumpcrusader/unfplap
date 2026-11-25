@@ -18,6 +18,7 @@ class Sink extends RefCounted:
 	var neck := Vector3(1.0, 2.0, 3.0)
 	var touch_kind := ""
 	var touch_calls := 0
+	var anatomy_reacts := 0
 	var impact_strength := 0.0
 	var paused := false
 	var restored := 0
@@ -55,6 +56,9 @@ class Sink extends RefCounted:
 
 	func impact(strength: float) -> void:
 		impact_strength = strength
+
+	func react() -> void:
+		anatomy_reacts += 1
 
 	func pause(on: bool) -> void:
 		paused = on
@@ -105,8 +109,9 @@ func run() -> void:
 	check(facts.neck_midpoint() == sink.neck, "the neck callback returns the point")
 	check(is_equal_approx(facts.clock(), 7.5), "the clock callback supplies the act clock")
 
-	check(not facts.on_touch.is_valid() and not facts.on_smack.is_valid(),
-		"the readiness callbacks start absent")
+	check(not facts.on_caress.is_valid() and not facts.on_kiss.is_valid()
+		and not facts.on_smack.is_valid() and not facts.on_anatomy_react.is_valid(),
+		"the touch callbacks start absent")
 	facts.touch("caress")
 	facts.smack_hit(0.4)
 	facts.pause_face(true)
@@ -115,15 +120,28 @@ func run() -> void:
 	check(not facts.mod_active("kissing"), "an absent mod gate reads as inactive")
 	check(facts.view_controller() == null, "an absent view callback returns null")
 	check(facts.pose_driver() == null, "an absent pose driver returns null")
-	facts.on_touch = Callable(sink, "touch_event")
-	facts.on_smack = Callable(sink, "impact")
+	facts.on_caress = Callable(sink, "touch_event").bind("caress")
+	facts.on_kiss = Callable(sink, "touch_event").bind("kiss")
+	facts.on_smack = Callable(sink, "touch_event").bind("smack")
+	facts.on_anatomy_react = Callable(sink, "react")
+	facts.on_smack_hit = Callable(sink, "impact")
 	facts.mod_enabled = Callable(sink, "mod_on")
 	facts.pause_face_turn = Callable(sink, "pause")
 	facts.restore_face_turn = Callable(sink, "restore")
 	facts.pose_host = Callable(sink, "host")
 	facts.touch("kiss")
 	check(sink.touch_calls == 1 and sink.touch_kind == "kiss",
-		"the touch callback receives the kind")
+		"a kiss reaches its own verb")
+	check(sink.anatomy_reacts == 1, "a kiss reacts the anatomy mesh")
+	facts.touch("caress")
+	check(sink.touch_calls == 2 and sink.touch_kind == "caress",
+		"a caress reaches its own verb")
+	check(sink.anatomy_reacts == 1, "a caress reacts no anatomy")
+	facts.touch("smack")
+	check(sink.touch_calls == 3 and sink.anatomy_reacts == 2,
+		"a smack reaches the meter and the anatomy")
+	facts.touch("unknown")
+	check(sink.touch_calls == 3, "an unknown kind dispatches nothing")
 	facts.smack_hit(0.25)
 	check(is_equal_approx(sink.impact_strength, 0.25), "the smack callback receives the strength")
 	facts.pause_face(true)

@@ -32,6 +32,7 @@ func bind(host_in: ACT_HOST, context_in: ACT_CONTEXT, session_in: ACT_SESSION) -
 ## The one teardown, in the order the pose and camera were built; each step restores only what its
 ## ownership flag says it took. End lines stay outside: `finish_restore()` must not cut them.
 func run(rejoin_cuddle: bool) -> void:
+	context.readiness.end_act()
 	context.auto.stop()
 	# A suspended act may end here (world close, a failed swap or an invalid body). Drop the
 	# handover before the normal teardown; it is not a second exit path.
@@ -130,10 +131,10 @@ func reset_after_act() -> void:
 	if not is_instance_valid(host.node) or not host.node.is_inside_tree():
 		return
 	session.reset_thrust_state()
-	context.afterglow.decay_satisfaction(context.readiness.satisfaction)
+	var satisfaction := context.readiness.readout().satisfaction
 	var outcome := _verdict()
 	var plan: AFTERGLOW.PostAct = context.afterglow.post_act(session.stopped_by_her,
-		context.readiness.satisfaction, session.aftercare_min,
+		satisfaction, session.aftercare_min,
 		not outcome.is_empty(), bool(outcome.get("positive", false)))
 	if plan.tail_tuck:
 		host.start_tail_tuck()
@@ -175,7 +176,7 @@ func _rejoin_wanted() -> bool:
 		"player_pony": session.player_pony,
 		"headset": WORLD.headset_view(),
 		"summary": _verdict(),
-		"satisfaction": context.readiness.satisfaction,
+		"satisfaction": context.readiness.readout().satisfaction,
 		"aftercare_min": session.aftercare_min,
 	}))
 

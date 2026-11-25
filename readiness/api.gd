@@ -1,7 +1,9 @@
 extends Node
 ## Scope: pony
-## Act readiness: her satisfaction, mood and cue, the stroke score, touch/talk input, the
-## neglect-tolerance meter and the counters one act's meter records.
+## The act's readiness loop: the measured stroke, her satisfaction, mood and cue, the climax count,
+## the touch and talk input and the neglect-tolerance meter. It owns one act's state and nothing
+## after it; the score, the history and the impression are `summary`'s, the automatic stroke is
+## `auto_thrust`'s.
 
 const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
@@ -9,7 +11,6 @@ const UTTERANCE_SCHEDULER := preload("res://mods/unfplap/dialogue/utterance_sche
 const TOLERANCE := preload("res://mods/unfplap/readiness/tolerance.gd")
 const THRUST_STATE := preload("res://mods/unfplap/readiness/thrust_state.gd")
 const ACT_METER := preload("res://mods/unfplap/shared/act_meter.gd")
-const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const LOG := preload("res://mods/unfplap/shared/log.gd")
 
 const READINESS_MAX := 100.0
@@ -24,13 +25,83 @@ const ASSIST_CAP := 60.0
 const TOUCH_HEAT := 6.0
 const TALK_HEAT := 6.0
 const STROKE_MEMORY_S := 1.2
-const STATE_ACTIVE := ACT_STATE.State.ACTIVE
-const STATE_CLIMAX := ACT_STATE.State.CLIMAX
-## The face moment a disliked touch or talk presents; `shared/act_face.gd` owns the beat itself.
-const FACE_OVERWHELMED := "overwhelmed"
+## The run-down after the act lasts this long; the phase and the HUD read the falling value
+## meanwhile.
+const DRAIN_SECONDS := 30.0
+## The act's own phases: before the pose settles, the scoring window, her climax and the end.
+const PHASE_IDLE := 0
+const PHASE_STARTED := 1
+const PHASE_ACTIVE := 2
+const PHASE_CLIMAX := 3
+const PHASE_ENDED := 4
+
+## Full readiness while the act is active, emitted at the end of the call that filled the meter.
+signal climaxed()
+## The close threshold was crossed, once per act.
+signal close_reached()
+## A disliked touch or talk landed; she is overwhelmed now.
+signal overwhelmed()
+## The cue changed; `override` is a reaction line rather than the asking base cue.
+signal cue_changed(mood: String, text: String, override: bool)
+## Her patience moved; a stop is the only decision the act acts on.
+signal tolerance(warning: int, stop: bool, distress: float, kind: String)
+## A stroke closed on an idle frame and needs the same fan-out as an input one; the depth did not
+## change, so there is no withdrawal slide.
+signal strokes(events: Array[THRUST_STATE.StrokeEvent])
 
 
-## The per-mare preference profile readiness reads, resolved at the act boundary.
+## The act's own live reads, taken at use. Nothing else is handed in.
+class Deps extends RefCounted:
+	func _init(shaft_in: Callable, pose_family_in: Callable, in_heat_in: Callable) -> void:
+		shaft = shaft_in
+		pose_family = pose_family_in
+		in_heat = in_heat_in
+
+	## His visible shaft length in metres, 0 when no body is showing.
+	var shaft: Callable
+	## The live pose family, for the nominal length when he is not showing.
+	var pose_family: Callable
+	## Whether she is in heat right now.
+	var in_heat: Callable
+
+
+## One act's live state. The service writes this one instance in place and every caller reads it; it
+## is never allocated per frame and no other writer exists.
+class Readout extends RefCounted:
+	var satisfaction := 0.0
+	## Warming is where an act starts; a fresh readout never shows an empty mood to the HUD.
+	var mood := "warming"
+	var cue := ""
+	var cue_override := false
+	var overwhelmed := false
+	var climaxes := 0
+	var distress := 0.0
+	var last_dislike := ""
+	var seeks_touch := false
+	var seeks_talk := false
+	var last_intensity := ""
+	var last_pattern := ""
+	var last_touch := ""
+	var last_talk := ""
+	## The tracker depth as a share of his reach.
+	var depth := 0.0
+	## The physical penetration in metres, derived from the share and the reach.
+	var penetration_m := 0.0
+	var up_is_deep := false
+	## The configured stroke travel, a share of the reach.
+	var travel := 0.0
+	var reach_m := 0.0
+	var shaft_m := 0.0
+	## The physical strength at the last sample, for the impact and the foley.
+	var strength := 0.0
+	## Impacts in the live one-second window.
+	var rate := 0.0
+	## Seconds since the last real inward stroke; the kissing integration's activity gate reads it.
+	var seconds_since_stroke := 0.0
+
+
+## The per-mare preference profile the meter reads for the act. A caller shapes it from her stored
+## document before the act starts; the meter never re-reads it during the act.
 class Profile extends RefCounted:
 	var intensity := "firm"
 	var pattern := "steady"
@@ -69,632 +140,570 @@ class Profile extends RefCounted:
 		return out
 
 
-## One tolerance decision, presented on the runtime's next tick. The empty decision is shared, so
-## a quiet frame allocates nothing.
-class Decision extends RefCounted:
-	var warning := 0
-	var stop := false
-	var distress := 0.0
-	var kind := ""
-
-	## The edge: the pure meter reports a plain document, empty when nothing happened.
-	static func from_dict(event: Dictionary) -> Decision:
-		var out := Decision.new()
-		if event.is_empty():
-			return out
-		out.warning = int(event.get("warning", 0))
-		out.stop = bool(event.get("stop", false))
-		out.distress = float(event.get("distress", 0.0))
-		out.kind = str(event.get("kind", ""))
-		return out
-
-	func is_empty() -> bool:
-		return warning <= 0 and not stop
-
-
-## Public act state, forwarded by the runtime.
-var satisfaction := 0.0
-var mood := "warming"
-var cue := ""
-var pony_climaxes := 0
-
-## The pure per-act tolerance meter and the decision the runtime presents on its next tick.
-var tolerance: TOLERANCE = null
-var _tolerance_pending: Decision = null
-## Returned while nothing is pending, so the frame path allocates no record.
-var _no_decision := Decision.new()
-## A paused Debug-panel request, consumed by the runtime on its next tick.
-var debug_request := ""
-
-## The live scoring window.
-var last_intensity := ""
-var last_pattern := ""
-var last_touch := ""
-var last_talk := ""
-var stroke_window: Array[Dictionary] = []
-var last_stroke: Dictionary = {}
-var last_stroke_at := -1000.0
-var last_thrust_score_at := -1000.0
-var last_touch_at := -1000.0
-var last_talk_at := -1000.0
-var last_talk_turn := -1
-var receptive_until := 0.0
-var overwhelmed := 0.0
-var cue_override := ""
-var cue_until := 0.0
-var close_notified := false
-
-## Act summary counters.
-var peak_satisfaction := 0.0
-var act_both_matches := 0
-var act_dislikes := 0
-var act_liked_touch := 0
-var act_liked_talk := 0
-var last_player_talk := ""
-var act_touch_counts: Dictionary = {}
-var act_touch_dislikes: Dictionary = {}
-var act_talk_dislikes := 0
-var act_player_lines := 0
-var act_thrusts := 0
-var act_intensity_total := 0
-var act_intensity_right := 0
-var act_pattern_total := 0
-var act_pattern_right := 0
-
-## Per-act configuration.
-var preferences: Dictionary = {}
-var override_seconds: float
-var overwhelmed_seconds: float
-var touch_cooldown: float
-var talk_cooldown: float
-var receptive_seconds: float
-
-var clock := Callable()
-## The runtime's `State` value.
-var state := Callable()
-var on_climax := Callable()
-var on_close := Callable()
-var on_face := Callable()
-var on_anatomy_react := Callable()
-var heat_cycle := Callable()
-## `(mood, cue, is_override)` after the cue changed. The runtime syncs its act view and admits.
-var on_cue := Callable()
-
+## The one readout instance; it survives every act and is reset, never replaced.
+var _readout := Readout.new()
+## The act's live reads, wired once by the runtime composition.
+var _deps: Deps = null
+var _profile := Profile.new()
+var _preferences: Dictionary = {}
+var _phase := PHASE_IDLE
+## The service's own clock, advanced by its tick: the stroke tracker and the cue age read it.
+var _clock := 0.0
+var _drain_rate := 0.0
+var _peak_satisfaction := 0.0
+var _overwhelmed_left := 0.0
+var _receptive_until := 0.0
+var _cue_until := 0.0
+var _last_stroke_at := -1000.0
+var _last_thrust_score_at := -1000.0
+var _last_touch_at := -1000.0
+var _last_talk_at := -1000.0
+var _close_notified := false
+var _climax_signalled := false
+## The cue the act last heard; the readout is written ahead of it by a direct cue.
+var _published_mood := ""
+var _published_text := ""
+var _published_override := false
+var _last_stroke: Dictionary = {}
+var _stroke_window: Array[Dictionary] = []
+var _impacts: Array[float] = []
+var _tolerance: TOLERANCE = null
+var _touch_counts: Dictionary = {}
+var _touch_dislikes: Dictionary = {}
+var _act_thrusts := 0
+var _act_both_matches := 0
+var _act_dislikes := 0
+var _act_liked_touch := 0
+var _act_liked_talk := 0
+var _act_talk_dislikes := 0
+var _act_player_lines := 0
+var _act_intensity_total := 0
+var _act_intensity_right := 0
+var _act_pattern_total := 0
+var _act_pattern_right := 0
+var _last_player_talk := ""
 ## The act's stroke and penetration state. Its tracker is the only stroke authority; the mouse,
 ## auto thrust and the anatomy bridge all feed this one object.
 var _thrust: THRUST_STATE = THRUST_STATE.new()
-## Host reads for the depth scale. The runtime supplies his visible shaft length and the live
-## pose family; a missing callback falls back to the nominal length.
-var shaft_length := Callable()
-var pose_family := Callable()
-
-## The runtime forwards the public stroke values; HUD and presentation read them here.
-var depth: float:
-	get:
-		return _thrust.depth
-	set(value):
-		_thrust.depth = value
-var penetration_m: float:
-	get:
-		return _thrust.penetration_m
-	set(value):
-		_thrust.penetration_m = value
-var thrust_travel: float:
-	get:
-		return _thrust.travel
-var up_is_deep: bool:
-	get:
-		return _thrust.up_is_deep
 
 
-## The act's depth scale, pushed once per act and again on every live settings apply.
-func configure_thrust(pixels_per_cm: float, up_is_deep_in: bool, travel: float,
-		pelvis_gap_m: float) -> void:
-	_thrust.shaft_length = shaft_length
-	_thrust.pose_family = pose_family
-	_thrust.configure(pixels_per_cm, up_is_deep_in, travel, pelvis_gap_m)
+## Hand the service the act's live reads; the runtime composition is the only caller.
+func wire(deps: Deps) -> void:
+	_deps = deps
+	_thrust.shaft_length = deps.shaft
+	_thrust.pose_family = deps.pose_family
 
 
-## A fresh act: the tracker, the public depth and the physical penetration go back to rest.
-func reset_thrust() -> void:
+## The act's start: her profile for this act, a fresh meter, the tracker at rest. No scoring yet;
+## the tolerance meter runs from here.
+func start_act(profile: Profile) -> void:
+	_profile = profile
+	_preferences = _profile.to_dict()
+	_phase = PHASE_STARTED
+	_clock = 0.0
+	_readout.satisfaction = 0.0
+	_readout.mood = "warming"
+	_readout.cue = ""
+	_readout.cue_override = false
+	_readout.overwhelmed = false
+	_readout.climaxes = 0
+	_readout.distress = 0.0
+	_readout.last_dislike = ""
+	_readout.seeks_touch = PREFERENCES.seeks_touch(_preferences)
+	_readout.seeks_talk = PREFERENCES.seeks_talk(_preferences)
+	_readout.last_intensity = ""
+	_readout.last_pattern = ""
+	_readout.last_touch = ""
+	_readout.last_talk = ""
+	_readout.strength = 0.0
+	_readout.rate = 0.0
+	_readout.seconds_since_stroke = 0.0
+	_peak_satisfaction = 0.0
+	_drain_rate = 0.0
+	_overwhelmed_left = 0.0
+	_receptive_until = 0.0
+	_cue_until = 0.0
+	_last_stroke_at = -1000.0
+	_last_thrust_score_at = -1000.0
+	_last_touch_at = -1000.0
+	_last_talk_at = -1000.0
+	_close_notified = false
+	_climax_signalled = false
+	_published_mood = ""
+	_published_text = ""
+	_published_override = false
+	_last_stroke.clear()
+	_stroke_window.clear()
+	_impacts.clear()
+	_touch_counts.clear()
+	_touch_dislikes.clear()
+	_act_thrusts = 0
+	_act_both_matches = 0
+	_act_dislikes = 0
+	_act_liked_touch = 0
+	_act_liked_talk = 0
+	_act_talk_dislikes = 0
+	_act_player_lines = 0
+	_act_intensity_total = 0
+	_act_intensity_right = 0
+	_act_pattern_total = 0
+	_act_pattern_right = 0
+	_last_player_talk = ""
+	_tolerance_controller().reset(_profile.tolerance)
 	_thrust.reset()
+	_sync_scale()
 
 
-func shaft_length_m() -> float:
-	return _thrust.shaft_length_m()
+## The pose settled; the scoring window opens.
+func activate() -> void:
+	if _phase == PHASE_STARTED:
+		_phase = PHASE_ACTIVE
 
 
-func reach() -> float:
-	return _thrust.reach()
+## His hand moved by this share of his reach; the strokes it closed or bottomed come back.
+func stroke(move: float) -> Array[THRUST_STATE.StrokeEvent]:
+	var events: Array[THRUST_STATE.StrokeEvent] = []
+	if not _live() or is_zero_approx(move):
+		return events
+	events = _thrust.move(move, _clock)
+	_after_move(events)
+	return events
 
 
-## Mouse motion as hip travel in metres. Input still owns the event; the scale and orientation
-## are the act's.
-func mouse_travel(dy_pixels: float) -> float:
-	return _thrust.mouse_travel(dy_pixels)
+## Put him at this physical penetration, from a hand or the anatomy bridge.
+func set_penetration(meters: float) -> Array[THRUST_STATE.StrokeEvent]:
+	var events: Array[THRUST_STATE.StrokeEvent] = []
+	if not _live():
+		return events
+	events = _thrust.set_penetration(meters, _clock)
+	_after_move(events)
+	return events
 
 
-func live_strength(now: float) -> float:
-	return _thrust.live_strength(now)
+func caress() -> void:
+	_touch("caress")
 
 
-## Move the measured depth and return the strokes it closed or bottomed.
-func move(amount: float, now: float) -> Array[THRUST_STATE.StrokeEvent]:
-	return _thrust.move(amount, now)
+func kiss() -> void:
+	_touch("kiss")
 
 
-## One idle tracker frame: a held bottom or a timed-out stroke produces its event here.
-func stroke_tick(now: float) -> Array[THRUST_STATE.StrokeEvent]:
-	return _thrust.tick(now)
+func smack() -> void:
+	_touch("smack")
 
 
-func set_penetration(target_m: float, now: float) -> Array[THRUST_STATE.StrokeEvent]:
-	return _thrust.set_penetration(target_m, now)
+## The player's own words; her preference taxonomy stays in here.
+func talk(text: String) -> void:
+	if _phase != PHASE_ACTIVE:
+		return
+	var line := text.strip_edges()
+	if not line.is_empty():
+		_last_player_talk = line
+		_act_player_lines += 1
+	var category := PREFERENCES.classify_talk(text)
+	if category.is_empty():
+		return
+	var event: Dictionary = {}
+	if _profile.dislikes.has(category):
+		_act_talk_dislikes += 1
+		event = _observe_dislike(category)
+	elif _profile.talk.has(category):
+		_observe_like(category)
+	var now := _clock
+	if now - _last_talk_at < SETTINGS.talk_cooldown_seconds.get_num():
+		_report_tolerance(event)
+		return
+	_last_talk_at = now
+	_readout.last_talk = category
+	if _profile.talk.has(category):
+		_act_liked_talk += 1
+		_cue("She likes that." if _readout.satisfaction < ASSIST_CAP
+			else "She needs you to move.", SETTINGS.override_seconds.get_num())
+		_receptive_until = now + SETTINGS.receptive_seconds.get_num()
+		if _readout.satisfaction < ASSIST_CAP:
+			heat(minf(TALK_HEAT, ASSIST_CAP - _readout.satisfaction))
+		LOG.debug("talk like category=%s readiness=%.0f", [category, _readout.satisfaction])
+	elif _profile.dislikes.has(category):
+		_act_dislikes += 1
+		heat(-TALK_HEAT)
+		_overwhelmed_left = SETTINGS.overwhelmed_seconds.get_num()
+		_readout.overwhelmed = _overwhelmed_left > 0.0
+		_cue("She didn't like that.", SETTINGS.override_seconds.get_num())
+		overwhelmed.emit()
+		LOG.debug("talk dislike category=%s readiness=%.0f", [
+			category, _readout.satisfaction])
+	else:
+		_cue("She listens.", SETTINGS.override_seconds.get_num())
+	_report_tolerance(event)
 
 
-## One impact in the live one-second rate window.
-func note_impact() -> void:
-	var now := _now()
-	thrust_times.append(now)
-	while not thrust_times.is_empty() and now - float(thrust_times[0]) > 1.0:
-		thrust_times.pop_front()
+## Her cue for this many seconds; the act's own lines, a warning and a form's line come in here.
+func cue(text: String, seconds: float) -> void:
+	if _phase == PHASE_IDLE or _phase == PHASE_ENDED:
+		return
+	_cue(text, seconds)
 
 
-## Start a fresh act. The configuration fields set by `configure()` survive.
-func reset(profile: Profile) -> void:
-	preferences = profile.to_dict()
-	pony_climaxes = 0
-	last_intensity = ""
-	last_pattern = ""
-	last_touch = ""
-	last_talk = ""
-	stroke_window.clear()
-	last_stroke.clear()
-	last_stroke_at = -1000.0
-	last_thrust_score_at = -1000.0
-	last_touch_at = -1000.0
-	last_talk_at = -1000.0
-	last_talk_turn = -1
-	receptive_until = 0.0
-	overwhelmed = 0.0
-	cue_override = ""
-	cue_until = 0.0
-	close_notified = false
-	peak_satisfaction = 0.0
-	act_both_matches = 0
-	act_dislikes = 0
-	act_liked_touch = 0
-	act_liked_talk = 0
-	last_player_talk = ""
-	act_touch_counts.clear()
-	act_touch_dislikes.clear()
-	act_talk_dislikes = 0
-	act_player_lines = 0
-	act_thrusts = 0
-	act_intensity_total = 0
-	act_intensity_right = 0
-	act_pattern_total = 0
-	act_pattern_right = 0
-	_tolerance_controller().reset(profile.tolerance)
-	_tolerance_pending = null
-	debug_request = ""
+## The body change's provider-supplied warmth, the one reward that is not a stroke.
+func heat(amount: float) -> void:
+	if is_zero_approx(amount) or _phase == PHASE_IDLE or _phase == PHASE_ENDED:
+		return
+	_write_satisfaction(_readout.satisfaction + amount)
+	_check_thresholds()
 
 
-## The act's meter, taken while the act is still whole: the summary scores it once and the peak
-## reads it at the same verdict. The dislike map is copied so the record cannot change under either.
-func act_output() -> ACT_METER:
+## The act's climax span opened; the span is the act's. The count, her mood and her cue follow.
+func begin_climax(span: float) -> void:
+	if _phase != PHASE_ACTIVE:
+		return
+	_phase = PHASE_CLIMAX
+	_readout.climaxes += 1
+	_readout.mood = "climax"
+	_cue("She is climaxing.", span)
+	LOG.debug("pony climax=%d readiness=%.0f", [_readout.climaxes, _readout.satisfaction])
+
+
+## The span ended; the meter goes back to zero, or the act has already moved on.
+func end_climax() -> void:
+	if _phase != PHASE_CLIMAX:
+		return
+	_phase = PHASE_ACTIVE
+	_readout.satisfaction = 0.0
+	_readout.mood = "warming"
+	_readout.cue = ""
+	_readout.cue_override = false
+	_readout.overwhelmed = false
+	_readout.last_intensity = ""
+	_readout.last_pattern = ""
+	_overwhelmed_left = 0.0
+	_cue_until = 0.0
+	_last_stroke_at = -1000.0
+	_last_thrust_score_at = -1000.0
+	_receptive_until = 0.0
+	_climax_signalled = false
+	_stroke_window.clear()
+	LOG.debug("pony climax end=%d readiness=0", [_readout.climaxes])
+
+
+## The act is over: the meter, the input and the tracker stop, and her satisfaction drains on its
+## own. A later start ends any drain still running.
+func end_act() -> void:
+	if _phase == PHASE_IDLE or _phase == PHASE_ENDED:
+		return
+	_phase = PHASE_ENDED
+	_drain_rate = maxf(0.0, _readout.satisfaction) / DRAIN_SECONDS
+	_readout.cue = ""
+	_readout.cue_override = false
+	_readout.overwhelmed = false
+	_readout.strength = 0.0
+	_overwhelmed_left = 0.0
+	_cue_until = 0.0
+	_thrust.reset()
+	_sync_scale()
+	LOG.debug("act end readiness=%.0f", [_readout.satisfaction])
+
+
+## Her live state, the same instance every call.
+func readout() -> Readout:
+	return _readout
+
+
+## The act's counter record, copied for the one snapshot `summary` scores.
+func take_meter() -> ACT_METER:
 	var out := ACT_METER.new()
-	out.thrusts = act_thrusts
-	out.pony_climaxes = pony_climaxes
-	out.talk_liked = act_liked_talk
-	out.talk_dislikes = act_talk_dislikes
-	out.touches_liked = act_liked_touch
-	out.touch_dislikes = act_touch_dislikes.duplicate(true)
-	out.player_lines = act_player_lines
-	out.intensity_total = act_intensity_total
-	out.intensity_right = act_intensity_right
-	out.pattern_total = act_pattern_total
-	out.pattern_right = act_pattern_right
-	out.peak_satisfaction = peak_satisfaction
-	out.both_matches = act_both_matches
-	out.dislikes = act_dislikes
-	out.liked_touch = act_liked_touch
-	out.liked_talk = act_liked_talk
-	out.player_talk = last_player_talk
+	out.thrusts = _act_thrusts
+	out.pony_climaxes = _readout.climaxes
+	out.talk_liked = _act_liked_talk
+	out.talk_dislikes = _act_talk_dislikes
+	out.touches_liked = _act_liked_touch
+	out.touch_dislikes = _touch_dislikes.duplicate(true)
+	out.player_lines = _act_player_lines
+	out.intensity_total = _act_intensity_total
+	out.intensity_right = _act_intensity_right
+	out.pattern_total = _act_pattern_total
+	out.pattern_right = _act_pattern_right
+	out.peak_satisfaction = _peak_satisfaction
+	out.both_matches = _act_both_matches
+	out.dislikes = _act_dislikes
+	out.liked_touch = _act_liked_touch
+	out.liked_talk = _act_liked_talk
+	out.player_talk = _last_player_talk
 	return out
 
 
-func configure(profile: Profile, override_s: float, overwhelmed_s: float,
-		touch_cd: float, talk_cd: float, receptive_s: float) -> void:
-	preferences = profile.to_dict()
-	override_seconds = override_s
-	overwhelmed_seconds = overwhelmed_s
-	touch_cooldown = touch_cd
-	talk_cooldown = talk_cd
-	receptive_seconds = receptive_s
-
-
-## The pony's climax moment: one count, her climax mood and cue, and the log line. The session
-## owns the state transition and the presentation order.
-func begin_climax(pose_id: String, pony_name: String, climax_seconds: float) -> int:
-	pony_climaxes += 1
-	mood = "climax"
-	set_cue_override("She is climaxing.", climax_seconds)
-	LOG.debug("pony climax=%d pose=%s pony=%s readiness=%.0f", [
-		pony_climaxes, pose_id, pony_name, satisfaction])
-	return pony_climaxes
-
-
-## The climax effect ended and the act returns to ACTIVE: the meter, the stroke memory and the
-## cues restart from zero. `max_climaxes` is the configured limit, for the log line only.
-func end_climax(max_climaxes: int) -> void:
-	satisfaction = 0.0
-	mood = "warming"
-	cue = ""
-	cue_override = ""
-	cue_until = 0.0
-	overwhelmed = 0.0
-	last_intensity = ""
-	last_pattern = ""
-	stroke_window.clear()
-	last_stroke_at = -1000.0
-	last_thrust_score_at = -1000.0
-	receptive_until = 0.0
-	var limit_text := "∞" if max_climaxes <= 0 else str(max_climaxes)
-	LOG.debug("pony climax end=%d/%s readiness=0", [pony_climaxes, limit_text])
-
-
-func clear_cues() -> void:
-	cue = ""
-	cue_override = ""
-	cue_until = 0.0
-
-
-## Each real thrust lands as a discrete chunk. Matching both axes is best, one axis still
-## helps, and a mismatch makes no progress. This is what makes thrusting essential.
-func add_heat(amount: float) -> void:
-	if is_zero_approx(amount):
+## The private tick: the act never drives it. With no act start or no wiring it does nothing.
+func _process(delta: float) -> void:
+	if _phase == PHASE_IDLE or _deps == null:
 		return
-	var before := int(satisfaction)
-	satisfaction = clampf(satisfaction + amount, 0.0, READINESS_MAX)
-	if satisfaction > peak_satisfaction:
-		peak_satisfaction = satisfaction
-	if int(satisfaction) != before and (int(satisfaction) == 0 or int(satisfaction) % 10 == 0):
-		LOG.debug("readiness=%.0f mood=%s", [satisfaction, mood])
+	_tick(delta)
 
 
-## The typed reads the host-callback bindings use: the meter, the stroke depth and the climax count.
-func satisfaction_value() -> float:
-	return satisfaction
+func _tick(delta: float) -> void:
+	_clock += maxf(0.0, delta)
+	if _phase == PHASE_ENDED:
+		_drain(delta)
+		return
+	_tolerance_controller().tick(delta)
+	_sync_tolerance()
+	if _phase != PHASE_ACTIVE:
+		_sync_scale()
+		return
+	_readout.seconds_since_stroke = maxf(0.0, _clock - _last_stroke_at)
+	if _readout.seconds_since_stroke > STROKE_MEMORY_S:
+		_readout.last_intensity = ""
+		_readout.last_pattern = ""
+		_stroke_window.clear()
+	if _overwhelmed_left > 0.0:
+		_overwhelmed_left = maxf(0.0, _overwhelmed_left - delta)
+		_readout.overwhelmed = _overwhelmed_left > 0.0
+	_sync_scale()
+	_flush_tracker()
+	if _phase != PHASE_ACTIVE:
+		return
+	_publish_cue()
+	if not _climax_signalled and _readout.satisfaction >= PONY_CLIMAX_AT:
+		_climax_signalled = true
+		climaxed.emit()
 
 
-func cue_value() -> String:
-	return cue
+## The run-down after the act: a linear fall, the same shape the afterglow used to own.
+func _drain(delta: float) -> void:
+	if _drain_rate <= 0.0 or _readout.satisfaction <= 0.0:
+		return
+	_readout.satisfaction = maxf(0.0, _readout.satisfaction - _drain_rate * delta)
 
 
-func depth_value() -> float:
-	return depth
+## A held bottom or a timed-out stroke closes here; the act's fan-out receives it as one signal.
+func _flush_tracker() -> void:
+	_readout.strength = _thrust.live_strength(_clock)
+	_count_rate()
+	var events: Array[THRUST_STATE.StrokeEvent] = _thrust.tick(_clock)
+	if events.is_empty():
+		return
+	_after_move(events)
+	strokes.emit(events)
 
 
-func penetration_m_value() -> float:
-	return penetration_m
+## Mirror the act's live readout after a move: the depth scale, the impacts and the score.
+func _after_move(events: Array[THRUST_STATE.StrokeEvent]) -> void:
+	_thrust.sync_penetration()
+	_sync_scale()
+	for event: THRUST_STATE.StrokeEvent in events:
+		if event.kind == "impact":
+			_note_impact()
+		elif event.direction > 0 and event.thrust:
+			_score_stroke(event)
 
 
-func climax_count() -> int:
-	return pony_climaxes
+func _note_impact() -> void:
+	while not _impacts.is_empty() and _clock - _impacts[0] > 1.0:
+		_impacts.pop_front()
+	_impacts.append(_clock)
+	_readout.rate = float(_impacts.size())
 
 
-## The afterglow's decay write. The meter's range is this module's rule, not the caller's.
-func write_satisfaction(value: float) -> void:
-	satisfaction = clampf(value, 0.0, READINESS_MAX)
-
-
-func set_cue_override(text: String, seconds := -1.0) -> void:
-	if seconds < 0.0:
-		seconds = override_seconds
-	cue = text
-	cue_override = text
-	cue_until = _now() + maxf(0.0, seconds)
+func _count_rate() -> void:
+	var in_window := 0
+	for at: float in _impacts:
+		if _clock - at <= 1.0:
+			in_window += 1
+	_readout.rate = float(in_window)
 
 
 ## Only real thrusts update the pattern window and score. Upward strokes, tiny jitter and
 ## pullbacks are presentation only.
-func stroke(event: THRUST_STATE.StrokeEvent) -> void:
-	if not _state_in([STATE_ACTIVE, STATE_CLIMAX]):
-		return
-	if event.direction <= 0:
-		return
-	if not event.thrust:
-		return
-	act_thrusts += 1
-	if _state() == STATE_CLIMAX:
+func _score_stroke(event: THRUST_STATE.StrokeEvent) -> void:
+	_act_thrusts += 1
+	if _phase != PHASE_ACTIVE:
 		# The player can keep thrusting through her climax; only the score stays off.
 		return
-	last_stroke = {
+	_last_stroke = {
 		"travel": event.travel,
 		"duration": event.duration,
 		"speed": event.speed,
 		"peak_speed": event.peak_speed,
 		"strength": event.strength,
 	}
-	last_stroke_at = _now()
-	stroke_window.append(last_stroke)
-	while stroke_window.size() > 4:
-		stroke_window.pop_front()
+	_last_stroke_at = _clock
+	_stroke_window.append(_last_stroke)
+	while _stroke_window.size() > 4:
+		_stroke_window.pop_front()
 	# The preference axis is the stroke's depth; the physical strength stays the audio/foley
 	# impact value. Keeping the two axes independent lets the player choose depth and tempo.
-	last_intensity = PREFERENCES.intensity_for_travel(event.travel)
-	last_pattern = PREFERENCES.pattern_for(stroke_window)
+	_readout.last_intensity = PREFERENCES.intensity_for_travel(event.travel)
+	_readout.last_pattern = PREFERENCES.pattern_for(_stroke_window)
 	LOG.debug("thrust stroke travel=%.2f speed=%.2f peak=%.2f strength=%.2f intensity=%s pattern=%s readiness=%.0f", [
 		event.travel, event.speed, event.peak_speed, event.strength,
-		last_intensity, last_pattern, satisfaction])
-	score_thrust()
+		_readout.last_intensity, _readout.last_pattern, _readout.satisfaction])
+	_score_axes()
 
 
-func score_thrust() -> void:
-	if _state() != STATE_ACTIVE:
+## Matching both axes is best, one axis still helps, and a mismatch makes no progress.
+func _score_axes() -> void:
+	var now := _clock
+	if now - _last_thrust_score_at < THRUST_SCORE_MIN_INTERVAL:
 		return
-	var now := _now()
-	if now - last_thrust_score_at < THRUST_SCORE_MIN_INTERVAL:
-		return
-	last_thrust_score_at = now
-	var wanted_intensity := str(preferences.get("intensity", "firm"))
-	var wanted_pattern := str(preferences.get("pattern", "steady"))
-	var intensity_match := not last_intensity.is_empty() and last_intensity == wanted_intensity
-	var pattern_match := not last_pattern.is_empty() and last_pattern == wanted_pattern
-	act_intensity_total += 1
+	_last_thrust_score_at = now
+	var intensity_match := not _readout.last_intensity.is_empty() \
+		and _readout.last_intensity == _profile.intensity
+	var pattern_match := not _readout.last_pattern.is_empty() \
+		and _readout.last_pattern == _profile.pattern
+	_act_intensity_total += 1
 	if intensity_match:
-		act_intensity_right += 1
-	if not last_pattern.is_empty():
-		act_pattern_total += 1
+		_act_intensity_right += 1
+	if not _readout.last_pattern.is_empty():
+		_act_pattern_total += 1
 		if pattern_match:
-			act_pattern_right += 1
+			_act_pattern_right += 1
 	if intensity_match and pattern_match:
-		act_both_matches += 1
-	var heat := THRUST_HEAT_NONE
+		_act_both_matches += 1
+	var chunk := THRUST_HEAT_NONE
 	if intensity_match and pattern_match:
-		heat = THRUST_HEAT_BOTH
+		chunk = THRUST_HEAT_BOTH
 	elif intensity_match or pattern_match:
-		heat = THRUST_HEAT_ONE
-	if heat > 0.0:
-		heat *= PREFERENCES.warmth_scale(preferences)
-		if now < receptive_until:
-			heat *= RECEPTIVE_BOOST
-		if heat_cycle.is_valid() and bool(heat_cycle.call()):
-			heat *= HEAT_READINESS
-		add_heat(heat)
+		chunk = THRUST_HEAT_ONE
+	if chunk > 0.0:
+		chunk *= PREFERENCES.warmth_scale(_preferences)
+		if now < _receptive_until:
+			chunk *= RECEPTIVE_BOOST
+		if _deps != null and _deps.in_heat.is_valid() and bool(_deps.in_heat.call()):
+			chunk *= HEAT_READINESS
+		heat(chunk)
 	LOG.debug("thrust score intensity=%s pattern=%s both=%s heat=%.2f readiness=%.0f", [
-		last_intensity, last_pattern, str(intensity_match and pattern_match),
-		heat, satisfaction])
+		_readout.last_intensity, _readout.last_pattern,
+		str(intensity_match and pattern_match), chunk, _readout.satisfaction])
 
 
-## The meter only moves on an action: real thrusts add, a disliked touch/talk subtracts, and time
-## alone changes nothing. This tick clears stale thrust memory and updates the cue.
-func tick(delta: float) -> void:
-	if _state() != STATE_ACTIVE:
+## The two thresholds a full or close meter crosses, in the order the act presents them.
+func _check_thresholds() -> void:
+	if _phase != PHASE_ACTIVE:
 		return
-	if satisfaction >= PONY_CLIMAX_AT:
-		_climax()
+	if _readout.satisfaction >= PONY_CLIMAX_AT:
+		if not _climax_signalled:
+			_climax_signalled = true
+			climaxed.emit()
 		return
-	if not close_notified and satisfaction >= UTTERANCE_SCHEDULER.CLOSE_AT:
-		close_notified = true
-		if on_close.is_valid():
-			on_close.call()
-	var now := _now()
-	if now - last_stroke_at > STROKE_MEMORY_S:
-		last_intensity = ""
-		last_pattern = ""
-		stroke_window.clear()
-	if overwhelmed > 0.0:
-		overwhelmed = maxf(0.0, overwhelmed - delta)
-	if satisfaction >= PONY_CLIMAX_AT:
-		_climax()
+	if not _close_notified and _readout.satisfaction >= UTTERANCE_SCHEDULER.CLOSE_AT:
+		_close_notified = true
+		close_reached.emit()
+
+
+func _write_satisfaction(value: float) -> void:
+	var before := int(_readout.satisfaction)
+	_readout.satisfaction = clampf(value, 0.0, READINESS_MAX)
+	if _readout.satisfaction > _peak_satisfaction:
+		_peak_satisfaction = _readout.satisfaction
+	if int(_readout.satisfaction) != before \
+			and (int(_readout.satisfaction) == 0 or int(_readout.satisfaction) % 10 == 0):
+		LOG.debug("readiness=%.0f mood=%s", [_readout.satisfaction, _readout.mood])
+
+
+## Her mood and cue from the meter and the live axes; the act hears it only when it changes.
+func _publish_cue() -> void:
+	var mood := UTTERANCE_SCHEDULER.mood_for(_readout.satisfaction, _overwhelmed_left)
+	var override := _readout.cue_override and _clock < _cue_until
+	var text := _readout.cue
+	if not override:
+		text = UTTERANCE_SCHEDULER.base_cue(_preferences, _overwhelmed_left,
+			_readout.satisfaction, _readout.last_intensity, _readout.last_pattern)
+	var changed := mood != _published_mood or override != _published_override \
+		or text != _published_text
+	_readout.mood = mood
+	_readout.cue = text
+	_readout.cue_override = override
+	if not changed:
 		return
-	mood = UTTERANCE_SCHEDULER.mood_for(satisfaction, overwhelmed)
-	if not cue_override.is_empty() and now < cue_until:
-		cue = cue_override
-	else:
-		cue_override = ""
-		cue = UTTERANCE_SCHEDULER.base_cue(preferences, overwhelmed, satisfaction,
-			last_intensity, last_pattern)
-	if on_cue.is_valid():
-		on_cue.call(mood, cue, not cue_override.is_empty())
+	_published_mood = mood
+	_published_text = text
+	_published_override = override
+	cue_changed.emit(mood, text, override)
 
 
 ## One real action per call, including the tolerance meter. A held caress must call this once per
 ## touch interval, never per frame, or every frame would erase all distress.
-func touch(kind: String) -> void:
-	if _state() != STATE_ACTIVE:
+func _touch(kind: String) -> void:
+	if _phase != PHASE_ACTIVE:
 		return
-	# integration: a kiss or an act smack makes the anatomy mesh react.
-	if on_anatomy_react.is_valid() and kind in ["kiss", "smack"]:
-		on_anatomy_react.call()
-	act_touch_counts[kind] = int(act_touch_counts.get(kind, 0)) + 1
+	_touch_counts[kind] = int(_touch_counts.get(kind, 0)) + 1
 	var event: Dictionary = {}
-	if kind in preferences.get("dislikes", []):
-		act_touch_dislikes[kind] = int(act_touch_dislikes.get(kind, 0)) + 1
+	if _profile.dislikes.has(kind):
+		_touch_dislikes[kind] = int(_touch_dislikes.get(kind, 0)) + 1
 		event = _observe_dislike(kind)
-	elif kind in preferences.get("touch", []):
+	elif _profile.touch.has(kind):
 		_observe_like(kind)
-	var now := _now()
+	var now := _clock
 	# One shared scoring cooldown: alternating caress/kiss/smack must not bypass the cap.
-	if now - last_touch_at < touch_cooldown:
-		_queue_tolerance(event)
+	if now - _last_touch_at < SETTINGS.touch_cooldown_seconds.get_num():
+		_report_tolerance(event)
 		return
-	last_touch_at = now
-	last_touch = kind
-	if kind in preferences.get("touch", []):
-		act_liked_touch += 1
-		if satisfaction < ASSIST_CAP:
-			add_heat(minf(TOUCH_HEAT, ASSIST_CAP - satisfaction))
-			set_cue_override("She likes that.")
-		else:
-			set_cue_override("She needs more than your hands.")
-		receptive_until = now + receptive_seconds
-		LOG.debug("touch like kind=%s readiness=%.0f", [kind, satisfaction])
-	elif kind in preferences.get("dislikes", []):
-		act_dislikes += 1
-		add_heat(-TOUCH_HEAT)
-		overwhelmed = overwhelmed_seconds
-		if on_face.is_valid():
-			on_face.call(FACE_OVERWHELMED)
-		set_cue_override("She doesn't like that.")
-		LOG.debug("touch dislike kind=%s readiness=%.0f", [kind, satisfaction])
+	_last_touch_at = now
+	_readout.last_touch = kind
+	if _profile.touch.has(kind):
+		_act_liked_touch += 1
+		_cue("She likes that." if _readout.satisfaction < ASSIST_CAP
+			else "She needs more than your hands.", SETTINGS.override_seconds.get_num())
+		_receptive_until = now + SETTINGS.receptive_seconds.get_num()
+		if _readout.satisfaction < ASSIST_CAP:
+			heat(minf(TOUCH_HEAT, ASSIST_CAP - _readout.satisfaction))
+		LOG.debug("touch like kind=%s readiness=%.0f", [kind, _readout.satisfaction])
+	elif _profile.dislikes.has(kind):
+		_act_dislikes += 1
+		heat(-TOUCH_HEAT)
+		_overwhelmed_left = SETTINGS.overwhelmed_seconds.get_num()
+		_readout.overwhelmed = _overwhelmed_left > 0.0
+		_cue("She doesn't like that.", SETTINGS.override_seconds.get_num())
+		overwhelmed.emit()
+		LOG.debug("touch dislike kind=%s readiness=%.0f", [kind, _readout.satisfaction])
 	# A neutral touch sets no override; the live base cue stays on screen.
-	_queue_tolerance(event)
+	_report_tolerance(event)
 
 
-## The player's own words are a concrete input. The AI still writes her reply; this only
-## decides whether the line landed with her preference.
-func talk(text: String) -> void:
-	if _state() != STATE_ACTIVE:
+func _cue(text: String, seconds: float) -> void:
+	_readout.cue = text
+	_readout.cue_override = not text.is_empty()
+	_cue_until = _clock + maxf(0.0, seconds)
+
+
+func _observe_dislike(kind: String) -> Dictionary:
+	var event := _tolerance_controller().observe_dislike(kind)
+	_sync_tolerance()
+	return event
+
+
+func _observe_like(kind: String) -> void:
+	_tolerance_controller().observe_like(kind)
+	_sync_tolerance()
+
+
+## One meter decision per input; the act's consent owner is the only consumer.
+func _report_tolerance(event: Dictionary) -> void:
+	if event.is_empty():
 		return
-	var category := PREFERENCES.classify_talk(text)
-	if category.is_empty():
-		return
-	var event: Dictionary = {}
-	if category in preferences.get("dislikes", []):
-		act_talk_dislikes += 1
-		event = _observe_dislike(category)
-	elif category in preferences.get("talk", []):
-		_observe_like(category)
-	var now := _now()
-	if now - last_talk_at < talk_cooldown:
-		_queue_tolerance(event)
-		return
-	last_talk_at = now
-	last_talk = category
-	if category in preferences.get("talk", []):
-		act_liked_talk += 1
-		if satisfaction < ASSIST_CAP:
-			add_heat(minf(TALK_HEAT, ASSIST_CAP - satisfaction))
-			set_cue_override("She likes that.")
-		else:
-			set_cue_override("She needs you to move.")
-		receptive_until = now + receptive_seconds
-		LOG.debug("talk like category=%s readiness=%.0f", [category, satisfaction])
-	elif category in preferences.get("dislikes", []):
-		act_dislikes += 1
-		add_heat(-TALK_HEAT)
-		overwhelmed = overwhelmed_seconds
-		if on_face.is_valid():
-			on_face.call(FACE_OVERWHELMED)
-		set_cue_override("She didn't like that.")
-		LOG.debug("talk dislike category=%s readiness=%.0f", [category, satisfaction])
-	else:
-		set_cue_override("She listens.")
-	_queue_tolerance(event)
+	tolerance.emit(int(event.get("warning", 0)), bool(event.get("stop", false)),
+		float(event.get("distress", 0.0)), str(event.get("kind", "")))
 
 
-## Watch the director for a new player turn. No new control: the game's T key already
-## produces the text/mic turn. Talk is scored when it actually happens.
-func talk_tick(director: Node) -> void:
-	if _state() != STATE_ACTIVE:
-		return
-	if director != null:
-		var turn := int(director.get("_turn_id"))
-		var text := str(director.get("_player_text"))
-		if turn != last_talk_turn:
-			last_talk_turn = turn
-			if not text.strip_edges().is_empty():
-				last_player_talk = text.strip_edges()
-				act_player_lines += 1
-				talk(text)
+func _sync_tolerance() -> void:
+	_readout.distress = float(_tolerance.distress)
+	_readout.last_dislike = _tolerance.last_dislike
 
 
-func remember_talk_turn(director: Node) -> void:
-	if director == null:
-		last_talk_turn = -1
-		return
-	last_talk_turn = int(director.get("_turn_id"))
+## The depth scale, read at use so a live settings edit lands on the next sample.
+func _sync_scale() -> void:
+	_readout.shaft_m = _thrust.shaft_length_m()
+	_readout.reach_m = _thrust.reach()
+	_readout.travel = SETTINGS.travel.get_num()
+	_readout.up_is_deep = SETTINGS.orientation.get_choice() == "up"
+	_readout.depth = _thrust.depth
+	_readout.penetration_m = _thrust.penetration_m
 
 
-func thrusts_per_second() -> float:
-	var now := _now()
-	var count := 0
-	for at: Variant in thrust_times:
-		if now - float(at) <= 1.0:
-			count += 1
-	return float(count)
-
-
-## The runtime appends one timestamp per impact; this is the one-second rate window.
-var thrust_times: Array[float] = []
-
-
-func _climax() -> void:
-	if on_climax.is_valid():
-		on_climax.call()
+func _live() -> bool:
+	return _phase == PHASE_ACTIVE or _phase == PHASE_CLIMAX
 
 
 ## The meter is created lazily so a suite can build the facade without a profile.
 func _tolerance_controller() -> TOLERANCE:
-	if tolerance == null:
-		tolerance = TOLERANCE.new()
-	return tolerance
-
-
-## One meter frame. The runtime calls this in POSING_IN and ACTIVE.
-func tolerance_tick(delta: float) -> void:
-	if tolerance != null:
-		tolerance.tick(delta)
-
-
-## Every actual disliked touch/talk adds to the meter and may produce a warning or a stop.
-func _observe_dislike(kind: String) -> Dictionary:
-	return _tolerance_controller().observe_dislike(kind)
-
-
-## Every actual liked touch/talk buys back some tolerance. It never replays an old warning.
-func _observe_like(kind: String) -> void:
-	if tolerance != null:
-		tolerance.observe_like(kind)
-
-
-## The decision the runtime presents on its next tick, or empty. One decision per frame.
-func take_tolerance_decision() -> Decision:
-	if _tolerance_pending == null:
-		return _no_decision
-	var decision := _tolerance_pending
-	_tolerance_pending = null
-	return decision
-
-
-func distress() -> float:
-	return float(tolerance.distress) if tolerance != null else 0.0
-
-
-func last_dislike() -> String:
-	return str(tolerance.last_dislike) if tolerance != null else ""
-
-
-## Debug actions run from the paused settings page; the request is consumed on the next frame.
-func request_debug(kind: String) -> void:
-	debug_request = kind
-
-
-## Take and clear one pending debug request.
-func take_debug() -> String:
-	var action := debug_request
-	debug_request = ""
-	return action
-
-
-func _queue_tolerance(event: Dictionary) -> void:
-	if event.is_empty():
-		return
-	_tolerance_pending = Decision.from_dict(event)
-
-
-func _state() -> int:
-	return int(state.call()) if state.is_valid() else 0
-
-
-func _state_in(values: Array) -> bool:
-	return _state() in values
-
-
-func _now() -> float:
-	return float(clock.call()) if clock.is_valid() else 0.0
-
-
+	if _tolerance == null:
+		_tolerance = TOLERANCE.new()
+	return _tolerance

@@ -245,25 +245,11 @@ func run() -> void:
 	check(post.aftercare == null and not pony.has_meta("sex_aftercare"),
 		"clearing the aftercare drops the node and the mark")
 
-	# The satisfaction decay belongs to the facade: the host node creates the tween and a new
-	# act stops it.
-	var written: Array[float] = []
-	post.write_satisfaction = func(value: float) -> void: written.append(value)
-	post.decay_satisfaction(50.0)
-	await process_frame
-	await process_frame
-	check(not written.is_empty() and written[written.size() - 1] < 50.0,
-		"the decay writes the meter down")
-	post.stop_decay()
-	var stopped_at := written.size()
-	await process_frame
-	check(written.size() == stopped_at, "a stopped decay writes nothing more")
-
 	# The runtime hosts the plan: an act that ended well starts the aftercare and its post-act
-	# face and the meter decays; a partner stop tucks the tail instead.
+	# face; a partner stop tucks the tail instead.
 	var ended: Node = _runtime("standing")
 	var ended_pony: Node3D = ended.pony
-	ended.act.context.readiness.satisfaction = 80.0
+	ended.act.context.readiness.readout().satisfaction = 80.0
 	ended.act.aftercare_min = 10
 	var verdict := SUMMARY.ActScore.new()
 	verdict.outcome = {"grade": "great", "positive": true, "reward": true,
@@ -281,7 +267,6 @@ func run() -> void:
 	check(ended.act.host._tail_tuck != null, "a partner stop tucks her tail")
 	ended.act.host.end_tail_tuck()
 	check(ended.act.host._tail_tuck == null, "the tuck is released")
-	ended.act.context.afterglow.stop_decay()
 	ended.free()
 
 	pony.free()

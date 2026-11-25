@@ -9,7 +9,6 @@ const ACT_HOST := preload("res://mods/unfplap/act/host.gd")
 const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")
 const CAMERA_CONFIG := preload("res://mods/unfplap/camera/config.gd")
 const DIALOGUE := preload("res://mods/unfplap/dialogue/api.gd")
-const READINESS := preload("res://mods/unfplap/readiness/api.gd")
 
 ## The `CLIMAX` length the reaction window and the face beat read.
 const CLIMAX_SECONDS := 5.0
@@ -35,20 +34,14 @@ func bind(host_in: ACT_HOST, context_in: ACT_CONTEXT) -> void:
 
 ## Snapshot every tunable the act reads while running and push it to its owners. `group` is the
 ## start spec's settings group: an internal pose has no block of its own and must never come here.
-func snapshot_values(group: String, family: String, preferences: Dictionary) -> void:
+func snapshot_values(group: String, family: String) -> void:
 	snapshot = SETTINGS.act_snapshot(group)
 	features = snapshot.features
-	context.readiness.configure_thrust(snapshot.thrust_pixels_per_cm, snapshot.thrust_up,
-		snapshot.thrust_travel, snapshot.pelvis_gap_m)
 	max_pony_climaxes = snapshot.max_pony_climaxes
 	var tuning := REACTIONS_CONTEXT.new()
 	tuning.fill(snapshot.jiggle, family, context.camera.jiggle_size_scale(), CLIMAX_SECONDS)
 	context.reactions.configure(tuning)
 	context.camera.configure(CAMERA_CONFIG.Config.from_dict(snapshot.camera_thrust))
-	context.readiness.configure(READINESS.Profile.from_dict(preferences),
-		snapshot.cue_override_seconds,
-		snapshot.cue_overwhelmed_s, snapshot.touch_cooldown_s, snapshot.talk_cooldown_s,
-		snapshot.receptive_seconds)
 	presentation_config = snapshot.presentation
 	climax_mode = snapshot.climax_mode
 	configure_dialogue()
@@ -112,7 +105,3 @@ func configure_dialogue() -> void:
 func _refresh_live_modifiers(family: String) -> void:
 	if family == "standing" and is_instance_valid(host.pony):
 		context.standing_anon.refresh_palm()
-
-
-
-

@@ -6,7 +6,6 @@ extends Node
 const ACT_FACE := preload("res://mods/unfplap/shared/act_face.gd")
 const BEAT := preload("res://mods/unfplap/shared/face_beat.gd")
 const MOOD_FACE := preload("res://mods/unfplap/face/mood_face.gd")
-const PREFERENCES := preload("res://mods/unfplap/shared/preferences.gd")
 const READINESS := preload("res://mods/unfplap/readiness/api.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 ## The act states the lids answer. The runtime owns the enum; these are its values.
@@ -175,24 +174,26 @@ func act_beat_for(moment: String, values: ActValues, debug: bool) -> void:
 	act_beat(moment, context, debug)
 
 
-## The live climax shape's inputs, gathered from the readiness meter.
+## The live climax shape's inputs, gathered from the meter's one readout and its counter record.
 func quality_for() -> BEAT.ClimaxQuality:
 	var values := BEAT.ClimaxQuality.new()
+	var meter := readiness.take_meter()
+	var readout := readiness.readout()
 	var touch_dislikes := 0
-	for count: Variant in readiness.act_touch_dislikes.values():
+	for count: Variant in meter.touch_dislikes.values():
 		touch_dislikes += int(count)
-	values.intensity_total = float(readiness.act_intensity_total)
-	values.intensity_right = float(readiness.act_intensity_right)
-	values.pattern_total = float(readiness.act_pattern_total)
-	values.pattern_right = float(readiness.act_pattern_right)
-	values.both_matches = float(readiness.act_both_matches)
-	values.liked_touch = float(readiness.act_liked_touch)
-	values.liked_talk = float(readiness.act_liked_talk)
-	values.dislikes_total = touch_dislikes + readiness.act_talk_dislikes
-	values.distress = readiness.distress()
-	values.seeks_touch = PREFERENCES.seeks_touch(readiness.preferences)
-	values.seeks_talk = PREFERENCES.seeks_talk(readiness.preferences)
-	values.overwhelmed = readiness.overwhelmed > 0.0
+	values.intensity_total = float(meter.intensity_total)
+	values.intensity_right = float(meter.intensity_right)
+	values.pattern_total = float(meter.pattern_total)
+	values.pattern_right = float(meter.pattern_right)
+	values.both_matches = float(meter.both_matches)
+	values.liked_touch = float(meter.liked_touch)
+	values.liked_talk = float(meter.liked_talk)
+	values.dislikes_total = touch_dislikes + meter.talk_dislikes
+	values.distress = readout.distress
+	values.seeks_touch = readout.seeks_touch
+	values.seeks_talk = readout.seeks_talk
+	values.overwhelmed = readout.overwhelmed
 	return values
 
 
@@ -204,7 +205,7 @@ func act_rows(values: ActValues) -> Array[String]:
 		base_mood = memory.cue_facts(values.pony_id, values.event_id).mood
 	var context := BEAT.new()
 	context.state = values.state
-	context.hud_mood = readiness.mood
+	context.hud_mood = readiness.readout().mood
 	context.base_mood = base_mood
 	context.mode = values.climax_mode
 	context.blush_arc = values.blush_arc

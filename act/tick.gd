@@ -100,11 +100,9 @@ func _tick(delta: float) -> void:
 	if session.state in [State.ACTIVE, State.CLIMAX]:
 		PERF.begin("runtime_ai")
 		context.impact.auto_advance(delta)
-		context.impact.tick()
 		PERF.end("runtime_ai")
 		if session.state == State.ACTIVE:
 			PERF.begin("runtime_talk")
-			context.readiness.tick(delta)
 			talk(delta)
 			context.handover.offer_tick()
 			context.dialogue.bystander_tick(delta)
@@ -150,11 +148,13 @@ func _tick(delta: float) -> void:
 	PERF.end("runtime_face")
 
 
-## One talk turn: the handover's form reading and the readiness score read the same director turn.
+## One talk turn: the handover's form reading and the meter score the same director turn.
 func talk(_delta: float) -> void:
 	var director := _director()
 	context.handover.player_line_tick(director)
-	context.readiness.talk_tick(director)
+	var line := session.take_player_line(director)
+	if not line.is_empty():
+		context.readiness.talk(line)
 
 
 ## The game's conversation director, or null outside the tree.
@@ -198,5 +198,5 @@ func render(delta: float) -> void:
 			session.refresh_climax_progress()
 		context.camera.tick_shot(delta, session.state, context.view.speed(),
 			session.climax_progress())
-		context.audio.tick(delta, session.state, context.readiness.thrusts_per_second())
+		context.audio.tick(delta, session.state, context.readiness.readout().rate)
 	PERF.end("runtime_process")

@@ -143,8 +143,8 @@ func _hold_act_tick(delta: float, runtime: Node) -> void:
 		_act_for(runtime).cancel()
 
 
-## Hold X for the auto settings layer: this samples the physical keys; the policy and the rows
-## live in readiness and the runtime applies them.
+## Hold X for the auto settings layer: this samples the physical keys; the auto-thrust service owns
+## the policy and the actions, the act's input protocol applies them in a live act only.
 func _auto_layer_tick(delta: float, runtime: Node) -> void:
 	var keys: Array[bool] = [
 		Input.is_physical_key_pressed(KEY_Q), Input.is_physical_key_pressed(KEY_A),

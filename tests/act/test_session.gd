@@ -370,11 +370,11 @@ func _check_report() -> void:
 
 	session.tick(0.02)
 	check_size(progress, 1, "an unchanged tick emits no progress")
-	readiness.mood = "close"
+	readiness.readout().mood = "close"
 	session.tick(0.02)
 	check_size(progress, 2, "a mood change emits one progress update")
 	check_eq(str(progress[1].get("mood", "")), "close", "the changed mood is reported")
-	readiness.pony_climaxes = 1
+	readiness.readout().climaxes = 1
 	session.tick(0.02)
 	check_size(progress, 3, "a climax change emits one progress update")
 	check_eq(progress[2].get("climaxes"), {"current": 1, "limit": 0},
@@ -396,13 +396,12 @@ func _check_report() -> void:
 	check_size(progress, 6, "the final IDLE emits one progress update")
 	check_eq(str(progress[5].get("state", "")), "IDLE", "the end state is reported")
 	check_eq(str(progress[5].get("pose", "")), "", "the final pose is already restored")
-	readiness.mood = "relaxed"
-	readiness.satisfaction = 40.0
+	readiness.readout().mood = "relaxed"
+	readiness.readout().satisfaction = 40.0
 	session.tick(0.02)
 	check_size(progress, 6, "the after-act IDLE decay emits no progress")
 
-	readiness.act_thrusts = 143
-	readiness.pony_climaxes = 2
+	readiness.readout().climaxes = 2
 	session.pose_id = "missionary"
 	session.advance_act_seconds(167.8)
 	var view: FakeView = session.view
@@ -444,8 +443,7 @@ func _check_report() -> void:
 	session.pose_id = "missionary"
 	session.event_id = "intimacy_chrysalis_13"
 	session.advance_act_seconds(42.0)
-	readiness.act_thrusts = 20
-	readiness.pony_climaxes = 1
+	readiness.readout().climaxes = 1
 	session.preferences = {"tolerance": "strict", "intensity": "soft", "pattern": "steady",
 		"talk": [], "touch": [], "dislikes": ["smack"]}
 	view.meter.thrusts = 20

@@ -115,7 +115,7 @@ func run() -> void:
 	runtime.act._set_state(4) # AFTERGLOW
 	runtime.act.pose_id = CATALOG.MISSIONARY
 	runtime.act.snapshot_settings()
-	runtime.act.context.readiness.pony_climaxes = 2
+	runtime.act.context.readiness.readout().climaxes = 2
 	runtime.act.act_score = _verdict(good_outcome)
 	check(HUD_LINES.cue_line_for(_hud_view(runtime), true).contains("Great"),
 		"missionary afterglow cue shows the summary")
@@ -149,19 +149,19 @@ func run() -> void:
 	var probe: Node = RUNTIME.new()
 	root.add_child(probe)
 	var readiness: Variant = probe.act.context.readiness
-	readiness.act_touch_counts = {"smack": 2}
-	readiness.act_touch_dislikes = {"smack": 2}
-	readiness.act_talk_dislikes = 1
-	readiness.act_player_lines = 0
-	readiness.act_thrusts = 5
-	readiness.act_intensity_total = 4
-	readiness.act_intensity_right = 3
-	readiness.act_pattern_total = 3
-	readiness.act_pattern_right = 1
-	readiness.act_liked_touch = 0
-	readiness.act_liked_talk = 0
+	readiness._touch_counts = {"smack": 2}
+	readiness._touch_dislikes = {"smack": 2}
+	readiness._act_talk_dislikes = 1
+	readiness._act_player_lines = 0
+	readiness._act_thrusts = 5
+	readiness._act_intensity_total = 4
+	readiness._act_intensity_right = 3
+	readiness._act_pattern_total = 3
+	readiness._act_pattern_right = 1
+	readiness._act_liked_touch = 0
+	readiness._act_liked_talk = 0
 	probe.act.ended_early = false
-	readiness.pony_climaxes = 1
+	readiness.readout().climaxes = 1
 	probe.act._act_seconds = 90.0
 	var snapshot: SUMMARY.ActSnapshot = probe.act.view.summary_snapshot(probe.act)
 	check(snapshot.meter.thrusts == 5, "snapshot carries real thrusts")

@@ -358,15 +358,7 @@ static func _default_block(prefix: String) -> Dictionary:
 ## presentation modules that consume config dictionaries.
 class ActSnapshot:
 	var features: Dictionary
-	var thrust_up: bool
-	var thrust_pixels_per_cm: float
-	var thrust_travel: float
 	var max_pony_climaxes: int
-	var auto_pace: float
-	var auto_max_depth: float
-	var auto_min_depth: float
-	var auto_curve: String
-	var pelvis_gap_m: float
 	var jiggle: Dictionary
 	var camera_thrust: Dictionary
 	var cue_override_seconds: float
@@ -379,9 +371,6 @@ class ActSnapshot:
 	var cue_reaction_max_age_s: float
 	var cue_release_hold_s: float
 	var cue_overwhelmed_s: float
-	var touch_cooldown_s: float
-	var talk_cooldown_s: float
-	var receptive_seconds: float
 	var presentation: Dictionary
 	var climax_mode: String
 
@@ -390,15 +379,7 @@ class ActSnapshot:
 static func act_snapshot(pose_id: String) -> ActSnapshot:
 	var snap := ActSnapshot.new()
 	snap.features = _block("features.")
-	snap.thrust_up = orientation.get_choice() == "up"
-	snap.thrust_pixels_per_cm = pixels_per_cm.get_num()
-	snap.thrust_travel = travel.get_num()
 	snap.max_pony_climaxes = int(max_pony_climaxes.get_num())
-	snap.auto_pace = pace.get_num()
-	snap.auto_max_depth = max_depth.get_num()
-	snap.auto_min_depth = min_depth.get_num()
-	snap.auto_curve = curve.get_choice()
-	snap.pelvis_gap_m = pelvis_gap_m.get_num()
 	snap.jiggle = _block("jiggle.")
 	snap.camera_thrust = _block("camera_thrust.")
 	snap.cue_override_seconds = override_seconds.get_num()
@@ -411,9 +392,6 @@ static func act_snapshot(pose_id: String) -> ActSnapshot:
 	snap.cue_reaction_max_age_s = reaction_max_age_seconds.get_num()
 	snap.cue_release_hold_s = release_hold_seconds.get_num()
 	snap.cue_overwhelmed_s = overwhelmed_seconds.get_num()
-	snap.touch_cooldown_s = touch_cooldown_seconds.get_num()
-	snap.talk_cooldown_s = talk_cooldown_seconds.get_num()
-	snap.receptive_seconds = receptive_seconds.get_num()
 	snap.presentation = _block("presentation." + pose_id + ".")
 	snap.climax_mode = climax_mode.get_choice()
 	return snap

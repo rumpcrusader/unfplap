@@ -117,8 +117,14 @@ var anatomy_opening := Vector3.ZERO
 var anatomy_mouth := Vector3.ZERO
 
 # Host callbacks. A missing callback is a no-op.
-var on_touch := Callable()
+## The three meter touch verbs; the act decides which one the event was.
+var on_caress := Callable()
+var on_kiss := Callable()
 var on_smack := Callable()
+## A kiss or a smack also makes the anatomy mesh react, because the act already knows the kind.
+var on_anatomy_react := Callable()
+## The reactions' smack impact, for the jiggle and the rump blush fan-out.
+var on_smack_hit := Callable()
 ## Services and write-backs that stay runtime-owned.
 var kiss := Callable()
 var neck_point := Callable()
@@ -194,14 +200,24 @@ func clock() -> float:
 
 ## One readiness touch event of `kind` (`caress`, `kiss`, `smack`).
 func touch(kind: String) -> void:
-	if on_touch.is_valid():
-		on_touch.call(kind)
+	match kind:
+		"caress":
+			if on_caress.is_valid():
+				on_caress.call()
+		"kiss":
+			if on_kiss.is_valid():
+				on_kiss.call()
+		"smack":
+			if on_smack.is_valid():
+				on_smack.call()
+	if kind in ["kiss", "smack"] and on_anatomy_react.is_valid():
+		on_anatomy_react.call()
 
 
 ## One smack impact of `strength`, for the jiggle and rump blush fan-out.
 func smack_hit(strength: float) -> void:
-	if on_smack.is_valid():
-		on_smack.call(strength)
+	if on_smack_hit.is_valid():
+		on_smack_hit.call(strength)
 
 
 ## The one live act view, or null outside an act.

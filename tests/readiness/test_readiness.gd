@@ -1,32 +1,43 @@
 extends "res://mods/unfplap/tests/support/suite.gd"
-## The readiness facade: heat, stroke scoring, touch/talk input, cues and the act counters.
+## The act's meter: the start and its scoring window, the stroke and its score, the touch and talk
+## verbs, the cue and its events, her climax, the tolerance decisions, the idle stroke, the drain
+## and the one counter record. No runtime and no scene are needed.
 ##   godot --headless --xr-mode off --path <project> --script res://mods/unfplap/tests/readiness/test_readiness.gd
 
 const READINESS := preload("res://mods/unfplap/readiness/api.gd")
 const PREF := preload("res://mods/unfplap/shared/preferences.gd")
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
+const THRUST_STATE := preload("res://mods/unfplap/readiness/thrust_state.gd")
 
-const ACTIVE := 2
-const CLIMAX := 3
+const PROFILE := {
+	"intensity": "firm", "pattern": "steady", "touch": ["caress"],
+	"dislikes": ["smack"], "talk": ["praise"], "warmth": "normal", "tolerance": "normal",
+}
 
 
-
+## The act's live reads: a detached pose at the nominal shaft, and the cycle's heat switch.
 class Host extends RefCounted:
-	var clock := 0.0
-	var state := 2
 	var heat := false
+
+	func shaft_length() -> float:
+		return 0.2
+
+	func pose_family() -> String:
+		return ""
+
+	func in_heat() -> bool:
+		return heat
+
+
+## Everything the meter emits, counted and stored for the assertions.
+class Sink extends RefCounted:
 	var climaxes := 0
 	var closes := 0
-	var faces: Array[String] = []
-	var cue_calls := 0
-	var last_mood := ""
-	var last_cue := ""
-	var last_override := false
-
-	func now() -> float:
-		return clock
-
-	func current_state() -> int:
-		return state
+	var overwhelmed := 0
+	var cues: Array[Dictionary] = []
+	var tolerance: Array[Dictionary] = []
+	var stroke_batches := 0
+	var end_satisfaction := -1.0
 
 	func on_climax() -> void:
 		climaxes += 1
@@ -34,146 +45,299 @@ class Host extends RefCounted:
 	func on_close() -> void:
 		closes += 1
 
-	func on_face(name: String) -> void:
-		faces.append(name)
+	func on_overwhelmed() -> void:
+		overwhelmed += 1
 
-	func on_cue(mood: String, cue: String, override: bool) -> void:
-		cue_calls += 1
-		last_mood = mood
-		last_cue = cue
-		last_override = override
+	func on_tolerance(warning: int, stop: bool, distress: float, kind: String) -> void:
+		tolerance.append({"warning": warning, "stop": stop, "distress": distress, "kind": kind})
 
-	func is_heat() -> bool:
-		return heat
+	func on_cue(mood: String, text: String, override: bool) -> void:
+		cues.append({"mood": mood, "text": text, "override": override})
+
+	func on_strokes(_events: Array[THRUST_STATE.StrokeEvent]) -> void:
+		stroke_batches += 1
+
+
+func _act(preferences: Dictionary = PROFILE) -> Dictionary:
+	var host := Host.new()
+	var sink := Sink.new()
+	var readiness: READINESS = READINESS.new()
+	readiness.wire(READINESS.Deps.new(Callable(host, "shaft_length"),
+		Callable(host, "pose_family"), Callable(host, "in_heat")))
+	readiness.climaxed.connect(Callable(sink, "on_climax"))
+	readiness.close_reached.connect(Callable(sink, "on_close"))
+	readiness.overwhelmed.connect(Callable(sink, "on_overwhelmed"))
+	readiness.cue_changed.connect(Callable(sink, "on_cue"))
+	readiness.tolerance.connect(Callable(sink, "on_tolerance"))
+	readiness.strokes.connect(Callable(sink, "on_strokes"))
+	readiness.start_act(READINESS.Profile.from_dict(PREF.resolve(preferences)))
+	readiness.activate()
+	return {"readiness": readiness, "host": host, "sink": sink}
+
+
+## One real inward thrust: three deepening moves inside one stroke, then the reversal closes it.
+## Every hold is shorter than the tracker's bottom stall, so the close is not an idle one.
+func _thrust(readiness: READINESS, travel: float, seconds: float) -> void:
+	var step := seconds / 3.0
+	var part := travel / 3.0
+	readiness._process(step)
+	readiness.stroke(part)
+	readiness._process(step)
+	readiness.stroke(part)
+	readiness._process(step)
+	readiness.stroke(part)
+	readiness.stroke(-travel)
+
 
 func run() -> void:
-	var host := Host.new()
-	var readiness := READINESS.new()
-	readiness.clock = Callable(host, "now")
-	readiness.state = Callable(host, "current_state")
-	readiness.on_climax = Callable(host, "on_climax")
-	readiness.on_close = Callable(host, "on_close")
-	readiness.on_face = Callable(host, "on_face")
-	readiness.on_cue = Callable(host, "on_cue")
-	readiness.heat_cycle = Callable(host, "is_heat")
-	var preferences := PREF.resolve({
-		"intensity": "firm", "pattern": "steady", "touch": ["caress"],
-		"dislikes": ["smack"], "talk": ["praise"], "warmth": "normal",
-		"tolerance": "normal",
-	})
+	_check_start()
+	_check_score_and_signals()
+	_check_touch_and_talk()
+	_check_cue()
+	_check_climax()
+	_check_tolerance()
+	_check_idle_stroke()
+	_check_drain()
+	_check_meter_copy()
+	if failures == 0:
+		print("READINESS_PASS")
+	finish()
 
-	readiness.configure(READINESS.Profile.from_dict(PREF.resolve({})), 10.0, 1.2, 4.0, 8.0, 8.0)
-	check(near(readiness.override_seconds, 10.0), "configure keeps the override lifetime")
-	readiness.reset(READINESS.Profile.from_dict(preferences))
-	check(near(readiness.satisfaction, 0.0), "reset clears satisfaction")
-	check(readiness.pony_climaxes == 0, "reset clears the climax count")
-	check(readiness.mood == "warming", "reset leaves the caller's mood alone")
-	check(readiness.cue == "", "reset leaves the caller's cue alone")
-	check(readiness.tolerance != null and readiness.tolerance.tier == "normal",
-		"reset binds the tolerance tier")
-	check(near(readiness.distress(), 0.0), "the tolerance meter starts at zero")
 
-	readiness.add_heat(59.0)
-	check(near(readiness.satisfaction, 59.0), "heat raises satisfaction")
-	readiness.add_heat(999.0)
-	check(near(readiness.satisfaction, 100.0), "satisfaction clamps at 100")
-	check(near(readiness.peak_satisfaction, 100.0), "the peak is tracked")
+func _check_start() -> void:
+	var made := _act()
+	var readiness: READINESS = made["readiness"]
+	var readout := readiness.readout()
+	check_same(readiness.readout(), readout, "the readout is the one instance")
+	check(near(readout.satisfaction, 0.0), "the start clears the meter")
+	check(readout.mood == "warming" and readout.cue.is_empty(), "the start clears the cue")
+	check(readout.climaxes == 0 and readout.distress == 0.0, "the start clears her counts")
+	check(readout.seeks_touch and readout.seeks_talk, "the start reads her seeking flags")
+	check(near(readout.reach_m, 0.2) and near(readout.shaft_m, 0.2),
+		"the start reads the depth scale")
+	check(near(readout.travel, SETTINGS.travel.get_num()), "the start reads the stroke travel")
+	check(readout.up_is_deep == (SETTINGS.orientation.get_choice() == "up"),
+		"the start reads the mouse orientation")
+	readiness.free()
 
-	readiness.satisfaction = 0.0
-	host.heat = false
-	readiness.last_intensity = "firm"
-	readiness.last_pattern = "steady"
-	readiness.last_thrust_score_at = -1000.0
-	readiness.score_thrust()
-	check(near(readiness.satisfaction, 1.4), "matching both axes adds the both-axis chunk")
-	check(readiness.act_intensity_total == 1 and readiness.act_intensity_right == 1,
-		"the intensity axis counters move")
-	check(readiness.act_both_matches == 1, "both-axis matches count")
-	check(readiness.act_thrusts == 0, "score_thrust does not count a stroke by itself")
 
-	readiness.satisfaction = 0.0
-	host.heat = true
-	readiness.last_thrust_score_at = -1000.0
-	readiness.score_thrust()
-	check(near(readiness.satisfaction, 1.4 * 1.6), "heat multiplies the chunk")
+## Scoring opens only with the act's scoring window: a fresh start is not active yet.
+func _check_score_and_signals() -> void:
+	var made := _act()
+	var readiness: READINESS = made["readiness"]
+	var sink: Sink = made["sink"]
+	readiness.heat(59.0)
+	check(near(readiness.readout().satisfaction, 59.0), "heat raises the meter")
+	readiness.heat(999.0)
+	check(near(readiness.readout().satisfaction, 100.0), "the meter clamps at full")
+	check(sink.climaxes == 1, "a full meter reports her climax")
+	check(near(readiness.take_meter().peak_satisfaction, 100.0), "the peak is kept")
+	check(sink.closes == 0, "a full meter is no close beat")
+	readiness.free()
 
-	check(readiness.thrusts_per_second() == 0.0, "no impacts means no rate")
-	readiness.thrust_times.append(host.clock)
-	check(near(readiness.thrusts_per_second(), 1.0), "an impact inside one second counts")
-	host.clock = 2.0
-	check(near(readiness.thrusts_per_second(), 0.0), "an old impact drops out")
+	var fresh := _act()
+	var idle: READINESS = fresh["readiness"]
+	var fresh_sink: Sink = fresh["sink"]
+	idle.start_act(READINESS.Profile.from_dict(PREF.resolve(PROFILE)))
+	idle.heat(50.0)
+	check(near(idle.readout().satisfaction, 50.0),
+		"heat lands before the scoring window opens")
+	check(fresh_sink.closes == 0, "the close threshold needs the scoring window")
+	idle.free()
 
-	host.state = ACTIVE
-	readiness.satisfaction = 0.0
-	readiness.last_touch_at = -1000.0
-	readiness.touch("caress")
-	check(readiness.satisfaction > 0.0, "a liked touch adds heat")
-	check(readiness.act_liked_touch == 1, "the liked-touch counter increments")
-	check(readiness.take_tolerance_decision().is_empty(),
-		"a liked touch queues no tolerance decision")
-	var before := readiness.satisfaction
-	readiness.touch("caress")
-	check(near(readiness.satisfaction, before), "the shared touch cooldown blocks a second chunk")
-	readiness.last_touch_at = -1000.0
-	readiness.touch("smack")
-	check(readiness.satisfaction < before, "a disliked touch lowers readiness")
-	check(host.faces.has("overwhelmed"), "a disliked touch asks for the overwhelmed face")
-	var warning := readiness.take_tolerance_decision()
-	check(warning.warning == 1, "the first dislike queues a warning")
-	check(readiness.take_tolerance_decision().is_empty(), "the decision is consumed once")
-	check(near(readiness.distress(), 1.0), "the meter counts the dislike")
+	# One real stroke: a share of his reach in, the reversal closes it, and it scores.
+	var scored := _act()
+	var meter: READINESS = scored["readiness"]
+	var scored_sink: Sink = scored["sink"]
+	_thrust(meter, 0.5, 0.09)
+	check(scored_sink.stroke_batches == 0, "a stroke closed by the hand needs no idle signal")
+	check(near(meter.readout().satisfaction, 0.7),
+		"one matching axis adds the one-axis chunk")
+	check(meter.readout().last_intensity == "firm", "the stroke reads its intensity")
+	check(int(meter.take_meter().intensity_total) == 1, "the intensity axis is counted")
+	check(int(meter.take_meter().thrusts) == 1, "a real thrust is counted once")
+	# A mismatch gains nothing; the same stroke with the wrong depth axis is presentation only.
+	meter._process(0.25)
+	_thrust(meter, 0.2, 0.09)
+	check(near(meter.readout().satisfaction, 0.7), "a mismatch adds nothing")
+	meter.free()
 
-	readiness.last_talk_at = -1000.0
-	before = readiness.satisfaction
+
+func _check_touch_and_talk() -> void:
+	var made := _act()
+	var readiness: READINESS = made["readiness"]
+	var sink: Sink = made["sink"]
+	readiness.caress()
+	check(readiness.readout().satisfaction > 0.0, "a liked caress adds heat")
+	check(readiness.take_meter().liked_touch == 1, "the liked-touch counter moves")
+	check(sink.overwhelmed == 0, "a liked touch does not overwhelm her")
+	var before := readiness.readout().satisfaction
+	readiness.kiss()
+	check(near(readiness.readout().satisfaction, before), "the shared cooldown blocks a chunk")
+	check(readiness.readout().last_touch == "caress", "the cooldown keeps the last scored touch")
+	readiness._process(SETTINGS.touch_cooldown_seconds.get_num())
+	before = readiness.readout().satisfaction
+	readiness.smack()
+	check(readiness.readout().satisfaction < before, "a disliked smack lowers the meter")
+	check(sink.overwhelmed == 1, "a disliked touch reports her overwhelmed")
+	check(readiness.readout().overwhelmed, "the readout carries the overwhelmed state")
+	check(sink.tolerance.size() == 1 and int(sink.tolerance[0]["warning"]) == 1,
+		"the dislike arrives as one tolerance decision")
+	check(near(readiness.readout().distress, 1.0), "the meter counts the dislike")
+	# Talk is scored on its own cooldown; his words are kept once per turn.
+	readiness._process(SETTINGS.talk_cooldown_seconds.get_num())
+	before = readiness.readout().satisfaction
 	readiness.talk("you are beautiful")
-	check(readiness.satisfaction > before, "a liked talk adds readiness")
+	check(readiness.readout().satisfaction > before, "a liked talk adds the meter")
+	check(readiness.readout().last_talk == "praise", "the talk reads its category")
+	check(readiness.take_meter().player_talk == "you are beautiful", "his line is kept")
+	check(readiness.take_meter().player_lines == 1, "the turn is counted once")
+	readiness.talk("hello")
+	check(readiness.take_meter().player_lines == 2, "every turn is counted")
+	readiness.talk("")
+	check(readiness.take_meter().player_lines == 2, "an empty turn is not counted")
+	readiness.free()
 
-	readiness.set_cue_override("", 0.0)
-	readiness.close_notified = false
-	host.clock = 0.0
-	readiness.last_stroke_at = 0.0
-	readiness.satisfaction = 70.0
-	readiness.tick(0.1)
-	check(host.closes == 1, "crossing the close threshold fires one close beat")
-	readiness.tick(0.1)
-	check(host.closes == 1, "the close beat fires once per act")
-	check(host.cue_calls > 0, "the tick publishes the cue")
-	check(not host.last_override, "a base cue is not an override")
 
-	readiness.set_cue_override("She likes that.", 4.0)
-	check(readiness.cue == "She likes that.", "the override writes the cue")
-	check(readiness.cue_override == "She likes that.", "the override is latched")
+func _check_cue() -> void:
+	var made := _act()
+	var readiness: READINESS = made["readiness"]
+	var sink: Sink = made["sink"]
+	readiness._process(0.1)
+	check(sink.cues.size() == 1, "the first live frame publishes the base cue")
+	check(not bool(sink.cues[0]["override"]), "a base cue is no override")
+	readiness._process(0.1)
+	check(sink.cues.size() == 1, "an unchanged cue is not published again")
+	readiness.cue("She likes that.", 4.0)
+	check(readiness.readout().cue == "She likes that.", "the cue writes the readout")
+	check(readiness.readout().cue_override, "the readout marks the override")
+	readiness._process(0.1)
+	check(sink.cues.size() == 2 and bool(sink.cues[1]["override"]),
+		"the override reaches the act once")
+	readiness._process(4.0)
+	check(sink.cues.size() == 3 and not bool(sink.cues[2]["override"]),
+		"the expired override falls back to the base cue")
+	readiness.cue("", 0.0)
+	readiness._process(0.1)
+	check(not readiness.readout().cue_override, "an empty cue clears the override")
+	readiness.free()
 
-	host.state = ACTIVE
-	readiness.satisfaction = 100.0
-	readiness.tick(0.1)
-	check(host.climaxes > 0, "a full meter asks the host to climax")
-	check(near(readiness.peak_satisfaction, 100.0), "the peak stays for the summary")
 
-	readiness.tolerance_tick(26.0)
-	check(near(readiness.distress(), 0.0), "decay cannot go below zero")
-	readiness.request_debug("warning")
-	check(readiness.take_debug() == "warning", "the debug request is consumed once")
-	check(readiness.take_debug() == "", "the debug request clears")
+func _check_climax() -> void:
+	var made := _act()
+	var readiness: READINESS = made["readiness"]
+	var sink: Sink = made["sink"]
+	readiness.begin_climax(5.0)
+	check(readiness.readout().climaxes == 1, "the climax count moves")
+	check(readiness.readout().mood == "climax", "her mood becomes the climax")
+	check(readiness.readout().cue_override and not readiness.readout().cue.is_empty(),
+		"the climax sets her cue")
+	readiness._process(0.1)
+	check(sink.cues.is_empty(), "the climax frame does not publish a base cue")
+	readiness.end_climax()
+	check(near(readiness.readout().satisfaction, 0.0), "the climax return resets the meter")
+	check(readiness.readout().mood == "warming", "the climax return resets the mood")
+	check(readiness.readout().climaxes == 1, "the count survives the return")
+	readiness._process(0.1)
+	check(sink.climaxes == 0, "no old climax is replayed")
+	# A stroke during her climax counts but does not score.
+	readiness.heat(40.0)
+	readiness.begin_climax(5.0)
+	var before := readiness.readout().satisfaction
+	_thrust(readiness, 0.5, 0.5)
+	check(near(readiness.readout().satisfaction, before), "thrusting during climax does not score")
+	check(int(readiness.take_meter().thrusts) == 1, "the thrust still counts")
+	check(sink.climaxes == 0, "the meter does not report a second climax")
+	readiness.free()
 
-	# The act's meter is one record taken at the verdict. Every source carries a distinct value, so
-	# a forgotten field or a transposed pair fails here instead of in her history.
-	readiness.act_thrusts = 3
-	readiness.pony_climaxes = 5
-	readiness.act_liked_talk = 7
-	readiness.act_talk_dislikes = 11
-	readiness.act_liked_touch = 13
-	readiness.act_touch_dislikes = {"smack": 17}
-	readiness.act_player_lines = 19
-	readiness.act_intensity_total = 23
-	readiness.act_intensity_right = 29
-	readiness.act_pattern_total = 31
-	readiness.act_pattern_right = 37
-	readiness.peak_satisfaction = 41.5
-	readiness.act_both_matches = 43
-	readiness.act_dislikes = 47
-	readiness.last_player_talk = "stay with me"
-	var meter := readiness.act_output()
+
+func _check_tolerance() -> void:
+	var made := _act({"tolerance": "strict", "dislikes": ["smack"]})
+	var readiness: READINESS = made["readiness"]
+	var sink: Sink = made["sink"]
+	for i: int in 3:
+		readiness._process(SETTINGS.touch_cooldown_seconds.get_num())
+		readiness.smack()
+	check(sink.tolerance.size() == 2, "the warning and the stop are one decision each")
+	check(int(sink.tolerance[0]["warning"]) == 1, "the strict tier warns first")
+	check(bool(sink.tolerance[1]["stop"]), "the strict tier stops at once")
+	check(str(sink.tolerance[1]["kind"]) == "smack", "the stop names the input")
+	readiness.free()
+	# Passive time forgives a little, one point per declared interval.
+	var decaying := _act({"dislikes": ["smack"]})
+	var meter: READINESS = decaying["readiness"]
+	for i: int in 2:
+		meter._process(SETTINGS.touch_cooldown_seconds.get_num())
+		meter.smack()
+	var before := meter.readout().distress
+	meter._process(SETTINGS.decay_seconds.get_num() * 0.5)
+	check(near(meter.readout().distress, before), "the decay waits for its interval")
+	meter._process(SETTINGS.decay_seconds.get_num())
+	check(meter.readout().distress < before, "the decay forgives over time")
+	meter.free()
+
+
+func _check_idle_stroke() -> void:
+	var made := _act()
+	var readiness: READINESS = made["readiness"]
+	var sink: Sink = made["sink"]
+	# A held stroke with no reversal closes on the idle tick and reaches the act as one signal.
+	readiness.stroke(0.5)
+	readiness._process(0.5)
+	check(sink.stroke_batches == 1, "an idle close reaches the act as a stroke signal")
+	check(int(readiness.take_meter().thrusts) == 1, "the idle close is scored by the meter")
+	check(near(readiness.readout().rate, 1.0), "the held bottom counts as one impact")
+	readiness.free()
+
+
+func _check_drain() -> void:
+	var made := _act()
+	var readiness: READINESS = made["readiness"]
+	readiness.heat(40.0)
+	readiness.end_act()
+	var at_end := readiness.readout().satisfaction
+	readiness._process(READINESS.DRAIN_SECONDS * 0.5)
+	check(readiness.readout().satisfaction < at_end, "the end runs the meter down")
+	check(readiness.readout().satisfaction > 0.5, "the run-down takes its window")
+	readiness._process(READINESS.DRAIN_SECONDS)
+	check(near(readiness.readout().satisfaction, 0.0), "the run-down reaches zero")
+	# A new act cancels a run still going and starts from a full meter again.
+	readiness.start_act(READINESS.Profile.from_dict(PREF.resolve(PROFILE)))
+	readiness.activate()
+	readiness.heat(10.0)
+	readiness._process(10.0)
+	check(near(readiness.readout().satisfaction, 10.0), "a live act does not drain")
+	readiness.heat(30.0)
+	readiness.end_act()
+	readiness._process(1.0)
+	readiness.start_act(READINESS.Profile.from_dict(PREF.resolve(PROFILE)))
+	check(near(readiness.readout().satisfaction, 0.0), "a new act starts from zero")
+	readiness._process(1.0)
+	check(near(readiness.readout().satisfaction, 0.0), "the old run-down is cancelled")
+	readiness.free()
+
+
+## The act's one counter record: every source is set to a distinct value, so a forgotten field or
+## a transposed pair fails here instead of in her history.
+func _check_meter_copy() -> void:
+	var made := _act()
+	var readiness: READINESS = made["readiness"]
+	readiness._act_thrusts = 3
+	readiness.readout().climaxes = 5
+	readiness._act_liked_talk = 7
+	readiness._act_talk_dislikes = 11
+	readiness._act_liked_touch = 13
+	readiness._touch_dislikes = {"smack": 17}
+	readiness._act_player_lines = 19
+	readiness._act_intensity_total = 23
+	readiness._act_intensity_right = 29
+	readiness._act_pattern_total = 31
+	readiness._act_pattern_right = 37
+	readiness._peak_satisfaction = 41.5
+	readiness._act_both_matches = 43
+	readiness._act_dislikes = 47
+	readiness._last_player_talk = "stay with me"
+	var meter := readiness.take_meter()
 	check(meter.thrusts == 3, "the meter keeps the real thrusts")
 	check(meter.pony_climaxes == 5, "the meter keeps the pony climaxes")
 	check(meter.talk_liked == 7, "the meter keeps the liked talk")
@@ -188,17 +352,11 @@ func run() -> void:
 	check(near(meter.peak_satisfaction, 41.5), "the meter keeps the peak satisfaction")
 	check(meter.both_matches == 43, "the meter keeps the both-axis matches")
 	check(meter.dislikes == 47, "the meter keeps the dislike count")
-	check(meter.liked_touch == 13, "the meter keeps the peak's liked touch")
-	check(meter.liked_talk == 7, "the meter keeps the peak's liked talk")
+	check(meter.liked_touch == 13 and meter.liked_talk == 7, "the meter keeps the peak's likes")
 	check(meter.player_talk == "stay with me", "the meter keeps his last line")
-	readiness.act_touch_dislikes["smack"] = 99
-	readiness.act_thrusts = 101
+	readiness._touch_dislikes["smack"] = 99
+	readiness._act_thrusts = 101
 	check(int(meter.touch_dislikes.get("smack", 0)) == 17,
 		"the meter's dislike map is detached from the live counter")
-	check(meter.thrusts == 3, "the meter is a snapshot, not a view of the live counters")
-
+	check(meter.thrusts == 3, "the meter is a copy, not a view of the live counters")
 	readiness.free()
-	if failures == 0:
-		print("READINESS_PASS")
-	finish()
-

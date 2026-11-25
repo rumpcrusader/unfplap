@@ -15,6 +15,7 @@ const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const AUDIO := preload("res://mods/unfplap/audio/api.gd")
 const ACT_STATE := preload("res://mods/unfplap/shared/act_state.gd")
 const ACT_SESSION := preload("res://mods/unfplap/act/session.gd")
+const READINESS := preload("res://mods/unfplap/readiness/api.gd")
 const CONTROLLER := preload("res://mods/unfplap/anatomy/controller.gd")
 const ANATOMY_API := preload("res://mods/unfplap/anatomy/api.gd")
 const SUMMARY := preload("res://mods/unfplap/summary/api.gd")
@@ -459,9 +460,12 @@ func _fixture() -> Dictionary:
 	runtime.act.pose_id = CATALOG.STANDING
 	runtime.act.source = "test"
 	runtime.act._set_state(ACT_STATE.State.ACTIVE)
-	runtime.act.context.readiness.depth = 0.42
-	runtime.act.context.readiness.penetration_m = 0.11
-	runtime.act.context.readiness.pony_climaxes = 1
+	runtime.act.context.readiness.start_act(
+		READINESS.Profile.from_dict(runtime.act.preferences))
+	runtime.act.context.readiness.activate()
+	runtime.act.context.readiness.readout().depth = 0.42
+	runtime.act.context.readiness.readout().penetration_m = 0.11
+	runtime.act.context.readiness.readout().climaxes = 1
 	runtime.act.max_pony_climaxes = 3
 	runtime.act.event_id = "intimacy_test_mare_1"
 	runtime.act.serial = 1
@@ -605,8 +609,8 @@ func _check_handover() -> void:
 	check(runtime.get_parent() == host, "the runtime leaves the old body for the host")
 	check(owner.body_swap_pending(), "the act owner records the pending swap")
 	check(int(runtime.act.state) == ACT_STATE.State.ACTIVE, "the act state survives suspension")
-	check(absf(float(runtime.act.context.readiness.depth) - 0.42) < 0.0001, "depth survives suspension")
-	check(int(runtime.act.context.readiness.pony_climaxes) == 1, "climaxes survive suspension")
+	check(absf(float(runtime.act.context.readiness.readout().depth) - 0.42) < 0.0001, "depth survives suspension")
+	check(int(runtime.act.context.readiness.readout().climaxes) == 1, "climaxes survive suspension")
 	check(str(runtime.act.event_id) == "intimacy_test_mare_1", "the event id survives suspension")
 
 	var new_pony := _pony("New Mare", "NewBody")
@@ -621,8 +625,8 @@ func _check_handover() -> void:
 	check(_roster(f).runtime_for(old_pony) == null, "the old body's map entry is gone")
 	check(not owner.body_swap_pending(), "the pending swap is cleared")
 	check(int(runtime.act.state) == ACT_STATE.State.ACTIVE, "the act state survives resume")
-	check(absf(float(runtime.act.context.readiness.depth) - 0.42) < 0.0001, "depth survives resume")
-	check(int(runtime.act.context.readiness.pony_climaxes) == 1, "climaxes survive resume")
+	check(absf(float(runtime.act.context.readiness.readout().depth) - 0.42) < 0.0001, "depth survives resume")
+	check(int(runtime.act.context.readiness.readout().climaxes) == 1, "climaxes survive resume")
 	check(str(runtime.act.event_id) == "intimacy_test_mare_1", "the event id survives resume")
 	check(str(runtime.act.display_name) == "New Mare", "the act takes the new display name")
 	check(new_pony.has_meta("sex_active"), "the new body carries the act flag")
@@ -659,7 +663,7 @@ func _check_auto_survives_swap() -> void:
 	SETTINGS.min_depth.set_num(0.3)
 	SETTINGS.curve.set_choice("saw")
 	auto.start_act()
-	auto.toggle(runtime.act.context.readiness.depth)
+	auto.toggle(runtime.act.context.readiness.readout().depth)
 	check(auto.readout().on, "auto is on before the swap")
 	# A settings edit while the stroke runs is not a new act: the live values stay the act's.
 	SETTINGS.pace.set_num(1.0)
@@ -781,7 +785,7 @@ func _check_policy_events() -> void:
 	runtime.act._set_state(ACT_STATE.State.POSING_IN)
 	runtime.act.enter_active_act()
 	runtime.act._set_state(ACT_STATE.State.CLIMAX)
-	runtime.act.context.readiness.pony_climaxes = 1
+	runtime.act.context.readiness.readout().climaxes = 1
 	runtime.act.finish_climax()
 	runtime.act.begin_afterglow()
 
@@ -878,7 +882,7 @@ func _check_failed_change() -> void:
 	check(not runtime.act.suspended(), "a stopped change resumes")
 	check(runtime.pony == old_pony, "the old body keeps the act")
 	check(int(runtime.act.state) == ACT_STATE.State.ACTIVE, "the state survives the failed change")
-	check(absf(float(runtime.act.context.readiness.depth) - 0.42) < 0.0001, "depth survives the failed change")
+	check(absf(float(runtime.act.context.readiness.readout().depth) - 0.42) < 0.0001, "depth survives the failed change")
 	runtime.act.force_stop()
 	await _free_fixture(f)
 
@@ -998,9 +1002,9 @@ func _check_form_reveal() -> void:
 		"the reveal context carries the typed change")
 	check(not bool(policy.last_reveal.get("reveal_used", true)),
 		"the reveal context is read before the once-per-act mark")
-	check(float(runtime.act.context.readiness.satisfaction) >= policy.heat - 0.01,
+	check(float(runtime.act.context.readiness.readout().satisfaction) >= policy.heat - 0.01,
 		"the reveal spikes readiness by the policy's heat")
-	check(runtime.act.context.readiness.cue_override == policy.cue,
+	check(runtime.act.context.readiness.readout().cue_override and runtime.act.context.readiness.readout().cue == policy.cue,
 		"the reveal cue comes from the policy")
 	var memory: FakeMemory = host.memory
 	check(memory.impressions.size() == 1, "the reveal writes one special impression")
@@ -1134,7 +1138,7 @@ func _check_named_shape_gate() -> void:
 	runtime.act.swap.tick(0.1)
 	check(not runtime.act.suspended(), "the target shape resumes the act")
 	check(int(runtime.act.state) == ACT_STATE.State.ACTIVE, "the act state survives the shape wait")
-	check(absf(float(runtime.act.context.readiness.depth) - 0.42) < 0.0001, "depth survives the shape wait")
+	check(absf(float(runtime.act.context.readiness.readout().depth) - 0.42) < 0.0001, "depth survives the shape wait")
 	check(not runtime.act.context.handover.offer_pending, "the player's named shape spends the offer")
 	runtime.act.force_stop()
 	director.queue_free()
@@ -1192,10 +1196,10 @@ func _check_offer_gate() -> void:
 	var own := body_change.default_form(runtime.pony)
 	own.revision = borrowed.revision + 1
 	body_change.apply_form(runtime.pony, own)
-	runtime.act.context.readiness.pony_climaxes = 0
+	runtime.act.context.readiness.readout().climaxes = 0
 	runtime.act.context.handover.offer_tick()
 	check(not runtime.act.context.handover.offer_done, "the offer waits for a climax")
-	runtime.act.context.readiness.pony_climaxes = 1
+	runtime.act.context.readiness.readout().climaxes = 1
 	runtime.act.context.handover.offer_tick()
 	check(runtime.act.context.handover.offer_done and runtime.act.context.handover.offer_pending,
 		"the offer is made once after a climax")

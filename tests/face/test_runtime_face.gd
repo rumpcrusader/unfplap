@@ -7,7 +7,6 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 const RUNTIME := preload("res://mods/unfplap/runtime.gd")
 const FACE := preload("res://mods/unfplap/face/api.gd")
 const SUMMARY := preload("res://mods/unfplap/summary/api.gd")
-const TOLERANCE := preload("res://mods/unfplap/readiness/tolerance.gd")
 
 
 class FakeExpressions extends Node:
@@ -56,10 +55,6 @@ class FakePony extends Node3D:
 	var expressions: Variant = null
 
 
-class FakeTolerance extends TOLERANCE:
-	pass
-
-
 ## The act's verdict, as the funnel stores it; the face reads the record and nothing else.
 func _verdict(runtime: Node, outcome: Dictionary) -> void:
 	var score := SUMMARY.ActScore.new()
@@ -73,7 +68,7 @@ func _start_post_act_face(runtime: Node) -> void:
 	var summary: Dictionary = {}
 	if runtime.act.act_score != null:
 		summary = runtime.act.act_score.outcome
-	var plan: RefCounted = runtime.act.context.afterglow.post_act(false, runtime.act.context.readiness.satisfaction,
+	var plan: RefCounted = runtime.act.context.afterglow.post_act(false, runtime.act.context.readiness.readout().satisfaction,
 		runtime.act.aftercare_min, not summary.is_empty(), bool(summary.get("positive", false)))
 	runtime.act.context.face.start_post_act(plan.face_context(summary))
 
@@ -102,7 +97,6 @@ func _fixture() -> Dictionary:
 	runtime.act.features = {}
 	runtime.act.preferences = {"tolerance": "normal", "intensity": "firm",
 		"pattern": "steady", "touch": [], "talk": []}
-	runtime.act.context.readiness.tolerance = FakeTolerance.new()
 	runtime.act.climax_mode = "auto"
 	runtime.act.first_time = true
 	runtime.act._set_state(2) # ACTIVE
@@ -134,12 +128,12 @@ func run() -> void:
 	check(expressions.dialogue_face == "affectionate", "positive afterglow is affectionate")
 
 	runtime.act.preferences["tolerance"] = "normal"
-	runtime.act.context.readiness.act_intensity_total = 6
-	runtime.act.context.readiness.act_intensity_right = 6
-	runtime.act.context.readiness.act_pattern_total = 6
-	runtime.act.context.readiness.act_pattern_right = 6
-	runtime.act.context.readiness.act_both_matches = 6
-	runtime.act.context.readiness.act_liked_touch = 1
+	runtime.act.context.readiness._act_intensity_total = 6
+	runtime.act.context.readiness._act_intensity_right = 6
+	runtime.act.context.readiness._act_pattern_total = 6
+	runtime.act.context.readiness._act_pattern_right = 6
+	runtime.act.context.readiness._act_both_matches = 6
+	runtime.act.context.readiness._act_liked_touch = 1
 	runtime.act.face_beat("climax")
 	check(expressions.dialogue_face == "shy", "warm climax uses shy")
 	check(int(expressions.fluster_calls) == 1, "warm climax calls fluster")
@@ -165,7 +159,7 @@ func run() -> void:
 	runtime.set_process(false)
 	runtime.set_physics_process(false)
 	expressions.dialogue_face = ""
-	runtime.act.context.readiness.satisfaction = 100.0
+	runtime.act.context.readiness.readout().satisfaction = 100.0
 	runtime.act.aftercare_min = 10
 	_verdict(runtime, {"grade": "great", "positive": true, "reward": true,
 		"severe": false, "early": false, "mood": "happy"})

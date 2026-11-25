@@ -32,10 +32,11 @@ func presentation(delta: float) -> void:
 	session.advance_act_seconds(delta)
 	if session.pose_family() == "bed":
 		context.camera.aim_eyes()
+	var satisfaction := context.readiness.readout().satisfaction
 	WORLD.face(host.pony).sustain_blush(ACT_FACE.blush_for(ACT_FACE.phase_for(session.state),
-		context.readiness.satisfaction, session.feature("blush_arc")))
+		satisfaction, session.feature("blush_arc")))
 	PERF.begin("wings_tick")
-	context.wings.tick(delta, str(context.pose.view().family), context.readiness.satisfaction,
+	context.wings.tick(delta, str(context.pose.view().family), satisfaction,
 		session.act_seconds())
 	PERF.end("wings_tick")
 	context.integrations.tick(delta)

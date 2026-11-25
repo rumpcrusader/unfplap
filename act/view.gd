@@ -12,7 +12,6 @@ const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 const FACE := preload("res://mods/unfplap/face/api.gd")
 const BEAT := preload("res://mods/unfplap/shared/face_beat.gd")
 const DIALOGUE := preload("res://mods/unfplap/dialogue/api.gd")
-const READINESS := preload("res://mods/unfplap/readiness/api.gd")
 const SUMMARY := preload("res://mods/unfplap/summary/api.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const DEBUG_PONY := preload("res://mods/unfplap/debug_actions/pony.gd")
@@ -36,16 +35,17 @@ func bind(host_in: ACT_NODE, context_in: ACT_CONTEXT) -> void:
 func refresh(facts: ACT_FACTS, session: ACT_SESSION) -> void:
 	var pose_session: Variant = context.pose
 	var pose_view: Variant = pose_session.view()
+	var readout := context.readiness.readout()
 	facts.state = session.state
 	facts.pose_view = pose_view
 	facts.source = session.source
-	facts.satisfaction = context.readiness.satisfaction
-	facts.mood = context.readiness.mood
-	facts.cue = context.readiness.cue
+	facts.satisfaction = readout.satisfaction
+	facts.mood = readout.mood
+	facts.cue = readout.cue
 	facts.form_hint = context.handover.form_hint()
-	facts.pony_climaxes = context.readiness.pony_climaxes
-	facts.depth = context.readiness.depth
-	facts.penetration_m = context.readiness.penetration_m
+	facts.pony_climaxes = readout.climaxes
+	facts.depth = readout.depth
+	facts.penetration_m = readout.penetration_m
 	facts.pony = host.pony
 	facts.camera = context.camera.camera
 	facts.viewport = host.viewport()
@@ -64,15 +64,15 @@ func refresh(facts: ACT_FACTS, session: ACT_SESSION) -> void:
 		# geometry lookups keeps an idle town from paying for every runtime every frame.
 		return
 	facts.act_seconds = session.act_seconds()
-	facts.seconds_since_stroke = maxf(0.0, session.clock_s() - context.readiness.last_stroke_at)
-	facts.last_intensity = context.readiness.last_intensity
-	facts.last_pattern = context.readiness.last_pattern
-	facts.last_touch = context.readiness.last_touch
-	facts.last_talk = context.readiness.last_talk
-	facts.cue_override = not context.readiness.cue_override.is_empty()
-	facts.thrust_pace = context.readiness.thrusts_per_second()
+	facts.seconds_since_stroke = readout.seconds_since_stroke
+	facts.last_intensity = readout.last_intensity
+	facts.last_pattern = readout.last_pattern
+	facts.last_touch = readout.last_touch
+	facts.last_talk = readout.last_talk
+	facts.cue_override = readout.cue_override
+	facts.thrust_pace = readout.rate
 	# The pose view is the one contact source; the mouth/contact provider reads `contact_kind`.
-	facts.penetration_reach = context.readiness.reach()
+	facts.penetration_reach = readout.reach_m
 	var cam: Variant = context.camera
 	facts.size_name = cam.size_name()
 	facts.size_scale = cam.size_scale()
@@ -104,7 +104,7 @@ func refresh(facts: ACT_FACTS, session: ACT_SESSION) -> void:
 	facts.lean_sway = cam.lean_sway
 	facts.lean = cam.lean
 	facts.shot_lean_forward = cam.shot_lean_forward()
-	facts.thrust_travel = context.readiness.thrust_travel
+	facts.thrust_travel = readout.travel
 	facts.same_height_scale = cam.same_height_scale()
 	facts.anon_height_scale = cam.anon_height_scale()
 	facts.palm_scale_factor = cam.palm_scale_factor()
@@ -133,7 +133,6 @@ func sync_hud(facts: ACT_FACTS, session: ACT_SESSION, max_climaxes: int,
 		summary = session.act_score.outcome
 	var afterglow: Variant = context.afterglow
 	var anatomy: Variant = context.anatomy
-	var readiness: Variant = context.readiness
 	facts.max_pony_climaxes = max_climaxes
 	facts.close_hint = close_hint(session, pose_family)
 	facts.summary_hud = str(summary.get("hud", ""))
@@ -185,9 +184,6 @@ func apply_live(session: ACT_SESSION) -> void:
 
 
 func reset_act_state(session: ACT_SESSION) -> void:
-	context.readiness.reset_thrust()
-	context.auto.start_act()
-	context.readiness.reset(READINESS.Profile.from_dict(session.preferences))
 	context.standing_anon.reset_phase()
 	context.view.reset_depth()
 	context.facts.standing_sway_offset = Vector3.ZERO
@@ -259,19 +255,20 @@ func prompt_note(session: ACT_SESSION) -> String:
 
 
 func debug_context(session: ACT_SESSION) -> Dictionary:
+	var readout := context.readiness.readout()
 	return DEBUG_PONY.context(host.pony, session.pony_id, {
 		"state": session.state,
 		"presenting": context.presentation.presentation_active(),
 		"cuddle": context.gate.cuddle_active(),
 		"max_pony_climaxes": session.max_pony_climaxes,
-		"satisfaction": context.readiness.satisfaction,
-		"pony_climaxes": context.readiness.pony_climaxes,
-		"last_intensity": context.readiness.last_intensity,
-		"last_pattern": context.readiness.last_pattern,
-		"cue": context.readiness.cue,
-		"thrust_up": context.readiness.up_is_deep,
-		"penetration_m": context.readiness.penetration_m,
-		"penetration_reach": context.readiness.reach(),
+		"satisfaction": readout.satisfaction,
+		"pony_climaxes": readout.climaxes,
+		"last_intensity": readout.last_intensity,
+		"last_pattern": readout.last_pattern,
+		"cue": readout.cue,
+		"thrust_up": readout.up_is_deep,
+		"penetration_m": readout.penetration_m,
+		"penetration_reach": readout.reach_m,
 		"preferences": PREFERENCES.describe(session.preferences),
 		"voice_status_line": VOICE.status_line(WORLD.director().voice_facts(session.pony_id,
 			SETTINGS.tts_enabled())),
@@ -281,8 +278,9 @@ func debug_context(session: ACT_SESSION) -> Dictionary:
 func climax_line(session: ACT_SESSION) -> void:
 	var live: Variant = context.pose.view()
 	var mouth_busy := live != null and str(live.contact_kind) == "mouth"
-	context.dialogue.climax_line(mouth_busy, context.readiness.cue, session.event_id,
-		context.readiness.pony_climaxes, session.snapshot.cue_reaction_max_age_s)
+	var readout := context.readiness.readout()
+	context.dialogue.climax_line(mouth_busy, readout.cue, session.event_id, readout.climaxes,
+		session.snapshot.cue_reaction_max_age_s)
 
 
 ## The one act snapshot the summary scores: her identity, the route that ended the act, the act's
@@ -299,7 +297,7 @@ func summary_snapshot(session: ACT_SESSION) -> SUMMARY.ActSnapshot:
 	out.act_spoken_at = session.act_spoken_at
 	out.preferences = session.preferences
 	out.form_reveal = context.handover.reveal_done
-	out.meter = context.readiness.act_output()
+	out.meter = context.readiness.take_meter()
 	return out
 
 

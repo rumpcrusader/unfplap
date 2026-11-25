@@ -15,6 +15,7 @@ const REACTIONS := preload("res://mods/unfplap/reactions/api.gd")
 const ACT_DIALOGUE := preload("res://mods/unfplap/dialogue/api.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const THRUST_STATE := preload("res://mods/unfplap/readiness/thrust_state.gd")
+const READINESS := preload("res://mods/unfplap/readiness/api.gd")
 const CATALOG := preload("res://mods/unfplap/shared/pose_catalog.gd")
 const PREF := preload("res://mods/unfplap/shared/preferences.gd")
 const VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
@@ -285,6 +286,9 @@ func _fixture() -> Dictionary:
 	runtime.act.context.dialogue = dialogue
 	runtime.act.context.anatomy = presentation
 	runtime.act.reset_thrust_state()
+	runtime.act.context.readiness.start_act(
+		READINESS.Profile.from_dict(runtime.act.preferences))
+	runtime.act.context.readiness.activate()
 	root.add_child(main)
 	WORLD.bind_world(main)
 	root.add_child(director)
@@ -393,7 +397,7 @@ func run() -> void:
 
 	# Her climax line is skipped while the mouth contact is live, and returns once released.
 	dialogue.reaction_calls = 0
-	runtime.act.context.readiness.pony_climaxes = 1
+	runtime.act.context.readiness.readout().climaxes = 1
 	runtime.act.view.climax_line(runtime.act)
 	check(dialogue.reaction_calls == 0, "no climax line is queued during the mouth contact")
 	view.contact_kind = "opening"
@@ -402,11 +406,11 @@ func run() -> void:
 
 	# Both withdrawal slides still fire: the mouth contact keeps the slide.
 	view.contact_kind = "mouth"
-	runtime.act.context.impact.move(-0.4, 0.1)
+	runtime.act.context.impact.move(-0.4)
 	var oral_withdraws := audio.withdraws
 	check(oral_withdraws >= 1, "the withdrawal slide still fires during oral")
 	view.contact_kind = "opening"
-	runtime.act.context.impact.move(0.4, 0.2)
+	runtime.act.context.impact.move(0.4)
 	check(audio.withdraws > oral_withdraws, "the regular withdrawal slide is unchanged")
 
 	# The bed face-sit contact uses the same quiet branch: no plap, no rump/tail jiggle, no
@@ -424,10 +428,10 @@ func run() -> void:
 	check(wings.thrusts == face_wings + 1 and audio.vocals == face_vocal + 1,
 		"a face-sit impact keeps the wings and the vocal")
 	var face_withdraws := audio.withdraws
-	runtime.act.context.impact.move(-0.4, 0.3)
+	runtime.act.context.impact.move(-0.4)
 	check(audio.withdraws == face_withdraws, "a face-sit withdraw plays no withdrawal cue")
 	view.contact_kind = "opening"
-	runtime.act.context.impact.move(0.4, 0.4)
+	runtime.act.context.impact.move(0.4)
 	check(audio.withdraws > face_withdraws, "the regular withdrawal cue returns after the face-sit")
 
 	root.remove_child(runtime)

@@ -13,6 +13,7 @@ const ACT_SETUP := preload("res://mods/unfplap/act/setup.gd")
 const ACT_OWNER := preload("res://mods/unfplap/act_owner/api.gd")
 const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
+const READINESS := preload("res://mods/unfplap/readiness/api.gd")
 const ANATOMY := preload("res://mods/unfplap/anatomy/api.gd")
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const REST := preload("res://mods/unfplap/rest/control.gd")
@@ -94,16 +95,14 @@ func run(pose: String, bed_in: Variant, act_source: String, skip_presentation :=
 	session.event_id = "intimacy_%s_%d" % [session.pony_id, session.serial]
 	session.first_time = context.memory.first_time(session.pony_id, session.event_id) \
 		if context.memory != null else false
-	context.readiness.satisfaction = 0.0
-	context.readiness.mood = "warming"
-	context.readiness.cue = ""
+	context.readiness.start_act(READINESS.Profile.from_dict(session.preferences))
+	context.auto.start_act()
 	session.reset_thrust_state()
 	session.stopped_by_her = false
 	context.consent.reset()
 	context.handover.reset_act()
 	host.end_tail_tuck()
 	context.dialogue.prepare_vocal(session.pony_id)
-	context.afterglow.stop_decay()
 	_remember_talk_turn()
 	session.act_spoken_at = context.dialogue.last_spoken_at()
 	if session.source == "cradle":
@@ -208,12 +207,12 @@ func _claim_nav() -> bool:
 	return context.hold.claim_nav(session.pony_id)
 
 
-## The start's one talk-turn reset: readiness and the handover keep their own last-turn state.
+## The start's one talk-turn reset: the act and the handover keep their own last-turn state.
 func _remember_talk_turn() -> void:
 	var tree: SceneTree = host.tree()
 	var director: Node = tree.get_first_node_in_group("conversation_director") \
 		if tree != null else null
-	context.readiness.remember_talk_turn(director)
+	session.remember_talk_turn(director)
 	context.handover.remember_talk_turn(director)
 
 

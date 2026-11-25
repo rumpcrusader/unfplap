@@ -212,9 +212,9 @@ func fixture(kind: String) -> Dictionary:
 	runtime.act._set_state(2) # ACTIVE
 	runtime.act.pose_id = "standing"
 	runtime.act.snapshot_settings()
-	runtime.act.context.readiness.pony_climaxes = 1
+	runtime.act.context.readiness.readout().climaxes = 1
 	runtime.act._act_seconds = 90.0
-	runtime.act.context.readiness.act_thrusts = 10
+	runtime.act.context.readiness._act_thrusts = 10
 	runtime.act.posture_owned = true
 	runtime.act.context.hold.nav = nav
 	runtime.act.context.hold.token = "unfplap:test"

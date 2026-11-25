@@ -530,10 +530,8 @@ func _is_hex_color(value: String) -> bool:
 ## The act snapshot carries the typed values the runtime reads per stroke or per frame.
 func _check_snapshot() -> void:
 	var snap := SETTINGS.act_snapshot("missionary")
-	check(near(snap.thrust_pixels_per_cm, SETTINGS.pixels_per_cm.get_num()),
-		"the act snapshot carries sensitivity")
-	check(snap.thrust_up == (SETTINGS.orientation.get_choice() == "up"),
-		"the act snapshot carries the thrust direction")
+	check(near(snap.cue_override_seconds, SETTINGS.override_seconds.get_num()),
+		"the act snapshot carries the cue override lifetime")
 	check(snap.features is Dictionary and not snap.features.is_empty(),
 		"the act snapshot carries the feature flags")
 	check(snap.presentation.has("free_look"), "the act snapshot carries the pose presentation")

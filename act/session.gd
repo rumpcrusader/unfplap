@@ -10,6 +10,7 @@ const ACT_CONTEXT := preload("res://mods/unfplap/act/context.gd")
 const ACT_REPORT := preload("res://mods/unfplap/shared/act_report.gd")
 const ACT_SETTINGS := preload("res://mods/unfplap/act/settings.gd")
 const SUMMARY := preload("res://mods/unfplap/summary/api.gd")
+const ACT_METER := preload("res://mods/unfplap/shared/act_meter.gd")
 const POSE_SESSION := preload("res://mods/unfplap/poses/api.gd")
 const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const BODY_FORM := preload("res://mods/unfplap/shared/body_form.gd")
@@ -91,6 +92,8 @@ var ended_early := false
 ## The one verdict this act produced; the presentation reads it across the afterglow.
 var act_score: SUMMARY.ActScore = null
 var cycle_heat := false
+## The director turn the act has already read for the player's own words.
+var talk_turn := -1
 var snapshot: SETTINGS.ActSnapshot:
 	get:
 		return settings.snapshot
@@ -282,6 +285,7 @@ func reset_act() -> void:
 	_forms_taken.clear()
 	_form_id = ""
 	act_score = null
+	talk_turn = -1
 	_progress_due = false
 	_result_emitted = false
 	_last_state = State.IDLE
@@ -366,7 +370,7 @@ func enter_active_act() -> void:
 	context.handover.dispatch_event(BODY_CHANGE_POLICY.ActEvent.ACTIVE)
 
 func snapshot_settings() -> void:
-	settings.snapshot_values(start_group(), start_family(), preferences)
+	settings.snapshot_values(start_group(), start_family())
 	refresh_gate()
 
 func apply_live_settings() -> void:
@@ -414,7 +418,28 @@ func pose_view() -> Variant:
 
 ## The readiness reach the anatomy host and the thrust suite read.
 func penetration_reach() -> float:
-	return context.readiness.reach()
+	return context.readiness.readout().reach_m
+
+
+## The director turn this act has already read: the opening turn is remembered at the start so it
+## is never scored as fresh input, and a new turn hands its words back once.
+func take_player_line(director: Node) -> String:
+	var turn := director_turn(director)
+	if turn == talk_turn:
+		return ""
+	talk_turn = turn
+	return str(director.get("_player_text")).strip_edges()
+
+
+func remember_talk_turn(director: Node) -> void:
+	talk_turn = director_turn(director)
+
+
+static func director_turn(director: Node) -> int:
+	if director == null:
+		return -1
+	var value: Variant = director.get("_turn_id")
+	return int(value) if value != null else -1
 
 
 ## The afterglow close cue the HUD and the suite read.
@@ -488,8 +513,8 @@ func stage_anatomy(delta: float) -> void:
 	if context.anatomy == null or context.stage == null:
 		return
 	context.stage.phase = _anatomy_phase(state)
-	context.stage.depth = context.readiness.depth_value()
-	context.stage.penetration_m = context.readiness.penetration_m_value()
+	context.stage.depth = context.readiness.readout().depth
+	context.stage.penetration_m = context.readiness.readout().penetration_m
 	context.stage.size_scale = context.camera.size_scale()
 	if context.pose_view != null:
 		context.pose_view.bed_frame = context.pose.view().bed_frame
@@ -525,7 +550,7 @@ func begin_vr() -> void:
 	vr.toggle_hole = Callable(input, "command").bind(ACT_COMMANDS.HOLE)
 	vr.oral_ready = Callable(input, "anatomy_oral_ready")
 	vr.command = Callable(input, "command")
-	vr.touch = Callable(context.readiness, "touch")
+	vr.touch = Callable(context.facts, "touch")
 	vr.pony_source = Callable(host, "pony_value")
 
 
@@ -554,8 +579,7 @@ func vr_forward() -> Vector3:
 func vr_depth(value: float) -> void:
 	if state not in [State.ACTIVE, State.CLIMAX]:
 		return
-	context.impact.move(value - context.readiness.depth_value(), clock_s())
-	context.impact.set_depth(context.readiness.depth_value() * context.readiness.reach())
+	context.impact.set_penetration(value * context.readiness.readout().reach_m)
 
 
 static func _anatomy_phase(value: int) -> int:
@@ -662,15 +686,14 @@ func _emit_progress_if_changed() -> void:
 	var readiness := context.readiness
 	if readiness == null or not is_instance_valid(readiness):
 		return
-	var mood: String = readiness.mood
-	var climaxes: int = readiness.pony_climaxes
-	if not _progress_due and state == _last_state and mood == _last_mood \
-			and climaxes == _last_climaxes and cycle_heat == _last_heat \
+	var readout := readiness.readout()
+	if not _progress_due and state == _last_state and readout.mood == _last_mood \
+			and readout.climaxes == _last_climaxes and cycle_heat == _last_heat \
 			and pose_id == _last_pose and _form_id == _last_form:
 		return
 	_last_state = state
-	_last_mood = mood
-	_last_climaxes = climaxes
+	_last_mood = readout.mood
+	_last_climaxes = readout.climaxes
 	_last_heat = cycle_heat
 	_last_pose = pose_id
 	_last_form = _form_id
@@ -682,8 +705,8 @@ func _emit_progress_if_changed() -> void:
 	report.form_id = _form_id if not _form_id.is_empty() else pony_id
 	report.pose = pose_id
 	report.duration_s = act_seconds()
-	report.mood = mood
-	report.climaxes = {"current": climaxes, "limit": climax_limit()}
+	report.mood = readout.mood
+	report.climaxes = {"current": readout.climaxes, "limit": climax_limit()}
 	report.heat = cycle_heat
 	progress.emit(report.to_dict())
 
@@ -699,6 +722,7 @@ func _emit_result_once() -> void:
 	if readiness == null or not is_instance_valid(readiness):
 		return
 	_result_emitted = true
+	var meter: ACT_METER = act_score.meter
 	var report := ACT_REPORT.Result.new()
 	report.act_id = serial
 	report.pony_id = pony_id
@@ -706,8 +730,8 @@ func _emit_result_once() -> void:
 	report.forms = _report_forms()
 	report.pose = pose_id
 	report.duration_s = act_seconds()
-	report.thrusts = readiness.act_thrusts
-	report.climaxes = {"current": readiness.pony_climaxes, "limit": climax_limit()}
+	report.thrusts = meter.thrusts if meter != null else 0
+	report.climaxes = {"current": readiness.readout().climaxes, "limit": climax_limit()}
 	report.grade = str(summary.get("grade", "neutral"))
 	report.stop_reasons = _summary_reasons(summary)
 	report.outcome = {
@@ -737,6 +761,7 @@ static func _summary_reasons(summary: Dictionary) -> Array[String]:
 func begin_afterglow() -> void:
 	LOG.debug("afterglow pose=%s pony=%s", [pose_id, host.pony_name()])
 	context.auto.stop()
+	context.readiness.end_act()
 	context.dialogue.end_act(event_id, true)
 	# Bed afterglow keeps only lean and caress; standing keeps its kiss.
 	if pose_family() != "standing":
@@ -761,7 +786,6 @@ func begin_afterglow() -> void:
 	var summary := AFTERGLOW_SUMMARY.new()
 	summary.fill(_outcome())
 	context.afterglow.begin(summary)
-	context.readiness.clear_cues()
 	context.face.release_stare()
 	context.face.set_face(0.85, context.face.AFTERGLOW_LIDS)
 	face_beat("afterglow")
@@ -771,7 +795,7 @@ func begin_afterglow() -> void:
 func climax() -> void:
 	if state != State.ACTIVE:
 		return
-	context.readiness.begin_climax(start_row().get("id", ""), host.pony_name(), CLIMAX_SECONDS)
+	context.readiness.begin_climax(CLIMAX_SECONDS)
 	enter_climax()
 	context.handover.hint_tick()
 	context.reactions.schedule_hearts()
@@ -780,7 +804,7 @@ func climax() -> void:
 	face_beat("climax")
 	context.dialogue.end_act(event_id, true)
 	if is_instance_valid(WORLD.world_root()) and context.memory != null \
-			and context.readiness.pony_climaxes == 1:
+			and context.readiness.readout().climaxes == 1:
 		context.memory.note(MEMORY.NoteKind.CLIMAXED, pony_id, event_id)
 	view.climax_line(self)
 	context.audio.climax()
@@ -792,14 +816,14 @@ func climax() -> void:
 
 func finish_climax() -> void:
 	context.handover.dispatch_event(BODY_CHANGE_POLICY.ActEvent.CLIMAX_END)
-	if max_pony_climaxes > 0 and context.readiness.pony_climaxes >= max_pony_climaxes:
+	if max_pony_climaxes > 0 and context.readiness.readout().climaxes >= max_pony_climaxes:
 		begin_afterglow()
 		return
 	enter_active()
 	context.face.release_stare()
 	context.face.set_face(0.45, context.face.ACT_LIDS)
 	context.handover.hint_tick()
-	context.readiness.end_climax(max_pony_climaxes)
+	context.readiness.end_climax()
 
 
 ## The act's scene ownership handle: the negotiation asks for it.
@@ -917,14 +941,14 @@ func rest_context() -> Dictionary:
 		"player_pony": player_pony,
 		"headset": WORLD.headset_view(),
 		"summary": _outcome(),
-		"satisfaction": context.readiness.satisfaction,
+		"satisfaction": context.readiness.readout().satisfaction,
 		"aftercare_min": aftercare_min,
 	}
 
 
 ## The form handover's cue override uses the act's own duration, not a fresh settings read.
 func form_cue_override(text: String) -> void:
-	context.readiness.set_cue_override(text, snapshot.cue_override_seconds)
+	context.readiness.cue(text, snapshot.cue_override_seconds)
 
 
 func form_set_face(smile: float) -> void:

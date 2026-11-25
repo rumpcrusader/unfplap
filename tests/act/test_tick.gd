@@ -105,12 +105,6 @@ class FakeAudio extends RefCounted:
 		order.append("audio_tick")
 
 
-## Her readiness: the stroke rate the audio tick reads.
-class FakeReadiness extends READINESS:
-	func thrusts_per_second() -> float:
-		return 0.0
-
-
 ## The body-change handover: no suspension, so the render branch runs its work.
 class FakeHandover extends HANDOVER:
 	func _init() -> void:
@@ -132,7 +126,7 @@ func run() -> void:
 	view.family = "bed"
 	var pose := FakePose.new(order, view, FakeDiagnostics.new(order))
 	var camera := FakeCamera.new(order)
-	var readiness := FakeReadiness.new()
+	var readiness: READINESS = READINESS.new()
 	context.pose = pose
 	context.handover = FakeHandover.new()
 	context.view = FakeCameraView.new(order)

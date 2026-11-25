@@ -3,6 +3,7 @@ extends RefCounted
 ## penetration in metres and the depth scale they share. It turns the tracker's raw readings into
 ## the typed stroke/impact events the act presentation consumes. Readiness owns it.
 
+const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
 const THRUST := preload("res://mods/unfplap/readiness/thrust.gd")
 
 ## The shaft length used for the depth scale when the anatomy part is not showing, so the mouse
@@ -37,10 +38,6 @@ class StrokeEvent extends RefCounted:
 
 var depth := 0.0
 var penetration_m := 0.0
-var pixels_per_cm := 0.0
-var up_is_deep := false
-var travel := 0.0
-var pelvis_gap_m := 0.0
 
 ## Host reads for the depth scale: his visible shaft length in metres and the live pose family.
 ## A missing callback falls back to the nominal length and a detached reach.
@@ -56,15 +53,6 @@ func reset() -> void:
 	_tracker.reset()
 
 
-## The act's depth scale, pushed once per act and again on every live settings apply.
-func configure(pixels_per_cm_in: float, up_is_deep_in: bool, travel_in: float,
-		pelvis_gap_in: float) -> void:
-	pixels_per_cm = pixels_per_cm_in
-	up_is_deep = up_is_deep_in
-	travel = travel_in
-	pelvis_gap_m = pelvis_gap_in
-
-
 ## His visible shaft length in metres.
 func shaft_length_m() -> float:
 	if shaft_length.is_valid():
@@ -75,11 +63,12 @@ func shaft_length_m() -> float:
 
 
 ## The deepest the tip can reach. Both poses carry his body on the stroke, so the pelvis gap keeps
-## him that far back; a detached placement is limited by the shaft alone.
+## him that far back; a detached placement is limited by the shaft alone. The gap is read at use so
+## a live edit reaches the next sample.
 func reach() -> float:
 	var length := shaft_length_m()
 	if _pose_family() in ["standing", "bed"]:
-		return maxf(length - pelvis_gap_m, 0.02)
+		return maxf(length - SETTINGS.pelvis_gap_m.get_num(), 0.02)
 	return maxf(length, 0.02)
 
 
@@ -87,9 +76,9 @@ func live_strength(now: float) -> float:
 	return _tracker.live_strength(now)
 
 
-## Vertical mouse motion as hip travel in metres, through the act's sensitivity and orientation.
-func mouse_travel(dy_pixels: float) -> float:
-	return THRUST.pixels_to_metres(dy_pixels, pixels_per_cm, up_is_deep)
+## Keep the physical penetration consistent with the share verb: depth is a share of the reach.
+func sync_penetration() -> void:
+	penetration_m = depth * reach()
 
 
 ## Move the physical penetration and mirror it into the public 0..1 depth. Depth is zero at her

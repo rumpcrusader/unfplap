@@ -305,6 +305,10 @@ func tick_timers(delta: float) -> int:
 
 func enter_active() -> void:
 	_set_state(State.ACTIVE)
+	# The settled pose opens the meter's scoring window: until then her meter answers no stroke,
+	# so a mouse or auto move would present nothing at all.
+	if context != null and context.readiness != null:
+		context.readiness.activate()
 
 func begin_pose_in() -> void:
 	_set_state(State.POSING_IN)

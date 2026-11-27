@@ -29,13 +29,13 @@ func _readout(runtime: Node) -> READINESS.Readout:
 	return runtime.act.context.readiness.readout()
 
 
-## A new act on the same runtime: her profile, a fresh meter, a fresh automatic stroke and the
-## scoring window.
+## A new act on the same runtime: her profile, a fresh meter, a fresh automatic stroke, and the
+## scoring window opened by the act's own settled-pose transition, as production opens it.
 func _new_act(runtime: Node) -> void:
 	var readiness: READINESS = runtime.act.context.readiness
 	readiness.start_act(READINESS.Profile.from_dict(runtime.act.preferences))
 	runtime.act.context.auto.start_act()
-	readiness.activate()
+	runtime.act.enter_active()
 
 
 ## One real thrust through the mouse path: five deepening moves over a steady duration, then the
@@ -76,6 +76,16 @@ func run() -> void:
 	var previous_limit := SETTINGS.max_pony_climaxes.get_num()
 	var runtime: Node = _runtime()
 	var readiness: READINESS = runtime.act.context.readiness
+	# The scoring window opens with the act's settled-pose transition: a starting act answers no
+	# stroke at all, so a mouse move before it could not move him.
+	var depth_before := _readout(runtime).depth
+	readiness.start_act(READINESS.Profile.from_dict(runtime.act.preferences))
+	runtime.act.context.impact.move(0.25)
+	check(near(_readout(runtime).depth, depth_before), "a starting act's stroke moves nothing")
+	runtime.act.enter_active()
+	runtime.act.context.impact.move(0.25)
+	check(not near(_readout(runtime).depth, depth_before), "the active act's stroke moves him")
+	_new_act(runtime)
 	# The act's own clocks still advance; the meter keeps its own tick, so the act never drives it.
 	runtime.act.tick_clock(0.25)
 	check(runtime.act.context.face.clock.is_valid(), "face binds the session clock")

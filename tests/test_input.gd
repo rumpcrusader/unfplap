@@ -390,7 +390,8 @@ func _check_shield() -> void:
 	await process_frame
 	check(bool(service.get("_shield")), "the shield follows its setting")
 
-	# Typing owns the keyboard: nothing is consumed and the raw state survives.
+	# Typing owns the keyboard: nothing is consumed, and the game's typing guard has already
+	# blanked the typed key, so no raw state reaches the shield or a poller.
 	var field := LineEdit.new()
 	root.add_child(field)
 	field.grab_focus()
@@ -399,7 +400,7 @@ func _check_shield() -> void:
 	_reset_handled()
 	service.call("_input", _key(KEY_P))
 	check(not root.is_input_handled(), "typing is never consumed")
-	check(Input.is_physical_key_pressed(KEY_P), "typing keeps the raw key state")
+	check(not Input.is_physical_key_pressed(KEY_P), "the typing guard blanks the typed key")
 	field.release_focus()
 	field.queue_free()
 	await process_frame

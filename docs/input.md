@@ -59,5 +59,5 @@ headset owns the input, the middle button is not consumed.
 Consumption never stops a sibling's own input handler, and tree order cannot change that. Headset
 buttons are not keys and are outside the shield. A key that is down when the act ends stays read as
 released until the player presses it again, and changing the act key leaves the old key uncleared,
-since the hold keeps its state. While typing, keys pass, so a raw poller can still see typed
-letters.
+since the hold keeps its state. While typing, the game's own guard blanks the typed keys before any
+handler sees them, so the shield consumes nothing and a raw poller sees nothing either.

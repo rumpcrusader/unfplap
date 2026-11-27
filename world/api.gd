@@ -485,13 +485,6 @@ static func headset_view() -> bool:
 	return GAME.headset_view(_game)
 
 
-## Resolved by child name from the bound root; null when the scene lacks it.
-static func interaction_hints() -> Node:
-	if not is_instance_valid(_game):
-		return null
-	return GAME.interaction_hints(_game)
-
-
 ## The game's per-pony love level from the world context, with the cache's own -1 kept distinct
 ## from a row the cache does not hold.
 static func bond_level(id: String) -> GAME.BondLevel:

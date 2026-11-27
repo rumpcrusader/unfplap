@@ -936,7 +936,6 @@ func _check_unbound() -> void:
 	check(not WORLD.ready(), "an unbound facade is not ready")
 	check(WORLD.player_rig() == null, "an unbound facade has no rig")
 	check(WORLD.world_root() == null, "an unbound facade has no world root")
-	check(WORLD.interaction_hints() == null, "an unbound facade has no hints node")
 	check(WORLD.presentation() == null, "an unbound facade has no presentation")
 	check(WORLD.shape_ids().is_empty(), "an unbound facade has no shape catalogue")
 	check(not WORLD.bond_level("rarity").found, "an unbound facade has no bond level")
@@ -1424,12 +1423,8 @@ func _check_menu_and_headset() -> void:
 	check(WORLD.menu_panel_open(), "a paused tree is an open panel")
 	paused = false
 	check(not WORLD.paused(), "an unpaused tree is not paused")
-	var hints := Node.new()
-	hints.name = "InteractionHints"
-	game.add_child(hints)
 	var presentation := Node.new()
 	game.desktop_presentation = presentation
-	check(WORLD.interaction_hints() == hints, "the world's own hints node is read")
 	check(WORLD.presentation() == presentation, "the game's desktop presentation is read")
 	var population := FakePopulation.new()
 	population.available = {"rarity": "res://rarity.tscn", "": "res://skip.tscn"}

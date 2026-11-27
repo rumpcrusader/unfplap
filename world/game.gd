@@ -245,16 +245,6 @@ static func inventory(game: Node) -> Node:
 	return null
 
 
-## Read from the world child by name; null when the scene has no such child.
-static func interaction_hints(game: Node) -> Node:
-	if not is_instance_valid(game):
-		return null
-	var node: Variant = game.get_node_or_null("InteractionHints")
-	if node is Node and is_instance_valid(node):
-		return node
-	return null
-
-
 ## How many item rows the inventory holds; 0 without an inventory.
 static func inventory_held_count(inventory: Object) -> int:
 	if not is_instance_valid(inventory):

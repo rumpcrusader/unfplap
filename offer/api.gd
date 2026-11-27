@@ -24,8 +24,7 @@ const POSE_SPECS := preload("res://mods/unfplap/shared/pose_specs.gd")
 const FAN_SENSOR := preload("res://mods/unfplap/offer/fan_sensor.gd")
 const ACT_OWNER := preload("res://mods/unfplap/act_owner/api.gd")
 
-## The act-key hint in the prompt row. A press taps it like a base prompt, so it never reads as a
-## hold.
+## The words the idle hint shows. Its line has no mode, so the card draws it as a tap.
 const OFFER_HINT := "Make love"
 ## The standing-act note when her reach needs a footstool and Anon has none in the case.
 const NEEDS_STOOL_HINT := "Needs a footstool"
@@ -60,11 +59,6 @@ var _seat: Variant = null
 var _last_offer_key := ""
 var _last_blocked_key := ""
 var _stool_hint_toast_shown := false
-var _native_hint_label: Control
-var _native_hint_text := ""
-## The game's hints node and its 2D prompt row; resolved once per world, not per frame.
-var _native_hints_node: Node
-var _native_hint_row: HBoxContainer
 ## The Agreement auto-start's readiness clock, in seconds since the last consumed handle.
 var _agreement_clock := 0.0
 ## The runtime whose standing presentation this side started, or null.
@@ -96,8 +90,8 @@ func wire(negotiation: NEGOTIATION, hud: Node, owner: ACT_OWNER,
 	assert(_ponies != null and _eligibility != null and _act_gate != null)
 
 
-## One idle frame: the presentation first, then the fan sensor, the prompt row and the
-## Agreement clock. The act key's immediate read is `reconsider()` after a forced sense.
+## One idle frame: the presentation first, then the fan sensor, the offer hint and the Agreement
+## clock. The act key's immediate read is `reconsider()` after a forced sense.
 func tick(delta: float) -> void:
 	_sync_presentation()
 	PERF.begin("offer_sensor")
@@ -106,7 +100,7 @@ func tick(delta: float) -> void:
 	if changed:
 		reconsider()
 	PERF.begin("entry_hint")
-	_sync_native_hint(_hint_text())
+	_sync_hint(delta)
 	PERF.end("entry_hint")
 	_tick_agreement_auto_start(delta)
 
@@ -166,7 +160,7 @@ func clear_current() -> void:
 func hide_hint() -> void:
 	_offer = null
 	_offer_blocked = null
-	_sync_native_hint("")
+	_sync_hint(HUD.CARD_HIDE_DELTA)
 
 
 ## The act key's one start entry. It always accepts and never refuses; a missing context pose is
@@ -345,8 +339,7 @@ func _report_agreement(handle: AGREEMENT.Handle, started: bool) -> void:
 ## Clear the act-key hint and its cached offer.
 func _clear_offer_hint() -> void:
 	clear_current()
-	if is_instance_valid(hud):
-		hud.hide_prompt()
+	_sync_hint(HUD.CARD_HIDE_DELTA)
 
 
 func _toast(text: String) -> void:
@@ -355,10 +348,10 @@ func _toast(text: String) -> void:
 	hud.toast(text, 4.0)
 
 
-## A settings edit: drop the hint row, forget the sensor's senses and let the next idle frame
+## A settings edit: drop the hint, forget the sensor's senses and let the next idle frame
 ## re-evaluate the offer with the new values.
 func apply_settings() -> void:
-	_clear_native_hint()
+	_hide_hint_now()
 	_sensor.reset()
 
 
@@ -371,8 +364,8 @@ func on_world(_host: Node) -> void:
 		POSES.warm_asset(asset_path)
 
 
-## A world enter or a world close: drop the offer, the one-shot flags, the sensor and the hint row
-## of the world that is gone.
+## A world enter or a world close: drop the offer, the one-shot flags, the sensor and the hint of
+## the world that is gone.
 func on_world_closed() -> void:
 	_clear_presentation()
 	_offer = null
@@ -382,7 +375,7 @@ func on_world_closed() -> void:
 	_last_offer_key = ""
 	_last_blocked_key = ""
 	_stool_hint_toast_shown = false
-	_clear_native_hint()
+	_hide_hint_now()
 
 
 ## Re-evaluate the offer from the sensor's current candidates. The idle tick calls it on a
@@ -572,88 +565,21 @@ func _blocked_record(need: int, hint: String) -> Dictionary:
 	return {"hint": hint, "need": maxi(1, need), "toast": _stool_find_hint(need)}
 
 
-func _native_row() -> HBoxContainer:
-	# The row is read every frame, so it is cached: the path lookup allocates a NodePath and walks
-	# the tree, and the game keeps the same hints node and row for the whole world.
-	if is_instance_valid(_native_hint_row) and _native_hint_row.is_inside_tree():
-		return _native_hint_row
-	_native_hint_row = null
-	_native_hints_node = WORLD.interaction_hints()
-	if not is_instance_valid(_native_hints_node):
-		return null
-	# VR uses the world-space prompt row; the act-key hint falls back to the HUD prompt there.
-	if bool(_native_hints_node.get("xr")):
-		return null
-	var row: Variant = _native_hints_node.get("_prompt2d")
-	if row is HBoxContainer and is_instance_valid(row):
-		_native_hint_row = row
-		return row
-	return null
-
-
-## Match the native prompt row's style so the hint blends in beside base prompts.
-func _make_native_hint_label(text: String) -> Control:
-	# The base game has no key_6 icon, so the offer row asks for a drawn cap instead of an icon.
-	var cap := _act_key_label() if text == OFFER_HINT else ""
-	return HUD.prompt_row("", text, cap)
-
-
-func _remove_native_hint(row: HBoxContainer = null) -> void:
-	_native_hint_text = ""
-	if is_instance_valid(_native_hint_label):
-		var holder: Node = _native_hint_label.get_parent()
-		if is_instance_valid(holder):
-			holder.remove_child(_native_hint_label)
-		_native_hint_label.queue_free()
-	_native_hint_label = null
-	if row != null and is_instance_valid(row):
-		var parent: Node = row.get_parent()
-		if is_instance_valid(parent) and parent is Control and row.get_child_count() == 0:
-			(parent as Control).visible = false
-
-
-func _clear_native_hint() -> void:
-	_remove_native_hint(_native_row())
-	_native_hint_row = null
-	_native_hints_node = null
-
-
-func _sync_native_hint(text: String) -> void:
-	var row: HBoxContainer = _native_row()
-	if row == null:
-		if is_instance_valid(hud):
-			if text.is_empty():
-				hud.hide_prompt()
-			else:
-				hud.show_prompt(text, "",
-					_act_key_label() if text == OFFER_HINT else "")
+## Hands the hint to the HUD; the HUD decides where it is drawn and whether it changed.
+func _sync_hint(delta: float) -> void:
+	if not is_instance_valid(hud):
 		return
-	# The sensor changes the hint only on a transition; the common frame has nothing to apply, so
-	# it returns before the label checks and the container pokes.
-	if text == _native_hint_text:
-		if text.is_empty():
-			return
-		if is_instance_valid(_native_hint_label) and _native_hint_label.get_parent() == row:
-			return
-	if text.is_empty():
-		_remove_native_hint(row)
-		if is_instance_valid(hud):
-			hud.hide_prompt()
-		return
-	if not is_instance_valid(_native_hint_label) or _native_hint_label.get_parent() != row \
-			or _native_hint_label.is_queued_for_deletion() or _native_hint_text != text:
-		_remove_native_hint(row)
-		_native_hint_label = _make_native_hint_label(text)
-		_native_hint_text = text
-		row.add_child(_native_hint_label)
-	var parent: Node = row.get_parent()
-	if parent is Control:
-		(parent as Control).visible = true
+	var text := _hint_text()
+	hud.offer_hint(text, _act_key_label() if text == OFFER_HINT else "", delta)
+
+
+## Take the hint away at once, whatever offer is still cached for the next idle frame.
+func _hide_hint_now() -> void:
 	if is_instance_valid(hud):
-		hud.hide_prompt()
+		hud.offer_hint("", "", HUD.CARD_HIDE_DELTA)
 
 
-## The act key's cap label, resolved once when a hint row is built.
+## The act key's cap label.
 func _act_key_label() -> String:
 	return ACT_KEYS.label(int(SETTINGS.act_key.get_num()))
 

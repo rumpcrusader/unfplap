@@ -1,8 +1,12 @@
 extends Node
-## Shared hud fake: the toast and prompt recorder the offer suites drive.
+## Shared hud fake: the toast, offer hint and prompt recorder the suites drive.
 
 var toasts: Array[String] = []
 var prompts: Array[String] = []
+## Every non-empty offer hint, in order, and the live one with its cap ("" when none is shown).
+var hints: Array[String] = []
+var hint := ""
+var hint_key := ""
 var hides := 0
 
 func _show_toast(text: String, _seconds := 2.0) -> void:
@@ -19,3 +23,16 @@ func show_prompt(text: String, _icon_name := "", _cap := "") -> void:
 
 func hide_prompt() -> void:
 	hides += 1
+
+func offer_hint(text: String, key_label := "", _delta := 0.0) -> void:
+	if text.is_empty():
+		hides += 1
+		hint = ""
+		hint_key = ""
+		return
+	# The card is told the words again every frame so it can fade; only a change is a new hint.
+	if text == hint and key_label == hint_key:
+		return
+	hint = text
+	hint_key = key_label
+	hints.append(text)

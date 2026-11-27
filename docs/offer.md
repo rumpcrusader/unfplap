@@ -1,9 +1,9 @@
 # Idle act offer
 
 The offer service owns the idle act offer and the start it leads to: what the act key could start
-here, the hint beside the game's prompt row, the press, and a live Agreement's automatic start. It
-is the discovery and press authority for a start that already has a scene; the rows behind that
-scene are `scene_gate`.
+here, the hint on the game's corner control card, the press, and a live Agreement's automatic
+start. It is the discovery and press authority for a start that already has a scene; the rows
+behind that scene are `scene_gate`.
 
 ## Discovery
 
@@ -29,11 +29,12 @@ scene re-allows or re-refuses on the next pass.
 
 ## The hint
 
-The hint is one unit beside the game's own prompt row, carrying the player's act key, so it reads
-as one more thing the game offers; VR and a world without that row fall back to the HUD prompt. A
-standing candidate who needs footstools shows the "Needs a footstool" note instead, with a toast
-that says what to find; both appear once per target, not once per poll. With no offer the hint goes
-away and its logged key resets, so the same offer speaks again when it returns.
+The hint is one row on the game's corner control card, carrying the player's act key, so it reads
+as one more control the game offers; the HUD puts it there, and a headset, which has no card, uses
+the HUD's own centred prompt instead. A standing candidate who needs footstools shows the "Needs a
+footstool" note instead, with a toast that says what to find; both appear once per target, not once
+per poll. With no offer the hint goes away and its logged key resets, so the same offer speaks
+again when it returns.
 
 ## The press
 

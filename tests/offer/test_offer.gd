@@ -1,8 +1,8 @@
 extends "res://mods/unfplap/tests/support/suite.gd"
 ## The idle offer service: the fan sensor's transitions, the scene fingerprint, the standing
-## target, the bed-side offer, the footstool block and its one toast, the hint row in the game's
-## prompt row and the HUD fallback, the live Agreement offer, the pure `offer_target()` read and
-## the offer cleared while an act is live.
+## target, the bed-side offer, the footstool block and its one toast, the hint handed to the HUD,
+## the live Agreement offer, the pure `offer_target()` read and the offer cleared while an act is
+## live.
 ##   godot --headless --xr-mode off --path <project> \
 ##     --script res://mods/unfplap/tests/offer/test_offer.gd
 
@@ -20,11 +20,6 @@ const ACT_OWNER := preload("res://mods/unfplap/act_owner/api.gd")
 const FAKE_GATE := preload("res://mods/unfplap/tests/support/fakes/fake_act_gate.gd")
 const ELIGIBILITY := preload("res://mods/unfplap/eligibility/api.gd")
 
-
-
-class FakeHints extends Node:
-	var xr := false
-	var _prompt2d: Variant = null
 
 
 class FakeForm extends Node:
@@ -169,8 +164,8 @@ func run() -> void:
 	_check_fingerprint()
 	_check_blocked_stool()
 	_check_blocked_need_two()
-	_check_hint_row()
-	_check_hud_fallback()
+	_check_hint()
+	_check_hint_cleared()
 	_check_agreement_first()
 	_check_presentation()
 	_check_lying_act_target()
@@ -250,7 +245,6 @@ func _check_blocked_stool() -> void:
 	var service: OFFER = made["service"]
 	var hud: FakeHud = made["hud"]
 	var runtime: FakeRuntime = made["near_runtime"]
-	var row: HBoxContainer = made["row"]
 	runtime.stool = {"need": 1, "have": 0}
 	runtime.gap = 0.12
 	runtime.case_count = 0
@@ -263,10 +257,8 @@ func _check_blocked_stool() -> void:
 	check(hud.toasts == ["Find a footstool in a house."], "the block toasts once")
 	service.tick(0.2)
 	check(hud.toasts.size() == 1, "the same block does not toast twice")
-	check(_unit_text(row.get_child(0)) == OFFER.NEEDS_STOOL_HINT,
-		"the blocked hint reaches the prompt row")
-	check(not row.get_child(0).get_child(0) is PanelContainer,
-		"the blocked hint carries no act key cap")
+	check(hud.hint == OFFER.NEEDS_STOOL_HINT, "the blocked hint reaches the HUD")
+	check(hud.hint_key.is_empty(), "the blocked hint carries no act key cap")
 	_free(made)
 
 
@@ -290,44 +282,44 @@ func _check_blocked_need_two() -> void:
 	_free(made)
 
 
-## The hint is one more unit in the game's own prompt row, with the act key's cap, and the row's
-## holder is shown while it holds it.
-func _check_hint_row() -> void:
+## The hint goes to the HUD, which puts it on the game's corner control card: the offer's words
+## with the act key's cap, applied again after a settings edit without a stale row.
+func _check_hint() -> void:
 	var made := _fixture()
 	var service: OFFER = made["service"]
-	var row: HBoxContainer = made["row"]
-	var holder: Control = made["holder"]
 	var hud: FakeHud = made["hud"]
 	service.tick(0.2)
-	check(row.get_child_count() == 1, "the hint is one more unit in the prompt row")
-	check(holder.visible, "the prompt row holder is shown with the hint")
-	check(hud.prompts.is_empty() and hud.hides > 0,
-		"the native row keeps the HUD prompt hidden")
-	var unit: Node = row.get_child(0)
-	check(_unit_text(unit) == OFFER.OFFER_HINT, "the row reads the offer hint")
-	check(unit.get_child(0) is PanelContainer, "the offer hint carries the act key cap")
-	service.apply_settings()
-	check(row.get_child_count() == 0, "a settings edit drops the row for a rebuild")
+	check(hud.hint == OFFER.OFFER_HINT, "the HUD is given the offer hint")
+	check(not hud.hint_key.is_empty(), "the offer hint carries the act key's cap")
+	check(hud.prompts.is_empty(), "the offer hint never reaches the centred prompt")
+	var shown := hud.hint
 	service.tick(0.2)
-	check(row.get_child_count() == 1, "the next idle frame rebuilds the row")
+	check(hud.hint == shown and hud.hints == [OFFER.OFFER_HINT],
+		"a steady frame applies the same hint once")
+	service.apply_settings()
+	check(hud.hint.is_empty(), "a settings edit drops the hint")
+	service.tick(0.2)
+	check(hud.hint == OFFER.OFFER_HINT, "the next idle frame restores the hint")
 	_free(made)
 
 
-## VR and a world without the game's prompt row fall back to the HUD prompt, and the fallback is
-## hidden again with no offer.
-func _check_hud_fallback() -> void:
-	var made := _fixture(false)
+## With no offer the hint goes away, and it comes back when an offer returns.
+func _check_hint_cleared() -> void:
+	var made := _fixture()
 	var service: OFFER = made["service"]
 	var hud: FakeHud = made["hud"]
-	service.tick(0.2)
-	check(hud.prompts == [OFFER.OFFER_HINT], "the HUD prompt is the fallback hint")
-	var hides := hud.hides
 	var near: FakeMare = made["near"]
 	var far: FakeMare = made["far"]
+	service.tick(0.2)
+	check(hud.hint == OFFER.OFFER_HINT, "the hint shows while the offer stands")
 	near.requested = "lie_down"
 	far.requested = "lie_down"
 	service.tick(0.2)
-	check(hud.prompts.size() == 1 and hud.hides > hides, "no offer hides the fallback prompt")
+	check(hud.hint.is_empty() and hud.hides > 0, "no offer hides the hint")
+	near.requested = "stand"
+	far.requested = "stand"
+	service.tick(0.2)
+	check(hud.hint == OFFER.OFFER_HINT, "a returning offer shows the hint again")
 	_free(made)
 
 
@@ -398,7 +390,7 @@ func _check_presentation() -> void:
 ## AnonPony's lying offer is an act target only: the same candidate is offered while eligible
 ## and dropped when the capability answers no.
 func _check_lying_act_target() -> void:
-	var made := _fixture(false)
+	var made := _fixture()
 	var service: OFFER = made["service"]
 	var near: FakeMare = made["near"]
 	var runtime: FakeRuntime = made["near_runtime"]
@@ -490,10 +482,9 @@ func _drop(node: Node) -> void:
 func _check_hide_while_act_live() -> void:
 	var made := _fixture()
 	var service: OFFER = made["service"]
+	var hud: FakeHud = made["hud"]
 	var runtime: FakeRuntime = made["near_runtime"]
 	var near: FakeMare = made["near"]
-	var row: HBoxContainer = made["row"]
-	var holder: Control = made["holder"]
 	service.tick(0.2)
 	runtime.hotkey_calls = 0
 	check(service.offer_target() == near, "offer_target reads the current scan result")
@@ -513,13 +504,12 @@ func _check_hide_while_act_live() -> void:
 	check(service.current() == null, "clear_current drops the offer")
 	service.hide_hint()
 	check(service.current() == null and service.blocked() == null, "an act clears the offer")
-	check(row.get_child_count() == 0 and not holder.visible,
-		"an act takes the hint out of the prompt row")
+	check(hud.hint.is_empty(), "an act takes the hint away")
 	_free(made)
 
 
-## A world with the game's prompt row, one nearest standing mare and a nearer stallion.
-func _fixture(with_row := true) -> Dictionary:
+## A world with one nearest standing mare and a nearer stallion.
+func _fixture() -> Dictionary:
 	var game := FakeGame.new()
 	game.name = "FakeGame"
 	var player := FakePlayer.new()
@@ -550,17 +540,6 @@ func _fixture(with_row := true) -> Dictionary:
 		runtime_nodes.append(runtime)
 		if mare == near:
 			near_runtime = runtime
-	var holder: Control = null
-	var row: HBoxContainer = null
-	if with_row:
-		var hints := FakeHints.new()
-		hints.name = "InteractionHints"
-		holder = Control.new()
-		row = HBoxContainer.new()
-		hints.add_child(holder)
-		holder.add_child(row)
-		hints._prompt2d = row
-		game.add_child(hints)
 	var hud := FakeHud.new()
 	var negotiation := FakeNegotiation.new()
 	var owner := ACT_OWNER.new()
@@ -579,7 +558,7 @@ func _fixture(with_row := true) -> Dictionary:
 	WORLD.bind_player(player)
 	return {"service": service, "game": game, "player": player, "hud": hud,
 		"negotiation": negotiation, "near": near, "far": far, "stallion": stallion,
-		"near_runtime": near_runtime, "row": row, "holder": holder, "owner": owner,
+		"near_runtime": near_runtime, "owner": owner,
 		"runtimes": runtime_nodes, "ponies": roster, "eligibility": targets, "gate": gate}
 
 
@@ -613,11 +592,3 @@ func _free(made: Dictionary) -> void:
 	service.free()
 	for key: String in ["eligibility", "gate"]:
 		(made[key] as Node).free()
-
-
-## The words of one prompt-row unit: its last label, after an optional key cap.
-func _unit_text(unit: Node) -> String:
-	var text := ""
-	for child: Node in unit.find_children("*", "Label", true, false):
-		text = str((child as Label).text)
-	return text

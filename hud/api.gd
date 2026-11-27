@@ -1,6 +1,7 @@
 extends CanvasLayer
 ## Scope: world
-## Desktop HUD: prompt and a bottom-left controls/cue list.
+## Desktop HUD: the idle offer's hint, the centred prompt a headset uses instead, and a bottom-left
+## controls/cue list.
 
 const WORLD := preload("res://mods/unfplap/world/api.gd")
 const SETTINGS := preload("res://mods/unfplap/settings/api.gd")
@@ -39,6 +40,10 @@ const MODE_WIDTH := 38.0
 const PROMPT_ICON_EDGE := 52.0
 const PROMPT_FONT := 30
 const PROMPT_OUTLINE := 10
+## The key of the mod's own stack inside the corner card.
+const CARD_SECTION := "unfplap"
+## A delta that finishes the card's own fade at once, for a hint no longer wanted this frame.
+const CARD_HIDE_DELTA := 1.0
 
 var _prompt: CenterContainer
 var _prompt_row: HBoxContainer
@@ -57,6 +62,11 @@ var _control_rows := {}
 ## Hold-X layer rows, shown instead of the normal card while the auto settings are open.
 var _layer_rows := {}
 var _layer_labels := {}
+## The game's corner card and the line the mod puts on it: the words last applied and their cap.
+var _card: GAME.Card
+var _card_text := ""
+var _card_key := ""
+var _card_rows: Array = []
 var _toast_label: Label
 var _toast_serial := 0
 ## The toast's own hide timer. A tree timer would outlive the HUD that armed it.
@@ -410,6 +420,45 @@ func hide_prompt() -> void:
 		_prompt.visible = false
 
 
+## The idle offer's hint, drawn as one line of the game's corner card: the act key's cap and the
+## words, or the words alone for a blocked offer. Empty words fade the line away; a headset has no
+## card and gets the centred prompt. The card is told the same words every frame so it can fade, so
+## a steady frame builds nothing.
+func offer_hint(text: String, key_label: String, delta: float) -> void:
+	if WORLD.headset_view():
+		_card_off(CARD_HIDE_DELTA)
+		if text.is_empty():
+			hide_prompt()
+		else:
+			show_prompt(text, "", key_label)
+		return
+	if _prompt != null and _prompt.visible:
+		hide_prompt()
+	if text.is_empty() and _card_text.is_empty() and not _has_card():
+		return
+	if not _has_card():
+		_card = GAME.control_card(self)
+		if not _has_card():
+			return
+	if text != _card_text or key_label != _card_key:
+		_card_text = text
+		_card_key = key_label
+		_card_rows = [[key_label, "", text]] if not key_label.is_empty() else [["", "", text]]
+	_card.section(CARD_SECTION, not text.is_empty(), _card_rows, delta)
+
+
+## Fade the card's line away at once, for a view that shows its hint elsewhere.
+func _card_off(delta: float) -> void:
+	if not _has_card() or _card_text.is_empty():
+		return
+	_card_text = ""
+	_card.section(CARD_SECTION, false, _card_rows, delta)
+
+
+func _has_card() -> bool:
+	return _card != null and _card.valid()
+
+
 func show_act(view: RefCounted) -> void:
 	_hint.visible = true
 	update_from(view)
@@ -436,6 +485,7 @@ func hide_act() -> void:
 func hide_all() -> void:
 	hide_prompt()
 	hide_act()
+	offer_hint("", "", CARD_HIDE_DELTA)
 
 
 ## integration: short anatomy status line in the corner. The public sink is `toast()`.

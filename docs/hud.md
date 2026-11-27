@@ -50,10 +50,10 @@ service's game channel and re-applies the mode only when the speech setting chan
 
 ## The offer hint and the toast
 
-The offer hint uses the game's own prompt row so it sits beside base prompts: a drawn key cap for
-the act key, which the game has no icon for, beside the words. Without that row the same hint is
-built into the HUD's own centred prompt. A steady frame re-applies neither the row nor its text, so
-holding the camera still touches neither the tree nor the row.
+The offer hint is one row on the game's corner control card, so it sits among the game's own
+controls: a drawn key cap for the act key, which the game has no icon for, beside the words. A
+headset has no card, so the same hint is built into the HUD's own centred prompt. The HUD compares
+the words and the rows itself, so a steady frame only advances the card's fade.
 
 The toast is the mod's only toast: a short corner line that the next one replaces, at the caller's
 duration. A caller holds a live HUD and guards for its absence, so a bare runtime is a quiet no-op.

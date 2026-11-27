@@ -5,6 +5,12 @@ extends "res://mods/unfplap/tests/support/suite.gd"
 const HUD := preload("res://mods/unfplap/hud/api.gd")
 const ACT_FACTS := preload("res://mods/unfplap/shared/act_facts.gd")
 const POSE_VIEW := preload("res://mods/unfplap/shared/pose_view.gd")
+const WORLD := preload("res://mods/unfplap/world/api.gd")
+
+
+## A bound scene whose eye is in a headset, which has no corner card.
+class FakeHeadset extends Node:
+	var headset_view := true
 
 
 
@@ -35,6 +41,7 @@ func run() -> void:
 	_check_anatomy_rows()
 	_check_controls()
 	_check_form_hint()
+	_check_offer_hint()
 	if failures == 0:
 		print("HUD_PASS")
 	finish()
@@ -234,6 +241,47 @@ func _check_controls() -> void:
 	hud.call("hide_prompt")
 	check(not (hud.get("_prompt") as Control).visible, "fallback prompt hides")
 	hud.queue_free()
+
+
+## The offer hint goes on the game's corner control card and never the centre: a row with the act
+## key's cap and the words while the offer stands, faded away with none, and a headset has no card
+## so its centred prompt takes the hint instead.
+func _check_offer_hint() -> void:
+	var hud := HUD.new()
+	root.add_child(hud)
+	hud.call("offer_hint", "Make love", "6", 0.2)
+	var handle: Variant = hud.get("_card")
+	check(handle != null and bool(handle.valid()), "the offer hint resolves the game's control card")
+	var card: Node = handle.card
+	check(_card_texts(card).has("Make love"), "the card shows the offer's words")
+	check(_card_texts(card).has("6"), "the card shows the act key's cap")
+	check(not (hud.get("_prompt") as Control).visible,
+		"the offer hint never uses the centred prompt")
+	hud.call("offer_hint", "Needs a footstool", "", 0.2)
+	check(_card_texts(card).has("Needs a footstool"), "a blocked hint keeps its own words")
+	check(not _card_texts(card).has("Make love"), "a blocked hint replaces the offer's words")
+	hud.call("offer_hint", "", "", 1.0)
+	check(not _card_texts(card).has("Needs a footstool"), "no offer fades the card's row away")
+	var headset := FakeHeadset.new()
+	root.add_child(headset)
+	WORLD.bind_world(headset)
+	hud.call("offer_hint", "Make love", "6", 0.2)
+	check((hud.get("_prompt") as Control).visible, "a headset shows the centred prompt")
+	WORLD.unbind()
+	headset.queue_free()
+	hud.queue_free()
+
+
+## The words the corner card draws now, as the player sees them.
+func _card_texts(card: Variant) -> PackedStringArray:
+	var out := PackedStringArray()
+	if not card is Node or not is_instance_valid(card):
+		return out
+	for node: Node in (card as Node).find_children("*", "Label", true, false):
+		var label := node as Label
+		if label != null and label.is_visible_in_tree():
+			out.append(label.text)
+	return out
 
 
 ## The first child of the act-key row is its drawn cap.

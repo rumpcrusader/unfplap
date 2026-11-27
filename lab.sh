@@ -25,7 +25,6 @@ fi
 
 printf 'Lab log: %s\n' "$ROOT/last-run.log"
 
-# typing_lock is an installed mod outside this repo; its per-frame lines bury the lab log.
 godot --xr-mode off \
 	--display-driver "$display" \
 	--path "$PROJECT_ROOT" \
@@ -33,4 +32,4 @@ godot --xr-mode off \
 	--world-id unfplap-test \
 	--lab res://mods/unfplap/tests/test_lab.gd \
 	--season=summer \
-	2>&1 | sed -u '/^\[typing_lock\]/d' | tee "$ROOT/last-run.log"
+	2>&1 | tee "$ROOT/last-run.log"

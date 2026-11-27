@@ -6,7 +6,7 @@ Do your mares.
 
 Copy `.pck` from releases into your mod folder.
 
-Requires Home: Equestria `0.3.1-maredev`.
+Requires Home: Equestria `0.3.2-maredev`.
 
 Desktop-first, VR is untested.
 

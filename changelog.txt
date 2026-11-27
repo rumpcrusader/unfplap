@@ -1,3 +1,8 @@
+v0.7.2
+- cross-mod API now exposes act's progress and result through signals
+- v0.3.2 compatibility updates
+- minor fixes
+
 v0.7.1
 - Reworked: the caress — hands now sit on her body's fitted shape instead of a sampled coat patch, so they track her as she moves; the Caress surface quality row is retired.
 - Retired: Re-seat tails and docks — tails and docks are now always seated; the Tail participation checkbox is gone.

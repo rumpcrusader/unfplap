@@ -140,7 +140,7 @@ func anatomy_oral_ready() -> bool:
 
 ## How many pony climaxes this act has had; the act-key hold picks afterglow or cancel.
 func climaxes() -> int:
-	return context.readiness.pony_climaxes
+	return context.readiness.readout().climaxes
 
 
 ## The VR act's right primary click is the act key's hold.

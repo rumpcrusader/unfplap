@@ -5,6 +5,6 @@
 	"author": "Anon",
 	"description": "Plap your mares!",
 	"credits": "See CREDITS.md.",
-	"game_version": "0.3.1-maredev",
+	"game_version": "0.3.2-maredev",
 	"entry": "res://mods/unfplap/main.gd"
 }
